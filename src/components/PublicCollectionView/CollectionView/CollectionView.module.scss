@@ -435,6 +435,25 @@
      (will-change/translateZ) peggiora il glitch di compositing. */
 }
 
+/* ── Preview Style Editor: prodotti inerti ──────────────────────────────────
+   Il click→dettaglio è disattivato lato JS (handleRowClick no-op in preview);
+   qui togliamo i segnali cosmetici di cliccabilità (cursor + feedback hover:
+   bg-darken su .productRow, opacity su .compactRow). Runtime invariato. */
+.page[data-preview-device] {
+  .productRow,
+  .compactRow {
+    cursor: default;
+  }
+
+  .productRow:hover {
+    background: transparent;
+  }
+
+  .compactRow:hover {
+    opacity: 1;
+  }
+}
+
 .productRowImageRight {
   flex-direction: row-reverse;
 

@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Printer } from "lucide-react";
+import { Ban, Printer } from "lucide-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -190,14 +190,29 @@ export default function OrderDetailDrawer({
                             Articoli
                         </Text>
                         <div className={styles.items}>
-                            {(order.items ?? []).map(item => (
-                                <div key={item.id} className={styles.itemBlock}>
+                            {(order.items ?? []).map(item => {
+                                const isCancelled = item.cancelled_at != null;
+                                return (
+                                <div
+                                    key={item.id}
+                                    className={
+                                        isCancelled
+                                            ? `${styles.itemBlock} ${styles.itemBlockCancelled}`
+                                            : styles.itemBlock
+                                    }
+                                >
                                     <div className={styles.itemHeader}>
                                         <Text weight={500}>
                                             <span className={styles.itemQty}>
                                                 {item.quantity}x
                                             </span>{" "}
                                             {item.product_name_snapshot}
+                                            {isCancelled && (
+                                                <span className={styles.cancelledPill}>
+                                                    <Ban size={11} aria-hidden />
+                                                    Annullato
+                                                </span>
+                                            )}
                                         </Text>
                                         <Text weight={500}>
                                             {formatEur(item.line_total)}
@@ -256,7 +271,8 @@ export default function OrderDetailDrawer({
                                         </div>
                                     )}
                                 </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     </div>
 

@@ -387,16 +387,6 @@
   margin-bottom: 4px;
 }
 
-.versionInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  padding: 12px;
-  background-color: var(--color-surface-hover);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--color-border);
-}
-
 .configSection {
   display: flex;
   flex-direction: column;
@@ -485,66 +475,98 @@
   background-image: none;
 }
 
-/* Floating reopen button */
-.togglePanelBtn {
+/* Zona fissa toggle anteprima Mobile/Desktop, subito sotto l'header strip. */
+.panelToggleRow {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  /* bottom azzerato: il gap verso .versionZone è solo il suo padding-top (12px),
+     niente doppio padding. */
+  padding: 12px 20px 0;
+  background: var(--card-bg);
+}
+
+/* Maniglia di riapertura, ancorata al bordo destro del canvas. Centratura
+   verticale via top/bottom:0 + margin-block:auto (NO transform: framer anima
+   `x` → un transform CSS verrebbe sovrascritto). */
+.panelHandle {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  margin-block: auto;
+  height: fit-content;
   z-index: 10;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 7px 14px;
+  gap: 8px;
+  padding: 14px 7px;
   background-color: var(--color-surface);
   border: 1px solid var(--color-border);
-  border-radius: 999px;
-  box-shadow: var(--shadow-sm);
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+  box-shadow: -4px 0 16px rgba(0, 0, 0, 0.08);
   color: var(--color-text);
-  font-weight: 500;
-  font-size: 13px;
   cursor: pointer;
   transition:
     background-color 0.15s ease,
-    box-shadow 0.15s ease;
+    box-shadow 0.15s ease,
+    color 0.15s ease;
 
   &:hover {
     background-color: var(--color-surface-hover);
-    box-shadow: var(--shadow-md);
+    box-shadow: -6px 0 22px rgba(0, 0, 0, 0.12);
   }
 }
 
-/* Right column: inline properties panel */
+.panelHandleLabel {
+  writing-mode: vertical-rl;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+/* Right column: drawer proprietà. La width è animata da framer (0 ↔
+   PANEL_WIDTH in StyleEditorPage.tsx); l'aside clippa, l'inner tiene la
+   larghezza fissa così il contenuto non reflowa durante lo slide. */
 .propertiesPanel {
-  width: 360px;
   flex-shrink: 0;
   min-height: 0;
-  background: var(--color-surface);
-  border-left: 1px solid var(--color-border);
-  display: flex;
-  flex-direction: column;
+  /* Floating card: staccato dai bordi (pois visibili attorno), bordo 4 lati +
+     radius + shadow. `overflow:hidden` resta (clippa l'inner a width fissa
+     durante l'animazione width di framer; il radius clippa gli angoli). */
+  margin: 12px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 30px rgba(15, 23, 42, 0.10);
   overflow: hidden;
 }
 
+.propertiesPanelInner {
+  /* width impostata inline (= PANEL_WIDTH) per single-source col JS. */
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* Fondo pannello ripristinato (la width vive qui dalla FASE precedente).
+     Token reale del tema (light/dark-aware); `--color-surface` non esiste. */
+  background: var(--card-bg);
+}
+
 /* Panel close button row */
-.panelCloseRow {
+/* Header strip: titolo a sinistra + pulsante comprimi a destra. */
+.panelTitleRow {
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 20px;
-  border-bottom: 1px solid var(--color-border);
-  background: var(--color-surface);
-}
-
-/* Toggle + actions row */
-.panelHeader {
-  flex-shrink: 0;
-  background: var(--color-surface);
-  border-bottom: 1px solid var(--color-border);
-  padding: 12px 20px;
-  display: flex;
-  flex-direction: column;
   gap: 12px;
+  padding: 12px 14px 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card-bg);
 }
 
 .panelCloseBtn {
@@ -552,8 +574,8 @@
   height: 26px;
   border: none;
   background: transparent;
-  border-radius: var(--radius-sm);
-  color: var(--color-text-muted);
+  border-radius: 8px;
+  color: color-mix(in srgb, var(--text) 55%, transparent);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -563,8 +585,8 @@
     color 0.15s ease;
 
   &:hover {
-    background-color: var(--color-surface-hover);
-    color: var(--color-text);
+    background-color: var(--hover-bg);
+    color: var(--text);
   }
 }
 
@@ -604,13 +626,29 @@
   min-height: 0;
   overflow-y: auto;
   scrollbar-width: none;
-  padding: 20px 20px 100px;
+  /* Footer ora è una zona sticky reale (non flottante): niente bottom padding extra. */
+  padding: 20px;
   display: flex;
   flex-direction: column;
   gap: 20px;
 
   &::-webkit-scrollbar {
     display: none;
+  }
+}
+
+/* Footer sticky: Annulla/Salva (editing) o badge + Duplica (sistema). */
+.panelFooter {
+  flex-shrink: 0;
+  display: flex;
+  padding: 12px 20px;
+  padding-bottom: max(12px, env(safe-area-inset-bottom));
+  border-top: 1px solid var(--border);
+  background: var(--card-bg);
+  box-shadow: 0 -4px 14px rgba(15, 23, 42, 0.05);
+
+  > * {
+    flex: 1;
   }
 }
 
@@ -626,28 +664,71 @@
   margin-top: 4px;
 }
 
-.versionInfoWrapper {
+/* Zona fissa controllo versione (sotto l'header strip). position:relative →
+   ancora il popover (absolute) come prima. */
+.versionZone {
   position: relative;
+  flex-shrink: 0;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--card-bg);
 }
 
-.versionTrigger {
-  display: inline-flex;
+/* Controllo versione prominente: full-width, leggibile come elemento interattivo. */
+.versionControl {
+  width: 100%;
+  display: flex;
   align-items: center;
-  gap: 4px;
-  border: none;
-  background: transparent;
-  padding: 0;
+  gap: 10px;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--card-bg);
   cursor: pointer;
   text-align: left;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
 
-  &:hover > * {
-    text-decoration: underline;
-    text-underline-offset: 2px;
+  &:hover {
+    background-color: var(--hover-bg);
+    border-color: color-mix(in srgb, var(--brand-primary) 35%, var(--border));
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  }
+}
+
+.versionIcon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--brand-primary-soft);
+  color: var(--brand-primary);
+}
+
+.versionMeta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+
+  /* Testo più compatto: numero versione -1px, data -2px (resta muted/leggibile). */
+  > :first-child {
+    font-size: 0.8125rem; // 13px (da 14px)
+  }
+
+  > :last-child {
+    font-size: 0.7rem; // ~11.2px (da ~13.2px)
   }
 }
 
 .versionChevron {
-  color: var(--color-primary);
+  color: var(--brand-primary);
   flex-shrink: 0;
   transition: transform 0.18s ease;
 }

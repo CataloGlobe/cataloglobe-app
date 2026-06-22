@@ -347,6 +347,8 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
                                 sectionGroups={MOCK_SECTION_GROUPS}
                                 style={collectionStyle}
                                 mode="preview"
+                                previewDevice="mobile"
+                                orderingActive={false}
                                 scrollContainerEl={screenEl}
                                 viewportWidthEl={screenEl}
                                 activityAddress="Via Example, 1 - Città"
@@ -380,6 +382,8 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
                                     sectionGroups={MOCK_SECTION_GROUPS}
                                     style={collectionStyle}
                                     mode="preview"
+                                    previewDevice="desktop"
+                                    orderingActive={false}
                                     scrollContainerEl={screenEl}
                                     viewportWidthEl={screenEl}
                                     activityAddress="Via Example, 1 - Città"

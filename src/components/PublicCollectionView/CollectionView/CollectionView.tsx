@@ -664,6 +664,13 @@ type Props = {
         reason: OrderingStateReason;
         message: string;
     } | null;
+    /**
+     * Solo preview (mode==="preview"): device emulato dal toggle Mobile/Desktop
+     * dello Style Editor. Pilota lo split layout in anteprima (bottom bar inerte
+     * su "mobile", hub tab in header su "desktop") via attributo data-preview-device,
+     * SENZA matchMedia/@media su window. Ignorato in runtime (mode==="public").
+     */
+    previewDevice?: "mobile" | "desktop";
 };
 
 export default function CollectionView({
@@ -697,7 +704,8 @@ export default function CollectionView({
     orderingActive = false,
     orderingMaintenance = null,
     slug,
-    enableReservations = false
+    enableReservations = false,
+    previewDevice
 }: Props) {
     const navigate = useNavigate();
 
@@ -750,8 +758,11 @@ export default function CollectionView({
     // Gate per "+" buttons su ProductRow / ProductCompactRow / ItemDetail:
     // include discovery runtime (rispetto a shouldHideOrderingEntry) per
     // coerenza con OrderingSheet submit gating + no-session hide.
+    // Niente guard `mode === "public"`: in preview orderingActive è SEMPRE false
+    // (ordinazione OFF) → entry nascosta. Runtime invariato: public+sessione
+    // (orderingActive=true) mostra, public senza sessione (false) nasconde — come prima.
     const orderingEntryHidden =
-        effectiveMaintenance != null || (mode === "public" && !orderingActive);
+        effectiveMaintenance != null || !orderingActive;
     const { t } = useTranslation("public");
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sectionGroups[0]?.root.id ?? null
@@ -1354,8 +1365,14 @@ export default function CollectionView({
     // CollectionViewSectionItem and route through these two callbacks. Stable
     // identity preserves React.memo on the row.
     const handleRowClick = useCallback(
-        (item: CollectionViewSectionItem) => openItemDetail(item),
-        [openItemDetail]
+        (item: CollectionViewSectionItem) => {
+            // Preview: prodotti inerti. Il click NON apre il dettaglio (ItemDetail
+            // via PublicSheet si stacca dal device frame in anteprima). selectedItem
+            // resta null → ItemDetail non monta. Runtime invariato.
+            if (mode === "preview") return;
+            openItemDetail(item);
+        },
+        [openItemDetail, mode]
     );
     const handleRowAdd = useCallback(
         (item: CollectionViewSectionItem) => handleAddClick(
@@ -1845,7 +1862,11 @@ export default function CollectionView({
     }
 
     return (
-        <main className={styles.page} ref={pageRef}>
+        <main
+            className={styles.page}
+            ref={pageRef}
+            data-preview-device={mode === "preview" ? previewDevice : undefined}
+        >
             {/* Skip link (solo public) */}
             {mode === "public" && (
                 <a className={styles.skipLink} href={`#${contentId}`}>
@@ -1884,6 +1905,7 @@ export default function CollectionView({
                     onSearchPointerDown={mode !== "preview" ? handleSearchPrefetch : undefined}
                     scrollContainerEl={scrollContainerEl}
                     viewportWidthEl={viewportWidthEl}
+                    previewDevice={previewDevice}
                     headerRadius={style.appearanceRadius}
                     activeTab={activeTab}
                     onTabChange={onTabChange ?? (() => {})}
@@ -2274,21 +2296,24 @@ export default function CollectionView({
 
             {/* ── BOTTOM NAV BAR pubblica — public + mobile. Sostituisce tab header + azioni desktop ≤640px. ── */}
             {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}
-            {useBottomBar && (
+            {/* Preview mobile: barra montata SOLO per fedeltà di layout, completamente
+                inerte (props no-op, ordering OFF). Runtime (useBottomBar) invariato. */}
+            {(useBottomBar || (mode === "preview" && previewDevice === "mobile")) && (
                 <PublicBottomBar
-                    activeTab={activeTab}
-                    onTabChange={tab => onTabChange?.(tab)}
+                    activeTab={mode === "preview" ? "menu" : activeTab}
+                    onTabChange={mode === "preview" ? () => {} : tab => onTabChange?.(tab)}
                     selectionCount={selectionCount}
                     supportVisible={mode === "public" && orderingActive}
-                    onOpenSupport={() => setIsSupportOpen(true)}
-                    cartVisible={!shouldHideOrderingEntry}
-                    onOpenCart={openOrdering}
-                    reviewDot={valutaVisible}
-                    onReviewDotDismiss={() => {
+                    onOpenSupport={mode === "preview" ? () => {} : () => setIsSupportOpen(true)}
+                    cartVisible={mode === "preview" ? false : !shouldHideOrderingEntry}
+                    onOpenCart={mode === "preview" ? () => {} : openOrdering}
+                    reviewDot={mode === "preview" ? false : valutaVisible}
+                    onReviewDotDismiss={mode === "preview" ? () => {} : () => {
                         setValutaVisible(false);
                         valutaEligibleRef.current = false;
                     }}
-                    isSheetOpen={!!selectedItem || isOrderingOpen || isSupportOpen}
+                    isSheetOpen={mode === "preview" ? false : (!!selectedItem || isOrderingOpen || isSupportOpen)}
+                    preview={mode === "preview"}
                     // Vetro adattivo: bg pagina chiaro → vetro chiaro, altrimenti scuro.
                     // contrastText() riusa isLight() (luminanza); "#1a1a1a" ⇒ bg chiaro.
                     // Parse-fail ⇒ "#ffffff" ⇒ "dark" (preserva il comportamento storico).

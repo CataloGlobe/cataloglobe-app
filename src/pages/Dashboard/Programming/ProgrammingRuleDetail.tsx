@@ -586,7 +586,8 @@ export default function ProgrammingRuleDetail() {
             } else {
                 showToast({ type: "success", message: "Regola salvata.", duration: 2200 });
             }
-            await loadData();
+            // Torna alla lista Programmazione sulla tab del tipo appena salvato
+            navigate(`/business/${businessId}/scheduling?type=${form.ruleType}`);
         } catch (error) {
             console.error("Errore salvataggio regola:", error);
             const code = (error as { code?: string })?.code;

@@ -1,9 +1,9 @@
 import { useRef, useState } from "react";
 import {
     AlertCircle,
+    Ban,
     Clock,
     MoreVertical,
-    Edit3,
     Eye,
     Printer,
     Trash2,
@@ -33,7 +33,11 @@ interface Props {
     onMarkReady?: (order: V2OrderWithItems) => Promise<void>;
     onDeliver: (order: V2OrderWithItems) => Promise<void>;
     onCancel: (order: V2OrderWithItems) => void;
-    onRectify: (order: V2OrderWithItems) => void;
+    /**
+     * Annulla articolo (pre-servizio): soft-cancel per-riga via drawer.
+     * Disponibile solo su submitted | acknowledged | ready.
+     */
+    onCancelItem: (order: V2OrderWithItems) => void;
     onViewDetail: (order: V2OrderWithItems) => void;
     onPrint?: (order: V2OrderWithItems) => void;
     /**
@@ -92,7 +96,7 @@ export default function OrderCard({
     onMarkReady,
     onDeliver,
     onCancel,
-    onRectify,
+    onCancelItem,
     onViewDetail,
     onPrint,
     onUnacknowledge,
@@ -134,10 +138,6 @@ export default function OrderCard({
 
     const trimmedOrderNotes = order.notes?.trim();
     const hasOrderNotes = !!trimmedOrderNotes;
-
-    // Rettifica/Modifica voce disponibile solo se l'ordine NON e' gia' un
-    // ordine di storno (l'Edge rifiuta rectify su rectify con INVALID_PARENT).
-    const canRectify = !order.is_rectification;
 
     return (
         <div className={styles.card} data-status={order.status}>
@@ -189,12 +189,26 @@ export default function OrderCard({
                 {visibleItems.map(item => {
                     const modifiers = formatItemModifiers(item);
                     const itemNotes = item.item_notes?.trim();
+                    const isCancelled = item.cancelled_at != null;
                     return (
-                        <div key={item.id} className={styles.itemRow}>
+                        <div
+                            key={item.id}
+                            className={
+                                isCancelled
+                                    ? `${styles.itemRow} ${styles.itemRowCancelled}`
+                                    : styles.itemRow
+                            }
+                        >
                             <span className={styles.itemQty}>{item.quantity}×</span>
                             <div className={styles.itemBody}>
                                 <span className={styles.itemName}>
                                     {item.product_name_snapshot}
+                                    {isCancelled && (
+                                        <span className={styles.cancelledPill}>
+                                            <Ban size={11} aria-hidden />
+                                            Annullato
+                                        </span>
+                                    )}
                                 </span>
                                 {modifiers && (
                                     <span className={styles.itemModifiers}>{modifiers}</span>
@@ -246,9 +260,11 @@ export default function OrderCard({
                         </button>
                     }
                 >
-                    {canRectify && (
-                        <Menu.Item icon={Edit3} onSelect={() => onRectify(order)}>
-                            Rettifica
+                    {(order.status === "submitted" ||
+                        order.status === "acknowledged" ||
+                        order.status === "ready") && (
+                        <Menu.Item icon={Ban} onSelect={() => onCancelItem(order)}>
+                            Annulla articolo
                         </Menu.Item>
                     )}
                     {order.status === "acknowledged" && (

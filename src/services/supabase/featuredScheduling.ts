@@ -61,12 +61,6 @@ type RawScheduleRow = {
     created_at: string;
 };
 
-type RawScheduleTargetRow = {
-    schedule_id: string;
-    target_type: string;
-    target_id: string;
-};
-
 type RawScheduleFeaturedContentRow = {
     schedule_id: string;
     featured_content_id: string;
@@ -112,23 +106,6 @@ export async function listFeaturedRules(tenantId: string): Promise<FeaturedRule[
 
     const ruleIds = baseRules.map(r => r.id);
 
-    // Load multi-target entries
-    const scheduleTargetsByScheduleId = new Map<string, RawScheduleTargetRow[]>();
-    {
-        const { data: targetsData, error: targetsError } = await supabase
-            .from("schedule_targets")
-            .select("schedule_id, target_type, target_id")
-            .in("schedule_id", ruleIds);
-
-        if (!targetsError && targetsData) {
-            for (const row of targetsData as RawScheduleTargetRow[]) {
-                const arr = scheduleTargetsByScheduleId.get(row.schedule_id) ?? [];
-                arr.push(row);
-                scheduleTargetsByScheduleId.set(row.schedule_id, arr);
-            }
-        }
-    }
-
     // Load featured contents
     const featuredContentsByScheduleId = new Map<string, FeaturedRuleContent[]>();
     {
@@ -156,14 +133,16 @@ export async function listFeaturedRules(tenantId: string): Promise<FeaturedRule[
     }
 
     return baseRules.map((rule): FeaturedRule => {
-        const targets = scheduleTargetsByScheduleId.get(rule.id) ?? [];
-        const applyToAll = rule.apply_to_all ?? (targets.length === 0);
-        const activityIds = targets
-            .filter(t => t.target_type === "activity")
-            .map(t => t.target_id);
-        const groupIds = targets
-            .filter(t => t.target_type === "activity_group")
-            .map(t => t.target_id);
+        // Target source-of-truth = inline columns (schedule_targets deprecated).
+        const applyToAll = rule.apply_to_all === true;
+        const activityIds: string[] =
+            !applyToAll && rule.target_type === "activity" && rule.target_id
+                ? [rule.target_id]
+                : [];
+        const groupIds: string[] =
+            !applyToAll && rule.target_type === "activity_group" && rule.target_id
+                ? [rule.target_id]
+                : [];
 
         return {
             id: rule.id,
@@ -284,40 +263,8 @@ export async function updateFeaturedRule(input: {
 
     if (scheduleError) throw scheduleError;
 
-    // Sync schedule_targets join table
-    const { error: deleteTargetsError } = await supabase
-        .from("schedule_targets")
-        .delete()
-        .eq("schedule_id", input.id);
-
-    if (deleteTargetsError) {
-        console.warn("schedule_targets delete failed:", deleteTargetsError);
-    }
-
-    if (!applyToAll) {
-        const targetRows: Array<{ schedule_id: string; target_type: string; target_id: string }> = [
-            ...input.activityIds.map(id => ({
-                schedule_id: input.id,
-                target_type: "activity" as const,
-                target_id: id,
-            })),
-            ...input.groupIds.map(id => ({
-                schedule_id: input.id,
-                target_type: "activity_group" as const,
-                target_id: id,
-            })),
-        ];
-
-        if (targetRows.length > 0) {
-            const { error: insertTargetsError } = await supabase
-                .from("schedule_targets")
-                .insert(targetRows);
-
-            if (insertTargetsError) {
-                console.warn("schedule_targets insert failed:", insertTargetsError);
-            }
-        }
-    }
+    // Target persisted via inline columns (target_type/target_id/apply_to_all) above.
+    // schedule_targets is deprecated and write-locked by RLS — no join sync.
 
     // Delete + re-insert featured contents
     const { error: deleteFcError } = await supabase

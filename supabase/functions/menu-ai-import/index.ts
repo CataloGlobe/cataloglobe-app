@@ -89,47 +89,17 @@ For each product, assess your confidence:
 - "medium": some ambiguity (e.g., price partially visible, category inferred, name/description boundary unclear)
 - "low": significant uncertainty (e.g., text blurry, price unclear, might not be a real product)
 
-## Output Format
-Respond with ONLY a JSON object, no other text, no markdown fences. Use this exact schema:
+## Output
+Return a JSON object that conforms to the response schema enforced by the API. Do not add markdown fences or extra text. The structure (menu_language, categories, items, formats) is fixed by the schema — focus on FILLING it correctly.
 
-{
-  "menu_language": "it",
-  "categories": [
-    {
-      "name": "Category Name",
-      "items": [
-        {
-          "name": "Product Name with Correct Casing",
-          "description": "Description if present, null if not",
-          "base_price": 12.50,
-          "product_type": "simple",
-          "confidence": "high"
-        },
-        {
-          "name": "Product with Sizes",
-          "description": "Description if present",
-          "base_price": null,
-          "product_type": "formats",
-          "formats": [
-            { "name": "Piccola", "price": 6.00 },
-            { "name": "Media", "price": 8.00 },
-            { "name": "Grande", "price": 10.00 }
-          ],
-          "confidence": "high"
-        }
-      ]
-    }
-  ]
-}
-
-## Field Rules
-- "name": string, required — from menu text, in Title Case with Italian preposition rules
-- "description": string or null — only if explicitly on the menu, never invent. Include unit pricing like "cad." or "al kg" here. Natural case (not ALL CAPS)
-- "base_price": number or null — null for "formats" type products OR when no price is shown
-- "product_type": "simple" (single price or no price) or "formats" (multiple sizes/formats with different prices)
-- "formats": array, only present when product_type is "formats". Each entry has "name" (string) and "price" (number)
-- "confidence": "high" | "medium" | "low"
-- "menu_language": ISO 639-1 code of the menu's language
+## Field Semantics
+- name: required, taken from the menu text, in Title Case with the Italian preposition rules above. Same rules apply to category names.
+- description: only if explicitly written on the menu, never invent. Natural case (not ALL CAPS). Put unit pricing like "cad." or "al kg" here. Use null when absent.
+- base_price: the price as a number. Use null for "formats" products OR when no price is shown.
+- product_type: "simple" (single price or no price) or "formats" (multiple sizes with different prices).
+- formats: present only for "formats" products. Each entry has a name and a numeric price. Do NOT set base_price for formats products.
+- confidence: "high", "medium" or "low" per the scoring rules above.
+- menu_language: ISO 639-1 code of the menu language (honor the language hint when provided).
 
 ## Price Parsing
 - "€8" or "8,00" or "8.00" or "8,00€" → 8.00
@@ -146,6 +116,61 @@ Respond with ONLY a JSON object, no other text, no markdown fences. Use this exa
 - If the image is too blurry or unreadable, return: {"error": "Menu non leggibile", "categories": []}
 - Items like "Piatti del giorno" or "Chiedere al cameriere" are valid products — include them with null price
 - Weight notations like "(400gr.)" or "(1 Kg.)" are part of the description, not the product name`;
+
+/* ────────────────────────── Response schema ─────────────────────── */
+// Structured output (responseMimeType + responseSchema, forma classica v1beta).
+// Su REST raw lo stile responseFormat.text.mimeType fallisce con 400 (mime enum),
+// quindi si usa l'OpenAPI-subset di Gemini. Rispecchia ESATTAMENTE il contratto
+// consumato dal client (handleImport in AiMenuImportWizard): nessun campo nuovo,
+// nessuna rinomina. Nullable espresso come nullable:true (OpenAPI-subset).
+const MENU_SCHEMA = {
+    type: "object",
+    properties: {
+        menu_language: { type: "string", description: "ISO 639-1 code of the menu language" },
+        // Popolato SOLO se il menu e' illeggibile (con categories vuoto). Opzionale.
+        error: { type: "string", nullable: true, description: "Set only when the menu is unreadable" },
+        categories: {
+            type: "array",
+            items: {
+                type: "object",
+                properties: {
+                    name: { type: "string" },
+                    items: {
+                        type: "array",
+                        items: {
+                            type: "object",
+                            properties: {
+                                name: { type: "string" },
+                                description: { type: "string", nullable: true },
+                                base_price: { type: "number", nullable: true },
+                                product_type: { type: "string", enum: ["simple", "formats"] },
+                                confidence: { type: "string", enum: ["high", "medium", "low"] },
+                                // Presente solo per i prodotti "formats". Nullable per i "simple".
+                                formats: {
+                                    type: "array",
+                                    nullable: true,
+                                    items: {
+                                        type: "object",
+                                        properties: {
+                                            name: { type: "string" },
+                                            price: { type: "number" }
+                                        },
+                                        required: ["name", "price"]
+                                    }
+                                }
+                            },
+                            // description e base_price required-ma-nullable: la chiave compare
+                            // sempre (il client la legge senza guard), il valore puo' essere null.
+                            required: ["name", "description", "base_price", "product_type", "confidence"]
+                        }
+                    }
+                },
+                required: ["name", "items"]
+            }
+        }
+    },
+    required: ["menu_language", "categories"]
+};
 
 /* ────────────────────────────── Main ───────────────────────────── */
 
@@ -216,7 +241,7 @@ serve(async (req: Request) => {
             return jsonError("Massimo 5 immagini per richiesta", 400);
         }
 
-        const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "application/pdf"];
+        const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
         const normalizedImages: { data: string; mime_type: string }[] = [];
         for (let i = 0; i < images.length; i++) {
@@ -256,7 +281,7 @@ serve(async (req: Request) => {
             { text: `Extract all products from this menu. The menu language is likely "${lang}".` }
         ];
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${geminiKey}`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent`;
 
         const startMs = Date.now();
 
@@ -264,12 +289,23 @@ serve(async (req: Request) => {
         try {
             geminiRes = await fetch(geminiUrl, {
                 method: "POST",
-                headers: { "Content-Type": "application/json" },
+                headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
                 body: JSON.stringify({
                     contents: [{ parts }],
                     generationConfig: {
-                        temperature: 0.1,
-                        responseMimeType: "application/json"
+                        // temperature/top_p/top_k lasciati ai default: per i modelli 3.x
+                        // Google raccomanda di non sovrascriverli.
+                        // maxOutputTokens generoso: i menu lunghi producono molti prodotti.
+                        // Headroom modello 65k; 32768 copre menu grandi evitando troncamenti
+                        // silenziosi (il caso finishReason MAX_TOKENS e' gestito sotto).
+                        maxOutputTokens: 32768,
+                        // thinkingLevel LOW: veloce mantenendo qualita'. Alzare a MEDIUM se
+                        // i menu complessi restano imprecisi (leva documentata).
+                        thinkingConfig: { thinkingLevel: "LOW" },
+                        // Structured output vincolato (forma classica v1beta). Lo schema
+                        // vincola la STRUTTURA, il contratto resta invariato.
+                        responseMimeType: "application/json",
+                        responseSchema: MENU_SCHEMA
                     }
                 })
             });
@@ -297,7 +333,28 @@ serve(async (req: Request) => {
         // ── Parse Gemini response ─────────────────────────────────
         const geminiData = await geminiRes.json();
 
-        const rawText = geminiData?.candidates?.[0]?.content?.parts?.[0]?.text;
+        const candidate = geminiData?.candidates?.[0];
+        const finishReason: string | undefined = candidate?.finishReason;
+
+        // Troncamento output: il menu ha generato piu' token del budget. Errore
+        // SPECIFICO e distinguibile (non collassare nel 500 generico) cosi' l'utente
+        // sa che deve ridurre le pagine e il log mostra la firma esatta.
+        if (finishReason === "MAX_TOKENS") {
+            console.error("[menu-ai-import] finishReason=MAX_TOKENS (output troncato)");
+            return jsonError(
+                "Il menu e' troppo lungo per essere elaborato in una volta. Riprova con meno pagine.",
+                422
+            );
+        }
+
+        // Altre interruzioni anomale (SAFETY, RECITATION, ...) vs completamento
+        // normale (STOP). Log + errore specifico, mai un 500 indistinguibile.
+        if (finishReason && finishReason !== "STOP") {
+            console.error(`[menu-ai-import] finishReason anomalo: ${finishReason}`);
+            return jsonError("Il modello AI ha interrotto l'analisi del menu. Riprova.", 502);
+        }
+
+        const rawText = candidate?.content?.parts?.[0]?.text;
         if (!rawText) {
             console.error("[menu-ai-import] Empty Gemini response:", JSON.stringify(geminiData, null, 2));
             return jsonError("Errore nell'analisi del menu", 500);
@@ -307,7 +364,10 @@ serve(async (req: Request) => {
         try {
             parsed = JSON.parse(rawText);
         } catch {
-            console.error("[menu-ai-import] JSON parse failed. Raw:", rawText.slice(0, 500));
+            console.error(
+                `[menu-ai-import] JSON parse failed. finishReason=${finishReason}. Raw:`,
+                rawText.slice(0, 500)
+            );
             return jsonError("Errore nell'analisi del menu", 500);
         }
 
@@ -323,7 +383,7 @@ serve(async (req: Request) => {
             ...(parsed.error ? { error: parsed.error } : {}),
             metadata: {
                 images_analyzed: images.length,
-                model_used: "gemini-3-flash-preview",
+                model_used: "gemini-3.5-flash",
                 processing_time_ms: processingTimeMs
             }
         });

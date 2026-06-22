@@ -87,6 +87,10 @@ export type PublicCollectionHeaderProps = {
     onOpenSupport?: () => void;
     /** Dot promemoria recensione sulla tab "Dicci la tua" (riusa valutaVisible). */
     reviewDot?: boolean;
+    /** Solo preview: device emulato dal toggle Mobile/Desktop. Settato come
+     *  attributo data-preview-device sul .root → pilota lo split CSS in anteprima
+     *  (hub tab nascosti in mobile-preview). Undefined in runtime. */
+    previewDevice?: "mobile" | "desktop";
 };
 
 export default function PublicCollectionHeader({
@@ -118,6 +122,7 @@ export default function PublicCollectionHeader({
     supportVisible = false,
     onOpenSupport,
     reviewDot = false,
+    previewDevice,
 }: PublicCollectionHeaderProps) {
     const { t } = useTranslation("public");
     // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
@@ -275,6 +280,7 @@ export default function PublicCollectionHeader({
                 className={styles.root}
                 data-cover={showCoverImage || undefined}
                 data-bottombar={mode === "public" || undefined}
+                data-preview-device={mode === "preview" ? previewDevice : undefined}
                 style={
                     engaged
                         ? {
@@ -315,27 +321,39 @@ export default function PublicCollectionHeader({
                         </div>
 
                         {mode !== "preview" && showLanguageSelector && <LanguageSelector />}
+                        {/* Preview: stand-in statico del selettore lingua (il vero
+                            LanguageSelector richiede LanguageProvider, assente in
+                            anteprima). Solo visivo, inerte via .root[data-preview-device]. */}
+                        {mode === "preview" && showLanguageSelector && (
+                            <span className={styles.langPreview} aria-hidden="true">IT</span>
+                        )}
 
                         {actionSlot}
 
-                        {onSearchOpen && (
+                        {/* Ricerca: in preview renderizzata inerte (onSearchOpen
+                            undefined → nessun handler) per fedeltà del cluster. */}
+                        {(onSearchOpen || mode === "preview") && (
                             <button
                                 type="button"
                                 className={styles.iconBtn}
                                 onClick={onSearchOpen}
                                 onPointerDown={onSearchPointerDown}
                                 aria-label={t("header.search_aria")}
+                                tabIndex={mode === "preview" ? -1 : undefined}
                             >
                                 <Search size={15} strokeWidth={2} />
                             </button>
                         )}
 
-                        {mode !== "preview" && onOpenMore && (
+                        {/* "Altro" (allergeni + info): in preview inerte (onOpenMore
+                            undefined → nessun handler). */}
+                        {(onOpenMore || mode === "preview") && (
                             <button
                                 type="button"
                                 className={styles.iconBtn}
                                 onClick={onOpenMore}
                                 aria-label={t("header.more_aria")}
+                                tabIndex={mode === "preview" ? -1 : undefined}
                             >
                                 <MoreHorizontal size={16} strokeWidth={2} />
                                 {allergensCount > 0 && (

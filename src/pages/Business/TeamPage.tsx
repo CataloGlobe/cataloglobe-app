@@ -424,7 +424,7 @@ export default function TeamPage() {
 
                 const actions: TableRowAction[] = [
                     {
-                        label: "Cambia ruolo",
+                        label: "Gestisci accessi",
                         icon: UserCog,
                         onClick: () => handleChangeRole(row),
                         hidden: !canEdit,
@@ -509,7 +509,7 @@ export default function TeamPage() {
 
                 const actions: TableRowAction[] = [
                     {
-                        label: "Cambia ruolo",
+                        label: "Gestisci accessi",
                         icon: UserCog,
                         onClick: () => handleChangeRole(row),
                         hidden: !canEdit,

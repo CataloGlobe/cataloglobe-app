@@ -698,6 +698,97 @@ export async function rectifyOrder(
 }
 
 /**
+ * Esito di un annullamento per-articolo (soft-cancel pre-servizio).
+ */
+export interface CancelOrderItemResult {
+    order_id: string;
+    item_id: string;
+    new_order_total: number;
+    order_cancelled: boolean;
+}
+
+/**
+ * Annulla (soft-cancel) un singolo articolo di una comanda NON servita
+ * (submitted | acknowledged | ready), SENZA creare uno storno. La riga viene
+ * flaggata (esclusa da totale e preparazione) e il totale ordine ridotto del
+ * suo line_total; se non resta nessuna riga attiva l'ordine si auto-annulla.
+ *
+ * Mirror di `rectifyOrder`: invoca l'edge `cancel-order-item` (membership +
+ * RPC atomica server-side). `tenantId` è parte della firma per simmetria con
+ * gli altri call admin; il tenant effettivo è derivato server-side dall'ordine.
+ *
+ * Throws (validation client):
+ *   "REASON_TOO_LONG"              se reason > 500 char dopo trim
+ *
+ * Throws (Edge):
+ *   400/401/403/404 ORDER_NOT_FOUND/429/500 → italiano
+ *   422 INVALID_TARGET            → "INVALID_TARGET" (item di una rettifica)
+ *   422 INVALID_STATE_FOR_CANCEL  → "INVALID_STATE_FOR_CANCEL" + .details.current_status
+ *   422 INVALID_ITEM              → "INVALID_CANCEL_ITEM" + .details
+ *                                   (reason: ITEM_NOT_FOUND | ITEM_ALREADY_CANCELLED)
+ */
+export async function cancelOrderItem(
+    orderId: string,
+    itemId: string,
+    _tenantId: string,
+    reason?: string
+): Promise<CancelOrderItemResult> {
+    let normalizedReason: string | null = null;
+    if (reason !== undefined) {
+        const trimmed = reason.trim();
+        if (trimmed.length > 500) throw new Error("REASON_TOO_LONG");
+        if (trimmed.length > 0) normalizedReason = trimmed;
+    }
+
+    const body: Record<string, unknown> = {
+        order_id: orderId,
+        order_item_id: itemId
+    };
+    if (normalizedReason !== null) body.reason = normalizedReason;
+
+    const { data, error } = await supabase.functions.invoke<CancelOrderItemResult>(
+        "cancel-order-item",
+        { body }
+    );
+
+    if (error) {
+        const { status, code, details } = await parseInvokeError(error);
+        switch (status) {
+            case 400:
+                throw new Error("Richiesta non valida");
+            case 401:
+                throw new Error("Sessione scaduta, accedi di nuovo");
+            case 403:
+                throw new Error("Non hai i permessi per questa operazione");
+            case 404:
+                if (code === "ORDER_NOT_FOUND") throw new Error("Ordine non trovato");
+                throw new Error("Risorsa non trovata");
+            case 422: {
+                if (code === "INVALID_TARGET") throw new Error("INVALID_TARGET");
+                if (code === "INVALID_STATE_FOR_CANCEL") {
+                    const err = new Error("INVALID_STATE_FOR_CANCEL");
+                    (err as Error & { details?: unknown }).details = details;
+                    throw err;
+                }
+                if (code === "INVALID_ITEM") {
+                    const err = new Error("INVALID_CANCEL_ITEM");
+                    (err as Error & { details?: unknown }).details = details;
+                    throw err;
+                }
+                throw new Error("Richiesta non valida");
+            }
+            case 429:
+                throw new Error("Troppe richieste, riprova tra un momento");
+            default:
+                throw new Error("Errore del server");
+        }
+    }
+
+    if (!data) throw new Error("EMPTY_RESPONSE");
+    return data;
+}
+
+/**
  * Submit di una comanda manuale inserita da un operatore admin (es. cameriere)
  * su un tavolo specifico. Mirror della pipeline customer `submitOrder` con auth
  * Supabase user standard invece di JWT customer custom.

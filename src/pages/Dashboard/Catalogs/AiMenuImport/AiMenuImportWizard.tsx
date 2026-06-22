@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Sparkles, ArrowLeft, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -43,6 +43,7 @@ type WizardStep = "upload" | "analyzing" | "review";
 interface AiMenuImportWizardProps {
     onClose: () => void;
     onSuccess: () => void;
+    onBusyChange?: (busy: boolean) => void;
 }
 
 /* ────────────────────────────── Helpers ──────────────────── */
@@ -80,7 +81,7 @@ function getAiErrorMessage(error: unknown): string {
 
 /* ────────────────────────────── Wizard ───────────────────── */
 
-export function AiMenuImportWizard({ onClose, onSuccess }: AiMenuImportWizardProps) {
+export function AiMenuImportWizard({ onClose, onSuccess, onBusyChange }: AiMenuImportWizardProps) {
     const tenantId = useTenantId();
     const { showToast } = useToast();
 
@@ -99,6 +100,12 @@ export function AiMenuImportWizard({ onClose, onSuccess }: AiMenuImportWizardPro
     const [createProgress, setCreateProgress] = useState({ current: 0, total: 0 });
     const [importDone, setImportDone] = useState(false);
     const [importResult, setImportResult] = useState({ created: 0, errors: 0 });
+
+    // Notifica al parent lo stato "operazione in corso" (analisi Gemini O creazione
+    // DB) per il guard anti-chiusura del drawer.
+    useEffect(() => {
+        onBusyChange?.(step === "analyzing" || isCreating);
+    }, [step, isCreating, onBusyChange]);
 
     /* ── Analyze ──────────────────────────────────────────── */
 

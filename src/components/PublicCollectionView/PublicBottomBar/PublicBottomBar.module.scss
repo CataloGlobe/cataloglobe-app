@@ -25,9 +25,28 @@
 
   // CSS-driven split: la barra è sempre montata (markup SSR-safe), visibile solo
   // su mobile. ≥641px esce dal flow E dall'accessibility tree (no doppio tablist).
+  // Esclusa la preview ([data-preview]): lì lo split è pilotato dal device frame
+  // (montaggio condizionale + position:sticky), non dal viewport del browser.
   @media (min-width: 641px) {
-    display: none;
+    &:not([data-preview]) {
+      display: none;
+    }
   }
+}
+
+/* ── Preview Style Editor ────────────────────────────────────────────────────
+   Barra montata per fedeltà di layout (mobile-preview), STATICA e inerte.
+   position:sticky bottom rispecchia l'header (position:sticky top): si ancora al
+   bordo basso del device frame (.deviceScreen è lo scroll container; .page ha
+   min-height:100dvh → contenuto sempre più alto del frame → la barra resta
+   pinnata in basso a riposo). NON position:fixed: si ancorerebbe alla finestra
+   dell'editor, non al frame. pointer-events:none → inerte. */
+.barWrap[data-preview] {
+  position: sticky;
+  // left/right ignorati in sticky (in-flow); la centratura resta via margin auto
+  // + width:fit-content ereditati dalla regola base.
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  pointer-events: none;
 }
 
 .bar {

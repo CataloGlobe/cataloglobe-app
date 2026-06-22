@@ -45,6 +45,10 @@ type Props = {
     isSheetOpen?: boolean;
     /** Luminanza dello stile pagina → vetro chiaro/scuro. Default "dark" (comportamento storico). */
     surfaceTheme?: "light" | "dark";
+    /** Solo Style Editor preview: barra montata per fedeltà di layout ma STATICA e
+     *  inerte. Salta gli effetti basati su window (matchMedia + shrink-on-scroll) e
+     *  disattiva i pointer events. Default false (runtime invariato). */
+    preview?: boolean;
 };
 
 export default function PublicBottomBar({
@@ -59,6 +63,7 @@ export default function PublicBottomBar({
     onReviewDotDismiss,
     isSheetOpen = false,
     surfaceTheme = "dark",
+    preview = false,
 }: Props) {
     const { t } = useTranslation("public");
 
@@ -68,13 +73,16 @@ export default function PublicBottomBar({
     // nascosta. matchMedia letto in effect post-mount (client-only) → mai in render.
     const [isMobileActive, setIsMobileActive] = useState(false);
     useEffect(() => {
+        // Preview: split pilotato dal device frame (data-preview-device), non dal
+        // viewport del browser → niente matchMedia su window. Barra statica.
+        if (preview) return;
         if (typeof window === "undefined" || !window.matchMedia) return;
         const mq = window.matchMedia("(max-width: 640px)");
         const update = () => setIsMobileActive(mq.matches);
         update();
         mq.addEventListener("change", update);
         return () => mq.removeEventListener("change", update);
-    }, []);
+    }, [preview]);
 
     const groupRef = useRef<HTMLDivElement | null>(null);
     const tabRefs = useRef<Record<HubTab, HTMLButtonElement | null>>({
@@ -117,7 +125,8 @@ export default function PublicBottomBar({
     // `isSheetOpen` congela il valore mentre una sheet è aperta: il body scroll-lock
     // azzererebbe window.scrollY → espansione/rimpicciolimento spurio (flicker).
     // enabled=isMobileActive: su desktop la barra è nascosta → niente scroll listener.
-    const shrink = useScrollCollapse(50, isSheetOpen, isMobileActive);
+    // Preview: barra statica → niente scroll listener, mai shrink.
+    const shrink = useScrollCollapse(50, isSheetOpen, preview ? false : isMobileActive);
 
     const handleTab = (tab: HubTab) => {
         if (tab === "reviews" && reviewDot) onReviewDotDismiss?.();
@@ -146,7 +155,7 @@ export default function PublicBottomBar({
         // Wrapper: posizionamento fisso + centratura + animazione di entrata (opacity/translateY).
         // Lo scale di shrink vive sul `.bar` interno per non collidere col transform dell'entry
         // (animation-fill su transform sovrascriverebbe lo scale del data-shrink).
-        <div className={styles.barWrap}>
+        <div className={styles.barWrap} data-preview={preview ? "true" : undefined}>
             <nav
                 className={styles.bar}
                 data-shrink={shrink ? "true" : "false"}

@@ -1,0 +1,104 @@
+.empty {
+    padding: 24px;
+    text-align: center;
+}
+
+.content {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.headerInfo {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.items {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.itemRow,
+.itemRowSelected {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+    border: 1px solid var(--border-default, #e1e3e8);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: border-color 0.15s ease, background 0.15s ease;
+
+    input[type="checkbox"] {
+        margin-top: 4px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+}
+
+.itemRowSelected {
+    border-color: var(--accent-default, #2563eb);
+    background: var(--surface-muted, #f4f5f7);
+}
+
+.itemInfo {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.itemQty {
+    font-weight: 600;
+    color: var(--text-muted, #6b6f76);
+    margin-right: 4px;
+    font-variant-numeric: tabular-nums;
+}
+
+.totalRow {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px;
+    background: var(--surface-muted, #f4f5f7);
+    border-radius: 6px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--border-default, #e1e3e8);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 14px;
+    color: var(--text-primary, #1a1d21);
+    background: var(--surface-elevated, #fff);
+    resize: vertical;
+    min-height: 70px;
+
+    &:focus {
+        outline: none;
+        border-color: var(--accent-default, #2563eb);
+        box-shadow: 0 0 0 3px var(--accent-soft, rgba(37, 99, 235, 0.12));
+    }
+
+    &:disabled {
+        background: var(--surface-muted, #f4f5f7);
+        cursor: not-allowed;
+    }
+}

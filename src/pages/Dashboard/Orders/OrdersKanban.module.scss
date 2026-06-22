@@ -5,18 +5,26 @@
 
     @media (min-width: 900px) {
         grid-template-columns: repeat(3, minmax(0, 1fr));
-        align-items: start;
         gap: 20px;
+        // Riempi l'altezza bounded propagata da .container (solo tab Comande).
+        flex: 1 1 auto;
+        min-height: 0;
+        align-items: stretch; // ERA: start -> impediva alle colonne di stirarsi
+        grid-template-rows: minmax(0, 1fr); // riga unica che riempie e si comprime
     }
 }
 
-// Colonna trasparente: niente box, niente bordo, niente background.
-// Le card galleggiano sul background della pagina.
+// Lane neutra: box recessed grigio con angoli arrotondati. Header fisso in
+// cima (sibling, non scrolla), body card scrollabile su desktop (vedi media
+// query sotto). Le card bianche restano leggibili dentro la lane.
 .column {
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    min-height: 200px;
+    min-height: 200px; // floor su mobile/viewport corti
+    background: var(--hover-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    overflow: hidden; // clippa il body scrollabile agli angoli arrotondati
 }
 
 .columnHeader {
@@ -24,7 +32,7 @@
     align-items: center;
     justify-content: space-between;
     gap: 8px;
-    padding: 8px 10px;
+    padding: 12px 14px;
     border-radius: 8px;
     // Niente transition su background-color: l'animation pulse sotto e' la
     // sorgente autorevole quando attiva; evita conflitti di timing.
@@ -124,6 +132,7 @@
     display: flex;
     flex-direction: column;
     gap: 12px;
+    padding: 0 12px 12px;
 }
 
 // Empty state: box tratteggiato sottile, neutro.
@@ -170,4 +179,20 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
+}
+
+// Scroll interno per-colonna: solo desktop. In fondo al file di proposito —
+// stessa specificita' di `.column`/`.columnList` base, deve vincere per source
+// order (override del floor min-height:200px). A piena altezza le 3 lane sono
+// alte uguali; scrolla solo il body (.columnList), l'header resta fisso.
+@media (min-width: 900px) {
+    .column {
+        min-height: 0; // governa lo stretch del grid (override floor 200px)
+    }
+
+    .columnList {
+        flex: 1;
+        min-height: 0; // CRITICO: senza, overflow-y non si attiva
+        overflow-y: auto;
+    }
 }

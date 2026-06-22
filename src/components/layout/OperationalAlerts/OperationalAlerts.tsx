@@ -146,7 +146,7 @@ export function OperationalAlerts(): null {
                     type: kind === "waiter" ? "warning" : "info",
                     actionLabel: "Vai",
                     onAction: () => {
-                        if (bid) navigateRef.current(`/business/${bid}/orders`);
+                        if (bid) navigateRef.current(`/business/${bid}/orders?tab=tavoli`);
                     }
                 });
                 triggerChimeRef.current();

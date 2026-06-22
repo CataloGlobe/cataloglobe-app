@@ -1,4 +1,5 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { IconCheck, IconHistory } from "@tabler/icons-react";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
@@ -14,6 +15,9 @@ type StyleVersionsPopoverProps = {
     onSelectVersion: (v: V2StyleVersion) => void;
     onRollback: () => void;
     onClose: () => void;
+    /** Trigger (controllo versione) da cui derivare la posizione del popover.
+     *  Portalato su document.body → esce dal doppio overflow:hidden del pannello. */
+    anchorEl: HTMLElement | null;
 };
 
 export function StyleVersionsPopover({
@@ -24,16 +28,38 @@ export function StyleVersionsPopover({
     isRollingBack,
     onSelectVersion,
     onRollback,
-    onClose
+    onClose,
+    anchorEl
 }: StyleVersionsPopoverProps) {
     const ref = useRef<HTMLDivElement>(null);
+    const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+
+    // Posizione fixed derivata dal rect del trigger; ricalcolata su scroll/resize
+    // mentre il popover è aperto (scroll in capture per intercettare i container interni).
+    useLayoutEffect(() => {
+        if (!anchorEl) return;
+        const update = () => {
+            const r = anchorEl.getBoundingClientRect();
+            setPos({ top: r.bottom + 6, left: r.left, width: r.width });
+        };
+        update();
+        window.addEventListener("resize", update);
+        window.addEventListener("scroll", update, true);
+        return () => {
+            window.removeEventListener("resize", update);
+            window.removeEventListener("scroll", update, true);
+        };
+    }, [anchorEl]);
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
             if (e.key === "Escape") onClose();
         };
         const handleClick = (e: MouseEvent) => {
-            if (ref.current && !ref.current.contains(e.target as Node)) {
+            const target = e.target as Node;
+            // Click sul trigger: lo gestisce il suo onClick (toggle) → non chiudere qui.
+            if (anchorEl && anchorEl.contains(target)) return;
+            if (ref.current && !ref.current.contains(target)) {
                 onClose();
             }
         };
@@ -43,13 +69,19 @@ export function StyleVersionsPopover({
             document.removeEventListener("keydown", handleKeyDown);
             document.removeEventListener("mousedown", handleClick);
         };
-    }, [onClose]);
+    }, [onClose, anchorEl]);
 
     const canRollback =
         selectedVersionId !== null && selectedVersionId !== currentVersionId;
 
-    return (
-        <div className={popoverStyles.popover} ref={ref}>
+    if (!pos) return null;
+
+    return createPortal(
+        <div
+            className={popoverStyles.popover}
+            ref={ref}
+            style={{ top: pos.top, left: pos.left, width: pos.width }}
+        >
             <div className={popoverStyles.header}>
                 <IconHistory size={13} />
                 <span>Cronologia versioni</span>
@@ -118,6 +150,7 @@ export function StyleVersionsPopover({
                     </Button>
                 </div>
             )}
-        </div>
+        </div>,
+        document.body
     );
 }

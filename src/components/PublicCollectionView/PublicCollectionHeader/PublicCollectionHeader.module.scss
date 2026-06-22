@@ -252,6 +252,46 @@
   }
 }
 
+/* ── Preview Style Editor: split CSS-driven via data-preview-device ──────────
+   Misura = device frame (toggle Mobile/Desktop), NON il viewport del browser
+   dell'editor. Separato dalla regola runtime sopra (data-bottombar + @media):
+   le due non si toccano, nessuna regressione runtime.
+   Mobile-preview: hub tab spostati nella bottom bar → nascosti in header.
+   Desktop-preview: hub tab restano in header (nessuna regola). */
+.root[data-preview-device="mobile"] {
+  .chips {
+    display: none;
+  }
+}
+
+/* Cluster (IT / ricerca / "…") presente in preview ma inerte: nessuna
+   interazione, coerente con .chipsPreview { pointer-events: none }. */
+.root[data-preview-device] {
+  .iconBtn,
+  .langPreview {
+    pointer-events: none;
+  }
+}
+
+/* Stand-in statico del selettore lingua in preview (solo visivo). Stesso look
+   dell'.iconBtn con la sigla lingua al posto dell'icona. */
+.langPreview {
+  flex-shrink: 0;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 10px;
+  border-radius: var(--pub-btn-radius, 8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
 /* Bottone Ordine con articoli in carrello: tinta accent sottile (dettaglio che
    distingue lo stato "carrello pieno" senza urlare). */
 .iconBtn[data-accent="true"] {
