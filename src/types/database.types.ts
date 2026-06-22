@@ -1418,6 +1418,8 @@ export type Database = {
       }
       order_items: {
         Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
           created_at: string
           id: string
           item_notes: string | null
@@ -1431,6 +1433,8 @@ export type Database = {
           unit_price_snapshot: number
         }
         Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           created_at?: string
           id?: string
           item_notes?: string | null
@@ -1444,6 +1448,8 @@ export type Database = {
           unit_price_snapshot: number
         }
         Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
           created_at?: string
           id?: string
           item_notes?: string | null
