@@ -716,6 +716,15 @@
   display: flex;
   flex-direction: column;
   gap: 1px;
+
+  /* Testo più compatto: numero versione -1px, data -2px (resta muted/leggibile). */
+  > :first-child {
+    font-size: 0.8125rem; // 13px (da 14px)
+  }
+
+  > :last-child {
+    font-size: 0.7rem; // ~11.2px (da ~13.2px)
+  }
 }
 
 .versionChevron {
