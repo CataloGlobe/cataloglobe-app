@@ -15,6 +15,7 @@ import {
     cancelEmail,
     reactivateEmail
 } from "../_shared/subscriptionEmails.ts";
+import { buildIdempotencyKey } from "../_shared/idempotency.ts";
 
 // ---------------------------------------------------------------------------
 // stripe-change-subscription
@@ -516,15 +517,29 @@ serve(async req => {
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
             await releaseScheduleIfAny(stripe, existingScheduleId);
 
+            const upgradeKey = buildIdempotencyKey({
+                operation: "upgrade",
+                tenantId,
+                subscriptionId: tenant.stripe_subscription_id,
+                currentPlan,
+                currentSeats,
+                targetPlan,
+                targetSeats: newSeats
+            });
+
             let updated: Stripe.Subscription | undefined;
             try {
-                updated = await stripe.subscriptions.update(tenant.stripe_subscription_id, {
-                    items: newItems,
-                    proration_behavior: "always_invoice",
-                    payment_behavior: "error_if_incomplete",
-                    expand: ["latest_invoice"],
-                    metadata: { ...(sub.metadata ?? {}), plan_code: targetPlan }
-                });
+                updated = await stripe.subscriptions.update(
+                    tenant.stripe_subscription_id,
+                    {
+                        items: newItems,
+                        proration_behavior: "always_invoice",
+                        payment_behavior: "error_if_incomplete",
+                        expand: ["latest_invoice"],
+                        metadata: { ...(sub.metadata ?? {}), plan_code: targetPlan }
+                    },
+                    { idempotencyKey: upgradeKey }
+                );
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
                 const type = (err as { type?: string })?.type ?? "";
@@ -583,9 +598,29 @@ serve(async req => {
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
             await releaseScheduleIfAny(stripe, existingScheduleId);
 
-            const schedule = await stripe.subscriptionSchedules.create({
-                from_subscription: tenant.stripe_subscription_id
+            const scheduleCreateKey = buildIdempotencyKey({
+                operation: "downgrade-create",
+                tenantId,
+                subscriptionId: tenant.stripe_subscription_id,
+                currentPlan,
+                currentSeats,
+                targetPlan,
+                targetSeats: newSeats
             });
+            const scheduleUpdateKey = buildIdempotencyKey({
+                operation: "downgrade-update",
+                tenantId,
+                subscriptionId: tenant.stripe_subscription_id,
+                currentPlan,
+                currentSeats,
+                targetPlan,
+                targetSeats: newSeats
+            });
+
+            const schedule = await stripe.subscriptionSchedules.create(
+                { from_subscription: tenant.stripe_subscription_id },
+                { idempotencyKey: scheduleCreateKey }
+            );
             createdScheduleId = schedule.id;
 
             const currentPhase = schedule.phases?.[0];
@@ -597,22 +632,26 @@ serve(async req => {
                 quantity: it.quantity ?? 1
             }));
 
-            await stripe.subscriptionSchedules.update(schedule.id, {
-                end_behavior: "release",
-                phases: [
-                    {
-                        items: currentPhaseItems,
-                        start_date: currentPhase.start_date,
-                        end_date: currentPhase.end_date,
-                        proration_behavior: "none"
-                    },
-                    {
-                        items: [{ price: newPriceId, quantity: newSeats }],
-                        proration_behavior: "none",
-                        metadata: { plan_code: targetPlan }
-                    }
-                ]
-            });
+            await stripe.subscriptionSchedules.update(
+                schedule.id,
+                {
+                    end_behavior: "release",
+                    phases: [
+                        {
+                            items: currentPhaseItems,
+                            start_date: currentPhase.start_date,
+                            end_date: currentPhase.end_date,
+                            proration_behavior: "none"
+                        },
+                        {
+                            items: [{ price: newPriceId, quantity: newSeats }],
+                            proration_behavior: "none",
+                            metadata: { plan_code: targetPlan }
+                        }
+                    ]
+                },
+                { idempotencyKey: scheduleUpdateKey }
+            );
 
             console.log(
                 `stripe-change-subscription: DOWNGRADE scheduled tenant=${tenantId} plan=${targetPlan} seats=${newSeats} effective=${periodEndIso} schedule=${schedule.id}`
