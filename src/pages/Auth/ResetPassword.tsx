@@ -5,7 +5,8 @@ import { CheckCircle, Info } from "lucide-react";
 import { supabase } from "@/services/supabase/client";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { Button } from "@/components/ui";
+import { Button, PasswordRequirements } from "@/components/ui";
+import { isStrongPassword, isWeakPasswordError } from "@utils/validatePassword";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import styles from "./Auth.module.scss";
 
@@ -17,6 +18,7 @@ function isExpiredTokenError(err: unknown): boolean {
         message.includes("invalid_token")
     );
 }
+
 
 export default function ResetPassword() {
     usePageTitle("Reimposta Password");
@@ -45,18 +47,8 @@ export default function ResetPassword() {
         setPasswordError(undefined);
         setConfirmError(undefined);
 
-        if (password.length < 8) {
-            setPasswordError("La password deve contenere almeno 8 caratteri.");
-            return;
-        }
-
-        if (!/[A-Z]/.test(password)) {
-            setPasswordError("La password deve contenere almeno una lettera maiuscola.");
-            return;
-        }
-
-        if (!/[0-9]/.test(password)) {
-            setPasswordError("La password deve contenere almeno un numero.");
+        if (!isStrongPassword(password)) {
+            setPasswordError("La password non soddisfa i requisiti di sicurezza.");
             return;
         }
 
@@ -88,6 +80,8 @@ export default function ResetPassword() {
         } catch (err) {
             if (isExpiredTokenError(err)) {
                 setLinkExpired(true);
+            } else if (err instanceof Error && isWeakPasswordError(err.message)) {
+                setPasswordError("La password non soddisfa i requisiti di sicurezza.");
             } else {
                 setPasswordError("Non è stato possibile aggiornare la password. Riprova.");
             }
@@ -163,9 +157,10 @@ export default function ResetPassword() {
                         autoComplete="new-password"
                         required
                         disabled={loading}
-                        helperText="Minimo 8 caratteri, una maiuscola, un numero."
                         error={passwordError}
                     />
+
+                    <PasswordRequirements value={password} />
 
                     <TextInput
                         label="Conferma nuova password"

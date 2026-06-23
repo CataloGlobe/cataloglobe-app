@@ -8,6 +8,8 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { FileInput } from "@/components/ui/Input/FileInput";
+import { PasswordRequirements } from "@/components/ui/PasswordRequirements/PasswordRequirements";
+import { isStrongPassword, isWeakPasswordError } from "@utils/validatePassword";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTheme } from "@/context/Theme/useTheme";
@@ -243,8 +245,8 @@ export default function WorkspaceSettingsPage() {
         setPasswordError(null);
         setPasswordSuccess(false);
 
-        if (password.length < 8) {
-            setPasswordError("La password deve contenere almeno 8 caratteri.");
+        if (!isStrongPassword(password)) {
+            setPasswordError("La password non soddisfa i requisiti di sicurezza.");
             return;
         }
 
@@ -263,8 +265,12 @@ export default function WorkspaceSettingsPage() {
             setConfirmPassword("");
             setShowPasswordModal(false);
             showToast({ message: "Password aggiornata con successo", type: "success" });
-        } catch {
-            setPasswordError("Non è stato possibile aggiornare la password. Riprova.");
+        } catch (err) {
+            if (err instanceof Error && isWeakPasswordError(err.message)) {
+                setPasswordError("La password non soddisfa i requisiti di sicurezza.");
+            } else {
+                setPasswordError("Non è stato possibile aggiornare la password. Riprova.");
+            }
         } finally {
             setPasswordLoading(false);
         }
@@ -547,6 +553,8 @@ export default function WorkspaceSettingsPage() {
                             required
                             disabled={passwordLoading}
                         />
+
+                        <PasswordRequirements value={password} />
 
                         <TextInput
                             label="Conferma nuova password"
