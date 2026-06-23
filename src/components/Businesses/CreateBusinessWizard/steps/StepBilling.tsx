@@ -163,7 +163,7 @@ export function StepBilling({
                         label={isSocieta ? "Codice fiscale (opzionale)" : "Codice fiscale"}
                         value={fiscalCode}
                         onChange={e => onFiscalCodeChange(e.target.value)}
-                        placeholder="16 caratteri o 11 cifre"
+                        placeholder={isProfessionista ? "16 caratteri" : "11 cifre"}
                         disabled={disabled}
                         required={!isSocieta}
                         error={fiscalError}
