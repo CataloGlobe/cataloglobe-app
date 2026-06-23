@@ -48,6 +48,11 @@ const STEPS = [
 
 const DEFAULT_PLAN: PlanCode = "pro";
 
+// localStorage key holding the per-session idempotency key for tenant creation.
+// Paired with the UNIQUE partial index `tenants_creation_idempotency_key_uidx`
+// (migration 20260623151754) to dedup duplicate tenant inserts.
+const IDEM_KEY_STORAGE = "cg_create_business_idem_key";
+
 export function CreateBusinessWizard({ open, onClose, mode = "create", existingTenant = null }: CreateBusinessWizardProps) {
     const { user } = useAuth();
     const { showToast } = useToast();
@@ -141,6 +146,13 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             setPlanCode(DEFAULT_PLAN);
             setSeats(1);
             initialResumeRef.current = null;
+
+            // A fresh, intentional create starts with a new idempotency key. The
+            // key is (re)generated lazily at insert time; clearing it here ensures
+            // a previous session's key can't dedup a genuinely new tenant onto an
+            // old one. Within a single session (retries, reload mid-flow) the key
+            // persists and is reused.
+            localStorage.removeItem(IDEM_KEY_STORAGE);
 
             // Billing fields start empty (collected fresh in create flow).
             setEntityType("");
@@ -373,6 +385,16 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                     await updateTenantBillingDetails(tenantId, buildBillingPayload());
                 }
             } else {
+                // Idempotency key: one per create-wizard session, generated lazily
+                // and persisted so retries within the same session (transient error,
+                // multi-tab, reload before the Stripe redirect) reuse it and dedup
+                // against the UNIQUE partial index instead of inserting a duplicate.
+                let idempotencyKey = localStorage.getItem(IDEM_KEY_STORAGE);
+                if (!idempotencyKey) {
+                    idempotencyKey = crypto.randomUUID();
+                    localStorage.setItem(IDEM_KEY_STORAGE, idempotencyKey);
+                }
+
                 const { data: tenantRow, error: insertError } = await supabase
                     .from("tenants")
                     .insert({
@@ -380,14 +402,34 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         name: name.trim(),
                         vertical_type: "food_beverage",
                         business_subtype: subtype,
+                        creation_idempotency_key: idempotencyKey,
                         // Billing identity (intestatario fattura) + legal address.
                         ...buildBillingPayload(),
                     })
                     .select("id")
                     .single();
 
-                if (insertError) throw insertError;
-                tenantId = tenantRow.id as string;
+                if (insertError) {
+                    // 23505 on the idempotency key means a concurrent/repeated submit
+                    // already created the tenant. Recover it (RLS scopes the read to
+                    // the current owner) and continue with the existing id instead of
+                    // surfacing an error or creating a duplicate.
+                    if (insertError.code === "23505") {
+                        const { data: existing, error: recoverError } = await supabase
+                            .from("tenants")
+                            .select("id")
+                            .eq("creation_idempotency_key", idempotencyKey)
+                            .eq("owner_user_id", user!.id)
+                            .single();
+
+                        if (recoverError || !existing) throw insertError;
+                        tenantId = existing.id as string;
+                    } else {
+                        throw insertError;
+                    }
+                } else {
+                    tenantId = tenantRow.id as string;
+                }
 
                 // Align plan + paid_seats to wizard selection. tenants defaults are
                 // plan='base' + paid_seats=1; without this update, if the user abandons
