@@ -3,6 +3,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select, type SelectOption } from "@/components/ui/Select/Select";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete/AddressAutocomplete";
 import { isValidPartitaIva, isValidCodiceFiscale } from "@/utils/fiscalValidators";
+import { isValidCapIT, isValidProvinciaIT } from "@/utils/addressValidators";
 import type { LegalEntityType } from "@/types/tenant";
 import styles from "../CreateBusinessWizard.module.scss";
 
@@ -209,6 +210,11 @@ export function StepBilling({
                             disabled={disabled}
                             required
                             inputMode="numeric"
+                            error={
+                                addr.postal_code.trim().length > 0 && !isValidCapIT(addr.postal_code)
+                                    ? "Inserisci un CAP valido (5 cifre)"
+                                    : undefined
+                            }
                         />
                         <TextInput
                             label="Comune"
@@ -226,6 +232,11 @@ export function StepBilling({
                             placeholder="es. MI"
                             disabled={disabled}
                             required
+                            error={
+                                addr.province.trim().length > 0 && !isValidProvinciaIT(addr.province)
+                                    ? "Inserisci una sigla provincia valida (es. MI)"
+                                    : undefined
+                            }
                         />
                     </div>
                 </div>

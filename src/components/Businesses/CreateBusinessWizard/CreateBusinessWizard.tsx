@@ -21,6 +21,7 @@ import type { Plan, PlanCode } from "@/types/plan";
 import type { V2Tenant, LegalEntityType } from "@/types/tenant";
 import type { AddressResult } from "@/components/ui/AddressAutocomplete/AddressAutocomplete";
 import { isValidPartitaIva, isValidCodiceFiscale } from "@/utils/fiscalValidators";
+import { isValidCapIT, isValidProvinciaIT } from "@/utils/addressValidators";
 
 import { Step1Info } from "./steps/Step1Info";
 import { Step2PlanSeats } from "./steps/Step2PlanSeats";
@@ -215,9 +216,9 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     const billingAddressComplete =
         !!billingAddress &&
         billingAddress.address.trim().length > 0 &&
-        billingAddress.postal_code.trim().length > 0 &&
+        isValidCapIT(billingAddress.postal_code) &&
         billingAddress.city.trim().length > 0 &&
-        billingAddress.province.trim().length > 0;
+        isValidProvinciaIT(billingAddress.province);
 
     const canProceedFromStepBilling = useMemo(() => {
         if (!billingAddressComplete) return false;
