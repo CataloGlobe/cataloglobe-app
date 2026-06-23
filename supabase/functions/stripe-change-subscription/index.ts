@@ -16,6 +16,7 @@ import {
     reactivateEmail
 } from "../_shared/subscriptionEmails.ts";
 import { buildIdempotencyKey } from "../_shared/idempotency.ts";
+import { classifyChange } from "../_shared/classifyChange.ts";
 
 // ---------------------------------------------------------------------------
 // stripe-change-subscription
@@ -61,8 +62,7 @@ function corsHeaders(req: Request): Record<string, string> {
 }
 
 const ALLOWED_PLAN_CODES = new Set(["base", "pro"]);
-// Rank piani per classificazione up/down (il cambio piano prevale sulle sedi).
-const PLAN_RANK: Record<string, number> = { base: 0, pro: 1 };
+// Rank/routing piani: estratti in _shared/classifyChange.ts (decomposizione per asse).
 
 type Action = "preview" | "commit" | "state" | "cancel" | "reactivate";
 const VALID_ACTIONS = new Set<Action>(["preview", "commit", "state", "cancel", "reactivate"]);
@@ -426,13 +426,17 @@ serve(async req => {
             return json(req, 422, { error: "NO_CHANGE" });
         }
 
-        // Classificazione up/down: il cambio piano prevale sulle sedi.
-        const curRank = PLAN_RANK[currentPlan] ?? 0;
-        const tgtRank = PLAN_RANK[targetPlan] ?? 0;
-        let classification: "upgrade" | "downgrade";
-        if (tgtRank > curRank) classification = "upgrade";
-        else if (tgtRank < curRank) classification = "downgrade";
-        else classification = newSeats > currentSeats ? "upgrade" : "downgrade";
+        // Classificazione per asse (tier + sedi indipendenti) → routing.
+        // Stato corrente letto dalla subscription Stripe LIVE (currentPlan +
+        // currentSeats da items.data[0]), non da tenants.paid_seats (webhook-lag),
+        // per coerenza con ciò che le mutazioni toccano e col replay idempotente.
+        const change = classifyChange({ currentPlan, currentSeats, targetPlan, targetSeats: newSeats });
+
+        // Scalare legacy per il path PREVIEW esistente (rework preview = FASE 2c).
+        // Mappatura byte-identica al comportamento pre-2b: solo le route che prima
+        // erano "upgrade" restano "upgrade"; downgrade puro e combinato → "downgrade".
+        const classification: "upgrade" | "downgrade" =
+            change.route === "upgrade" ? "upgrade" : "downgrade";
 
         const newItems = [{ id: itemId, price: newPriceId, quantity: newSeats }];
         const effective = classification === "upgrade" ? "now" : periodEndIso;
@@ -509,6 +513,182 @@ serve(async req => {
         }
 
         // ----------------------------- COMMIT ------------------------------
+        // 🆕 Caso combinato: tier giù + sedi su. Decomposizione per asse:
+        //  - sedi su → addebito immediato prorato sul prezzo CORRENTE (valore
+        //    consumato ora, fino al rinnovo);
+        //  - tier giù → differito al rinnovo via subscription schedule.
+        if (change.route === "combined-downgrade-seats-up") {
+            const existingScheduleId =
+                typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
+
+            // Step 1 — release-first BLOCCANTE (opzione A). La sub non deve
+            // restare schedule-managed prima di toccare le sedi (Stripe rifiuta
+            // update su sub gestita da schedule). Se resta managed → abort PRIMA
+            // di qualsiasi addebito, nessun effetto parziale.
+            await releaseScheduleIfAny(stripe, existingScheduleId);
+            if (existingScheduleId) {
+                let stillManaged = true;
+                try {
+                    const fresh = await stripe.subscriptions.retrieve(tenant.stripe_subscription_id);
+                    stillManaged = !!fresh.schedule;
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`stripe-change-subscription: combined re-read after release failed: ${message}`);
+                    stillManaged = true; // fail-closed
+                }
+                if (stillManaged) {
+                    console.error(
+                        `stripe-change-subscription: combined abort, still schedule-managed tenant=${tenantId}`
+                    );
+                    return json(req, 409, { error: "SCHEDULE_RELEASE_FAILED" });
+                }
+            }
+
+            // Step 2 — addebito sedi immediato sul prezzo CORRENTE (non il target).
+            // Fallimento qui → abort, nessuno schedule, nessuna compensazione
+            // (niente è stato addebitato con successo).
+            const seatsKey = buildIdempotencyKey({
+                operation: "seats",
+                tenantId,
+                subscriptionId: tenant.stripe_subscription_id,
+                currentPlan,
+                currentSeats,
+                targetPlan,
+                targetSeats: newSeats
+            });
+            try {
+                await stripe.subscriptions.update(
+                    tenant.stripe_subscription_id,
+                    {
+                        items: [{ id: itemId, price: currentPriceId, quantity: newSeats }],
+                        proration_behavior: "always_invoice",
+                        payment_behavior: "error_if_incomplete",
+                        metadata: { ...(sub.metadata ?? {}), plan_code: currentPlan }
+                    },
+                    { idempotencyKey: seatsKey }
+                );
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                const type = (err as { type?: string })?.type ?? "";
+                const code = (err as { code?: string })?.code ?? "";
+                if (
+                    type === "StripeCardError" ||
+                    code === "subscription_payment_intent_requires_action" ||
+                    /incomplete|requires_action|card_declined|payment/i.test(message)
+                ) {
+                    console.warn(`stripe-change-subscription: combined seat charge payment failed: ${message}`);
+                    return json(req, 402, { error: "PAYMENT_FAILED" });
+                }
+                console.error(`stripe-change-subscription: combined seat update failed: ${message}`);
+                return json(req, 502, { error: "stripe_update_failed" });
+            }
+
+            // Step 3 — schedule downgrade differito. Fase0 ora = piano corrente @
+            // newSeats (snapshot live aggiornato dallo step 2). Le key usano
+            // currentSeats=newSeats: identiche a quelle che il downgrade PURO
+            // calcolerebbe al retry (sedi già applicate), così Stripe fa replay e
+            // il sistema converge senza doppio effetto.
+            let createdScheduleId: string | null = null;
+            try {
+                const scheduleCreateKey = buildIdempotencyKey({
+                    operation: "downgrade-create",
+                    tenantId,
+                    subscriptionId: tenant.stripe_subscription_id,
+                    currentPlan,
+                    currentSeats: newSeats,
+                    targetPlan,
+                    targetSeats: newSeats
+                });
+                const scheduleUpdateKey = buildIdempotencyKey({
+                    operation: "downgrade-update",
+                    tenantId,
+                    subscriptionId: tenant.stripe_subscription_id,
+                    currentPlan,
+                    currentSeats: newSeats,
+                    targetPlan,
+                    targetSeats: newSeats
+                });
+
+                const schedule = await stripe.subscriptionSchedules.create(
+                    { from_subscription: tenant.stripe_subscription_id },
+                    { idempotencyKey: scheduleCreateKey }
+                );
+                createdScheduleId = schedule.id;
+
+                const currentPhase = schedule.phases?.[0];
+                if (!currentPhase) {
+                    throw new Error("schedule has no current phase to preserve");
+                }
+                const currentPhaseItems = (currentPhase.items ?? []).map(it => ({
+                    price: typeof it.price === "string" ? it.price : it.price?.id,
+                    quantity: it.quantity ?? 1
+                }));
+
+                await stripe.subscriptionSchedules.update(
+                    schedule.id,
+                    {
+                        end_behavior: "release",
+                        phases: [
+                            {
+                                items: currentPhaseItems,
+                                start_date: currentPhase.start_date,
+                                end_date: currentPhase.end_date,
+                                proration_behavior: "none"
+                            },
+                            {
+                                items: [{ price: newPriceId, quantity: newSeats }],
+                                proration_behavior: "none",
+                                metadata: { plan_code: targetPlan }
+                            }
+                        ]
+                    },
+                    { idempotencyKey: scheduleUpdateKey }
+                );
+
+                console.log(
+                    `stripe-change-subscription: COMBINED applied tenant=${tenantId} seats=${newSeats} (charged now) downgrade=${targetPlan} effective=${periodEndIso} schedule=${schedule.id}`
+                );
+                // Email best-effort: notifica il downgrade programmato. Copy
+                // dedicata al caso combinato (sedi addebitate ora) = FASE 2c.
+                try {
+                    const to = await getRecipient();
+                    if (to) {
+                        await sendEmail({
+                            to,
+                            ...downgradeEmail({
+                                plan: targetPlan,
+                                seats: newSeats,
+                                effectiveDateIso: periodEndIso,
+                                losesQrFeatures: currentPlan === "pro" && targetPlan === "base"
+                            })
+                        });
+                    }
+                } catch (err) {
+                    console.error("[stripe-change-subscription] combined email error:", err);
+                }
+                return json(req, 200, {
+                    ok: true,
+                    classification: "combined",
+                    plan: targetPlan,
+                    seats: newSeats,
+                    seatsChargedNow: true,
+                    effective: periodEndIso,
+                    scheduledChange: true,
+                    scheduleId: schedule.id
+                });
+            } catch (err) {
+                // Compensazione: lo step 2 è riuscito (sedi pagate, restano attive)
+                // ma lo step 3 è fallito. NON disfare l'addebito. Rilascia lo
+                // schedule creato a metà (best-effort) per non bloccare la sub.
+                const message = err instanceof Error ? err.message : String(err);
+                if (createdScheduleId) {
+                    await releaseScheduleIfAny(stripe, createdScheduleId);
+                }
+                console.error(`stripe-change-subscription: combined schedule failed (seats already charged): ${message}`);
+                return json(req, 502, { error: "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED" });
+            }
+        }
+
         if (classification === "upgrade") {
             // Upgrade → immediato. Rilascia ogni schedule attivo PRIMA dell'update
             // (Stripe rifiuta update su sub schedule-managed); il downgrade pendente
