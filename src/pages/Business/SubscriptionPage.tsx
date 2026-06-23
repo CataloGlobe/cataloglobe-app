@@ -59,6 +59,8 @@ function mapChangeError(err: unknown, activityCount: number, cap: number): strin
             return `Oltre ${cap} sedi serve un piano dedicato: contatta l'assistenza.`;
         case "NO_CHANGE":
             return "Non hai selezionato alcuna modifica.";
+        case "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED":
+            return "Le sedi sono state aggiunte e pagate, ma il passaggio a Base non è stato programmato. Riprova.";
         default:
             return "Si è verificato un errore. Riprova.";
     }
@@ -332,6 +334,12 @@ export default function SubscriptionPage() {
                     type: "error"
                 });
                 setChangeError("L'addebito è stato rifiutato. Aggiorna il metodo di pagamento dal portale di fatturazione.");
+            } else if (name === "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED") {
+                showToast({
+                    message: "Sedi aggiunte e pagate, ma il passaggio a Base non è stato programmato. Riprova.",
+                    type: "error"
+                });
+                setChangeError("Le sedi sono state aggiunte e pagate, ma il passaggio a Base non è stato programmato. Riprova.");
             } else {
                 setChangeError(mapChangeError(err, activityCount, draftMaxSeats));
             }
@@ -693,7 +701,11 @@ export default function SubscriptionPage() {
                                     onClick={handleCommit}
                                     loading={commitLoading}
                                 >
-                                    {previewIsDowngrade ? "Programma il cambio" : "Conferma e paga"}
+                                    {preview?.classification === "combined"
+                                        ? "Paga le sedi e programma il cambio"
+                                        : previewIsDowngrade
+                                        ? "Programma il cambio"
+                                        : "Conferma e paga"}
                                 </Button>
                             </>
                         )
@@ -743,7 +755,31 @@ export default function SubscriptionPage() {
                         <div className={styles.changeBody}>
                             {preview && (
                                 <div className={styles.confirmBox}>
-                                    {preview.effective === "now" ? (
+                                    {preview.classification === "combined" ? (
+                                        <>
+                                            <div className={styles.confirmRow}>
+                                                <Text variant="body" weight={600}>Oggi paghi</Text>
+                                                <Text variant="title-sm" weight={700}>
+                                                    {formatCents(preview.chargeToday)}
+                                                </Text>
+                                            </div>
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                Le {preview.seats} sedi aggiunte sono attive subito, riproporzionate
+                                                a tariffa Pro fino al rinnovo.
+                                            </Text>
+                                            <div className={styles.confirmDivider} />
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                Il piano passerà a {targetPlanName} il {formatDate(preview.nextDate)};
+                                                da quella data pagherai {formatCents(preview.nextAmount)}/mese.
+                                            </Text>
+                                            <div className={styles.changeWarning}>
+                                                <AlertTriangle size={16} />
+                                                <Text variant="body-sm" weight={500}>
+                                                    Ordini e prenotazioni da QR verranno disattivati al rinnovo.
+                                                </Text>
+                                            </div>
+                                        </>
+                                    ) : preview.effective === "now" ? (
                                         <>
                                             <div className={styles.confirmRow}>
                                                 <Text variant="body" weight={600}>Oggi paghi</Text>

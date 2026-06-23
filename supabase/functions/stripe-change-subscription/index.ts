@@ -13,7 +13,9 @@ import {
     upgradeEmail,
     downgradeEmail,
     cancelEmail,
-    reactivateEmail
+    reactivateEmail,
+    combinedChangeEmail,
+    combinedChangePartialFailureEmail
 } from "../_shared/subscriptionEmails.ts";
 import { buildIdempotencyKey } from "../_shared/idempotency.ts";
 import { classifyChange } from "../_shared/classifyChange.ts";
@@ -497,10 +499,34 @@ serve(async req => {
                     console.error(`stripe-change-subscription: upgrade preview failed: ${message}`);
                     return json(req, 502, { error: "preview_failed" });
                 }
+            } else if (change.route === "combined-downgrade-seats-up") {
+                // Combinato: l'addebito di oggi è SOLO il prorato del delta sedi a
+                // tariffa CORRENTE (Pro) — identico allo step 2 del commit. Il tier
+                // scende al rinnovo (nextAmount/effective già = fase target).
+                try {
+                    const seatPreview = await stripe.invoices.createPreview({
+                        customer: tenant.stripe_customer_id,
+                        subscription: tenant.stripe_subscription_id,
+                        subscription_details: {
+                            items: [{ id: itemId, price: currentPriceId, quantity: newSeats }],
+                            proration_behavior: "always_invoice"
+                        }
+                    });
+                    chargeToday = Math.max(0, seatPreview.amount_due ?? 0);
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`stripe-change-subscription: combined seat preview failed: ${message}`);
+                    return json(req, 502, { error: "preview_failed" });
+                }
             }
 
+            // Fonte unica del terzo stato per la UI: "combined" quando tier giù +
+            // sedi su (coincide col `classification` ritornato dal commit combinato).
+            const previewClassification =
+                change.route === "combined-downgrade-seats-up" ? "combined" : classification;
+
             return json(req, 200, {
-                classification,
+                classification: previewClassification,
                 plan: targetPlan,
                 seats: newSeats,
                 currency,
@@ -648,18 +674,17 @@ serve(async req => {
                 console.log(
                     `stripe-change-subscription: COMBINED applied tenant=${tenantId} seats=${newSeats} (charged now) downgrade=${targetPlan} effective=${periodEndIso} schedule=${schedule.id}`
                 );
-                // Email best-effort: notifica il downgrade programmato. Copy
-                // dedicata al caso combinato (sedi addebitate ora) = FASE 2c.
+                // Email best-effort dedicata al combinato: sedi attive/addebitate
+                // ora + downgrade programmato al rinnovo (copy che cita entrambi).
                 try {
                     const to = await getRecipient();
                     if (to) {
                         await sendEmail({
                             to,
-                            ...downgradeEmail({
-                                plan: targetPlan,
+                            ...combinedChangeEmail({
                                 seats: newSeats,
-                                effectiveDateIso: periodEndIso,
-                                losesQrFeatures: currentPlan === "pro" && targetPlan === "base"
+                                targetPlan,
+                                effectiveDateIso: periodEndIso
                             })
                         });
                     }
@@ -685,6 +710,18 @@ serve(async req => {
                     await releaseScheduleIfAny(stripe, createdScheduleId);
                 }
                 console.error(`stripe-change-subscription: combined schedule failed (seats already charged): ${message}`);
+                // Email best-effort: sedi attive e pagate, downgrade non programmato.
+                try {
+                    const to = await getRecipient();
+                    if (to) {
+                        await sendEmail({
+                            to,
+                            ...combinedChangePartialFailureEmail({ seats: newSeats, targetPlan })
+                        });
+                    }
+                } catch (mailErr) {
+                    console.error("[stripe-change-subscription] combined partial-failure email error:", mailErr);
+                }
                 return json(req, 502, { error: "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED" });
             }
         }
