@@ -3,6 +3,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete/AddressAutocomplete";
 import { updateActivity } from "@/services/supabase/activities";
+import { isValidCapIT, isValidProvinciaIT } from "@/utils/addressValidators";
 import type { V2Activity } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./ActivityIdentityForm.module.scss";
@@ -61,8 +62,8 @@ export function ActivityIdentityForm({
 
         const errors: FieldErrors = {};
         if (!streetNumber.trim()) errors.street_number = "Inserisci il numero civico";
-        if (postalCode.trim().length !== 5) errors.postal_code = "Inserisci un CAP valido (5 cifre)";
-        if (province.trim().length !== 2) errors.province = "Inserisci la sigla provincia (es. MI)";
+        if (!isValidCapIT(postalCode)) errors.postal_code = "Inserisci un CAP valido (5 cifre)";
+        if (!isValidProvinciaIT(province)) errors.province = "Inserisci una sigla provincia valida (es. MI)";
         if (!city.trim()) errors.city = "Inserisci la città";
 
         if (Object.keys(errors).length > 0) {
