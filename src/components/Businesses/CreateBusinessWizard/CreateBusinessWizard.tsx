@@ -82,6 +82,11 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     const [plansError, setPlansError] = useState<string | null>(null);
 
     const [submitting, setSubmitting] = useState(false);
+    // Synchronous re-entry guard for handleCheckout. `submitting` drives the
+    // button's disabled state but is applied on the next render — between the
+    // first click and that render, rapid clicks would re-enter and insert
+    // duplicate tenants. This ref blocks re-entry within the same tick.
+    const inFlightRef = useRef(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [promoError, setPromoError] = useState<string | null>(null);
     const [showCloseConfirm, setShowCloseConfirm] = useState(false);
@@ -328,6 +333,11 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         if (!resumeMode && !user) return;
         if (resumeMode && !existingTenant) return;
 
+        // Synchronous re-entry block: a second click before the re-render that
+        // disables the button must not trigger a second tenant insert.
+        if (inFlightRef.current) return;
+        inFlightRef.current = true;
+
         setSubmitting(true);
         setSubmitError(null);
         setPromoError(null);
@@ -419,6 +429,15 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                 cancelUrl: `${window.location.origin}/workspace`,
             });
 
+            // Guard against a silent no-op: if the session call returns without a
+            // usable URL we must surface an error instead of leaving the button
+            // stuck in loading with no redirect.
+            if (!checkoutUrl || checkoutUrl.trim().length === 0) {
+                const wrap = new Error("checkout_url_missing");
+                wrap.name = "checkout_url_missing";
+                throw wrap;
+            }
+
             clearStoredPromo();
             window.location.href = checkoutUrl;
         } catch (err) {
@@ -433,6 +452,11 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                 setSubmitError(message);
             }
             setSubmitting(false);
+        } finally {
+            // Always release the re-entry guard. On the success path the page is
+            // already navigating away; `submitting` stays true so the button does
+            // not flicker back to enabled before the redirect completes.
+            inFlightRef.current = false;
         }
     };
 
@@ -689,6 +713,7 @@ function friendlyErrorMessage(code: string): string {
         case "plan_lookup_failed":
         case "db_update_failed":
         case "checkout_failed":
+        case "checkout_url_missing":
             return "Errore durante la creazione del checkout. Riprova tra qualche istante.";
         case "tenant_align_failed":
             return "Impossibile finalizzare la scelta del piano. Riprova oppure contatta l'assistenza.";
