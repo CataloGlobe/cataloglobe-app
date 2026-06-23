@@ -89,6 +89,71 @@ serve(async (req: Request) => {
             }, 200);
         }
 
+        // ── Branch: Address Autocomplete (mode === "autocomplete") ──
+        // Uses Places Autocomplete (New): includedRegionCodes is a HARD country
+        // filter (results outside IT are excluded), unlike searchText's regionCode
+        // bias + geometric rectangle. Explicit `mode` discriminator keeps the
+        // searchText (review-URL) and place_id (Details) branches untouched.
+        if (body.mode === "autocomplete") {
+            const input = body.query;
+            if (typeof input !== "string" || input.trim().length < 3) {
+                return jsonResponse({ error: "La query deve contenere almeno 3 caratteri" }, 400);
+            }
+
+            // Optional proximity bias (same shape as the searchText branch).
+            let acLocationBias: Record<string, unknown> | undefined;
+            if (
+                body.location &&
+                typeof body.location === "object" &&
+                body.location !== null &&
+                typeof (body.location as Record<string, unknown>).latitude === "number" &&
+                typeof (body.location as Record<string, unknown>).longitude === "number"
+            ) {
+                const loc = body.location as { latitude: number; longitude: number };
+                acLocationBias = {
+                    circle: {
+                        center: { latitude: loc.latitude, longitude: loc.longitude },
+                        radius: 50000.0
+                    }
+                };
+            }
+
+            const acRes = await fetch(
+                "https://places.googleapis.com/v1/places:autocomplete",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                        "X-Goog-Api-Key": apiKey,
+                        "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.text"
+                    },
+                    body: JSON.stringify({
+                        input: input.trim(),
+                        includedRegionCodes: ["it"],
+                        languageCode: "it",
+                        ...(acLocationBias ? { locationBias: acLocationBias } : {})
+                    })
+                }
+            );
+
+            if (!acRes.ok) {
+                console.error("[search-google-places] Autocomplete error:", acRes.status, await acRes.text());
+                return jsonResponse({ error: "Errore durante la ricerca su Google" }, 500);
+            }
+
+            const acData = (await acRes.json()) as {
+                suggestions?: Array<{ placePrediction?: { placeId?: string; text?: { text?: string } } }>;
+            };
+
+            const predictions = (acData.suggestions ?? [])
+                .map(s => s.placePrediction)
+                .filter(p => !!p?.placeId)
+                .slice(0, 5)
+                .map(p => ({ placeId: p!.placeId as string, label: p!.text?.text ?? "" }));
+
+            return jsonResponse({ predictions }, 200);
+        }
+
         // ── Branch: Text Search (query) ────────────────────────
         const query = body.query;
 
