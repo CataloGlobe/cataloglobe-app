@@ -11,10 +11,9 @@ export type AddressResult = {
     province: string;
 };
 
-type SearchResult = {
-    place_id: string;
-    name: string;
-    address: string;
+type Prediction = {
+    placeId: string;
+    label: string;
 };
 
 interface AddressAutocompleteProps {
@@ -25,7 +24,7 @@ interface AddressAutocompleteProps {
 
 export function AddressAutocomplete({ onSelect, placeholder, disabled }: AddressAutocompleteProps) {
     const [query, setQuery] = useState("");
-    const [results, setResults] = useState<SearchResult[]>([]);
+    const [results, setResults] = useState<Prediction[]>([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const [isSearching, setIsSearching] = useState(false);
     const [isLoadingDetails, setIsLoadingDetails] = useState(false);
@@ -55,10 +54,10 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
         try {
             const { data, error: fnError } = await supabase.functions.invoke(
                 "search-google-places",
-                { body: { query: q.trim() } }
+                { body: { query: q.trim(), mode: "autocomplete" } }
             );
             if (fnError) throw fnError;
-            const items = (data as { results: SearchResult[] }).results ?? [];
+            const items = (data as { predictions: Prediction[] }).predictions ?? [];
             setResults(items);
             setHighlightedIndex(-1);
             setShowDropdown(true);
@@ -108,7 +107,7 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
         }
     };
 
-    const handleSelect = async (place: SearchResult) => {
+    const handleSelect = async (place: Prediction) => {
         setShowDropdown(false);
         setHighlightedIndex(-1);
         setIsLoadingDetails(true);
@@ -116,7 +115,7 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
         try {
             const { data, error: fnError } = await supabase.functions.invoke(
                 "search-google-places",
-                { body: { place_id: place.place_id } }
+                { body: { place_id: place.placeId } }
             );
             if (fnError) throw fnError;
             const result = data as AddressResult;
@@ -213,7 +212,7 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
 
                         {!isSearching && !error && results.map((place, index) => (
                             <div
-                                key={place.place_id}
+                                key={place.placeId}
                                 id={`address-option-${index}`}
                                 ref={el => { itemRefs.current[index] = el; }}
                                 className={`${styles.dropdownItem}${index === highlightedIndex ? ` ${styles.dropdownItemHighlighted}` : ""}`}
@@ -221,8 +220,7 @@ export function AddressAutocomplete({ onSelect, placeholder, disabled }: Address
                                 aria-selected={index === highlightedIndex}
                                 onClick={() => handleSelect(place)}
                             >
-                                <span className={styles.dropdownItemName}>{place.name}</span>
-                                <span className={styles.dropdownItemAddress}>{place.address}</span>
+                                <span className={styles.dropdownItemAddress}>{place.label}</span>
                             </div>
                         ))}
                     </div>
