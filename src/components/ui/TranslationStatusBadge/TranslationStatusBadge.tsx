@@ -77,26 +77,33 @@ export function TranslationStatusBadge({
     if (status.totalLanguages === 0) return null;
     if (status.sourceHash === null) return null;
 
-    const allDone =
-        status.doneCount === status.totalLanguages &&
-        status.pendingCount === 0 &&
-        status.errorCount === 0;
+    const hasStale = status.staleCount > 0;
     const hasPending = status.pendingCount > 0;
     const hasError = status.errorCount > 0;
+    const allDone =
+        status.doneCount === status.totalLanguages &&
+        !hasPending &&
+        !hasError &&
+        !hasStale;
 
     return (
         <div className={styles.wrapper}>
             {allDone && (
-                <span className={`${styles.label} ${styles.success}`}>
-                    ✅{" "}
+                <span className={`${styles.label} ${styles.neutral}`}>
                     {t("translation_status.completed", {
                         count: status.totalLanguages
                     })}
                 </span>
             )}
+            {hasStale && (
+                <span className={`${styles.label} ${styles.stale}`}>
+                    {t("translation_status.to_review", {
+                        count: status.staleCount
+                    })}
+                </span>
+            )}
             {hasPending && (
                 <span className={`${styles.label} ${styles.pending}`}>
-                    🟡{" "}
                     {t("translation_status.in_progress", {
                         done: status.doneCount,
                         total: status.totalLanguages

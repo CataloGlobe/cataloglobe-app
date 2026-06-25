@@ -17,6 +17,17 @@
     color: var(--color-success-fg, #15803d);
 }
 
+// Variante C: stato allineato → sobrio/neutro (niente verde squillante).
+.neutral {
+    color: var(--text-muted, #64748b);
+}
+
+// Variante C: stato azionabile → ambra "N da rivedere".
+.stale {
+    color: var(--color-warning-700, #b45309);
+    font-weight: 600;
+}
+
 .pending {
     color: var(--color-warning-fg, #b45309);
 }
