@@ -1897,7 +1897,17 @@ export default function CatalogEngine() {
                             fieldKey="name"
                             sectionLabel="Traduzioni nome categoria"
                             sectionDescription="Modifica manualmente le traduzioni del nome categoria. Le modifiche manuali non vengono sovrascritte dalla traduzione automatica."
+                            primaryLabel="Nome"
                             placeholderItalian="Nome categoria in italiano"
+                            onSourceUpdated={text =>
+                                setCategories(prev =>
+                                    prev.map(c =>
+                                        c.id === selectedCategory.id
+                                            ? { ...c, name: text }
+                                            : c
+                                    )
+                                )
+                            }
                         />
                     </div>
                 )}

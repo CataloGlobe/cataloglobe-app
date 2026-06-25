@@ -44,3 +44,24 @@
         background-color: var(--color-warning-500, #f59e0b);
     }
 }
+
+// Indaco/brand: stato "manuale" (theme-aware: viola in light, blu in dark).
+.info {
+    background-color: var(--brand-primary-soft);
+    color: var(--brand-primary);
+
+    .dot {
+        background-color: var(--brand-primary);
+    }
+}
+
+// Ambra tenue: stato "in traduzione" (job pending). Più soft di .warning
+// (= "da rivedere") per distinguere lavoro-in-corso da azione-richiesta.
+.pending {
+    background-color: var(--color-warning-50, #fffbeb);
+    color: var(--color-warning-700, #b45309);
+
+    .dot {
+        background-color: var(--color-warning-500, #f59e0b);
+    }
+}

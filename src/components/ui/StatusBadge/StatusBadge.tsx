@@ -1,7 +1,12 @@
 import React from "react";
 import styles from "./StatusBadge.module.scss";
 
-export type StatusBadgeVariant = "success" | "neutral" | "warning";
+export type StatusBadgeVariant =
+    | "success"
+    | "neutral"
+    | "warning"
+    | "info"
+    | "pending";
 
 export interface StatusBadgeProps {
     variant: StatusBadgeVariant;

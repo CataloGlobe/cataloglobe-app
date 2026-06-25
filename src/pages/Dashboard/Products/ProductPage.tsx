@@ -156,6 +156,18 @@ export default function ProductPage() {
 
     useBreadcrumbItems(breadcrumbItems);
 
+    // Note prodotto come campo secondario read-only della tab Traduzioni
+    // (memoizzato per evitare reload loop nell'effect di TranslationsTab).
+    const notesSecondaryField = useMemo(
+        () => ({
+            entityType: "product_notes" as const,
+            field: "notes" as const,
+            label: "Note",
+            sourceItems: product?.notes ?? []
+        }),
+        [product?.notes]
+    );
+
     // ── Header band: leading (tab line controllati, sync URL) ──
     const leading = useMemo(() => (
         <Tabs<ProductPageTab>
@@ -235,30 +247,21 @@ export default function ProductPage() {
                 />
             )}
             {activeTab === "translations" && product.parent_product_id === null && (
-                <div className={styles.translationsStack}>
-                    <TranslationsTab
-                        entityType="product"
-                        entityId={productId!}
-                        tenantId={tenantId!}
-                        sourceText={product.description ?? ""}
-                        fieldKey="description"
-                        sectionLabel="Traduzioni descrizione"
-                        sectionDescription="Modifica manualmente le traduzioni della descrizione. Le modifiche manuali non vengono sovrascritte dalla traduzione automatica."
-                        flush
-                    />
-                    <section className={styles.notesCard}>
-                        <header className={styles.notesCardHeader}>
-                            <span className={styles.notesCardLabel}>
-                                Note prodotto
-                            </span>
-                        </header>
-                        <div className={styles.notesCardBody}>
-                            Le note del prodotto vengono tradotte automaticamente.
-                            La modifica manuale delle traduzioni delle note non è
-                            ancora disponibile.
-                        </div>
-                    </section>
-                </div>
+                <TranslationsTab
+                    entityType="product"
+                    entityId={productId!}
+                    tenantId={tenantId!}
+                    sourceText={product.description ?? ""}
+                    fieldKey="description"
+                    sectionLabel="Traduzioni descrizione"
+                    sectionDescription="Modifica manualmente le traduzioni della descrizione e gestisci le note. Le modifiche manuali non vengono sovrascritte dalla traduzione automatica."
+                    primaryLabel="Descrizione"
+                    secondaryField={notesSecondaryField}
+                    onSourceUpdated={text =>
+                        setProduct(p => (p ? { ...p, description: text || null } : p))
+                    }
+                    flush
+                />
             )}
             {activeTab === "usage" && (
                 <UsageTab
