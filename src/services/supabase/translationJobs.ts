@@ -37,6 +37,36 @@ const VERTICAL_AWARE_SKIPS: Record<string, ReadonlyArray<TranslationEntityType>>
 };
 
 /**
+ * Lingue con un job `pending`/`processing` per (entity, field) al source_hash
+ * corrente. Usato dalla tab Traduzioni per il badge "In traduzione" (priorità
+ * sul calcolo stale da hash). Dopo un cambio del sorgente IT l'enqueue crea job
+ * SOLO per le lingue auto (le manual sono escluse), quindi un'auto "indietro"
+ * risulta sempre pending qui, mentre una manual indietro no → "Da rivedere".
+ *
+ * Select RLS-safe: la policy SELECT su `translation_jobs` è già tenant-scoped
+ * (`tenant_id IN get_my_tenant_ids()`). Nessuna RPC.
+ */
+export async function getPendingJobLanguages(
+    tenantId: string,
+    entityType: TranslationEntityType,
+    entityId: string,
+    field: TranslationField,
+    sourceHash: string
+): Promise<Set<string>> {
+    const { data, error } = await supabase
+        .from("translation_jobs")
+        .select("target_language_code")
+        .eq("tenant_id", tenantId)
+        .eq("entity_type", entityType)
+        .eq("entity_id", entityId)
+        .eq("field", field)
+        .eq("source_hash", sourceHash)
+        .in("status", ["pending", "processing"]);
+    if (error) throw error;
+    return new Set((data ?? []).map(r => r.target_language_code as string));
+}
+
+/**
  * Funzione cardine: enqueue translation_jobs se source_hash è cambiato.
  *
  * Flusso:

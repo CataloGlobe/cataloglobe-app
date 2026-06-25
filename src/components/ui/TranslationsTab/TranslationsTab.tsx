@@ -1,15 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import clsx from "clsx";
 import { Button } from "@/components/ui/Button/Button";
-import { Badge } from "@/components/ui/Badge/Badge";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import { Languages } from "lucide-react";
+import { Languages, Pencil, Sparkles } from "lucide-react";
 import {
     listTranslationsForEntity,
     getActiveTenantLanguages,
@@ -17,6 +19,9 @@ import {
     upsertManualTranslation,
     revertManualTranslation
 } from "@/services/supabase/translations";
+import { updateProduct } from "@/services/supabase/products";
+import { updateCategory } from "@/services/supabase/catalogs";
+import { getPendingJobLanguages } from "@/services/supabase/translationJobs";
 import {
     listAvailableLanguages,
     type SupportedLanguage
@@ -27,7 +32,27 @@ import type {
     TranslationEntityType,
     TranslationField
 } from "@/types/translations";
+import { TranslationRow } from "./TranslationRow";
 import styles from "./TranslationsTab.module.scss";
+
+/** Item sorgente per la vista note (read-only). */
+export interface TranslationsNoteItem {
+    label: string;
+    value: string;
+}
+
+/**
+ * Campo secondario read-only mostrato in un secondo segmento (es. note
+ * prodotto). Solo per i prodotti — le categorie non lo passano.
+ */
+export interface TranslationsSecondaryField {
+    entityType: TranslationEntityType;
+    field: TranslationField;
+    /** Etichetta del segmento (es. "Note"). */
+    label: string;
+    /** Note italiane sorgente, per il riferimento read-only. */
+    sourceItems: TranslationsNoteItem[];
+}
 
 interface TranslationsTabProps {
     entityType: TranslationEntityType;
@@ -39,9 +64,16 @@ interface TranslationsTabProps {
     sectionDescription: string;
     placeholderItalian?: string;
     flush?: boolean;
+    /** Etichetta del segmento primario (es. "Descrizione" / "Nome"). */
+    primaryLabel?: string;
+    /** Campo secondario read-only (note prodotto). */
+    secondaryField?: TranslationsSecondaryField;
+    /** Notifica il parent dopo edit inline del testo italiano sorgente. */
+    onSourceUpdated?: (newText: string) => void;
 }
 
 type StatusKind = "manual" | "auto" | "missing";
+type ViewMode = "primary" | "secondary";
 
 function getStatusKind(translation: Translation | undefined): StatusKind {
     if (!translation) return "missing";
@@ -49,15 +81,34 @@ function getStatusKind(translation: Translation | undefined): StatusKind {
     return "auto";
 }
 
-function getStatusBadge(kind: StatusKind) {
-    switch (kind) {
-        case "manual":
-            return <Badge variant="primary">Manuale</Badge>;
-        case "auto":
-            return <Badge variant="success">Automatica</Badge>;
-        case "missing":
-            return <Badge variant="warning">Da tradurre</Badge>;
+/**
+ * Le note prodotto sono `ProductNote[]` serializzate in JSON. Parsa e
+ * formatta "label: value" per riga; fallback al raw. Stesso pattern di
+ * ReviewDrawer.formatSource.
+ */
+function formatNotePayload(raw: string): string {
+    try {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            return parsed
+                .map(n => {
+                    const note = n as { label?: string; value?: string };
+                    return [note.label, note.value].filter(Boolean).join(": ");
+                })
+                .filter(Boolean)
+                .join("\n");
+        }
+    } catch {
+        /* fallback al raw */
     }
+    return raw;
+}
+
+function formatNoteItems(items: TranslationsNoteItem[]): string {
+    return items
+        .map(n => [n.label, n.value].filter(Boolean).join(": "))
+        .filter(Boolean)
+        .join("\n");
 }
 
 export function TranslationsTab({
@@ -69,69 +120,137 @@ export function TranslationsTab({
     sectionLabel,
     sectionDescription,
     placeholderItalian,
-    flush = false
+    flush = false,
+    primaryLabel,
+    secondaryField,
+    onSourceUpdated
 }: TranslationsTabProps) {
+    const { t } = useTranslation("admin");
     const { showToast } = useToast();
     const gridClass = clsx(styles.grid, flush && styles.gridFlush);
 
     const [isLoading, setIsLoading] = useState(true);
     const [translations, setTranslations] = useState<Translation[]>([]);
+    const [secondaryTranslations, setSecondaryTranslations] = useState<Translation[]>([]);
     const [supportedOrdered, setSupportedOrdered] = useState<SupportedLanguage[]>([]);
     const [activeCodes, setActiveCodes] = useState<string[]>([]);
     const [baseLanguage, setBaseLanguage] = useState<string>("it");
     const [currentSourceHash, setCurrentSourceHash] = useState<string | null>(null);
 
+    const [view, setView] = useState<ViewMode>("primary");
+    const [expandedLang, setExpandedLang] = useState<string | null>(null);
     const [draftValues, setDraftValues] = useState<Record<string, string>>({});
     const [savingLang, setSavingLang] = useState<string | null>(null);
     const [revertConfirmFor, setRevertConfirmFor] = useState<string | null>(null);
-    const [pendingAutoLangs, setPendingAutoLangs] = useState<Set<string>>(new Set());
+    // Lingue con job di ri-traduzione in corso (pending/processing) per il
+    // source_hash corrente — fonte autoritativa dal DB, guida il badge
+    // "In traduzione" e il polling. Assorbe il vecchio tracking manuale.
+    const [pendingLangs, setPendingLangs] = useState<Set<string>>(new Set());
 
-    const hasSource = sourceText.trim().length > 0;
-    const textareaPlaceholder = placeholderItalian ?? "Inserisci la traduzione manuale";
+    // Override locale del sorgente IT dopo edit inline, finché il parent non
+    // sincronizza la prop sourceText. Reset quando la prop cambia.
+    const [sourceOverride, setSourceOverride] = useState<string | null>(null);
+    const [isEditingSource, setIsEditingSource] = useState(false);
+    const [sourceDraft, setSourceDraft] = useState("");
+    const [isSavingSource, setIsSavingSource] = useState(false);
 
-    const loadData = useCallback(async () => {
+    useEffect(() => {
+        setSourceOverride(null);
+    }, [sourceText]);
+
+    const effectiveSource = sourceOverride ?? sourceText;
+    const hasSource = effectiveSource.trim().length > 0;
+    const textareaPlaceholder = placeholderItalian ?? t("translations_tab.manual_placeholder");
+
+    // Edit inline del sorgente supportato solo per i campi mappati a un update
+    // di entità esistente (descrizione prodotto / nome categoria).
+    const canEditSource =
+        (entityType === "product" && fieldKey === "description") ||
+        (entityType === "category" && fieldKey === "name");
+
+    const secondaryEntityType = secondaryField?.entityType;
+    const secondaryFieldKey = secondaryField?.field;
+
+    // `silent`: refresh in background (polling) senza flash di loading né
+    // azzeramento delle bozze in corso di scrittura.
+    const loadData = useCallback(async (silent = false) => {
         try {
-            setIsLoading(true);
-            const [supported, active, base, allTranslations, sourceHash] = await Promise.all([
-                listAvailableLanguages(),
-                getActiveTenantLanguages(tenantId),
-                getTenantBaseLanguage(tenantId),
-                listTranslationsForEntity(tenantId, entityType, entityId),
-                computeFieldHash(sourceText)
-            ]);
+            if (!silent) setIsLoading(true);
+            // Hash calcolato prima: serve come filtro per i job pending.
+            const sourceHash = await computeFieldHash(effectiveSource);
+            const [supported, active, base, allTranslations, secondaryAll, pending] =
+                await Promise.all([
+                    listAvailableLanguages(),
+                    getActiveTenantLanguages(tenantId),
+                    getTenantBaseLanguage(tenantId),
+                    listTranslationsForEntity(tenantId, entityType, entityId),
+                    secondaryEntityType
+                        ? listTranslationsForEntity(tenantId, secondaryEntityType, entityId)
+                        : Promise.resolve<Translation[]>([]),
+                    sourceHash
+                        ? getPendingJobLanguages(
+                              tenantId,
+                              entityType,
+                              entityId,
+                              fieldKey,
+                              sourceHash
+                          )
+                        : Promise.resolve(new Set<string>())
+                ]);
 
             setSupportedOrdered(supported);
             setActiveCodes(active.map(l => l.language_code));
             setBaseLanguage(base);
-            const filtered = allTranslations.filter(
-                t => t.field === fieldKey && t.entity_type === entityType
+            setTranslations(
+                allTranslations.filter(
+                    tr => tr.field === fieldKey && tr.entity_type === entityType
+                )
             );
-            setTranslations(filtered);
+            setSecondaryTranslations(
+                secondaryFieldKey
+                    ? secondaryAll.filter(
+                          tr =>
+                              tr.field === secondaryFieldKey &&
+                              tr.entity_type === secondaryEntityType
+                      )
+                    : []
+            );
             setCurrentSourceHash(sourceHash);
-            setDraftValues({});
-
-            // Clear pending state per le lingue dove la riga 'auto' è
-            // ricomparsa (cron ha processato il job post-revert).
-            setPendingAutoLangs(prev => {
-                if (prev.size === 0) return prev;
-                const next = new Set(prev);
-                for (const t of filtered) {
-                    if (t.status === "auto" && next.has(t.language_code)) {
-                        next.delete(t.language_code);
-                    }
-                }
-                return next.size === prev.size ? prev : next;
-            });
+            setPendingLangs(pending);
+            if (!silent) setDraftValues({});
         } catch {
-            showToast({ message: "Errore nel caricamento delle traduzioni", type: "error" });
+            if (!silent) {
+                showToast({ message: t("translations_tab.load_error"), type: "error" });
+            }
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
-    }, [entityId, entityType, fieldKey, tenantId, sourceText, showToast]);
+    }, [
+        entityId,
+        entityType,
+        fieldKey,
+        tenantId,
+        effectiveSource,
+        secondaryEntityType,
+        secondaryFieldKey,
+        showToast,
+        t
+    ]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    // Auto-refresh: finché ci sono job in corso per questa entità, ricarica
+    // ogni 5s (rifetcha righe + hash + pending). Stop quando pendingLangs si
+    // svuota. Pattern identico a TranslationStatusBadge / useTranslationCoverage.
+    useEffect(() => {
+        if (pendingLangs.size === 0) return;
+        const id = setInterval(() => {
+            void loadData(true);
+        }, 5000);
+        return () => clearInterval(id);
+    }, [pendingLangs, loadData]);
 
     const targetLanguages = useMemo<SupportedLanguage[]>(() => {
         const activeSet = new Set(activeCodes);
@@ -147,9 +266,18 @@ export function TranslationsTab({
 
     const translationsByCode = useMemo<Record<string, Translation>>(() => {
         const map: Record<string, Translation> = {};
-        for (const t of translations) map[t.language_code] = t;
+        for (const tr of translations) map[tr.language_code] = tr;
         return map;
     }, [translations]);
+
+    const secondaryByCode = useMemo<Record<string, Translation>>(() => {
+        const map: Record<string, Translation> = {};
+        for (const tr of secondaryTranslations) map[tr.language_code] = tr;
+        return map;
+    }, [secondaryTranslations]);
+
+    const toggleLang = (code: string) =>
+        setExpandedLang(prev => (prev === code ? null : code));
 
     const handleSaveManual = async (languageCode: string) => {
         const translation = translationsByCode[languageCode];
@@ -157,17 +285,15 @@ export function TranslationsTab({
         const text = (draft ?? translation?.translated_text ?? "").trim();
 
         if (!text) {
-            showToast({ message: "La traduzione non può essere vuota", type: "error" });
+            showToast({ message: t("translations_tab.empty_required"), type: "error" });
             return;
         }
-
         if (!hasSource) {
-            showToast({ message: "Compila prima il testo sorgente in italiano", type: "error" });
+            showToast({ message: t("translations_tab.no_source_required"), type: "error" });
             return;
         }
-
         if (currentSourceHash === null) {
-            showToast({ message: "Errore nel calcolo della firma del testo", type: "error" });
+            showToast({ message: t("translations_tab.hash_error"), type: "error" });
             return;
         }
 
@@ -179,15 +305,15 @@ export function TranslationsTab({
                 entityId,
                 field: fieldKey,
                 languageCode,
-                sourceText,
+                sourceText: effectiveSource,
                 sourceHash: currentSourceHash,
                 translatedText: text
             });
             await loadData();
-            showToast({ message: "Traduzione manuale salvata", type: "success" });
+            showToast({ message: t("translations_tab.manual_saved"), type: "success" });
         } catch (err) {
             showToast({
-                message: err instanceof Error ? err.message : "Errore nel salvataggio",
+                message: err instanceof Error ? err.message : t("translations_tab.save_error"),
                 type: "error"
             });
         } finally {
@@ -206,24 +332,47 @@ export function TranslationsTab({
                 field: fieldKey,
                 languageCode
             });
-            setPendingAutoLangs(prev => {
-                const next = new Set(prev);
-                next.add(languageCode);
-                return next;
-            });
+            // Il revert RPC enqueue un job → loadData lo rileva come pending,
+            // il polling poi aggiorna la riga a "Automatica" quando è pronto.
             await loadData();
-            showToast({
-                message:
-                    "Tornato alla traduzione automatica. Ricarica la pagina tra qualche istante per vedere la nuova traduzione.",
-                type: "success"
-            });
+            showToast({ message: t("translations_tab.reverted"), type: "success" });
             return true;
         } catch (err) {
             showToast({
-                message: err instanceof Error ? err.message : "Errore nel ripristino",
+                message: err instanceof Error ? err.message : t("translations_tab.revert_error"),
                 type: "error"
             });
             return false;
+        }
+    };
+
+    const startEditSource = () => {
+        setSourceDraft(effectiveSource);
+        setIsEditingSource(true);
+    };
+
+    const handleSaveSource = async () => {
+        const text = sourceDraft.trim();
+        setIsSavingSource(true);
+        try {
+            if (entityType === "product" && fieldKey === "description") {
+                await updateProduct(entityId, tenantId, { description: text || null });
+            } else if (entityType === "category" && fieldKey === "name") {
+                await updateCategory(entityId, tenantId, { name: text });
+            }
+            // setSourceOverride cambia effectiveSource → loadData rieseguita
+            // dall'effect (ricalcola hash → badge "Da rivedere" coerenti).
+            setSourceOverride(text);
+            setIsEditingSource(false);
+            onSourceUpdated?.(text);
+            showToast({ message: t("translations_tab.source_saved"), type: "success" });
+        } catch (err) {
+            showToast({
+                message: err instanceof Error ? err.message : t("translations_tab.source_save_error"),
+                type: "error"
+            });
+        } finally {
+            setIsSavingSource(false);
         }
     };
 
@@ -232,166 +381,374 @@ export function TranslationsTab({
             <div className={gridClass}>
                 <div className={styles.loading}>
                     <Text variant="body-sm" colorVariant="muted">
-                        Caricamento traduzioni...
+                        {t("translations_tab.loading")}
                     </Text>
                 </div>
             </div>
         );
     }
 
-    const hasNoTargetLangs = targetLanguages.length === 0;
-    const hasNoSource = !hasSource;
-    const showTranslationsCard = !hasNoTargetLangs && !hasNoSource;
-
-    return (
-        <div className={gridClass}>
-            {hasNoTargetLangs ? (
+    if (targetLanguages.length === 0) {
+        return (
+            <div className={gridClass}>
                 <EmptyState
                     icon={<Languages size={40} strokeWidth={1.5} />}
-                    title="Nessuna lingua aggiuntiva configurata"
-                    description="Per gestire le traduzioni, attiva almeno una lingua oltre all'italiano nelle impostazioni del tenant."
+                    title={t("translations_tab.no_langs_title")}
+                    description={t("translations_tab.no_langs_desc")}
                     action={
                         <Link to={`/business/${tenantId}/languages`}>
-                            <Button variant="primary">Vai alle impostazioni lingue</Button>
+                            <Button variant="primary">
+                                {t("translations_tab.no_langs_cta")}
+                            </Button>
                         </Link>
                     }
                 />
-            ) : hasNoSource ? (
-                <EmptyState
-                    icon={<Languages size={40} strokeWidth={1.5} />}
-                    title="Inserisci prima il testo sorgente in italiano"
-                    description="Le traduzioni vengono generate dal testo italiano. Compila il campo originale prima di gestire le traduzioni."
-                />
-            ) : null}
+            </div>
+        );
+    }
 
-            {showTranslationsCard && (
-                <section className={styles.card} data-section="translations">
-                    <header className={styles.cardHeader}>
-                        <span className={styles.cardLabel}>{sectionLabel}</span>
-                    </header>
-                    <div className={styles.cardHelp}>{sectionDescription}</div>
+    const primarySegment = primaryLabel ?? sectionLabel;
 
-                    <div className={styles.referenceCard}>
-                        <div className={styles.langHeader}>
-                            {baseMeta?.flag_emoji && (
-                                <span className={styles.flag}>{baseMeta.flag_emoji}</span>
-                            )}
-                            <span className={styles.langName}>
-                                {baseMeta?.name_native ?? baseLanguage.toUpperCase()} (sorgente)
-                            </span>
-                        </div>
-                        <Text variant="body-sm" className={styles.referenceText}>
-                            {sourceText}
-                        </Text>
+    return (
+        <div className={gridClass}>
+            <section className={styles.card}>
+                <header className={styles.cardHeader}>
+                    <span className={styles.cardLabel}>{sectionLabel}</span>
+                </header>
+                <div className={styles.cardHelp}>{sectionDescription}</div>
+
+                {secondaryField && (
+                    <div className={styles.segmentRow}>
+                        <SegmentedControl<ViewMode>
+                            value={view}
+                            onChange={next => {
+                                setView(next);
+                                setExpandedLang(null);
+                            }}
+                            options={[
+                                { value: "primary", label: primarySegment },
+                                { value: "secondary", label: secondaryField.label }
+                            ]}
+                        />
                     </div>
+                )}
 
-                    <div className={styles.languageList}>
-                        {targetLanguages.map(lang => {
-                            const code = lang.code;
-                            const translation = translationsByCode[code];
-                            const kind = getStatusKind(translation);
-                            const isPendingAuto = pendingAutoLangs.has(code);
-                            const draft = draftValues[code];
-                            const currentValue = draft ?? translation?.translated_text ?? "";
-                            const baseline = translation?.translated_text ?? "";
-                            const isDirty = currentValue !== baseline;
-                            const isStaleManual =
-                                kind === "manual" &&
-                                currentSourceHash !== null &&
-                                translation?.source_hash !== currentSourceHash;
-                            const isSaving = savingLang === code;
-
-                            if (isPendingAuto) {
-                                return (
-                                    <div key={code} className={styles.langBlock}>
-                                        <div className={styles.langHeader}>
-                                            {lang.flag_emoji && (
-                                                <span className={styles.flag}>{lang.flag_emoji}</span>
-                                            )}
-                                            <span className={styles.langName}>{lang.name_native}</span>
-                                            <Badge variant="warning">Traduzione in corso</Badge>
-                                        </div>
-                                        <Textarea
-                                            rows={2}
-                                            placeholder="Generazione automatica in corso. Ricarica la pagina tra qualche istante."
-                                            value=""
-                                            readOnly
-                                            disabled
-                                            onChange={() => {}}
-                                            textareaClassName={styles.langTextarea}
-                                        />
-                                    </div>
-                                );
-                            }
-
-                            return (
-                                <div key={code} className={styles.langBlock}>
-                                    <div className={styles.langHeader}>
-                                        {lang.flag_emoji && (
-                                            <span className={styles.flag}>{lang.flag_emoji}</span>
-                                        )}
-                                        <span className={styles.langName}>{lang.name_native}</span>
-                                        {getStatusBadge(kind)}
-                                    </div>
-
-                                    {isStaleManual && (
-                                        <InlineBanner variant="warning">
-                                            Il testo italiano è stato modificato dopo questa traduzione.
-                                            Verifica se la traduzione manuale è ancora corretta.
-                                        </InlineBanner>
+                {view === "primary" ? (
+                    <>
+                        {/* ── Sorgente italiano (editabile inline) ───────── */}
+                        <div className={styles.sourceCard}>
+                            <div className={styles.sourceHeader}>
+                                <div className={styles.langHeader}>
+                                    {baseMeta?.flag_emoji && (
+                                        <span className={styles.flag}>
+                                            {baseMeta.flag_emoji}
+                                        </span>
                                     )}
+                                    <span className={styles.langName}>
+                                        {baseMeta?.name_native ?? baseLanguage.toUpperCase()} ·{" "}
+                                        {t("translations_tab.source_suffix")}
+                                    </span>
+                                </div>
+                                {canEditSource && !isEditingSource && (
+                                    <button
+                                        type="button"
+                                        className={styles.sourceEditBtn}
+                                        onClick={startEditSource}
+                                    >
+                                        <Pencil size={14} />
+                                        {t("translations_tab.source_edit")}
+                                    </button>
+                                )}
+                            </div>
 
+                            {isEditingSource ? (
+                                <>
                                     <Textarea
-                                        rows={2}
+                                        rows={3}
+                                        autoFocus
                                         placeholder={textareaPlaceholder}
-                                        value={currentValue}
-                                        onChange={e =>
-                                            setDraftValues(prev => ({
-                                                ...prev,
-                                                [code]: e.target.value
-                                            }))
-                                        }
-                                        disabled={isSaving}
+                                        value={sourceDraft}
+                                        onChange={e => setSourceDraft(e.target.value)}
+                                        disabled={isSavingSource}
                                         textareaClassName={styles.langTextarea}
                                     />
-
-                                    <div className={styles.langActions}>
-                                        {kind === "manual" && (
-                                            <Button
-                                                type="button"
-                                                variant="secondary"
-                                                onClick={() => setRevertConfirmFor(code)}
-                                                disabled={isSaving}
-                                            >
-                                                Torna a traduzione automatica
-                                            </Button>
-                                        )}
-                                        {(isDirty || kind === "missing") && (
-                                            <Button
-                                                type="button"
-                                                variant="primary"
-                                                onClick={() => handleSaveManual(code)}
-                                                loading={isSaving}
-                                                disabled={isSaving}
-                                            >
-                                                Salva traduzione manuale
-                                            </Button>
-                                        )}
+                                    <InlineBanner variant="info">
+                                        {t("translations_tab.retranslate_warning")}
+                                    </InlineBanner>
+                                    <div className={styles.sourceActions}>
+                                        <Button
+                                            type="button"
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() => setIsEditingSource(false)}
+                                            disabled={isSavingSource}
+                                        >
+                                            {t("translations_tab.cancel")}
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="primary"
+                                            size="sm"
+                                            onClick={handleSaveSource}
+                                            loading={isSavingSource}
+                                            disabled={isSavingSource}
+                                        >
+                                            {t("translations_tab.save")}
+                                        </Button>
                                     </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </section>
-            )}
+                                </>
+                            ) : hasSource ? (
+                                <Text variant="body-sm" className={styles.sourceText}>
+                                    {effectiveSource}
+                                </Text>
+                            ) : (
+                                <Text
+                                    variant="body-sm"
+                                    colorVariant="muted"
+                                    className={styles.sourceEmpty}
+                                >
+                                    {t("translations_tab.source_empty")}
+                                </Text>
+                            )}
+                        </div>
+
+                        {/* ── Righe lingue ────────────────────────────────── */}
+                        {hasSource ? (
+                            <div className={styles.rowsWrap}>
+                                {targetLanguages.map(lang => {
+                                    const code = lang.code;
+                                    const translation = translationsByCode[code];
+                                    const kind = getStatusKind(translation);
+                                    const isPending = pendingLangs.has(code);
+                                    const isStale =
+                                        currentSourceHash !== null &&
+                                        !!translation &&
+                                        translation.source_hash !== currentSourceHash;
+                                    const draft = draftValues[code];
+                                    const currentValue =
+                                        draft ?? translation?.translated_text ?? "";
+                                    const baseline = translation?.translated_text ?? "";
+                                    const isDirty = currentValue !== baseline;
+                                    const isSaving = savingLang === code;
+
+                                    // Priorità: pending > fresh (manual/auto) > stale.
+                                    const badge = isPending ? (
+                                        <StatusBadge
+                                            variant="pending"
+                                            label={t("translations_tab.badge_translating")}
+                                        />
+                                    ) : kind === "manual" && !isStale ? (
+                                        <StatusBadge
+                                            variant="info"
+                                            label={t("translations_tab.badge_manual")}
+                                        />
+                                    ) : kind === "auto" && !isStale ? (
+                                        <StatusBadge
+                                            variant="neutral"
+                                            label={t("translations_tab.badge_auto")}
+                                        />
+                                    ) : kind === "missing" ? (
+                                        <StatusBadge
+                                            variant="neutral"
+                                            label={t("translations_tab.badge_missing")}
+                                        />
+                                    ) : (
+                                        <StatusBadge
+                                            variant="warning"
+                                            label={t("translations_tab.badge_review")}
+                                        />
+                                    );
+
+                                    return (
+                                        <TranslationRow
+                                            key={code}
+                                            flag={lang.flag_emoji}
+                                            name={lang.name_native}
+                                            badge={badge}
+                                            preview={translation?.translated_text ?? ""}
+                                            previewEmptyLabel={t(
+                                                "translations_tab.preview_empty"
+                                            )}
+                                            expanded={expandedLang === code}
+                                            onToggle={() => toggleLang(code)}
+                                        >
+                                            {isPending ? (
+                                                <Textarea
+                                                    rows={2}
+                                                    placeholder={t(
+                                                        "translations_tab.generating"
+                                                    )}
+                                                    value=""
+                                                    readOnly
+                                                    disabled
+                                                    onChange={() => {}}
+                                                    textareaClassName={styles.langTextarea}
+                                                />
+                                            ) : (
+                                                <>
+                                                    {isStale && (
+                                                        <InlineBanner variant="warning">
+                                                            {t("translations_tab.stale_hint")}
+                                                        </InlineBanner>
+                                                    )}
+                                                    <Textarea
+                                                        rows={3}
+                                                        placeholder={textareaPlaceholder}
+                                                        value={currentValue}
+                                                        onChange={e =>
+                                                            setDraftValues(prev => ({
+                                                                ...prev,
+                                                                [code]: e.target.value
+                                                            }))
+                                                        }
+                                                        disabled={isSaving}
+                                                        textareaClassName={styles.langTextarea}
+                                                    />
+                                                    <div className={styles.langActions}>
+                                                        {kind === "manual" && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="secondary"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    setRevertConfirmFor(code)
+                                                                }
+                                                                disabled={isSaving}
+                                                            >
+                                                                <span className={styles.btnIconLabel}>
+                                                                    <Sparkles size={14} />
+                                                                    {t(
+                                                                        "translations_tab.revert_auto"
+                                                                    )}
+                                                                </span>
+                                                            </Button>
+                                                        )}
+                                                        {(isDirty || kind === "missing") && (
+                                                            <Button
+                                                                type="button"
+                                                                variant="primary"
+                                                                size="sm"
+                                                                onClick={() =>
+                                                                    handleSaveManual(code)
+                                                                }
+                                                                loading={isSaving}
+                                                                disabled={isSaving}
+                                                            >
+                                                                {t(
+                                                                    "translations_tab.save_manual"
+                                                                )}
+                                                            </Button>
+                                                        )}
+                                                    </div>
+                                                </>
+                                            )}
+                                        </TranslationRow>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <InlineBanner variant="info">
+                                {t("translations_tab.add_source_hint")}
+                            </InlineBanner>
+                        )}
+                    </>
+                ) : (
+                    /* ── Vista Note (read-only) ──────────────────────────── */
+                    secondaryField && (
+                        <>
+                            <InlineBanner variant="info">
+                                {t("translations_tab.notes_readonly_banner")}
+                            </InlineBanner>
+                            <div className={styles.rowsWrap}>
+                                {targetLanguages.map(lang => {
+                                    const code = lang.code;
+                                    const translation = secondaryByCode[code];
+                                    const kind = getStatusKind(translation);
+                                    const formatted = translation
+                                        ? formatNotePayload(translation.translated_text)
+                                        : "";
+                                    const badge =
+                                        kind === "manual" ? (
+                                            <StatusBadge
+                                                variant="info"
+                                                label={t("translations_tab.badge_manual")}
+                                            />
+                                        ) : kind === "auto" ? (
+                                            <StatusBadge
+                                                variant="neutral"
+                                                label={t("translations_tab.badge_auto")}
+                                            />
+                                        ) : (
+                                            <StatusBadge
+                                                variant="neutral"
+                                                label={t("translations_tab.badge_missing")}
+                                            />
+                                        );
+
+                                    return (
+                                        <TranslationRow
+                                            key={code}
+                                            flag={lang.flag_emoji}
+                                            name={lang.name_native}
+                                            badge={badge}
+                                            preview={formatted.replace(/\n/g, " · ")}
+                                            previewEmptyLabel={t(
+                                                "translations_tab.preview_empty"
+                                            )}
+                                            expanded={expandedLang === code}
+                                            onToggle={() => toggleLang(code)}
+                                        >
+                                            <div className={styles.noteReference}>
+                                                <span className={styles.noteRefLabel}>
+                                                    {baseMeta?.name_native ??
+                                                        baseLanguage.toUpperCase()}
+                                                </span>
+                                                <Text
+                                                    variant="body-sm"
+                                                    className={styles.sourceText}
+                                                >
+                                                    {formatNoteItems(
+                                                        secondaryField.sourceItems
+                                                    )}
+                                                </Text>
+                                            </div>
+                                            <div className={styles.noteReference}>
+                                                <span className={styles.noteRefLabel}>
+                                                    {lang.name_native}
+                                                </span>
+                                                {formatted ? (
+                                                    <Text
+                                                        variant="body-sm"
+                                                        className={styles.sourceText}
+                                                    >
+                                                        {formatted}
+                                                    </Text>
+                                                ) : (
+                                                    <Text
+                                                        variant="body-sm"
+                                                        colorVariant="muted"
+                                                        className={styles.sourceEmpty}
+                                                    >
+                                                        {t("translations_tab.preview_empty")}
+                                                    </Text>
+                                                )}
+                                            </div>
+                                        </TranslationRow>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )
+                )}
+            </section>
 
             <ConfirmDialog
                 isOpen={revertConfirmFor !== null}
                 onClose={() => setRevertConfirmFor(null)}
                 onConfirm={handleConfirmRevert}
-                title="Tornare alla traduzione automatica?"
-                message="La traduzione manuale verrà persa. Verrà generata una nuova traduzione automatica entro un minuto."
-                confirmLabel="Conferma"
+                title={t("translations_tab.confirm_revert_title")}
+                message={t("translations_tab.confirm_revert_message")}
+                confirmLabel={t("translations_tab.confirm")}
                 confirmVariant="danger"
             />
         </div>
