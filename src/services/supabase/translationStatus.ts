@@ -6,6 +6,12 @@ export type FieldTranslationStatus = {
     doneCount: number;
     pendingCount: number;
     errorCount: number;
+    /**
+     * Traduzioni manuali rimaste indietro rispetto al sorgente IT corrente
+     * (source_hash ≠ hash entità). Le auto stale diventano `pending` (job di
+     * ri-traduzione), quindi NON contano qui — solo le manual da rivedere.
+     */
+    staleCount: number;
     sourceHash: string | null;
     lastError?: string;
 };
@@ -79,6 +85,7 @@ export async function getFieldTranslationStatus(
             doneCount: 0,
             pendingCount: 0,
             errorCount: 0,
+            staleCount: 0,
             sourceHash: null
         };
     }
@@ -92,6 +99,7 @@ export async function getFieldTranslationStatus(
             doneCount: 0,
             pendingCount: 0,
             errorCount: 0,
+            staleCount: 0,
             sourceHash: null
         };
     }
@@ -105,14 +113,15 @@ export async function getFieldTranslationStatus(
             .eq("entity_id", entityId)
             .eq("field", field)
             .eq("source_hash", sourceHash),
+        // Tutte le translations del campo (qualunque source_hash): serve per
+        // distinguere fresh (= corrente) da stale (= manual indietro).
         supabase
             .from("translations")
-            .select("language_code")
+            .select("language_code, status, source_hash")
             .eq("tenant_id", tenantId)
             .eq("entity_type", entityType)
             .eq("entity_id", entityId)
             .eq("field", field)
-            .eq("source_hash", sourceHash)
     ]);
 
     if (jobsRes.error) throw jobsRes.error;
@@ -121,7 +130,12 @@ export async function getFieldTranslationStatus(
     const jobs = jobsRes.data ?? [];
     const translations = translationsRes.data ?? [];
 
-    const doneCount = translations.length;
+    const doneCount = translations.filter(tr => tr.source_hash === sourceHash).length;
+    const staleCount = translations.filter(
+        tr =>
+            (tr.status === "manual" || tr.status === "overridden") &&
+            tr.source_hash !== sourceHash
+    ).length;
     const errorCount = jobs.filter(j => j.status === "error").length;
     const pendingCount = jobs.filter(j => j.status === "pending").length;
     const lastErrorJob = jobs.find(j => j.status === "error" && j.last_error);
@@ -132,6 +146,7 @@ export async function getFieldTranslationStatus(
         doneCount,
         pendingCount,
         errorCount,
+        staleCount,
         sourceHash,
         ...(lastErrorJob?.last_error ? { lastError: lastErrorJob.last_error } : {})
     };

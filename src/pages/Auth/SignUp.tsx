@@ -2,24 +2,33 @@ import { useState } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate, Link } from "react-router-dom";
 import { signUp } from "@/services/supabase/auth";
-import { isDisposableEmail } from "@utils/validateEmail";
-import { Button, InlineBanner } from "@/components/ui";
+import { isDisposableEmail, isValidEmailFormat } from "@utils/validateEmail";
+import { isStrongPassword } from "@utils/validatePassword";
+import { Button, InlineBanner, PasswordRequirements } from "@/components/ui";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { AuthLayout } from "@/layouts/AuthLayout/AuthLayout";
 import styles from "./Auth.module.scss";
+
+const INVALID_EMAIL_MESSAGE = "Inserisci un indirizzo email valido.";
 
 function isAlreadyRegisteredError(message: string): boolean {
   const m = message.toLowerCase();
   return m.includes("already registered") || m.includes("already exists");
 }
 
+function isEmailFormatError(message: string): boolean {
+  const m = message.toLowerCase();
+  return (
+    m.includes("invalid email") ||
+    m.includes("invalid format") ||
+    m.includes("unable to validate email")
+  );
+}
+
 function getReadableSignUpError(message: string): string {
   const normalized = message.toLowerCase();
 
-  if (normalized.includes("invalid email")) {
-    return "Inserisci un indirizzo email valido.";
-  }
   if (normalized.includes("password")) {
     return "La password deve essere più sicura (almeno 8 caratteri).";
   }
@@ -46,6 +55,26 @@ export default function SignUp() {
 
   const navigate = useNavigate();
 
+  // Dispatch unico per gli errori di signUp (usato dal ramo signUpError e dal catch),
+  // così le due strade non divergono. Errori di formato email → inline sul campo;
+  // email già registrata → ramo dedicato; tutto il resto → banner globale.
+  const dispatchSignUpError = (message: string) => {
+    if (isAlreadyRegisteredError(message)) {
+      setIsEmailTaken(true);
+    } else if (isEmailFormatError(message)) {
+      setFieldErrors((prev) => ({ ...prev, email: INVALID_EMAIL_MESSAGE }));
+    } else {
+      setError(getReadableSignUpError(message));
+    }
+  };
+
+  const handleEmailBlur = () => {
+    const trimmed = email.trim();
+    if (trimmed && !isValidEmailFormat(trimmed)) {
+      setFieldErrors((prev) => ({ ...prev, email: INVALID_EMAIL_MESSAGE }));
+    }
+  };
+
   const handleSubmit: React.FormEventHandler = async (e) => {
     e.preventDefault();
     if (loading) return;
@@ -59,11 +88,13 @@ export default function SignUp() {
     if (!firstName.trim()) nextErrors.firstName = "Il nome è obbligatorio.";
     if (!lastName.trim()) nextErrors.lastName = "Il cognome è obbligatorio.";
     if (!email.trim()) nextErrors.email = "L'email è obbligatoria.";
+    else if (!isValidEmailFormat(email.trim()))
+      nextErrors.email = INVALID_EMAIL_MESSAGE;
     else if (isDisposableEmail(email.trim()))
       nextErrors.email =
         "Non è possibile registrarsi con un indirizzo email temporaneo. Utilizza un indirizzo email permanente.";
-    if (password.length < 8)
-      nextErrors.password = "La password deve contenere almeno 8 caratteri.";
+    if (!isStrongPassword(password))
+      nextErrors.password = "La password non soddisfa i requisiti di sicurezza.";
     if (password !== confirmPassword)
       nextErrors.confirmPassword = "Le password non coincidono.";
 
@@ -88,11 +119,7 @@ export default function SignUp() {
       );
 
       if (signUpError) {
-        if (isAlreadyRegisteredError(signUpError.message)) {
-          setIsEmailTaken(true);
-        } else {
-          setError(getReadableSignUpError(signUpError.message));
-        }
+        dispatchSignUpError(signUpError.message);
         return;
       }
 
@@ -106,11 +133,7 @@ export default function SignUp() {
     } catch (err) {
       console.error("[SignUp] handleSubmit error:", err);
       if (err instanceof Error) {
-        if (isAlreadyRegisteredError(err.message)) {
-          setIsEmailTaken(true);
-        } else {
-          setError(getReadableSignUpError(err.message));
-        }
+        dispatchSignUpError(err.message);
       } else {
         setError("Errore durante la registrazione. Riprova.");
       }
@@ -139,7 +162,7 @@ export default function SignUp() {
           Inizia gratis, paga solo quando attivi la prima sede.
         </Text>
 
-        <form onSubmit={handleSubmit} aria-busy={loading}>
+        <form onSubmit={handleSubmit} aria-busy={loading} noValidate>
           <div className={styles.formRow}>
             <TextInput
               label="Nome"
@@ -183,6 +206,7 @@ export default function SignUp() {
                 setFieldErrors((prev) => ({ ...prev, email: "" }));
               }
             }}
+            onBlur={handleEmailBlur}
             required
             autoComplete="email"
             disabled={loading}
@@ -213,6 +237,8 @@ export default function SignUp() {
             disabled={loading}
             error={fieldErrors.password}
           />
+
+          <PasswordRequirements value={password} />
 
           <TextInput
             label="Conferma password"

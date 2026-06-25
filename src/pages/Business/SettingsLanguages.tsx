@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Check } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Text from "@/components/ui/Text/Text";
 import { LanguageRow } from "@/components/SettingsLanguages/LanguageRow";
-import { useTranslationProgress } from "@/hooks/useTranslationProgress";
+import { ReviewDrawer } from "@/components/SettingsLanguages/ReviewDrawer/ReviewDrawer";
+import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
 import {
     listAvailableLanguages,
     listTenantLanguages,
@@ -32,9 +34,10 @@ export default function SettingsLanguages() {
     const [active, setActive] = useState<TenantLanguage[]>([]);
     const [loading, setLoading] = useState(true);
     const [pendingLang, setPendingLang] = useState<SupportedLanguage | null>(null);
+    const [reviewLang, setReviewLang] = useState<SupportedLanguage | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
 
-    const progress = useTranslationProgress(tenantId, refreshKey);
+    const coverage = useTranslationCoverage(tenantId, refreshKey);
 
     usePageHeader({
         title: t("languages.title"),
@@ -73,10 +76,24 @@ export default function SettingsLanguages() {
     const isLangActive = (code: string): boolean =>
         active.some(a => a.language_code === code && a.is_active);
 
-    const progressByLang = useCallback(
-        (code: string) => progress?.by_lang.find(b => b.lang === code),
-        [progress]
+    const coverageByLang = useCallback(
+        (code: string) => coverage?.[code],
+        [coverage]
     );
+
+    // Metriche per la riga di riepilogo (solo estetica, nessun nuovo fetch).
+    const summary = useMemo(() => {
+        const values = coverage ? Object.values(coverage) : [];
+        const unitTotal = values[0]?.total ?? 0; // total identico su ogni lingua (universo)
+        const activeTargetCount = active.filter(
+            a => a.is_active && a.language_code !== "it"
+        ).length;
+        const totalPending = values.reduce((s, c) => s + c.pending, 0);
+        const totalFailed = values.reduce((s, c) => s + c.failed, 0);
+        const state: "queued" | "errors" | "done" =
+            totalPending > 0 ? "queued" : totalFailed > 0 ? "errors" : "done";
+        return { unitTotal, activeTargetCount, totalPending, state };
+    }, [coverage, active]);
 
     const handleToggle = (lang: SupportedLanguage, checked: boolean) => {
         if (!checked) {
@@ -150,6 +167,41 @@ export default function SettingsLanguages() {
                     </div>
                 ) : (
                     <div className={styles.list}>
+                        <div className={styles.summary}>
+                            <span className={styles.summaryItem}>
+                                {t("languages.summary.active_count", {
+                                    count: summary.activeTargetCount
+                                })}
+                            </span>
+                            <span className={styles.sep} aria-hidden>
+                                ·
+                            </span>
+                            <span className={styles.summaryItem}>
+                                {t("languages.summary.translatable", {
+                                    count: summary.unitTotal
+                                })}
+                            </span>
+                            <span className={styles.sep} aria-hidden>
+                                ·
+                            </span>
+                            <span
+                                className={`${styles.globalState} ${styles[`global_${summary.state}`]}`}
+                            >
+                                {summary.state === "queued" && (
+                                    <span className={styles.summarySpinner} aria-hidden />
+                                )}
+                                {summary.state === "done" && (
+                                    <Check size={14} strokeWidth={2.5} aria-hidden />
+                                )}
+                                {summary.state === "queued"
+                                    ? t("languages.summary.queued", {
+                                          count: summary.totalPending
+                                      })
+                                    : summary.state === "errors"
+                                      ? t("languages.summary.has_errors")
+                                      : t("languages.summary.all_done")}
+                            </span>
+                        </div>
                         {orderedLangs.map((lang, idx) => {
                             const isBase = lang.code === "it";
                             return (
@@ -160,7 +212,8 @@ export default function SettingsLanguages() {
                                     flagEmoji={lang.flag_emoji}
                                     isActive={isLangActive(lang.code)}
                                     isBase={isBase}
-                                    progress={progressByLang(lang.code)}
+                                    coverage={coverageByLang(lang.code)}
+                                    unitTotal={isBase ? summary.unitTotal : undefined}
                                     rowIndex={idx}
                                     canToggle={isBase ? false : canWrite}
                                     onToggle={
@@ -170,6 +223,9 @@ export default function SettingsLanguages() {
                                     }
                                     onRetryErrors={
                                         isBase ? undefined : handleRetryErrors
+                                    }
+                                    onReviewClick={
+                                        isBase ? undefined : () => setReviewLang(lang)
                                     }
                                 />
                             );
@@ -190,6 +246,14 @@ export default function SettingsLanguages() {
                 message={t("languages.confirm_description")}
                 confirmLabel={t("languages.confirm_button")}
                 confirmVariant="primary"
+            />
+
+            <ReviewDrawer
+                open={reviewLang !== null}
+                tenantId={tenantId}
+                language={reviewLang}
+                onClose={() => setReviewLang(null)}
+                onResolved={() => setRefreshKey(k => k + 1)}
             />
         </>
         )}

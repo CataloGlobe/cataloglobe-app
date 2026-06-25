@@ -156,3 +156,64 @@ ${getEmailFooterText()}`;
 
     return { subject, html, text };
 }
+
+// --- Cambio combinato: sedi subito + downgrade programmato (happy path) ------
+export function combinedChangeEmail(opts: {
+    seats: number;
+    targetPlan: string;
+    chargedAmountCents?: number | null;
+    effectiveDateIso: string | null;
+}): { subject: string; html: string; text: string } {
+    const label = planLabel(opts.targetPlan);
+    const seats = seatsLabel(opts.seats);
+    const date = formatDateIt(opts.effectiveDateIso);
+    const charged = opts.chargedAmountCents != null && opts.chargedAmountCents > 0;
+    const chargeLine = charged
+        ? `Le sedi sono state addebitate oggi, riproporzionate a tariffa Pro per i giorni rimanenti del periodo: <strong>${formatEuroCents(opts.chargedAmountCents!)}</strong>.`
+        : "Le sedi sono state riproporzionate a tariffa Pro per i giorni rimanenti del periodo.";
+
+    const subject = "Sedi aggiunte e cambio programmato — CataloGlobe";
+    const html = card(
+        "Sedi aggiunte e cambio programmato",
+        p(`Le <strong>${seats}</strong> aggiunte sono attive da subito.`) +
+            p(chargeLine) +
+            p(`Il piano passerà a <strong>${label}</strong> il <strong>${date}</strong>; da quella data si applicherà la tariffa ${label}.`) +
+            p("Ordini e prenotazioni da QR verranno disattivati al rinnovo.")
+    );
+    const text = `Sedi aggiunte e cambio programmato — CataloGlobe
+
+Le ${seats} aggiunte sono attive da subito.
+${charged ? `Le sedi sono state addebitate oggi, riproporzionate a tariffa Pro: ${formatEuroCents(opts.chargedAmountCents!)}.` : "Le sedi sono state riproporzionate a tariffa Pro per i giorni rimanenti del periodo."}
+Il piano passerà a ${label} il ${date}; da quella data si applicherà la tariffa ${label}.
+Ordini e prenotazioni da QR verranno disattivati al rinnovo.
+
+${getEmailFooterText()}`;
+
+    return { subject, html, text };
+}
+
+// --- Cambio combinato fallito a metà: sedi pagate, downgrade non programmato --
+export function combinedChangePartialFailureEmail(opts: {
+    seats: number;
+    targetPlan: string;
+}): { subject: string; html: string; text: string } {
+    const label = planLabel(opts.targetPlan);
+    const seats = seatsLabel(opts.seats);
+
+    const subject = "Sedi aggiunte — cambio piano da completare — CataloGlobe";
+    const html = card(
+        "Sedi aggiunte, cambio piano da completare",
+        p(`Le <strong>${seats}</strong> aggiunte sono <strong>attive e già pagate</strong>.`) +
+            p(`Il passaggio a <strong>${label}</strong> al rinnovo <strong>non</strong> è stato programmato per un problema temporaneo.`) +
+            p("Riprova il cambio di piano dalla pagina Abbonamento: le sedi già pagate non verranno riaddebitate.")
+    );
+    const text = `Sedi aggiunte — cambio piano da completare — CataloGlobe
+
+Le ${seats} aggiunte sono attive e già pagate.
+Il passaggio a ${label} al rinnovo non è stato programmato per un problema temporaneo.
+Riprova il cambio di piano dalla pagina Abbonamento: le sedi già pagate non verranno riaddebitate.
+
+${getEmailFooterText()}`;
+
+    return { subject, html, text };
+}

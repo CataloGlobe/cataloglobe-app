@@ -16,3 +16,72 @@
     justify-content: center;
     padding: 48px;
 }
+
+@keyframes sl-spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+// Riga di riepilogo sopra l'elenco lingue.
+.summary {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 10px 14px;
+    margin-bottom: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 13px;
+}
+
+.summaryItem {
+    color: var(--text);
+    opacity: 0.7;
+    font-weight: 500;
+}
+
+.sep {
+    color: var(--text);
+    opacity: 0.3;
+}
+
+.globalState {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
+}
+
+.global_done {
+    color: var(--color-green-500);
+}
+
+.global_queued {
+    color: var(--color-warning-700);
+}
+
+.global_errors {
+    color: var(--color-red-900);
+}
+
+.summarySpinner {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: conic-gradient(
+        from 0deg,
+        var(--color-warning-500) 0deg,
+        var(--color-warning-500) 280deg,
+        transparent 280deg,
+        transparent 360deg
+    );
+    -webkit-mask: radial-gradient(circle, transparent 3.5px, #000 4px);
+    mask: radial-gradient(circle, transparent 3.5px, #000 4px);
+    animation: sl-spin 900ms linear infinite;
+}

@@ -37,6 +37,7 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
 import { generateSlug, sanitizeSlugForSave } from "@/utils/slugify";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
+import { isValidCapIT, isValidProvinciaIT } from "@/utils/addressValidators";
 
 // Tipi importati da "@/types/Businesses"
 
@@ -379,8 +380,8 @@ export default function Businesses() {
         if (!values.address.trim()) errors.address = "L'indirizzo è obbligatorio.";
         if (!values.slug.trim()) errors.slug = "Lo slug è obbligatorio.";
         if (!values.street_number.trim()) errors.street_number = "Inserisci il numero civico";
-        if (values.postal_code.trim().length !== 5) errors.postal_code = "Inserisci un CAP valido (5 cifre)";
-        if (values.province.trim().length !== 2) errors.province = "Inserisci la sigla provincia (es. MI)";
+        if (!isValidCapIT(values.postal_code)) errors.postal_code = "Inserisci un CAP valido (5 cifre)";
+        if (!isValidProvinciaIT(values.province)) errors.province = "Inserisci una sigla provincia valida (es. MI)";
 
         return errors;
     }
@@ -677,8 +678,8 @@ export default function Businesses() {
         if (!values.address.trim()) errors.address = "L'indirizzo è obbligatorio.";
         if (!values.slug.trim()) errors.slug = "Lo slug è obbligatorio.";
         if (!values.street_number.trim()) errors.street_number = "Inserisci il numero civico";
-        if (values.postal_code.trim().length !== 5) errors.postal_code = "Inserisci un CAP valido (5 cifre)";
-        if (values.province.trim().length !== 2) errors.province = "Inserisci la sigla provincia (es. MI)";
+        if (!isValidCapIT(values.postal_code)) errors.postal_code = "Inserisci un CAP valido (5 cifre)";
+        if (!isValidProvinciaIT(values.province)) errors.province = "Inserisci una sigla provincia valida (es. MI)";
 
         return errors;
     }

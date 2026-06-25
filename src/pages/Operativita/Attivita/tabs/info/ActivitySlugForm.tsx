@@ -6,7 +6,7 @@ import Text from "@/components/ui/Text/Text";
 import { updateActivity } from "@/services/supabase/activities";
 import { createActivitySlugAlias } from "@/services/supabase/activitySlugAliases";
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
-import { sanitizeSlugForSave } from "@/utils/slugify";
+import { sanitizeSlugForInput, sanitizeSlugForSave } from "@/utils/slugify";
 import { RESERVED_SLUGS } from "@/constants/reservedSlugs";
 import type { V2Activity } from "@/types/activity";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -91,23 +91,33 @@ export function ActivitySlugForm({
 
     const handleSlugChange = useCallback(
         (e: React.ChangeEvent<HTMLInputElement>) => {
-            const sanitized = sanitizeSlugForSave(e.target.value);
-            setSlug(sanitized);
+            // Live: sanitize PERMISSIVA (permette stati intermedi tipo `isola-`).
+            const liveValue = sanitizeSlugForInput(e.target.value);
+            setSlug(liveValue);
             setHasConfirmed(false);
 
             if (debounceRef.current) clearTimeout(debounceRef.current);
 
-            if (!sanitized || sanitized === entityData.slug) {
+            // Validazione e unicità girano sulla forma CANONICA, non sul raw:
+            // evita il flash "non valido" mentre si digita un trattino di bordo.
+            const canonical = sanitizeSlugForSave(liveValue);
+
+            if (!canonical || canonical === entityData.slug) {
                 setSlugStatus("idle");
                 return;
             }
 
             debounceRef.current = setTimeout(() => {
-                checkSlug(sanitized);
+                checkSlug(canonical);
             }, DEBOUNCE_MS);
         },
         [entityData.slug, checkSlug]
     );
+
+    // Blur: snap alla forma canonica (`isola-` → `isola`, `isola--test` → `isola-test`).
+    const handleSlugBlur = useCallback(() => {
+        setSlug(prev => sanitizeSlugForSave(prev));
+    }, []);
 
     useEffect(() => {
         return () => {
@@ -125,10 +135,14 @@ export function ActivitySlugForm({
 
             if (!canSubmit) return;
 
+            // Rete di sicurezza: normalizza in forma canonica prima della write,
+            // anche se l'utente non ha fatto blur sul campo.
+            const canonicalSlug = sanitizeSlugForSave(slug);
+
             onSavingChange(true);
             try {
                 const oldSlug = entityData.slug;
-                await updateActivity(entityData.id, entityData.tenant_id, { slug });
+                await updateActivity(entityData.id, entityData.tenant_id, { slug: canonicalSlug });
                 // Salva il vecchio slug come alias — fire-and-forget, non blocca il flusso
                 try {
                     await createActivitySlugAlias(entityData.id, entityData.tenant_id, oldSlug);
@@ -167,6 +181,7 @@ export function ActivitySlugForm({
                         required
                         value={slug}
                         onChange={handleSlugChange}
+                        onBlur={handleSlugBlur}
                         placeholder="es. pizzeria-roma-centro"
                     />
                     {slugStatus === "checking" && (

@@ -42,12 +42,12 @@
 .row {
     position: relative;
     display: flex;
-    align-items: center;
-    gap: 12px;
+    flex-direction: column;
+    gap: 10px;
     padding: 14px 16px;
     background: var(--card-bg);
     border: 1px solid var(--border);
-    border-radius: 10px;
+    border-radius: 12px;
     transition:
         transform 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
         box-shadow 220ms cubic-bezier(0.2, 0.8, 0.2, 1),
@@ -57,28 +57,32 @@
     animation: lr-slide-in 240ms cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
     animation-delay: calc(var(--row-index, 0) * 40ms);
 
-    &:hover:not(.baseRow) {
+    &:hover:not(.baseRow):not(.inactiveRow) {
         transform: translateY(-1px);
         box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
     }
 }
 
-.baseRow {
-    overflow: hidden;
+.topLine {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
 
-    &::before {
-        content: "";
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: 0;
-        width: 3px;
-        background: linear-gradient(
-            180deg,
-            var(--brand-primary) 0%,
-            var(--brand-primary) 60%,
-            transparent 100%
-        );
+// Card lingua base: contorno neutro come le altre, nessun accento sinistro.
+// Classe mantenuta solo per escludere l'hover-lift (card non interattiva).
+.baseRow {
+    cursor: default;
+}
+
+// Lingua disattivata: card attenuata, niente metriche.
+.inactiveRow {
+    background: var(--bg);
+    border-style: dashed;
+
+    .flag {
+        filter: grayscale(0.7);
+        opacity: 0.7;
     }
 }
 
@@ -109,6 +113,25 @@
     font-weight: 600;
 }
 
+.subText {
+    display: block;
+    margin-top: 3px;
+    line-height: 1.35;
+}
+
+.subTextRow {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 3px;
+    color: var(--text);
+}
+
+.subIcon {
+    opacity: 0.55;
+    flex-shrink: 0;
+}
+
 .basePill {
     display: inline-flex;
     align-items: center;
@@ -131,67 +154,78 @@
     min-height: 28px;
 }
 
-.doneIcon {
+// ── Chip di stato (icona + label), colori dai token semantici del tema ──────
+
+%pill {
     display: inline-flex;
     align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    color: var(--color-green-500);
-    border-radius: 999px;
-}
-
-.progressInfo {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.spinner {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: conic-gradient(
-        from 0deg,
-        var(--brand-primary) 0deg,
-        var(--brand-primary) 280deg,
-        transparent 280deg,
-        transparent 360deg
-    );
-    -webkit-mask: radial-gradient(circle, transparent 4px, #000 4.5px);
-    mask: radial-gradient(circle, transparent 4px, #000 4.5px);
-    animation: lr-spin 900ms linear infinite;
-}
-
-.counter {
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-    color: var(--text);
-    opacity: 0.75;
-    font-weight: 500;
-}
-
-.errorPill {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
+    gap: 5px;
     padding: 4px 10px 4px 8px;
-    border: 1px solid var(--color-red-200);
-    background: var(--color-red-50);
-    color: var(--color-red-900);
     border-radius: 999px;
     font-size: 11px;
     font-weight: 600;
+    line-height: 1.4;
+}
+
+// Aggiornata — verde.
+.donePill {
+    @extend %pill;
+    border: 1px solid var(--color-green-200);
+    background: var(--color-green-50);
+    color: var(--color-green-900);
+}
+
+// {N} in coda — ambra (palette warning del tema).
+.queuedPill {
+    @extend %pill;
+    gap: 6px;
+    border: 1px solid var(--color-warning-200);
+    background: var(--color-warning-50);
+    color: var(--color-warning-700);
+}
+
+// {N} da rivedere — neutro/grigio, NON allarmante. Cliccabile (apre drawer).
+.reviewPill {
+    @extend %pill;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    opacity: 0.75;
+    font-family: inherit;
     cursor: pointer;
     transition:
         transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
         box-shadow 160ms ease,
-        background-color 160ms ease;
+        opacity 160ms ease;
+
+    &:hover {
+        opacity: 1;
+        transform: translateY(-1px);
+        box-shadow: 0 3px 8px rgba(0, 0, 0, 0.06);
+    }
+
+    &:active {
+        transform: translateY(0);
+    }
+}
+
+// {N} da riprovare — rosso, cliccabile.
+.errorPill {
+    @extend %pill;
+    gap: 6px;
+    border: 1px solid var(--color-red-200);
+    background: var(--color-red-50);
+    color: var(--color-red-900);
+    cursor: pointer;
     font-family: inherit;
+    transition:
+        transform 160ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        box-shadow 160ms ease,
+        background-color 160ms ease;
 
     &:hover:not(:disabled) {
         transform: translateY(-1px);
-        box-shadow: 0 3px 8px rgba(220, 38, 38, 0.18);
+        box-shadow: 0 3px 8px var(--color-red-200);
     }
 
     &:active:not(:disabled) {
@@ -204,11 +238,37 @@
     }
 }
 
+.doneIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    color: var(--color-green-500);
+    border-radius: 999px;
+}
+
+.spinner {
+    width: 13px;
+    height: 13px;
+    border-radius: 50%;
+    background: conic-gradient(
+        from 0deg,
+        var(--color-warning-500) 0deg,
+        var(--color-warning-500) 280deg,
+        transparent 280deg,
+        transparent 360deg
+    );
+    -webkit-mask: radial-gradient(circle, transparent 3.5px, #000 4px);
+    mask: radial-gradient(circle, transparent 3.5px, #000 4px);
+    animation: lr-spin 900ms linear infinite;
+}
+
 .errorDot {
     width: 7px;
     height: 7px;
     border-radius: 50%;
-    background: #dc2626;
+    background: var(--color-red-900);
     flex-shrink: 0;
     animation: lr-pulse 1.4s ease-in-out infinite;
 }
@@ -217,34 +277,61 @@
     flex-shrink: 0;
 }
 
-.progressBar {
-    position: absolute;
-    left: 0;
-    bottom: 0;
-    height: 2px;
-    background-image:
-        linear-gradient(
-            90deg,
-            var(--brand-primary) 0%,
-            var(--brand-primary) 100%
-        ),
-        repeating-linear-gradient(
-            -45deg,
-            rgba(255, 255, 255, 0.18) 0,
-            rgba(255, 255, 255, 0.18) 4px,
-            transparent 4px,
-            transparent 8px
-        );
-    background-blend-mode: overlay;
-    background-size: 100% 100%, 24px 100%;
-    border-bottom-left-radius: 10px;
-    border-bottom-right-radius: 0;
+// ── Barra di copertura (track + fill colorato per stato) ────────────────────
+
+.track {
+    position: relative;
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: var(--hover-bg);
+    overflow: hidden;
+}
+
+.fill {
+    display: block;
+    height: 100%;
+    border-radius: 999px;
     transition: width 600ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.fill_done {
+    background: var(--color-green-500);
+}
+
+.fill_in_progress {
+    background: var(--color-warning-500);
+}
+
+.fill_error {
+    background: color-mix(in srgb, var(--color-red-900) 55%, transparent);
+}
+
+.fill_to_review {
+    background: color-mix(in srgb, var(--text) 28%, transparent);
+}
+
+// Stripe animata solo durante il lavoro live (in_progress).
+.fillAnimated {
+    background-image: repeating-linear-gradient(
+        -45deg,
+        rgba(255, 255, 255, 0.22) 0,
+        rgba(255, 255, 255, 0.22) 4px,
+        transparent 4px,
+        transparent 8px
+    );
+    background-size: 24px 100%;
     animation: lr-progress-stripe 1.2s linear infinite;
 }
 
+.reviewHint {
+    line-height: 1.4;
+}
+
+// ── Accento bordo per stato ─────────────────────────────────────────────────
+
 .status_in_progress {
-    border-color: color-mix(in srgb, var(--brand-primary) 30%, var(--border));
+    border-color: color-mix(in srgb, var(--color-warning-500) 30%, var(--border));
 }
 
 .status_error {

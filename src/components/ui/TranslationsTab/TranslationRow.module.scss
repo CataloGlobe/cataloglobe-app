@@ -1,0 +1,114 @@
+// Riga lingua compatta espandibile.
+// REGOLA RADIUS: il radius vive sul WRAPPER della lista (overflow:hidden);
+// la singola riga NON ha mai radius proprio → le righe intermedie restano
+// squadrate anche da espanse, solo prima/ultima mostrano gli angoli.
+.row {
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+// Riga ESPANSA: l'intera fascia (header + corpo) prende lo sfondo grigio tenue,
+// senza stacchi interni. Niente radius proprio.
+.rowOpen {
+  background: var(--bg);
+  border-bottom-color: transparent;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  transition: background 0.12s ease;
+}
+
+// Hover solo da collassata (da aperta lo sfondo è già grigio).
+.row:not(.rowOpen) .header:hover {
+  background: var(--bg);
+}
+
+.headerOpen {
+  padding-bottom: 12px;
+  cursor: default;
+}
+
+.header:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 2px var(--brand-primary-soft);
+}
+
+.flag {
+  font-size: 18px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.name {
+  width: 96px;
+  flex-shrink: 0;
+  font-weight: 600;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badgeSlot {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+// Anteprima: occupa lo spazio residuo e tronca con ellissi.
+// min-width:0 indispensabile perché il troncamento funzioni dentro il flex.
+.preview {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 13px;
+  color: var(--text-muted, #94a3b8);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.previewEmpty {
+  font-style: italic;
+  opacity: 0.7;
+}
+
+// Riempie lo spazio quando la riga è espansa (anteprima nascosta).
+.spacer {
+  flex: 1 1 auto;
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--text-muted, #94a3b8);
+  transition: transform 0.18s ease;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.bodyWrap {
+  overflow: hidden;
+}
+
+// Corpo dentro la fascia grigia: padding orizzontale allineato all'header,
+// nessun radius/sfondo proprio (eredita il grigio della riga aperta).
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 0 14px 14px;
+}

@@ -8,6 +8,14 @@ import Stripe from "https://esm.sh/stripe@17?target=deno";
 // status code. Callers should NEVER let a Stripe failure abort the primary
 // DB flow (soft-delete, recovery, purge).
 //
+// Each mutating helper accepts an optional `idempotencyKey` forwarded to Stripe
+// as request options (see idempotency.ts for deterministic key construction).
+// Supply a deterministic key ONLY for non-reversible operations such as
+// immediate cancel and customer delete. Do NOT pass deterministic keys to the
+// reversible toggles scheduleStripeCancel and reactivateStripeSubIfScheduled: a
+// legitimate re-toggle within Stripe's 24h idempotency window would be silently
+// swallowed as a replay. Default (no key) preserves the pre-existing behavior.
+//
 // API version pinned to 2025-04-30.basil for parity with stripe-webhook.
 // ---------------------------------------------------------------------------
 
@@ -45,11 +53,16 @@ export function createStripeClient(): Stripe | null {
  */
 export async function releaseScheduleIfAny(
     stripe: Stripe,
-    scheduleId?: string | null
+    scheduleId?: string | null,
+    idempotencyKey?: string
 ): Promise<void> {
     if (!scheduleId) return;
     try {
-        await stripe.subscriptionSchedules.release(scheduleId);
+        await stripe.subscriptionSchedules.release(
+            scheduleId,
+            undefined,
+            idempotencyKey ? { idempotencyKey } : undefined
+        );
     } catch (relErr) {
         const message = relErr instanceof Error ? relErr.message : String(relErr);
         console.warn(`releaseScheduleIfAny: release of ${scheduleId} failed (continuing): ${message}`);
@@ -73,7 +86,8 @@ export type ScheduleCancelResult =
 export async function scheduleStripeCancel(
     stripe: Stripe,
     subscriptionId: string,
-    context: Record<string, unknown> = {}
+    context: Record<string, unknown> = {},
+    idempotencyKey?: string
 ): Promise<ScheduleCancelResult> {
     try {
         const sub = await stripe.subscriptions.retrieve(subscriptionId);
@@ -97,7 +111,11 @@ export async function scheduleStripeCancel(
             return "already_scheduled";
         }
 
-        await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: true });
+        await stripe.subscriptions.update(
+            subscriptionId,
+            { cancel_at_period_end: true },
+            idempotencyKey ? { idempotencyKey } : undefined
+        );
         console.log(JSON.stringify({
             event: "stripe_scheduled_for_cancel",
             subscription_id: subscriptionId,
@@ -139,7 +157,8 @@ export type ReactivateResult =
 export async function reactivateStripeSubIfScheduled(
     stripe: Stripe,
     subscriptionId: string,
-    context: Record<string, unknown> = {}
+    context: Record<string, unknown> = {},
+    idempotencyKey?: string
 ): Promise<ReactivateResult> {
     try {
         const sub = await stripe.subscriptions.retrieve(subscriptionId);
@@ -163,7 +182,11 @@ export async function reactivateStripeSubIfScheduled(
             return "not_scheduled";
         }
 
-        await stripe.subscriptions.update(subscriptionId, { cancel_at_period_end: false });
+        await stripe.subscriptions.update(
+            subscriptionId,
+            { cancel_at_period_end: false },
+            idempotencyKey ? { idempotencyKey } : undefined
+        );
         console.log(JSON.stringify({
             event: "stripe_subscription_reactivated",
             subscription_id: subscriptionId,
@@ -199,10 +222,15 @@ export type ImmediateCancelResult = "canceled" | "already_canceled" | "error";
 export async function cancelStripeSubImmediate(
     stripe: Stripe,
     subscriptionId: string,
-    context: Record<string, unknown> = {}
+    context: Record<string, unknown> = {},
+    idempotencyKey?: string
 ): Promise<ImmediateCancelResult> {
     try {
-        await stripe.subscriptions.cancel(subscriptionId);
+        await stripe.subscriptions.cancel(
+            subscriptionId,
+            undefined,
+            idempotencyKey ? { idempotencyKey } : undefined
+        );
         console.log(JSON.stringify({
             event: "stripe_sub_canceled_immediate",
             subscription_id: subscriptionId,
@@ -238,10 +266,15 @@ export type DeleteCustomerResult = "deleted" | "already_deleted" | "error";
 export async function deleteStripeCustomer(
     stripe: Stripe,
     customerId: string,
-    context: Record<string, unknown> = {}
+    context: Record<string, unknown> = {},
+    idempotencyKey?: string
 ): Promise<DeleteCustomerResult> {
     try {
-        await stripe.customers.del(customerId);
+        await stripe.customers.del(
+            customerId,
+            undefined,
+            idempotencyKey ? { idempotencyKey } : undefined
+        );
         console.log(JSON.stringify({
             event: "stripe_customer_deleted",
             customer_id: customerId,

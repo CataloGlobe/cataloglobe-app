@@ -27,6 +27,23 @@ export function generateRandomSuffix(length = 4): string {
     return result;
 }
 
+/**
+ * Sanitizer PERMISSIVO per la digitazione live (onChange).
+ * Identico a sanitizeSlugForSave MA senza collapse `--` e senza trim dei
+ * trattini di bordo: permette stati intermedi legittimi come `isola-` mentre
+ * l'utente continua a digitare. La forma canonica si ottiene a blur/submit via
+ * sanitizeSlugForSave.
+ */
+export function sanitizeSlugForInput(input: string): string {
+    return input
+        .toLowerCase()
+        .trim()
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/[^a-z0-9-]/g, "");
+}
+
 export function sanitizeSlugForSave(input: string): string {
     return input
         .toLowerCase()

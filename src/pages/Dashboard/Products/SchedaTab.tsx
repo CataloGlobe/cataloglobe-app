@@ -562,7 +562,9 @@ export function SchedaTab({
                                         entityType="product"
                                         entityId={productId}
                                         field="description"
-                                        refreshKey={productId}
+                                        // Include la descrizione così il badge
+                                        // rifetcha (stale/pending) dopo un edit IT.
+                                        refreshKey={`${productId}:${product.description ?? ""}`}
                                     />
                                     <button
                                         type="button"

@@ -1,4 +1,5 @@
 import { supabase } from "./client";
+import type { TranslationEntityType, TranslationField } from "@/types/translations";
 
 export type SupportedLanguage = {
     code: string;
@@ -142,6 +143,79 @@ export async function getTranslationProgress(
     if (error) throw error;
     if (!data) return EMPTY_PROGRESS;
     return data as TranslationProgress;
+}
+
+/**
+ * Copertura traduzioni entity-level, hash-aware, per UNA lingua attiva.
+ * A differenza di LanguageProgress (job-level, cumulativo), classifica ogni unità
+ * traducibile confrontando source_hash col contenuto sorgente attuale.
+ * Invariante server-side: fresh + stale + pending + failed + missing = total.
+ */
+export type LanguageCoverage = {
+    total: number;
+    fresh: number;
+    stale: number;
+    pending: number;
+    failed: number;
+    missing: number;
+    last_updated: string | null;
+};
+
+/** Mappa per lingua attiva: { <language_code>: LanguageCoverage }. */
+export type TranslationCoverage = Record<string, LanguageCoverage>;
+
+/**
+ * Copertura onesta delle traduzioni per ogni lingua attiva del tenant.
+ * RPC SECURITY DEFINER get_translation_coverage (access check via get_my_tenant_ids).
+ * Ritorna solo le lingue ATTIVE; le inattive non compaiono.
+ *
+ * Polling consigliato: ogni 5 sec finché qualche lingua ha pending > 0; stop a 0.
+ */
+export async function getTranslationCoverage(
+    tenantId: string
+): Promise<TranslationCoverage> {
+    const { data, error } = await supabase.rpc("get_translation_coverage", {
+        p_tenant_id: tenantId
+    });
+    if (error) throw error;
+    if (!data) return {};
+    return data as TranslationCoverage;
+}
+
+/**
+ * Elemento "da rivedere" restituito da get_stale_translations: una traduzione
+ * rimasta indietro rispetto all'italiano (kind 'stale') o mai prodotta ('missing').
+ */
+export type StaleTranslationKind = "stale" | "missing";
+
+export type StaleTranslationItem = {
+    entity_type: TranslationEntityType;
+    entity_id: string;
+    field: TranslationField;
+    name: string;
+    source_text: string;
+    status: "manual" | "overridden" | "auto" | null;
+    kind: StaleTranslationKind;
+};
+
+/**
+ * Lista degli elementi "da rivedere" per una lingua (kind stale|missing).
+ * RPC SECURITY DEFINER get_stale_translations. Stesso universo della coverage:
+ * length() == sum(stale + missing) della lingua nella copertura.
+ *
+ * Chiamata LAZY (solo all'apertura del drawer "Da rivedere"), niente polling.
+ */
+export async function getStaleTranslations(
+    tenantId: string,
+    languageCode: string
+): Promise<StaleTranslationItem[]> {
+    const { data, error } = await supabase.rpc("get_stale_translations", {
+        p_tenant_id: tenantId,
+        p_language_code: languageCode
+    });
+    if (error) throw error;
+    if (!data) return [];
+    return data as StaleTranslationItem[];
 }
 
 /**

@@ -43,14 +43,29 @@
   margin-top: -8px;
 }
 
-// ── Reference (source IT) box light senza border ───────────────────
-.referenceCard {
+// ── Segmented Descrizione / Note ────────────────────────────────────
+.segmentRow {
+  display: flex;
+  margin: 4px 0;
+}
+
+// ── Sorgente IT (editabile inline) ──────────────────────────────────
+// Card sorgente IT: isolata → radius pieno su tutti i lati.
+.sourceCard {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 8px;
   padding: 12px 14px;
   background: var(--bg);
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.sourceHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .langHeader {
@@ -58,6 +73,7 @@
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  min-width: 0;
 }
 
 .flag {
@@ -69,38 +85,52 @@
   font-weight: 600;
 }
 
-.referenceText {
+.sourceEditBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-primary);
+  cursor: pointer;
+  transition: background 0.12s ease;
+  flex-shrink: 0;
+}
+
+.sourceEditBtn:hover {
+  background: var(--brand-primary-soft);
+}
+
+.sourceActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.sourceText {
   color: var(--color-gray-800);
   white-space: pre-wrap;
   word-break: break-word;
-  line-height: 1.4;
+  line-height: 1.45;
 }
 
-// ── Lista lingue separata da source via border-top + divisori ──────
-.languageList {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  padding-top: 12px;
-  border-top: 1px solid var(--border);
+.sourceEmpty {
+  font-style: italic;
 }
 
-// ── Lingua block: divisori orizzontali invece di card individuali ─
-.langBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 14px 0 0 0;
-  border-bottom: 1px solid var(--border);
-}
-
-.langBlock:first-child {
-  padding-top: 0;
-}
-
-.langBlock:last-child {
-  border-bottom: none;
-  padding-bottom: 0;
+// ── Lista lingue ────────────────────────────────────────────────────
+// Il radius vive QUI (wrapper): overflow:hidden + radius → solo la prima riga
+// mostra gli angoli alti, l'ultima quelli bassi; le intermedie restano
+// squadrate anche da espanse. Le singole righe NON hanno radius proprio.
+.rowsWrap {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
 }
 
 .langActions {
@@ -110,12 +140,33 @@
   gap: 8px;
 }
 
-// ── Textarea ghost: invisibile in default, attivata in focus ───────
+// Icona + label dentro un pulsante: spaziatura tra ✨ e testo.
+.btnIconLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+// ── Vista note read-only ────────────────────────────────────────────
+.noteReference {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.noteRefLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+  color: var(--text-muted, #94a3b8);
+}
+
+// ── Textarea ghost: invisibile in default, attivata in focus ─────────
 // Applicato via prop textareaClassName del componente shared Textarea.
-// Override del border default solo per questo contesto.
 .langTextarea {
-  background: var(--bg);
-  border: 1px solid transparent;
+  background: var(--card-bg, #fff);
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px 12px;
   font-size: 14px;
@@ -134,7 +185,7 @@
   outline: none;
   background: var(--card-bg, #fff);
   border-color: var(--brand-primary);
-  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  box-shadow: 0 0 0 3px var(--brand-primary-soft);
 }
 
 // ── Loading ─────────────────────────────────────────────────────────

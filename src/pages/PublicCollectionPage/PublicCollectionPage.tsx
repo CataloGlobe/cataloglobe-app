@@ -108,6 +108,16 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
             : { status: "loading" }
     );
 
+    // Skip-hydration one-shot: il payload inlinato dal server è SEMPRE nella
+    // lingua base (il rewrite SSR serve solo /:slug, senza segmento lingua).
+    // Consumiamo lo skip del primo fetch una sola volta — al primo render
+    // post-hydration e solo se la lingua richiesta coincide con quella
+    // inlinata — così ogni cambio lingua o render successivo fetcha
+    // normalmente. (entry-client non monta StrictMode → il ref non viene
+    // consumato due volte; rivedere se StrictMode torna.)
+    const hydrationConsumedRef = useRef(false);
+    const inlinedBaseLang = initialPayload?.payload.base_language_code ?? "it";
+
     // Payload-derived: ordering_disabled deriva da business.ordering_enabled.
     // Backward compat: snapshot Redis pre-Fix 1 puo non avere il campo →
     // `!== false` rende il check permissivo (no maintenance), submit-order
@@ -213,8 +223,22 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         const validatedLang = isValidLangFormat(langFromUrl) ? langFromUrl!.toLowerCase() : undefined;
 
         // Skip fetch on SSR hydration: payload already inlined by the server.
-        // retryToken > 0 (manual retry) and simulateParam bypass the skip.
-        if (initialPayload && retryToken === 0 && !simulateParam) return;
+        // Vale SOLO al primo render post-hydration e SOLO se la lingua
+        // richiesta coincide con quella inlinata (lingua base). Nessun segmento
+        // lingua (validatedLang undefined) ⇒ lingua base. Qualsiasi cambio
+        // lingua client-side deve fetchare → contenuto tradotto senza reload.
+        // retryToken > 0 (manual retry) e simulateParam bypassano lo skip.
+        const requestedLang = validatedLang ?? inlinedBaseLang;
+        if (
+            initialPayload &&
+            !hydrationConsumedRef.current &&
+            requestedLang === inlinedBaseLang &&
+            retryToken === 0 &&
+            !simulateParam
+        ) {
+            hydrationConsumedRef.current = true;
+            return;
+        }
 
         let cancelled = false;
 

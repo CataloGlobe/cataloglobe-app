@@ -87,6 +87,13 @@ export async function createPortalSession(
 //   - "PAYMENT_FAILED"          → addebito prorata rifiutato / richiede azione
 //   - "NO_SUBSCRIPTION"         → tenant senza subscription attiva
 //   - "forbidden"               → manca il permesso billing.manage
+//   - "SCHEDULE_RELEASE_FAILED" → (combinato) sub ancora schedule-managed, abort
+//   - "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED" → (combinato) sedi addebitate ma
+//                                  il downgrade non è stato programmato (riprova)
+//
+// `classification` può valere "combined" quando il tier scende e le sedi
+// aumentano nello stesso cambio: le sedi sono addebitate subito (prorata a
+// tariffa corrente) e il downgrade è programmato al rinnovo.
 // ---------------------------------------------------------------------------
 
 export type SubscriptionChangeInput = {
@@ -94,7 +101,7 @@ export type SubscriptionChangeInput = {
     seats: number;
 };
 
-export type SubscriptionChangeClassification = "upgrade" | "downgrade";
+export type SubscriptionChangeClassification = "upgrade" | "downgrade" | "combined";
 
 export type SubscriptionChangePreview = {
     classification: SubscriptionChangeClassification;
@@ -102,7 +109,8 @@ export type SubscriptionChangePreview = {
     seats: number;
     /** ISO 4217, lowercase (es. "eur"). */
     currency: string;
-    /** Importo addebitato oggi, in centesimi (0 per i downgrade). */
+    /** Importo addebitato oggi, in centesimi (0 per i downgrade puri; delta sedi
+     * prorato a tariffa corrente per il caso "combined"). */
     chargeToday: number;
     /** Importo del prossimo addebito ricorrente, in centesimi. */
     nextAmount: number;

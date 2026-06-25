@@ -150,6 +150,25 @@ export async function listCategories(
     return data || [];
 }
 
+/**
+ * Catalogo di appartenenza di una categoria. Usato per risolvere client-side
+ * la rotta di editing dal drawer "Da rivedere" (categoria → /catalogs/:catalogId).
+ * Lancia PGRST116 se la categoria non esiste / non appartiene al tenant.
+ */
+export async function getCategoryCatalogId(
+    categoryId: string,
+    tenantId: string
+): Promise<string> {
+    const { data, error } = await supabase
+        .from("catalog_categories")
+        .select("catalog_id")
+        .eq("id", categoryId)
+        .eq("tenant_id", tenantId)
+        .single();
+    if (error) throw error;
+    return data.catalog_id as string;
+}
+
 export async function createCategory(
     tenantId: string,
     catalogId: string,
