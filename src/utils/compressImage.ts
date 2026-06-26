@@ -33,10 +33,12 @@ export const COMPRESS_PROFILES = {
 export async function compressImage(
     file: File,
     maxWidthOrOptions: number | CompressOptions = 900,
-    quality = 0.8
+    quality = 0.8,
+    maxInputSize: number = MAX_INPUT_SIZE
 ): Promise<File> {
-    if (file.size > MAX_INPUT_SIZE) {
-        throw new CompressionError("File troppo grande. Massimo 10MB.", "TOO_LARGE");
+    if (file.size > maxInputSize) {
+        const maxMb = Math.round(maxInputSize / (1024 * 1024));
+        throw new CompressionError(`File troppo grande. Massimo ${maxMb}MB.`, "TOO_LARGE");
     }
     if (file.type === "image/heic" || file.type === "image/heif") {
         throw new CompressionError(

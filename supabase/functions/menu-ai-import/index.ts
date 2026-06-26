@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { exceedsPayloadBudget } from "../_shared/aiImportPayloadSize.ts";
 
 /* ────────────────────────────── CORS ────────────────────────────── */
 
@@ -262,6 +263,15 @@ serve(async (req: Request) => {
                 return jsonError(`Formato non supportato: ${entry.mime_type}`, 400);
             }
             normalizedImages.push(entry);
+        }
+
+        // ── Aggregate size backstop (defense-in-depth) ────────────
+        // Il cap reale vive nel frontend (foto 25 MB / PDF 20 MB / totale 30 MB).
+        // Qui un guard aggregato protegge l'isolate dell'edge function da payload
+        // combinati che saturerebbero la memoria. Stima byte decodificati via
+        // helper puro condiviso (testabile in node).
+        if (exceedsPayloadBudget(normalizedImages)) {
+            return jsonError("Richiesta troppo grande: riduci numero o peso dei file.", 413);
         }
 
         // ── Gemini API call ───────────────────────────────────────

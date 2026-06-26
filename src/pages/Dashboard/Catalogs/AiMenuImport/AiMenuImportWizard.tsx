@@ -5,6 +5,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
 import { supabase } from "@/services/supabase/client";
 import { compressImage } from "@/utils/compressImage";
+import { MAX_IMAGE_SIZE } from "./aiImportLimits";
 import { createProduct } from "@/services/supabase/products";
 import { createPrimaryPriceFormat } from "@/services/supabase/productOptions";
 import {
@@ -121,7 +122,7 @@ export function AiMenuImportWizard({ onClose, onSuccess, onBusyChange }: AiMenuI
                 files.map(async file => {
                     if (file.type.startsWith("image/")) {
                         try {
-                            const compressed = await compressImage(file, 1200, 0.8);
+                            const compressed = await compressImage(file, 1200, 0.8, MAX_IMAGE_SIZE);
                             return { data: await fileToBase64(compressed), mime_type: "image/jpeg" };
                         } catch {
                             // Fallback: send original uncompressed
