@@ -201,7 +201,7 @@ export type SubscriptionState = {
 
 async function invokeBillingAction<T>(
     tenantId: string,
-    action: "state" | "cancel" | "reactivate"
+    action: "state" | "cancel" | "reactivate" | "cancel-scheduled-change"
 ): Promise<T> {
     const { data, error } = await supabase.functions.invoke("stripe-change-subscription", {
         body: { tenantId, action }
@@ -233,4 +233,19 @@ export async function cancelSubscription(tenantId: string): Promise<Subscription
 /** Annulla la disdetta programmata. Permesso: billing.cancel. */
 export async function reactivateSubscription(tenantId: string): Promise<SubscriptionState> {
     return invokeBillingAction<SubscriptionState>(tenantId, "reactivate");
+}
+
+/**
+ * Annulla un cambio programmato (downgrade / riduzione futura) rilasciando lo
+ * schedule Stripe. NON disdice l'abbonamento: la subscription resta attiva e in
+ * rinnovo sulla fase corrente, sedi correnti invariate (tocca solo il tier
+ * futuro). Idempotente: no-op se non c'e' alcun cambio programmato.
+ * Permesso: billing.manage.
+ *
+ * Error code (attaccato come `error.name`):
+ *   - "CANCEL_SCHEDULED_CHANGE_FAILED" → subscription ancora schedule-managed
+ *     dopo il release (re-read fail-closed) → riprova.
+ */
+export async function cancelScheduledChange(tenantId: string): Promise<SubscriptionState> {
+    return invokeBillingAction<SubscriptionState>(tenantId, "cancel-scheduled-change");
 }

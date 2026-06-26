@@ -66,8 +66,15 @@ function corsHeaders(req: Request): Record<string, string> {
 const ALLOWED_PLAN_CODES = new Set(["base", "pro"]);
 // Rank/routing piani: estratti in _shared/classifyChange.ts (decomposizione per asse).
 
-type Action = "preview" | "commit" | "state" | "cancel" | "reactivate";
-const VALID_ACTIONS = new Set<Action>(["preview", "commit", "state", "cancel", "reactivate"]);
+type Action = "preview" | "commit" | "state" | "cancel" | "reactivate" | "cancel-scheduled-change";
+const VALID_ACTIONS = new Set<Action>([
+    "preview",
+    "commit",
+    "state",
+    "cancel",
+    "reactivate",
+    "cancel-scheduled-change"
+]);
 
 type Body = {
     tenantId?: string;
@@ -374,6 +381,62 @@ serve(async req => {
             return json(req, 200, {
                 currentPeriodEnd: periodEndIso,
                 cancelAtPeriodEnd: false,
+                pendingChange: null
+            });
+        }
+
+        // =====================================================================
+        // CANCEL-SCHEDULED-CHANGE — annulla un cambio programmato (downgrade /
+        // riduzione futura) rilasciando lo schedule. NON disdice l'abbonamento:
+        // la sub resta attiva e in rinnovo sulla fase corrente, sedi correnti
+        // invariate. Tocca solo il tier futuro. Idempotente (no-op se non c'e'
+        // uno schedule attivo: un doppio click non deve fallire).
+        // =====================================================================
+        if (action === "cancel-scheduled-change") {
+            const scheduleId =
+                typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
+
+            // No-op idempotente: nessun cambio programmato da annullare. Stato
+            // corrente invariato (cancel_at_period_end preservato, pending gia' nullo).
+            if (!scheduleId) {
+                return json(req, 200, {
+                    currentPeriodEnd: periodEndIso,
+                    cancelAtPeriodEnd: !!sub.cancel_at_period_end,
+                    pendingChange: null
+                });
+            }
+
+            // Rilascia SOLO lo schedule. NON impostare cancel_at_period_end,
+            // NON toccare la quantita' sedi.
+            await releaseScheduleIfAny(stripe, scheduleId);
+
+            // Verifica fail-closed: ri-leggi la subscription e conferma che lo
+            // schedule sia ora assente. Se persiste, abort senza fingere successo
+            // (stesso pattern del path combinato).
+            let stillManaged = true;
+            try {
+                const fresh = await stripe.subscriptions.retrieve(tenant.stripe_subscription_id);
+                stillManaged = !!fresh.schedule;
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                console.error(`stripe-change-subscription: cancel-scheduled-change re-read failed: ${message}`);
+                stillManaged = true; // fail-closed
+            }
+            if (stillManaged) {
+                console.error(
+                    `stripe-change-subscription: cancel-scheduled-change still schedule-managed tenant=${tenantId}`
+                );
+                return json(req, 409, { error: "CANCEL_SCHEDULED_CHANGE_FAILED" });
+            }
+
+            console.log(
+                `stripe-change-subscription: CANCEL_SCHEDULED_CHANGE released tenant=${tenantId} schedule=${scheduleId}`
+            );
+            // La riconciliazione di `tenants` (paid_seats/plan) avviene via webhook
+            // dal customer.subscription.updated emesso dal release.
+            return json(req, 200, {
+                currentPeriodEnd: periodEndIso,
+                cancelAtPeriodEnd: !!sub.cancel_at_period_end,
                 pendingChange: null
             });
         }
