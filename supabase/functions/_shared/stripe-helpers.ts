@@ -69,6 +69,80 @@ export async function releaseScheduleIfAny(
     }
 }
 
+/**
+ * Item di una fase di subscription schedule (price ID + quantity).
+ */
+export interface SchedulePhaseItem {
+    price: string;
+    quantity: number;
+}
+
+/**
+ * Parametri per aggiornare le due fasi di uno schedule ESISTENTE senza
+ * release+ricrea. Riusabile dai path differiti (proration 'none', nessun
+ * addebito) e — in un passo successivo — dall'addebito sedi sulla fase corrente
+ * (proration 'always_invoice').
+ */
+export interface UpdateSchedulePhasesParams {
+    /** Items della fase CORRENTE, replicati verbatim dallo schedule esistente. */
+    currentPhaseItems: SchedulePhaseItem[];
+    /** start_date della fase corrente (obbligatorio sull'edit, va preservato). */
+    currentPhaseStart: number;
+    /** end_date della fase corrente (coincide con lo start della fase futura). */
+    currentPhaseEnd: number;
+    /** Items della fase FUTURA: nuovo piano target + nuova qty. */
+    futurePhaseItems: SchedulePhaseItem[];
+    /** plan_code scritto nei metadata della fase futura. */
+    futurePhasePlanCode: string;
+    /**
+     * Proration applicata se l'update cambia la billing config della fase
+     * CORRENTE: 'none' = nessun addebito (cambio differito, FASE 2.2);
+     * 'always_invoice' = addebito immediato (aggiunta sedi sulla fase corrente,
+     * FASE 2.3).
+     */
+    prorationBehavior: "none" | "always_invoice" | "create_prorations";
+    idempotencyKey?: string;
+}
+
+/**
+ * Aggiorna le fasi di uno schedule esistente (fase corrente verbatim + fase
+ * futura con nuovo target/qty) SENZA rilasciarlo. Sostituisce il pattern
+ * release+ricrea quando esiste gia' un cambio programmato, evitando di
+ * distruggere il pending (chiude il flag 3). NON idempotente di per se':
+ * passare un `idempotencyKey` deterministico per il replay sicuro.
+ *
+ * Vincolo Stripe: `start_date` della prima fase e' obbligatorio sull'edit e va
+ * preservato verbatim (ricalcolarlo fa rifiutare l'update con "phase has
+ * already ended"). Le fasi passate sono omettibili.
+ */
+export async function updateSchedulePhases(
+    stripe: Stripe,
+    scheduleId: string,
+    params: UpdateSchedulePhasesParams
+): Promise<Stripe.SubscriptionSchedule> {
+    return await stripe.subscriptionSchedules.update(
+        scheduleId,
+        {
+            end_behavior: "release",
+            proration_behavior: params.prorationBehavior,
+            phases: [
+                {
+                    items: params.currentPhaseItems,
+                    start_date: params.currentPhaseStart,
+                    end_date: params.currentPhaseEnd,
+                    proration_behavior: "none"
+                },
+                {
+                    items: params.futurePhaseItems,
+                    proration_behavior: "none",
+                    metadata: { plan_code: params.futurePhasePlanCode }
+                }
+            ]
+        },
+        params.idempotencyKey ? { idempotencyKey: params.idempotencyKey } : undefined
+    );
+}
+
 function isResourceMissing(message: string): boolean {
     return /no such (subscription|customer)|resource_missing|404/i.test(message);
 }
