@@ -6,7 +6,8 @@ import {
     createStripeClient,
     releaseScheduleIfAny,
     scheduleStripeCancel,
-    reactivateStripeSubIfScheduled
+    reactivateStripeSubIfScheduled,
+    updateSchedulePhases
 } from "../_shared/stripe-helpers.ts";
 import { sendEmail } from "../_shared/sendEmail.ts";
 import {
@@ -872,6 +873,85 @@ serve(async req => {
         // Downgrade → subscription schedule a 2 fasi pulite. Revocabile.
         // Fase 0 replicata VERBATIM dall'oggetto fresco (ricalcolare le date fa
         // rifiutare l'update con "phase has already ended").
+        const downgradeScheduleId =
+            typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
+
+        // 🆕 FASE 2.2 — Esiste GIA' un cambio programmato: AGGIORNA la sua fase
+        // futura (nuovo target + qty) invece di release+ricrea. Chiude il flag 3
+        // (il pending non viene piu' distrutto silenziosamente) e copre la
+        // riduzione sedi su schedule pendente (B3). Operazione €0: fase corrente
+        // invariata, nessun addebito (proration 'none').
+        if (downgradeScheduleId) {
+            try {
+                const existing = await stripe.subscriptionSchedules.retrieve(downgradeScheduleId);
+                const currentPhase = existing.phases?.[0];
+                if (!currentPhase) {
+                    throw new Error("existing schedule has no current phase to preserve");
+                }
+                const currentPhaseItems = (currentPhase.items ?? []).map(it => ({
+                    price: typeof it.price === "string" ? it.price : it.price?.id,
+                    quantity: it.quantity ?? 1
+                }));
+
+                const scheduleUpdateKey = buildIdempotencyKey({
+                    operation: "downgrade-update-phases",
+                    tenantId,
+                    subscriptionId: tenant.stripe_subscription_id,
+                    currentPlan,
+                    currentSeats,
+                    targetPlan,
+                    targetSeats: newSeats
+                });
+
+                await updateSchedulePhases(stripe, downgradeScheduleId, {
+                    currentPhaseItems,
+                    currentPhaseStart: currentPhase.start_date,
+                    currentPhaseEnd: currentPhase.end_date,
+                    futurePhaseItems: [{ price: newPriceId, quantity: newSeats }],
+                    futurePhasePlanCode: targetPlan,
+                    prorationBehavior: "none",
+                    idempotencyKey: scheduleUpdateKey
+                });
+
+                console.log(
+                    `stripe-change-subscription: DOWNGRADE updated existing schedule tenant=${tenantId} plan=${targetPlan} seats=${newSeats} effective=${periodEndIso} schedule=${downgradeScheduleId}`
+                );
+                try {
+                    const to = await getRecipient();
+                    if (to) {
+                        await sendEmail({
+                            to,
+                            ...downgradeEmail({
+                                plan: targetPlan,
+                                seats: newSeats,
+                                effectiveDateIso: periodEndIso,
+                                losesQrFeatures: currentPlan === "pro" && targetPlan === "base"
+                            })
+                        });
+                    }
+                } catch (err) {
+                    console.error("[stripe-change-subscription] downgrade (update) email error:", err);
+                }
+                return json(req, 200, {
+                    ok: true,
+                    classification: "downgrade",
+                    plan: targetPlan,
+                    seats: newSeats,
+                    effective: periodEndIso,
+                    scheduledChange: true,
+                    scheduleId: downgradeScheduleId
+                });
+            } catch (err) {
+                // Update fallito: NON distruggere lo schedule pendente esistente
+                // (resta il cambio programmato precedente). Nessun addebito emesso.
+                const message = err instanceof Error ? err.message : String(err);
+                console.error(`stripe-change-subscription: downgrade schedule update failed: ${message}`);
+                return json(req, 502, { error: "stripe_schedule_failed" });
+            }
+        }
+
+        // Nessun cambio programmato esistente: crea lo schedule ex-novo (A3/A4,
+        // invariato). `existingScheduleId` qui e' null → releaseScheduleIfAny no-op.
         let createdScheduleId: string | null = null;
         try {
             const existingScheduleId =

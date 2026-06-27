@@ -1,11 +1,16 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 /**
- * Cron: `* * * * *` — pings /api/public-catalog?warmup=1 each minute.
+ * Cron: `* * * * *` — pings two warmup endpoints each minute:
+ *   - /api/public-catalog?warmup=1
+ *   - /api/ssr-render?warmup=1 (header x-warmup:1)
  *
- * Purpose: keep both the Vercel serverless lambda and the downstream
- * Supabase Edge Function (resolve-public-catalog) hot, removing the
- * Deno cold-start tax (~1100 ms median) from real user requests.
+ * Purpose: keep hot BOTH Vercel serverless lambdas (public-catalog AND
+ * ssr-render — distinct functions, distinct containers) plus the downstream
+ * Supabase Edge Function (resolve-public-catalog), removing both the Node
+ * lambda cold start and the Deno cold-start tax (~1100 ms median) from real
+ * user requests. The user-facing /<slug> page is served by ssr-render, so
+ * warming public-catalog alone left that container cold.
  *
  * Auth: `Authorization: Bearer ${CRON_SECRET}`. Vercel cron sends this
  * header automatically when CRON_SECRET is configured at the project
@@ -22,13 +27,17 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 type WarmupOutcome = "ok" | "failed";
 
-type CronSummary = {
-    event: "warmup_public_catalog_cron";
+type TargetResult = {
     target: string;
     warmup: WarmupOutcome;
     upstreamStatus: number;
     durationMs: number;
     upstreamError?: string;
+};
+
+type CronSummary = {
+    event: "warmup_public_catalog_cron";
+    results: TargetResult[];
 };
 
 function isAuthorized(req: VercelRequest): boolean {
@@ -39,7 +48,8 @@ function isAuthorized(req: VercelRequest): boolean {
     return header === `Bearer ${secret}`;
 }
 
-// Target priority:
+// Base host priority (stessa logica di prima, ma estratta dal path così da
+// poterla riusare per più target):
 //   1. WARMUP_TARGET_BASE_URL env (explicit override, e.g. public domain).
 //   2. Inbound request host header. x-forwarded-host wins over host because
 //      the Vercel proxy rewrites host while preserving the public domain
@@ -47,20 +57,50 @@ function isAuthorized(req: VercelRequest): boolean {
 //      domain the cron itself was invoked on, dodging Deployment Protection
 //      on the bare .vercel.app URL.
 //   3. VERCEL_URL env (fallback to the deployment domain).
-//   4. Relative path (last resort; fetch will reject without a base).
-function resolveTargetUrl(req: VercelRequest): string {
+//   4. Empty base (last resort: relative path; fetch will reject without a base).
+function resolveBaseUrl(req: VercelRequest): string {
     const explicit = process.env.WARMUP_TARGET_BASE_URL;
-    if (explicit) return `${explicit.replace(/\/+$/, "")}/api/public-catalog?warmup=1`;
+    if (explicit) return explicit.replace(/\/+$/, "");
 
     const forwarded = req.headers["x-forwarded-host"];
     const inboundHost = Array.isArray(forwarded)
         ? forwarded[0]
         : forwarded ?? req.headers.host;
-    if (inboundHost) return `https://${inboundHost}/api/public-catalog?warmup=1`;
+    if (inboundHost) return `https://${inboundHost}`;
 
     const vercelHost = process.env.VERCEL_URL;
-    if (vercelHost) return `https://${vercelHost}/api/public-catalog?warmup=1`;
-    return "/api/public-catalog?warmup=1";
+    if (vercelHost) return `https://${vercelHost}`;
+    return "";
+}
+
+// Ping singolo target. NON lancia mai: cattura l'errore internamente così che
+// in Promise.all un target fallito non faccia cadere l'altro (warmth dei due
+// lambda è indipendente).
+async function pingTarget(
+    target: string,
+    headers?: Record<string, string>
+): Promise<TargetResult> {
+    const startedAt = Date.now();
+    let ok = false;
+    let upstreamStatus = 0;
+    let upstreamError: string | undefined;
+    try {
+        const upstream = await fetch(target, {
+            method: "GET",
+            ...(headers ? { headers } : {})
+        });
+        upstreamStatus = upstream.status;
+        ok = upstream.ok;
+    } catch (err) {
+        upstreamError = err instanceof Error ? err.message : String(err);
+    }
+    return {
+        target,
+        warmup: ok ? "ok" : "failed",
+        upstreamStatus,
+        durationMs: Date.now() - startedAt,
+        ...(upstreamError ? { upstreamError } : {})
+    };
 }
 
 export default async function handler(
@@ -77,28 +117,26 @@ export default async function handler(
         return;
     }
 
-    const target = resolveTargetUrl(req);
-    const startedAt = Date.now();
-    let ok = false;
-    let upstreamStatus = 0;
-    let upstreamError: string | undefined;
-    try {
-        const upstream = await fetch(target, { method: "GET" });
-        upstreamStatus = upstream.status;
-        ok = upstream.ok;
-    } catch (err) {
-        upstreamError = err instanceof Error ? err.message : String(err);
-    }
+    const base = resolveBaseUrl(req);
 
+    // Due target per tick — due Serverless Function distinte, due cold start
+    // indipendenti:
+    //   - api/public-catalog?warmup=1 → inoltra x-warmup all'edge resolve-public-catalog.
+    //   - api/ssr-render?warmup=1 (header x-warmup:1) → scalda il lambda SSR che
+    //     serve davvero /<slug> (rewrite vercel.json). Senza questo il container
+    //     ssr-render resta freddo: la richiesta utente pagava ~3,4s di cold start.
+    // pingTarget non lancia mai → un target fallito non blocca l'altro.
+    const results = await Promise.all([
+        pingTarget(`${base}/api/public-catalog?warmup=1`),
+        pingTarget(`${base}/api/ssr-render?warmup=1`, { "x-warmup": "1" })
+    ]);
+
+    const allOk = results.every((r) => r.warmup === "ok");
     const body: CronSummary = {
         event: "warmup_public_catalog_cron",
-        target,
-        warmup: ok ? "ok" : "failed",
-        upstreamStatus,
-        durationMs: Date.now() - startedAt,
-        ...(upstreamError ? { upstreamError } : {})
+        results
     };
     console.log(JSON.stringify(body));
     res.setHeader("Cache-Control", "no-store");
-    res.status(ok ? 200 : 502).json(body);
+    res.status(allOk ? 200 : 502).json(body);
 }
