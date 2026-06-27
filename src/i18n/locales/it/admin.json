@@ -1,4 +1,7 @@
 {
+    "sidebar": {
+        "translations_in_progress": "Traduzioni in corso"
+    },
     "languages": {
         "title": "Lingue",
         "description": "Attiva le lingue in cui vuoi tradurre il tuo menu pubblico. I contenuti esistenti saranno tradotti automaticamente in pochi minuti.",
@@ -126,6 +129,8 @@
         "no_langs_cta": "Vai alle impostazioni lingue",
         "confirm_revert_title": "Tornare alla traduzione automatica?",
         "confirm_revert_message": "La traduzione manuale verrà persa. Verrà generata una nuova traduzione automatica entro un minuto.",
-        "confirm": "Conferma"
+        "confirm": "Conferma",
+        "toast_updating_one": "Traduzioni in aggiornamento in {{count}} lingua.",
+        "toast_updating_other": "Traduzioni in aggiornamento in {{count}} lingue."
     }
 }

@@ -8,7 +8,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Text from "@/components/ui/Text/Text";
 import { LanguageRow } from "@/components/SettingsLanguages/LanguageRow";
 import { ReviewDrawer } from "@/components/SettingsLanguages/ReviewDrawer/ReviewDrawer";
-import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
+import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import {
     listAvailableLanguages,
     listTenantLanguages,
@@ -35,9 +35,14 @@ export default function SettingsLanguages() {
     const [loading, setLoading] = useState(true);
     const [pendingLang, setPendingLang] = useState<SupportedLanguage | null>(null);
     const [reviewLang, setReviewLang] = useState<SupportedLanguage | null>(null);
-    const [refreshKey, setRefreshKey] = useState(0);
 
-    const coverage = useTranslationCoverage(tenantId, refreshKey);
+    // Fonte UNICA: la coverage è montata in MainLayout e passata via Outlet
+    // context → niente secondo mount dell'hook (no doppio poll, no doppio toast
+    // di completamento). `wakeTranslations` forza un refetch dopo le azioni che
+    // accodano job (attivazione, disattivazione, retry, review risolta).
+    const outletCtx = useBusinessOutletContext();
+    const coverage = outletCtx?.translationCoverage ?? null;
+    const wakeTranslations = outletCtx?.wakeTranslations;
 
     usePageHeader({
         title: t("languages.title"),
@@ -114,7 +119,7 @@ export default function SettingsLanguages() {
                 type: "success"
             });
             await loadData();
-            setRefreshKey(k => k + 1);
+            wakeTranslations?.();
             return true;
         } catch {
             showToast({ message: t("errors.activate_failed"), type: "error" });
@@ -131,7 +136,7 @@ export default function SettingsLanguages() {
                 type: "success"
             });
             await loadData();
-            setRefreshKey(k => k + 1);
+            wakeTranslations?.();
         } catch {
             showToast({ message: t("errors.deactivate_failed"), type: "error" });
         }
@@ -145,7 +150,7 @@ export default function SettingsLanguages() {
                 message: t("languages.progress.retry_success", { count }),
                 type: "success"
             });
-            setRefreshKey(k => k + 1);
+            wakeTranslations?.();
         } catch {
             showToast({
                 message: t("languages.progress.retry_error"),
@@ -253,7 +258,7 @@ export default function SettingsLanguages() {
                 tenantId={tenantId}
                 language={reviewLang}
                 onClose={() => setReviewLang(null)}
-                onResolved={() => setRefreshKey(k => k + 1)}
+                onResolved={() => wakeTranslations?.()}
             />
         </>
         )}

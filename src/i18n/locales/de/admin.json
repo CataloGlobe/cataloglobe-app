@@ -1,4 +1,7 @@
 {
+    "sidebar": {
+        "translations_in_progress": "Übersetzungen in Arbeit"
+    },
     "languages": {
         "title": "Sprachen",
         "description": "Aktivieren Sie die Sprachen, in die Sie Ihr öffentliches Menü übersetzen möchten. Vorhandene Inhalte werden innerhalb weniger Minuten automatisch übersetzt.",
@@ -95,6 +98,8 @@
         "no_langs_cta": "Zu den Spracheinstellungen",
         "confirm_revert_title": "Zur automatischen Übersetzung zurückkehren?",
         "confirm_revert_message": "Die manuelle Übersetzung geht verloren. Innerhalb einer Minute wird eine neue automatische Übersetzung erstellt.",
-        "confirm": "Bestätigen"
+        "confirm": "Bestätigen",
+        "toast_updating_one": "Übersetzungen werden in {{count}} Sprache aktualisiert.",
+        "toast_updating_other": "Übersetzungen werden in {{count}} Sprachen aktualisiert."
     }
 }

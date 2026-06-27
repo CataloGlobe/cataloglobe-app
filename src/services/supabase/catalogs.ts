@@ -226,7 +226,7 @@ export async function updateCategory(
         parent_category_id?: string | null;
         level?: 1 | 2 | 3;
     }
-): Promise<V2CatalogCategory> {
+): Promise<V2CatalogCategory & { queuedLanguages: number }> {
     const nameInUpdates = "name" in updates;
     let nameHash: string | null = null;
     const payload: Record<string, unknown> = { ...updates };
@@ -246,8 +246,9 @@ export async function updateCategory(
 
     if (error) throw error;
 
+    let queuedLanguages = 0;
     if (nameInUpdates) {
-        await enqueueWithSilentError({
+        queuedLanguages = await enqueueWithSilentError({
             tenantId,
             entityType: "category",
             entityId: categoryId,
@@ -259,7 +260,7 @@ export async function updateCategory(
 
     void revalidatePublicCatalogForTenant(tenantId);
 
-    return data;
+    return { ...data, queuedLanguages };
 }
 
 export async function deleteCategory(categoryId: string, tenantId: string): Promise<void> {

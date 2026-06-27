@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { FileInput } from "@/components/ui/Input/FileInput";
@@ -8,6 +9,7 @@ import { TranslationStatusBadge } from "@/components/ui/TranslationStatusBadge/T
 import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
     type V2Product,
@@ -76,6 +78,8 @@ export function SchedaTab({
     onNavigateToTab
 }: SchedaTabProps) {
     const { showToast } = useToast();
+    const { t } = useTranslation("admin");
+    const wakeTranslations = useBusinessOutletContext()?.wakeTranslations;
     const verticalConfig = useVerticalConfig();
     const isBaseProduct = product.parent_product_id === null;
 
@@ -209,6 +213,15 @@ export function SchedaTab({
             });
             onProductUpdated(updated);
             showToast({ message: "Informazioni salvate", type: "success" });
+            if (updated.queuedLanguages >= 1) {
+                showToast({
+                    message: t("translations_tab.toast_updating", { count: updated.queuedLanguages }),
+                    type: "info"
+                });
+                // Sveglia il poller globale: il badge sidebar riflette subito i
+                // nuovi pending senza attendere il prossimo tick (≤5s).
+                wakeTranslations?.();
+            }
         } catch (err) {
             showToast({
                 message: err instanceof Error ? err.message : "Errore nel salvataggio",
@@ -217,7 +230,7 @@ export function SchedaTab({
         } finally {
             setIsSavingInformation(false);
         }
-    }, [draftName, draftDescription, productId, tenantId, onProductUpdated, showToast]);
+    }, [draftName, draftDescription, productId, tenantId, onProductUpdated, showToast, t, wakeTranslations]);
 
     // ── Card Allergeni ─────────────────────────────────────────────────
     const [allergens, setAllergens] = useState<V2SystemAllergen[]>([]);
