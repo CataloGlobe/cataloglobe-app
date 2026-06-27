@@ -216,6 +216,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         return;
     }
 
+    // Keep-warm. Header `x-warmup: 1` (o `?warmup=1`) → early-return PRIMA di
+    // qualsiasi validazione slug / fetchPayload / render. Mantiene caldo il
+    // container Node di QUESTO lambda, distinto da api/public-catalog (due
+    // Serverless Function separate). Mirror del branch warmup di
+    // api/public-catalog/index.ts. Best-effort: pre-importa il bundle SSR
+    // (loadRenderModule) così l'import() dinamico di dist-server non pesa sul
+    // cold start della prima richiesta reale; un fallimento del preload NON fa
+    // fallire il warmup — il container Node resta comunque scaldato.
+    const warmupHeader = req.headers["x-warmup"];
+    const isWarmup =
+        (Array.isArray(warmupHeader) ? warmupHeader[0] : warmupHeader) === "1" ||
+        req.query.warmup === "1";
+    if (isWarmup) {
+        let moduleLoaded = false;
+        try {
+            await loadRenderModule();
+            moduleLoaded = true;
+        } catch {
+            moduleLoaded = false;
+        }
+        res.setHeader("Cache-Control", "no-store");
+        res.setHeader("X-Cataloglobe-Warmup", "ok");
+        res.status(200).json({ warmup: true, moduleLoaded });
+        return;
+    }
+
     const slug = typeof req.query.slug === "string" ? req.query.slug.trim() : "";
     const langRaw = typeof req.query.lang === "string" ? req.query.lang.trim() : "";
 
