@@ -11,6 +11,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
+import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { Languages, Pencil, Sparkles } from "lucide-react";
 import {
     listTranslationsForEntity,
@@ -127,6 +128,7 @@ export function TranslationsTab({
 }: TranslationsTabProps) {
     const { t } = useTranslation("admin");
     const { showToast } = useToast();
+    const wakeTranslations = useBusinessOutletContext()?.wakeTranslations;
     const gridClass = clsx(styles.grid, flush && styles.gridFlush);
 
     const [isLoading, setIsLoading] = useState(true);
@@ -355,10 +357,11 @@ export function TranslationsTab({
         const text = sourceDraft.trim();
         setIsSavingSource(true);
         try {
+            let queuedLanguages = 0;
             if (entityType === "product" && fieldKey === "description") {
-                await updateProduct(entityId, tenantId, { description: text || null });
+                ({ queuedLanguages } = await updateProduct(entityId, tenantId, { description: text || null }));
             } else if (entityType === "category" && fieldKey === "name") {
-                await updateCategory(entityId, tenantId, { name: text });
+                ({ queuedLanguages } = await updateCategory(entityId, tenantId, { name: text }));
             }
             // setSourceOverride cambia effectiveSource → loadData rieseguita
             // dall'effect (ricalcola hash → badge "Da rivedere" coerenti).
@@ -366,6 +369,14 @@ export function TranslationsTab({
             setIsEditingSource(false);
             onSourceUpdated?.(text);
             showToast({ message: t("translations_tab.source_saved"), type: "success" });
+            if (queuedLanguages >= 1) {
+                showToast({
+                    message: t("translations_tab.toast_updating", { count: queuedLanguages }),
+                    type: "info"
+                });
+                // Sveglia il poller globale (badge sidebar) senza attendere il tick.
+                wakeTranslations?.();
+            }
         } catch (err) {
             showToast({
                 message: err instanceof Error ? err.message : t("translations_tab.source_save_error"),

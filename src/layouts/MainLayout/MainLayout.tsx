@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import Sidebar from "@components/layout/Sidebar/Sidebar";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
@@ -9,8 +9,11 @@ import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
 import { PageHeaderProvider } from "@/context/PageHeaderProvider";
 import { SubscriptionBanner } from "@/components/Subscription/SubscriptionBanner";
 import { useTenant } from "@/context/useTenant";
+import { useTenantId } from "@/context/useTenantId";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
+import type { BusinessOutletContext } from "./outletContext";
 
 import styles from "./MainLayout.module.scss";
 
@@ -97,6 +100,30 @@ export default function MainLayout() {
         };
     }, [mobileSidebarOpen]);
 
+    // ── Indicatore globale traduzioni ──────────────────────────────────
+    // Fonte UNICA della coverage: l'hook è montato qui (persiste in tutta
+    // l'area business) → un solo poll condizionato + un solo toast di
+    // completamento, indipendentemente dalla pagina aperta. `wake()` bumpa
+    // refreshKey per un refetch immediato dopo un enqueue (vedi Outlet context).
+    const tenantId = useTenantId();
+    const [translationRefreshKey, setTranslationRefreshKey] = useState(0);
+    const translationCoverage = useTranslationCoverage(tenantId, translationRefreshKey);
+    const wakeTranslations = useCallback(
+        () => setTranslationRefreshKey(k => k + 1),
+        []
+    );
+    const translationPendingCount = useMemo(
+        () =>
+            translationCoverage
+                ? Object.values(translationCoverage).reduce((acc, c) => acc + c.pending, 0)
+                : 0,
+        [translationCoverage]
+    );
+    const outletContext = useMemo<BusinessOutletContext>(
+        () => ({ translationCoverage, wakeTranslations }),
+        [translationCoverage, wakeTranslations]
+    );
+
     // Tenant without subscription → redirect to workspace with resume param.
     // WorkspacePage will auto-open CreateBusinessWizard in resume mode with
     // plan + seats pre-populated from the existing tenant row.
@@ -138,13 +165,14 @@ export default function MainLayout() {
                                 collapsed={!isMobile && sidebarCollapsed}
                                 onRequestClose={() => setMobileSidebarOpen(false)}
                                 onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                translationPendingCount={translationPendingCount}
                             />
 
                             <main className={styles.main}>
                                 <PageHeaderSlot scrollContainerRef={contentRef} />
                                 <div ref={contentRef} className={styles.content}>
                                     <SubscriptionBanner />
-                                    <Outlet />
+                                    <Outlet context={outletContext} />
                                 </div>
                             </main>
                         </div>

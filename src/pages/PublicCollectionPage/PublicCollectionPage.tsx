@@ -387,6 +387,8 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         return () => {
             cancelled = true;
         };
+        // initialPayload/inlinedBaseLang sono seed di hydration stabili (letti una volta da window.__PUBLIC_CATALOG__): esclusi di proposito per non ri-triggerare il fetch — i trigger reali sono langFromUrl/simulateParam/retryToken.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [slug, langFromUrl, simulateParam, navigate, retryToken]);
 
     const [activeTab, setActiveTab] = useState<HubTab>("menu");

@@ -1,4 +1,7 @@
 {
+    "sidebar": {
+        "translations_in_progress": "Translations in progress"
+    },
     "languages": {
         "title": "Languages",
         "description": "Enable the languages you want to translate your public menu into. Existing content will be translated automatically in a few minutes.",
@@ -126,6 +129,8 @@
         "no_langs_cta": "Go to language settings",
         "confirm_revert_title": "Revert to automatic translation?",
         "confirm_revert_message": "The manual translation will be lost. A new automatic translation will be generated within a minute.",
-        "confirm": "Confirm"
+        "confirm": "Confirm",
+        "toast_updating_one": "Translations updating in {{count}} language.",
+        "toast_updating_other": "Translations updating in {{count}} languages."
     }
 }

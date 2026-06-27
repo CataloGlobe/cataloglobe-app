@@ -2,6 +2,8 @@ import type { ReactNode } from "react";
 import { Check } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
+import { Mail } from "lucide-react";
+import { COMPANY } from "@/config/company";
 import type { Plan, PlanCode } from "@/types/plan";
 import type { GraduatedBreakdown } from "@/utils/pricing";
 import { DEFAULT_PLAN_FEATURES, DEFAULT_PLAN_BADGES } from "./planDefaults";
@@ -22,6 +24,16 @@ import styles from "./PlanSeatsSelector.module.scss";
 
 function formatEuro(value: number): string {
     return `€${value.toFixed(2).replace(".", ",")}`;
+}
+
+/** Costruisce un mailto precompilato per richiesta offerta multi-sede. */
+function buildMultiSeatQuoteMailto(seats: number, planName: string | undefined): string {
+    const subject = "Richiesta offerta multi-sede — CataloGlobe";
+    const planPart = planName ? ` sul piano ${planName}` : "";
+    const body =
+        `Salve, sono interessato a un'offerta dedicata per ${seats} sedi${planPart}. ` +
+        `Vi lascio i miei riferimenti per essere ricontattato.`;
+    return `mailto:${COMPANY.contact.support}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
 }
 
 export interface PlanSeatsSelectorProps {
@@ -156,6 +168,16 @@ export function PlanSeatsSelector({
                         <span className={styles.overLimitText}>
                             Per attività con più sedi offriamo condizioni dedicate e supporto personalizzato. Contattaci per un'offerta su misura.
                         </span>
+                        <a
+                            className={styles.overLimitButton}
+                            href={buildMultiSeatQuoteMailto(
+                                seats,
+                                plans.find(p => p.code === planCode)?.name
+                            )}
+                        >
+                            <Mail size={16} aria-hidden />
+                            <span>Richiedi un'offerta</span>
+                        </a>
                     </div>
                 )}
 

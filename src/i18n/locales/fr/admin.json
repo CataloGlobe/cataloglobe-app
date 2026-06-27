@@ -1,4 +1,7 @@
 {
+    "sidebar": {
+        "translations_in_progress": "Traductions en cours"
+    },
     "languages": {
         "title": "Langues",
         "description": "Activez les langues dans lesquelles vous souhaitez traduire votre menu public. Le contenu existant sera traduit automatiquement en quelques minutes.",
@@ -95,6 +98,8 @@
         "no_langs_cta": "Aller aux paramètres de langue",
         "confirm_revert_title": "Revenir à la traduction automatique ?",
         "confirm_revert_message": "La traduction manuelle sera perdue. Une nouvelle traduction automatique sera générée en une minute.",
-        "confirm": "Confirmer"
+        "confirm": "Confirmer",
+        "toast_updating_one": "Traductions en cours de mise à jour dans {{count}} langue.",
+        "toast_updating_other": "Traductions en cours de mise à jour dans {{count}} langues."
     }
 }

@@ -1,5 +1,6 @@
 import { Fragment } from "react";
 import { NavLink, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { motion } from "framer-motion";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
@@ -51,6 +52,12 @@ interface NavItem {
      * Different from `permission`, which HIDES the item.
      */
     requiresFeature?: PlanFeature;
+    /**
+     * Mostra il badge ambra "traduzioni in corso" con il conteggio pending
+     * tenant-wide (alimentato dalla prop `translationPendingCount`). Visibile
+     * solo quando il conteggio è > 0.
+     */
+    showTranslationBadge?: boolean;
 }
 
 interface NavGroup {
@@ -106,7 +113,8 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
                 { to: `${b}/styles`, label: "Stili", icon: <Palette size={18} />,
                   permission: perms => canDoOnTenant(perms, "styles.read") },
                 { to: `${b}/languages`, label: "Lingue", icon: <Languages size={18} />,
-                  permission: perms => canDoOnTenant(perms, "catalogs.read") }
+                  permission: perms => canDoOnTenant(perms, "catalogs.read"),
+                  showTranslationBadge: true }
             ]
         },
         {
@@ -144,6 +152,8 @@ interface SidebarProps {
     collapsed: boolean;
     onRequestClose: () => void;
     onToggleCollapse: () => void;
+    /** Pending traduzioni tenant-wide (fonte unica: MainLayout). 0 = nessun badge. */
+    translationPendingCount?: number;
 }
 
 export default function Sidebar({
@@ -151,9 +161,11 @@ export default function Sidebar({
     mobileOpen,
     collapsed,
     onRequestClose,
-    onToggleCollapse
+    onToggleCollapse,
+    translationPendingCount = 0
 }: SidebarProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
+    const { t } = useTranslation("admin");
     const { catalogLabel } = useVerticalConfig();
     const { permissions } = usePermissions();
     const { hasFeature } = usePlanFeatures();
@@ -211,6 +223,8 @@ export default function Sidebar({
                                     <ul className={styles.list}>
                                         {group.items.map(link => {
                                             const isLocked = !!link.requiresFeature && !hasFeature(link.requiresFeature);
+                                            const showTranslationBadge =
+                                                !!link.showTranslationBadge && translationPendingCount > 0;
                                             return (
                                             <li key={link.to}>
                                                 <NavLink
@@ -252,6 +266,22 @@ export default function Sidebar({
                                                             aria-label="Funzione del piano Pro"
                                                         >
                                                             <Lock size={14} strokeWidth={1.5} />
+                                                        </span>
+                                                    )}
+
+                                                    {showTranslationBadge && (
+                                                        <span
+                                                            className={styles.translationBadge}
+                                                            title={t("sidebar.translations_in_progress")}
+                                                            aria-label={t("sidebar.translations_in_progress")}
+                                                        >
+                                                            <span
+                                                                className={styles.translationBadgeSpinner}
+                                                                aria-hidden="true"
+                                                            />
+                                                            {translationPendingCount > 99
+                                                                ? "99+"
+                                                                : translationPendingCount}
                                                         </span>
                                                     )}
                                                 </NavLink>

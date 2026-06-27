@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Upload, X, FileText, Plus, Sparkles, AlertTriangle } from "lucide-react";
 import styles from "../aiMenuImport.module.scss";
+import { partitionBySizeBudget } from "../sizeBudget";
 
 interface UploadStepProps {
     files: File[];
@@ -8,7 +9,6 @@ interface UploadStepProps {
 }
 
 const MAX_FILES = 5;
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
 function formatSize(bytes: number): string {
@@ -42,17 +42,29 @@ export function UploadStep({ files, onFilesChange }: UploadStepProps) {
 
             const accepted = all.filter(f => ACCEPTED_TYPES.includes(f.type));
 
-            // Check file size
-            const tooLarge = accepted.filter(f => f.size > MAX_FILE_SIZE);
-            if (tooLarge.length > 0) {
-                const names = tooLarge.map(f => f.name).join(", ");
-                setFileWarning(`File troppo grande (max 10MB): ${names}`);
+            // Partizionamento per cap (per-tipo 25/20 MB + aggregato 30 MB) via
+            // helper puro. I warning derivano dalle rejection, con la stessa
+            // precedenza della logica inline precedente: per-file (immagine prima
+            // di PDF) e poi aggregato che sovrascrive.
+            const { accepted: withinBudget, rejected: sizeRejected } = partitionBySizeBudget(files, accepted);
+
+            const imageRejects = sizeRejected.filter(r => r.reason === "image_too_large").map(r => r.file);
+            const pdfRejects = sizeRejected.filter(r => r.reason === "pdf_too_large").map(r => r.file);
+            const aggregateRejected = sizeRejected.some(r => r.reason === "aggregate_exceeded");
+
+            if (imageRejects.length > 0) {
+                const names = imageRejects.map(f => f.name).join(", ");
+                setFileWarning(`Immagine troppo grande (max 25 MB): ${names}`);
+            } else if (pdfRejects.length > 0) {
+                const names = pdfRejects.map(f => f.name).join(", ");
+                setFileWarning(`PDF troppo grande (max 20 MB): ${names}`);
             }
+            if (aggregateRejected) {
+                setFileWarning("Dimensione totale troppo grande (max 30 MB). Rimuovi qualche file.");
+            }
+            if (withinBudget.length === 0) return;
 
-            const valid = accepted.filter(f => f.size <= MAX_FILE_SIZE);
-            if (valid.length === 0) return;
-
-            const combined = [...files, ...valid].slice(0, MAX_FILES);
+            const combined = [...files, ...withinBudget].slice(0, MAX_FILES);
             onFilesChange(combined);
         },
         [files, onFilesChange]

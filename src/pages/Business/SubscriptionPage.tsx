@@ -10,7 +10,8 @@ import {
     commitSubscriptionChange,
     getSubscriptionState,
     cancelSubscription,
-    reactivateSubscription
+    reactivateSubscription,
+    cancelScheduledChange
 } from "@/services/supabase/billing";
 import type { SubscriptionChangePreview, SubscriptionState } from "@/services/supabase/billing";
 import { getPlanByCode, listPublicPlans } from "@/services/supabase/plans";
@@ -110,6 +111,8 @@ export default function SubscriptionPage() {
     const [isCancelOpen, setIsCancelOpen] = useState(false);
     const [cancelLoading, setCancelLoading] = useState(false);
     const [reactivateLoading, setReactivateLoading] = useState(false);
+    const [isCancelScheduleOpen, setIsCancelScheduleOpen] = useState(false);
+    const [cancelScheduleLoading, setCancelScheduleLoading] = useState(false);
 
     const tenantId = selectedTenant?.id ?? null;
     const reloadSubState = useCallback(async () => {
@@ -389,6 +392,30 @@ export default function SubscriptionPage() {
         }
     };
 
+    // --- Annulla cambio programmato (rilascia lo schedule; NON disdice) ---
+    const handleCancelScheduledChange = async () => {
+        setCancelScheduleLoading(true);
+        try {
+            const next = await cancelScheduledChange(selectedTenant.id);
+            setSubState(next);
+            // Azzera anche l'ottimistico locale: il banner sparisce subito anche
+            // se la riconciliazione di subState dovesse arrivare con lag.
+            setScheduledChange(null);
+            setIsCancelScheduleOpen(false);
+            showToast({ message: "Cambio programmato annullato.", type: "success" });
+        } catch (err) {
+            const name = err instanceof Error ? err.name : "";
+            showToast({
+                message: name === "forbidden"
+                    ? "Non hai i permessi per annullare il cambio programmato."
+                    : "Impossibile annullare il cambio programmato. Riprova.",
+                type: "error"
+            });
+        } finally {
+            setCancelScheduleLoading(false);
+        }
+    };
+
     // Banner "cambio programmato" persistente: priorità al vero stato Stripe
     // (subState), fallback all'ottimistico post-commit nella finestra transitoria.
     const pendingBanner = subState?.pendingChange
@@ -518,6 +545,16 @@ export default function SubscriptionPage() {
                             {pendingBanner.seats === 1 ? "sede" : "sedi"} il {formatDate(pendingBanner.date)}.
                             {pendingBanner.isBase && " Ordini e prenotazioni da QR verranno disattivati."}
                         </Text>
+                        {canManageBilling && (
+                            <Button
+                                variant="secondary"
+                                size="sm"
+                                onClick={() => setIsCancelScheduleOpen(true)}
+                                leftIcon={<XCircle size={14} />}
+                            >
+                                Annulla cambio
+                            </Button>
+                        )}
                     </div>
                 )}
 
@@ -862,6 +899,41 @@ export default function SubscriptionPage() {
                                 Potrai annullare la disdetta in qualsiasi momento prima del rinnovo.
                             </Text>
                         </div>
+                    </div>
+                </DrawerLayout>
+            </SystemDrawer>
+
+            {/* --- Drawer conferma annullo cambio programmato --- */}
+            <SystemDrawer
+                open={isCancelScheduleOpen}
+                onClose={() => { if (!cancelScheduleLoading) setIsCancelScheduleOpen(false); }}
+                width={480}
+            >
+                <DrawerLayout
+                    header={
+                        <Text variant="title-sm" weight={600}>Annulla cambio programmato</Text>
+                    }
+                    footer={
+                        <>
+                            <Button
+                                variant="secondary"
+                                onClick={() => setIsCancelScheduleOpen(false)}
+                                disabled={cancelScheduleLoading}
+                            >
+                                Mantieni il cambio
+                            </Button>
+                            <Button variant="primary" onClick={handleCancelScheduledChange} loading={cancelScheduleLoading}>
+                                Annulla cambio programmato
+                            </Button>
+                        </>
+                    }
+                >
+                    <div className={styles.changeBody}>
+                        <Text variant="body">
+                            Vuoi annullare il cambio programmato? Il tuo piano resterà{" "}
+                            <strong>{displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"}</strong>{" "}
+                            e l&apos;abbonamento continuerà a rinnovarsi normalmente.
+                        </Text>
                     </div>
                 </DrawerLayout>
             </SystemDrawer>

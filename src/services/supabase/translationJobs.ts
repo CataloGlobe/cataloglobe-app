@@ -85,11 +85,11 @@ export async function enqueueTranslationJobsIfChanged(input: {
     field: TranslationField;
     newSourceText: string | null;
     newSourceHash: string | null;
-}): Promise<void> {
+}): Promise<number> {
     // 1. Vertical-aware skip
     const tenantVertical = await getTenantVerticalType(input.tenantId);
     const skips = VERTICAL_AWARE_SKIPS[tenantVertical] ?? [];
-    if (skips.includes(input.entityType)) return;
+    if (skips.includes(input.entityType)) return 0;
 
     // 2. Source rimosso → DELETE translations esistenti per (entity, field)
     if (input.newSourceText === null || input.newSourceHash === null) {
@@ -101,7 +101,7 @@ export async function enqueueTranslationJobsIfChanged(input: {
             .eq("entity_id", input.entityId)
             .eq("field", input.field);
         if (error) throw error;
-        return;
+        return 0;
     }
 
     // 3. Lingue attive (esclusa base)
@@ -114,7 +114,7 @@ export async function enqueueTranslationJobsIfChanged(input: {
         .map(l => l.language_code)
         .filter(code => code !== baseLanguage);
 
-    if (targetLanguages.length === 0) return;
+    if (targetLanguages.length === 0) return 0;
 
     // 4. Filtra le lingue che effettivamente necessitano un nuovo job
     const existing = await fetchExistingTranslationsHashes(
@@ -138,7 +138,7 @@ export async function enqueueTranslationJobsIfChanged(input: {
         return !existingRow || existingRow.source_hash !== input.newSourceHash;
     });
 
-    if (langsNeedingJob.length === 0) return;
+    if (langsNeedingJob.length === 0) return 0;
 
     // 5. Dedup + INSERT/UPDATE
     await dedupAndEnqueueJobs({
@@ -153,6 +153,8 @@ export async function enqueueTranslationJobsIfChanged(input: {
 
     // 6. Fire-and-forget trigger
     void triggerJobProcessor();
+
+    return langsNeedingJob.length;
 }
 
 /**
@@ -244,11 +246,12 @@ export function serializeNotes(
  */
 export async function enqueueWithSilentError(
     input: Parameters<typeof enqueueTranslationJobsIfChanged>[0]
-): Promise<void> {
+): Promise<number> {
     try {
-        await enqueueTranslationJobsIfChanged(input);
+        return await enqueueTranslationJobsIfChanged(input);
     } catch (err) {
         console.error("[translations] enqueue failed (non-blocking):", err);
+        return 0;
     }
 }
 

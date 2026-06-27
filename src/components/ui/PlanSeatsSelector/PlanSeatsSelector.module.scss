@@ -228,3 +228,23 @@
     font-size: 13px;
     line-height: 1.5;
 }
+
+.overLimitButton {
+    align-self: flex-start;
+    margin-top: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background-color: var(--color-warning-700, #b45309);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: background-color 0.15s ease;
+
+    &:hover {
+        background-color: var(--color-warning-800, #92400e);
+    }
+}

@@ -403,7 +403,7 @@ export async function updateProduct(
         notes?: ProductNote[];
     },
     parentId?: string | null
-): Promise<V2Product> {
+): Promise<V2Product & { queuedLanguages: number }> {
     await validateParentBeforeSave(tenantId, parentId);
 
     // When base_price is being set to a real value, formats become invalid —
@@ -477,8 +477,11 @@ export async function updateProduct(
     }
 
     // Enqueue translation jobs solo per i field effettivamente changed.
+    // Solo il conteggio della descrizione risale (toast "Traduzioni in
+    // aggiornamento in N lingue"): le note hanno un handler separato.
+    let queuedLanguages = 0;
     if (descriptionInData) {
-        await enqueueWithSilentError({
+        queuedLanguages = await enqueueWithSilentError({
             tenantId,
             entityType: "product",
             entityId: id,
@@ -500,7 +503,7 @@ export async function updateProduct(
 
     void revalidatePublicCatalogForTenant(tenantId);
 
-    return updatedProduct;
+    return { ...updatedProduct, queuedLanguages };
 }
 
 export interface ProductDeleteImpact {
