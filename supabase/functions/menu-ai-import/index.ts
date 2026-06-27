@@ -305,10 +305,12 @@ serve(async (req: Request) => {
                     generationConfig: {
                         // temperature/top_p/top_k lasciati ai default: per i modelli 3.x
                         // Google raccomanda di non sovrascriverli.
-                        // maxOutputTokens generoso: i menu lunghi producono molti prodotti.
-                        // Headroom modello 65k; 32768 copre menu grandi evitando troncamenti
-                        // silenziosi (il caso finishReason MAX_TOKENS e' gestito sotto).
-                        maxOutputTokens: 32768,
+                        // maxOutputTokens al ceiling del modello (65536, output token
+                        // limit documentato per gemini-3.5-flash). Sul tier gratuito il
+                        // vincolo e' RPD, non i token: massimizzare l'output e' upside-only
+                        // e riduce i troncamenti su menu lunghi (finishReason MAX_TOKENS,
+                        // gestito sotto). Non superare 65536: oltre il max la request fallisce.
+                        maxOutputTokens: 65536,
                         // thinkingLevel LOW: veloce mantenendo qualita'. Alzare a MEDIUM se
                         // i menu complessi restano imprecisi (leva documentata).
                         thinkingConfig: { thinkingLevel: "LOW" },
