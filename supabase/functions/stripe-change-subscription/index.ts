@@ -67,14 +67,24 @@ function corsHeaders(req: Request): Record<string, string> {
 const ALLOWED_PLAN_CODES = new Set(["base", "pro"]);
 // Rank/routing piani: estratti in _shared/classifyChange.ts (decomposizione per asse).
 
-type Action = "preview" | "commit" | "state" | "cancel" | "reactivate" | "cancel-scheduled-change";
+type Action =
+    | "preview"
+    | "commit"
+    | "state"
+    | "cancel"
+    | "reactivate"
+    | "cancel-scheduled-change"
+    | "preview-scheduled-change"
+    | "update-scheduled-change";
 const VALID_ACTIONS = new Set<Action>([
     "preview",
     "commit",
     "state",
     "cancel",
     "reactivate",
-    "cancel-scheduled-change"
+    "cancel-scheduled-change",
+    "preview-scheduled-change",
+    "update-scheduled-change"
 ]);
 
 type Body = {
@@ -485,6 +495,133 @@ serve(async req => {
         const minSeats = activityCount ?? 0;
         if (newSeats < minSeats) {
             return json(req, 422, { error: "SEATS_BELOW_ACTIVITIES", details: { min_seats: minSeats } });
+        }
+
+        // =====================================================================
+        // PREVIEW-/UPDATE-SCHEDULED-CHANGE — B5: modifica IN-PLACE del bersaglio
+        // futuro di un cambio programmato (piano e/o sedi diversi al rinnovo).
+        // SEMPRE €0: tocca solo la fase futura. La fase corrente resta invariata.
+        // Per `SEATS_BELOW_ACTIVITIES` vale lo stesso floor (gia' applicato sopra
+        // alle sedi future). Gestito QUI, prima del NO_CHANGE guard, perche' il
+        // "nuovo futuro == stato corrente" e' il caso DEGENERE (release), non un
+        // errore.
+        // =====================================================================
+        if (action === "preview-scheduled-change" || action === "update-scheduled-change") {
+            const scheduleId =
+                typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
+            if (!scheduleId) {
+                return json(req, 422, { error: "NO_SCHEDULED_CHANGE" });
+            }
+
+            // Degenere: il nuovo futuro coincide con lo stato corrente live →
+            // schedule no-op → release (equivale ad annullare il cambio).
+            const futureEqualsCurrent = currentPlan === targetPlan && currentSeats === newSeats;
+
+            // ---- PREVIEW ----
+            if (action === "preview-scheduled-change") {
+                let nextAmount = await graduatedTotalFromPrice(stripe, newPriceId, newSeats);
+                if (nextAmount == null) {
+                    try {
+                        const nextPreview = await stripe.invoices.createPreview({
+                            customer: tenant.stripe_customer_id,
+                            subscription: tenant.stripe_subscription_id,
+                            subscription_details: {
+                                items: [{ id: itemId, price: newPriceId, quantity: newSeats }],
+                                proration_behavior: "none"
+                            }
+                        });
+                        nextAmount = nextPreview.total ?? 0;
+                    } catch (err) {
+                        const message = err instanceof Error ? err.message : String(err);
+                        console.error(`stripe-change-subscription: scheduled-change preview failed: ${message}`);
+                        return json(req, 502, { error: "preview_failed" });
+                    }
+                }
+                return json(req, 200, {
+                    classification: "scheduled",
+                    plan: targetPlan,
+                    seats: newSeats,
+                    currency,
+                    chargeToday: 0,
+                    nextAmount,
+                    nextDate: periodEndIso,
+                    effective: periodEndIso
+                });
+            }
+
+            // ---- COMMIT ----
+            if (futureEqualsCurrent) {
+                // Release: il futuro non cambia piu' nulla → niente schedule no-op.
+                await releaseScheduleIfAny(stripe, scheduleId);
+                let stillManaged = true;
+                try {
+                    const fresh = await stripe.subscriptions.retrieve(tenant.stripe_subscription_id);
+                    stillManaged = !!fresh.schedule;
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`stripe-change-subscription: scheduled-change release re-read failed: ${message}`);
+                    stillManaged = true; // fail-closed
+                }
+                if (stillManaged) {
+                    console.error(
+                        `stripe-change-subscription: scheduled-change release still managed tenant=${tenantId}`
+                    );
+                    return json(req, 409, { error: "CANCEL_SCHEDULED_CHANGE_FAILED" });
+                }
+                console.log(
+                    `stripe-change-subscription: SCHEDULED_CHANGE released (future==current) tenant=${tenantId} schedule=${scheduleId}`
+                );
+                return json(req, 200, { ok: true, action: "released", classification: "scheduled" });
+            }
+
+            // Aggiorna SOLO la fase futura. Fase corrente VERBATIM (qty live
+            // invariata) → €0, nessun addebito. proration 'none'.
+            try {
+                const existing = await stripe.subscriptionSchedules.retrieve(scheduleId);
+                const currentPhase = existing.phases?.[0];
+                if (!currentPhase) {
+                    throw new Error("existing schedule has no current phase to preserve");
+                }
+                const currentPhaseItems = (currentPhase.items ?? []).map(it => ({
+                    price: typeof it.price === "string" ? it.price : it.price?.id,
+                    quantity: it.quantity ?? 1
+                }));
+                const scheduleUpdateKey = buildIdempotencyKey({
+                    operation: "scheduled-update",
+                    tenantId,
+                    subscriptionId: tenant.stripe_subscription_id,
+                    currentPlan,
+                    currentSeats,
+                    targetPlan,
+                    targetSeats: newSeats
+                });
+                await updateSchedulePhases(stripe, scheduleId, {
+                    currentPhaseItems,
+                    currentPhaseStart: currentPhase.start_date,
+                    currentPhaseEnd: currentPhase.end_date,
+                    futurePhaseItems: [{ price: newPriceId, quantity: newSeats }],
+                    futurePhasePlanCode: targetPlan,
+                    prorationBehavior: "none",
+                    idempotencyKey: scheduleUpdateKey
+                });
+                console.log(
+                    `stripe-change-subscription: SCHEDULED_CHANGE updated tenant=${tenantId} plan=${targetPlan} seats=${newSeats} effective=${periodEndIso} schedule=${scheduleId}`
+                );
+                return json(req, 200, {
+                    ok: true,
+                    action: "updated",
+                    classification: "scheduled",
+                    plan: targetPlan,
+                    seats: newSeats,
+                    effective: periodEndIso,
+                    scheduledChange: true,
+                    scheduleId
+                });
+            } catch (err) {
+                const message = err instanceof Error ? err.message : String(err);
+                console.error(`stripe-change-subscription: scheduled-change update failed: ${message}`);
+                return json(req, 502, { error: "stripe_schedule_failed" });
+            }
         }
 
         // No-change guard.

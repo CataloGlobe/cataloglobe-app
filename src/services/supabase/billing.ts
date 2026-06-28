@@ -138,7 +138,7 @@ export type SubscriptionChangeCommitResult = {
 
 async function invokeSubscriptionChange<T>(
     tenantId: string,
-    action: "preview" | "commit",
+    action: "preview" | "commit" | "preview-scheduled-change" | "update-scheduled-change",
     input: SubscriptionChangeInput
 ): Promise<T> {
     const { data, error } = await supabase.functions.invoke("stripe-change-subscription", {
@@ -179,6 +179,46 @@ export async function commitSubscriptionChange(
     input: SubscriptionChangeInput
 ): Promise<SubscriptionChangeCommitResult> {
     return invokeSubscriptionChange<SubscriptionChangeCommitResult>(tenantId, "commit", input);
+}
+
+// ---------------------------------------------------------------------------
+// B5 — modifica IN-PLACE del bersaglio futuro di un cambio programmato.
+// SEMPRE €0: tocca solo la fase futura dello schedule (piano e/o sedi diversi
+// al rinnovo). Niente addebito, niente declino. Si attiva solo quando esiste un
+// cambio programmato. Permesso: billing.manage.
+//
+// Caso degenere (nuovo futuro == stato corrente live) → l'edge rilascia lo
+// schedule (equivale ad annullare) e ritorna `action: "released"`.
+//
+// Error code (oltre a quelli comuni): "NO_SCHEDULED_CHANGE" → nessun cambio
+// programmato da modificare (race: il pending non esiste più).
+// ---------------------------------------------------------------------------
+
+export type ScheduledChangeUpdateResult = {
+    ok: true;
+    /** "updated" = fase futura riscritta; "released" = schedule rilasciato (degenere). */
+    action: "updated" | "released";
+    classification?: "scheduled";
+    plan?: PlanCode;
+    seats?: number;
+    effective?: string | null;
+    scheduleId?: string;
+};
+
+/** Anteprima €0 della modifica del cambio programmato (nuovo target futuro). */
+export async function previewScheduledChange(
+    tenantId: string,
+    input: SubscriptionChangeInput
+): Promise<SubscriptionChangePreview> {
+    return invokeSubscriptionChange<SubscriptionChangePreview>(tenantId, "preview-scheduled-change", input);
+}
+
+/** Applica la modifica del cambio programmato (solo fase futura, €0). */
+export async function updateScheduledChange(
+    tenantId: string,
+    input: SubscriptionChangeInput
+): Promise<ScheduledChangeUpdateResult> {
+    return invokeSubscriptionChange<ScheduledChangeUpdateResult>(tenantId, "update-scheduled-change", input);
 }
 
 // ---------------------------------------------------------------------------

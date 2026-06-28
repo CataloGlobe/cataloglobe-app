@@ -25,7 +25,11 @@ export type BillingOperation =
     // Tre call distinte, key stabili sulla transizione → replay sicuro sul retry.
     | "seats-oneoff-item"
     | "seats-oneoff-create"
-    | "seats-oneoff-pay";
+    | "seats-oneoff-pay"
+    // FASE 2.4 — B5: modifica in-place del bersaglio futuro di un cambio
+    // programmato (€0, solo fase futura). Operation dedicata per non collidere
+    // con l'update-fasi di B2.
+    | "scheduled-update";
 
 export interface IdempotencyKeyParams {
     operation: BillingOperation;
