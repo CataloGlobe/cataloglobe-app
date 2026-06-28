@@ -548,6 +548,16 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+// Switch pinned to the row's right edge, never grows: override the InputBase
+// wrapper's default width:100% so the text keeps the full width (hint stays on
+// one line). Mirrors the public-hours toggle row.
+.closureFormToggleSwitch {
+  flex-shrink: 0;
+  width: auto;
 }
 
 .closureFormToggleLabel {

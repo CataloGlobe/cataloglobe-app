@@ -260,6 +260,7 @@ export const ActivityClosureForm: React.FC<ActivityClosureFormProps> = ({
                         <Switch
                             checked={isClosed}
                             onChange={handleIsClosedChange}
+                            containerClassName={styles.closureFormToggleSwitch}
                         />
                     </div>
                 )}
