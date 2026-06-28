@@ -1,4 +1,5 @@
 import { supabase } from "@/services/supabase/client";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { getProductAttributes, setProductAttributeValue } from "./attributes";
 import { getProductAllergens, setProductAllergens } from "./allergens";
 import { getProductGroupAssignments, assignProductToGroup } from "./productGroups";
@@ -747,4 +748,55 @@ export async function listBaseProductsForPicker(tenantId: string): Promise<Produ
 
     if (error) throw error;
     return data ?? [];
+}
+
+/**
+ * Generate an Italian product description via the stateless `product-ai-enrich`
+ * edge function. Pure read path: it does NOT write the product — the caller
+ * pre-fills the form field and saves through createProduct/updateProduct as usual.
+ *
+ * Throws an Error with `.code` (from the edge body, e.g. "rate_limit_rpd",
+ * "invalid_input", "SERVER_ERROR") so the UI can branch the toast. No client-side
+ * retry — the edge function already retries transient failures up to 3 times.
+ */
+export async function generateProductDescription(
+    tenantId: string,
+    input: { name: string; verticalType?: string; categoryName?: string }
+): Promise<string> {
+    const { data, error } = await supabase.functions.invoke<{
+        success: boolean;
+        data?: { description: string };
+        error?: string;
+        code?: string;
+    }>("product-ai-enrich", {
+        body: { ...input, tenantId }
+    });
+
+    if (error) {
+        let code = "SERVER_ERROR";
+        let message: string | undefined;
+        if (error instanceof FunctionsHttpError) {
+            try {
+                const body = (await error.context.clone().json()) as {
+                    code?: unknown;
+                    error?: unknown;
+                };
+                if (typeof body?.code === "string") code = body.code;
+                if (typeof body?.error === "string") message = body.error;
+            } catch {
+                // body not JSON → keep defaults
+            }
+        }
+        const err = new Error(message ?? "Generazione descrizione non riuscita");
+        (err as Error & { code?: string }).code = code;
+        throw err;
+    }
+
+    const description = data?.data?.description;
+    if (!description || typeof description !== "string") {
+        const err = new Error("Risposta vuota dal servizio AI");
+        (err as Error & { code?: string }).code = "SERVER_ERROR";
+        throw err;
+    }
+    return description.trim();
 }
