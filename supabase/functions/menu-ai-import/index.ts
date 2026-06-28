@@ -3,6 +3,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { exceedsPayloadBudget, estimateDecodedBytes } from "../_shared/aiImportPayloadSize.ts";
 import { classifyGeminiFailure, type ClassifiedFailure } from "../_shared/geminiFailure.ts";
+import { MAX_ATTEMPTS, isRetryable, computeBackoffSeconds } from "../_shared/geminiRetry.ts";
 
 /* ────────────────────────────── CORS ────────────────────────────── */
 
@@ -341,58 +342,77 @@ serve(async (req: Request) => {
 
         const startMs = Date.now();
 
+        const geminiRequestInit: RequestInit = {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
+            body: JSON.stringify({
+                contents: [{ parts }],
+                generationConfig: {
+                    // temperature/top_p/top_k ai default (raccomandato per i 3.x).
+                    // maxOutputTokens al ceiling del modello (65536, output token limit
+                    // documentato per gemini-3.5-flash): sul tier gratuito il vincolo e'
+                    // RPD non i token, quindi e' upside-only e riduce i MAX_TOKENS.
+                    // Non superare 65536: oltre il max la request fallisce.
+                    maxOutputTokens: 65536,
+                    // thinkingLevel LOW: veloce mantenendo qualita' (leva documentata).
+                    thinkingConfig: { thinkingLevel: "LOW" },
+                    // Structured output vincolato (forma classica v1beta), contratto invariato.
+                    responseMimeType: "application/json",
+                    responseSchema: MENU_SCHEMA
+                }
+            })
+        };
+
+        // ── Gemini call con retry limitato sui fallimenti transitori ──
+        // Ritenta SOLO le cause transitorie (rete/5xx → upstream_unavailable,
+        // rate-limit al minuto → rate_limit_rpm_tpm); MAI RPD/safety/max-tokens/
+        // bad-response. Decisioni delegate agli helper puri testati
+        // (isRetryable / computeBackoffSeconds): backoff esponenziale con cap, il
+        // retryDelay di Gemini onorato solo se abbastanza corto da tenere aperto
+        // l'edge. Il classifier e il logging strutturato restano invariati.
         let geminiRes: Response;
-        try {
-            geminiRes = await fetch(geminiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
-                body: JSON.stringify({
-                    contents: [{ parts }],
-                    generationConfig: {
-                        // temperature/top_p/top_k lasciati ai default: per i modelli 3.x
-                        // Google raccomanda di non sovrascriverli.
-                        // maxOutputTokens al ceiling del modello (65536, output token
-                        // limit documentato per gemini-3.5-flash). Sul tier gratuito il
-                        // vincolo e' RPD, non i token: massimizzare l'output e' upside-only
-                        // e riduce i troncamenti su menu lunghi (finishReason MAX_TOKENS,
-                        // gestito sotto). Non superare 65536: oltre il max la request fallisce.
-                        maxOutputTokens: 65536,
-                        // thinkingLevel LOW: veloce mantenendo qualita'. Alzare a MEDIUM se
-                        // i menu complessi restano imprecisi (leva documentata).
-                        thinkingConfig: { thinkingLevel: "LOW" },
-                        // Structured output vincolato (forma classica v1beta). Lo schema
-                        // vincola la STRUTTURA, il contratto resta invariato.
-                        responseMimeType: "application/json",
-                        responseSchema: MENU_SCHEMA
-                    }
-                })
-            });
-        } catch (networkErr) {
-            return failureResponse(classifyGeminiFailure({ isNetworkError: true }), {
-                ...failureCtx,
-                debug: networkErr instanceof Error ? networkErr.message : String(networkErr)
-            });
+        let attempt = 1;
+        while (true) {
+            let classified: ClassifiedFailure;
+            let debug: string;
+            try {
+                const res = await fetch(geminiUrl, geminiRequestInit);
+                if (res.ok) {
+                    geminiRes = res;
+                    break;
+                }
+                const errText = await res.text();
+                let errBody: unknown = errText;
+                try {
+                    errBody = JSON.parse(errText);
+                } catch {
+                    // corpo non-JSON: il classifier degrada a rate_limit/bad_response generico
+                }
+                classified = classifyGeminiFailure({ geminiHttpStatus: res.status, geminiErrorBody: errBody });
+                debug = `HTTP ${res.status}: ${errText.slice(0, 500)}`;
+            } catch (networkErr) {
+                classified = classifyGeminiFailure({ isNetworkError: true });
+                debug = networkErr instanceof Error ? networkErr.message : String(networkErr);
+            }
+
+            const backoff =
+                attempt < MAX_ATTEMPTS && isRetryable(classified.code)
+                    ? computeBackoffSeconds(attempt, classified.retryAfterSeconds)
+                    : null;
+            if (backoff === null) {
+                // Cause terminali, tentativi esauriti, o delay troppo lungo da
+                // tenere aperto l'edge: ritorna l'errore classificato (con retry_after).
+                return failureResponse(classified, { ...failureCtx, debug });
+            }
+            console.error(
+                "[menu-ai-import] retry",
+                JSON.stringify({ code: classified.code, attempt, backoff_seconds: backoff })
+            );
+            await new Promise((resolve) => setTimeout(resolve, backoff * 1000));
+            attempt++;
         }
 
         const processingTimeMs = Date.now() - startMs;
-
-        // ── Gemini error handling ─────────────────────────────────
-        // Tutte le cause (429-quota, 4xx/5xx, rete, SAFETY, MAX_TOKENS, parse)
-        // passano dal classifier puro: un solo posto testato decide status +
-        // code + messaggio. Niente piu' 502/500 collassati e indistinguibili.
-        if (!geminiRes.ok) {
-            const errText = await geminiRes.text();
-            let errBody: unknown = errText;
-            try {
-                errBody = JSON.parse(errText);
-            } catch {
-                // corpo non-JSON: il classifier degrada a rate_limit/bad_response generico
-            }
-            return failureResponse(
-                classifyGeminiFailure({ geminiHttpStatus: geminiRes.status, geminiErrorBody: errBody }),
-                { ...failureCtx, debug: `HTTP ${geminiRes.status}: ${errText.slice(0, 500)}` }
-            );
-        }
 
         // ── Parse Gemini response ─────────────────────────────────
         const geminiData = await geminiRes.json();
