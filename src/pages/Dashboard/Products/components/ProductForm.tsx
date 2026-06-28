@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { useToast } from "@/context/Toast/ToastContext";
-import { createProduct, updateProduct, getProduct, V2Product, ProductType } from "@/services/supabase/products";
+import { createProduct, updateProduct, getProduct, generateProductDescription, V2Product, ProductType } from "@/services/supabase/products";
 import { uploadProductImage } from "@/services/supabase/upload";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { FileInput } from "@/components/ui/Input/FileInput";
@@ -52,6 +52,9 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import { Pill } from "@/components/ui/Pill/Pill";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { useTenant } from "@/context/useTenant";
+import { Textarea } from "@/components/ui/Textarea/Textarea";
+import { Sparkles } from "lucide-react";
 import styles from "../Products.module.scss";
 import { IngredientCombobox } from "./IngredientCombobox";
 
@@ -244,6 +247,7 @@ export function ProductForm({
     const { showToast } = useToast();
     const navigate = useNavigate();
     const verticalConfig = useVerticalConfig();
+    const { selectedTenant } = useTenant();
     const isEditing = mode === "edit";
 
     const nameInputRef = useRef<HTMLInputElement>(null);
@@ -259,6 +263,11 @@ export function ProductForm({
     const [isSaving, setIsSaving] = useState(false);
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
+    // AI description enrichment (commit 2c). `aiDescState` drives the chip:
+    // "generated" right after a successful generation, "edited" once the user
+    // manually changes the AI text.
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [aiDescState, setAiDescState] = useState<"none" | "generated" | "edited">("none");
     const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
     const [basePrice, setBasePrice] = useState<string>("");
     const [productType, setProductType] = useState<ProductType>("simple");
@@ -322,6 +331,34 @@ export function ProductForm({
     useEffect(() => {
         onSavingChange?.(isSaving);
     }, [isSaving, onSavingChange]);
+
+    // Pre-fill the description via the stateless `product-ai-enrich` edge
+    // function. Not a submit — it only populates the editable field. Inputs:
+    // product name + tenant vertical_type (category not available in any mount).
+    const handleGenerateDescription = async () => {
+        if (!tenantId || !name.trim() || isGenerating) return;
+        setIsGenerating(true);
+        try {
+            const generated = await generateProductDescription(tenantId, {
+                name: name.trim(),
+                verticalType: selectedTenant?.vertical_type ?? undefined
+            });
+            setDescription(generated);
+            setAiDescState("generated");
+        } catch (err) {
+            const code = (err as { code?: string }).code;
+            const isRateLimit =
+                code === "rate_limit_rpd" || code === "rate_limit_rpm_tpm" || code === "rate_limit";
+            showToast({
+                message: isRateLimit
+                    ? "Troppe richieste verso il servizio AI. Riprova tra qualche istante."
+                    : "Generazione della descrizione non riuscita. Riprova.",
+                type: "error"
+            });
+        } finally {
+            setIsGenerating(false);
+        }
+    };
 
     // Fetch parent product when editing a variant (for the banner link)
     useEffect(() => {
@@ -1080,12 +1117,52 @@ export function ProductForm({
                             }
                         }}
                     />
-                    <TextInput
-                        label="Descrizione"
-                        value={description}
-                        onChange={e => setDescription(e.target.value)}
-                        placeholder="Breve descrizione (opzionale)"
-                    />
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                            <Text variant="body-sm" weight={600}>
+                                Descrizione
+                            </Text>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                leftIcon={<Sparkles size={14} />}
+                                loading={isGenerating}
+                                disabled={isGenerating || !name.trim()}
+                                onClick={handleGenerateDescription}
+                            >
+                                {isGenerating
+                                    ? "Generazione…"
+                                    : aiDescState !== "none"
+                                        ? "Rigenera"
+                                        : "Genera con AI"}
+                            </Button>
+                        </div>
+                        <Textarea
+                            value={description}
+                            onChange={e => {
+                                setDescription(e.target.value);
+                                if (aiDescState === "generated") setAiDescState("edited");
+                            }}
+                            placeholder="Breve descrizione (opzionale)"
+                            rows={4}
+                            disabled={isGenerating}
+                        />
+                        {!name.trim() && (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Inserisci il nome del prodotto per abilitare la generazione AI.
+                            </Text>
+                        )}
+                        {aiDescState === "generated" && name.trim() && (
+                            <Text variant="body-sm" colorVariant="muted">
+                                ✨ Generato con AI · puoi modificarlo liberamente
+                            </Text>
+                        )}
+                        {aiDescState === "edited" && (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Modificato manualmente
+                            </Text>
+                        )}
+                    </div>
                     <FileInput
                         label="Immagine"
                         accept="image/*"
