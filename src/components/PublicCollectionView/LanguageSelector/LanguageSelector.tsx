@@ -5,7 +5,13 @@ import { Check } from "lucide-react";
 import { useLanguage } from "@context/Language/useLanguage";
 import styles from "./LanguageSelector.module.scss";
 
-export default function LanguageSelector() {
+type LanguageSelectorProps = {
+    /** Contenitore scrollabile (preview = device frame). Fallback window a runtime.
+     *  Stessa logica dell'header: qualsiasi scroll chiude il dropdown. */
+    scrollContainerEl?: HTMLElement | null;
+};
+
+export default function LanguageSelector({ scrollContainerEl }: LanguageSelectorProps = {}) {
     const { t } = useTranslation("public");
     const { currentLang, availableLanguages, setLang } = useLanguage();
     const [open, setOpen] = useState(false);
@@ -39,9 +45,19 @@ export default function LanguageSelector() {
             setOpen(false);
         };
 
+        // Qualsiasi scroll chiude il dropdown (trackpad desktop + touch mobile).
+        // Il dropdown lingue NON usa scroll-lock: lo scroll resta normale → basta
+        // intercettare l'evento. Sorgente: scrollContainerEl (preview) ?? window.
+        const scrollTarget: HTMLElement | Window = scrollContainerEl ?? window;
+        const handleScroll = () => setOpen(false);
+
         document.addEventListener("mousedown", handleClick, true);
-        return () => document.removeEventListener("mousedown", handleClick, true);
-    }, [open]);
+        scrollTarget.addEventListener("scroll", handleScroll, { passive: true });
+        return () => {
+            document.removeEventListener("mousedown", handleClick, true);
+            scrollTarget.removeEventListener("scroll", handleScroll);
+        };
+    }, [open, scrollContainerEl]);
 
     const handleSelect = (code: string) => {
         if (code !== currentLang) {

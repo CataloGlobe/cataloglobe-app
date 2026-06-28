@@ -325,7 +325,9 @@ export default function PublicCollectionHeader({
                             )}
                         </div>
 
-                        {mode !== "preview" && showLanguageSelector && <LanguageSelector />}
+                        {mode !== "preview" && showLanguageSelector && (
+                            <LanguageSelector scrollContainerEl={scrollContainerEl} />
+                        )}
                         {/* Preview: stand-in statico del selettore lingua (il vero
                             LanguageSelector richiede LanguageProvider, assente in
                             anteprima). Solo visivo, inerte via .root[data-preview-device]. */}
