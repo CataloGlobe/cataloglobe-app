@@ -205,10 +205,29 @@
   padding-top: 1px;
 }
 
-.closedDayMessage {
-  font-size: 0.875rem;
-  color: v.$gray-400;
-  padding: 7px 0;
+// Inert placeholder mirroring a disabled time input on closed days. Matches the
+// real .input shell (padding / font / radius / border) so closed rows align in
+// column with open ones; muted text + cursor convey the disabled, display-only
+// nature. Not focusable (a span), no value binding.
+.timePlaceholder {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0.62rem 0.85rem;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border, #cbd5e1);
+  background: var(--hover-bg, #f1f5f9);
+  color: v.$gray-300;
+  cursor: not-allowed;
+  user-select: none;
+}
+
+// Reserves the width of the open rows' remove (✕) button so the disabled
+// placeholders line up with the real inputs above/below.
+.removeSlotSpacer {
+  width: 28px;
+  flex-shrink: 0;
 }
 
 .slotRow {

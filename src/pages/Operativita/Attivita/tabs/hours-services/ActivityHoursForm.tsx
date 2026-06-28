@@ -440,9 +440,31 @@ export function ActivityHoursForm({
                             {/* Slots or closed message */}
                             <div className={formStyles.daySlotsCol}>
                                 {dayData.is_closed ? (
-                                    <span className={formStyles.closedDayMessage}>
-                                        Nessun orario — la sede risulta chiusa.
-                                    </span>
+                                    // Display-only: inert time-input placeholders matched to the
+                                    // real fields so a closed row aligns perfectly and the layout
+                                    // doesn't jump on toggle. The CHIUSO label carries the meaning;
+                                    // these are aria-hidden and not focusable. No state binding.
+                                    <div className={formStyles.slotRow}>
+                                        <div className={formStyles.slotInputs}>
+                                            <span
+                                                className={formStyles.timePlaceholder}
+                                                aria-hidden="true"
+                                            >
+                                                ––:––
+                                            </span>
+                                            <span className={formStyles.slotSeparator}>–</span>
+                                            <span
+                                                className={formStyles.timePlaceholder}
+                                                aria-hidden="true"
+                                            >
+                                                ––:––
+                                            </span>
+                                            <span
+                                                className={formStyles.removeSlotSpacer}
+                                                aria-hidden="true"
+                                            />
+                                        </div>
+                                    </div>
                                 ) : (
                                     <>
                                         {dayData.slots.map((slot, si) => {
