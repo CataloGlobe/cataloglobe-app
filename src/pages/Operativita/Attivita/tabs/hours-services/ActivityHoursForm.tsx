@@ -511,9 +511,11 @@ export function ActivityHoursForm({
                                     </>
                                 )}
 
-                                <div className={formStyles.dayActions}>
-                                    {!dayData.is_closed &&
-                                        dayData.slots.length < MAX_SLOTS_PER_DAY && (
+                                {/* Footer actions only for open days — a closed day has
+                                    neither "+ Aggiungi fascia" nor the copy affordance. */}
+                                {!dayData.is_closed && (
+                                    <div className={formStyles.dayActions}>
+                                        {dayData.slots.length < MAX_SLOTS_PER_DAY && (
                                             <button
                                                 type="button"
                                                 className={formStyles.addSlotBtn}
@@ -523,32 +525,33 @@ export function ActivityHoursForm({
                                                 Aggiungi fascia
                                             </button>
                                         )}
-                                    {copyable ? (
-                                        <button
-                                            type="button"
-                                            className={formStyles.copyAllBtn}
-                                            onClick={() => handleCopyToAllDays(dayIndex)}
-                                            aria-label={`Copia gli orari di ${DAY_NAMES[dayIndex]} su tutti i giorni`}
-                                        >
-                                            <Copy size={13} />
-                                            Copia su tutti i giorni
-                                        </button>
-                                    ) : (
-                                        <Tooltip content="Completa gli orari di questo giorno per copiarli su tutti i giorni.">
-                                            <span className={formStyles.copyAllBtnWrap}>
-                                                <button
-                                                    type="button"
-                                                    className={formStyles.copyAllBtn}
-                                                    disabled
-                                                    aria-label={`Copia gli orari di ${DAY_NAMES[dayIndex]} su tutti i giorni`}
-                                                >
-                                                    <Copy size={13} />
-                                                    Copia su tutti i giorni
-                                                </button>
-                                            </span>
-                                        </Tooltip>
-                                    )}
-                                </div>
+                                        {copyable ? (
+                                            <button
+                                                type="button"
+                                                className={formStyles.copyAllBtn}
+                                                onClick={() => handleCopyToAllDays(dayIndex)}
+                                                aria-label={`Copia gli orari di ${DAY_NAMES[dayIndex]} su tutti i giorni`}
+                                            >
+                                                <Copy size={13} />
+                                                Copia su tutti i giorni
+                                            </button>
+                                        ) : (
+                                            <Tooltip content="Completa gli orari di questo giorno per copiarli su tutti i giorni.">
+                                                <span className={formStyles.copyAllBtnWrap}>
+                                                    <button
+                                                        type="button"
+                                                        className={formStyles.copyAllBtn}
+                                                        disabled
+                                                        aria-label={`Copia gli orari di ${DAY_NAMES[dayIndex]} su tutti i giorni`}
+                                                    >
+                                                        <Copy size={13} />
+                                                        Copia su tutti i giorni
+                                                    </button>
+                                                </span>
+                                            </Tooltip>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     );
