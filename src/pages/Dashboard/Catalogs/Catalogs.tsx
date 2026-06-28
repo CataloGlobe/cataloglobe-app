@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import { useTenantId } from "@/context/useTenantId";
-import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
@@ -11,13 +11,12 @@ import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { Card } from "@/components/ui/Card/Card";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconBook2 } from "@tabler/icons-react";
 import { Sparkles, LayoutGrid, List as ListIcon } from "lucide-react";
-import { AiMenuImportDrawer } from "./AiMenuImport/AiMenuImportDrawer";
+import { Loader } from "@/components/ui/Loader/Loader";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import {
     listCatalogs,
@@ -39,7 +38,6 @@ import styles from "./Catalogs.module.scss";
 
 export default function Catalogs() {
     const currentTenantId = useTenantId();
-    const { selectedTenant } = useTenant();
     const { showToast } = useToast();
     const navigate = useNavigate();
     const verticalConfig = useVerticalConfig();
@@ -64,8 +62,12 @@ export default function Catalogs() {
     const [name, setName] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
-    // AI Import state
-    const [isAiImportOpen, setIsAiImportOpen] = useState(false);
+    // AI Import: sessione sollevata in MainLayout. La pagina apre il drawer via
+    // context e ricarica quando l'import completa (importRefreshKey bumpato).
+    const outletCtx = useBusinessOutletContext();
+    const openAiImport = outletCtx?.openAiImport;
+    const importRefreshKey = outletCtx?.importRefreshKey ?? 0;
+    const importStatus = outletCtx?.importStatus ?? "idle";
 
     // Delete confirmation state
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -96,6 +98,16 @@ export default function Catalogs() {
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    // Ricarica al completamento di un import AI. Skip al mount (prev === current):
+    // evita il doppio-load con l'effetto loadData sopra.
+    const prevImportKeyRef = useRef(importRefreshKey);
+    useEffect(() => {
+        if (prevImportKeyRef.current !== importRefreshKey) {
+            prevImportKeyRef.current = importRefreshKey;
+            loadData();
+        }
+    }, [importRefreshKey, loadData]);
 
     const handleOpenCreate = useCallback(() => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
@@ -130,13 +142,21 @@ export default function Catalogs() {
                     variant="outline"
                     onClick={() => {
                         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
-                        setIsAiImportOpen(true);
+                        openAiImport?.();
                     }}
                     disabled={!canEdit}
-                    leftIcon={<Sparkles size={16} />}
+                    leftIcon={
+                        importStatus === "analyzing" || importStatus === "creating"
+                            ? <Loader size="sm" />
+                            : <Sparkles size={16} />
+                    }
                     className={styles.toolbarCta}
                 >
-                    Importa con AI
+                    {importStatus === "analyzing"
+                        ? "Analisi in corso…"
+                        : importStatus === "creating"
+                            ? "Salvataggio…"
+                            : "Importa con AI"}
                 </Button>
             )}
             {canWriteCatalog && (
@@ -150,7 +170,7 @@ export default function Catalogs() {
                 </Button>
             )}
         </>
-    ), [canWriteCatalog, canEdit, showToast, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange]);
+    ), [canWriteCatalog, canEdit, showToast, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange, openAiImport, importStatus]);
 
     usePageHeader({
         title: verticalConfig.catalogLabel,
@@ -416,13 +436,6 @@ export default function Catalogs() {
                     </form>
                 </DrawerLayout>
             </SystemDrawer>
-
-            {/* AI Import Drawer */}
-            <AiMenuImportDrawer
-                open={isAiImportOpen}
-                onClose={() => setIsAiImportOpen(false)}
-                onSuccess={loadData}
-            />
 
             {/* Delete Drawer */}
             <CatalogDeleteDrawer

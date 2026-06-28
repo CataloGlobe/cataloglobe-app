@@ -1,4 +1,4 @@
-import { useMemo, type ComponentProps, type ReactNode } from "react";
+import { useEffect, useMemo, type ComponentProps, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 
 import CollectionView, {
@@ -241,6 +241,10 @@ export type PublicCatalogReadyProps = {
     onRetry: () => void;
     activeTab: HubTab;
     onTabChange: (tab: HubTab) => void;
+    /** Reset della tab attiva senza analytics (setter raw). Invocato quando la
+     *  tab "events" e' attiva ma non ci sono piu featured da mostrare. Opzionale:
+     *  l'SSR monta con activeTab="menu" fisso → il fallback non scatta mai. */
+    onTabAutoReset?: () => void;
     /** Banner page-level dentro il contentWrapper (es. banner simulazione). */
     bannerSlot?: ReactNode;
     /** Overlay page-level dopo il contentWrapper (es. toast cambio lingua). */
@@ -254,6 +258,7 @@ export default function PublicCatalogReady({
     onRetry,
     activeTab,
     onTabChange,
+    onTabAutoReset,
     bannerSlot,
     children
 }: PublicCatalogReadyProps) {
@@ -312,6 +317,15 @@ export default function PublicCatalogReady({
         ...(resolved.featured?.before_catalog ?? []),
         ...(resolved.featured?.after_catalog ?? [])
     ];
+
+    // Fallback: se la tab "events" e' attiva ma non ci sono piu featured da
+    // mostrare (mount diretto o svuotamento da refetch/scheduling mid-sessione),
+    // riporta la tab a "menu" via setter raw (niente analytics tab_switch).
+    useEffect(() => {
+        if (activeTab === "events" && allFeaturedContents.length === 0) {
+            onTabAutoReset?.();
+        }
+    }, [activeTab, allFeaturedContents.length, onTabAutoReset]);
 
     const isRefetchingNow = data.isRefetching ?? false;
 

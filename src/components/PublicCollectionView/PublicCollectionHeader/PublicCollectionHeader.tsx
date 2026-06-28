@@ -6,6 +6,7 @@ import { buildCoverImageSet } from "@/utils/imageTransform";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
 
+// ⚠️ Visibilità tab "events" sincronizzata con PublicBottomBar.tsx (stesso filtro)
 const HUB_TABS: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
     { id: "menu", icon: <BookOpen size={14} />, labelKey: "hub.menu" },
     { id: "events", icon: <CalendarDays size={14} />, labelKey: "hub.events" },
@@ -68,6 +69,9 @@ export type PublicCollectionHeaderProps = {
     onOpenMore?: () => void;
     /** Mostra le hub tabs (menu/eventi/recensioni). Default true (comportamento storico). */
     showHubTabs?: boolean;
+    /** Mostra la tab "events". Default true (retrocompatibile). Filtrata via stessa
+     *  logica di PublicBottomBar quando non ci sono featured da mostrare. */
+    showEventsTab?: boolean;
     /** Mostra il LanguageSelector. Default true (comportamento storico). */
     showLanguageSelector?: boolean;
     /** Slot opzionale a destra del titolo (es. link "Menu" per pagine non-catalogo). */
@@ -114,6 +118,7 @@ export default function PublicCollectionHeader({
     allergensCount = 0,
     onOpenMore,
     showHubTabs = true,
+    showEventsTab = true,
     showLanguageSelector = true,
     actionSlot,
     selectionCount = 0,
@@ -127,6 +132,10 @@ export default function PublicCollectionHeader({
     const { t } = useTranslation("public");
     // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
     const headerRef = useRef<HTMLElement | null>(null);
+    // Ghost input: focalizzato in-gesto al tap per innescare la tastiera iOS; il
+    // focus passa poi all'input reale al mount di SearchOverlay (vedi SearchOverlay
+    // focus on mount).
+    const searchPrimerRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
         const el = headerRef.current;
@@ -237,6 +246,22 @@ export default function PublicCollectionHeader({
 
     return (
         <>
+            {/* Ghost input always-mounted: riceve il focus sincrono nel gesto del tap
+                ricerca per far salire la tastiera iOS, che resta su quando il focus
+                passa al vero input al mount di SearchOverlay. Off-screen ma
+                focalizzabile (no display/visibility/hidden/height:0). */}
+            {mode === "public" && (
+                <input
+                    ref={searchPrimerRef}
+                    type="text"
+                    inputMode="search"
+                    className={styles.searchPrimer}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    autoComplete="off"
+                />
+            )}
+
             {/* COVER IMAGE — scrolls away normally */}
             {showCoverImage && (
                 <div className={styles.coverImage}>
@@ -320,7 +345,9 @@ export default function PublicCollectionHeader({
                             )}
                         </div>
 
-                        {mode !== "preview" && showLanguageSelector && <LanguageSelector />}
+                        {mode !== "preview" && showLanguageSelector && (
+                            <LanguageSelector scrollContainerEl={scrollContainerEl} />
+                        )}
                         {/* Preview: stand-in statico del selettore lingua (il vero
                             LanguageSelector richiede LanguageProvider, assente in
                             anteprima). Solo visivo, inerte via .root[data-preview-device]. */}
@@ -336,7 +363,14 @@ export default function PublicCollectionHeader({
                             <button
                                 type="button"
                                 className={styles.iconBtn}
-                                onClick={onSearchOpen}
+                                onClick={() => {
+                                    // Focus sincrono in-gesto sul ghost → tastiera iOS su
+                                    // subito; SOLO runtime (in preview onSearchOpen è undefined).
+                                    if (onSearchOpen) {
+                                        searchPrimerRef.current?.focus();
+                                        onSearchOpen();
+                                    }
+                                }}
                                 onPointerDown={onSearchPointerDown}
                                 aria-label={t("header.search_aria")}
                                 tabIndex={mode === "preview" ? -1 : undefined}
@@ -422,7 +456,7 @@ export default function PublicCollectionHeader({
                                 .filter(Boolean)
                                 .join(" ")}
                         >
-                            {HUB_TABS.map(tab => (
+                            {HUB_TABS.filter(tab => tab.id !== "events" || showEventsTab).map(tab => (
                                 <button
                                     key={tab.id}
                                     type="button"

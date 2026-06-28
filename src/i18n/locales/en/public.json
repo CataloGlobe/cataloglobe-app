@@ -34,7 +34,11 @@
         "allergens_subtitle_active_other": "{{count}} allergens active",
         "allergens_subtitle_empty": "No products with allergens",
         "info_label": "Information",
-        "info_subtitle": "Address, hours, contacts"
+        "info_subtitle": "Address, hours, contacts",
+        "share_label": "Share",
+        "share_subtitle": "Send this page's link",
+        "share_copied": "Link copied",
+        "share_error": "Couldn't copy the link"
     },
     "search": {
         "placeholder": "Search product…",

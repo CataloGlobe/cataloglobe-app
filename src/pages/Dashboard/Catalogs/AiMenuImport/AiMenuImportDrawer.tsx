@@ -1,61 +1,19 @@
-import { useEffect, useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import type { AiImportSession } from "@/hooks/useAiImportSession";
 import { AiMenuImportWizard } from "./AiMenuImportWizard";
 
 interface AiMenuImportDrawerProps {
-    open: boolean;
-    onClose: () => void;
-    onSuccess: () => void;
+    /** Sessione import sollevata in MainLayout (stato + azioni). */
+    session: AiImportSession;
 }
 
-export function AiMenuImportDrawer({ open, onClose, onSuccess }: AiMenuImportDrawerProps) {
-    // Stato "operazione in corso" sollevato dal wizard (analisi Gemini O creazione DB).
-    const [isBusy, setIsBusy] = useState(false);
-    const [confirmOpen, setConfirmOpen] = useState(false);
-
-    // Reset pulito ad ogni riapertura: nessun guard/confirm residuo.
-    useEffect(() => {
-        if (open) {
-            setIsBusy(false);
-            setConfirmOpen(false);
-        }
-    }, [open]);
-
-    // Guard condiviso: overlay-click + Escape (SystemDrawer) e bottoni footer (wizard)
-    // passano tutti da qui. Se un'operazione e' in corso, chiedi conferma invece di chiudere.
-    const handleRequestClose = () => {
-        if (isBusy) {
-            setConfirmOpen(true);
-        } else {
-            onClose();
-        }
-    };
-
+export function AiMenuImportDrawer({ session }: AiMenuImportDrawerProps) {
+    // Chiudere è ora sicuro: la richiesta vive nel hook e continua a girare anche
+    // a drawer chiuso. `close()` nasconde soltanto — nessun guard, nessun
+    // annullamento. Riaprire ri-aggancia la sessione alla vista corrente.
     return (
-        <>
-            <SystemDrawer open={open} onClose={handleRequestClose} width={720}>
-                <AiMenuImportWizard
-                    onClose={handleRequestClose}
-                    onSuccess={onSuccess}
-                    onBusyChange={setIsBusy}
-                />
-            </SystemDrawer>
-
-            {/* Reso DOPO SystemDrawer: stesso z-index (1000) portato su document.body,
-                quindi l'ordine DOM successivo lo fa dipingere SOPRA il drawer e il suo overlay. */}
-            <ConfirmDialog
-                isOpen={confirmOpen}
-                onClose={() => setConfirmOpen(false)}
-                onConfirm={async () => {
-                    onClose();
-                    return true;
-                }}
-                title="Operazione in corso"
-                message="Se chiudi ora l'operazione in corso verrà persa e dovrai ricominciare. Chiudere comunque?"
-                confirmLabel="Chiudi comunque"
-                confirmVariant="danger"
-            />
-        </>
+        <SystemDrawer open={session.isOpen} onClose={session.close} width={720}>
+            <AiMenuImportWizard session={session} />
+        </SystemDrawer>
     );
 }

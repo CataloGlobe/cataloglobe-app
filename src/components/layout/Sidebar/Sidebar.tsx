@@ -58,6 +58,11 @@ interface NavItem {
      * solo quando il conteggio è > 0.
      */
     showTranslationBadge?: boolean;
+    /**
+     * Mostra il badge loader-only "import AI in corso" (stesso spinner ambra delle
+     * Lingue, senza numero). Alimentato dalla prop `importInProgress`.
+     */
+    showImportBadge?: boolean;
 }
 
 interface NavGroup {
@@ -101,7 +106,8 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             icon: <FolderOpen size={12} />,
             items: [
                 { to: `${b}/catalogs`, label: catalogLabel, icon: <BookOpen size={18} />,
-                  permission: perms => canDoOnTenant(perms, "catalogs.read") },
+                  permission: perms => canDoOnTenant(perms, "catalogs.read"),
+                  showImportBadge: true },
                 { to: `${b}/products`, label: "Prodotti", icon: <Archive size={18} />,
                   permission: perms => canDoOnTenant(perms, "products.read") },
                 {
@@ -154,6 +160,8 @@ interface SidebarProps {
     onToggleCollapse: () => void;
     /** Pending traduzioni tenant-wide (fonte unica: MainLayout). 0 = nessun badge. */
     translationPendingCount?: number;
+    /** Import AI in volo (analyzing|creating). Accende la pillola loader su Cataloghi. */
+    importInProgress?: boolean;
 }
 
 export default function Sidebar({
@@ -162,7 +170,8 @@ export default function Sidebar({
     collapsed,
     onRequestClose,
     onToggleCollapse,
-    translationPendingCount = 0
+    translationPendingCount = 0,
+    importInProgress = false
 }: SidebarProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { t } = useTranslation("admin");
@@ -225,6 +234,8 @@ export default function Sidebar({
                                             const isLocked = !!link.requiresFeature && !hasFeature(link.requiresFeature);
                                             const showTranslationBadge =
                                                 !!link.showTranslationBadge && translationPendingCount > 0;
+                                            const showImportBadge =
+                                                !!link.showImportBadge && importInProgress;
                                             return (
                                             <li key={link.to}>
                                                 <NavLink
@@ -282,6 +293,19 @@ export default function Sidebar({
                                                             {translationPendingCount > 99
                                                                 ? "99+"
                                                                 : translationPendingCount}
+                                                        </span>
+                                                    )}
+
+                                                    {showImportBadge && (
+                                                        <span
+                                                            className={`${styles.translationBadge} ${styles.importBadgeLoaderOnly}`}
+                                                            title="Importazione menù con AI in corso"
+                                                            aria-label="Importazione menù con AI in corso"
+                                                        >
+                                                            <span
+                                                                className={styles.translationBadgeSpinner}
+                                                                aria-hidden="true"
+                                                            />
                                                         </span>
                                                     )}
                                                 </NavLink>

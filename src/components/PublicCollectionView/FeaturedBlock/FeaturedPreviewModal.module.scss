@@ -61,8 +61,14 @@
 /* ── Image ───────────────────────────────────────────────────────────────── */
 
 .image {
-    width: 100%;
+    /* Inset come ItemDetail: padding orizz = 20px del .content (bordi immagine
+       allineati al testo), top 20px (stacco dal drag handle), angoli arrotondati.
+       Margin (non padding) così border-radius clippa l'immagine reale. Uniforme
+       mobile + desktop, nessun ramo @media. --pub-radius/12px = stesso di ItemDetail. */
+    width: calc(100% - 40px);
+    margin: 20px 20px 0;
     aspect-ratio: 16 / 9;
+    border-radius: var(--pub-radius, 12px);
     object-fit: cover;
     display: block;
 }

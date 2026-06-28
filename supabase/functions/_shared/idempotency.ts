@@ -18,8 +18,18 @@ export type BillingOperation =
     | "upgrade"
     | "downgrade-create"
     | "downgrade-update"
+    | "downgrade-update-phases"
     | "seats"
-    | "downgrade";
+    | "downgrade"
+    // FASE 2.3 — one-off charge-first per B2 (aggiunta sedi su schedule pendente).
+    // Tre call distinte, key stabili sulla transizione → replay sicuro sul retry.
+    | "seats-oneoff-item"
+    | "seats-oneoff-create"
+    | "seats-oneoff-pay"
+    // FASE 2.4 — B5: modifica in-place del bersaglio futuro di un cambio
+    // programmato (€0, solo fase futura). Operation dedicata per non collidere
+    // con l'update-fasi di B2.
+    | "scheduled-update";
 
 export interface IdempotencyKeyParams {
     operation: BillingOperation;

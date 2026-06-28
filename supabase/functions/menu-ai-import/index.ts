@@ -1,7 +1,9 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { exceedsPayloadBudget } from "../_shared/aiImportPayloadSize.ts";
+import { exceedsPayloadBudget, estimateDecodedBytes } from "../_shared/aiImportPayloadSize.ts";
+import { classifyGeminiFailure, type ClassifiedFailure } from "../_shared/geminiFailure.ts";
+import { MAX_ATTEMPTS, isRetryable, computeBackoffSeconds } from "../_shared/geminiRetry.ts";
 
 /* ────────────────────────────── CORS ────────────────────────────── */
 
@@ -23,6 +25,44 @@ function jsonOk(data: unknown) {
 function jsonError(error: string, status: number) {
     return new Response(JSON.stringify({ success: false, error }), {
         status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+}
+
+interface FailureContext {
+    fileCount: number;
+    estimatedBytes: number;
+    languageHint: string;
+    debug?: string;
+}
+
+// Risposta d'errore classificata: emette UNA riga di log strutturata (code +
+// metadati input, mai contenuto file) e ritorna il payload con `code` e
+// `retry_after` opzionale, cosi' i 429/502/500 prima collassati sono ora
+// distinguibili sia lato log sia lato client.
+function failureResponse(classified: ClassifiedFailure, ctx: FailureContext) {
+    console.error(
+        "[menu-ai-import] failure",
+        JSON.stringify({
+            code: classified.code,
+            http_status: classified.httpStatus,
+            file_count: ctx.fileCount,
+            estimated_bytes: Math.round(ctx.estimatedBytes),
+            language_hint: ctx.languageHint,
+            ...(classified.retryAfterSeconds !== undefined
+                ? { retry_after_seconds: classified.retryAfterSeconds }
+                : {}),
+            ...(ctx.debug ? { debug: ctx.debug } : {})
+        })
+    );
+    const payload: Record<string, unknown> = {
+        success: false,
+        error: classified.messageIt,
+        code: classified.code
+    };
+    if (classified.retryAfterSeconds !== undefined) payload.retry_after = classified.retryAfterSeconds;
+    return new Response(JSON.stringify(payload), {
+        status: classified.httpStatus,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 }
@@ -283,6 +323,13 @@ serve(async (req: Request) => {
 
         const lang = language_hint || "it";
 
+        // Contesto comune per il logging strutturato degli errori (no contenuto file).
+        const failureCtx: Omit<FailureContext, "debug"> = {
+            fileCount: images.length,
+            estimatedBytes: estimateDecodedBytes(normalizedImages),
+            languageHint: lang
+        };
+
         const parts = [
             { text: SYSTEM_PROMPT },
             ...normalizedImages.map((img) => ({
@@ -291,54 +338,81 @@ serve(async (req: Request) => {
             { text: `Extract all products from this menu. The menu language is likely "${lang}".` }
         ];
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
 
         const startMs = Date.now();
 
+        const geminiRequestInit: RequestInit = {
+            method: "POST",
+            headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
+            body: JSON.stringify({
+                contents: [{ parts }],
+                generationConfig: {
+                    // temperature/top_p/top_k ai default (raccomandato per i 3.x).
+                    // maxOutputTokens al ceiling del modello (65536, output token limit
+                    // documentato per gemini-2.5-flash): sul tier gratuito il vincolo e'
+                    // RPD non i token, quindi e' upside-only e riduce i MAX_TOKENS.
+                    // Non superare 65536: oltre il max la request fallisce.
+                    maxOutputTokens: 65536,
+                    // NOTE: thinkingConfig rimosso per compatibilità con gemini-2.5-flash (dev).
+                    // Ripristinare { thinkingLevel: "LOW" } quando si torna a gemini-3.5-flash in produzione.
+                    // Structured output vincolato (forma classica v1beta), contratto invariato.
+                    responseMimeType: "application/json",
+                    responseSchema: MENU_SCHEMA
+                }
+            })
+        };
+
+        // ── Gemini call con retry limitato sui fallimenti transitori ──
+        // Ritenta SOLO le cause transitorie (rete/5xx → upstream_unavailable,
+        // rate-limit al minuto → rate_limit_rpm_tpm); MAI RPD/safety/max-tokens/
+        // bad-response. Decisioni delegate agli helper puri testati
+        // (isRetryable / computeBackoffSeconds): backoff esponenziale con cap, il
+        // retryDelay di Gemini onorato solo se abbastanza corto da tenere aperto
+        // l'edge. Il classifier e il logging strutturato restano invariati.
         let geminiRes: Response;
-        try {
-            geminiRes = await fetch(geminiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json", "x-goog-api-key": geminiKey },
-                body: JSON.stringify({
-                    contents: [{ parts }],
-                    generationConfig: {
-                        // temperature/top_p/top_k lasciati ai default: per i modelli 3.x
-                        // Google raccomanda di non sovrascriverli.
-                        // maxOutputTokens generoso: i menu lunghi producono molti prodotti.
-                        // Headroom modello 65k; 32768 copre menu grandi evitando troncamenti
-                        // silenziosi (il caso finishReason MAX_TOKENS e' gestito sotto).
-                        maxOutputTokens: 32768,
-                        // thinkingLevel LOW: veloce mantenendo qualita'. Alzare a MEDIUM se
-                        // i menu complessi restano imprecisi (leva documentata).
-                        thinkingConfig: { thinkingLevel: "LOW" },
-                        // Structured output vincolato (forma classica v1beta). Lo schema
-                        // vincola la STRUTTURA, il contratto resta invariato.
-                        responseMimeType: "application/json",
-                        responseSchema: MENU_SCHEMA
-                    }
-                })
-            });
-        } catch (networkErr) {
-            console.error("[menu-ai-import] Gemini network error:", networkErr);
-            return jsonError("Servizio AI temporaneamente non disponibile", 502);
+        let attempt = 1;
+        while (true) {
+            let classified: ClassifiedFailure;
+            let debug: string;
+            try {
+                const res = await fetch(geminiUrl, geminiRequestInit);
+                if (res.ok) {
+                    geminiRes = res;
+                    break;
+                }
+                const errText = await res.text();
+                let errBody: unknown = errText;
+                try {
+                    errBody = JSON.parse(errText);
+                } catch {
+                    // corpo non-JSON: il classifier degrada a rate_limit/bad_response generico
+                }
+                classified = classifyGeminiFailure({ geminiHttpStatus: res.status, geminiErrorBody: errBody });
+                debug = `HTTP ${res.status}: ${errText.slice(0, 500)}`;
+            } catch (networkErr) {
+                classified = classifyGeminiFailure({ isNetworkError: true });
+                debug = networkErr instanceof Error ? networkErr.message : String(networkErr);
+            }
+
+            const backoff =
+                attempt < MAX_ATTEMPTS && isRetryable(classified.code)
+                    ? computeBackoffSeconds(attempt, classified.retryAfterSeconds)
+                    : null;
+            if (backoff === null) {
+                // Cause terminali, tentativi esauriti, o delay troppo lungo da
+                // tenere aperto l'edge: ritorna l'errore classificato (con retry_after).
+                return failureResponse(classified, { ...failureCtx, debug });
+            }
+            console.error(
+                "[menu-ai-import] retry",
+                JSON.stringify({ code: classified.code, attempt, backoff_seconds: backoff })
+            );
+            await new Promise((resolve) => setTimeout(resolve, backoff * 1000));
+            attempt++;
         }
 
         const processingTimeMs = Date.now() - startMs;
-
-        // ── Gemini error handling ─────────────────────────────────
-        if (!geminiRes.ok) {
-            const errBody = await geminiRes.text();
-            console.error(`[menu-ai-import] Gemini HTTP ${geminiRes.status}:`, errBody);
-
-            if (geminiRes.status === 429) {
-                return jsonError("Servizio AI temporaneamente non disponibile, riprovare tra qualche minuto", 502);
-            }
-            if (geminiRes.status === 400) {
-                return jsonError("Errore nella richiesta al servizio AI", 500);
-            }
-            return jsonError("Servizio AI temporaneamente non disponibile", 502);
-        }
 
         // ── Parse Gemini response ─────────────────────────────────
         const geminiData = await geminiRes.json();
@@ -346,44 +420,38 @@ serve(async (req: Request) => {
         const candidate = geminiData?.candidates?.[0];
         const finishReason: string | undefined = candidate?.finishReason;
 
-        // Troncamento output: il menu ha generato piu' token del budget. Errore
-        // SPECIFICO e distinguibile (non collassare nel 500 generico) cosi' l'utente
-        // sa che deve ridurre le pagine e il log mostra la firma esatta.
-        if (finishReason === "MAX_TOKENS") {
-            console.error("[menu-ai-import] finishReason=MAX_TOKENS (output troncato)");
-            return jsonError(
-                "Il menu e' troppo lungo per essere elaborato in una volta. Riprova con meno pagine.",
-                422
-            );
-        }
-
-        // Altre interruzioni anomale (SAFETY, RECITATION, ...) vs completamento
-        // normale (STOP). Log + errore specifico, mai un 500 indistinguibile.
+        // finishReason anomalo (MAX_TOKENS / SAFETY / RECITATION): instradato dal
+        // classifier per tenere TUTTA la mappatura in un unico posto testato.
         if (finishReason && finishReason !== "STOP") {
-            console.error(`[menu-ai-import] finishReason anomalo: ${finishReason}`);
-            return jsonError("Il modello AI ha interrotto l'analisi del menu. Riprova.", 502);
+            return failureResponse(classifyGeminiFailure({ finishReason }), {
+                ...failureCtx,
+                debug: `finishReason=${finishReason}`
+            });
         }
 
         const rawText = candidate?.content?.parts?.[0]?.text;
         if (!rawText) {
-            console.error("[menu-ai-import] Empty Gemini response:", JSON.stringify(geminiData, null, 2));
-            return jsonError("Errore nell'analisi del menu", 500);
+            return failureResponse(classifyGeminiFailure({}), {
+                ...failureCtx,
+                debug: "empty Gemini response"
+            });
         }
 
         let parsed: Record<string, unknown>;
         try {
             parsed = JSON.parse(rawText);
         } catch {
-            console.error(
-                `[menu-ai-import] JSON parse failed. finishReason=${finishReason}. Raw:`,
-                rawText.slice(0, 500)
-            );
-            return jsonError("Errore nell'analisi del menu", 500);
+            return failureResponse(classifyGeminiFailure({}), {
+                ...failureCtx,
+                debug: `JSON parse failed. finishReason=${finishReason}. raw=${rawText.slice(0, 300)}`
+            });
         }
 
         if (!Array.isArray(parsed.categories)) {
-            console.error("[menu-ai-import] Missing categories array:", JSON.stringify(parsed).slice(0, 500));
-            return jsonError("Errore nell'analisi del menu", 500);
+            return failureResponse(classifyGeminiFailure({}), {
+                ...failureCtx,
+                debug: `missing categories array: ${JSON.stringify(parsed).slice(0, 300)}`
+            });
         }
 
         // ── Build response ────────────────────────────────────────
@@ -393,7 +461,7 @@ serve(async (req: Request) => {
             ...(parsed.error ? { error: parsed.error } : {}),
             metadata: {
                 images_analyzed: images.length,
-                model_used: "gemini-3.5-flash",
+                model_used: "gemini-2.5-flash",
                 processing_time_ms: processingTimeMs
             }
         });

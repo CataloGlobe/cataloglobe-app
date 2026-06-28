@@ -13,6 +13,8 @@ import { useTenantId } from "@/context/useTenantId";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
+import { useAiImportSession } from "@/hooks/useAiImportSession";
+import { AiMenuImportDrawer } from "@/pages/Dashboard/Catalogs/AiMenuImport/AiMenuImportDrawer";
 import type { BusinessOutletContext } from "./outletContext";
 
 import styles from "./MainLayout.module.scss";
@@ -119,9 +121,24 @@ export default function MainLayout() {
                 : 0,
         [translationCoverage]
     );
+    // ── Sessione import AI sollevata ───────────────────────────────────
+    // Montata una sola volta qui (come la coverage traduzioni): stato e
+    // richiesta `menu-ai-import` vivono nel layout → sopravvivono all'unmount
+    // della pagina. Il drawer è reso fuori dall'Outlet e riceve la sessione per
+    // props; le pagine ricevono `openAiImport` + `importRefreshKey` via context.
+    const aiImport = useAiImportSession(tenantId);
+    // Booleano largo per la pillola sidebar: cambia solo alle transizioni di
+    // status (non a ogni tick di createProgress) → niente rerender per tick.
+    const importInProgress = aiImport.status === "analyzing" || aiImport.status === "creating";
     const outletContext = useMemo<BusinessOutletContext>(
-        () => ({ translationCoverage, wakeTranslations }),
-        [translationCoverage, wakeTranslations]
+        () => ({
+            translationCoverage,
+            wakeTranslations,
+            openAiImport: aiImport.open,
+            importRefreshKey: aiImport.importRefreshKey,
+            importStatus: aiImport.status
+        }),
+        [translationCoverage, wakeTranslations, aiImport.open, aiImport.importRefreshKey, aiImport.status]
     );
 
     // Tenant without subscription → redirect to workspace with resume param.
@@ -166,6 +183,7 @@ export default function MainLayout() {
                                 onRequestClose={() => setMobileSidebarOpen(false)}
                                 onToggleCollapse={() => setSidebarCollapsed(v => !v)}
                                 translationPendingCount={translationPendingCount}
+                                importInProgress={importInProgress}
                             />
 
                             <main className={styles.main}>
@@ -176,6 +194,10 @@ export default function MainLayout() {
                                 </div>
                             </main>
                         </div>
+
+                        {/* Drawer import AI: reso a livello di layout, FUORI dall'Outlet,
+                            così stato e richiesta sopravvivono ai cambi route. */}
+                        <AiMenuImportDrawer session={aiImport} />
                     </PageHeaderProvider>
                 </BreadcrumbProvider>
             </DrawerProvider>

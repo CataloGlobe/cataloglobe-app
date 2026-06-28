@@ -1003,6 +1003,11 @@ export default function CollectionView({
         [activeTab, orderingEntryHidden]
     );
 
+    // Tab "events" visibile solo se ci sono featured da mostrare adesso (union
+    // before/after, gia filtrata post-scheduling a monte). In preview SEMPRE
+    // visibile: superficie di design, mostra tutte le tab anche senza contenuti.
+    const showEventsTab = mode === "preview" ? true : featuredContents.length > 0;
+
     // Array piatto di tutte le sezioni (L1+L2+L3) — usato da SearchOverlay
     const sections = useMemo(
         () => sectionGroups.flatMap(g => [g.root, ...g.children]),
@@ -1388,6 +1393,51 @@ export default function CollectionView({
     const isProgrammaticScrollRef = useRef(false);
     const programmaticScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+    // ── Sticky offset misurato (header + nav) ───────────────────────────────
+    // La nav sticky CSS si ancora a --pub-header-height (misurato via
+    // ResizeObserver in PublicCollectionHeader); qui allineiamo l'offset di
+    // scroll-to-categoria alla STESSA altezza reale invece delle costanti, che
+    // sovrastimano su mobile (header ~108px, nav con padding ridotto da @media).
+    const navRef = useRef<HTMLElement | null>(null);
+    // Offset cacheato: computeActiveSection gira a ogni scroll → MAI misurare
+    // (getComputedStyle/offsetHeight) per-frame. Si ricalcola solo su resize.
+    const stickyOffsetRef = useRef<number>(HEADER_HEIGHT + NAV_HEIGHT + VISUAL_GAP);
+
+    // Legge l'altezza header dalla CSS var su <main>; fallback alla costante
+    // finché il ResizeObserver non l'ha ancora scritta (primo paint).
+    const readHeaderHeight = useCallback((): number => {
+        const el = pageRef.current;
+        if (!el) return HEADER_HEIGHT;
+        const px = parseFloat(getComputedStyle(el).getPropertyValue("--pub-header-height"));
+        return Number.isFinite(px) && px > 0 ? px : HEADER_HEIGHT;
+    }, []);
+
+    // Ricalcolo (infrequente): qui sono OK le letture di layout. Aggiorna il ref
+    // cacheato letto dal percorso caldo. VISUAL_GAP resta costante (gap voluto).
+    const recomputeStickyOffset = useCallback((): number => {
+        const headerH = readHeaderHeight();
+        const navH = navRef.current?.offsetHeight ?? NAV_HEIGHT;
+        const offset = headerH + navH + VISUAL_GAP;
+        stickyOffsetRef.current = offset;
+        return offset;
+    }, [readHeaderHeight]);
+
+    // Ricalcola l'offset cacheato solo quando può cambiare: al mount, su resize
+    // della nav (cambio padding @media / wrap pill), e su resize viewport (delta
+    // header desktop↔mobile). Nessuna misura per-frame nello scroll handler.
+    useEffect(() => {
+        recomputeStickyOffset();
+        const navEl = navRef.current;
+        const ro = navEl ? new ResizeObserver(() => recomputeStickyOffset()) : null;
+        if (navEl && ro) ro.observe(navEl);
+        const onResize = () => recomputeStickyOffset();
+        window.addEventListener("resize", onResize, { passive: true });
+        return () => {
+            ro?.disconnect();
+            window.removeEventListener("resize", onResize);
+        };
+    }, [recomputeStickyOffset, l1Sections]);
+
     // ── Analytics: section_view (IntersectionObserver, una volta per sezione) ─
     const viewedSectionsRef = useRef(new Set<string>());
 
@@ -1542,7 +1592,9 @@ export default function CollectionView({
 
         function computeActiveSection() {
             if (isProgrammaticScrollRef.current) return;
-            const dynamicStickyOffset = HEADER_HEIGHT + NAV_HEIGHT + VISUAL_GAP + 4;
+            // Percorso CALDO: legge SOLO il ref cacheato (zero layout reads
+            // per-frame). +4 = gap intenzionale, non un'altezza di elemento.
+            const dynamicStickyOffset = stickyOffsetRef.current + 4;
 
             const containerTop =
                 container === window ? 0 : (container as HTMLElement).getBoundingClientRect().top;
@@ -1651,7 +1703,9 @@ export default function CollectionView({
         const el = sectionRefs.current[sectionId];
         if (!el) return;
 
-        const scrollOffset = HEADER_HEIGHT + NAV_HEIGHT + VISUAL_GAP;
+        // Percorso freddo (on click): misura fresco una tantum (aggiorna anche il
+        // ref cacheato per il successivo computeActiveSection).
+        const scrollOffset = recomputeStickyOffset();
         const container = containerRef.current;
         if (!container) return;
 
@@ -1743,7 +1797,8 @@ export default function CollectionView({
                 }, 3000);
             }
 
-            const scrollOffset = HEADER_HEIGHT + NAV_HEIGHT + VISUAL_GAP;
+            // Percorso freddo (on click): misura fresco una tantum.
+            const scrollOffset = recomputeStickyOffset();
             const container = containerRef.current;
             if (!container) return;
 
@@ -1760,7 +1815,7 @@ export default function CollectionView({
                 containerEl.scrollTo({ top, behavior: "smooth" });
             }
         },
-        [sectionGroups]
+        [sectionGroups, recomputeStickyOffset]
     );
 
     // ── Derived values for render ───────────────────────────────────────────
@@ -1912,6 +1967,7 @@ export default function CollectionView({
                     // Hub-tabs sempre nel markup header: lo split CSS-driven le
                     // nasconde ≤640px quando la bottom-bar è attiva (public).
                     showHubTabs
+                    showEventsTab={showEventsTab}
                     allergensCount={allergenFilterIds.length}
                     onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
                     selectionCount={selectionCount}
@@ -2079,6 +2135,7 @@ export default function CollectionView({
                     {/* ── NAV – sticky, topOffset dinamico ── */}
                     {!emptyState && !allFiltered && (
                         <CollectionSectionNav
+                            navRef={navRef}
                             sections={navItems}
                             activeSectionId={activeSectionId}
                             onSelect={scrollToSection}
@@ -2302,6 +2359,7 @@ export default function CollectionView({
                 <PublicBottomBar
                     activeTab={mode === "preview" ? "menu" : activeTab}
                     onTabChange={mode === "preview" ? () => {} : tab => onTabChange?.(tab)}
+                    showEventsTab={showEventsTab}
                     selectionCount={selectionCount}
                     supportVisible={mode === "public" && orderingActive}
                     onOpenSupport={mode === "preview" ? () => {} : () => setIsSupportOpen(true)}
@@ -2378,6 +2436,8 @@ export default function CollectionView({
                     allergensCount={allergenFilterIds.length}
                     hasAllergensInCatalog={allergensInCatalog.length > 0}
                     hasInfo={hasAnyInfo}
+                    shareUrl={slug ? `${window.location.origin}/${slug}` : undefined}
+                    shareTitle={businessName}
                 />
             )}
 

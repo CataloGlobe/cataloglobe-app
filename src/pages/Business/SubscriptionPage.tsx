@@ -11,7 +11,9 @@ import {
     getSubscriptionState,
     cancelSubscription,
     reactivateSubscription,
-    cancelScheduledChange
+    cancelScheduledChange,
+    previewScheduledChange,
+    updateScheduledChange
 } from "@/services/supabase/billing";
 import type { SubscriptionChangePreview, SubscriptionState } from "@/services/supabase/billing";
 import { getPlanByCode, listPublicPlans } from "@/services/supabase/plans";
@@ -60,7 +62,10 @@ function mapChangeError(err: unknown, activityCount: number, cap: number): strin
             return `Oltre ${cap} sedi serve un piano dedicato: contatta l'assistenza.`;
         case "NO_CHANGE":
             return "Non hai selezionato alcuna modifica.";
+        case "NO_SCHEDULED_CHANGE":
+            return "Non c'è più un cambio programmato da modificare.";
         case "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED":
+        case "SEATS_ADDED_SCHEDULE_NOT_UPDATED":
             return "Le sedi sono state aggiunte e pagate, ma il passaggio a Base non è stato programmato. Riprova.";
         default:
             return "Si è verificato un errore. Riprova.";
@@ -85,6 +90,9 @@ export default function SubscriptionPage() {
     const [plans, setPlans] = useState<Plan[]>([]);
     const [activityCount, setActivityCount] = useState(0);
     const [isChangeOpen, setIsChangeOpen] = useState(false);
+    // "current" = editor parte dallo stato live (B2 e cambi normali). "edit-pending"
+    // = parte dal target FUTURO del cambio programmato (B5, sempre €0).
+    const [changeMode, setChangeMode] = useState<"current" | "edit-pending">("current");
     const [changeStep, setChangeStep] = useState<"select" | "confirm">("select");
     const [draftPlan, setDraftPlan] = useState<PlanCode>("base");
     const [draftSeats, setDraftSeats] = useState(1);
@@ -259,9 +267,18 @@ export default function SubscriptionPage() {
     const currentSeatsBaseline = optimisticSeats ?? paidSeats;
 
     // --- Flusso "Modifica piano" ---
-    const openChange = () => {
-        setDraftPlan(currentPlanBaseline);
-        setDraftSeats(Math.max(1, currentSeatsBaseline, activityCount));
+    // mode "current": seed dallo stato live. mode "edit-pending" (B5): seed dal
+    // target FUTURO del cambio programmato, così l'utente edita il futuro (€0).
+    const openChange = (mode: "current" | "edit-pending" = "current") => {
+        setChangeMode(mode);
+        if (mode === "edit-pending" && subState?.pendingChange) {
+            const pc = subState.pendingChange;
+            setDraftPlan((pc.targetPlan ?? currentPlanBaseline) as PlanCode);
+            setDraftSeats(Math.max(1, pc.targetSeats ?? currentSeatsBaseline, activityCount));
+        } else {
+            setDraftPlan(currentPlanBaseline);
+            setDraftSeats(Math.max(1, currentSeatsBaseline, activityCount));
+        }
         setChangeStep("select");
         setPreview(null);
         setChangeError(null);
@@ -286,10 +303,10 @@ export default function SubscriptionPage() {
         setPreviewLoading(true);
         setChangeError(null);
         try {
-            const result = await previewSubscriptionChange(selectedTenant.id, {
-                plan: draftPlan,
-                seats: draftSeats
-            });
+            const result =
+                changeMode === "edit-pending"
+                    ? await previewScheduledChange(selectedTenant.id, { plan: draftPlan, seats: draftSeats })
+                    : await previewSubscriptionChange(selectedTenant.id, { plan: draftPlan, seats: draftSeats });
             setPreview(result);
             setChangeStep("confirm");
         } catch (err) {
@@ -303,6 +320,41 @@ export default function SubscriptionPage() {
         setCommitLoading(true);
         setChangeError(null);
         try {
+            // B5 — modifica del cambio programmato (sempre €0, solo fase futura).
+            if (changeMode === "edit-pending") {
+                const res = await updateScheduledChange(selectedTenant.id, {
+                    plan: draftPlan,
+                    seats: draftSeats
+                });
+                if (res.action === "released") {
+                    // Caso degenere: il nuovo futuro coincide col piano attuale →
+                    // lo schedule è stato rilasciato (equivale ad annullare).
+                    setScheduledChange(null);
+                    showToast({
+                        message: "Cambio programmato annullato: coincide con il piano attuale.",
+                        type: "success"
+                    });
+                } else {
+                    setScheduledChange({
+                        planName: plans.find(p => p.code === draftPlan)?.name ?? draftPlan,
+                        seats: draftSeats,
+                        nextDate:
+                            preview?.nextDate ??
+                            subState?.pendingChange?.effectiveDate ??
+                            selectedTenant.current_period_end ??
+                            null,
+                        isDowngradeToBase
+                    });
+                    showToast({
+                        message: "Cambio programmato aggiornato: avrà effetto al rinnovo.",
+                        type: "success"
+                    });
+                }
+                setIsChangeOpen(false);
+                reloadSubState();
+                return;
+            }
+
             await commitSubscriptionChange(selectedTenant.id, { plan: draftPlan, seats: draftSeats });
             if (preview && preview.effective === "now") {
                 // Upgrade immediato: rifletti subito il nuovo stato. NIENTE refetch
@@ -337,7 +389,10 @@ export default function SubscriptionPage() {
                     type: "error"
                 });
                 setChangeError("L'addebito è stato rifiutato. Aggiorna il metodo di pagamento dal portale di fatturazione.");
-            } else if (name === "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED") {
+            } else if (
+                name === "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED" ||
+                name === "SEATS_ADDED_SCHEDULE_NOT_UPDATED"
+            ) {
                 showToast({
                     message: "Sedi aggiunte e pagate, ma il passaggio a Base non è stato programmato. Riprova.",
                     type: "error"
@@ -439,6 +494,12 @@ export default function SubscriptionPage() {
     const periodEndDate = subState?.currentPeriodEnd ?? selectedTenant.current_period_end ?? null;
 
     const targetPlanName = plans.find(p => p.code === draftPlan)?.name ?? draftPlan;
+    // Box combinato (B2): il piano futuro è quello del pending preservato (es.
+    // Base), NON `draftPlan` (l'utente resta su Pro e aggiunge sedi). Fonte
+    // corretta = `preview.plan`, calcolato dall'edge.
+    const combinedPlanName = preview
+        ? (plans.find(p => p.code === preview.plan)?.name ?? preview.plan)
+        : targetPlanName;
     const previewIsDowngrade = preview ? preview.effective !== "now" : false;
 
     return (
@@ -546,14 +607,24 @@ export default function SubscriptionPage() {
                             {pendingBanner.isBase && " Ordini e prenotazioni da QR verranno disattivati."}
                         </Text>
                         {canManageBilling && (
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={() => setIsCancelScheduleOpen(true)}
-                                leftIcon={<XCircle size={14} />}
-                            >
-                                Annulla cambio
-                            </Button>
+                            <>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => openChange("edit-pending")}
+                                    leftIcon={<Pencil size={14} />}
+                                >
+                                    Modifica
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => setIsCancelScheduleOpen(true)}
+                                    leftIcon={<XCircle size={14} />}
+                                >
+                                    Annulla cambio
+                                </Button>
+                            </>
                         )}
                     </div>
                 )}
@@ -568,7 +639,7 @@ export default function SubscriptionPage() {
                                 <Button
                                     variant="primary"
                                     size="sm"
-                                    onClick={openChange}
+                                    onClick={() => openChange()}
                                     disabled={plans.length === 0}
                                     leftIcon={<Pencil size={14} />}
                                 >
@@ -706,7 +777,11 @@ export default function SubscriptionPage() {
                 <DrawerLayout
                     header={
                         <Text variant="title-sm" weight={600}>
-                            {changeStep === "select" ? "Modifica piano e sedi" : "Conferma il cambio"}
+                            {changeStep === "confirm"
+                                ? "Conferma il cambio"
+                                : changeMode === "edit-pending"
+                                ? "Modifica cambio programmato"
+                                : "Modifica piano e sedi"}
                         </Text>
                     }
                     footer={
@@ -806,7 +881,7 @@ export default function SubscriptionPage() {
                                             </Text>
                                             <div className={styles.confirmDivider} />
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Il piano passerà a {targetPlanName} il {formatDate(preview.nextDate)};
+                                                Il piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)};
                                                 da quella data pagherai {formatCents(preview.nextAmount)}/mese.
                                             </Text>
                                             <div className={styles.changeWarning}>

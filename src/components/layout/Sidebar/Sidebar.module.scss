@@ -298,6 +298,12 @@ $footer-padding-x-expanded: $scroll-padding-x + $nav-padding-x + $item-padding-x
   pointer-events: none;
 }
 
+/* Variante loader-only (import AI): stessa pill ambra + stesso spinner delle
+   Lingue, ma senza numero → padding stretto per centrare il solo spinner. */
+.importBadgeLoaderOnly {
+  padding: 0 4px;
+}
+
 .translationBadgeSpinner {
   width: 9px;
   height: 9px;

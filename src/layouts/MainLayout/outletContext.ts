@@ -1,5 +1,6 @@
 import { useOutletContext } from "react-router-dom";
 import type { TranslationCoverage } from "@/services/supabase/tenantLanguages";
+import type { AiImportStatus } from "@/hooks/useAiImportSession";
 
 /**
  * Valore esposto da `MainLayout` alle pagine business via `<Outlet context>`.
@@ -18,6 +19,22 @@ export interface BusinessOutletContext {
      * enqueue). Il poll condizionato la intercetterebbe comunque entro 5s.
      */
     wakeTranslations: () => void;
+    /**
+     * Apre il drawer import AI (sessione sollevata in MainLayout). Lo stato e la
+     * richiesta vivono nel layout → sopravvivono all'unmount della pagina.
+     */
+    openAiImport: () => void;
+    /**
+     * Bumpato al successo di un import → le pagine che mostrano cataloghi/prodotti
+     * ricaricano. Stesso pattern di `translationRefreshKey`.
+     */
+    importRefreshKey: number;
+    /**
+     * Status coarse della sessione import (cambia poche volte per import → il
+     * bottone "Importa con AI" lo legge per la label/stato in corso). Il progresso
+     * granulare NON passa di qui (resta sul path props verso il drawer).
+     */
+    importStatus: AiImportStatus;
 }
 
 /**

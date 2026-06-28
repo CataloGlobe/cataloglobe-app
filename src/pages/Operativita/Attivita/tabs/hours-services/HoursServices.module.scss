@@ -165,14 +165,35 @@
   }
 }
 
-.dayName {
-  width: 90px;
+// Left stack of a day row: name · status label · open/closed switch.
+.dayHeadCol {
+  width: 104px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.dayName {
   font-weight: 500;
   font-size: 0.9375rem;
   color: v.$text-color;
-  padding-top: 8px;
   white-space: nowrap;
+}
+
+.dayStatusLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: v.$gray-400;
+  transition: color 0.15s ease;
+}
+
+.dayStatusLabelOpen {
+  color: var(--color-success, #16a34a);
 }
 
 .daySlotsCol {
@@ -181,22 +202,32 @@
   flex-direction: column;
   gap: 8px;
   min-width: 0;
+  padding-top: 1px;
 }
 
-.dayClosedCol {
-  width: 36px;
+// Inert placeholder mirroring a disabled time input on closed days. Matches the
+// real .input shell (padding / font / radius / border) so closed rows align in
+// column with open ones; muted text + cursor convey the disabled, display-only
+// nature. Not focusable (a span), no value binding.
+.timePlaceholder {
+  flex: 1;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 0.62rem 0.85rem;
+  font-size: 0.95rem;
+  border-radius: 8px;
+  border: 1.5px solid var(--border, #cbd5e1);
+  background: var(--hover-bg, #f1f5f9);
+  color: v.$gray-300;
+  cursor: not-allowed;
+  user-select: none;
+}
+
+// Reserves the width of the open rows' remove (✕) button so the disabled
+// placeholders line up with the real inputs above/below.
+.removeSlotSpacer {
+  width: 28px;
   flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 8px;
-}
-
-.closedLabel {
-  font-size: 0.875rem;
-  font-style: italic;
-  color: v.$gray-400;
-  padding: 8px 0;
 }
 
 .slotRow {
@@ -271,6 +302,60 @@
   padding-left: 2px;
 }
 
+// Footer actions of a day row: "+ Aggiungi fascia" (when open) + the secondary
+// "Copia su tutti i giorni" action.
+.dayActions {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+// Secondary, muted action — revealed on row hover (and on keyboard focus).
+.copyAllBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 0;
+  border: none;
+  background: transparent;
+  color: v.$gray-400;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    color: v.$gray-600;
+  }
+
+  &:focus-visible {
+    opacity: 1;
+    outline: 2px solid var(--color-focus-ring, v.$brand-primary);
+    outline-offset: 2px;
+  }
+
+  // Disabled until the source day is complete. Kept visible (revealed on row
+  // hover) so the 7-row list doesn't flicker; pointer-events off so the parent
+  // Tooltip trigger still receives hover.
+  &:disabled {
+    color: v.$gray-300;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+// Wrapper acting as the Tooltip trigger for the disabled copy button (a disabled
+// <button> doesn't emit the hover events Radix needs).
+.copyAllBtnWrap {
+  display: inline-flex;
+}
+
+.dayRow:hover .copyAllBtn {
+  opacity: 1;
+}
+
 .overnightBadge {
   font-size: 11px;
   font-weight: 500;
@@ -281,6 +366,24 @@
   cursor: default;
   user-select: none;
   flex-shrink: 0;
+}
+
+// Neutral "→ {next day}" chip on overnight slots (replaces the old "+1" in the
+// hours editor). Muted, not a lit badge — reads as a quiet annotation.
+.nextDayChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 500;
+  color: v.$gray-500;
+  background: v.$gray-100;
+  padding: 2px 8px;
+  border-radius: 100px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: default;
+  user-select: none;
 }
 
 // ── Hours public toggle ─────────────────────────────────────────────────────
@@ -302,6 +405,16 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+// Switch sits at the row's right edge and never grows: override the InputBase
+// wrapper's default width:100% so the text block keeps the full available width
+// (title stays on one line).
+.hoursPublicSwitch {
+  flex-shrink: 0;
+  width: auto;
 }
 
 // ── Closures table ───────────────────────────────────────────────────────────
@@ -435,6 +548,16 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+// Switch pinned to the row's right edge, never grows: override the InputBase
+// wrapper's default width:100% so the text keeps the full width (hint stays on
+// one line). Mirrors the public-hours toggle row.
+.closureFormToggleSwitch {
+  flex-shrink: 0;
+  width: auto;
 }
 
 .closureFormToggleLabel {

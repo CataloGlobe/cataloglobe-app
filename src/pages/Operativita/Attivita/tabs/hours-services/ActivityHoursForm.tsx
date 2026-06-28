@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Copy } from "lucide-react";
 import { Switch } from "@/components/ui/Switch/Switch";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { TimeInput } from "@/components/ui/Input/TimeInput";
 import { upsertActivityHours } from "@/services/supabase/activityHours";
 import { updateActivityHoursPublic } from "@/services/supabase/activities";
@@ -8,9 +9,12 @@ import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import { useToast } from "@/context/Toast/ToastContext";
 import Text from "@/components/ui/Text/Text";
+import { timesToMinutes, deriveClosesNextDay } from "./hoursOvernight";
 import formStyles from "./HoursServices.module.scss";
 
 const DAY_NAMES = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
+// Short labels for the "→ {next day}" overnight-close chip. day_of_week: 0=Lun … 6=Dom.
+const DAY_SHORT = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 const MAX_SLOTS_PER_DAY = 5;
 
 /* ── Types ──────────────────────────────────────────────── */
@@ -34,11 +38,6 @@ interface SlotError {
     day: number;
     slotIndex: number;
     message: string;
-}
-
-function timesToMinutes(time: string): number {
-    const [h, m] = time.split(":").map(Number);
-    return h * 60 + m;
 }
 
 function slotsOverlap(a: TimeSlot, b: TimeSlot): boolean {
@@ -99,6 +98,17 @@ function validateDays(days: DaysByIndex): SlotError[] {
         }
     }
     return errors;
+}
+
+// A day can be copied onto all others only when its state is complete enough to
+// replicate: a closed day always qualifies; an open day needs at least one slot,
+// every slot with both times set, and no validation errors. "No errors" is
+// derived from the existing validateDays output — no rule re-implementation.
+function isDayCopyable(day: DaySlots, dayErrors: SlotError[]): boolean {
+    if (day.is_closed) return true;
+    if (day.slots.length === 0) return false;
+    if (day.slots.some(s => !s.opens_at || !s.closes_at)) return false;
+    return dayErrors.length === 0;
 }
 
 /* ── Helpers ─────────────────────────────────────────────── */
@@ -192,6 +202,21 @@ function daysToPayload(
     return result;
 }
 
+// Pure, in-memory copy: returns a new days map where every day mirrors the
+// source day's is_closed + slots. Slots are deep-cloned (flat objects) so the
+// seven days hold independent references. Nothing is persisted here.
+function copyDayToAll(days: DaysByIndex, sourceIndex: number): DaysByIndex {
+    const source = days[sourceIndex];
+    const next: DaysByIndex = {};
+    for (let i = 0; i < 7; i++) {
+        next[i] = {
+            is_closed: source.is_closed,
+            slots: source.slots.map(s => ({ ...s }))
+        };
+    }
+    return next;
+}
+
 /* ── Component ──────────────────────────────────────────── */
 
 type ActivityHoursFormProps = {
@@ -238,14 +263,21 @@ export function ActivityHoursForm({
         setDays(prev => ({ ...prev, [dayIndex]: { ...prev[dayIndex], ...patch } }));
     }, []);
 
-    const handleClosedToggle = useCallback((dayIndex: number, checked: boolean) => {
-        if (checked) {
-            updateDay(dayIndex, { is_closed: true, slots: [] });
-        } else {
-            updateDay(dayIndex, {
-                is_closed: false,
-                slots: [{ opens_at: null, closes_at: null, closes_next_day: false }]
+    // Switch maps to is_closed (open = !is_closed). Closing keeps any typed
+    // slots in state so re-opening within the same session restores them;
+    // serialization (daysToPayload) ignores slots for a closed day, so the saved
+    // row is still exactly { is_closed: true, opens_at/closes_at null }.
+    const handleOpenToggle = useCallback((dayIndex: number, isOpen: boolean) => {
+        if (isOpen) {
+            setDays(prev => {
+                const day = prev[dayIndex];
+                const slots = day.slots.length > 0
+                    ? day.slots
+                    : [{ opens_at: null, closes_at: null, closes_next_day: false }];
+                return { ...prev, [dayIndex]: { is_closed: false, slots } };
             });
+        } else {
+            updateDay(dayIndex, { is_closed: true });
         }
     }, [updateDay]);
 
@@ -293,6 +325,28 @@ export function ActivityHoursForm({
         });
     }, []);
 
+    // Applies the copy immediately and offers an Undo via the toast action,
+    // which restores the pre-copy snapshot. Purely in-memory — nothing is saved
+    // until "Salva orari".
+    const handleCopyToAllDays = useCallback(
+        (dayIndex: number) => {
+            // Defensive: the UI disables the button for non-copyable days, but
+            // guard here too so the action can never propagate an invalid state.
+            const sourceErrors = validateDays(days).filter(e => e.day === dayIndex);
+            if (!isDayCopyable(days[dayIndex], sourceErrors)) return;
+
+            const snapshot = days;
+            setDays(prev => copyDayToAll(prev, dayIndex));
+            showToast({
+                message: `Orari di ${DAY_NAMES[dayIndex]} applicati a tutti i giorni.`,
+                type: "success",
+                actionLabel: "Annulla",
+                onAction: () => setDays(snapshot)
+            });
+        },
+        [days, showToast]
+    );
+
     /* ── Submit ── */
 
     const handleSubmit = useCallback(
@@ -302,7 +356,17 @@ export function ActivityHoursForm({
 
             onSavingChange(true);
             try {
-                const payload = daysToPayload(days);
+                // Authoritative re-derivation: ignore any closes_next_day held in
+                // state and recompute it from each open/close pair, so an
+                // incoherent flag can never reach the DB CHECK by construction.
+                const payload = daysToPayload(days).map(row =>
+                    row.is_closed
+                        ? row
+                        : {
+                              ...row,
+                              closes_next_day: deriveClosesNextDay(row.opens_at, row.closes_at)
+                          }
+                );
                 await upsertActivityHours(tenantId, activity.id, payload);
 
                 // Update hours_public flag separately
@@ -347,31 +411,84 @@ export function ActivityHoursForm({
                 {/* ── Day rows ── */}
                 {Array.from({ length: 7 }, (_, dayIndex) => {
                     const dayData = days[dayIndex];
+                    const isOpen = !dayData.is_closed;
+                    const copyable = isDayCopyable(
+                        dayData,
+                        errors.filter(e => e.day === dayIndex)
+                    );
                     return (
                         <div key={dayIndex} className={formStyles.dayRow}>
-                            {/* Day name */}
-                            <div className={formStyles.dayName}>
-                                {DAY_NAMES[dayIndex]}
+                            {/* Left stack: day name · status label · open/closed switch */}
+                            <div className={formStyles.dayHeadCol}>
+                                <span className={formStyles.dayName}>
+                                    {DAY_NAMES[dayIndex]}
+                                </span>
+                                <span
+                                    className={`${formStyles.dayStatusLabel} ${
+                                        isOpen ? formStyles.dayStatusLabelOpen : ""
+                                    }`}
+                                >
+                                    {isOpen ? "Aperto" : "Chiuso"}
+                                </span>
+                                <Switch
+                                    checked={isOpen}
+                                    onChange={open => handleOpenToggle(dayIndex, open)}
+                                    aria-label={`${DAY_NAMES[dayIndex]} aperto`}
+                                />
                             </div>
 
-                            {/* Slots or closed label */}
+                            {/* Slots or closed message */}
                             <div className={formStyles.daySlotsCol}>
                                 {dayData.is_closed ? (
-                                    <span className={formStyles.closedLabel}>Chiuso</span>
+                                    // Display-only: inert time-input placeholders matched to the
+                                    // real fields so a closed row aligns perfectly and the layout
+                                    // doesn't jump on toggle. The CHIUSO label carries the meaning;
+                                    // these are aria-hidden and not focusable. No state binding.
+                                    <div className={formStyles.slotRow}>
+                                        <div className={formStyles.slotInputs}>
+                                            <span
+                                                className={formStyles.timePlaceholder}
+                                                aria-hidden="true"
+                                            >
+                                                ––:––
+                                            </span>
+                                            <span className={formStyles.slotSeparator}>–</span>
+                                            <span
+                                                className={formStyles.timePlaceholder}
+                                                aria-hidden="true"
+                                            >
+                                                ––:––
+                                            </span>
+                                            <span
+                                                className={formStyles.removeSlotSpacer}
+                                                aria-hidden="true"
+                                            />
+                                        </div>
+                                    </div>
                                 ) : (
                                     <>
                                         {dayData.slots.map((slot, si) => {
                                             const error = getSlotError(dayIndex, si);
+                                            const overnight = deriveClosesNextDay(
+                                                slot.opens_at,
+                                                slot.closes_at
+                                            );
+                                            const nextDay = DAY_SHORT[(dayIndex + 1) % 7];
                                             return (
                                                 <div key={si} className={formStyles.slotRow}>
                                                     <div className={formStyles.slotInputs}>
                                                         <TimeInput
                                                             value={slot.opens_at ?? ""}
-                                                            onChange={e =>
+                                                            onChange={e => {
+                                                                const newOpensAt = e.target.value || null;
                                                                 updateSlot(dayIndex, si, {
-                                                                    opens_at: e.target.value || null
-                                                                })
-                                                            }
+                                                                    opens_at: newOpensAt,
+                                                                    closes_next_day: deriveClosesNextDay(
+                                                                        newOpensAt,
+                                                                        slot.closes_at
+                                                                    )
+                                                                });
+                                                            }}
                                                             aria-label={`${DAY_NAMES[dayIndex]} fascia ${si + 1} apertura`}
                                                         />
                                                         <span className={formStyles.slotSeparator}>–</span>
@@ -379,24 +496,23 @@ export function ActivityHoursForm({
                                                             value={slot.closes_at ?? ""}
                                                             onChange={e => {
                                                                 const newClosesAt = e.target.value || null;
-                                                                const cnd =
-                                                                    newClosesAt !== null && slot.opens_at !== null
-                                                                        ? timesToMinutes(newClosesAt) < timesToMinutes(slot.opens_at)
-                                                                        : false;
                                                                 updateSlot(dayIndex, si, {
                                                                     closes_at: newClosesAt,
-                                                                    closes_next_day: cnd
+                                                                    closes_next_day: deriveClosesNextDay(
+                                                                        slot.opens_at,
+                                                                        newClosesAt
+                                                                    )
                                                                 });
                                                             }}
                                                             aria-label={`${DAY_NAMES[dayIndex]} fascia ${si + 1} chiusura`}
                                                         />
-                                                        {slot.closes_next_day && (
+                                                        {overnight && (
                                                             <span
-                                                                className={formStyles.overnightBadge}
-                                                                title="Chiude il giorno successivo"
-                                                                aria-label="Chiude il giorno successivo"
+                                                                className={formStyles.nextDayChip}
+                                                                title={`Chiude ${DAY_NAMES[(dayIndex + 1) % 7]}`}
+                                                                aria-label={`Chiude il giorno successivo, ${DAY_NAMES[(dayIndex + 1) % 7]}`}
                                                             >
-                                                                +1
+                                                                → {nextDay}
                                                             </span>
                                                         )}
                                                         <button
@@ -414,6 +530,13 @@ export function ActivityHoursForm({
                                                 </div>
                                             );
                                         })}
+                                    </>
+                                )}
+
+                                {/* Footer actions only for open days — a closed day has
+                                    neither "+ Aggiungi fascia" nor the copy affordance. */}
+                                {!dayData.is_closed && (
+                                    <div className={formStyles.dayActions}>
                                         {dayData.slots.length < MAX_SLOTS_PER_DAY && (
                                             <button
                                                 type="button"
@@ -424,17 +547,33 @@ export function ActivityHoursForm({
                                                 Aggiungi fascia
                                             </button>
                                         )}
-                                    </>
+                                        {copyable ? (
+                                            <button
+                                                type="button"
+                                                className={formStyles.copyAllBtn}
+                                                onClick={() => handleCopyToAllDays(dayIndex)}
+                                                aria-label={`Copia gli orari di ${DAY_NAMES[dayIndex]} su tutti i giorni`}
+                                            >
+                                                <Copy size={13} />
+                                                Copia su tutti i giorni
+                                            </button>
+                                        ) : (
+                                            <Tooltip content="Completa gli orari di questo giorno per copiarli su tutti i giorni.">
+                                                <span className={formStyles.copyAllBtnWrap}>
+                                                    <button
+                                                        type="button"
+                                                        className={formStyles.copyAllBtn}
+                                                        disabled
+                                                        aria-label={`Copia gli orari di ${DAY_NAMES[dayIndex]} su tutti i giorni`}
+                                                    >
+                                                        <Copy size={13} />
+                                                        Copia su tutti i giorni
+                                                    </button>
+                                                </span>
+                                            </Tooltip>
+                                        )}
+                                    </div>
                                 )}
-                            </div>
-
-                            {/* Closed toggle */}
-                            <div className={formStyles.dayClosedCol}>
-                                <Switch
-                                    checked={dayData.is_closed}
-                                    onChange={checked => handleClosedToggle(dayIndex, checked)}
-                                    aria-label={`${DAY_NAMES[dayIndex]} chiuso`}
-                                />
                             </div>
                         </div>
                     );
@@ -454,6 +593,7 @@ export function ActivityHoursForm({
                         <Switch
                             checked={hoursPublic}
                             onChange={setHoursPublic}
+                            containerClassName={formStyles.hoursPublicSwitch}
                         />
                     </div>
                 </div>

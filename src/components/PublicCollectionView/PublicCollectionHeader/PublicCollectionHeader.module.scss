@@ -5,6 +5,21 @@
    Single sticky header with scroll-driven animation
 ──────────────────────────────────────────────────────────── */
 
+/* ── SEARCH PRIMER (ghost input) ─────────────────────────────
+   Off-screen ma focalizzabile: innesca la tastiera iOS in-gesto.
+   No display/visibility/hidden/height:0 (impedirebbero il focus).
+   font-size 16px evita l'auto-zoom iOS. */
+.searchPrimer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  font-size: 16px;
+}
+
 /* ── COVER IMAGE ─────────────────────────────────────────── */
 .coverImage {
   position: relative;

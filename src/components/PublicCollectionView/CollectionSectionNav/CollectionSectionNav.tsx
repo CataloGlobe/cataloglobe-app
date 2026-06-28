@@ -24,6 +24,9 @@ export type CollectionSectionNavProps = {
     style?: {
         navStyle?: "filled" | "outline" | "tabs" | "dot" | "minimal";
     };
+    /** Ref opzionale alla `<nav>` sticky — usata dal parent per misurarne
+     *  l'offsetHeight reale nel calcolo dell'offset di scroll-to-categoria. */
+    navRef?: React.Ref<HTMLElement>;
 };
 
 const DROPDOWN_WIDTH_ESTIMATE = 220;
@@ -36,6 +39,7 @@ export default function CollectionSectionNav({
     activeChildId,
     variant = "public",
     style,
+    navRef,
 }: CollectionSectionNavProps) {
     const { t } = useTranslation("public");
     const listRef = useRef<HTMLUListElement | null>(null);
@@ -191,6 +195,7 @@ export default function CollectionSectionNav({
 
     return (
         <nav
+            ref={navRef}
             className={styles.nav}
             data-variant={variant}
             data-nav-style={navStyle}
