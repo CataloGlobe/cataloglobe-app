@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useCallback, useMemo } from "react";
 import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { X, Search } from "lucide-react";
@@ -74,14 +74,21 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
     const inputRef = useRef<HTMLInputElement>(null);
     const resultRefsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
-    // Reset query e focus input all'apertura
+    // Reset query/highlight all'apertura
     useEffect(() => {
         if (!isOpen) return;
         setQuery("");
         setHighlightedIndex(-1);
-        const t = setTimeout(() => inputRef.current?.focus(), 60);
-        return () => clearTimeout(t);
     }, [isOpen]);
+
+    // Focus sincrono al mount/apertura (useLayoutEffect: prima del paint, più
+    // vicino al gesto). Su iOS la tastiera è già su dal ghost input dell'header
+    // (vedi PublicCollectionHeader): qui trasferiamo il focus al vero input senza
+    // dismiss intermedio. Solo runtime/public — in preview niente focus.
+    useLayoutEffect(() => {
+        if (!isOpen || mode !== "public") return;
+        inputRef.current?.focus();
+    }, [isOpen, mode]);
 
     // Debounce 100ms: l'input resta reattivo, il filtro si aggiorna con ritardo
     const [debouncedQuery, setDebouncedQuery] = useState("");

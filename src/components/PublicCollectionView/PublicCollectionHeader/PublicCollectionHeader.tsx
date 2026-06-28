@@ -132,6 +132,10 @@ export default function PublicCollectionHeader({
     const { t } = useTranslation("public");
     // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
     const headerRef = useRef<HTMLElement | null>(null);
+    // Ghost input: focalizzato in-gesto al tap per innescare la tastiera iOS; il
+    // focus passa poi all'input reale al mount di SearchOverlay (vedi SearchOverlay
+    // focus on mount).
+    const searchPrimerRef = useRef<HTMLInputElement | null>(null);
 
     useEffect(() => {
         const el = headerRef.current;
@@ -242,6 +246,22 @@ export default function PublicCollectionHeader({
 
     return (
         <>
+            {/* Ghost input always-mounted: riceve il focus sincrono nel gesto del tap
+                ricerca per far salire la tastiera iOS, che resta su quando il focus
+                passa al vero input al mount di SearchOverlay. Off-screen ma
+                focalizzabile (no display/visibility/hidden/height:0). */}
+            {mode === "public" && (
+                <input
+                    ref={searchPrimerRef}
+                    type="text"
+                    inputMode="search"
+                    className={styles.searchPrimer}
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    autoComplete="off"
+                />
+            )}
+
             {/* COVER IMAGE — scrolls away normally */}
             {showCoverImage && (
                 <div className={styles.coverImage}>
@@ -343,7 +363,14 @@ export default function PublicCollectionHeader({
                             <button
                                 type="button"
                                 className={styles.iconBtn}
-                                onClick={onSearchOpen}
+                                onClick={() => {
+                                    // Focus sincrono in-gesto sul ghost → tastiera iOS su
+                                    // subito; SOLO runtime (in preview onSearchOpen è undefined).
+                                    if (onSearchOpen) {
+                                        searchPrimerRef.current?.focus();
+                                        onSearchOpen();
+                                    }
+                                }}
                                 onPointerDown={onSearchPointerDown}
                                 aria-label={t("header.search_aria")}
                                 tabIndex={mode === "preview" ? -1 : undefined}
