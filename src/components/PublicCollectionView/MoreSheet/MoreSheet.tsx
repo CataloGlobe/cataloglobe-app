@@ -1,4 +1,5 @@
-import { CalendarCheck, ChevronRight, Filter, Info } from "lucide-react";
+import { useState } from "react";
+import { CalendarCheck, ChevronRight, Filter, Info, Share2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import Text from "@components/ui/Text/Text";
@@ -18,6 +19,14 @@ type Props = {
     allergensCount: number;
     hasAllergensInCatalog: boolean;
     hasInfo: boolean;
+    /**
+     * URL pubblico canonico della sede (origin + slug), già pulito da prefisso
+     * lingua/query dal caller. Quando undefined la voce "Condividi" non viene
+     * renderizzata.
+     */
+    shareUrl?: string;
+    /** Titolo per il foglio nativo Web Share (nome sede). */
+    shareTitle?: string;
 };
 
 // Tempo necessario a PublicSheet per completare l'exit animation prima di
@@ -38,8 +47,42 @@ export default function MoreSheet({
     allergensCount,
     hasAllergensInCatalog,
     hasInfo,
+    shareUrl,
+    shareTitle,
 }: Props) {
     const { t } = useTranslation("public");
+
+    // Feedback inline sulla voce Condividi (fallback copia): la label diventa
+    // "Link copiato"/"Impossibile copiare" per ~2s, poi torna. Niente toast.
+    const [shareFeedback, setShareFeedback] = useState<null | "copied" | "error">(null);
+
+    const handleShare = async () => {
+        if (!shareUrl) return;
+        if (navigator.share) {
+            try {
+                await navigator.share({ title: shareTitle, url: shareUrl });
+                return;
+            } catch (e) {
+                // Utente annulla il foglio nativo: silenzio, nessun feedback.
+                if ((e as Error).name === "AbortError") return;
+                // Altri errori: cade nel fallback copia sotto.
+            }
+        }
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            setShareFeedback("copied");
+        } catch {
+            setShareFeedback("error");
+        }
+        window.setTimeout(() => setShareFeedback(null), 2000);
+    };
+
+    const shareLabel =
+        shareFeedback === "copied"
+            ? t("more.share_copied")
+            : shareFeedback === "error"
+                ? t("more.share_error")
+                : t("more.share_label");
 
     const allergensDisabled = !hasAllergensInCatalog;
     const allergensSubtitle = allergensDisabled
@@ -133,6 +176,23 @@ export default function MoreSheet({
                         <span className={styles.text}>
                             <span className={styles.itemLabel}>{t("more.info_label")}</span>
                             <span className={styles.itemSubtitle}>{t("more.info_subtitle")}</span>
+                        </span>
+                        <ChevronRight size={16} strokeWidth={2} className={styles.chevron} aria-hidden />
+                    </button>
+                )}
+
+                {shareUrl && (
+                    <button
+                        type="button"
+                        className={styles.item}
+                        onClick={handleShare}
+                    >
+                        <span className={styles.iconWrap} aria-hidden>
+                            <Share2 size={18} strokeWidth={2} />
+                        </span>
+                        <span className={styles.text}>
+                            <span className={styles.itemLabel}>{shareLabel}</span>
+                            <span className={styles.itemSubtitle}>{t("more.share_subtitle")}</span>
                         </span>
                         <ChevronRight size={16} strokeWidth={2} className={styles.chevron} aria-hidden />
                     </button>

@@ -2436,6 +2436,8 @@ export default function CollectionView({
                     allergensCount={allergenFilterIds.length}
                     hasAllergensInCatalog={allergensInCatalog.length > 0}
                     hasInfo={hasAnyInfo}
+                    shareUrl={slug ? `${window.location.origin}/${slug}` : undefined}
+                    shareTitle={businessName}
                 />
             )}
 

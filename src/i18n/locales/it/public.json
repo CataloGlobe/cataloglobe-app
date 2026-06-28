@@ -34,7 +34,11 @@
         "allergens_subtitle_active_other": "{{count}} allergeni attivi",
         "allergens_subtitle_empty": "Nessun prodotto con allergeni",
         "info_label": "Informazioni",
-        "info_subtitle": "Indirizzo, orari, contatti"
+        "info_subtitle": "Indirizzo, orari, contatti",
+        "share_label": "Condividi",
+        "share_subtitle": "Invia il link di questa pagina",
+        "share_copied": "Link copiato",
+        "share_error": "Impossibile copiare il link"
     },
     "search": {
         "placeholder": "Cerca prodotto…",
