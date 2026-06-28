@@ -386,6 +386,16 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+// Switch sits at the row's right edge and never grows: override the InputBase
+// wrapper's default width:100% so the text block keeps the full available width
+// (title stays on one line).
+.hoursPublicSwitch {
+  flex-shrink: 0;
+  width: auto;
 }
 
 // ── Closures table ───────────────────────────────────────────────────────────

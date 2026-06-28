@@ -571,6 +571,7 @@ export function ActivityHoursForm({
                         <Switch
                             checked={hoursPublic}
                             onChange={setHoursPublic}
+                            containerClassName={formStyles.hoursPublicSwitch}
                         />
                     </div>
                 </div>
