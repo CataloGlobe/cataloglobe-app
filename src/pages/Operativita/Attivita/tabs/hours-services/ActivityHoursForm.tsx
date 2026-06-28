@@ -8,6 +8,7 @@ import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import { useToast } from "@/context/Toast/ToastContext";
 import Text from "@/components/ui/Text/Text";
+import { timesToMinutes, deriveClosesNextDay } from "./hoursOvernight";
 import formStyles from "./HoursServices.module.scss";
 
 const DAY_NAMES = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
@@ -34,11 +35,6 @@ interface SlotError {
     day: number;
     slotIndex: number;
     message: string;
-}
-
-function timesToMinutes(time: string): number {
-    const [h, m] = time.split(":").map(Number);
-    return h * 60 + m;
 }
 
 function slotsOverlap(a: TimeSlot, b: TimeSlot): boolean {
@@ -302,7 +298,17 @@ export function ActivityHoursForm({
 
             onSavingChange(true);
             try {
-                const payload = daysToPayload(days);
+                // Authoritative re-derivation: ignore any closes_next_day held in
+                // state and recompute it from each open/close pair, so an
+                // incoherent flag can never reach the DB CHECK by construction.
+                const payload = daysToPayload(days).map(row =>
+                    row.is_closed
+                        ? row
+                        : {
+                              ...row,
+                              closes_next_day: deriveClosesNextDay(row.opens_at, row.closes_at)
+                          }
+                );
                 await upsertActivityHours(tenantId, activity.id, payload);
 
                 // Update hours_public flag separately
@@ -367,11 +373,16 @@ export function ActivityHoursForm({
                                                     <div className={formStyles.slotInputs}>
                                                         <TimeInput
                                                             value={slot.opens_at ?? ""}
-                                                            onChange={e =>
+                                                            onChange={e => {
+                                                                const newOpensAt = e.target.value || null;
                                                                 updateSlot(dayIndex, si, {
-                                                                    opens_at: e.target.value || null
-                                                                })
-                                                            }
+                                                                    opens_at: newOpensAt,
+                                                                    closes_next_day: deriveClosesNextDay(
+                                                                        newOpensAt,
+                                                                        slot.closes_at
+                                                                    )
+                                                                });
+                                                            }}
                                                             aria-label={`${DAY_NAMES[dayIndex]} fascia ${si + 1} apertura`}
                                                         />
                                                         <span className={formStyles.slotSeparator}>–</span>
@@ -379,13 +390,12 @@ export function ActivityHoursForm({
                                                             value={slot.closes_at ?? ""}
                                                             onChange={e => {
                                                                 const newClosesAt = e.target.value || null;
-                                                                const cnd =
-                                                                    newClosesAt !== null && slot.opens_at !== null
-                                                                        ? timesToMinutes(newClosesAt) < timesToMinutes(slot.opens_at)
-                                                                        : false;
                                                                 updateSlot(dayIndex, si, {
                                                                     closes_at: newClosesAt,
-                                                                    closes_next_day: cnd
+                                                                    closes_next_day: deriveClosesNextDay(
+                                                                        slot.opens_at,
+                                                                        newClosesAt
+                                                                    )
                                                                 });
                                                             }}
                                                             aria-label={`${DAY_NAMES[dayIndex]} fascia ${si + 1} chiusura`}
