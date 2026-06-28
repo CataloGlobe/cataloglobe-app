@@ -316,6 +316,21 @@
     outline: 2px solid var(--color-focus-ring, v.$brand-primary);
     outline-offset: 2px;
   }
+
+  // Disabled until the source day is complete. Kept visible (revealed on row
+  // hover) so the 7-row list doesn't flicker; pointer-events off so the parent
+  // Tooltip trigger still receives hover.
+  &:disabled {
+    color: v.$gray-300;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+// Wrapper acting as the Tooltip trigger for the disabled copy button (a disabled
+// <button> doesn't emit the hover events Radix needs).
+.copyAllBtnWrap {
+  display: inline-flex;
 }
 
 .dayRow:hover .copyAllBtn {

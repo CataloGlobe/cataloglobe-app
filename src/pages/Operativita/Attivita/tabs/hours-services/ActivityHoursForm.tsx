@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { X, Plus, Copy } from "lucide-react";
 import { Switch } from "@/components/ui/Switch/Switch";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { TimeInput } from "@/components/ui/Input/TimeInput";
 import { upsertActivityHours } from "@/services/supabase/activityHours";
 import { updateActivityHoursPublic } from "@/services/supabase/activities";
@@ -97,6 +98,17 @@ function validateDays(days: DaysByIndex): SlotError[] {
         }
     }
     return errors;
+}
+
+// A day can be copied onto all others only when its state is complete enough to
+// replicate: a closed day always qualifies; an open day needs at least one slot,
+// every slot with both times set, and no validation errors. "No errors" is
+// derived from the existing validateDays output — no rule re-implementation.
+function isDayCopyable(day: DaySlots, dayErrors: SlotError[]): boolean {
+    if (day.is_closed) return true;
+    if (day.slots.length === 0) return false;
+    if (day.slots.some(s => !s.opens_at || !s.closes_at)) return false;
+    return dayErrors.length === 0;
 }
 
 /* ── Helpers ─────────────────────────────────────────────── */
@@ -318,6 +330,11 @@ export function ActivityHoursForm({
     // until "Salva orari".
     const handleCopyToAllDays = useCallback(
         (dayIndex: number) => {
+            // Defensive: the UI disables the button for non-copyable days, but
+            // guard here too so the action can never propagate an invalid state.
+            const sourceErrors = validateDays(days).filter(e => e.day === dayIndex);
+            if (!isDayCopyable(days[dayIndex], sourceErrors)) return;
+
             const snapshot = days;
             setDays(prev => copyDayToAll(prev, dayIndex));
             showToast({
@@ -395,6 +412,10 @@ export function ActivityHoursForm({
                 {Array.from({ length: 7 }, (_, dayIndex) => {
                     const dayData = days[dayIndex];
                     const isOpen = !dayData.is_closed;
+                    const copyable = isDayCopyable(
+                        dayData,
+                        errors.filter(e => e.day === dayIndex)
+                    );
                     return (
                         <div key={dayIndex} className={formStyles.dayRow}>
                             {/* Left stack: day name · status label · open/closed switch */}
@@ -502,15 +523,31 @@ export function ActivityHoursForm({
                                                 Aggiungi fascia
                                             </button>
                                         )}
-                                    <button
-                                        type="button"
-                                        className={formStyles.copyAllBtn}
-                                        onClick={() => handleCopyToAllDays(dayIndex)}
-                                        aria-label={`Copia gli orari di ${DAY_NAMES[dayIndex]} su tutti i giorni`}
-                                    >
-                                        <Copy size={13} />
-                                        Copia su tutti i giorni
-                                    </button>
+                                    {copyable ? (
+                                        <button
+                                            type="button"
+                                            className={formStyles.copyAllBtn}
+                                            onClick={() => handleCopyToAllDays(dayIndex)}
+                                            aria-label={`Copia gli orari di ${DAY_NAMES[dayIndex]} su tutti i giorni`}
+                                        >
+                                            <Copy size={13} />
+                                            Copia su tutti i giorni
+                                        </button>
+                                    ) : (
+                                        <Tooltip content="Completa gli orari di questo giorno per copiarli su tutti i giorni.">
+                                            <span className={formStyles.copyAllBtnWrap}>
+                                                <button
+                                                    type="button"
+                                                    className={formStyles.copyAllBtn}
+                                                    disabled
+                                                    aria-label={`Copia gli orari di ${DAY_NAMES[dayIndex]} su tutti i giorni`}
+                                                >
+                                                    <Copy size={13} />
+                                                    Copia su tutti i giorni
+                                                </button>
+                                            </span>
+                                        </Tooltip>
+                                    )}
                                 </div>
                             </div>
                         </div>
