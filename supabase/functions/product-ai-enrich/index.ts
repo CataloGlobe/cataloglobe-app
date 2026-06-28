@@ -176,7 +176,8 @@ serve(async (req: Request) => {
                 generationConfig: {
                     // Short single-paragraph output: a small ceiling is enough.
                     maxOutputTokens: 512,
-                    thinkingConfig: { thinkingLevel: "LOW" },
+                    // NOTE: thinkingConfig rimosso per compatibilità con gemini-2.5-flash (dev).
+                    // Ripristinare { thinkingLevel: "LOW" } quando si torna a gemini-3.5-flash in produzione.
                     responseMimeType: "application/json",
                     responseSchema: ENRICH_SCHEMA
                 }

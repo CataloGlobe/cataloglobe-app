@@ -354,8 +354,8 @@ serve(async (req: Request) => {
                     // RPD non i token, quindi e' upside-only e riduce i MAX_TOKENS.
                     // Non superare 65536: oltre il max la request fallisce.
                     maxOutputTokens: 65536,
-                    // thinkingLevel LOW: veloce mantenendo qualita' (leva documentata).
-                    thinkingConfig: { thinkingLevel: "LOW" },
+                    // NOTE: thinkingConfig rimosso per compatibilità con gemini-2.5-flash (dev).
+                    // Ripristinare { thinkingLevel: "LOW" } quando si torna a gemini-3.5-flash in produzione.
                     // Structured output vincolato (forma classica v1beta), contratto invariato.
                     responseMimeType: "application/json",
                     responseSchema: MENU_SCHEMA
