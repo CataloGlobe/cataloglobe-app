@@ -1438,6 +1438,97 @@ export default function CollectionView({
         };
     }, [recomputeStickyOffset, l1Sections]);
 
+    // ── Evidenziazione prodotto raggiunto dalla ricerca (pop + velo) ────────
+    // Il prodotto scelto in SearchOverlay è scrollato qui (CollectionView resta
+    // montato dopo la chiusura overlay) e l'effetto parte al COMPLETAMENTO dello
+    // scroll: scrollend (con fallback debounce), scorciatoia "già in vista", rete
+    // di sicurezza max-timeout. Vedi onExitComplete sull'AnimatePresence ricerca.
+    const STICKY_OFFSET_HIGHLIGHT = 192; // ≈ 12rem, coerente con scroll-margin-top di .card/.compactItem
+    const HIGHLIGHT_MS = 950;
+    const pendingProductIdRef = useRef<string | null>(null);
+    const scrollEndCleanupRef = useRef<(() => void) | null>(null);
+    const highlightDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const highlightMaxTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const highlightClassTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const cleanupHighlightDetector = useCallback(() => {
+        scrollEndCleanupRef.current?.();
+        scrollEndCleanupRef.current = null;
+        if (highlightDebounceRef.current !== null) {
+            clearTimeout(highlightDebounceRef.current);
+            highlightDebounceRef.current = null;
+        }
+        if (highlightMaxTimeoutRef.current !== null) {
+            clearTimeout(highlightMaxTimeoutRef.current);
+            highlightMaxTimeoutRef.current = null;
+        }
+    }, []);
+
+    const applyHighlight = useCallback((el: HTMLElement) => {
+        // CSS Modules: la classe è hashata → usare styles.highlightPulse, NON la
+        // stringa letterale (non matcherebbe il selettore compilato).
+        const cls = styles.highlightPulse;
+        el.classList.remove(cls);
+        // Reflow forzato → riavvia l'animazione anche su click ripetuti.
+        void el.offsetWidth;
+        el.classList.add(cls);
+        if (highlightClassTimerRef.current !== null) clearTimeout(highlightClassTimerRef.current);
+        highlightClassTimerRef.current = setTimeout(() => {
+            el.classList.remove(cls);
+        }, HIGHLIGHT_MS);
+    }, []);
+
+    const scrollToProductAndHighlight = useCallback((productId: string) => {
+        const el = document.getElementById(`product-${productId}`);
+        if (!el) return;
+        cleanupHighlightDetector();
+
+        const rect = el.getBoundingClientRect();
+        // Scorciatoia "già in vista": il prodotto è già alla riga target → niente
+        // scroll, effetto subito (scrollIntoView non emetterebbe eventi).
+        if (Math.abs(rect.top - STICKY_OFFSET_HIGHLIGHT) < 4) {
+            applyHighlight(el);
+            return;
+        }
+
+        el.scrollIntoView({ behavior: "smooth", block: "start" });
+
+        // Ascolta sullo STESSO container del tracking scroll esistente.
+        const container: HTMLElement | Window = containerRef.current ?? window;
+        let done = false;
+        const fire = () => {
+            if (done) return;
+            done = true;
+            cleanupHighlightDetector();
+            applyHighlight(el);
+        };
+
+        if ("onscrollend" in window) {
+            container.addEventListener("scrollend", fire, { once: true } as AddEventListenerOptions);
+            scrollEndCleanupRef.current = () => container.removeEventListener("scrollend", fire);
+        } else {
+            // Fallback Safari < 17.4: "scroll fermo" via debounce.
+            const onScroll = () => {
+                if (highlightDebounceRef.current !== null) clearTimeout(highlightDebounceRef.current);
+                highlightDebounceRef.current = setTimeout(fire, 140);
+            };
+            container.addEventListener("scroll", onScroll, { passive: true });
+            highlightDebounceRef.current = setTimeout(fire, 140);
+            scrollEndCleanupRef.current = () => container.removeEventListener("scroll", onScroll);
+        }
+
+        // Rete di sicurezza: l'effetto parte comunque entro ~800ms.
+        highlightMaxTimeoutRef.current = setTimeout(fire, 800);
+    }, [applyHighlight, cleanupHighlightDetector]);
+
+    // Cleanup di timer/listener all'unmount.
+    useEffect(() => {
+        return () => {
+            cleanupHighlightDetector();
+            if (highlightClassTimerRef.current !== null) clearTimeout(highlightClassTimerRef.current);
+        };
+    }, [cleanupHighlightDetector]);
+
     // ── Analytics: section_view (IntersectionObserver, una volta per sezione) ─
     const viewedSectionsRef = useRef(new Set<string>());
 
@@ -1986,7 +2077,15 @@ export default function CollectionView({
                 viene eseguita prima dell'unmount. */}
             {mode !== "preview" && (
                 <Suspense fallback={null}>
-                    <AnimatePresence>
+                    <AnimatePresence
+                        onExitComplete={() => {
+                            const id = pendingProductIdRef.current;
+                            if (id) {
+                                pendingProductIdRef.current = null;
+                                scrollToProductAndHighlight(id);
+                            }
+                        }}
+                    >
                         {isSearchOpen && (
                             <SearchOverlay
                                 key="search"
@@ -1996,6 +2095,7 @@ export default function CollectionView({
                                 scrollContainerEl={scrollContainerEl}
                                 mode={mode}
                                 activityId={activityId}
+                                onSelectProduct={(id) => { pendingProductIdRef.current = id; }}
                             />
                         )}
                     </AnimatePresence>

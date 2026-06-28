@@ -262,6 +262,7 @@
 ---------------------------------------------------- */
 
 .compactItem {
+  position: relative; /* ancora il velo ::after dell'evidenziazione ricerca */
   scroll-margin-top: 12rem;
   border-bottom: 1px solid color-mix(in srgb, var(--pub-surface-border) 60%, transparent);
 
@@ -391,6 +392,7 @@
 }
 
 .card {
+  position: relative; /* ancora il velo ::after dell'evidenziazione ricerca */
   display: flex;
   flex-direction: column;
   overflow: hidden; /* clips ProductRow hover bg to card radius */
@@ -408,6 +410,54 @@
   @include hover {
     transform: translateY(-1px);
     box-shadow: var(--pub-card-shadow-hover);
+  }
+}
+
+/* ----------------------------------------------------
+   EVIDENZIAZIONE RICERCA — pop + velo accent
+   Applicata all'<article> (.card | .compactItem) al
+   completamento dello scroll verso il prodotto scelto.
+   Vedi scrollToProductAndHighlight in CollectionView.tsx.
+---------------------------------------------------- */
+.card,
+.compactItem {
+  &::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--pub-accent, #3b82f6);
+    opacity: 0;
+    pointer-events: none;
+    border-radius: inherit;
+  }
+
+  &.highlightPulse {
+    animation: pubPop 560ms cubic-bezier(0.2, 0.7, 0.3, 1.5);
+  }
+
+  &.highlightPulse::after {
+    animation: pubVelo 900ms ease-in-out;
+  }
+}
+
+@keyframes pubPop {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.04); }
+  70% { transform: scale(0.992); }
+  100% { transform: scale(1); }
+}
+
+@keyframes pubVelo {
+  0% { opacity: 0; }
+  35% { opacity: 0.2; }
+  100% { opacity: 0; }
+}
+
+/* Movimento ridotto: sopprime il pop, mantiene il velo (segnale visivo). */
+@media (prefers-reduced-motion: reduce) {
+  .card.highlightPulse,
+  .compactItem.highlightPulse {
+    animation: none;
   }
 }
 
