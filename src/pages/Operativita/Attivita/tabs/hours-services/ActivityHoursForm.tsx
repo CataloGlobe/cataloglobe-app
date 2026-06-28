@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { X, Plus } from "lucide-react";
+import { X, Plus, Copy } from "lucide-react";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { TimeInput } from "@/components/ui/Input/TimeInput";
 import { upsertActivityHours } from "@/services/supabase/activityHours";
@@ -190,6 +190,21 @@ function daysToPayload(
     return result;
 }
 
+// Pure, in-memory copy: returns a new days map where every day mirrors the
+// source day's is_closed + slots. Slots are deep-cloned (flat objects) so the
+// seven days hold independent references. Nothing is persisted here.
+function copyDayToAll(days: DaysByIndex, sourceIndex: number): DaysByIndex {
+    const source = days[sourceIndex];
+    const next: DaysByIndex = {};
+    for (let i = 0; i < 7; i++) {
+        next[i] = {
+            is_closed: source.is_closed,
+            slots: source.slots.map(s => ({ ...s }))
+        };
+    }
+    return next;
+}
+
 /* ── Component ──────────────────────────────────────────── */
 
 type ActivityHoursFormProps = {
@@ -297,6 +312,23 @@ export function ActivityHoursForm({
             };
         });
     }, []);
+
+    // Applies the copy immediately and offers an Undo via the toast action,
+    // which restores the pre-copy snapshot. Purely in-memory — nothing is saved
+    // until "Salva orari".
+    const handleCopyToAllDays = useCallback(
+        (dayIndex: number) => {
+            const snapshot = days;
+            setDays(prev => copyDayToAll(prev, dayIndex));
+            showToast({
+                message: `Orari di ${DAY_NAMES[dayIndex]} applicati a tutti i giorni.`,
+                type: "success",
+                actionLabel: "Annulla",
+                onAction: () => setDays(snapshot)
+            });
+        },
+        [days, showToast]
+    );
 
     /* ── Submit ── */
 
@@ -455,7 +487,12 @@ export function ActivityHoursForm({
                                                 </div>
                                             );
                                         })}
-                                        {dayData.slots.length < MAX_SLOTS_PER_DAY && (
+                                    </>
+                                )}
+
+                                <div className={formStyles.dayActions}>
+                                    {!dayData.is_closed &&
+                                        dayData.slots.length < MAX_SLOTS_PER_DAY && (
                                             <button
                                                 type="button"
                                                 className={formStyles.addSlotBtn}
@@ -465,8 +502,16 @@ export function ActivityHoursForm({
                                                 Aggiungi fascia
                                             </button>
                                         )}
-                                    </>
-                                )}
+                                    <button
+                                        type="button"
+                                        className={formStyles.copyAllBtn}
+                                        onClick={() => handleCopyToAllDays(dayIndex)}
+                                        aria-label={`Copia gli orari di ${DAY_NAMES[dayIndex]} su tutti i giorni`}
+                                    >
+                                        <Copy size={13} />
+                                        Copia su tutti i giorni
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     );
