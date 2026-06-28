@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { useToast } from "@/context/Toast/ToastContext";
 import { supabase } from "@/services/supabase/client";
 import { compressImage } from "@/utils/compressImage";
@@ -33,6 +33,18 @@ export type AiProduct = {
 export type WizardStep = "upload" | "analyzing" | "review";
 
 /**
+ * Stato derivato della sessione, sorgente di verità per la vista del wizard al
+ * (ri)mount e per la logica di ri-aggancio di `open()`.
+ * - `idle`     → upload pulito, nessun lavoro
+ * - `analyzing`→ richiesta Gemini in volo
+ * - `error`    → analisi fallita (in attesa di Riprova/Ricomincia)
+ * - `review`   → prodotti pronti da rivedere (non ancora salvati)
+ * - `creating` → creazione DB in corso
+ * - `done`     → import salvato (transitorio, prima dell'auto-close)
+ */
+export type AiImportStatus = "idle" | "analyzing" | "error" | "review" | "creating" | "done";
+
+/**
  * Sessione import AI sollevata a livello di `MainLayout` (montata una sola volta,
  * stesso pattern di `useTranslationCoverage`). Lo stato e la richiesta vivono qui,
  * non nel wizard → sopravvivono all'unmount del drawer/pagina. Il wizard e il
@@ -41,12 +53,20 @@ export type WizardStep = "upload" | "analyzing" | "review";
 export interface AiImportSession {
     /** Drawer aperto. */
     isOpen: boolean;
-    /** Operazione in corso (analisi Gemini O creazione DB) → guard anti-chiusura. */
+    /** Operazione in corso (analisi Gemini O creazione DB). */
     isBusy: boolean;
-    /** Apre il drawer ripartendo da uno stato pulito (mirror del remount attuale). */
+    /** Stato derivato della sessione (sorgente di verità per la vista). */
+    status: AiImportStatus;
+    /**
+     * Apre il drawer. Ri-aggancia una sessione attiva (`analyzing`/`error`/
+     * `review`/`creating`) mostrando la vista corrente; riparte pulito solo se
+     * `idle` o `done`. Garantisce single-flight: non avvia una seconda sessione.
+     */
     open: () => void;
-    /** Chiude il drawer. */
+    /** Chiude il drawer. NON annulla la richiesta: nasconde soltanto. */
     close: () => void;
+    /** Scarta la sessione corrente e riparte dall'upload (affordance "ricomincia"). */
+    startNew: () => void;
 
     // Stato wizard
     step: WizardStep;
@@ -150,10 +170,28 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
         setImportResult({ created: 0, errors: 0 });
     }, []);
 
-    // Apre ripartendo pulito: replica il remount del wizard (SystemDrawer smonta
-    // i children alla chiusura, quindi oggi ogni apertura è fresca).
+    // Stato derivato + ref per leggerlo dentro callback stabili (open/analyze)
+    // senza inserirlo nelle deps (le azioni sono nelle deps del memo dell'Outlet
+    // context in MainLayout → devono restare di identità stabile).
+    const status: AiImportStatus = importDone
+        ? "done"
+        : isCreating
+            ? "creating"
+            : step === "review"
+                ? "review"
+                : step === "analyzing"
+                    ? (analyzeError ? "error" : "analyzing")
+                    : "idle";
+    const statusRef = useRef<AiImportStatus>(status);
+    useEffect(() => {
+        statusRef.current = status;
+    }, [status]);
+
+    // Ri-aggancia una sessione attiva (mostra la vista corrente al rimount del
+    // wizard); riparte pulito solo se idle o done (import già salvato).
     const open = useCallback(() => {
-        reset();
+        const s = statusRef.current;
+        if (s === "idle" || s === "done") reset();
         setIsOpen(true);
     }, [reset]);
 
@@ -161,10 +199,17 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
         setIsOpen(false);
     }, []);
 
+    // Affordance "ricomincia": scarta la sessione pending e torna all'upload.
+    const startNew = useCallback(() => {
+        reset();
+    }, [reset]);
+
     /* ── Analyze ──────────────────────────────────────────── */
 
     const analyze = useCallback(async () => {
         if (!tenantId || files.length === 0) return;
+        // Single-flight: mai una seconda richiesta mentre una è in volo.
+        if (statusRef.current === "analyzing" || statusRef.current === "creating") return;
 
         setStep("analyzing");
         setAnalyzeError(null);
@@ -453,8 +498,10 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
     return {
         isOpen,
         isBusy,
+        status,
         open,
         close,
+        startNew,
         step,
         files,
         setFiles,

@@ -42,7 +42,8 @@ export function AiMenuImportWizard({ session }: AiMenuImportWizardProps) {
         toggleAll,
         setCategoryName,
         createProducts,
-        close
+        close,
+        startNew
     } = session;
 
     /* ── Footer per step ──────────────────────────────────── */
@@ -67,9 +68,19 @@ export function AiMenuImportWizard({ session }: AiMenuImportWizardProps) {
         }
 
         if (step === "analyzing") {
+            // Errore → offri "Ricomincia" (il corpo mostra già "Riprova").
+            // Analisi in volo → "Chiudi": nasconde il drawer, la richiesta
+            // continua a girare nel hook (riapribile da "Importa con AI").
+            if (analyzeError) {
+                return (
+                    <Button variant="ghost" onClick={startNew}>
+                        Ricomincia
+                    </Button>
+                );
+            }
             return (
-                <Button variant="outline" onClick={retry}>
-                    Annulla
+                <Button variant="outline" onClick={close}>
+                    Chiudi
                 </Button>
             );
         }
@@ -77,6 +88,9 @@ export function AiMenuImportWizard({ session }: AiMenuImportWizardProps) {
         // review
         return (
             <>
+                <Button variant="ghost" onClick={startNew} disabled={isCreating}>
+                    Ricomincia
+                </Button>
                 <Button variant="outline" onClick={retry} disabled={isCreating} leftIcon={<ArrowLeft size={16} />}>
                     Indietro
                 </Button>
