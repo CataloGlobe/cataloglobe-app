@@ -20,6 +20,7 @@ import styles from "./PublicBottomBar.module.scss";
 
 type TabDef = { id: HubTab; icon: ReactNode; labelKey: string };
 
+// ⚠️ Visibilità tab "events" sincronizzata con PublicCollectionHeader.tsx (stesso filtro)
 const TABS: TabDef[] = [
     { id: "menu", icon: <BookOpen size={19} strokeWidth={1.9} />, labelKey: "hub.menu" },
     { id: "events", icon: <CalendarDays size={19} strokeWidth={1.9} />, labelKey: "hub.events" },
@@ -29,6 +30,8 @@ const TABS: TabDef[] = [
 type Props = {
     activeTab: HubTab;
     onTabChange: (tab: HubTab) => void;
+    /** Mostra la tab "events". Default true (retrocompatibile). Sincronizzato con PublicCollectionHeader. */
+    showEventsTab?: boolean;
     selectionCount: number;
     /** Mostra lo slot assistenza. Dipende dalla sessione tavolo (indipendente da ordering maintenance). */
     supportVisible: boolean;
@@ -54,6 +57,7 @@ type Props = {
 export default function PublicBottomBar({
     activeTab,
     onTabChange,
+    showEventsTab = true,
     selectionCount,
     supportVisible,
     onOpenSupport,
@@ -168,7 +172,7 @@ export default function PublicBottomBar({
                     style={{ left: indicator.left, width: indicator.width }}
                     aria-hidden="true"
                 />
-                {TABS.map(tab => (
+                {TABS.filter(tab => tab.id !== "events" || showEventsTab).map(tab => (
                     <button
                         key={tab.id}
                         ref={el => {

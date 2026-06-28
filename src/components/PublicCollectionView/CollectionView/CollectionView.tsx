@@ -1003,6 +1003,11 @@ export default function CollectionView({
         [activeTab, orderingEntryHidden]
     );
 
+    // Tab "events" visibile solo se ci sono featured da mostrare adesso (union
+    // before/after, gia filtrata post-scheduling a monte). In preview SEMPRE
+    // visibile: superficie di design, mostra tutte le tab anche senza contenuti.
+    const showEventsTab = mode === "preview" ? true : featuredContents.length > 0;
+
     // Array piatto di tutte le sezioni (L1+L2+L3) — usato da SearchOverlay
     const sections = useMemo(
         () => sectionGroups.flatMap(g => [g.root, ...g.children]),
@@ -1912,6 +1917,7 @@ export default function CollectionView({
                     // Hub-tabs sempre nel markup header: lo split CSS-driven le
                     // nasconde ≤640px quando la bottom-bar è attiva (public).
                     showHubTabs
+                    showEventsTab={showEventsTab}
                     allergensCount={allergenFilterIds.length}
                     onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
                     selectionCount={selectionCount}
@@ -2302,6 +2308,7 @@ export default function CollectionView({
                 <PublicBottomBar
                     activeTab={mode === "preview" ? "menu" : activeTab}
                     onTabChange={mode === "preview" ? () => {} : tab => onTabChange?.(tab)}
+                    showEventsTab={showEventsTab}
                     selectionCount={selectionCount}
                     supportVisible={mode === "public" && orderingActive}
                     onOpenSupport={mode === "preview" ? () => {} : () => setIsSupportOpen(true)}

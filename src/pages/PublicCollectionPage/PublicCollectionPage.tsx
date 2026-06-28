@@ -405,6 +405,11 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         },
         [activeTab, state]
     );
+    // Reset raw a "menu" (niente analytics): usato dal fallback quando la tab
+    // "events" non ha piu contenuti da mostrare.
+    const handleTabAutoReset = useCallback(() => {
+        setActiveTab("menu");
+    }, []);
 
     // ── Language change toast ──────────────────────────────────────────────
     // toastMounted: false sul primo render (coincide col server che non
@@ -517,6 +522,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
             onRetry={handleRetry}
             activeTab={activeTab}
             onTabChange={handleTabChange}
+            onTabAutoReset={handleTabAutoReset}
             bannerSlot={
                 isSimulation ? (
                     <div

@@ -6,6 +6,7 @@ import { buildCoverImageSet } from "@/utils/imageTransform";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
 
+// ⚠️ Visibilità tab "events" sincronizzata con PublicBottomBar.tsx (stesso filtro)
 const HUB_TABS: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
     { id: "menu", icon: <BookOpen size={14} />, labelKey: "hub.menu" },
     { id: "events", icon: <CalendarDays size={14} />, labelKey: "hub.events" },
@@ -68,6 +69,9 @@ export type PublicCollectionHeaderProps = {
     onOpenMore?: () => void;
     /** Mostra le hub tabs (menu/eventi/recensioni). Default true (comportamento storico). */
     showHubTabs?: boolean;
+    /** Mostra la tab "events". Default true (retrocompatibile). Filtrata via stessa
+     *  logica di PublicBottomBar quando non ci sono featured da mostrare. */
+    showEventsTab?: boolean;
     /** Mostra il LanguageSelector. Default true (comportamento storico). */
     showLanguageSelector?: boolean;
     /** Slot opzionale a destra del titolo (es. link "Menu" per pagine non-catalogo). */
@@ -114,6 +118,7 @@ export default function PublicCollectionHeader({
     allergensCount = 0,
     onOpenMore,
     showHubTabs = true,
+    showEventsTab = true,
     showLanguageSelector = true,
     actionSlot,
     selectionCount = 0,
@@ -422,7 +427,7 @@ export default function PublicCollectionHeader({
                                 .filter(Boolean)
                                 .join(" ")}
                         >
-                            {HUB_TABS.map(tab => (
+                            {HUB_TABS.filter(tab => tab.id !== "events" || showEventsTab).map(tab => (
                                 <button
                                     key={tab.id}
                                     type="button"
