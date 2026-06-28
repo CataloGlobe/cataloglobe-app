@@ -18,6 +18,16 @@ export interface BusinessOutletContext {
      * enqueue). Il poll condizionato la intercetterebbe comunque entro 5s.
      */
     wakeTranslations: () => void;
+    /**
+     * Apre il drawer import AI (sessione sollevata in MainLayout). Lo stato e la
+     * richiesta vivono nel layout → sopravvivono all'unmount della pagina.
+     */
+    openAiImport: () => void;
+    /**
+     * Bumpato al successo di un import → le pagine che mostrano cataloghi/prodotti
+     * ricaricano. Stesso pattern di `translationRefreshKey`.
+     */
+    importRefreshKey: number;
 }
 
 /**

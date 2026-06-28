@@ -1,26 +1,24 @@
 import { useEffect, useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import type { AiImportSession } from "@/hooks/useAiImportSession";
 import { AiMenuImportWizard } from "./AiMenuImportWizard";
 
 interface AiMenuImportDrawerProps {
-    open: boolean;
-    onClose: () => void;
-    onSuccess: () => void;
+    /** Sessione import sollevata in MainLayout (stato + azioni). */
+    session: AiImportSession;
 }
 
-export function AiMenuImportDrawer({ open, onClose, onSuccess }: AiMenuImportDrawerProps) {
-    // Stato "operazione in corso" sollevato dal wizard (analisi Gemini O creazione DB).
-    const [isBusy, setIsBusy] = useState(false);
+export function AiMenuImportDrawer({ session }: AiMenuImportDrawerProps) {
+    const { isOpen, isBusy, close } = session;
     const [confirmOpen, setConfirmOpen] = useState(false);
 
     // Reset pulito ad ogni riapertura: nessun guard/confirm residuo.
     useEffect(() => {
-        if (open) {
-            setIsBusy(false);
+        if (isOpen) {
             setConfirmOpen(false);
         }
-    }, [open]);
+    }, [isOpen]);
 
     // Guard condiviso: overlay-click + Escape (SystemDrawer) e bottoni footer (wizard)
     // passano tutti da qui. Se un'operazione e' in corso, chiedi conferma invece di chiudere.
@@ -28,18 +26,14 @@ export function AiMenuImportDrawer({ open, onClose, onSuccess }: AiMenuImportDra
         if (isBusy) {
             setConfirmOpen(true);
         } else {
-            onClose();
+            close();
         }
     };
 
     return (
         <>
-            <SystemDrawer open={open} onClose={handleRequestClose} width={720}>
-                <AiMenuImportWizard
-                    onClose={handleRequestClose}
-                    onSuccess={onSuccess}
-                    onBusyChange={setIsBusy}
-                />
+            <SystemDrawer open={isOpen} onClose={handleRequestClose} width={720}>
+                <AiMenuImportWizard session={session} />
             </SystemDrawer>
 
             {/* Reso DOPO SystemDrawer: stesso z-index (1000) portato su document.body,
@@ -48,12 +42,12 @@ export function AiMenuImportDrawer({ open, onClose, onSuccess }: AiMenuImportDra
                 isOpen={confirmOpen}
                 onClose={() => setConfirmOpen(false)}
                 onConfirm={async () => {
-                    onClose();
+                    close();
                     return true;
                 }}
-                title="Operazione in corso"
-                message="Se chiudi ora l'operazione in corso verrà persa e dovrai ricominciare. Chiudere comunque?"
-                confirmLabel="Chiudi comunque"
+                title="Analisi in corso"
+                message="Se chiudi adesso perdi il risultato dell'analisi. La richiesta è già stata avviata, quindi resta comunque conteggiata tra quelle giornaliere."
+                confirmLabel="Chiudi e annulla"
                 confirmVariant="danger"
             />
         </>
