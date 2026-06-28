@@ -1,4 +1,4 @@
-import { Sparkles, ArrowLeft, Check } from "lucide-react";
+import { Sparkles, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import type { AiImportSession } from "@/hooks/useAiImportSession";
 
@@ -85,14 +85,11 @@ export function AiMenuImportWizard({ session }: AiMenuImportWizardProps) {
             );
         }
 
-        // review
+        // review — "Indietro" rimosso: duplicava "Ricomincia" (entrambi → upload).
         return (
             <>
                 <Button variant="ghost" onClick={startNew} disabled={isCreating}>
                     Ricomincia
-                </Button>
-                <Button variant="outline" onClick={retry} disabled={isCreating} leftIcon={<ArrowLeft size={16} />}>
-                    Indietro
                 </Button>
                 <Button
                     variant="primary"
