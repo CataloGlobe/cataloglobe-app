@@ -16,6 +16,7 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconBook2 } from "@tabler/icons-react";
 import { Sparkles, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Loader } from "@/components/ui/Loader/Loader";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import {
     listCatalogs,
@@ -66,6 +67,7 @@ export default function Catalogs() {
     const outletCtx = useBusinessOutletContext();
     const openAiImport = outletCtx?.openAiImport;
     const importRefreshKey = outletCtx?.importRefreshKey ?? 0;
+    const importStatus = outletCtx?.importStatus ?? "idle";
 
     // Delete confirmation state
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -143,10 +145,18 @@ export default function Catalogs() {
                         openAiImport?.();
                     }}
                     disabled={!canEdit}
-                    leftIcon={<Sparkles size={16} />}
+                    leftIcon={
+                        importStatus === "analyzing" || importStatus === "creating"
+                            ? <Loader size="sm" />
+                            : <Sparkles size={16} />
+                    }
                     className={styles.toolbarCta}
                 >
-                    Importa con AI
+                    {importStatus === "analyzing"
+                        ? "Analisi in corso…"
+                        : importStatus === "creating"
+                            ? "Salvataggio…"
+                            : "Importa con AI"}
                 </Button>
             )}
             {canWriteCatalog && (
@@ -160,7 +170,7 @@ export default function Catalogs() {
                 </Button>
             )}
         </>
-    ), [canWriteCatalog, canEdit, showToast, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange, openAiImport]);
+    ), [canWriteCatalog, canEdit, showToast, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange, openAiImport, importStatus]);
 
     usePageHeader({
         title: verticalConfig.catalogLabel,

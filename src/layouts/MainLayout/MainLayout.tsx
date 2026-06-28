@@ -127,14 +127,18 @@ export default function MainLayout() {
     // della pagina. Il drawer è reso fuori dall'Outlet e riceve la sessione per
     // props; le pagine ricevono `openAiImport` + `importRefreshKey` via context.
     const aiImport = useAiImportSession(tenantId);
+    // Booleano largo per la pillola sidebar: cambia solo alle transizioni di
+    // status (non a ogni tick di createProgress) → niente rerender per tick.
+    const importInProgress = aiImport.status === "analyzing" || aiImport.status === "creating";
     const outletContext = useMemo<BusinessOutletContext>(
         () => ({
             translationCoverage,
             wakeTranslations,
             openAiImport: aiImport.open,
-            importRefreshKey: aiImport.importRefreshKey
+            importRefreshKey: aiImport.importRefreshKey,
+            importStatus: aiImport.status
         }),
-        [translationCoverage, wakeTranslations, aiImport.open, aiImport.importRefreshKey]
+        [translationCoverage, wakeTranslations, aiImport.open, aiImport.importRefreshKey, aiImport.status]
     );
 
     // Tenant without subscription → redirect to workspace with resume param.
@@ -179,6 +183,7 @@ export default function MainLayout() {
                                 onRequestClose={() => setMobileSidebarOpen(false)}
                                 onToggleCollapse={() => setSidebarCollapsed(v => !v)}
                                 translationPendingCount={translationPendingCount}
+                                importInProgress={importInProgress}
                             />
 
                             <main className={styles.main}>

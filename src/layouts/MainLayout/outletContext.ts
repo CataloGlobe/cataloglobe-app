@@ -1,5 +1,6 @@
 import { useOutletContext } from "react-router-dom";
 import type { TranslationCoverage } from "@/services/supabase/tenantLanguages";
+import type { AiImportStatus } from "@/hooks/useAiImportSession";
 
 /**
  * Valore esposto da `MainLayout` alle pagine business via `<Outlet context>`.
@@ -28,6 +29,12 @@ export interface BusinessOutletContext {
      * ricaricano. Stesso pattern di `translationRefreshKey`.
      */
     importRefreshKey: number;
+    /**
+     * Status coarse della sessione import (cambia poche volte per import → il
+     * bottone "Importa con AI" lo legge per la label/stato in corso). Il progresso
+     * granulare NON passa di qui (resta sul path props verso il drawer).
+     */
+    importStatus: AiImportStatus;
 }
 
 /**
