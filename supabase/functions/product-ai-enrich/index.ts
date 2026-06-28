@@ -164,7 +164,7 @@ serve(async (req: Request) => {
             { text: userLines.join("\n") }
         ];
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
 
         const startMs = Date.now();
 
@@ -271,7 +271,7 @@ serve(async (req: Request) => {
         return jsonOk({
             description,
             metadata: {
-                model_used: "gemini-3.5-flash",
+                model_used: "gemini-2.5-flash",
                 processing_time_ms: processingTimeMs
             }
         });

@@ -338,7 +338,7 @@ serve(async (req: Request) => {
             { text: `Extract all products from this menu. The menu language is likely "${lang}".` }
         ];
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
 
         const startMs = Date.now();
 
@@ -350,7 +350,7 @@ serve(async (req: Request) => {
                 generationConfig: {
                     // temperature/top_p/top_k ai default (raccomandato per i 3.x).
                     // maxOutputTokens al ceiling del modello (65536, output token limit
-                    // documentato per gemini-3.5-flash): sul tier gratuito il vincolo e'
+                    // documentato per gemini-2.5-flash): sul tier gratuito il vincolo e'
                     // RPD non i token, quindi e' upside-only e riduce i MAX_TOKENS.
                     // Non superare 65536: oltre il max la request fallisce.
                     maxOutputTokens: 65536,
@@ -461,7 +461,7 @@ serve(async (req: Request) => {
             ...(parsed.error ? { error: parsed.error } : {}),
             metadata: {
                 images_analyzed: images.length,
-                model_used: "gemini-3.5-flash",
+                model_used: "gemini-2.5-flash",
                 processing_time_ms: processingTimeMs
             }
         });
