@@ -61,6 +61,7 @@ function mapChangeError(err: unknown, activityCount: number, cap: number): strin
         case "NO_CHANGE":
             return "Non hai selezionato alcuna modifica.";
         case "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED":
+        case "SEATS_ADDED_SCHEDULE_NOT_UPDATED":
             return "Le sedi sono state aggiunte e pagate, ma il passaggio a Base non è stato programmato. Riprova.";
         default:
             return "Si è verificato un errore. Riprova.";
@@ -337,7 +338,10 @@ export default function SubscriptionPage() {
                     type: "error"
                 });
                 setChangeError("L'addebito è stato rifiutato. Aggiorna il metodo di pagamento dal portale di fatturazione.");
-            } else if (name === "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED") {
+            } else if (
+                name === "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED" ||
+                name === "SEATS_ADDED_SCHEDULE_NOT_UPDATED"
+            ) {
                 showToast({
                     message: "Sedi aggiunte e pagate, ma il passaggio a Base non è stato programmato. Riprova.",
                     type: "error"
@@ -439,6 +443,12 @@ export default function SubscriptionPage() {
     const periodEndDate = subState?.currentPeriodEnd ?? selectedTenant.current_period_end ?? null;
 
     const targetPlanName = plans.find(p => p.code === draftPlan)?.name ?? draftPlan;
+    // Box combinato (B2): il piano futuro è quello del pending preservato (es.
+    // Base), NON `draftPlan` (l'utente resta su Pro e aggiunge sedi). Fonte
+    // corretta = `preview.plan`, calcolato dall'edge.
+    const combinedPlanName = preview
+        ? (plans.find(p => p.code === preview.plan)?.name ?? preview.plan)
+        : targetPlanName;
     const previewIsDowngrade = preview ? preview.effective !== "now" : false;
 
     return (
@@ -806,7 +816,7 @@ export default function SubscriptionPage() {
                                             </Text>
                                             <div className={styles.confirmDivider} />
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Il piano passerà a {targetPlanName} il {formatDate(preview.nextDate)};
+                                                Il piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)};
                                                 da quella data pagherai {formatCents(preview.nextAmount)}/mese.
                                             </Text>
                                             <div className={styles.changeWarning}>

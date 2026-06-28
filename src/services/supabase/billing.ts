@@ -90,6 +90,11 @@ export async function createPortalSession(
 //   - "SCHEDULE_RELEASE_FAILED" → (combinato) sub ancora schedule-managed, abort
 //   - "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED" → (combinato) sedi addebitate ma
 //                                  il downgrade non è stato programmato (riprova)
+//   - "SEATS_ADDED_SCHEDULE_NOT_UPDATED" → (B2: sedi su schedule pendente) sedi
+//                                  addebitate ma le fasi non aggiornate; il cambio
+//                                  programmato resta intatto, retry idempotente
+//                                  converge. Stesso messaggio utente del codice
+//                                  SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED
 //
 // `classification` può valere "combined" quando il tier scende e le sedi
 // aumentano nello stesso cambio: le sedi sono addebitate subito (prorata a

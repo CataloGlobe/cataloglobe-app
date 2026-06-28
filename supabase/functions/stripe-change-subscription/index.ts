@@ -512,6 +512,84 @@ serve(async req => {
             const existingScheduleId =
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
 
+            // 🆕 FASE 2.3 — B2 preview: upgrade (sedi su, tier uguale) MENTRE c'e'
+            // un cambio programmato in volo. Le sedi si pagano subito (prorata a
+            // tariffa corrente); il tier scende al rinnovo al target del pending
+            // PRESERVATO (es. Base) con la nuova qty. Ritorna 'combined' per il box
+            // UI esistente, senza scartare il pending.
+            if (classification === "upgrade" && existingScheduleId) {
+                let b2FuturePrice: string | undefined;
+                let b2FuturePlanCode: string | null = null;
+                try {
+                    const sched = await stripe.subscriptionSchedules.retrieve(existingScheduleId);
+                    const phs = sched.phases ?? [];
+                    if (phs.length >= 2) {
+                        const fItem = phs[phs.length - 1].items?.[0];
+                        b2FuturePrice = typeof fItem?.price === "string" ? fItem.price : fItem?.price?.id;
+                        if (b2FuturePrice) {
+                            b2FuturePlanCode = await lookupPlanCodeByPriceId(admin, b2FuturePrice);
+                        }
+                    }
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.warn(`stripe-change-subscription: B2 preview schedule retrieve failed: ${message}`);
+                }
+
+                if (b2FuturePrice) {
+                    // Oggi: delta sedi prorato a tariffa CORRENTE (Pro).
+                    let chargeToday = 0;
+                    try {
+                        const seatPreview = await stripe.invoices.createPreview({
+                            customer: tenant.stripe_customer_id,
+                            subscription: tenant.stripe_subscription_id,
+                            subscription_details: {
+                                items: [{ id: itemId, price: currentPriceId, quantity: newSeats }],
+                                proration_behavior: "always_invoice"
+                            }
+                        });
+                        chargeToday = Math.max(0, seatPreview.amount_due ?? 0);
+                    } catch (err) {
+                        const message = err instanceof Error ? err.message : String(err);
+                        console.error(`stripe-change-subscription: B2 preview seat charge failed: ${message}`);
+                        return json(req, 502, { error: "preview_failed" });
+                    }
+
+                    // Al rinnovo: totale ricorrente del target pending (es. Base) a newSeats.
+                    let nextAmountB2 = await graduatedTotalFromPrice(stripe, b2FuturePrice, newSeats);
+                    if (nextAmountB2 == null) {
+                        try {
+                            const nextPreview = await stripe.invoices.createPreview({
+                                customer: tenant.stripe_customer_id,
+                                subscription: tenant.stripe_subscription_id,
+                                subscription_details: {
+                                    items: [{ id: itemId, price: b2FuturePrice, quantity: newSeats }],
+                                    proration_behavior: "none"
+                                }
+                            });
+                            nextAmountB2 = nextPreview.total ?? 0;
+                        } catch (err) {
+                            const message = err instanceof Error ? err.message : String(err);
+                            console.error(`stripe-change-subscription: B2 preview next amount failed: ${message}`);
+                            return json(req, 502, { error: "preview_failed" });
+                        }
+                    }
+
+                    return json(req, 200, {
+                        classification: "combined",
+                        plan: b2FuturePlanCode ?? targetPlan,
+                        seats: newSeats,
+                        currency,
+                        chargeToday,
+                        nextAmount: nextAmountB2,
+                        nextDate: periodEndIso,
+                        effective: periodEndIso,
+                        // B2 NON scarta il cambio programmato (lo preserva alla nuova qty).
+                        willDiscardScheduledChange: false
+                    });
+                }
+                // Nessun pending reale (schedule a 1 fase) → fall-through all'upgrade standard.
+            }
+
             let nextAmount = 0;
             if (classification === "upgrade") {
                 // Pieno graduato al target dai tiers (indipendente da schedule attivi);
@@ -791,11 +869,205 @@ serve(async req => {
         }
 
         if (classification === "upgrade") {
-            // Upgrade → immediato. Rilascia ogni schedule attivo PRIMA dell'update
-            // (Stripe rifiuta update su sub schedule-managed); il downgrade pendente
-            // viene scartato (l'upgrade lo supera).
             const existingScheduleId =
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
+
+            // 🆕 FASE 2.3 — B2: aggiunta sedi (tier uguale, seats su) MENTRE c'e' un
+            // cambio programmato in volo. Le sedi nuove si pagano subito (one-off
+            // prorata a tariffa CORRENTE), il pending del tier resta intatto (solo
+            // la sua qty futura sale). CHARGE-FIRST esplicito: NESSUN release (la
+            // one-off e' customer-level, lo schedule non viene distrutto). L'update
+            // delle fasi avviene SOLO dopo il pagamento riuscito (proration 'none').
+            if (existingScheduleId) {
+                let b2Schedule: Stripe.SubscriptionSchedule | null = null;
+                try {
+                    b2Schedule = await stripe.subscriptionSchedules.retrieve(existingScheduleId);
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`stripe-change-subscription: B2 schedule retrieve failed: ${message}`);
+                    return json(req, 502, { error: "stripe_schedule_failed" });
+                }
+                const b2Phases = b2Schedule.phases ?? [];
+                const b2CurrentPhase = b2Phases[0];
+                const b2FuturePhase = b2Phases.length >= 2 ? b2Phases[b2Phases.length - 1] : null;
+                const b2FutureItem = b2FuturePhase?.items?.[0];
+                const b2FuturePrice =
+                    typeof b2FutureItem?.price === "string" ? b2FutureItem.price : b2FutureItem?.price?.id;
+
+                // Pending reale (>=2 fasi + price futuro) → flusso B2. Altrimenti
+                // schedule a 1 fase senza pending → fall-through all'upgrade standard.
+                if (b2CurrentPhase && b2FuturePhase && b2FuturePrice) {
+                    // Target futuro PRESERVATO dal pending (es. Base), non da targetPlan (Pro).
+                    const b2FuturePlanCode = (await lookupPlanCodeByPriceId(admin, b2FuturePrice)) ?? targetPlan;
+
+                    // Step 1 — importo delta sedi, ricalcolato al commit (drift minimo).
+                    let chargeAmount = 0;
+                    try {
+                        const seatPreview = await stripe.invoices.createPreview({
+                            customer: tenant.stripe_customer_id,
+                            subscription: tenant.stripe_subscription_id,
+                            subscription_details: {
+                                items: [{ id: itemId, price: currentPriceId, quantity: newSeats }],
+                                proration_behavior: "always_invoice"
+                            }
+                        });
+                        chargeAmount = Math.max(0, seatPreview.amount_due ?? 0);
+                    } catch (err) {
+                        const message = err instanceof Error ? err.message : String(err);
+                        console.error(`stripe-change-subscription: B2 commit seat preview failed: ${message}`);
+                        return json(req, 502, { error: "preview_failed" });
+                    }
+
+                    // Step 2-4 — one-off invoice CHARGE-FIRST (customer-level, NO release).
+                    // auto_advance:false → controllo manuale, niente dunning automatico.
+                    if (chargeAmount > 0) {
+                        const oneOffItemKey = buildIdempotencyKey({
+                            operation: "seats-oneoff-item",
+                            tenantId,
+                            subscriptionId: tenant.stripe_subscription_id,
+                            currentPlan,
+                            currentSeats,
+                            targetPlan,
+                            targetSeats: newSeats
+                        });
+                        const oneOffCreateKey = buildIdempotencyKey({
+                            operation: "seats-oneoff-create",
+                            tenantId,
+                            subscriptionId: tenant.stripe_subscription_id,
+                            currentPlan,
+                            currentSeats,
+                            targetPlan,
+                            targetSeats: newSeats
+                        });
+                        const oneOffPayKey = buildIdempotencyKey({
+                            operation: "seats-oneoff-pay",
+                            tenantId,
+                            subscriptionId: tenant.stripe_subscription_id,
+                            currentPlan,
+                            currentSeats,
+                            targetPlan,
+                            targetSeats: newSeats
+                        });
+
+                        let b2InvoiceId: string | null = null;
+                        try {
+                            await stripe.invoiceItems.create(
+                                {
+                                    customer: tenant.stripe_customer_id,
+                                    amount: chargeAmount,
+                                    currency,
+                                    description: "Sedi aggiuntive (prorata fino al rinnovo)"
+                                },
+                                { idempotencyKey: oneOffItemKey }
+                            );
+                            const invoice = await stripe.invoices.create(
+                                {
+                                    customer: tenant.stripe_customer_id,
+                                    auto_advance: false,
+                                    collection_method: "charge_automatically"
+                                },
+                                { idempotencyKey: oneOffCreateKey }
+                            );
+                            b2InvoiceId = invoice.id;
+                            await stripe.invoices.pay(invoice.id, { idempotencyKey: oneOffPayKey });
+                        } catch (err) {
+                            const message = err instanceof Error ? err.message : String(err);
+                            const type = (err as { type?: string })?.type ?? "";
+                            const code = (err as { code?: string })?.code ?? "";
+                            // Void best-effort della one-off non pagata → niente dunning async.
+                            if (b2InvoiceId) {
+                                try {
+                                    await stripe.invoices.voidInvoice(b2InvoiceId);
+                                } catch (vErr) {
+                                    const vMsg = vErr instanceof Error ? vErr.message : String(vErr);
+                                    console.error(`stripe-change-subscription: B2 void invoice failed: ${vMsg}`);
+                                }
+                            }
+                            if (
+                                type === "StripeCardError" ||
+                                code === "subscription_payment_intent_requires_action" ||
+                                /incomplete|requires_action|card_declined|payment/i.test(message)
+                            ) {
+                                console.warn(`stripe-change-subscription: B2 seat charge payment failed: ${message}`);
+                                return json(req, 402, { error: "PAYMENT_FAILED" });
+                            }
+                            console.error(`stripe-change-subscription: B2 one-off charge failed: ${message}`);
+                            return json(req, 502, { error: "stripe_update_failed" });
+                        }
+                    }
+
+                    // Step 5 — aggiorna le fasi SENZA release. Fase corrente qty→newSeats
+                    // (emette subscription.updated → webhook paid_seats=newSeats), fase
+                    // futura = target del pending PRESERVATO con la nuova qty. proration
+                    // 'none' (gia' addebitato dalla one-off, niente doppio addebito).
+                    try {
+                        const scheduleUpdateKey = buildIdempotencyKey({
+                            operation: "downgrade-update-phases",
+                            tenantId,
+                            subscriptionId: tenant.stripe_subscription_id,
+                            currentPlan,
+                            currentSeats,
+                            targetPlan,
+                            targetSeats: newSeats
+                        });
+                        const currentPhaseItems = (b2CurrentPhase.items ?? []).map(it => ({
+                            price: typeof it.price === "string" ? it.price : it.price?.id,
+                            quantity: newSeats
+                        }));
+                        await updateSchedulePhases(stripe, existingScheduleId, {
+                            currentPhaseItems,
+                            currentPhaseStart: b2CurrentPhase.start_date,
+                            currentPhaseEnd: b2CurrentPhase.end_date,
+                            futurePhaseItems: [{ price: b2FuturePrice, quantity: newSeats }],
+                            futurePhasePlanCode: b2FuturePlanCode,
+                            prorationBehavior: "none",
+                            idempotencyKey: scheduleUpdateKey
+                        });
+                    } catch (err) {
+                        // Partial-failure: sedi PAGATE, pending intatto, fasi non aggiornate.
+                        // Retry idempotente converge (one-off replay, update completa).
+                        const message = err instanceof Error ? err.message : String(err);
+                        console.error(`stripe-change-subscription: B2 schedule update failed (seats already charged): ${message}`);
+                        return json(req, 502, { error: "SEATS_ADDED_SCHEDULE_NOT_UPDATED" });
+                    }
+
+                    console.log(
+                        `stripe-change-subscription: B2 COMBINED seats charged + schedule updated tenant=${tenantId} seats=${newSeats} future=${b2FuturePlanCode} schedule=${existingScheduleId}`
+                    );
+                    // Email best-effort: riusa la combinata (sedi attive ora + piano al rinnovo).
+                    try {
+                        const to = await getRecipient();
+                        if (to) {
+                            await sendEmail({
+                                to,
+                                ...combinedChangeEmail({
+                                    seats: newSeats,
+                                    targetPlan: b2FuturePlanCode,
+                                    effectiveDateIso: periodEndIso
+                                })
+                            });
+                        }
+                    } catch (err) {
+                        console.error("[stripe-change-subscription] B2 email error:", err);
+                    }
+
+                    return json(req, 200, {
+                        ok: true,
+                        classification: "combined",
+                        plan: b2FuturePlanCode,
+                        seats: newSeats,
+                        seatsChargedNow: true,
+                        effective: periodEndIso,
+                        scheduledChange: true,
+                        scheduleId: existingScheduleId
+                    });
+                }
+                // Nessun pending reale → prosegue con l'upgrade standard sotto.
+            }
+
+            // Upgrade standard (nessun cambio programmato da preservare) → immediato.
+            // Rilascia ogni schedule attivo PRIMA dell'update (Stripe rifiuta update
+            // su sub schedule-managed); eventuale schedule a 1 fase viene scartato.
             await releaseScheduleIfAny(stripe, existingScheduleId);
 
             const upgradeKey = buildIdempotencyKey({
