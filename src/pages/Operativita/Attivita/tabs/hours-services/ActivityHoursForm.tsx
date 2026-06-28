@@ -12,6 +12,8 @@ import { timesToMinutes, deriveClosesNextDay } from "./hoursOvernight";
 import formStyles from "./HoursServices.module.scss";
 
 const DAY_NAMES = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
+// Short labels for the "→ {next day}" overnight-close chip. day_of_week: 0=Lun … 6=Dom.
+const DAY_SHORT = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
 const MAX_SLOTS_PER_DAY = 5;
 
 /* ── Types ──────────────────────────────────────────────── */
@@ -234,14 +236,21 @@ export function ActivityHoursForm({
         setDays(prev => ({ ...prev, [dayIndex]: { ...prev[dayIndex], ...patch } }));
     }, []);
 
-    const handleClosedToggle = useCallback((dayIndex: number, checked: boolean) => {
-        if (checked) {
-            updateDay(dayIndex, { is_closed: true, slots: [] });
-        } else {
-            updateDay(dayIndex, {
-                is_closed: false,
-                slots: [{ opens_at: null, closes_at: null, closes_next_day: false }]
+    // Switch maps to is_closed (open = !is_closed). Closing keeps any typed
+    // slots in state so re-opening within the same session restores them;
+    // serialization (daysToPayload) ignores slots for a closed day, so the saved
+    // row is still exactly { is_closed: true, opens_at/closes_at null }.
+    const handleOpenToggle = useCallback((dayIndex: number, isOpen: boolean) => {
+        if (isOpen) {
+            setDays(prev => {
+                const day = prev[dayIndex];
+                const slots = day.slots.length > 0
+                    ? day.slots
+                    : [{ opens_at: null, closes_at: null, closes_next_day: false }];
+                return { ...prev, [dayIndex]: { is_closed: false, slots } };
             });
+        } else {
+            updateDay(dayIndex, { is_closed: true });
         }
     }, [updateDay]);
 
@@ -353,21 +362,43 @@ export function ActivityHoursForm({
                 {/* ── Day rows ── */}
                 {Array.from({ length: 7 }, (_, dayIndex) => {
                     const dayData = days[dayIndex];
+                    const isOpen = !dayData.is_closed;
                     return (
                         <div key={dayIndex} className={formStyles.dayRow}>
-                            {/* Day name */}
-                            <div className={formStyles.dayName}>
-                                {DAY_NAMES[dayIndex]}
+                            {/* Left stack: day name · status label · open/closed switch */}
+                            <div className={formStyles.dayHeadCol}>
+                                <span className={formStyles.dayName}>
+                                    {DAY_NAMES[dayIndex]}
+                                </span>
+                                <span
+                                    className={`${formStyles.dayStatusLabel} ${
+                                        isOpen ? formStyles.dayStatusLabelOpen : ""
+                                    }`}
+                                >
+                                    {isOpen ? "Aperto" : "Chiuso"}
+                                </span>
+                                <Switch
+                                    checked={isOpen}
+                                    onChange={open => handleOpenToggle(dayIndex, open)}
+                                    aria-label={`${DAY_NAMES[dayIndex]} aperto`}
+                                />
                             </div>
 
-                            {/* Slots or closed label */}
+                            {/* Slots or closed message */}
                             <div className={formStyles.daySlotsCol}>
                                 {dayData.is_closed ? (
-                                    <span className={formStyles.closedLabel}>Chiuso</span>
+                                    <span className={formStyles.closedDayMessage}>
+                                        Nessun orario — la sede risulta chiusa.
+                                    </span>
                                 ) : (
                                     <>
                                         {dayData.slots.map((slot, si) => {
                                             const error = getSlotError(dayIndex, si);
+                                            const overnight = deriveClosesNextDay(
+                                                slot.opens_at,
+                                                slot.closes_at
+                                            );
+                                            const nextDay = DAY_SHORT[(dayIndex + 1) % 7];
                                             return (
                                                 <div key={si} className={formStyles.slotRow}>
                                                     <div className={formStyles.slotInputs}>
@@ -400,13 +431,13 @@ export function ActivityHoursForm({
                                                             }}
                                                             aria-label={`${DAY_NAMES[dayIndex]} fascia ${si + 1} chiusura`}
                                                         />
-                                                        {slot.closes_next_day && (
+                                                        {overnight && (
                                                             <span
-                                                                className={formStyles.overnightBadge}
-                                                                title="Chiude il giorno successivo"
-                                                                aria-label="Chiude il giorno successivo"
+                                                                className={formStyles.nextDayChip}
+                                                                title={`Chiude ${DAY_NAMES[(dayIndex + 1) % 7]}`}
+                                                                aria-label={`Chiude il giorno successivo, ${DAY_NAMES[(dayIndex + 1) % 7]}`}
                                                             >
-                                                                +1
+                                                                → {nextDay}
                                                             </span>
                                                         )}
                                                         <button
@@ -436,15 +467,6 @@ export function ActivityHoursForm({
                                         )}
                                     </>
                                 )}
-                            </div>
-
-                            {/* Closed toggle */}
-                            <div className={formStyles.dayClosedCol}>
-                                <Switch
-                                    checked={dayData.is_closed}
-                                    onChange={checked => handleClosedToggle(dayIndex, checked)}
-                                    aria-label={`${DAY_NAMES[dayIndex]} chiuso`}
-                                />
                             </div>
                         </div>
                     );

@@ -165,14 +165,35 @@
   }
 }
 
-.dayName {
-  width: 90px;
+// Left stack of a day row: name · status label · open/closed switch.
+.dayHeadCol {
+  width: 104px;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  padding-top: 2px;
+}
+
+.dayName {
   font-weight: 500;
   font-size: 0.9375rem;
   color: v.$text-color;
-  padding-top: 8px;
   white-space: nowrap;
+}
+
+.dayStatusLabel {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: v.$gray-400;
+  transition: color 0.15s ease;
+}
+
+.dayStatusLabelOpen {
+  color: var(--color-success, #16a34a);
 }
 
 .daySlotsCol {
@@ -181,22 +202,13 @@
   flex-direction: column;
   gap: 8px;
   min-width: 0;
+  padding-top: 1px;
 }
 
-.dayClosedCol {
-  width: 36px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: 8px;
-}
-
-.closedLabel {
+.closedDayMessage {
   font-size: 0.875rem;
-  font-style: italic;
   color: v.$gray-400;
-  padding: 8px 0;
+  padding: 7px 0;
 }
 
 .slotRow {
@@ -281,6 +293,24 @@
   cursor: default;
   user-select: none;
   flex-shrink: 0;
+}
+
+// Neutral "→ {next day}" chip on overnight slots (replaces the old "+1" in the
+// hours editor). Muted, not a lit badge — reads as a quiet annotation.
+.nextDayChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 11px;
+  font-weight: 500;
+  color: v.$gray-500;
+  background: v.$gray-100;
+  padding: 2px 8px;
+  border-radius: 100px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  cursor: default;
+  user-select: none;
 }
 
 // ── Hours public toggle ─────────────────────────────────────────────────────
