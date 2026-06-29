@@ -15,7 +15,7 @@ import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/Data
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconBook2 } from "@tabler/icons-react";
-import { Sparkles, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Sparkles, Eye, LayoutGrid, List as ListIcon } from "lucide-react";
 import { Loader } from "@/components/ui/Loader/Loader";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import {
@@ -148,7 +148,9 @@ export default function Catalogs() {
                     leftIcon={
                         importStatus === "analyzing" || importStatus === "creating"
                             ? <Loader size="sm" />
-                            : <Sparkles size={16} />
+                            : importStatus === "review"
+                                ? <Eye size={16} />
+                                : <Sparkles size={16} />
                     }
                     className={styles.toolbarCta}
                 >
@@ -156,7 +158,9 @@ export default function Catalogs() {
                         ? "Analisi in corso…"
                         : importStatus === "creating"
                             ? "Salvataggio…"
-                            : "Importa con AI"}
+                            : importStatus === "review"
+                                ? "Rivedi menù analizzato"
+                                : "Importa con AI"}
                 </Button>
             )}
             {canWriteCatalog && (
