@@ -1829,6 +1829,32 @@ export default function CollectionView({
         }
     };
 
+    // ── Scroll-to-top del container giusto (re-tap tab attiva, pattern tab bar iOS) ──
+    const scrollContainerToTop = useCallback(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        // Non scrivere lo scroll mentre il body è in lock iOS (PublicSheet aperto).
+        // Caso non raggiungibile dal re-tap (sheet copre la barra), guardia difensiva.
+        if (document.body.style.position === "fixed") return;
+        if (container === window) {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+            (container as HTMLElement).scrollTo({ top: 0, behavior: "smooth" });
+        }
+    }, []);
+
+    // ── Intercetta il tap hub tab: re-tap sulla tab attiva = scroll-to-top ──
+    const handleHubTabTap = useCallback(
+        (tab: HubTab) => {
+            if (tab === activeTab) {
+                scrollContainerToTop();
+                return; // re-tap: niente cambio stato, niente analytics (già gated su prevTab !== tab)
+            }
+            onTabChange?.(tab);
+        },
+        [activeTab, onTabChange, scrollContainerToTop]
+    );
+
     // ── Subsection margin — distanza dipende dal contesto (child precedente) ──
     const getSubsectionMarginTop = useCallback(
         (
@@ -2069,7 +2095,7 @@ export default function CollectionView({
                     previewDevice={previewDevice}
                     headerRadius={style.appearanceRadius}
                     activeTab={activeTab}
-                    onTabChange={onTabChange ?? (() => {})}
+                    onTabChange={handleHubTabTap}
                     // Hub-tabs sempre nel markup header: lo split CSS-driven le
                     // nasconde ≤640px quando la bottom-bar è attiva (public).
                     showHubTabs
@@ -2473,7 +2499,7 @@ export default function CollectionView({
             {(useBottomBar || (mode === "preview" && previewDevice === "mobile")) && (
                 <PublicBottomBar
                     activeTab={mode === "preview" ? "menu" : activeTab}
-                    onTabChange={mode === "preview" ? () => {} : tab => onTabChange?.(tab)}
+                    onTabChange={mode === "preview" ? () => {} : handleHubTabTap}
                     showEventsTab={showEventsTab}
                     selectionCount={selectionCount}
                     supportVisible={mode === "public" && orderingActive}
