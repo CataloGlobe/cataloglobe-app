@@ -147,7 +147,7 @@ export default function Catalogs() {
                     disabled={!canEdit}
                     leftIcon={
                         importStatus === "analyzing" || importStatus === "creating"
-                            ? <Loader size="sm" />
+                            ? <Loader size="sm" className={styles.importSpinner} />
                             : importStatus === "review"
                                 ? <Eye size={16} />
                                 : <Sparkles size={16} />
