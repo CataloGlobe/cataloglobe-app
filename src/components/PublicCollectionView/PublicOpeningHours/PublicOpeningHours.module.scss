@@ -4,6 +4,10 @@
 ───────────────────────────────────────────────────────── */
 
 .hoursSection {
+  /* Block-root: figlio diretto del footer → porta la larghezza condivisa
+     (--pub-footer-max). I figli (.hoursList/.closuresSection) la riempiono. */
+  width: 100%;
+  max-width: var(--pub-footer-max, 420px);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
@@ -20,14 +24,10 @@
 }
 
 .hoursList {
+  /* Riempie .hoursSection (che porta la larghezza condivisa). */
   width: 100%;
-  max-width: 280px;
   margin: 0;
   padding: 0;
-
-  @media (min-width: 640px) {
-    max-width: 340px;
-  }
 }
 
 .hoursRow {
@@ -75,17 +75,12 @@
 
 .closuresSection {
   width: 100%;
-  max-width: 280px;
   padding-top: 0.75rem;
   border-top: 0.5px solid var(--pub-border);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-
-  @media (min-width: 640px) {
-    max-width: 340px;
-  }
 }
 
 .closuresTitle {
@@ -149,6 +144,13 @@
 /* ── Override contesto surface (modale Info) ───────────────────────────── */
 
 .hoursSection[data-surface="surface"] {
+  /* Modale Info: larghezza invariata a 280/340 (NON il 420 del footer). */
+  max-width: 280px;
+
+  @media (min-width: 640px) {
+    max-width: 340px;
+  }
+
   .hoursTitle {
     color: var(--pub-surface-text-muted);
   }

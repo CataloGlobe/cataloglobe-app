@@ -4,6 +4,11 @@
 ───────────────────────────────────────────────────────── */
 
 .footer {
+  /* Single source of truth della larghezza condivisa dei blocchi footer.
+     I blocchi (PublicOpeningHours/PublicFees) la leggono via var; in contesto
+     surface (modale Info) restano vincolati ai loro 280/340. */
+  --pub-footer-max: 420px;
+
   width: 100%;
   padding: 1.5rem 1rem 2rem;
   background: var(--pub-bg);
