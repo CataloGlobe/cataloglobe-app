@@ -43,7 +43,8 @@ export function AiMenuImportWizard({ session }: AiMenuImportWizardProps) {
         setCategoryName,
         createProducts,
         close,
-        startNew
+        startNew,
+        cancelAnalysis
     } = session;
 
     /* ── Footer per step ──────────────────────────────────── */
@@ -69,8 +70,13 @@ export function AiMenuImportWizard({ session }: AiMenuImportWizardProps) {
 
         if (step === "analyzing") {
             // Errore → offri "Ricomincia" (il corpo mostra già "Riprova").
-            // Analisi in volo → "Chiudi": nasconde il drawer, la richiesta
-            // continua a girare nel hook (riapribile da "Importa con AI").
+            // Analisi in volo → due azioni distinte:
+            //  • "Annulla" (ghost, secondaria): abbandona l'analisi e torna
+            //    all'upload. Aborta solo l'attesa client — il lavoro server e
+            //    l'RPD già consumato NON si recuperano. Ghost per evitare il
+            //    click accidentale che brucerebbe l'attesa.
+            //  • "Chiudi" (outline): nasconde il drawer, la richiesta continua a
+            //    girare nel hook (riapribile da "Importa con AI").
             if (analyzeError) {
                 return (
                     <Button variant="ghost" onClick={startNew}>
@@ -79,9 +85,14 @@ export function AiMenuImportWizard({ session }: AiMenuImportWizardProps) {
                 );
             }
             return (
-                <Button variant="outline" onClick={close}>
-                    Chiudi
-                </Button>
+                <>
+                    <Button variant="ghost" onClick={cancelAnalysis}>
+                        Annulla
+                    </Button>
+                    <Button variant="outline" onClick={close}>
+                        Chiudi
+                    </Button>
+                </>
             );
         }
 

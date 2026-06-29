@@ -67,6 +67,12 @@ export interface AiImportSession {
     close: () => void;
     /** Scarta la sessione corrente e riparte dall'upload (affordance "ricomincia"). */
     startNew: () => void;
+    /**
+     * Abbandona l'analisi in volo e torna all'upload. Onesta: aborta solo
+     * l'attesa lato client — il lavoro su Gemini e l'RPD già consumato NON si
+     * recuperano. Distinta da `close()`, che lascia girare la richiesta.
+     */
+    cancelAnalysis: () => void;
 
     // Stato wizard
     step: WizardStep;
@@ -157,6 +163,13 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
     // Page-facing reload signal
     const [importRefreshKey, setImportRefreshKey] = useState(0);
 
+    // AbortController della richiesta `analyze()` in volo. `cancelAnalysis()` lo
+    // aborta per smettere di aspettare lato client (stessa plumbing del futuro
+    // timeout per-tentativo). Catturato anche in closure dentro `analyze()` come
+    // token per-richiesta: una risposta tardiva la cui closure è abortita non
+    // applica i risultati (anti risposta-zombie).
+    const analysisControllerRef = useRef<AbortController | null>(null);
+
     const reset = useCallback(() => {
         setStep("upload");
         setFiles([]);
@@ -204,6 +217,15 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
         reset();
     }, [reset]);
 
+    // Abbandona l'analisi in volo: aborta la richiesta (la closure di `analyze()`
+    // vede `signal.aborted` e esce in silenzio, senza clobberare la sessione
+    // nuova) e torna all'upload. NON ferma il lavoro server né recupera l'RPD.
+    const cancelAnalysis = useCallback(() => {
+        analysisControllerRef.current?.abort();
+        analysisControllerRef.current = null;
+        startNew();
+    }, [startNew]);
+
     // Handoff fine analisi: se l'analisi termina (analyzing → review) MENTRE il
     // drawer è chiuso, l'utente non vede il risultato → toast azionabile "Rivedi".
     // Stesso stampo di prevPendingRef in useTranslationCoverage. Nessun toast a
@@ -232,6 +254,12 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
         setStep("analyzing");
         setAnalyzeError(null);
 
+        // Token per-richiesta: catturato in closure. cancelAnalysis() lo aborta;
+        // ogni guardia sotto controlla `controller.signal.aborted` su QUESTA
+        // closure, così una risposta tardiva non scrive nella sessione nuova.
+        const controller = new AbortController();
+        analysisControllerRef.current = controller;
+
         try {
             // Compress images (fallback to original on failure), pass PDFs through
             const imagePayloads: ImagePayload[] = await Promise.all(
@@ -254,8 +282,16 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
                     images: imagePayloads,
                     tenant_id: tenantId,
                     language_hint: "it"
-                }
+                },
+                signal: controller.signal
             });
+
+            // Abort intenzionale (cancelAnalysis): la sessione è già tornata
+            // all'upload. Esci in silenzio — niente stato error, niente clobber
+            // della sessione nuova (anti risposta-zombie). Copre sia il path
+            // `{ error }` (FunctionsFetchError che incapsula l'AbortError) sia il
+            // throw.
+            if (controller.signal.aborted) return;
 
             // Non-2xx → supabase-js wraps response in FunctionsHttpError. The
             // original Response sits on error.context; read its JSON body so we
@@ -319,6 +355,14 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
             setMenuName("");
             setStep("review");
         } catch (err: unknown) {
+            // Abort intenzionale: nessuno stato error, nessun toast. Discriminato
+            // via la closure (`controller.signal.aborted`) o l'AbortError grezzo.
+            if (
+                controller.signal.aborted ||
+                (err instanceof DOMException && err.name === "AbortError")
+            ) {
+                return;
+            }
             console.error("[AiMenuImport] analyze error:", err);
             setAnalyzeError(getAiErrorMessage(err));
         }
@@ -520,6 +564,7 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
         open,
         close,
         startNew,
+        cancelAnalysis,
         step,
         files,
         setFiles,
