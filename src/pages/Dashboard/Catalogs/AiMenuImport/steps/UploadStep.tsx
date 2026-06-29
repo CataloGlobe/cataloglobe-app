@@ -64,7 +64,14 @@ export function UploadStep({ files, onFilesChange }: UploadStepProps) {
             }
             if (withinBudget.length === 0) return;
 
+            // Lo slice scarta i file oltre MAX_FILES: avvisa invece di troncare in
+            // silenzio. Niente reset dei file gia' validi: ne accettiamo fino al cap.
             const combined = [...files, ...withinBudget].slice(0, MAX_FILES);
+            if (files.length + withinBudget.length > MAX_FILES) {
+                setFileWarning(
+                    `Puoi caricare al massimo ${MAX_FILES} file: i file in eccesso non sono stati aggiunti.`
+                );
+            }
             onFilesChange(combined);
         },
         [files, onFilesChange]
