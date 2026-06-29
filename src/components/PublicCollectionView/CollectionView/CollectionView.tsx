@@ -1443,7 +1443,6 @@ export default function CollectionView({
     // montato dopo la chiusura overlay) e l'effetto parte al COMPLETAMENTO dello
     // scroll: scrollend (con fallback debounce), scorciatoia "già in vista", rete
     // di sicurezza max-timeout. Vedi onExitComplete sull'AnimatePresence ricerca.
-    const STICKY_OFFSET_HIGHLIGHT = 192; // ≈ 12rem, coerente con scroll-margin-top di .card/.compactItem
     const HIGHLIGHT_MS = 950;
     const pendingProductIdRef = useRef<string | null>(null);
     const scrollEndCleanupRef = useRef<(() => void) | null>(null);
@@ -1483,18 +1482,34 @@ export default function CollectionView({
         if (!el) return;
         cleanupHighlightDetector();
 
+        // Offset misurato (header + nav + gap): STESSA fonte di scrollToSection,
+        // così prodotto e categoria atterrano allo stesso punto sotto la nav
+        // sticky, su ogni tenant/viewport (no più 12rem fissi).
+        const scrollOffset = recomputeStickyOffset();
         const rect = el.getBoundingClientRect();
         // Scorciatoia "già in vista": il prodotto è già alla riga target → niente
-        // scroll, effetto subito (scrollIntoView non emetterebbe eventi).
-        if (Math.abs(rect.top - STICKY_OFFSET_HIGHLIGHT) < 4) {
+        // scroll, effetto subito (lo scroll non emetterebbe eventi).
+        if (Math.abs(rect.top - scrollOffset) < 4) {
             applyHighlight(el);
             return;
         }
 
-        el.scrollIntoView({ behavior: "smooth", block: "start" });
-
-        // Ascolta sullo STESSO container del tracking scroll esistente.
+        // scrollTo manuale (mirror di scrollToSection) sullo STESSO container del
+        // tracking scroll esistente — così lo scroll-end detector riceve eventi.
         const container: HTMLElement | Window = containerRef.current ?? window;
+        if (container === window) {
+            const top = rect.top + window.scrollY - scrollOffset;
+            window.scrollTo({ top, behavior: "smooth" });
+        } else {
+            const containerEl = container as HTMLElement;
+            const top =
+                rect.top -
+                containerEl.getBoundingClientRect().top +
+                containerEl.scrollTop -
+                scrollOffset;
+            containerEl.scrollTo({ top, behavior: "smooth" });
+        }
+
         let done = false;
         const fire = () => {
             if (done) return;
@@ -1519,7 +1534,7 @@ export default function CollectionView({
 
         // Rete di sicurezza: l'effetto parte comunque entro ~800ms.
         highlightMaxTimeoutRef.current = setTimeout(fire, 800);
-    }, [applyHighlight, cleanupHighlightDetector]);
+    }, [applyHighlight, cleanupHighlightDetector, recomputeStickyOffset]);
 
     // Cleanup di timer/listener all'unmount.
     useEffect(() => {
