@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { BellRing, Check, Clock, ConciergeBell, Receipt, X } from "lucide-react";
+import { BellRing, Check, Clock, ConciergeBell, Receipt, RotateCcw, X } from "lucide-react";
 
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
@@ -43,6 +43,14 @@ interface Props {
     tenantId: string | null;
     activityId: string | null;
     tableId: string | null;
+    /**
+     * Netto "Da pagare" del tavolo = `current_total` della riga
+     * `V2TableWithState` (view, già al netto degli storni). Passato dal
+     * parent (`TablesLiveView`) che ha la riga in mano — il drawer NON
+     * fa fetch della view. `null` = dato non disponibile → blocco netto
+     * nascosto (no `NaN`/`0` fuorviante).
+     */
+    currentTotal: number | null;
     onClose: () => void;
     /**
      * Richiesta di apertura "Chiudi tavolo" dal detail. Il parent
@@ -161,6 +169,7 @@ export function TableDetailDrawer({
     tenantId,
     activityId,
     tableId,
+    currentTotal,
     onClose,
     onRequestClose,
     onMaintenanceChanged,
@@ -577,11 +586,45 @@ export function TableDetailDrawer({
                                             ? recentOrders
                                             : recentOrders.slice(0, RECENT_ORDERS_CAP)
                                         ).map(o => {
-                                            const { variant, label } = orderStatusInfo(o.status);
                                             const timestamp =
                                                 o.status === "delivered" && o.delivered_at
                                                     ? formatAbsolute(o.delivered_at)
                                                     : formatAbsolute(o.submitted_at);
+
+                                            // Storno = contro-ordine (is_rectification):
+                                            // badge "Storno" rosa, importo negativo in rosso,
+                                            // motivo da `notes` (RPC rectify_order_atomic.p_notes).
+                                            if (o.is_rectification) {
+                                                return (
+                                                    <li
+                                                        key={o.id}
+                                                        className={`${styles.orderRow} ${styles.orderRowStorno}`}
+                                                    >
+                                                        <span className={styles.stornoBadge}>
+                                                            <RotateCcw size={11} aria-hidden />
+                                                            Storno
+                                                        </span>
+                                                        <div className={styles.orderMeta}>
+                                                            <Text variant="body-sm">
+                                                                {timestamp}
+                                                            </Text>
+                                                            {o.notes && (
+                                                                <Text
+                                                                    variant="body-sm"
+                                                                    colorVariant="muted"
+                                                                >
+                                                                    {o.notes}
+                                                                </Text>
+                                                            )}
+                                                        </div>
+                                                        <span className={styles.stornoAmount}>
+                                                            {formatEur(-o.total_amount)}
+                                                        </span>
+                                                    </li>
+                                                );
+                                            }
+
+                                            const { variant, label } = orderStatusInfo(o.status);
                                             return (
                                                 <li key={o.id} className={styles.orderRow}>
                                                     <StatusBadge variant={variant} label={label} />
@@ -614,6 +657,24 @@ export function TableDetailDrawer({
                                                 più)
                                             </button>
                                         )}
+                                    {currentTotal != null && (
+                                        <div className={styles.netTotalRow}>
+                                            <div className={styles.netTotalCopy}>
+                                                <Text weight={600}>Da pagare</Text>
+                                                {recentOrders.some(o => o.is_rectification) && (
+                                                    <Text
+                                                        variant="body-sm"
+                                                        colorVariant="muted"
+                                                    >
+                                                        storni già scalati
+                                                    </Text>
+                                                )}
+                                            </div>
+                                            <Text variant="title-sm" weight={700}>
+                                                {formatEur(currentTotal)}
+                                            </Text>
+                                        </div>
+                                    )}
                                 </>
                             </section>
                         )}

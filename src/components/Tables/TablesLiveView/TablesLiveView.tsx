@@ -557,6 +557,11 @@ export function TablesLiveView({
                 tenantId={tenantId}
                 activityId={activityId}
                 tableId={detailTableId}
+                currentTotal={
+                    detailTableId
+                        ? (items.find(t => t.id === detailTableId)?.current_total ?? null)
+                        : null
+                }
                 onClose={() => {
                     setIsDetailOpen(false);
                     setDetailTableId(null);

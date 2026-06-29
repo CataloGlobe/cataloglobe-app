@@ -138,6 +138,53 @@
   background: var(--color-warning-surface, #fffbeb);
 }
 
+// Riga storno (contro-ordine): toni rosa/error, distinta dalle vendite.
+.orderRowStorno {
+  border-color: color-mix(in srgb, var(--color-error-fg, #b91c1c) 25%, transparent);
+  background: color-mix(in srgb, var(--color-error-fg, #b91c1c) 5%, transparent);
+}
+
+// Badge "Storno": pill rosa soft, non uno StatusBadge (è un tipo di riga,
+// non uno stato come la pill "Annullato" slate — non vanno allineati).
+.stornoBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+  color: var(--color-error-fg, #b91c1c);
+  background: color-mix(in srgb, var(--color-error-fg, #b91c1c) 10%, transparent);
+}
+
+// Importo storno: negativo, in rosso (denaro che scende = negativo contabile).
+.stornoAmount {
+  font-weight: 600;
+  color: var(--color-error-fg, #b91c1c);
+}
+
+// Blocco netto "Da pagare" in fondo alla sezione conto.
+.netTotalRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 12px;
+  background: var(--surface-subtle, #f8fafc);
+  border: 1px solid var(--border-default, #e1e3e8);
+  border-radius: 8px;
+}
+
+.netTotalCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
 .orderMeta {
   display: flex;
   flex-direction: column;
