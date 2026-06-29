@@ -204,6 +204,24 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
         reset();
     }, [reset]);
 
+    // Handoff fine analisi: se l'analisi termina (analyzing → review) MENTRE il
+    // drawer è chiuso, l'utente non vede il risultato → toast azionabile "Rivedi".
+    // Stesso stampo di prevPendingRef in useTranslationCoverage. Nessun toast a
+    // drawer aperto (la Revisione è già a schermo → sarebbe rumore).
+    const prevStatusRef = useRef<AiImportStatus>(status);
+    useEffect(() => {
+        const prev = prevStatusRef.current;
+        prevStatusRef.current = status;
+        if (prev === "analyzing" && status === "review" && !isOpen) {
+            showToast({
+                message: "Menù analizzato — rivedi i prodotti",
+                type: "success",
+                actionLabel: "Rivedi",
+                onAction: () => open()
+            });
+        }
+    }, [status, isOpen, showToast, open]);
+
     /* ── Analyze ──────────────────────────────────────────── */
 
     const analyze = useCallback(async () => {
