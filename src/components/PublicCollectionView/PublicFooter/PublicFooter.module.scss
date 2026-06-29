@@ -21,6 +21,17 @@
   gap: 1rem;
 }
 
+/* Clearance per PublicBottomBar (fixed) su mobile: solleva i link legali
+   sopra la barra. 16px = offset barra dal fondo · 58px = altezza barra ·
+   16px = respiro · env() = home indicator iOS. Mirror del footprint in
+   CollectionView.module.scss .submitFeedbackAboveBar
+   (TODO: consolidare in token --pub-bottombar-clearance). */
+@media (max-width: 640px) {
+  .footer {
+    padding-bottom: calc(16px + 58px + 16px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* ── SOCIAL ROW ─────────────────────────────────────────── */
 .socialRow {
   display: flex;
