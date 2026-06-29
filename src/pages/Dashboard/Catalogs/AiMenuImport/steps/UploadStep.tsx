@@ -50,7 +50,9 @@ export function UploadStep({ files, onFilesChange }: UploadStepProps) {
 
             const imageRejects = sizeRejected.filter(r => r.reason === "image_too_large").map(r => r.file);
             const pdfRejects = sizeRejected.filter(r => r.reason === "pdf_too_large").map(r => r.file);
-            const aggregateRejected = sizeRejected.some(r => r.reason === "aggregate_exceeded");
+            const aggregateRejects = sizeRejected
+                .filter(r => r.reason === "aggregate_exceeded")
+                .map(r => r.file);
 
             if (imageRejects.length > 0) {
                 const names = imageRejects.map(f => f.name).join(", ");
@@ -59,8 +61,13 @@ export function UploadStep({ files, onFilesChange }: UploadStepProps) {
                 const names = pdfRejects.map(f => f.name).join(", ");
                 setFileWarning(`PDF troppo grande (max 20 MB): ${names}`);
             }
-            if (aggregateRejected) {
-                setFileWarning("Dimensione totale troppo grande (max 30 MB). Rimuovi qualche file.");
+            if (aggregateRejects.length > 0) {
+                const names = aggregateRejects.map(f => `«${f.name}»`).join(", ");
+                const single = aggregateRejects.length === 1;
+                setFileWarning(
+                    `${names} super${single ? "a" : "ano"} il limite totale di 30 MB e ` +
+                        `non ${single ? "è stato aggiunto" : "sono stati aggiunti"}.`
+                );
             }
             if (withinBudget.length === 0) return;
 
