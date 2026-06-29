@@ -242,7 +242,7 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
                     onClick={onClose}
                     aria-label={t("search.close_aria")}
                 >
-                    {t("search.close_label")}
+                    <X size={18} strokeWidth={2} />
                 </button>
             </div>
 
