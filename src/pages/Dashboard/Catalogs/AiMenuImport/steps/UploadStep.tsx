@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Upload, X, FileText, Plus, Sparkles, AlertTriangle } from "lucide-react";
 import styles from "../aiMenuImport.module.scss";
 import { partitionBySizeBudget } from "../sizeBudget";
+import { IMPORT_MIME_TYPES } from "../aiImportFormats";
 
 interface UploadStepProps {
     files: File[];
@@ -9,7 +10,6 @@ interface UploadStepProps {
 }
 
 const MAX_FILES = 5;
-const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
 function formatSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -35,12 +35,12 @@ export function UploadStep({ files, onFilesChange }: UploadStepProps) {
             const all = Array.from(newFiles);
 
             // Check unsupported types
-            const rejected = all.filter(f => !ACCEPTED_TYPES.includes(f.type));
+            const rejected = all.filter(f => !IMPORT_MIME_TYPES.includes(f.type));
             if (rejected.length > 0) {
                 setFileWarning("Formati supportati: JPG, PNG, WebP, PDF");
             }
 
-            const accepted = all.filter(f => ACCEPTED_TYPES.includes(f.type));
+            const accepted = all.filter(f => IMPORT_MIME_TYPES.includes(f.type));
 
             // Partizionamento per cap (per-tipo 25/20 MB + aggregato 30 MB) via
             // helper puro. I warning derivano dalle rejection, con la stessa

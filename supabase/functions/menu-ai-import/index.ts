@@ -282,6 +282,9 @@ serve(async (req: Request) => {
             return jsonError("Massimo 5 immagini per richiesta", 400);
         }
 
+        // Mirror di IMPORT_MIME_TYPES (single source FE):
+        // src/pages/Dashboard/Catalogs/AiMenuImport/aiImportFormats.ts
+        // Runtime Deno separato, non importa da src/: tenere allineato a mano.
         const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
         const normalizedImages: { data: string; mime_type: string }[] = [];

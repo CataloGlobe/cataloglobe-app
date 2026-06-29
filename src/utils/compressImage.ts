@@ -1,6 +1,7 @@
+import { IMAGE_MIME_TYPES } from "@pages/Dashboard/Catalogs/AiMenuImport/aiImportFormats";
+
 const COMPRESS_TIMEOUT_MS = 15_000;
 const MAX_INPUT_SIZE = 10 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export type CompressionErrorCode = "TOO_LARGE" | "INVALID_MIME" | "HEIC" | "LOAD_FAILED" | "TIMEOUT";
 
@@ -46,7 +47,7 @@ export async function compressImage(
             "HEIC"
         );
     }
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    if (!IMAGE_MIME_TYPES.includes(file.type)) {
         throw new CompressionError(
             "Formato file non supportato. Usa JPEG, PNG o WEBP.",
             "INVALID_MIME"
