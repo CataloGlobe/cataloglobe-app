@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 /* ══════════════════════════════════════════════════════════════════════════
    FEATURED CARD — reusable card component
    ══════════════════════════════════════════════════════════════════════════ */
@@ -17,7 +19,7 @@
   padding: 0;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
 
-  &:hover {
+  @include hover {
     box-shadow: var(--pub-card-shadow-hover);
     transform: translateY(-1px);
   }
@@ -144,7 +146,7 @@
   text-decoration: none;
   transition: opacity 0.15s ease;
 
-  &:hover {
+  @include hover {
     opacity: 0.88;
   }
 
@@ -167,7 +169,7 @@
   flex-direction: column;
   justify-content: flex-end;
 
-  &:hover {
+  @include hover {
     transform: translateY(-1px);
     box-shadow: var(--pub-card-shadow-hover);
   }
@@ -263,7 +265,7 @@
   text-decoration: none;
   transition: opacity 0.15s ease;
 
-  &:hover {
+  @include hover {
     opacity: 0.88;
   }
 

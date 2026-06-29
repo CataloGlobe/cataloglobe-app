@@ -227,8 +227,16 @@ export default function ReviewsView({
                                 key={n}
                                 type="button"
                                 className={styles.starBtn}
-                                onMouseEnter={() => setHoverStars(n)}
-                                onMouseLeave={() => setHoverStars(0)}
+                                onMouseEnter={() => {
+                                    // No-op su touch: il tap non deve attivare l'hover-preview
+                                    // delle stelle (sticky finché si tappa altrove).
+                                    if (window.matchMedia("(hover: none)").matches) return;
+                                    setHoverStars(n);
+                                }}
+                                onMouseLeave={() => {
+                                    if (window.matchMedia("(hover: none)").matches) return;
+                                    setHoverStars(0);
+                                }}
                                 onClick={() => handleStarClick(n)}
                                 aria-label={t("reviews.stars_aria", { count: n })}
                             >

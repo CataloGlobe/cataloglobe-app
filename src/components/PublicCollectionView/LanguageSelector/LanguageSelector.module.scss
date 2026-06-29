@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 /* ─────────────────────────────────────────────────────────
    LanguageSelector
    Selettore lingua per public collection header
@@ -26,7 +28,7 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: #fff;
 
-  &:hover {
+  @include hover {
     background: rgba(255, 255, 255, 0.22);
     border-color: rgba(255, 255, 255, 0.35);
   }
@@ -84,7 +86,7 @@
   cursor: pointer;
   transition: background 0.12s ease;
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-surface-text) 6%, transparent);
   }
 }
@@ -92,7 +94,7 @@
 .itemActive {
   background: color-mix(in srgb, var(--pub-accent, #F59E0B) 10%, transparent);
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-accent, #F59E0B) 14%, transparent);
   }
 }

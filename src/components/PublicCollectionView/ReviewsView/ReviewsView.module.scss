@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 /* ── Animations ─────────────────────────────────────── */
 
 @keyframes fadeUp {
@@ -91,7 +93,7 @@
     -webkit-tap-highlight-color: transparent;
     transition: transform 0.15s ease;
 
-    &:hover {
+    @include hover {
         transform: scale(1.15);
     }
 
@@ -194,7 +196,7 @@
     align-self: flex-start;
     transition: color 0.12s ease;
 
-    &:hover {
+    @include hover {
         color: var(--pub-bg-text);
     }
 }
@@ -371,9 +373,11 @@
     cursor: pointer;
     transition: opacity 0.15s ease, transform 0.1s ease;
 
-    &:hover:not(:disabled) {
-        opacity: 0.9;
-        transform: translateY(-1px);
+    @media (hover: hover) {
+        &:hover:not(:disabled) {
+            opacity: 0.9;
+            transform: translateY(-1px);
+        }
     }
 
     &:active:not(:disabled) {
@@ -527,7 +531,7 @@
     cursor: pointer;
     transition: border-color 0.15s ease, background 0.15s ease;
 
-    &:hover {
+    @include hover {
         background: #f8f9fa;
     }
 }

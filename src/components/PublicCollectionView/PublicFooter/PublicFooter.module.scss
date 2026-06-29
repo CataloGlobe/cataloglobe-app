@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 /* ─────────────────────────────────────────────────────────
    PublicFooter
    Social icons → powered-by → legal (solo spaziatura verticale)
@@ -44,7 +46,7 @@
     border-color 0.18s ease,
     transform 0.15s ease;
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-primary) 10%, var(--pub-surface));
     color: var(--pub-primary);
     border-color: var(--pub-primary);
@@ -80,7 +82,7 @@
     border-color 0.18s ease,
     transform 0.15s ease;
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-primary) 10%, var(--pub-surface));
     color: var(--pub-primary);
     border-color: var(--pub-primary);
@@ -108,13 +110,15 @@
   text-decoration: none;
   color: inherit;
 
-  &:hover {
+  @include hover {
     text-decoration: underline;
     text-decoration-color: var(--pub-bg-text-muted);
   }
 
-  &:hover .brandName {
-    opacity: 0.75;
+  @include hover {
+    .brandName {
+      opacity: 0.75;
+    }
   }
 }
 
@@ -156,7 +160,7 @@
   text-decoration: none;
   transition: color 0.15s ease;
 
-  &:hover {
+  @include hover {
     color: var(--pub-bg-text-secondary);
     text-decoration: underline;
   }
