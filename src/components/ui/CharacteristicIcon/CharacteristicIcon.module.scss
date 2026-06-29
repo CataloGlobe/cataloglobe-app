@@ -85,10 +85,14 @@
     }
 }
 
-.hasTooltip:hover .tooltip,
-.hasTooltip:focus-within .tooltip {
-    opacity: 1;
-    transform: translateX(-50%) translateY(0);
+/* Solo puntatore fine: su touch né :hover né :focus-within devono mostrare il
+   tooltip (flash sticky al tap). Su desktop mouse + tastiera restano. */
+@media (hover: hover) {
+    .hasTooltip:hover .tooltip,
+    .hasTooltip:focus-within .tooltip {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
 }
 
 // ── Demo grid (CharacteristicIconDemo, dev-only) ─────────────────────────────

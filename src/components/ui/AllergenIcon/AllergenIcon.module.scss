@@ -73,6 +73,10 @@
     }
 }
 
-.hasTooltip:hover .tooltip {
-    opacity: 1;
+/* Solo puntatore fine: su touch il tap farebbe scattare :hover (tooltip sticky
+   + apertura modale). Vedi @mixin hover in src/styles/_mixins.scss. */
+@media (hover: hover) {
+    .hasTooltip:hover .tooltip {
+        opacity: 1;
+    }
 }

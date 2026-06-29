@@ -414,7 +414,6 @@ export default function PublicCollectionHeader({
                                         className={styles.iconBtn}
                                         onClick={onOpenSupport}
                                         aria-label="Assistenza al tavolo"
-                                        title="Assistenza"
                                     >
                                         <Bell size={15} strokeWidth={2} />
                                     </button>
@@ -433,7 +432,6 @@ export default function PublicCollectionHeader({
                                                 ? t("fab.cart_aria_count", { count: selectionCount })
                                                 : t("fab.cart_aria")
                                         }
-                                        title="Ordine"
                                     >
                                         <ShoppingBag size={15} strokeWidth={2} />
                                         {selectionCount > 0 && (
