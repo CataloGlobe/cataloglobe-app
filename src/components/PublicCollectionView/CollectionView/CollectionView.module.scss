@@ -414,13 +414,23 @@
 }
 
 /* ----------------------------------------------------
-   EVIDENZIAZIONE RICERCA — pop + velo accent
+   EVIDENZIAZIONE RICERCA — differenziata per stile card
    Applicata all'<article> (.card | .compactItem) al
    completamento dello scroll verso il prodotto scelto.
    Vedi scrollToProductAndHighlight in CollectionView.tsx.
+   - Card:     pop + velo accent (segue gli angoli).
+   - Compatto: SOLO pop (la riga piatta renderebbe male il velo).
+   Il pop resta su entrambi.
 ---------------------------------------------------- */
-.card,
-.compactItem {
+
+/* Pop — entrambi gli stili */
+.card.highlightPulse,
+.compactItem.highlightPulse {
+  animation: pubPop 560ms cubic-bezier(0.2, 0.7, 0.3, 1.5);
+}
+
+/* Card — velo accent inset che segue gli angoli arrotondati */
+.card {
   &::after {
     content: "";
     position: absolute;
@@ -429,10 +439,6 @@
     opacity: 0;
     pointer-events: none;
     border-radius: inherit;
-  }
-
-  &.highlightPulse {
-    animation: pubPop 560ms cubic-bezier(0.2, 0.7, 0.3, 1.5);
   }
 
   &.highlightPulse::after {
@@ -453,7 +459,9 @@
   100% { opacity: 0; }
 }
 
-/* Movimento ridotto: sopprime il pop, mantiene il velo (segnale visivo). */
+/* Movimento ridotto: sopprime SOLO il pop (animazione sull'<article>).
+   Il velo (::after, Card) resta: è un segnale statico, non movimento. Sul
+   Compatto con reduced-motion non resta alcun segnale (limite accettato). */
 @media (prefers-reduced-motion: reduce) {
   .card.highlightPulse,
   .compactItem.highlightPulse {
