@@ -165,6 +165,12 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
     // Accent (ruolo "azione"): se non impostato segue il primario → stili esistenti invariati
     const accent = tokens.colors.accent || tokens.colors.primary;
 
+    // Ink (neutro utility/chrome): quasi-nero/quasi-bianco che assorbe il 12% del colore pagina.
+    // Su sfondo chiaro resta scuro, su sfondo scuro diventa una pill chiara → sempre leggibile.
+    // Derivato dallo sfondo pagina così le pill utility si staccano da --pub-surface.
+    const ink = mixHex(contrastText(tokens.colors.pageBackground), tokens.colors.pageBackground, 0.12);
+    const inkText = contrastText(ink);
+
     // Derived text colors — always computed from background contrast, never from saved tokens
     const bgText = contrastText(tokens.colors.pageBackground);
     const surfaceText = contrastText(tokens.colors.surface);
@@ -199,6 +205,9 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
 
         // ── New semantic vars ────────────────────────────────────────────
         "--pub-surface": tokens.colors.surface,
+        // Neutro utility/chrome (pill allergeni/caratteristiche + cerchi social) — staccato da surface
+        "--pub-ink": ink,
+        "--pub-ink-text": inkText,
         // Base text vars default to surface context (most text sits on cards)
         "--pub-text": surfaceText,
         "--pub-text-secondary": surfaceTextSecondary,

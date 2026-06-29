@@ -44,8 +44,8 @@
   height: 42px;
   border-radius: var(--pub-radius, 10px);
   border: 1px solid var(--pub-border);
-  background: var(--pub-surface);
-  color: var(--pub-surface-text-secondary);
+  background: var(--pub-ink);
+  color: var(--pub-ink-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -58,7 +58,7 @@
     transform 0.15s ease;
 
   @include hover {
-    background: color-mix(in srgb, var(--pub-primary) 10%, var(--pub-surface));
+    background: color-mix(in srgb, var(--pub-primary) 10%, var(--pub-ink));
     color: var(--pub-primary);
     border-color: var(--pub-primary);
     transform: translateY(-1px);
@@ -80,8 +80,8 @@
   padding: 8px 14px;
   border-radius: var(--pub-btn-radius, 999px);
   border: 1px solid var(--pub-border);
-  background: var(--pub-surface);
-  color: var(--pub-surface-text-secondary);
+  background: var(--pub-ink);
+  color: var(--pub-ink-text);
   cursor: pointer;
   font-family: var(--pub-font-family, sans-serif);
   font-size: 0.78rem;
@@ -94,7 +94,7 @@
     transform 0.15s ease;
 
   @include hover {
-    background: color-mix(in srgb, var(--pub-primary) 10%, var(--pub-surface));
+    background: color-mix(in srgb, var(--pub-primary) 10%, var(--pub-ink));
     color: var(--pub-primary);
     border-color: var(--pub-primary);
     transform: translateY(-1px);
