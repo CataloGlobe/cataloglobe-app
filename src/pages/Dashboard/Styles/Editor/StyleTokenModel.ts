@@ -11,6 +11,8 @@ export interface StyleTokenModel {
     colors: {
         pageBackground: string;
         primary: string;
+        /** Colore azione (pulsanti prodotto + CTA). Opzionale: assente = segue il primario. */
+        accent?: string;
         headerBackground: string;
         textPrimary: string;
         textSecondary: string;
@@ -146,6 +148,9 @@ export function parseTokens(rawJson: any): StyleTokenModel {
                 rawColors.background ||
                 DEFAULT_STYLE_TOKENS.colors.pageBackground,
             primary: rawColors.primary || DEFAULT_STYLE_TOKENS.colors.primary,
+            // accent opzionale: assente = "collegato al primario". Il fallback a primary
+            // avviene nel mapper, così "collegato" resta semanticamente "campo assente".
+            accent: rawColors.accent || undefined,
             headerBackground:
                 rawColors.headerBackground ||
                 rawHeader.background ||
@@ -226,16 +231,19 @@ export function parseTokens(rawJson: any): StyleTokenModel {
  * Serializes the UI Token Model back into the raw JSON config shape expected by the DB logic.
  */
 export function serializeTokens(model: StyleTokenModel): Record<string, unknown> {
+    const colors: Record<string, unknown> = {
+        pageBackground: model.colors.pageBackground,
+        primary: model.colors.primary,
+        headerBackground: model.colors.headerBackground,
+        textPrimary: model.colors.textPrimary,
+        textSecondary: model.colors.textSecondary,
+        surface: model.colors.surface,
+        border: model.colors.border
+    };
+    // accent serializzato solo se scollegato dal primario (collegato → chiave omessa)
+    if (model.colors.accent) colors.accent = model.colors.accent;
     return {
-        colors: {
-            pageBackground: model.colors.pageBackground,
-            primary: model.colors.primary,
-            headerBackground: model.colors.headerBackground,
-            textPrimary: model.colors.textPrimary,
-            textSecondary: model.colors.textSecondary,
-            surface: model.colors.surface,
-            border: model.colors.border
-        },
+        colors,
         typography: {
             fontFamily: model.typography.fontFamily
         },

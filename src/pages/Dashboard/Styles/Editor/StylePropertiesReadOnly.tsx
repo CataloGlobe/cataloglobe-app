@@ -29,7 +29,13 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                     Aspetto Generale
                 </Text>
                 <ColorReadRow label="Sfondo pagina" value={model.colors.pageBackground} tooltip="Colore di sfondo dell'intera pagina pubblica." />
-                <ColorReadRow label="Colore primario" value={model.colors.primary} tooltip="Colore principale applicato a header, navigazione, pulsanti e accenti nella pagina pubblica." />
+                <ColorReadRow label="Colore primario" value={model.colors.primary} tooltip="Colore identità: header, navigazione, sezioni attive e marchio." />
+                <ColorReadRow
+                    label="Colore accent"
+                    value={model.colors.accent || model.colors.primary}
+                    note={model.colors.accent ? undefined : "(= primario)"}
+                    tooltip="Colore per gli elementi d'azione: pulsanti dei prodotti e CTA. Se non impostato, usa il colore primario."
+                />
                 <ColorReadRow label="Sfondo superfici" value={model.colors.surface} tooltip="Sfondo di card prodotti, modali, pulsanti dell'header e altri elementi in primo piano." />
                 <div className={sharedStyles.controlField}>
                     <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
@@ -384,7 +390,7 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
 
 /* ── Sub-components ─────────────────────────────────────────────────────── */
 
-function ColorReadRow({ label, value, tooltip }: { label: string; value: string; tooltip?: string }) {
+function ColorReadRow({ label, value, tooltip, note }: { label: string; value: string; tooltip?: string; note?: string }) {
     return (
         <div className={roStyles.readField}>
             <Text variant="body" weight={500} className={roStyles.readLabel}>
@@ -392,7 +398,7 @@ function ColorReadRow({ label, value, tooltip }: { label: string; value: string;
             </Text>
             <div className={roStyles.colorReadValue}>
                 <span className={roStyles.colorDot} style={{ background: value }} />
-                <span className={roStyles.colorHex}>{value.toUpperCase()}</span>
+                <span className={roStyles.colorHex}>{value.toUpperCase()}{note ? ` ${note}` : ""}</span>
             </div>
         </div>
     );

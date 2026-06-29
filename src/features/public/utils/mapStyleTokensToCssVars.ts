@@ -162,6 +162,9 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
     const bgLight = isLight(tokens.colors.pageBackground);
     const surfaceLight = isLight(tokens.colors.surface);
 
+    // Accent (ruolo "azione"): se non impostato segue il primario → stili esistenti invariati
+    const accent = tokens.colors.accent || tokens.colors.primary;
+
     // Derived text colors — always computed from background contrast, never from saved tokens
     const bgText = contrastText(tokens.colors.pageBackground);
     const surfaceText = contrastText(tokens.colors.surface);
@@ -205,12 +208,12 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         "--pub-surface-border": borderOnSurface,
 
         // ── FeaturedBlock / CTA vars ─────────────────────────────────────
-        // --pub-accent: colore accento testi (es. titolo CTA) → primario brand
-        "--pub-accent": tokens.colors.primary,
-        // --pub-cta-bg: sfondo pulsante CTA → primario brand
-        "--pub-cta-bg": tokens.colors.primary,
-        // --pub-cta-text: testo pulsante CTA → bianco/nero calcolato per contrasto
-        "--pub-cta-text": contrastText(tokens.colors.primary),
+        // --pub-accent: colore azione (pulsanti prodotto + accento CTA) → accent (fallback primario)
+        "--pub-accent": accent,
+        // --pub-cta-bg: sfondo pulsante CTA → accent (fallback primario)
+        "--pub-cta-bg": accent,
+        // --pub-cta-text: testo pulsante CTA → bianco/nero calcolato per contrasto sull'accent
+        "--pub-cta-text": contrastText(accent),
         // --pub-btn-radius: arrotondamento pulsanti → coerente con --pub-radius
         "--pub-btn-radius": btnRadius,
         // --pub-page-background: alias di --pub-bg per PublicBrandHeader
