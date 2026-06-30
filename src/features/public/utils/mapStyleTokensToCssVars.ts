@@ -238,6 +238,9 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         // (alpha 0.82 su surface chiara / 0.62 su scura, mirror idiomi BottomBar/Header).
         // Emessa sempre; consumata solo da [data-card-treatment="glass"] (no-op con raised/bordered).
         "--pub-surface-glass": hexToRgba(surface, surfaceLight ? 0.82 : 0.62),
+        // Variante più opaca per la modale vetro: area grande → un pavimento più alto
+        // evita di mostrare troppo lo sfondo, mantenendo il frosting. Card invariata.
+        "--pub-surface-glass-strong": hexToRgba(surface, surfaceLight ? 0.92 : 0.8),
         // Neutro utility/chrome (pill allergeni/caratteristiche + cerchi social) — staccato da surface
         "--pub-ink": ink,
         "--pub-ink-text": inkText,

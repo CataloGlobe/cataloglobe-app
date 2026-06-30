@@ -75,7 +75,7 @@
 /* Vetro: il pannello modale diventa semitrasparente + blur. raised/bordered/glass
    sono mutuamente esclusivi → un solo aspetto attivo per volta. */
 :global([data-card-treatment="glass"]) .panel {
-  background: var(--pub-surface-glass);
+  background: var(--pub-surface-glass-strong);
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
   backdrop-filter: blur(20px) saturate(1.6);
   border: 1px solid rgba(255, 255, 255, 0.1);
