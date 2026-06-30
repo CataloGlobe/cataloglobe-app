@@ -44,7 +44,7 @@
     background: transparent;
     border: none;
     padding: 6px 8px;
-    color: var(--pub-primary);
+    color: var(--pub-text-secondary);
     font-family: inherit;
     font-size: 0.82rem;
     font-weight: 500;
@@ -54,7 +54,7 @@
     transition: background 0.15s ease;
 
     &:hover {
-        background: color-mix(in srgb, var(--pub-primary) 8%, transparent);
+        background: color-mix(in srgb, var(--pub-surface-text) 8%, transparent);
     }
 }
 
