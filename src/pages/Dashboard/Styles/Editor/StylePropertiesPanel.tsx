@@ -28,7 +28,8 @@ type StylePropertiesPanelProps = {
 export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelProps) => {
     const paletteWarnings = usePaletteWarnings({
         primary: model.colors.primary,
-        pageBackground: model.colors.pageBackground
+        pageBackground: model.colors.pageBackground,
+        accent: model.colors.accent
     });
 
     const fontOptions: Array<{ value: FontFamily; label: string; css: string }> = [

@@ -138,6 +138,18 @@ export function borderRadiusToPx(br: BorderRadius): number {
 }
 
 /**
+ * Superficie (card/modali) derivata dallo sfondo pagina: bianca per sfondi chiari e
+ * mid-tone, neutro sollevato (+12% bianco) solo per sfondi davvero scuri (luminanza < 0.15).
+ * Fonte unica, riusata dal mapper e da usePaletteWarnings (avviso accent-vs-superficie).
+ */
+export function deriveSurface(pageBackground: string): string {
+    const DARK_BG_THRESHOLD = 0.15;
+    return hexLuminance(pageBackground) < DARK_BG_THRESHOLD
+        ? mixHex(pageBackground, "#FFFFFF", 0.12)
+        : "#FFFFFF";
+}
+
+/**
  * Maps parsed style tokens to a flat record of --pub-* CSS custom properties.
  * Used by PublicThemeScope to apply scoped inline styles instead of :root injection.
  */
@@ -161,13 +173,8 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
 
     const bgLight = isLight(tokens.colors.pageBackground);
 
-    // superficie derivata dallo sfondo (no più colore utente):
-    // solo gli sfondi davvero scuri ottengono una superficie neutra-sollevata; chiaro e mid-tone → card bianche
-    // (evita card-colorate-su-pagina-colorata e il flip di contrasto sui temi saturi).
-    const DARK_BG_THRESHOLD = 0.15; // tunable
-    const surface = hexLuminance(tokens.colors.pageBackground) < DARK_BG_THRESHOLD
-        ? mixHex(tokens.colors.pageBackground, "#FFFFFF", 0.12)
-        : "#FFFFFF";
+    // superficie derivata dallo sfondo (no più colore utente) — vedi deriveSurface
+    const surface = deriveSurface(tokens.colors.pageBackground);
     const surfaceLight = isLight(surface);
 
     // Accent (ruolo "azione"): se non impostato segue il primario → stili esistenti invariati
