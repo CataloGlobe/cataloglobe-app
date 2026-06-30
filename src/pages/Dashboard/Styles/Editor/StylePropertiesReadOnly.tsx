@@ -255,6 +255,13 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         value={model.appearance.cardTreatment === "bordered" ? "Contornata" : "Elevata"}
                     />
                 )}
+                {model.card.productStyle === "card" && (
+                    <ValueReadRow
+                        label="Materiale superficie"
+                        tooltip="Aspetto della superficie di card e finestre: Tinta unita è opaca, Vetro è semitrasparente con sfocatura."
+                        value={model.appearance.surfaceMaterial === "glass" ? "Vetro" : "Tinta unita"}
+                    />
+                )}
                 <div className={sharedStyles.controlField}>
                     <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
                         Layout lista prodotti<InfoTooltip content="Grid mostra più prodotti affiancati su schermi ampi (desktop/tablet). Su mobile, entrambi i layout mostrano un prodotto per riga." />
