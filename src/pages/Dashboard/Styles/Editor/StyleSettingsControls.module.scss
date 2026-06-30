@@ -57,6 +57,32 @@
   font-size: 0.95rem;
 }
 
+/* Accent collegato al primario: caption attenuata sotto il picker */
+.linkedCaption {
+  margin: 6px 0 0;
+  font-size: 0.78rem;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* Accent scollegato: link testuale per ricollegare al primario */
+.resetLink {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.78rem;
+  color: var(--color-primary, #6366f1);
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 .colorInputShell {
   display: flex;
   align-items: center;

@@ -15,7 +15,7 @@ import {
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
 import { StyleColorPicker } from "./StyleColorPicker";
-import { Switch } from "@components/ui/Switch/Switch";
+import { IconRefresh } from "@tabler/icons-react";
 import { usePaletteWarnings } from "./usePaletteWarnings";
 import { PaletteWarningsBox } from "./PaletteWarningsBox";
 import styles from "./StyleSettingsControls.module.scss";
@@ -192,36 +192,26 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     onChange={val => updateColor("primary", val)}
                 />
 
-                {/* COLORE ACCENT (ruolo azione) */}
-                <div className={styles.controlField}>
-                    <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Colore accent<InfoTooltip content="Colore per gli elementi d'azione: pulsanti dei prodotti e CTA. Se non impostato, usa il colore primario." />
-                    </Text>
-                    <Switch
-                        label="Usa il colore primario"
-                        checked={accentLinked}
-                        onChange={checked =>
-                            updateColor("accent", checked ? undefined : (model.colors.accent || model.colors.primary))
-                        }
-                    />
-                </div>
+                {/* COLORE ACCENT (ruolo azione) — sempre visibile, segue il primario finché non personalizzato */}
+                <StyleColorPicker
+                    label="Colore accent"
+                    labelSuffix={<InfoTooltip content="Colore per gli elementi d'azione: pulsanti dei prodotti e CTA. Se non impostato, usa il colore primario." />}
+                    value={model.colors.accent ?? model.colors.primary}
+                    onChange={val => updateColor("accent", val)}
+                />
                 {accentLinked ? (
-                    <div className={styles.controlField}>
-                        <div
-                            className={styles.colorInputShell}
-                            style={{ opacity: 0.55, cursor: "default" }}
-                            aria-disabled="true"
-                        >
-                            <div className={styles.colorSwatch} style={{ backgroundColor: model.colors.primary }} />
-                            <span className={styles.colorHexInput}>{model.colors.primary.toUpperCase()}</span>
-                        </div>
-                    </div>
+                    <Text as="p" variant="body" className={styles.linkedCaption}>
+                        Uguale al colore primario · modificalo per personalizzarlo.
+                    </Text>
                 ) : (
-                    <StyleColorPicker
-                        label="Personalizza accent"
-                        value={model.colors.accent ?? model.colors.primary}
-                        onChange={val => updateColor("accent", val)}
-                    />
+                    <button
+                        type="button"
+                        className={styles.resetLink}
+                        onClick={() => updateColor("accent", undefined)}
+                    >
+                        <IconRefresh size={13} stroke={1.8} />
+                        Usa il colore primario
+                    </button>
                 )}
 
                 <PaletteWarningsBox warnings={paletteWarnings} />
