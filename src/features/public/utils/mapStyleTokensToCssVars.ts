@@ -76,6 +76,16 @@ export function contrastText(bgHex: string): string {
 }
 
 /**
+ * Converts a hex color (#rrggbb or #rgb) into an rgba() string at the given alpha [0, 1].
+ * Used to build the glass surface "tint floor" — a semi-transparent surface color that
+ * keeps text legible behind the blur even over a flat background.
+ */
+export function hexToRgba(hex: string, alpha: number): string {
+    const { r, g, b } = parseHex(hex);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
  * Generates the CSS background-image value for a given pattern + color + intensity.
  * Returns [backgroundImage, backgroundSize] tuple.
  * Base opacities are perceptually normalized across patterns;
@@ -223,6 +233,11 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
 
         // ── New semantic vars ────────────────────────────────────────────
         "--pub-surface": surface,
+        // Pavimento-tinta del materiale "vetro": surface resa semitrasparente così il
+        // testo resta leggibile dietro il blur anche su sfondo piatto. Tono auto-derivato
+        // (alpha 0.82 su surface chiara / 0.62 su scura, mirror idiomi BottomBar/Header).
+        // Emessa sempre; consumata solo da [data-surface-material="glass"] (no-op con solid).
+        "--pub-surface-glass": hexToRgba(surface, surfaceLight ? 0.82 : 0.62),
         // Neutro utility/chrome (pill allergeni/caratteristiche + cerchi social) — staccato da surface
         "--pub-ink": ink,
         "--pub-ink-text": inkText,

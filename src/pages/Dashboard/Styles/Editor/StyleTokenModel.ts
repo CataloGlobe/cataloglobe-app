@@ -7,6 +7,7 @@ export type BackgroundPattern = "none" | "dots" | "diagonal" | "waves" | "crossh
 export type PatternIntensity = "subtle" | "medium" | "strong";
 export type FeaturedStyle = "card" | "highlight";
 export type CardTreatment = "raised" | "bordered";
+export type SurfaceMaterial = "solid" | "glass";
 
 export interface StyleTokenModel {
     colors: {
@@ -24,6 +25,7 @@ export interface StyleTokenModel {
         patternIntensity: PatternIntensity;
         featuredStyle: FeaturedStyle;
         cardTreatment: CardTreatment;
+        surfaceMaterial: SurfaceMaterial;
     };
     header: {
         showLogo: boolean;
@@ -59,7 +61,8 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
         backgroundPattern: "none",
         patternIntensity: "medium",
         featuredStyle: "card",
-        cardTreatment: "raised"
+        cardTreatment: "raised",
+        surfaceMaterial: "solid"
     },
     header: {
         showLogo: true,
@@ -85,6 +88,7 @@ const VALID_PATTERNS: BackgroundPattern[] = ["none", "dots", "diagonal", "waves"
 const VALID_PATTERN_INTENSITIES: PatternIntensity[] = ["subtle", "medium", "strong"];
 const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight"];
 const VALID_CARD_TREATMENTS: CardTreatment[] = ["raised", "bordered"];
+const VALID_SURFACE_MATERIALS: SurfaceMaterial[] = ["solid", "glass"];
 
 /**
  * Parses raw JSON configuration (from DB) into a structured UI Token Model.
@@ -140,6 +144,11 @@ export function parseTokens(rawJson: any): StyleTokenModel {
         ? rawAppearance.cardTreatment as CardTreatment
         : "raised";
 
+    // surfaceMaterial: default sicuro "solid" per stili vecchi senza campo
+    const surfaceMaterial: SurfaceMaterial = VALID_SURFACE_MATERIALS.includes(rawAppearance.surfaceMaterial)
+        ? rawAppearance.surfaceMaterial as SurfaceMaterial
+        : "solid";
+
     return {
         colors: {
             pageBackground:
@@ -163,7 +172,8 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             backgroundPattern,
             patternIntensity,
             featuredStyle,
-            cardTreatment
+            cardTreatment,
+            surfaceMaterial
         },
         header: {
             showLogo:
@@ -238,7 +248,8 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
             backgroundPattern: model.appearance.backgroundPattern,
             patternIntensity: model.appearance.patternIntensity,
             featuredStyle: model.appearance.featuredStyle,
-            cardTreatment: model.appearance.cardTreatment
+            cardTreatment: model.appearance.cardTreatment,
+            surfaceMaterial: model.appearance.surfaceMaterial
         },
         header: {
             showLogo: model.header.showLogo,
