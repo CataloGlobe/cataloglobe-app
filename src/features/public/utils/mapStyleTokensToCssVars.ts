@@ -162,10 +162,12 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
     const bgLight = isLight(tokens.colors.pageBackground);
 
     // superficie derivata dallo sfondo (no più colore utente):
-    // pagina chiara → bianco; pagina scura → neutro sollevato (+12% bianco)
-    const surface = isLight(tokens.colors.pageBackground)
-        ? "#FFFFFF"
-        : mixHex(tokens.colors.pageBackground, "#FFFFFF", 0.12);
+    // solo gli sfondi davvero scuri ottengono una superficie neutra-sollevata; chiaro e mid-tone → card bianche
+    // (evita card-colorate-su-pagina-colorata e il flip di contrasto sui temi saturi).
+    const DARK_BG_THRESHOLD = 0.15; // tunable
+    const surface = hexLuminance(tokens.colors.pageBackground) < DARK_BG_THRESHOLD
+        ? mixHex(tokens.colors.pageBackground, "#FFFFFF", 0.12)
+        : "#FFFFFF";
     const surfaceLight = isLight(surface);
 
     // Accent (ruolo "azione"): se non impostato segue il primario → stili esistenti invariati
