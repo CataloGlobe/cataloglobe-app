@@ -233,14 +233,11 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
 
         // ── New semantic vars ────────────────────────────────────────────
         "--pub-surface": surface,
-        // Pavimento-tinta del materiale "vetro": surface resa semitrasparente così il
-        // testo resta leggibile dietro il blur anche su sfondo piatto. Tono auto-derivato
-        // (alpha 0.82 su surface chiara / 0.62 su scura, mirror idiomi BottomBar/Header).
+        // Pavimento-tinta del materiale "vetro" (unico, condiviso da card/modale/header):
+        // surface resa semitrasparente così il testo resta leggibile dietro il blur anche
+        // su sfondo piatto. Tono auto-derivato (alpha 0.80 chiaro / 0.68 scuro).
         // Emessa sempre; consumata solo da [data-card-treatment="glass"] (no-op con raised/bordered).
-        "--pub-surface-glass": hexToRgba(surface, surfaceLight ? 0.82 : 0.62),
-        // Variante più opaca per la modale vetro: area grande → un pavimento più alto
-        // evita di mostrare troppo lo sfondo, mantenendo il frosting. Card invariata.
-        "--pub-surface-glass-strong": hexToRgba(surface, surfaceLight ? 0.92 : 0.8),
+        "--pub-surface-glass": hexToRgba(surface, surfaceLight ? 0.8 : 0.68),
         // Neutro utility/chrome (pill allergeni/caratteristiche + cerchi social) — staccato da surface
         "--pub-ink": ink,
         "--pub-ink-text": inkText,

@@ -426,8 +426,8 @@
    Mutuamente esclusivo con raised/bordered → nessun gating cross-asse. */
 :global([data-card-treatment="glass"]) .card {
   background: var(--pub-surface-glass);
-  -webkit-backdrop-filter: blur(20px) saturate(1.6);
-  backdrop-filter: blur(20px) saturate(1.6);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.6);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: none;
 }
