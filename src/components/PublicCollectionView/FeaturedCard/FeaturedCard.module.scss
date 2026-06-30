@@ -25,6 +25,21 @@
   }
 }
 
+/* Preset trattamento card (data-card-treatment sul container catalogo).
+   Attributo globale (non hashato) + .card locale. Coerente con le card prodotto.
+   .cardHighlight (image-bg) NON toccata. */
+:global([data-card-treatment="raised"]) .card {
+  box-shadow: var(--pub-card-shadow);
+  border-color: transparent;
+}
+:global([data-card-treatment="bordered"]) .card {
+  box-shadow: none;
+  border-color: var(--pub-surface-border);
+}
+:global([data-card-treatment="bordered"]) .card:hover {
+  box-shadow: none;
+}
+
 /* ── Thumbnail ─────────────────────────────────────────────────────────── */
 
 .cardThumb {

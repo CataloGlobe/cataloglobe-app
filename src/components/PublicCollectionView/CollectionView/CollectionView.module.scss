@@ -406,6 +406,21 @@
   }
 }
 
+/* Preset trattamento card (data-card-treatment sul container):
+   raised = ombra, bordo invisibile · bordered = bordo, niente ombra (neanche hover).
+   Il bordo 1px di base resta sempre per geometria; cambia solo il colore. */
+.container[data-card-treatment="raised"] .card {
+  box-shadow: var(--pub-card-shadow);
+  border-color: transparent;
+}
+.container[data-card-treatment="bordered"] .card {
+  box-shadow: none;
+  border-color: var(--pub-surface-border);
+}
+.container[data-card-treatment="bordered"] .card:hover {
+  box-shadow: none; /* niente ombra su hover in contornata (lift translateY mantenuto) */
+}
+
 /* ----------------------------------------------------
    EVIDENZIAZIONE RICERCA — differenziata per stile card
    Applicata all'<article> (.card | .compactItem) al

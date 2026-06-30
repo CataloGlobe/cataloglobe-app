@@ -303,6 +303,7 @@ export default function PublicCatalogReady({
         showCatalogName: tokens.header.showCatalogName,
         showAddress: tokens.header.showAddress,
         featuredStyle: tokens.appearance.featuredStyle,
+        cardTreatment: tokens.appearance.cardTreatment,
         appearanceRadius: borderRadiusToPx(tokens.appearance.borderRadius)
     } as const;
 

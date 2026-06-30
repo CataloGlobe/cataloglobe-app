@@ -6,6 +6,7 @@ export type FontFamily = "inter" | "poppins" | "montserrat" | "josefin-sans" | "
 export type BackgroundPattern = "none" | "dots" | "diagonal" | "waves" | "crosshatch" | "noise";
 export type PatternIntensity = "subtle" | "medium" | "strong";
 export type FeaturedStyle = "card" | "highlight";
+export type CardTreatment = "raised" | "bordered";
 
 export interface StyleTokenModel {
     colors: {
@@ -27,6 +28,7 @@ export interface StyleTokenModel {
         backgroundPattern: BackgroundPattern;
         patternIntensity: PatternIntensity;
         featuredStyle: FeaturedStyle;
+        cardTreatment: CardTreatment;
     };
     header: {
         showLogo: boolean;
@@ -66,7 +68,8 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
         borderRadius: "rounded",
         backgroundPattern: "none",
         patternIntensity: "medium",
-        featuredStyle: "card"
+        featuredStyle: "card",
+        cardTreatment: "raised"
     },
     header: {
         showLogo: true,
@@ -91,6 +94,7 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
 const VALID_PATTERNS: BackgroundPattern[] = ["none", "dots", "diagonal", "waves", "crosshatch", "noise"];
 const VALID_PATTERN_INTENSITIES: PatternIntensity[] = ["subtle", "medium", "strong"];
 const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight"];
+const VALID_CARD_TREATMENTS: CardTreatment[] = ["raised", "bordered"];
 
 /**
  * Parses raw JSON configuration (from DB) into a structured UI Token Model.
@@ -141,6 +145,11 @@ export function parseTokens(rawJson: any): StyleTokenModel {
         ? rawAppearance.featuredStyle as FeaturedStyle
         : "card";
 
+    // cardTreatment: default sicuro "raised" per stili vecchi senza campo
+    const cardTreatment: CardTreatment = VALID_CARD_TREATMENTS.includes(rawAppearance.cardTreatment)
+        ? rawAppearance.cardTreatment as CardTreatment
+        : "raised";
+
     return {
         colors: {
             pageBackground:
@@ -172,7 +181,8 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             borderRadius,
             backgroundPattern,
             patternIntensity,
-            featuredStyle
+            featuredStyle,
+            cardTreatment
         },
         header: {
             showLogo:
@@ -251,7 +261,8 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
             borderRadius: model.appearance.borderRadius,
             backgroundPattern: model.appearance.backgroundPattern,
             patternIntensity: model.appearance.patternIntensity,
-            featuredStyle: model.appearance.featuredStyle
+            featuredStyle: model.appearance.featuredStyle,
+            cardTreatment: model.appearance.cardTreatment
         },
         header: {
             showLogo: model.header.showLogo,

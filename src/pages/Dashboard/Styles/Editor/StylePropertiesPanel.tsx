@@ -9,7 +9,8 @@ import {
     BorderRadius,
     BackgroundPattern,
     PatternIntensity,
-    FeaturedStyle
+    FeaturedStyle,
+    CardTreatment
 } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
@@ -66,6 +67,11 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "rounded", label: "Arrotondato" }
     ];
 
+    const cardTreatmentOptions: Array<{ value: CardTreatment; label: string }> = [
+        { value: "raised", label: "Elevata" },
+        { value: "bordered", label: "Contornata" }
+    ];
+
     const backgroundPatternOptions: Array<{ value: BackgroundPattern; label: string }> = [
         { value: "none", label: "Nessuno" },
         { value: "dots", label: "Puntini" },
@@ -105,6 +111,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const updateBorderRadius = (borderRadius: BorderRadius) => {
         onChange({ ...model, appearance: { ...model.appearance, borderRadius } });
+    };
+
+    const updateCardTreatment = (cardTreatment: CardTreatment) => {
+        onChange({ ...model, appearance: { ...model.appearance, cardTreatment } });
     };
 
     const updateBackgroundPattern = (backgroundPattern: BackgroundPattern) => {
@@ -241,6 +251,33 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                         />
                                     </div>
                                     <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Trattamento card<InfoTooltip content="Come le card si staccano dallo sfondo: Elevata usa un'ombra, Contornata un bordo sottile." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {cardTreatmentOptions.map(option => {
+                            const isActive = model.appearance.cardTreatment === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isActive}
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateCardTreatment(option.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {option.label}
+                                    </Text>
                                 </button>
                             );
                         })}

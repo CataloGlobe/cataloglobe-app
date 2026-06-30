@@ -68,6 +68,11 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         })}
                     </div>
                 </div>
+                <ValueReadRow
+                    label="Trattamento card"
+                    tooltip="Come le card si staccano dallo sfondo: Elevata usa un'ombra, Contornata un bordo sottile."
+                    value={model.appearance.cardTreatment === "bordered" ? "Contornata" : "Elevata"}
+                />
                 <div className={sharedStyles.controlField}>
                     <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
                         Pattern sfondo<InfoTooltip content="Aggiunge un motivo decorativo leggero allo sfondo, usando il colore primario." />
