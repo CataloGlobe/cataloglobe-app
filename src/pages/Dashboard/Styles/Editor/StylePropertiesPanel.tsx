@@ -257,33 +257,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     </div>
                 </div>
 
-                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
-                    <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Trattamento card<InfoTooltip content="Come le card si staccano dallo sfondo: Elevata usa un'ombra, Contornata un bordo sottile." />
-                    </Text>
-                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
-                        {cardTreatmentOptions.map(option => {
-                            const isActive = model.appearance.cardTreatment === option.value;
-                            return (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={isActive}
-                                    className={`${styles.optionButton} ${
-                                        isActive ? styles.optionButtonActive : ""
-                                    }`}
-                                    onClick={() => updateCardTreatment(option.value)}
-                                >
-                                    <Text as="span" variant="body" weight={600}>
-                                        {option.label}
-                                    </Text>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-
                 <div className={styles.controlField}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Pattern sfondo<InfoTooltip content="Aggiunge un motivo decorativo leggero allo sfondo, usando il colore primario." />
@@ -514,6 +487,35 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                         })}
                     </div>
                 </div>
+
+                {model.card.productStyle === "card" && (
+                    <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                        <Text variant="body" weight={500} className={styles.fieldLabel}>
+                            Trattamento card<InfoTooltip content="Come le card si staccano dallo sfondo: Elevata usa un'ombra, Contornata un bordo sottile." />
+                        </Text>
+                        <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                            {cardTreatmentOptions.map(option => {
+                                const isActive = model.appearance.cardTreatment === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={isActive}
+                                        className={`${styles.optionButton} ${
+                                            isActive ? styles.optionButtonActive : ""
+                                        }`}
+                                        onClick={() => updateCardTreatment(option.value)}
+                                    >
+                                        <Text as="span" variant="body" weight={600}>
+                                            {option.label}
+                                        </Text>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>

@@ -68,11 +68,6 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         })}
                     </div>
                 </div>
-                <ValueReadRow
-                    label="Trattamento card"
-                    tooltip="Come le card si staccano dallo sfondo: Elevata usa un'ombra, Contornata un bordo sottile."
-                    value={model.appearance.cardTreatment === "bordered" ? "Contornata" : "Elevata"}
-                />
                 <div className={sharedStyles.controlField}>
                     <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
                         Pattern sfondo<InfoTooltip content="Aggiunge un motivo decorativo leggero allo sfondo, usando il colore primario." />
@@ -253,6 +248,13 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         })}
                     </div>
                 </div>
+                {model.card.productStyle === "card" && (
+                    <ValueReadRow
+                        label="Trattamento card"
+                        tooltip="Come le card si staccano dallo sfondo: Elevata usa un'ombra, Contornata un bordo sottile."
+                        value={model.appearance.cardTreatment === "bordered" ? "Contornata" : "Elevata"}
+                    />
+                )}
                 <div className={sharedStyles.controlField}>
                     <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
                         Layout lista prodotti<InfoTooltip content="Grid mostra più prodotti affiancati su schermi ampi (desktop/tablet). Su mobile, entrambi i layout mostrano un prodotto per riga." />
