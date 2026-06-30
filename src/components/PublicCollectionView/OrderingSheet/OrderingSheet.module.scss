@@ -129,7 +129,7 @@
 
 .tabBtnActive {
     background: var(--pub-primary);
-    color: var(--pub-on-primary, #ffffff);
+    color: var(--pub-primary-text);
     box-shadow: 0 1px 3px color-mix(in srgb, var(--pub-primary) 30%, transparent);
 }
 
@@ -145,12 +145,12 @@
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     background: var(--pub-primary);
-    color: var(--pub-on-primary, #ffffff);
+    color: var(--pub-primary-text);
 }
 
 .tabBadgeActive {
-    background: color-mix(in srgb, var(--pub-on-primary, #ffffff) 25%, transparent);
-    color: var(--pub-on-primary, #ffffff);
+    background: color-mix(in srgb, var(--pub-primary-text) 25%, transparent);
+    color: var(--pub-primary-text);
 }
 
 /* ── SCROLL AREA ────────────────────────────────────────── */
@@ -375,7 +375,7 @@
     border-radius: var(--pub-btn-radius, 12px);
     border: none;
     background: var(--pub-primary);
-    color: var(--pub-on-primary, #ffffff);
+    color: var(--pub-primary-text);
     font-family: inherit;
     font-size: 1rem;
     font-weight: 600;

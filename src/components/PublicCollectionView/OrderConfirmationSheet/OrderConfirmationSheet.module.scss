@@ -153,7 +153,7 @@
 
 .btnPrimary {
     background: var(--pub-primary);
-    color: var(--pub-on-primary, #ffffff);
+    color: var(--pub-primary-text);
     border: none;
 
     &:hover:not(:disabled) {

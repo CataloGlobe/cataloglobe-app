@@ -105,7 +105,7 @@
 
   &[data-variant="theme"] {
     background: var(--pub-primary, #6366f1);
-    color: var(--pub-on-primary, #ffffff);
+    color: var(--pub-primary-text);
 
     @media (hover: hover) {
       &:not(:disabled):hover {
