@@ -59,6 +59,21 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
+/* Materiale "vetro": il pannello modale diventa semitrasparente + blur. L'attributo
+   vive sul wrapper PublicThemeScope, di cui il portal è figlio → raggiunge il panel
+   anche se portalato fuori da .container. */
+:global([data-surface-material="glass"]) .panel {
+  background: var(--pub-surface-glass);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :global([data-surface-material="glass"]) .panel {
+    background: var(--pub-surface, #fff);
+  }
+}
+
 /* ── Drag handle ─────────────────────────────────────────────────────────── */
 
 .handle {

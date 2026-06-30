@@ -421,6 +421,28 @@
   box-shadow: none; /* niente ombra su hover in contornata (lift translateY mantenuto) */
 }
 
+/* Materiale "vetro": superficie semitrasparente + blur. Override del solido,
+   attivato dall'attributo globale sul wrapper PublicThemeScope (raggiunge anche
+   le modali portalate). Specificità con .container per vincere su raised/bordered
+   (ombra forzata a none: col vetro resta solo la hairline). Compatto: nessuna
+   superficie, quindi non toccato. */
+:global([data-surface-material="glass"]) .container .card {
+  background: var(--pub-surface-glass);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+}
+:global([data-surface-material="glass"]) .container .card:hover {
+  box-shadow: none;
+}
+/* Fallback senza supporto backdrop-filter: torna al solido leggibile. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :global([data-surface-material="glass"]) .container .card {
+    background: var(--pub-surface);
+  }
+}
+
 /* ----------------------------------------------------
    EVIDENZIAZIONE RICERCA — differenziata per stile card
    Applicata all'<article> (.card | .compactItem) al

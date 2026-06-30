@@ -40,6 +40,24 @@
   box-shadow: none;
 }
 
+/* Materiale "vetro": stessa logica delle card prodotto. Posto dopo il blocco
+   trattamento così vince a parità di specificità (ombra → none, resta la hairline). */
+:global([data-surface-material="glass"]) .card {
+  background: var(--pub-surface-glass);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+}
+:global([data-surface-material="glass"]) .card:hover {
+  box-shadow: none;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :global([data-surface-material="glass"]) .card {
+    background: var(--pub-surface);
+  }
+}
+
 /* ── Thumbnail ─────────────────────────────────────────────────────────── */
 
 .cardThumb {
