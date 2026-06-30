@@ -273,10 +273,15 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         "--pub-surface-text-muted": surfaceTextMuted,
 
         // ── Card shadows ─────────────────────────────────────────────────
-        // Centralized to keep FeaturedCard and product cards in sync
-        "--pub-card-shadow":
-            "0 2px 8px color-mix(in srgb, var(--pub-bg-text) 10%, transparent), 0 0 1px color-mix(in srgb, var(--pub-surface-text) 8%, transparent)",
-        "--pub-card-shadow-hover":
-            "0 4px 14px color-mix(in srgb, var(--pub-bg-text) 14%, transparent), 0 0 2px color-mix(in srgb, var(--pub-surface-text) 10%, transparent)"
+        // Centralized to keep FeaturedCard and product cards in sync.
+        // Bg-aware: su sfondo chiaro l'ombra a base contrast-text resta morbida e scura;
+        // su sfondo scuro quei colori diventerebbero bianchi (glow + anello 0 0 1px = alone),
+        // quindi si passa a un'ombra nero puro più profonda senza layer chiaro.
+        "--pub-card-shadow": bgLight
+            ? "0 2px 8px color-mix(in srgb, var(--pub-bg-text) 10%, transparent), 0 0 1px color-mix(in srgb, var(--pub-surface-text) 8%, transparent)"
+            : "0 6px 20px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35)",
+        "--pub-card-shadow-hover": bgLight
+            ? "0 4px 14px color-mix(in srgb, var(--pub-bg-text) 14%, transparent), 0 0 2px color-mix(in srgb, var(--pub-surface-text) 10%, transparent)"
+            : "0 10px 28px rgba(0, 0, 0, 0.55), 0 3px 8px rgba(0, 0, 0, 0.4)"
     };
 }
