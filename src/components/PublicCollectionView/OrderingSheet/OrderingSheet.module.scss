@@ -25,6 +25,11 @@
     background: var(--pub-surface, #ffffff);
 }
 
+/* Sotto vetro: header trasparente → condivide il panel-glass (materiale unico). */
+:global([data-card-treatment="glass"]) .header {
+    background: transparent;
+}
+
 .title {
     margin: 0;
     font-size: 20px;

@@ -13,6 +13,11 @@
     background: var(--pub-surface, #fff);
 }
 
+/* Sotto vetro: header trasparente → condivide il panel-glass (materiale unico). */
+:global([data-card-treatment="glass"]) .header {
+    background: transparent;
+}
+
 .headerTitle {
     flex: 1;
     min-width: 0;
