@@ -160,7 +160,13 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
     const btnRadius = br === "none" ? "0px" : br === "soft" ? "6px" : "10px";
 
     const bgLight = isLight(tokens.colors.pageBackground);
-    const surfaceLight = isLight(tokens.colors.surface);
+
+    // superficie derivata dallo sfondo (no più colore utente):
+    // pagina chiara → bianco; pagina scura → neutro sollevato (+12% bianco)
+    const surface = isLight(tokens.colors.pageBackground)
+        ? "#FFFFFF"
+        : mixHex(tokens.colors.pageBackground, "#FFFFFF", 0.12);
+    const surfaceLight = isLight(surface);
 
     // Accent (ruolo "azione"): se non impostato segue il primario → stili esistenti invariati
     const accent = tokens.colors.accent || tokens.colors.primary;
@@ -173,7 +179,7 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
 
     // Derived text colors — always computed from background contrast, never from saved tokens
     const bgText = contrastText(tokens.colors.pageBackground);
-    const surfaceText = contrastText(tokens.colors.surface);
+    const surfaceText = contrastText(surface);
     const surfaceTextSecondary = surfaceLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.65)";
     const surfaceTextMuted = surfaceLight ? "rgba(0, 0, 0, 0.38)" : "rgba(255, 255, 255, 0.45)";
     const bgTextSecondary = bgLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.65)";
@@ -181,7 +187,7 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
 
     // Border colors — 10% contrast text blended into background
     const borderOnBg = mixHex(tokens.colors.pageBackground, bgText, 0.1);
-    const borderOnSurface = mixHex(tokens.colors.surface, surfaceText, 0.15);
+    const borderOnSurface = mixHex(surface, surfaceText, 0.15);
 
     const [patternImage, patternSize] = getPatternCss(
         tokens.appearance.backgroundPattern,
@@ -204,7 +210,7 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         "--pub-bg-pattern-size": patternSize,
 
         // ── New semantic vars ────────────────────────────────────────────
-        "--pub-surface": tokens.colors.surface,
+        "--pub-surface": surface,
         // Neutro utility/chrome (pill allergeni/caratteristiche + cerchi social) — staccato da surface
         "--pub-ink": ink,
         "--pub-ink-text": inkText,
@@ -212,7 +218,7 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         "--pub-text": surfaceText,
         "--pub-text-secondary": surfaceTextSecondary,
         "--pub-text-muted": surfaceTextMuted,
-        "--pub-primary-soft": `color-mix(in srgb, ${tokens.colors.primary} 20%, ${tokens.colors.surface})`,
+        "--pub-primary-soft": `color-mix(in srgb, ${tokens.colors.primary} 20%, ${surface})`,
         "--pub-border": borderOnBg,
         "--pub-surface-border": borderOnSurface,
 

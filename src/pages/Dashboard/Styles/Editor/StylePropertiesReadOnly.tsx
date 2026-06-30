@@ -36,7 +36,6 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                     note={model.colors.accent ? undefined : "(= primario)"}
                     tooltip="Colore per gli elementi d'azione: pulsanti dei prodotti e CTA. Se non impostato, usa il colore primario."
                 />
-                <ColorReadRow label="Sfondo superfici" value={model.colors.surface} tooltip="Sfondo di card prodotti, modali, pulsanti dell'header e altri elementi in primo piano." />
                 <div className={sharedStyles.controlField}>
                     <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
                         Arrotondamento<InfoTooltip content="Controlla la curvatura degli angoli di card, immagini, pulsanti e pannelli nella pagina pubblica." />

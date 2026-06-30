@@ -214,13 +214,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     />
                 )}
 
-                <StyleColorPicker
-                    label="Sfondo superfici"
-                    labelSuffix={<InfoTooltip content="Sfondo di card prodotti, modali, pulsanti dell'header e altri elementi in primo piano." />}
-                    value={model.colors.surface}
-                    onChange={val => updateColor("surface", val)}
-                />
-
                 <PaletteWarningsBox warnings={paletteWarnings} />
 
                 <div className={styles.controlField}>
