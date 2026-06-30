@@ -70,7 +70,8 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const cardTreatmentOptions: Array<{ value: CardTreatment; label: string }> = [
         { value: "raised", label: "Elevata" },
-        { value: "bordered", label: "Contornata" }
+        { value: "bordered", label: "Contornata" },
+        { value: "glass", label: "Vetro" }
     ];
 
     const backgroundPatternOptions: Array<{ value: BackgroundPattern; label: string }> = [
@@ -482,7 +483,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                 {model.card.productStyle === "card" && (
                     <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                         <Text variant="body" weight={500} className={styles.fieldLabel}>
-                            Trattamento card<InfoTooltip content="Come le card si staccano dallo sfondo: Elevata usa un'ombra, Contornata un bordo sottile." />
+                            Aspetto card<InfoTooltip content="Aspetto di card e finestre: Elevata usa un'ombra, Contornata un bordo sottile, Vetro una superficie semitrasparente con sfocatura." />
                         </Text>
                         <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
                             {cardTreatmentOptions.map(option => {

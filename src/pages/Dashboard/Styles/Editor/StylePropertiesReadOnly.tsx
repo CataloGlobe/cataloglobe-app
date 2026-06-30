@@ -250,9 +250,15 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 </div>
                 {model.card.productStyle === "card" && (
                     <ValueReadRow
-                        label="Trattamento card"
-                        tooltip="Come le card si staccano dallo sfondo: Elevata usa un'ombra, Contornata un bordo sottile."
-                        value={model.appearance.cardTreatment === "bordered" ? "Contornata" : "Elevata"}
+                        label="Aspetto card"
+                        tooltip="Aspetto di card e finestre: Elevata usa un'ombra, Contornata un bordo sottile, Vetro una superficie semitrasparente con sfocatura."
+                        value={
+                            model.appearance.cardTreatment === "glass"
+                                ? "Vetro"
+                                : model.appearance.cardTreatment === "bordered"
+                                    ? "Contornata"
+                                    : "Elevata"
+                        }
                     />
                 )}
                 <div className={sharedStyles.controlField}>
