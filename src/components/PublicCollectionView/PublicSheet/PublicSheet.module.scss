@@ -59,10 +59,21 @@
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
-/* Vetro: il pannello modale diventa semitrasparente + blur. L'attributo cardTreatment
-   vive sul wrapper PublicThemeScope, di cui il portal è figlio → raggiunge il panel
-   anche se portalato fuori da .container. raised/bordered non hanno regole su .panel
-   (toccano solo .card del catalogo) → nessun leak nelle modali. */
+/* Aspetto card applicato alla modale (l'attributo cardTreatment vive sul wrapper
+   PublicThemeScope, di cui il portal è figlio → raggiunge il .panel portalato).
+   La modale a riposo non ha elevazione propria (flotta sullo scrim); qui prende
+   ombra/bordo coerenti con la card. La var ombra è bg-aware (FASE 2A) → su scuro
+   niente alone. */
+:global([data-card-treatment="raised"]) .panel {
+  box-shadow: var(--pub-card-shadow);
+}
+:global([data-card-treatment="bordered"]) .panel {
+  border: 1px solid var(--pub-surface-border);
+  box-shadow: none;
+}
+
+/* Vetro: il pannello modale diventa semitrasparente + blur. raised/bordered/glass
+   sono mutuamente esclusivi → un solo aspetto attivo per volta. */
 :global([data-card-treatment="glass"]) .panel {
   background: var(--pub-surface-glass);
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
