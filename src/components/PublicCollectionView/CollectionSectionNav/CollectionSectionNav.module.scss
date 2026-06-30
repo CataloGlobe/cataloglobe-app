@@ -149,7 +149,7 @@
   &[data-active="true"] {
     font-weight: 600;
     background: var(--pub-primary);
-    color: var(--pub-cta-text);
+    color: var(--pub-primary-text);
   }
 }
 
@@ -311,7 +311,7 @@
   &[data-active="true"] {
     font-weight: 600;
     background: var(--pub-primary);
-    color: var(--pub-cta-text);
+    color: var(--pub-primary-text);
 
     .pillLabel {
       font-weight: 600;

@@ -201,6 +201,9 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         // ── Existing pub vars ────────────────────────────────────────────
         "--pub-bg": tokens.colors.pageBackground,
         "--pub-primary": tokens.colors.primary,
+        // --pub-primary-text: testo su elementi primary-filled (nav attiva, badge) →
+        // contrasto sul primario, NON sull'accent (cta-text serve solo agli elementi accent-filled)
+        "--pub-primary-text": contrastText(tokens.colors.primary),
         "--pub-header-bg": tokens.colors.primary,
         "--pub-font-family": fontFamily,
 

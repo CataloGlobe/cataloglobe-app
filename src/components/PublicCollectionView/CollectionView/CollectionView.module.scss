@@ -1126,7 +1126,7 @@
   height: 16px;
   border-radius: var(--pub-btn-radius, 8px);
   background: var(--pub-primary);
-  color: var(--pub-cta-text);
+  color: var(--pub-primary-text);
   font-size: 0.6rem;
   font-weight: 700;
   font-family: var(--pub-font-family, sans-serif);
@@ -1216,7 +1216,7 @@
   font-family: var(--pub-font-family, sans-serif);
   line-height: 1;
   background: var(--pub-primary);
-  color: var(--pub-cta-text);
+  color: var(--pub-primary-text);
   border: 2px solid var(--pub-bg);
   pointer-events: none;
 }
