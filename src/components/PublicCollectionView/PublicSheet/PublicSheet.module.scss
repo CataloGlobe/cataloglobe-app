@@ -67,18 +67,21 @@
 :global([data-card-treatment="raised"]) .panel {
   box-shadow: var(--pub-card-shadow);
 }
+/* Bordo per forma: bottom-sheet (mobile) → solo border-top (gli altri lati sono
+   a filo schermo); dialog centrato (desktop, @media sotto) → bordo pieno. */
 :global([data-card-treatment="bordered"]) .panel {
-  border: 1px solid var(--pub-surface-border);
+  border-top: 1px solid var(--pub-surface-border);
   box-shadow: none;
 }
 
 /* Vetro: il pannello modale diventa semitrasparente + blur. raised/bordered/glass
-   sono mutuamente esclusivi → un solo aspetto attivo per volta. */
+   sono mutuamente esclusivi → un solo aspetto attivo per volta. Hairline per forma
+   come bordered. */
 :global([data-card-treatment="glass"]) .panel {
   background: var(--pub-surface-glass);
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
   backdrop-filter: blur(16px) saturate(1.6);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
   :global([data-card-treatment="glass"]) .panel {
@@ -135,5 +138,13 @@
   .dragZone {
     touch-action: auto;
     user-select: auto;
+  }
+
+  /* Dialog centrato: bordo pieno su tutti i lati (sovrascrive il top-only mobile). */
+  :global([data-card-treatment="bordered"]) .panel {
+    border: 1px solid var(--pub-surface-border);
+  }
+  :global([data-card-treatment="glass"]) .panel {
+    border: 1px solid rgba(255, 255, 255, 0.1);
   }
 }
