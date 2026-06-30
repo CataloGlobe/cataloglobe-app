@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { BellRing, Check, Clock, ConciergeBell, Receipt, RotateCcw, X } from "lucide-react";
+import {
+    ArrowLeft,
+    BellRing,
+    Check,
+    Clock,
+    ConciergeBell,
+    Receipt,
+    RotateCcw,
+    X
+} from "lucide-react";
 
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
@@ -22,13 +31,22 @@ import {
     listActiveSessionsForTable,
     getOpenOrderGroupForTable
 } from "@/services/supabase/customerSessions";
-import { acknowledgeOrder, listOrdersForActivity } from "@/services/supabase/orders";
+import {
+    acknowledgeOrder,
+    listOrdersForActivity,
+    getOrderWithItems,
+    rectifyOrder
+} from "@/services/supabase/orders";
+import OrderRectifyForm, {
+    type RectifyFormState
+} from "@/pages/Dashboard/Orders/OrderRectifyForm";
 import type {
     V2Table,
     V2CustomerSession,
     V2OrderGroup,
     V2OrderWithItems,
-    OrderStatus
+    OrderStatus,
+    RectifyOrderItem
 } from "@/types/orders";
 
 import { usePermissions } from "@/context/PermissionsContext";
@@ -82,6 +100,40 @@ interface Props {
      */
     onBillCleared?: (tableId: string) => void;
     onWaiterCleared?: (tableId: string) => void;
+    /**
+     * Notifica al parent che è stato creato uno storno dal conto. Il parent
+     * deve rifare il fetch della sorgente di `current_total` (es.
+     * `useTablesLiveRealtime.refetch`) per aggiornare "Da pagare" subito —
+     * il realtime su `orders` arriverebbe comunque ma con debounce.
+     */
+    onStornoCreated?: (tableId: string) => void;
+}
+
+type DrawerView = "conto" | "storna";
+
+/**
+ * Mappa l'errore di `rectifyOrder` a un messaggio toast italiano.
+ */
+function mapStornoError(err: unknown): string {
+    if (err instanceof Error) {
+        const details = (err as Error & { details?: { reason?: string } }).details;
+        if (
+            err.message === "INVALID_RECTIFICATION_ITEMS" &&
+            details?.reason === "STORNO_QTY_EXCEEDS_RESIDUAL"
+        ) {
+            return "Quantità superiore al residuo stornabile per questo articolo.";
+        }
+        if (err.message === "INVALID_PARENT_STATE") {
+            return "Solo gli ordini serviti possono essere stornati.";
+        }
+        if (
+            err.message === "EMPTY_RECTIFICATION" ||
+            err.message === "INVALID_RECTIFICATION_QUANTITY"
+        ) {
+            return "Seleziona almeno un articolo da stornare.";
+        }
+    }
+    return "Errore durante lo storno. Riprova.";
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -174,7 +226,8 @@ export function TableDetailDrawer({
     onRequestClose,
     onMaintenanceChanged,
     onBillCleared,
-    onWaiterCleared
+    onWaiterCleared,
+    onStornoCreated
 }: Props) {
     const [data, setData] = useState<DetailData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -184,6 +237,16 @@ export function TableDetailDrawer({
     const [isClearingWaiter, setIsClearingWaiter] = useState(false);
     const [showAllRecent, setShowAllRecent] = useState(false);
     const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+
+    // ── Vista interna "storna" (B2: niente secondo drawer) ──
+    const [view, setView] = useState<DrawerView>("conto");
+    const [stornaOrder, setStornaOrder] = useState<V2OrderWithItems | null>(null);
+    const [stornaLoadingOrderId, setStornaLoadingOrderId] = useState<string | null>(null);
+    const [stornaState, setStornaState] = useState<RectifyFormState>({
+        estimate: 0,
+        canConfirm: false
+    });
+    const [isSavingStorno, setIsSavingStorno] = useState(false);
 
     const { showToast } = useToast();
     const { permissions } = usePermissions();
@@ -311,11 +374,60 @@ export function TableDetailDrawer({
         }
     }
 
+    async function handleOpenStorna(order: V2OrderWithItems): Promise<void> {
+        if (!tenantId) return;
+        setStornaLoadingOrderId(order.id);
+        try {
+            const full = await getOrderWithItems(order.id, tenantId);
+            setStornaOrder(full);
+            setStornaState({ estimate: 0, canConfirm: false });
+            setView("storna");
+        } catch {
+            showToast({
+                message: "Errore nel caricamento dell'ordine. Riprova.",
+                type: "error"
+            });
+        } finally {
+            setStornaLoadingOrderId(null);
+        }
+    }
+
+    function handleBackToConto(): void {
+        setView("conto");
+        setStornaOrder(null);
+        setStornaState({ estimate: 0, canConfirm: false });
+    }
+
+    async function handleConfirmStorno(
+        items: RectifyOrderItem[],
+        reason: string
+    ): Promise<void> {
+        if (!stornaOrder) return;
+        setIsSavingStorno(true);
+        try {
+            await rectifyOrder(stornaOrder.id, items, reason || undefined);
+            showToast({ message: "Storno registrato", type: "success" });
+            setView("conto");
+            setStornaOrder(null);
+            setStornaState({ estimate: 0, canConfirm: false });
+            await loadDetail();
+            if (tableId) onStornoCreated?.(tableId);
+        } catch (err) {
+            // Resta nella vista storna: non perdere la selezione.
+            showToast({ message: mapStornoError(err), type: "error" });
+        } finally {
+            setIsSavingStorno(false);
+        }
+    }
+
     useEffect(() => {
         if (!open || !tableId) {
             setData(null);
             setError(null);
             setShowAllRecent(false);
+            setView("conto");
+            setStornaOrder(null);
+            setStornaState({ estimate: 0, canConfirm: false });
             return;
         }
         void loadDetail();
@@ -367,43 +479,88 @@ export function TableDetailDrawer({
         <SystemDrawer open={open} onClose={onClose} width={560}>
             <DrawerLayout
                 header={
-                    <div className={styles.drawerHeaderBlock}>
-                        <div className={styles.drawerHeaderInfo}>
-                            <Text variant="title-sm" weight={600}>
-                                {tableLabel}
-                                {zoneName ? ` · ${zoneName}` : ""}
-                            </Text>
-                            {data && (
-                                <div className={styles.drawerHeaderMeta}>
-                                    <StatusBadge variant={statusVariant} label={statusLabel} />
-                                    {data.table.seats != null && (
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            {data.table.seats}{" "}
-                                            {data.table.seats === 1 ? "posto" : "posti"}
-                                        </Text>
-                                    )}
-                                    {isOccupied && firstSeenAt && (
-                                        <div className={styles.elapsedRow}>
-                                            <Clock size={13} />
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                da {formatElapsedMinutes(firstSeenAt)}
-                                            </Text>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                    view === "storna" ? (
+                        <div className={styles.stornaHeaderBlock}>
+                            <button
+                                className={styles.backButton}
+                                onClick={handleBackToConto}
+                                aria-label="Torna al conto"
+                            >
+                                <ArrowLeft size={18} />
+                            </button>
+                            <div className={styles.drawerHeaderInfo}>
+                                <Text variant="title-sm" weight={600}>
+                                    Storna articoli
+                                </Text>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    {tableLabel}
+                                    {zoneName ? ` · ${zoneName}` : ""}
+                                </Text>
+                            </div>
                         </div>
-                        <button
-                            className={styles.dismissButton}
-                            onClick={onClose}
-                            aria-label="Chiudi"
-                        >
-                            <X size={18} />
-                        </button>
-                    </div>
+                    ) : (
+                        <div className={styles.drawerHeaderBlock}>
+                            <div className={styles.drawerHeaderInfo}>
+                                <Text variant="title-sm" weight={600}>
+                                    {tableLabel}
+                                    {zoneName ? ` · ${zoneName}` : ""}
+                                </Text>
+                                {data && (
+                                    <div className={styles.drawerHeaderMeta}>
+                                        <StatusBadge variant={statusVariant} label={statusLabel} />
+                                        {data.table.seats != null && (
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                {data.table.seats}{" "}
+                                                {data.table.seats === 1 ? "posto" : "posti"}
+                                            </Text>
+                                        )}
+                                        {isOccupied && firstSeenAt && (
+                                            <div className={styles.elapsedRow}>
+                                                <Clock size={13} />
+                                                <Text variant="body-sm" colorVariant="muted">
+                                                    da {formatElapsedMinutes(firstSeenAt)}
+                                                </Text>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                className={styles.dismissButton}
+                                onClick={onClose}
+                                aria-label="Chiudi"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                    )
                 }
                 footer={
-                    hasClosePermission && !nothingToClose && tableId ? (
+                    view === "storna" ? (
+                        <>
+                            {stornaState.estimate > 0 && (
+                                <Text weight={600} className={styles.footerEstimate}>
+                                    Storno stimato −{formatEur(stornaState.estimate)}
+                                </Text>
+                            )}
+                            <Button
+                                variant="secondary"
+                                onClick={handleBackToConto}
+                                disabled={isSavingStorno}
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                type="submit"
+                                form="conto-storna-form"
+                                variant="primary"
+                                loading={isSavingStorno}
+                                disabled={!stornaState.canConfirm || isSavingStorno}
+                            >
+                                Conferma storno
+                            </Button>
+                        </>
+                    ) : hasClosePermission && !nothingToClose && tableId ? (
                         <Button variant="primary" onClick={() => onRequestClose!(tableId)}>
                             Chiudi tavolo
                         </Button>
@@ -414,7 +571,21 @@ export function TableDetailDrawer({
                     )
                 }
             >
-                {isLoading && !data ? (
+                {view === "storna" ? (
+                    stornaOrder ? (
+                        <OrderRectifyForm
+                            formId="conto-storna-form"
+                            order={stornaOrder}
+                            onSubmit={handleConfirmStorno}
+                            onStateChange={setStornaState}
+                            disabled={isSavingStorno}
+                        />
+                    ) : (
+                        <div className={styles.loading}>
+                            <Text colorVariant="muted">Caricamento...</Text>
+                        </div>
+                    )
+                ) : isLoading && !data ? (
                     <div className={styles.loading}>
                         <Text colorVariant="muted">Caricamento...</Text>
                     </div>
@@ -625,6 +796,9 @@ export function TableDetailDrawer({
                                             }
 
                                             const { variant, label } = orderStatusInfo(o.status);
+                                            // Storna solo su delivered (non sui cancelled).
+                                            const canStorna =
+                                                canManageTable && o.status === "delivered";
                                             return (
                                                 <li key={o.id} className={styles.orderRow}>
                                                     <StatusBadge variant={variant} label={label} />
@@ -639,9 +813,35 @@ export function TableDetailDrawer({
                                                             </Text>
                                                         )}
                                                     </div>
-                                                    <Text weight={500}>
-                                                        {formatEur(o.total_amount)}
-                                                    </Text>
+                                                    {canStorna ? (
+                                                        <div className={styles.orderActions}>
+                                                            <Text weight={500}>
+                                                                {formatEur(o.total_amount)}
+                                                            </Text>
+                                                            <button
+                                                                type="button"
+                                                                className={styles.stornaActionBtn}
+                                                                onClick={() =>
+                                                                    void handleOpenStorna(o)
+                                                                }
+                                                                disabled={
+                                                                    stornaLoadingOrderId !== null
+                                                                }
+                                                            >
+                                                                <RotateCcw
+                                                                    size={12}
+                                                                    aria-hidden
+                                                                />
+                                                                {stornaLoadingOrderId === o.id
+                                                                    ? "Apro…"
+                                                                    : "Storna"}
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <Text weight={500}>
+                                                            {formatEur(o.total_amount)}
+                                                        </Text>
+                                                    )}
                                                 </li>
                                             );
                                         })}

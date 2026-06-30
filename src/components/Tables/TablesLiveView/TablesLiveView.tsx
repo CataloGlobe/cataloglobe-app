@@ -569,6 +569,7 @@ export function TablesLiveView({
                 onRequestClose={handleRequestClose}
                 onMaintenanceChanged={() => void refetch()}
                 onBillCleared={() => void refetch()}
+                onStornoCreated={() => void refetch()}
             />
 
             <TableCloseDrawer
