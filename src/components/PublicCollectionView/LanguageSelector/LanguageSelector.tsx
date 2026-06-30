@@ -78,7 +78,7 @@ export default function LanguageSelector({ scrollContainerEl }: LanguageSelector
                 "--pub-surface": get("--pub-surface"),
                 "--pub-surface-border": get("--pub-surface-border"),
                 "--pub-surface-text": get("--pub-surface-text"),
-                "--pub-accent": get("--pub-accent"),
+                "--pub-primary": get("--pub-primary"),
                 "--pub-font-family": get("--pub-font-family"),
             };
         })()

@@ -92,10 +92,10 @@
 }
 
 .itemActive {
-  background: color-mix(in srgb, var(--pub-accent, #F59E0B) 10%, transparent);
+  background: color-mix(in srgb, var(--pub-primary) 10%, transparent);
 
   @include hover {
-    background: color-mix(in srgb, var(--pub-accent, #F59E0B) 14%, transparent);
+    background: color-mix(in srgb, var(--pub-primary) 14%, transparent);
   }
 }
 
@@ -113,5 +113,5 @@
 
 .itemCheck {
   flex-shrink: 0;
-  color: var(--pub-accent, #F59E0B);
+  color: var(--pub-primary);
 }
