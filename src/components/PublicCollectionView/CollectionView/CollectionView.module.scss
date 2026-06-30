@@ -406,39 +406,37 @@
   }
 }
 
-/* Preset trattamento card (data-card-treatment sul container):
+/* Aspetto card (data-card-treatment sul wrapper PublicThemeScope):
    raised = ombra, bordo invisibile · bordered = bordo, niente ombra (neanche hover).
-   Il bordo 1px di base resta sempre per geometria; cambia solo il colore. */
-.container[data-card-treatment="raised"] .card {
+   Il bordo 1px di base resta sempre per geometria; cambia solo il colore.
+   .card vive solo nel catalogo (mai nelle modali) → nessun leak. */
+:global([data-card-treatment="raised"]) .card {
   box-shadow: var(--pub-card-shadow);
   border-color: transparent;
 }
-.container[data-card-treatment="bordered"] .card {
+:global([data-card-treatment="bordered"]) .card {
   box-shadow: none;
   border-color: var(--pub-surface-border);
 }
-.container[data-card-treatment="bordered"] .card:hover {
+:global([data-card-treatment="bordered"]) .card:hover {
   box-shadow: none; /* niente ombra su hover in contornata (lift translateY mantenuto) */
 }
 
-/* Materiale "vetro": superficie semitrasparente + blur. Override del solido,
-   attivato dall'attributo globale sul wrapper PublicThemeScope (raggiunge anche
-   le modali portalate). Specificità con .container per vincere su raised/bordered
-   (ombra forzata a none: col vetro resta solo la hairline). Compatto: nessuna
-   superficie, quindi non toccato. */
-:global([data-surface-material="glass"]) .container .card {
+/* Vetro: superficie semitrasparente + blur (terzo valore di cardTreatment).
+   Mutuamente esclusivo con raised/bordered → nessun gating cross-asse. */
+:global([data-card-treatment="glass"]) .card {
   background: var(--pub-surface-glass);
   -webkit-backdrop-filter: blur(20px) saturate(1.6);
   backdrop-filter: blur(20px) saturate(1.6);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: none;
 }
-:global([data-surface-material="glass"]) .container .card:hover {
+:global([data-card-treatment="glass"]) .card:hover {
   box-shadow: none;
 }
 /* Fallback senza supporto backdrop-filter: torna al solido leggibile. */
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :global([data-surface-material="glass"]) .container .card {
+  :global([data-card-treatment="glass"]) .card {
     background: var(--pub-surface);
   }
 }

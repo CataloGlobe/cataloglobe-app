@@ -10,8 +10,7 @@ import {
     BackgroundPattern,
     PatternIntensity,
     FeaturedStyle,
-    CardTreatment,
-    SurfaceMaterial
+    CardTreatment
 } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
@@ -74,11 +73,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "bordered", label: "Contornata" }
     ];
 
-    const surfaceMaterialOptions: Array<{ value: SurfaceMaterial; label: string }> = [
-        { value: "solid", label: "Tinta unita" },
-        { value: "glass", label: "Vetro" }
-    ];
-
     const backgroundPatternOptions: Array<{ value: BackgroundPattern; label: string }> = [
         { value: "none", label: "Nessuno" },
         { value: "dots", label: "Puntini" },
@@ -122,10 +116,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const updateCardTreatment = (cardTreatment: CardTreatment) => {
         onChange({ ...model, appearance: { ...model.appearance, cardTreatment } });
-    };
-
-    const updateSurfaceMaterial = (surfaceMaterial: SurfaceMaterial) => {
-        onChange({ ...model, appearance: { ...model.appearance, surfaceMaterial } });
     };
 
     const updateBackgroundPattern = (backgroundPattern: BackgroundPattern) => {
@@ -507,35 +497,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                             isActive ? styles.optionButtonActive : ""
                                         }`}
                                         onClick={() => updateCardTreatment(option.value)}
-                                    >
-                                        <Text as="span" variant="body" weight={600}>
-                                            {option.label}
-                                        </Text>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {model.card.productStyle === "card" && (
-                    <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
-                        <Text variant="body" weight={500} className={styles.fieldLabel}>
-                            Materiale superficie<InfoTooltip content="Aspetto della superficie di card e finestre: Tinta unita è opaca, Vetro è semitrasparente con sfocatura." />
-                        </Text>
-                        <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
-                            {surfaceMaterialOptions.map(option => {
-                                const isActive = model.appearance.surfaceMaterial === option.value;
-                                return (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        role="radio"
-                                        aria-checked={isActive}
-                                        className={`${styles.optionButton} ${
-                                            isActive ? styles.optionButtonActive : ""
-                                        }`}
-                                        onClick={() => updateSurfaceMaterial(option.value)}
                                     >
                                         <Text as="span" variant="body" weight={600}>
                                             {option.label}

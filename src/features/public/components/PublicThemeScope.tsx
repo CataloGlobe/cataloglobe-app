@@ -34,7 +34,7 @@ export default function PublicThemeScope({ tokens: tokensProp, style, className,
         <div
             className={className}
             style={cssVars as React.CSSProperties}
-            data-surface-material={tokens.appearance.surfaceMaterial}
+            data-card-treatment={tokens.appearance.cardTreatment}
         >
             <PublicPortalContext.Provider value={portalNode}>
                 {children}

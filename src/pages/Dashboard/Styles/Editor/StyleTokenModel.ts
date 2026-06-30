@@ -6,8 +6,7 @@ export type FontFamily = "inter" | "poppins" | "montserrat" | "josefin-sans" | "
 export type BackgroundPattern = "none" | "dots" | "diagonal" | "waves" | "crosshatch" | "noise";
 export type PatternIntensity = "subtle" | "medium" | "strong";
 export type FeaturedStyle = "card" | "highlight";
-export type CardTreatment = "raised" | "bordered";
-export type SurfaceMaterial = "solid" | "glass";
+export type CardTreatment = "raised" | "bordered" | "glass";
 
 export interface StyleTokenModel {
     colors: {
@@ -25,7 +24,6 @@ export interface StyleTokenModel {
         patternIntensity: PatternIntensity;
         featuredStyle: FeaturedStyle;
         cardTreatment: CardTreatment;
-        surfaceMaterial: SurfaceMaterial;
     };
     header: {
         showLogo: boolean;
@@ -61,8 +59,7 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
         backgroundPattern: "none",
         patternIntensity: "medium",
         featuredStyle: "card",
-        cardTreatment: "raised",
-        surfaceMaterial: "solid"
+        cardTreatment: "raised"
     },
     header: {
         showLogo: true,
@@ -87,8 +84,7 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
 const VALID_PATTERNS: BackgroundPattern[] = ["none", "dots", "diagonal", "waves", "crosshatch", "noise"];
 const VALID_PATTERN_INTENSITIES: PatternIntensity[] = ["subtle", "medium", "strong"];
 const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight"];
-const VALID_CARD_TREATMENTS: CardTreatment[] = ["raised", "bordered"];
-const VALID_SURFACE_MATERIALS: SurfaceMaterial[] = ["solid", "glass"];
+const VALID_CARD_TREATMENTS: CardTreatment[] = ["raised", "bordered", "glass"];
 
 /**
  * Parses raw JSON configuration (from DB) into a structured UI Token Model.
@@ -144,11 +140,6 @@ export function parseTokens(rawJson: any): StyleTokenModel {
         ? rawAppearance.cardTreatment as CardTreatment
         : "raised";
 
-    // surfaceMaterial: default sicuro "solid" per stili vecchi senza campo
-    const surfaceMaterial: SurfaceMaterial = VALID_SURFACE_MATERIALS.includes(rawAppearance.surfaceMaterial)
-        ? rawAppearance.surfaceMaterial as SurfaceMaterial
-        : "solid";
-
     return {
         colors: {
             pageBackground:
@@ -172,8 +163,7 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             backgroundPattern,
             patternIntensity,
             featuredStyle,
-            cardTreatment,
-            surfaceMaterial
+            cardTreatment
         },
         header: {
             showLogo:
@@ -248,8 +238,7 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
             backgroundPattern: model.appearance.backgroundPattern,
             patternIntensity: model.appearance.patternIntensity,
             featuredStyle: model.appearance.featuredStyle,
-            cardTreatment: model.appearance.cardTreatment,
-            surfaceMaterial: model.appearance.surfaceMaterial
+            cardTreatment: model.appearance.cardTreatment
         },
         header: {
             showLogo: model.header.showLogo,

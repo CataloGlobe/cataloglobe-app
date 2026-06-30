@@ -2310,7 +2310,6 @@ export default function CollectionView({
                                     className={styles.container}
                                     data-card-layout={style.cardLayout ?? "list"}
                                     data-product-style={style.productStyle ?? "card"}
-                                    data-card-treatment={style.cardTreatment ?? "raised"}
                                 >
                                     {featuredBeforeCatalogSlot}
                                     {allFiltered && (

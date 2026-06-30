@@ -4,8 +4,7 @@ export type CardTemplate = "left" | "right" | "no-image";
 export type SectionNavStyle = "filled" | "outline" | "tabs" | "dot" | "minimal";
 export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
-export type CardTreatment = "raised" | "bordered";
-export type SurfaceMaterial = "solid" | "glass";
+export type CardTreatment = "raised" | "bordered" | "glass";
 
 export type CollectionStyle = {
     /* =========================
@@ -50,10 +49,8 @@ export type CollectionStyle = {
     cardLayout?: CardLayout;
     /** Visual style of product rows: card (with image/background) or menu (text-only) */
     productStyle?: ProductStyle;
-    /** How cards detach from the background: raised (shadow) or bordered (border, no shadow) */
+    /** Card/modal appearance: raised (shadow), bordered (border, no shadow), or glass (translucent + blur) */
     cardTreatment?: CardTreatment;
-    /** Surface material for cards and modals: solid (opaque tint) or glass (translucent + blur) */
-    surfaceMaterial?: SurfaceMaterial;
     /** Visual style of featured content cards: card (image top + text below) or highlight (image as background, text overlaid) */
     featuredStyle?: "card" | "highlight";
 };
@@ -85,6 +82,5 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
     cardLayout: "list",
     productStyle: "card",
     cardTreatment: "raised",
-    surfaceMaterial: "solid",
     featuredStyle: "card"
 };

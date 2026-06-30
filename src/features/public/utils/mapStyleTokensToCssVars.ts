@@ -236,7 +236,7 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         // Pavimento-tinta del materiale "vetro": surface resa semitrasparente così il
         // testo resta leggibile dietro il blur anche su sfondo piatto. Tono auto-derivato
         // (alpha 0.82 su surface chiara / 0.62 su scura, mirror idiomi BottomBar/Header).
-        // Emessa sempre; consumata solo da [data-surface-material="glass"] (no-op con solid).
+        // Emessa sempre; consumata solo da [data-card-treatment="glass"] (no-op con raised/bordered).
         "--pub-surface-glass": hexToRgba(surface, surfaceLight ? 0.82 : 0.62),
         // Neutro utility/chrome (pill allergeni/caratteristiche + cerchi social) — staccato da surface
         "--pub-ink": ink,
