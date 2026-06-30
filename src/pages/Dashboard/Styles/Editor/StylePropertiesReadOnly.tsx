@@ -162,7 +162,6 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
                     Header
                 </Text>
-                <ColorReadRow label="Colore header" value={model.colors.headerBackground} tooltip="Colore di sfondo dell'header nella pagina pubblica." />
                 <ValueReadRow
                     label="Logo"
                     tooltip="Mostra o nascondi il logo dell'azienda nella pagina pubblica."
@@ -345,16 +344,6 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         })}
                     </div>
                 </div>
-            </section>
-
-            {/* TESTI */}
-            <section className={sharedStyles.panelSection}>
-                <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
-                    Testi
-                </Text>
-                <ColorReadRow label="Colore testo principale" value={model.colors.textPrimary} />
-                <ColorReadRow label="Colore testo secondario" value={model.colors.textSecondary} />
-                <ColorReadRow label="Colore bordi" value={model.colors.border} />
             </section>
 
             {/* TIPOGRAFIA */}

@@ -14,11 +14,6 @@ export interface StyleTokenModel {
         primary: string;
         /** Colore azione (pulsanti prodotto + CTA). Opzionale: assente = segue il primario. */
         accent?: string;
-        headerBackground: string;
-        textPrimary: string;
-        textSecondary: string;
-        surface: string;
-        border: string;
     };
     typography: {
         fontFamily: FontFamily;
@@ -54,12 +49,7 @@ export interface StyleTokenModel {
 export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
     colors: {
         pageBackground: "#FFFFFF",
-        primary: "#6366f1",
-        headerBackground: "#6366f1",
-        textPrimary: "#1a1a2e",
-        textSecondary: "#6b7280",
-        surface: "#FFFFFF",
-        border: "#f1f5f9"
+        primary: "#6366f1"
     },
     typography: {
         fontFamily: "inter"
@@ -159,16 +149,7 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             primary: rawColors.primary || DEFAULT_STYLE_TOKENS.colors.primary,
             // accent opzionale: assente = "collegato al primario". Il fallback a primary
             // avviene nel mapper, così "collegato" resta semanticamente "campo assente".
-            accent: rawColors.accent || undefined,
-            headerBackground:
-                rawColors.headerBackground ||
-                rawHeader.background ||
-                rawColors.primary ||
-                DEFAULT_STYLE_TOKENS.colors.headerBackground,
-            textPrimary: rawColors.textPrimary || DEFAULT_STYLE_TOKENS.colors.textPrimary,
-            textSecondary: rawColors.textSecondary || DEFAULT_STYLE_TOKENS.colors.textSecondary,
-            surface: rawColors.surface || DEFAULT_STYLE_TOKENS.colors.surface,
-            border: rawColors.border || DEFAULT_STYLE_TOKENS.colors.border
+            accent: rawColors.accent || undefined
         },
         typography: {
             fontFamily: ["inter", "poppins", "montserrat", "josefin-sans", "raleway", "playfair", "lora", "cormorant-garamond", "caveat"].includes(
@@ -243,12 +224,7 @@ export function parseTokens(rawJson: any): StyleTokenModel {
 export function serializeTokens(model: StyleTokenModel): Record<string, unknown> {
     const colors: Record<string, unknown> = {
         pageBackground: model.colors.pageBackground,
-        primary: model.colors.primary,
-        headerBackground: model.colors.headerBackground,
-        textPrimary: model.colors.textPrimary,
-        textSecondary: model.colors.textSecondary,
-        surface: model.colors.surface,
-        border: model.colors.border
+        primary: model.colors.primary
     };
     // accent serializzato solo se scollegato dal primario (collegato → chiave omessa)
     if (model.colors.accent) colors.accent = model.colors.accent;

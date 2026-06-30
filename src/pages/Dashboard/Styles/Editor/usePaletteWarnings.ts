@@ -2,20 +2,20 @@ import { useMemo } from "react";
 import { converter } from "culori";
 
 export type PaletteWarningId =
-    | "primary-surface-similar"
+    | "primary-background-similar"
     | "primary-low-chroma";
 
 export type PaletteWarning = {
     id: PaletteWarningId;
     message: string;
-    affectedFields: Array<"primary" | "surface">;
+    affectedFields: Array<"primary" | "pageBackground">;
 };
 
 const toOklch = converter("oklch");
 
 type Colors = {
     primary: string;
-    surface: string;
+    pageBackground: string;
 };
 
 export function usePaletteWarnings(colors: Colors): PaletteWarning[] {
@@ -23,17 +23,17 @@ export function usePaletteWarnings(colors: Colors): PaletteWarning[] {
         const warnings: PaletteWarning[] = [];
 
         const primary = toOklch(colors.primary);
-        const surface = toOklch(colors.surface);
+        const pageBackground = toOklch(colors.pageBackground);
 
-        if (!primary || !surface) return warnings;
+        if (!primary || !pageBackground) return warnings;
 
-        const deltaLPrimSurf = Math.abs((primary.l ?? 0) - (surface.l ?? 0));
-        if (deltaLPrimSurf < 0.15) {
+        const deltaLPrimBg = Math.abs((primary.l ?? 0) - (pageBackground.l ?? 0));
+        if (deltaLPrimBg < 0.15) {
             warnings.push({
-                id: "primary-surface-similar",
+                id: "primary-background-similar",
                 message:
-                    "Il colore primario e lo sfondo superfici hanno luminosità simile. I contenuti in evidenza in stile Highlight potrebbero risultare poco distinguibili dalle card normali.",
-                affectedFields: ["primary", "surface"]
+                    "Il colore primario e lo sfondo pagina hanno luminosità simile. Navigazione attiva, eyebrow di categoria e marchio potrebbero risultare poco distinguibili dallo sfondo.",
+                affectedFields: ["primary", "pageBackground"]
             });
         }
 
@@ -48,5 +48,5 @@ export function usePaletteWarnings(colors: Colors): PaletteWarning[] {
         }
 
         return warnings;
-    }, [colors.primary, colors.surface]);
+    }, [colors.primary, colors.pageBackground]);
 }
