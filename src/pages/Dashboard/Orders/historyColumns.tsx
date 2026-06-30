@@ -1,10 +1,24 @@
-import { Edit3, Eye, Printer, RotateCcw } from "lucide-react";
+import { Eye, Printer, RotateCcw } from "lucide-react";
 import type { ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import type { V2OrderWithItems, V2Table } from "@/types/orders";
+import styles from "./historyColumns.module.scss";
+
+/**
+ * Riga dello Storico annotata lato client (Orders.tsx, useMemo di derivazione):
+ *   - `rectified` = il padre ha almeno uno storno figlio;
+ *   - `netTotal`  = padre.total_amount − Σ(storni figli) — mostrato nella
+ *     colonna Totale del padre (netto grande + lordo barrato).
+ * Gli storni restano righe `V2OrderWithItems` con `is_rectification=true`,
+ * agganciate al padre (`storni`) e rese dalla striscia in Orders.tsx.
+ */
+export type HistoryRow = V2OrderWithItems & {
+    rectified?: boolean;
+    netTotal?: number;
+};
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
     style: "currency",
@@ -18,10 +32,9 @@ function formatEur(n: number): string {
 interface MakeColumnsOptions {
     tables: V2Table[];
     operatorNames: Map<string, string>;
-    onViewDetail: (order: V2OrderWithItems) => void;
-    onRestore: (order: V2OrderWithItems) => Promise<void>;
-    onRectify: (order: V2OrderWithItems) => void;
-    onPrint: (order: V2OrderWithItems) => void;
+    onViewDetail: (order: HistoryRow) => void;
+    onRestore: (order: HistoryRow) => Promise<void>;
+    onPrint: (order: HistoryRow) => void;
     canManage?: boolean;
 }
 
@@ -30,22 +43,37 @@ export function makeHistoryColumns({
     operatorNames,
     onViewDetail,
     onRestore,
-    onRectify,
     onPrint,
     canManage
-}: MakeColumnsOptions): ColumnDefinition<V2OrderWithItems>[] {
+}: MakeColumnsOptions): ColumnDefinition<HistoryRow>[] {
     return [
         {
             id: "status",
             header: "Stato",
             width: "120px",
             accessor: (row) => row.status,
-            cell: (_value, row) => (
-                <StatusBadge
-                    variant={row.status === "delivered" ? "success" : "neutral"}
-                    label={row.status === "delivered" ? "Servito" : "Annullato"}
-                />
-            )
+            cell: (_value, row) => {
+                // Fallback minimale: le righe storno sono rese dalla striscia
+                // (rowWrapper), non da questa cella. Non dovrebbe mai colpire.
+                if (row.is_rectification) {
+                    return (
+                        <Text variant="body-sm" colorVariant="muted">
+                            Storno
+                        </Text>
+                    );
+                }
+                return (
+                    <div className={styles.statusCell}>
+                        <StatusBadge
+                            variant={row.status === "delivered" ? "success" : "neutral"}
+                            label={row.status === "delivered" ? "Servito" : "Annullato"}
+                        />
+                        {row.rectified && (
+                            <span className={styles.rettificatoChip}>Rettificato</span>
+                        )}
+                    </div>
+                );
+            }
         },
         {
             id: "table",
@@ -104,7 +132,37 @@ export function makeHistoryColumns({
             width: "100px",
             align: "right",
             accessor: (row) => row.total_amount,
-            cell: (value) => <Text weight={600}>{formatEur(value as number)}</Text>
+            cell: (_value, row) => {
+                // Fallback minimale per le righe storno (rese dalla striscia).
+                if (row.is_rectification) {
+                    return (
+                        <Text variant="body-sm" colorVariant="muted">
+                            {formatEur(-row.total_amount)}
+                        </Text>
+                    );
+                }
+                // Padre rettificato: netto numero principale + lordo barrato sopra.
+                // Robustezza: se netTotal manca o coincide col lordo → singolo numero.
+                const showNet =
+                    row.rectified &&
+                    row.netTotal != null &&
+                    row.netTotal !== row.total_amount;
+                if (showNet) {
+                    return (
+                        <div className={styles.totalCell}>
+                            <Text
+                                variant="body-sm"
+                                colorVariant="muted"
+                                className={styles.totalGross}
+                            >
+                                {formatEur(row.total_amount)}
+                            </Text>
+                            <Text weight={600}>{formatEur(row.netTotal as number)}</Text>
+                        </div>
+                    );
+                }
+                return <Text weight={600}>{formatEur(row.total_amount)}</Text>;
+            }
         },
         {
             id: "actions",
@@ -123,12 +181,8 @@ export function makeHistoryColumns({
                             label: "Ripristina",
                             icon: RotateCcw,
                             onClick: () => void onRestore(row),
-                            hidden: row.status !== "delivered" || canManage === false
-                        },
-                        {
-                            label: "Rettifica",
-                            icon: Edit3,
-                            onClick: () => onRectify(row),
+                            // Gli storni sono 'delivered' ma non ripristinabili
+                            // (contro-ordini terminali): nascondi su is_rectification.
                             hidden:
                                 row.status !== "delivered" ||
                                 row.is_rectification ||

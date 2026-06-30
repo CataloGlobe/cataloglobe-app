@@ -84,6 +84,93 @@
   align-self: flex-start;
 }
 
+// ── Blocco comanda rettificata: padre (riga nativa) + sotto-righe storno ──
+// Reso dal rowWrapper. Un SOLO separatore in fondo al blocco (= separatore
+// nativo tra comande). La riga padre interna NON ha border-bottom (nessuna
+// linea tra padre e storno). Token bordo identico a `.row` del DataTable.
+.rectifiedBlock {
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+
+  // riga padre nativa (primo figlio): rimuove la sua linea inferiore
+  > :first-child {
+    border-bottom: none;
+  }
+
+  // ultimo blocco della lista: niente separatore finale (come l'ultima riga)
+  &:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+}
+
+// Box grid-aligned della sotto-riga: parte sotto "Tavolo" (24 padding +
+// 120 colonna Stato) e finisce a fine "Totale" (56 azioni + 24 gutter),
+// senza sforare nella colonna kebab.
+.stornoStripRow {
+  padding: 2px 80px 2px 144px;
+}
+
+// Card inset: rosa tenue, arrotondata, ~mezza altezza, con barretta
+// connettore a sinistra (inset box-shadow → niente reflow, angoli puliti).
+.stornoStrip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--color-error-fg, #b91c1c);
+  background: color-mix(in srgb, var(--color-error-fg, #b91c1c) 6%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-error-fg, #b91c1c) 50%, transparent);
+}
+
+.stornoStripLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.stornoStripArrow {
+  color: var(--text-muted, #64748b);
+  font-size: 0.875rem;
+}
+
+.stornoStripIcon {
+  flex-shrink: 0;
+}
+
+.stornoStripTag {
+  font-weight: 700;
+}
+
+// Separatore "·" discreto tra i segmenti.
+.stornoStripSep {
+  color: color-mix(in srgb, var(--color-error-fg, #b91c1c) 45%, transparent);
+}
+
+.stornoStripItems {
+  color: color-mix(in srgb, var(--color-error-fg, #b91c1c) 85%, transparent);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stornoStripReason {
+  color: var(--text-muted, #64748b);
+  font-style: italic;
+}
+
+.stornoStripAmount {
+  flex-shrink: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .soundToggle {
   display: inline-flex;
   align-items: center;
