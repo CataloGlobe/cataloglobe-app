@@ -179,7 +179,15 @@
         "item_note_placeholder": "E.g. no onion, well done…",
         "order_note_label": "Notes for the kitchen",
         "order_note_add": "Add a note for the order",
-        "order_note_placeholder": "E.g. bring everything together, no rush…"
+        "order_note_placeholder": "E.g. bring everything together, no rush…",
+        "err_session_expired": "Your session has expired. Scan the QR code again.",
+        "err_service_ended": "Service at this table has ended. To order, ask the staff or scan the QR code again.",
+        "err_session_unavailable": "Session unavailable. Scan the QR code again.",
+        "err_session_expired_table": "Your session has expired. Scan the table QR code again.",
+        "err_items_unavailable": "Some items are no longer available. Please review your selection.",
+        "err_empty_cart": "Add at least one item before sending the order.",
+        "err_submit": "Error while sending the order. Please try again.",
+        "submitted_toast": "Order sent! Staff will handle it."
     },
     "fab": {
         "review_aria": "How did it go?",

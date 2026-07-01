@@ -1132,7 +1132,7 @@ export default function CollectionView({
         setIsOrderingOpen(false);
         setSubmitFeedback({
             type: "error",
-            message: "La sessione è scaduta. Scansiona di nuovo il QR.",
+            message: t("ordering.err_session_expired"),
         });
     }, []);
 
@@ -1162,8 +1162,7 @@ export default function CollectionView({
                     // Idempotente: setta solo se nessun maintenance gia attivo.
                     setDiscoveredMaintenance(prev => prev ?? {
                         reason: "table_closed",
-                        message:
-                            "Il servizio a questo tavolo è terminato. Per ordinare, chiedi al personale o riscansiona il codice QR."
+                        message: t("ordering.err_service_ended")
                     });
                 }
             },
@@ -1202,7 +1201,7 @@ export default function CollectionView({
         if (!customerSession?.session) {
             setSubmitFeedback({
                 type: "error",
-                message: "Sessione non disponibile. Scansiona di nuovo il QR."
+                message: t("ordering.err_session_unavailable")
             });
             return;
         }
@@ -1267,17 +1266,17 @@ export default function CollectionView({
                     customerSession.clear();
                     setSubmitFeedback({
                         type: "error",
-                        message: "La sessione è scaduta. Scansiona di nuovo il QR del tavolo."
+                        message: t("ordering.err_session_expired_table")
                     });
                 } else if (msg === "INVALID_ITEMS") {
                     setSubmitFeedback({
                         type: "error",
-                        message: "Alcuni prodotti non sono più disponibili. Ricontrolla la selezione."
+                        message: t("ordering.err_items_unavailable")
                     });
                 } else if (msg === "EMPTY_CART") {
                     setSubmitFeedback({
                         type: "error",
-                        message: "Aggiungi almeno un prodotto prima di inviare l'ordine."
+                        message: t("ordering.err_empty_cart")
                     });
                 } else {
                     setSubmitFeedback({ type: "error", message: msg });
@@ -1285,7 +1284,7 @@ export default function CollectionView({
             } else {
                 setSubmitFeedback({
                     type: "error",
-                    message: "Errore durante l'invio dell'ordine. Riprova."
+                    message: t("ordering.err_submit")
                 });
             }
         } finally {
@@ -2542,7 +2541,7 @@ export default function CollectionView({
                     aria-live="polite"
                 >
                     {submitFeedback.type === "success"
-                        ? "Ordine inviato! Lo staff lo prenderà in carico."
+                        ? t("ordering.submitted_toast")
                         : submitFeedback.message}
                 </div>
             )}

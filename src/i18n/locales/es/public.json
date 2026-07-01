@@ -179,7 +179,15 @@
         "item_note_placeholder": "Ej. sin cebolla, bien hecho…",
         "order_note_label": "Notas para la cocina",
         "order_note_add": "Añadir una nota para el pedido",
-        "order_note_placeholder": "Ej. traer todo junto, sin prisa…"
+        "order_note_placeholder": "Ej. traer todo junto, sin prisa…",
+        "err_session_expired": "Tu sesión ha caducado. Escanea de nuevo el QR.",
+        "err_service_ended": "El servicio en esta mesa ha finalizado. Para pedir, pregunta al personal o vuelve a escanear el QR.",
+        "err_session_unavailable": "Sesión no disponible. Escanea de nuevo el QR.",
+        "err_session_expired_table": "Tu sesión ha caducado. Escanea de nuevo el QR de la mesa.",
+        "err_items_unavailable": "Algunos productos ya no están disponibles. Revisa tu selección.",
+        "err_empty_cart": "Añade al menos un producto antes de enviar el pedido.",
+        "err_submit": "Error al enviar el pedido. Inténtalo de nuevo.",
+        "submitted_toast": "¡Pedido enviado! El personal se encargará."
     },
     "fab": {
         "review_aria": "¿Cómo ha ido?",

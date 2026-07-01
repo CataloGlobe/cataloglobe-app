@@ -179,7 +179,15 @@
         "item_note_placeholder": "Z. B. ohne Zwiebeln, gut durchgebraten…",
         "order_note_label": "Hinweise für die Küche",
         "order_note_add": "Notiz zur Bestellung hinzufügen",
-        "order_note_placeholder": "Z. B. alles zusammen bringen, ohne Eile…"
+        "order_note_placeholder": "Z. B. alles zusammen bringen, ohne Eile…",
+        "err_session_expired": "Ihre Sitzung ist abgelaufen. Scannen Sie den QR-Code erneut.",
+        "err_service_ended": "Der Service an diesem Tisch ist beendet. Zum Bestellen fragen Sie das Personal oder scannen Sie den QR-Code erneut.",
+        "err_session_unavailable": "Sitzung nicht verfügbar. Scannen Sie den QR-Code erneut.",
+        "err_session_expired_table": "Ihre Sitzung ist abgelaufen. Scannen Sie den QR-Code des Tisches erneut.",
+        "err_items_unavailable": "Einige Produkte sind nicht mehr verfügbar. Bitte überprüfen Sie Ihre Auswahl.",
+        "err_empty_cart": "Fügen Sie mindestens ein Produkt hinzu, bevor Sie die Bestellung senden.",
+        "err_submit": "Fehler beim Senden der Bestellung. Bitte erneut versuchen.",
+        "submitted_toast": "Bestellung gesendet! Das Personal kümmert sich darum."
     },
     "fab": {
         "review_aria": "Wie ist es gelaufen?",

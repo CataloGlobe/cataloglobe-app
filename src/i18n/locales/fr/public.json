@@ -179,7 +179,15 @@
     "item_note_placeholder": "Ex. sans oignon, bien cuit…",
     "order_note_label": "Notes pour la cuisine",
     "order_note_add": "Ajouter une note pour la commande",
-    "order_note_placeholder": "Ex. tout apporter en même temps, sans se presser…"
+    "order_note_placeholder": "Ex. tout apporter en même temps, sans se presser…",
+    "err_session_expired": "Votre session a expiré. Scannez à nouveau le QR.",
+    "err_service_ended": "Le service à cette table est terminé. Pour commander, demandez au personnel ou scannez à nouveau le QR.",
+    "err_session_unavailable": "Session indisponible. Scannez à nouveau le QR.",
+    "err_session_expired_table": "Votre session a expiré. Scannez à nouveau le QR de la table.",
+    "err_items_unavailable": "Certains produits ne sont plus disponibles. Vérifiez votre sélection.",
+    "err_empty_cart": "Ajoutez au moins un produit avant d'envoyer la commande.",
+    "err_submit": "Erreur lors de l'envoi de la commande. Réessayez.",
+    "submitted_toast": "Commande envoyée ! Le personnel s'en occupe."
   },
   "fab": {
     "review_aria": "Votre avis ?",

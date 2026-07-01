@@ -179,7 +179,15 @@
         "item_note_placeholder": "Es. senza cipolla, ben cotta…",
         "order_note_label": "Note per la cucina",
         "order_note_add": "Aggiungi nota per l'ordine",
-        "order_note_placeholder": "Es. consegnare tutto insieme, senza fretta…"
+        "order_note_placeholder": "Es. consegnare tutto insieme, senza fretta…",
+        "err_session_expired": "La sessione è scaduta. Scansiona di nuovo il QR.",
+        "err_service_ended": "Il servizio a questo tavolo è terminato. Per ordinare, chiedi al personale o riscansiona il codice QR.",
+        "err_session_unavailable": "Sessione non disponibile. Scansiona di nuovo il QR.",
+        "err_session_expired_table": "La sessione è scaduta. Scansiona di nuovo il QR del tavolo.",
+        "err_items_unavailable": "Alcuni prodotti non sono più disponibili. Ricontrolla la selezione.",
+        "err_empty_cart": "Aggiungi almeno un prodotto prima di inviare l'ordine.",
+        "err_submit": "Errore durante l'invio dell'ordine. Riprova.",
+        "submitted_toast": "Ordine inviato! Lo staff lo prenderà in carico."
     },
     "fab": {
         "review_aria": "Com'è andata?",
