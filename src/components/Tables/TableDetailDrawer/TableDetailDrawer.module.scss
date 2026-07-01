@@ -195,31 +195,91 @@
   background: var(--color-warning-surface, #fffbeb);
 }
 
-// Riga storno (contro-ordine): toni rosa/error, distinta dalle vendite.
-.orderRowStorno {
-  border-color: color-mix(in srgb, var(--color-error-fg, #b91c1c) 25%, transparent);
-  background: color-mix(in srgb, var(--color-error-fg, #b91c1c) 5%, transparent);
+// ── Blocco comanda del conto: riga ordine + sotto-righe storno agganciate ──
+// Il blocco è la card (bordo/arrotondamento); la riga ordine interna perde
+// bordo/sfondo propri (un solo contorno per comanda, nessuna linea tra ordine
+// e storno).
+.orderBlock {
+  background: var(--surface-elevated, #ffffff);
+  border: 1px solid var(--border-default, #e1e3e8);
+  border-radius: 8px;
+  overflow: hidden;
+  padding-bottom: 2px;
+
+  .orderRow {
+    border: none;
+    background: transparent;
+    border-radius: 0;
+  }
 }
 
-// Badge "Storno": pill rosa soft, non uno StatusBadge (è un tipo di riga,
-// non uno stato come la pill "Annullato" slate — non vanno allineati).
-.stornoBadge {
-  display: inline-flex;
+// Importo: lordo barrato (piccolo, muted) sopra il netto (grande).
+.amountStack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.grossStrike {
+  text-decoration: line-through;
+}
+
+// Sotto-riga storno agganciata: card rosa compatta, connettore a sinistra,
+// indentata DENTRO il blocco (no full-bleed). Classi locali: nessun
+// accoppiamento col modulo SCSS dello Storico.
+.stornoSubRow {
+  display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
-  border-radius: 999px;
-  font-size: 0.75rem;
-  font-weight: 600;
-  white-space: nowrap;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 12px 8px 36px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.3;
   color: var(--color-error-fg, #b91c1c);
-  background: color-mix(in srgb, var(--color-error-fg, #b91c1c) 10%, transparent);
+  background: color-mix(in srgb, var(--color-error-fg, #b91c1c) 6%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-error-fg, #b91c1c) 50%, transparent);
 }
 
-// Importo storno: negativo, in rosso (denaro che scende = negativo contabile).
-.stornoAmount {
-  font-weight: 600;
-  color: var(--color-error-fg, #b91c1c);
+.stornoSubLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.stornoSubArrow {
+  color: var(--text-muted, #64748b);
+  font-size: 0.875rem;
+}
+
+.stornoSubIcon {
+  flex-shrink: 0;
+}
+
+.stornoSubTag {
+  font-weight: 700;
+}
+
+.stornoSubSep {
+  color: color-mix(in srgb, var(--color-error-fg, #b91c1c) 45%, transparent);
+}
+
+.stornoSubReason {
+  color: var(--text-muted, #64748b);
+  font-style: italic;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stornoSubAmount {
+  flex-shrink: 0;
+  font-weight: 700;
+  white-space: nowrap;
 }
 
 // Blocco netto "Da pagare" in fondo alla sezione conto.

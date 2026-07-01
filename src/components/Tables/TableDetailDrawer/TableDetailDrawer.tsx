@@ -216,6 +216,48 @@ interface DetailData {
     orders: V2OrderWithItems[];
 }
 
+/**
+ * Unità di render del conto raggruppato:
+ *   - `order`  = una comanda (delivered|cancelled) coi suoi storni agganciati
+ *                e il netto per ordine (lordo − Σ storni);
+ *   - `orphan` = uno storno il cui padre non è nel conto → riga standalone.
+ */
+type ContoUnit =
+    | { kind: "order"; order: V2OrderWithItems; storni: V2OrderWithItems[]; netto: number }
+    | { kind: "orphan"; storno: V2OrderWithItems };
+
+/**
+ * Sotto-riga storno agganciata dentro il blocco della comanda: card rosa
+ * compatta con connettore a sinistra, `↳ ⟲ Storno · <motivo> … −<importo>`.
+ * Gli articoli non sono mostrati: il conto carica gli ordini senza items
+ * (`includeItems:false`); il motivo (`notes`) è invece sempre disponibile.
+ * Stesso linguaggio visivo della striscia dello Storico.
+ */
+function renderStornoSubRow(s: V2OrderWithItems) {
+    return (
+        <div key={s.id} className={styles.stornoSubRow}>
+            <div className={styles.stornoSubLeft}>
+                <span className={styles.stornoSubArrow} aria-hidden>
+                    ↳
+                </span>
+                <RotateCcw size={12} aria-hidden className={styles.stornoSubIcon} />
+                <span className={styles.stornoSubTag}>Storno</span>
+                {s.notes && (
+                    <>
+                        <span className={styles.stornoSubSep} aria-hidden>
+                            ·
+                        </span>
+                        <span className={styles.stornoSubReason}>{s.notes}</span>
+                    </>
+                )}
+            </div>
+            <span className={styles.stornoSubAmount}>
+                {formatEur(-s.total_amount)}
+            </span>
+        </div>
+    );
+}
+
 export function TableDetailDrawer({
     open,
     tenantId,
@@ -449,6 +491,33 @@ export function TableDetailDrawer({
                   o.order_group_id === data.openGroup?.id
           )
         : [];
+
+    // Blocchi del conto: ogni comanda (delivered|cancelled, non-storno) con i
+    // suoi storni agganciati + netto per ordine. Gli storni il cui padre non è
+    // nel conto restano righe standalone. Ordine preservato da `recentOrders`
+    // (submitted_at DESC → comanda più recente in alto).
+    const contoStornoByParent = new Map<string, V2OrderWithItems[]>();
+    for (const o of recentOrders) {
+        if (o.is_rectification && o.parent_order_id) {
+            const arr = contoStornoByParent.get(o.parent_order_id);
+            if (arr) arr.push(o);
+            else contoStornoByParent.set(o.parent_order_id, [o]);
+        }
+    }
+    const contoParentIds = new Set(
+        recentOrders.filter(o => !o.is_rectification).map(o => o.id)
+    );
+    const contoUnits: ContoUnit[] = [];
+    for (const o of recentOrders) {
+        if (!o.is_rectification) {
+            const storni = contoStornoByParent.get(o.id) ?? [];
+            const netto =
+                o.total_amount - storni.reduce((s, c) => s + c.total_amount, 0);
+            contoUnits.push({ kind: "order", order: o, storni, netto });
+        } else if (!o.parent_order_id || !contoParentIds.has(o.parent_order_id)) {
+            contoUnits.push({ kind: "orphan", storno: o });
+        }
+    }
 
     // openGroup is NOT rendered but kept for nothingToClose + deriveTableStatus.
     const nothingToClose =
@@ -746,7 +815,7 @@ export function TableDetailDrawer({
                             </section>
                         )}
 
-                        {recentOrders.length > 0 && (
+                        {contoUnits.length > 0 && (
                             <section className={styles.section}>
                                 <Text variant="body-sm" weight={600} colorVariant="muted">
                                     Ordini del conto
@@ -754,106 +823,129 @@ export function TableDetailDrawer({
                                 <>
                                     <ul className={styles.ordersList}>
                                         {(showAllRecent
-                                            ? recentOrders
-                                            : recentOrders.slice(0, RECENT_ORDERS_CAP)
-                                        ).map(o => {
-                                            const timestamp =
-                                                o.status === "delivered" && o.delivered_at
-                                                    ? formatAbsolute(o.delivered_at)
-                                                    : formatAbsolute(o.submitted_at);
-
-                                            // Storno = contro-ordine (is_rectification):
-                                            // badge "Storno" rosa, importo negativo in rosso,
-                                            // motivo da `notes` (RPC rectify_order_atomic.p_notes).
-                                            if (o.is_rectification) {
+                                            ? contoUnits
+                                            : contoUnits.slice(0, RECENT_ORDERS_CAP)
+                                        ).map(unit => {
+                                            // Storno orfano (padre fuori dal conto): riga
+                                            // standalone, dentro un blocco proprio.
+                                            if (unit.kind === "orphan") {
                                                 return (
                                                     <li
-                                                        key={o.id}
-                                                        className={`${styles.orderRow} ${styles.orderRowStorno}`}
+                                                        key={unit.storno.id}
+                                                        className={styles.orderBlock}
                                                     >
-                                                        <span className={styles.stornoBadge}>
-                                                            <RotateCcw size={11} aria-hidden />
-                                                            Storno
-                                                        </span>
-                                                        <div className={styles.orderMeta}>
-                                                            <Text variant="body-sm">
-                                                                {timestamp}
-                                                            </Text>
-                                                            {o.notes && (
-                                                                <Text
-                                                                    variant="body-sm"
-                                                                    colorVariant="muted"
-                                                                >
-                                                                    {o.notes}
-                                                                </Text>
-                                                            )}
-                                                        </div>
-                                                        <span className={styles.stornoAmount}>
-                                                            {formatEur(-o.total_amount)}
-                                                        </span>
+                                                        {renderStornoSubRow(unit.storno)}
                                                     </li>
                                                 );
                                             }
 
-                                            const { variant, label } = orderStatusInfo(o.status);
-                                            // Storna solo su delivered (non sui cancelled).
+                                            const o = unit.order;
+                                            const hasStorni = unit.storni.length > 0;
+                                            const timestamp =
+                                                o.status === "delivered" && o.delivered_at
+                                                    ? formatAbsolute(o.delivered_at)
+                                                    : formatAbsolute(o.submitted_at);
+                                            const { variant, label } = orderStatusInfo(
+                                                o.status
+                                            );
+                                            // Storna solo su delivered; disabilitato a netto≤0.
                                             const canStorna =
                                                 canManageTable && o.status === "delivered";
+                                            const stornaDisabled = unit.netto <= 0;
                                             return (
-                                                <li key={o.id} className={styles.orderRow}>
-                                                    <StatusBadge variant={variant} label={label} />
-                                                    <div className={styles.orderMeta}>
-                                                        <Text variant="body-sm">{timestamp}</Text>
-                                                        {o.customer_name_snapshot && (
-                                                            <Text
-                                                                variant="body-sm"
-                                                                colorVariant="muted"
-                                                            >
-                                                                {o.customer_name_snapshot}
+                                                <li key={o.id} className={styles.orderBlock}>
+                                                    <div className={styles.orderRow}>
+                                                        <StatusBadge
+                                                            variant={variant}
+                                                            label={label}
+                                                        />
+                                                        <div className={styles.orderMeta}>
+                                                            <Text variant="body-sm">
+                                                                {timestamp}
                                                             </Text>
-                                                        )}
-                                                    </div>
-                                                    {canStorna ? (
-                                                        <div className={styles.orderActions}>
-                                                            <Text weight={500}>
-                                                                {formatEur(o.total_amount)}
-                                                            </Text>
-                                                            <button
-                                                                type="button"
-                                                                className={styles.stornaActionBtn}
-                                                                onClick={() =>
-                                                                    void handleOpenStorna(o)
-                                                                }
-                                                                disabled={
-                                                                    stornaLoadingOrderId !== null
-                                                                }
-                                                            >
-                                                                <RotateCcw
-                                                                    size={12}
-                                                                    aria-hidden
-                                                                />
-                                                                {stornaLoadingOrderId === o.id
-                                                                    ? "Apro…"
-                                                                    : "Storna"}
-                                                            </button>
+                                                            {o.customer_name_snapshot && (
+                                                                <Text
+                                                                    variant="body-sm"
+                                                                    colorVariant="muted"
+                                                                >
+                                                                    {o.customer_name_snapshot}
+                                                                </Text>
+                                                            )}
                                                         </div>
-                                                    ) : (
-                                                        <Text weight={500}>
-                                                            {formatEur(o.total_amount)}
-                                                        </Text>
+                                                        <div className={styles.orderActions}>
+                                                            {hasStorni ? (
+                                                                <div
+                                                                    className={
+                                                                        styles.amountStack
+                                                                    }
+                                                                >
+                                                                    <Text
+                                                                        variant="body-sm"
+                                                                        colorVariant="muted"
+                                                                        className={
+                                                                            styles.grossStrike
+                                                                        }
+                                                                    >
+                                                                        {formatEur(
+                                                                            o.total_amount
+                                                                        )}
+                                                                    </Text>
+                                                                    <Text weight={600}>
+                                                                        {formatEur(unit.netto)}
+                                                                    </Text>
+                                                                </div>
+                                                            ) : (
+                                                                <Text weight={500}>
+                                                                    {formatEur(o.total_amount)}
+                                                                </Text>
+                                                            )}
+                                                            {canStorna && (
+                                                                <button
+                                                                    type="button"
+                                                                    className={
+                                                                        styles.stornaActionBtn
+                                                                    }
+                                                                    onClick={() =>
+                                                                        void handleOpenStorna(o)
+                                                                    }
+                                                                    disabled={
+                                                                        stornaDisabled ||
+                                                                        stornaLoadingOrderId !==
+                                                                            null
+                                                                    }
+                                                                    title={
+                                                                        stornaDisabled
+                                                                            ? "Ordine già stornato per intero"
+                                                                            : undefined
+                                                                    }
+                                                                >
+                                                                    <RotateCcw
+                                                                        size={12}
+                                                                        aria-hidden
+                                                                    />
+                                                                    {stornaLoadingOrderId ===
+                                                                    o.id
+                                                                        ? "Apro…"
+                                                                        : "Storna"}
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    {unit.storni.map(s =>
+                                                        renderStornoSubRow(s)
                                                     )}
                                                 </li>
                                             );
                                         })}
                                     </ul>
                                     {!showAllRecent &&
-                                        recentOrders.length > RECENT_ORDERS_CAP && (
+                                        contoUnits.length > RECENT_ORDERS_CAP && (
                                             <button
                                                 className={styles.showAllButton}
                                                 onClick={() => setShowAllRecent(true)}
                                             >
                                                 Mostra tutti (
-                                                {recentOrders.length - RECENT_ORDERS_CAP} in
+                                                {contoUnits.length - RECENT_ORDERS_CAP} in
                                                 più)
                                             </button>
                                         )}
