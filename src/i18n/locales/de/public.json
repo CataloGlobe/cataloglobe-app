@@ -216,7 +216,10 @@
         "open_characteristics_aria": "Liste der Merkmale öffnen",
         "allergens_label": "Allergene",
         "characteristics_label": "Eigenschaften",
-        "powered_by_aria": "Angetrieben von CataloGlobe"
+        "powered_by_aria": "Angetrieben von CataloGlobe",
+        "terms": "AGB",
+        "privacy": "Datenschutz",
+        "powered_by": "Powered by"
     },
     "social": {
         "phone": "Telefon",

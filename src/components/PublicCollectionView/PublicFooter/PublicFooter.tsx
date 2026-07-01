@@ -263,7 +263,7 @@ export default function PublicFooter({
                 className={styles.poweredByLink}
                 aria-label={`Powered by ${COMPANY.businessName}`}
             >
-                <span className={styles.poweredByLabel}>Powered by</span>
+                <span className={styles.poweredByLabel}>{t("footer.powered_by")}</span>
                 <span className={styles.brandName}>{COMPANY.businessName}</span>
             </a>
 
@@ -291,7 +291,7 @@ export default function PublicFooter({
                     target="_blank"
                     rel="noopener noreferrer"
                 >
-                    Privacy Policy
+                    {t("footer.privacy")}
                 </a>
                 <span className={styles.legalDot} aria-hidden>·</span>
                 <a
@@ -300,7 +300,7 @@ export default function PublicFooter({
                     target="_blank"
                     rel="noopener noreferrer"
                 >
-                    Termini e Condizioni
+                    {t("footer.terms")}
                 </a>
             </div>
         </footer>
