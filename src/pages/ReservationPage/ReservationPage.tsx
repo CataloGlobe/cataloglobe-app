@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import { usePageHead } from "@/hooks/usePageHead";
+import { usePublicLanguageSync } from "@/hooks/usePublicLanguageSync";
 import { fetchPublicCatalog } from "@/services/publicCatalog/fetchPublicCatalog";
 import type { SubmitReservationStatus } from "@/services/supabase/reservations";
 import type { ResolvedStyle } from "@/types/resolvedCollections";
@@ -20,6 +21,9 @@ import styles from "./ReservationPage.module.scss";
 
 export default function ReservationPage() {
     const { slug } = useParams<{ slug: string }>();
+    // Fase 1: applica la lingua dall'URL (segmento `:lang` sulla route
+    // lang-aware `/:slug/:lang/prenota`; assente sulla base → default "it").
+    usePublicLanguageSync();
     const [resolve, setResolve] = useState<ResolveState>({ status: "loading" });
     const [successSnapshot, setSuccessSnapshot] = useState<FormFields | null>(null);
     const [successStatus, setSuccessStatus] = useState<SubmitReservationStatus>("pending");

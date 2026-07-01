@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { usePageHead } from "@/hooks/usePageHead";
+import { usePublicLanguageSync } from "@/hooks/usePublicLanguageSync";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import type { HubTab } from "@/types/collectionStyle";
@@ -55,6 +56,9 @@ type Props = {
 
 export default function PublicCollectionPage({ initialPayload }: Props) {
     const { slug, lang: langFromUrl } = useParams<{ slug: string; lang?: string }>();
+    // Fase 1: applica la lingua dall'URL subito, prima di ogni early-return →
+    // copre tutte le shell (loading/error/inactive/...) oltre al ramo ready.
+    usePublicLanguageSync();
     const navigate = useNavigate();
     const { t, i18n } = useTranslation("public");
     const location = useLocation();
