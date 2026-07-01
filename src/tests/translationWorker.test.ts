@@ -195,4 +195,25 @@ describe("runTranslationTick", () => {
         expect(store.resetOrphansCalledWith).toEqual(["B"]);
         expect(c.orphansReset).toBe(1);
     });
+
+    it("router 'unsupported language' error (retryable=false) -> failed without burning retries", async () => {
+        // getProvider lancia (come router.ts per lingua non supportata): errore
+        // per-job PERMANENTE con retryable=false. Il tick NON deve fare
+        // rollback->pending (niente rimbalzo fino al cap), ma failed subito.
+        const job = makeJob({ attempts: 0 }); // claimed -> attempts 1, ben sotto cap
+        const store = new FakeStore([job]);
+        const unsupportedErr = new TranslationProviderError(
+            "Lingua non supportata da nessun provider: xx", "validation", "router", false
+        );
+        const deps = makeDeps(store, makeProvider("ok"), {
+            getProvider: () => { throw unsupportedErr; }
+        });
+
+        const c = await runTranslationTick(deps);
+
+        expect(store.rows.get(job.id)!.status).toBe("failed");
+        expect(c.failed).toBe(1);
+        expect(c.retried).toBe(0);                        // nessun rollback->pending
+        expect(store.rows.get(job.id)!.attempts).toBe(1); // singola presa, non 3
+    });
 });
