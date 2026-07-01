@@ -33,6 +33,8 @@
         "allergens_subtitle_active_one": "{{count}} allergen active",
         "allergens_subtitle_active_other": "{{count}} allergens active",
         "allergens_subtitle_empty": "No products with allergens",
+        "reservation_label": "Book a table",
+        "reservation_subtitle": "Request a table online",
         "info_label": "Information",
         "info_subtitle": "Address, hours, contacts",
         "share_label": "Share",

@@ -21,7 +21,26 @@
     "header": {
         "info_aria": "Informationen zum Veranstaltungsort",
         "search_aria": "Suche im Katalog",
-        "info_sheet_aria": "Informationen zum Veranstaltungsort"
+        "info_sheet_aria": "Informationen zum Veranstaltungsort",
+        "more_aria": "Weitere Optionen"
+    },
+    "more": {
+        "title": "Optionen",
+        "close_aria": "Schließen",
+        "close_label": "Schließen",
+        "allergens_label": "Nach Allergenen filtern",
+        "allergens_subtitle_inactive": "Produkte mit Allergenen ausblenden",
+        "allergens_subtitle_active_one": "{{count}} Allergen aktiv",
+        "allergens_subtitle_active_other": "{{count}} Allergene aktiv",
+        "allergens_subtitle_empty": "Keine Produkte mit Allergenen",
+        "reservation_label": "Tisch reservieren",
+        "reservation_subtitle": "Tisch online anfragen",
+        "info_label": "Informationen",
+        "info_subtitle": "Adresse, Öffnungszeiten, Kontakt",
+        "share_label": "Teilen",
+        "share_subtitle": "Link zu dieser Seite senden",
+        "share_copied": "Link kopiert",
+        "share_error": "Link konnte nicht kopiert werden"
     },
     "search": {
         "placeholder": "Produkt suchen...",
@@ -38,7 +57,15 @@
         "title": "Allergene",
         "close_aria": "Schließen Sie",
         "close_label": "Schließen Sie",
-        "disclaimer": "Ausführliche Informationen über die Zubereitung und das Vorhandensein von Allergenen in den einzelnen Gerichten erhalten Sie von der Bedienung."
+        "disclaimer": "Ausführliche Informationen über die Zubereitung und das Vorhandensein von Allergenen in den einzelnen Gerichten erhalten Sie von der Bedienung.",
+        "filter_title": "Nach Allergenen filtern",
+        "filter_intro": "Blenden Sie Produkte aus, die diese Allergene enthalten.",
+        "filter_empty": "Dieses Menü enthält keine mit Allergenen gekennzeichneten Produkte.",
+        "filter_disclaimer": "Die Filter basieren auf den vom Restaurant gekennzeichneten Produkten. Bei schweren Allergien bestätigen Sie dies immer beim Personal.",
+        "filter_reset": "Zurücksetzen",
+        "filter_apply": "Anwenden",
+        "filter_no_results": "Keine Produkte mit den aktuellen Filtern verfügbar.",
+        "filter_edit_cta": "Filter bearbeiten"
     },
     "characteristics": {
         "title": "Eigenschaften",

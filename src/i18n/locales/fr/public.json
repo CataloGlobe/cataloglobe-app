@@ -21,7 +21,26 @@
   "header": {
     "info_aria": "Informations sur le lieu",
     "search_aria": "Rechercher dans le catalogue",
-    "info_sheet_aria": "Informations sur le lieu"
+    "info_sheet_aria": "Informations sur le lieu",
+    "more_aria": "Plus d'options"
+  },
+  "more": {
+    "title": "Options",
+    "close_aria": "Fermer",
+    "close_label": "Fermer",
+    "allergens_label": "Filtrer par allergènes",
+    "allergens_subtitle_inactive": "Masquer les produits contenant des allergènes",
+    "allergens_subtitle_active_one": "{{count}} allergène actif",
+    "allergens_subtitle_active_other": "{{count}} allergènes actifs",
+    "allergens_subtitle_empty": "Aucun produit contenant des allergènes",
+    "reservation_label": "Réserver une table",
+    "reservation_subtitle": "Demander une table en ligne",
+    "info_label": "Informations",
+    "info_subtitle": "Adresse, horaires, contacts",
+    "share_label": "Partager",
+    "share_subtitle": "Envoyer le lien de cette page",
+    "share_copied": "Lien copié",
+    "share_error": "Impossible de copier le lien"
   },
   "search": {
     "placeholder": "Recherche de produits...",
@@ -38,7 +57,15 @@
     "title": "Allergènes",
     "close_aria": "Fermer",
     "close_label": "Fermer",
-    "disclaimer": "Pour obtenir des informations détaillées sur la préparation et la présence d'allergènes dans les différents plats, demandez au personnel de service."
+    "disclaimer": "Pour obtenir des informations détaillées sur la préparation et la présence d'allergènes dans les différents plats, demandez au personnel de service.",
+    "filter_title": "Filtrer par allergènes",
+    "filter_intro": "Masquez les produits qui contiennent ces allergènes.",
+    "filter_empty": "Ce menu ne contient aucun produit étiqueté avec des allergènes.",
+    "filter_disclaimer": "Les filtres se basent sur les produits étiquetés par le restaurant. En cas d'allergie grave, confirmez toujours auprès du personnel.",
+    "filter_reset": "Réinitialiser",
+    "filter_apply": "Appliquer",
+    "filter_no_results": "Aucun produit disponible avec les filtres actuels.",
+    "filter_edit_cta": "Modifier les filtres"
   },
   "characteristics": {
     "title": "Caractéristiques",

@@ -21,7 +21,26 @@
     "header": {
         "info_aria": "Información sobre el lugar",
         "search_aria": "Buscar en el catálogo",
-        "info_sheet_aria": "Información sobre el lugar"
+        "info_sheet_aria": "Información sobre el lugar",
+        "more_aria": "Más opciones"
+    },
+    "more": {
+        "title": "Opciones",
+        "close_aria": "Cerrar",
+        "close_label": "Cerrar",
+        "allergens_label": "Filtrar por alérgenos",
+        "allergens_subtitle_inactive": "Ocultar los productos con alérgenos",
+        "allergens_subtitle_active_one": "{{count}} alérgeno activo",
+        "allergens_subtitle_active_other": "{{count}} alérgenos activos",
+        "allergens_subtitle_empty": "Ningún producto con alérgenos",
+        "reservation_label": "Reservar una mesa",
+        "reservation_subtitle": "Solicitar una mesa online",
+        "info_label": "Información",
+        "info_subtitle": "Dirección, horarios, contactos",
+        "share_label": "Compartir",
+        "share_subtitle": "Enviar el enlace de esta página",
+        "share_copied": "Enlace copiado",
+        "share_error": "No se pudo copiar el enlace"
     },
     "search": {
         "placeholder": "Búsqueda de productos...",
@@ -38,7 +57,15 @@
         "title": "Alérgenos",
         "close_aria": "Cerrar",
         "close_label": "Cerrar",
-        "disclaimer": "Para obtener información detallada sobre la preparación y la presencia de alérgenos en platos concretos, pregunte al personal de sala."
+        "disclaimer": "Para obtener información detallada sobre la preparación y la presencia de alérgenos en platos concretos, pregunte al personal de sala.",
+        "filter_title": "Filtrar por alérgenos",
+        "filter_intro": "Oculta los productos que contienen estos alérgenos.",
+        "filter_empty": "Este menú no tiene productos etiquetados con alérgenos.",
+        "filter_disclaimer": "Los filtros se basan en los productos etiquetados por el restaurante. En caso de alergias graves, confirma siempre con el personal.",
+        "filter_reset": "Restablecer",
+        "filter_apply": "Aplicar",
+        "filter_no_results": "Ningún producto disponible con los filtros actuales.",
+        "filter_edit_cta": "Editar filtros"
     },
     "characteristics": {
         "title": "Características",
