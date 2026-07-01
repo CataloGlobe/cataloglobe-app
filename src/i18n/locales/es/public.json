@@ -159,7 +159,16 @@
         "step_ready": "Listo",
         "step_delivered": "Entregado",
         "in_preparation_one": "En preparación desde hace {{count}} minuto",
-        "in_preparation_other": "En preparación desde hace {{count}} minutos"
+        "in_preparation_other": "En preparación desde hace {{count}} minutos",
+        "note_cancel": "Cancelar",
+        "note_confirm": "Confirmar",
+        "note_remove_aria": "Eliminar nota",
+        "item_note_add": "Añadir nota",
+        "item_note_aria": "Nota para este plato",
+        "item_note_placeholder": "Ej. sin cebolla, bien hecho…",
+        "order_note_label": "Notas para la cocina",
+        "order_note_add": "Añadir una nota para el pedido",
+        "order_note_placeholder": "Ej. traer todo junto, sin prisa…"
     },
     "fab": {
         "review_aria": "¿Cómo ha ido?",

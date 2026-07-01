@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { Plus, X, Pencil, Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAutoGrow } from "./useAutoGrow";
 import styles from "./ItemNoteEditor.module.scss";
 
@@ -16,6 +17,7 @@ interface Props {
 type Mode = "hidden" | "editing" | "saved";
 
 export default function ItemNoteEditor({ note, onSave, onRemove }: Props) {
+    const { t } = useTranslation("public");
     const [mode, setMode] = useState<Mode>(note ? "saved" : "hidden");
     const [draft, setDraft] = useState(note ?? "");
     const textareaRef = useAutoGrow(draft, 4);
@@ -78,7 +80,7 @@ export default function ItemNoteEditor({ note, onSave, onRemove }: Props) {
                 className={styles.addBtn}
             >
                 <Plus size={12} />
-                Aggiungi nota
+                {t("ordering.item_note_add")}
             </button>
         );
     }
@@ -95,7 +97,7 @@ export default function ItemNoteEditor({ note, onSave, onRemove }: Props) {
                 <span
                     onClick={handleRemoveSaved}
                     className={styles.savedRemove}
-                    aria-label="Rimuovi nota"
+                    aria-label={t("ordering.note_remove_aria")}
                     role="button"
                     tabIndex={-1}
                 >
@@ -114,11 +116,11 @@ export default function ItemNoteEditor({ note, onSave, onRemove }: Props) {
                 ref={textareaRef}
                 value={draft}
                 onChange={e => setDraft(e.target.value.slice(0, ITEM_NOTE_MAX))}
-                placeholder="Es. senza cipolla, ben cotta…"
+                placeholder={t("ordering.item_note_placeholder")}
                 rows={1}
                 maxLength={ITEM_NOTE_MAX}
                 className={styles.textarea}
-                aria-label="Nota per questo piatto"
+                aria-label={t("ordering.item_note_aria")}
             />
             <div className={styles.footer}>
                 <button
@@ -126,7 +128,7 @@ export default function ItemNoteEditor({ note, onSave, onRemove }: Props) {
                     onClick={handleCancelEdit}
                     className={styles.cancelBtn}
                 >
-                    Annulla
+                    {t("ordering.note_cancel")}
                 </button>
                 <span
                     className={`${styles.counter} ${isNearLimit ? styles.counterWarn : ""}`}
@@ -139,7 +141,7 @@ export default function ItemNoteEditor({ note, onSave, onRemove }: Props) {
                     className={styles.confirmBtn}
                 >
                     <Check size={11} />
-                    Conferma
+                    {t("ordering.note_confirm")}
                 </button>
             </div>
         </div>

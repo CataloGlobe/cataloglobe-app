@@ -159,7 +159,16 @@
         "step_ready": "Fertig",
         "step_delivered": "Geliefert",
         "in_preparation_one": "In Zubereitung seit {{count}} Minute",
-        "in_preparation_other": "In Zubereitung seit {{count}} Minuten"
+        "in_preparation_other": "In Zubereitung seit {{count}} Minuten",
+        "note_cancel": "Abbrechen",
+        "note_confirm": "Bestätigen",
+        "note_remove_aria": "Notiz entfernen",
+        "item_note_add": "Notiz hinzufügen",
+        "item_note_aria": "Notiz für dieses Gericht",
+        "item_note_placeholder": "Z. B. ohne Zwiebeln, gut durchgebraten…",
+        "order_note_label": "Hinweise für die Küche",
+        "order_note_add": "Notiz zur Bestellung hinzufügen",
+        "order_note_placeholder": "Z. B. alles zusammen bringen, ohne Eile…"
     },
     "fab": {
         "review_aria": "Wie ist es gelaufen?",

@@ -159,7 +159,16 @@
         "step_ready": "Ready",
         "step_delivered": "Delivered",
         "in_preparation_one": "In preparation for {{count}} minute",
-        "in_preparation_other": "In preparation for {{count}} minutes"
+        "in_preparation_other": "In preparation for {{count}} minutes",
+        "note_cancel": "Cancel",
+        "note_confirm": "Confirm",
+        "note_remove_aria": "Remove note",
+        "item_note_add": "Add note",
+        "item_note_aria": "Note for this dish",
+        "item_note_placeholder": "E.g. no onion, well done…",
+        "order_note_label": "Notes for the kitchen",
+        "order_note_add": "Add a note for the order",
+        "order_note_placeholder": "E.g. bring everything together, no rush…"
     },
     "fab": {
         "review_aria": "How did it go?",

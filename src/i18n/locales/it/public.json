@@ -159,7 +159,16 @@
         "step_ready": "Pronto",
         "step_delivered": "Consegnato",
         "in_preparation_one": "In preparazione da {{count}} minuto",
-        "in_preparation_other": "In preparazione da {{count}} minuti"
+        "in_preparation_other": "In preparazione da {{count}} minuti",
+        "note_cancel": "Annulla",
+        "note_confirm": "Conferma",
+        "note_remove_aria": "Rimuovi nota",
+        "item_note_add": "Aggiungi nota",
+        "item_note_aria": "Nota per questo piatto",
+        "item_note_placeholder": "Es. senza cipolla, ben cotta…",
+        "order_note_label": "Note per la cucina",
+        "order_note_add": "Aggiungi nota per l'ordine",
+        "order_note_placeholder": "Es. consegnare tutto insieme, senza fretta…"
     },
     "fab": {
         "review_aria": "Com'è andata?",
