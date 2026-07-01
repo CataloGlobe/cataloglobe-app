@@ -122,7 +122,11 @@
         "fab_aria_other": "Meine Auswahl, {{count}}-Elemente"
     },
     "product": {
-        "price_from": "ab {{price}}"
+        "price_from": "ab {{price}}",
+        "badge_promo": "Angebot",
+        "badge_customizable": "Anpassbar",
+        "badge_unavailable": "Nicht verfügbar",
+        "badge_variants": "Varianten"
     },
     "item_detail": {
         "submit_default": "Zur Auswahl hinzufügen",

@@ -338,7 +338,7 @@ function ProductRowInner({
                             {name}
                         </Text>
                         {dp.type !== "none" && dp.originalPrice != null && (
-                            <span className={styles.promoBadge}>Promo</span>
+                            <span className={styles.promoBadge}>{t("product.badge_promo")}</span>
                         )}
                     </div>
 
@@ -378,7 +378,7 @@ function ProductRowInner({
                     </Text>
                 )}
                 {optionGroups && optionGroups.length > 0 && (
-                    <span className={styles.customizableHint}>Personalizzabile</span>
+                    <span className={styles.customizableHint}>{t("product.badge_customizable")}</span>
                 )}
                 {hasCardCharacteristics && (
                     <div className={styles.characteristicEmojis}>
@@ -1977,7 +1977,7 @@ export default function CollectionView({
                         >
                             {isDisabled && style.productStyle !== "compact" && (
                                 <span className={styles.unavailableBadge}>
-                                    Non disponibile
+                                    {t("product.badge_unavailable")}
                                 </span>
                             )}
                             {/* Case A/B: parent row — only if parentSelected */}
@@ -2010,7 +2010,7 @@ export default function CollectionView({
                                     <div className={styles.variantsDivider}>
                                         {item.parentSelected && (
                                             <span className={styles.variantsLabel}>
-                                                Varianti
+                                                {t("product.badge_variants")}
                                             </span>
                                         )}
                                     </div>
