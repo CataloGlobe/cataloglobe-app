@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { Minus, Plus, Trash2, RefreshCw, X, AlertCircle } from "lucide-react";
 import type { OrderingStateReason } from "@/types/orders";
 import PublicSheet from "../PublicSheet/PublicSheet";
@@ -50,13 +51,13 @@ function formatPrice(n: number): string {
     }).format(n);
 }
 
-function formatRelativeMinimal(iso: string): string {
+function formatRelativeMinimal(iso: string, t: TFunction): string {
     const diffMs = Date.now() - new Date(iso).getTime();
     const diffMin = Math.floor(diffMs / 60000);
-    if (diffMin < 1) return "ora";
-    if (diffMin < 60) return `${diffMin} min fa`;
+    if (diffMin < 1) return t("ordering.time_now");
+    if (diffMin < 60) return t("ordering.time_min_ago", { count: diffMin });
     const diffH = Math.floor(diffMin / 60);
-    if (diffH < 24) return `${diffH} h fa`;
+    if (diffH < 24) return t("ordering.time_hour_ago", { count: diffH });
     return new Intl.DateTimeFormat("it-IT", {
         day: "2-digit",
         month: "2-digit",
@@ -161,7 +162,7 @@ export default function OrderingSheet({
                 setOrdersError(err.message);
                 return;
             }
-            setOrdersError("Errore nel caricamento degli ordini.");
+            setOrdersError(t("ordering.error_loading"));
         } finally {
             setIsLoadingOrders(false);
         }
@@ -184,7 +185,7 @@ export default function OrderingSheet({
                         return;
                     }
                     if (msg === "INVALID_STATE_TRANSITION") {
-                        setOrdersError("L'ordine non può più essere annullato (già preso in carico dallo staff).");
+                        setOrdersError(t("ordering.error_cancel_invalid"));
                         setConfirmingCancelId(null);
                         await loadOrders();
                         return;
@@ -192,7 +193,7 @@ export default function OrderingSheet({
                     setOrdersError(msg);
                     return;
                 }
-                setOrdersError("Errore durante l'annullamento.");
+                setOrdersError(t("ordering.error_cancel"));
             } finally {
                 setProcessingCancelId(null);
             }
@@ -267,11 +268,11 @@ export default function OrderingSheet({
         <PublicSheet
             isOpen={isOpen}
             onClose={onClose}
-            ariaLabel="Il tuo ordine"
+            ariaLabel={t("ordering.title")}
         >
             <div className={styles.container}>
                 <div className={styles.header}>
-                    <h2 className={styles.title}>Il tuo ordine</h2>
+                    <h2 className={styles.title}>{t("ordering.title")}</h2>
                     <div className={styles.headerActions}>
                         {activeTab === "cart" && !isEmptyCart && (
                             <button
@@ -280,7 +281,7 @@ export default function OrderingSheet({
                                 onClick={onClear}
                                 disabled={maintenance != null}
                             >
-                                Svuota
+                                {t("ordering.clear")}
                             </button>
                         )}
                         {activeTab === "orders" && (
@@ -289,7 +290,7 @@ export default function OrderingSheet({
                                 className={`${styles.refreshBtn} ${isLoadingOrders ? styles.refreshBtnSpinning : ""}`}
                                 onClick={() => void loadOrders()}
                                 disabled={isLoadingOrders}
-                                aria-label="Aggiorna"
+                                aria-label={t("ordering.refresh_aria")}
                             >
                                 <RefreshCw size={16} />
                             </button>
@@ -304,7 +305,7 @@ export default function OrderingSheet({
                             className={`${styles.tabBtn} ${activeTab === "cart" ? styles.tabBtnActive : ""}`}
                             onClick={() => onTabChange("cart")}
                         >
-                            <span>Selezione</span>
+                            <span>{t("ordering.tab_selection")}</span>
                             {cartCount > 0 && (
                                 <span
                                     className={`${styles.tabBadge} ${activeTab === "cart" ? styles.tabBadgeActive : ""}`}
@@ -318,7 +319,7 @@ export default function OrderingSheet({
                             className={`${styles.tabBtn} ${activeTab === "orders" ? styles.tabBtnActive : ""}`}
                             onClick={() => onTabChange("orders")}
                         >
-                            <span>Ordini</span>
+                            <span>{t("ordering.tab_orders")}</span>
                             {activeOrdersCount > 0 && (
                                 <span
                                     className={`${styles.tabBadge} ${activeTab === "orders" ? styles.tabBadgeActive : ""}`}
@@ -335,9 +336,9 @@ export default function OrderingSheet({
                         <div className={styles.scrollArea}>
                             {isEmptyCart ? (
                                 <div className={styles.empty}>
-                                    <p className={styles.emptyTitle}>Nessun piatto scelto</p>
+                                    <p className={styles.emptyTitle}>{t("ordering.empty_cart_title")}</p>
                                     <p className={styles.emptyHint}>
-                                        Sfoglia il menu per iniziare il tuo ordine.
+                                        {t("ordering.empty_cart_hint")}
                                     </p>
                                 </div>
                             ) : (
@@ -434,7 +435,7 @@ export default function OrderingSheet({
                         {!isEmptyCart && (
                             <div className={styles.footer}>
                                 <div className={styles.footerTotalRow}>
-                                    <span className={styles.footerLabel}>Totale stimato</span>
+                                    <span className={styles.footerLabel}>{t("selection.estimated_total")}</span>
                                     <span className={styles.footerTotal}>{formatPrice(cartTotal)}</span>
                                 </div>
                                 {orderingActive && onSubmitOrder && (
@@ -466,10 +467,10 @@ export default function OrderingSheet({
                                             }
                                         >
                                             {maintenance
-                                                ? "Ordinazioni sospese"
+                                                ? t("ordering.suspended")
                                                 : isSubmitting
-                                                    ? "Invio in corso..."
-                                                    : `Invia ordine · ${formatPrice(cartTotal)}`}
+                                                    ? t("ordering.submitting")
+                                                    : t("ordering.submit", { price: formatPrice(cartTotal) })}
                                         </button>
                                     </>
                                 )}
@@ -484,13 +485,13 @@ export default function OrderingSheet({
 
                         {isLoadingOrders && orders.length === 0 ? (
                             <div className={styles.loading}>
-                                <p className={styles.loadingText}>Caricamento ordini...</p>
+                                <p className={styles.loadingText}>{t("ordering.loading_orders")}</p>
                             </div>
                         ) : orders.length === 0 ? (
                             <div className={styles.empty}>
-                                <p className={styles.emptyTitle}>Non hai ancora inviato ordini</p>
+                                <p className={styles.emptyTitle}>{t("ordering.empty_orders_title")}</p>
                                 <p className={styles.emptyHint}>
-                                    I tuoi ordini compariranno qui dopo l'invio.
+                                    {t("ordering.empty_orders_hint")}
                                 </p>
                             </div>
                         ) : (
@@ -512,17 +513,17 @@ export default function OrderingSheet({
                                                     <span
                                                         className={`${styles.statusPill} ${styles.statusCancelled}`}
                                                     >
-                                                        Cancellato
+                                                        {t("ordering.status_cancelled")}
                                                     </span>
                                                     <span className={styles.orderTime}>
-                                                        {formatRelativeMinimal(order.cancelled_at ?? order.created_at)}
+                                                        {formatRelativeMinimal(order.cancelled_at ?? order.created_at, t)}
                                                     </span>
                                                 </div>
                                             ) : (
                                                 <>
                                                     <div className={styles.orderHeader}>
                                                         <span className={styles.orderTime}>
-                                                            Inviato {formatRelativeMinimal(order.created_at)}
+                                                            {t("ordering.sent_at", { time: formatRelativeMinimal(order.created_at, t) })}
                                                         </span>
                                                     </div>
                                                     <OrderStatusStepper order={order} />
@@ -546,7 +547,7 @@ export default function OrderingSheet({
                                             </ul>
 
                                             <div className={styles.orderTotalRow}>
-                                                <span>Totale</span>
+                                                <span>{t("ordering.total")}</span>
                                                 <span>{formatPrice(order.total_amount)}</span>
                                             </div>
 
@@ -558,14 +559,14 @@ export default function OrderingSheet({
                                                     disabled={isProcessing}
                                                 >
                                                     <X size={16} />
-                                                    Annulla ordine
+                                                    {t("ordering.cancel_order")}
                                                 </button>
                                             )}
 
                                             {canCancel && isConfirming && (
                                                 <div className={styles.confirmRow}>
                                                     <span className={styles.confirmLabel}>
-                                                        Vuoi davvero annullare?
+                                                        {t("ordering.cancel_confirm")}
                                                     </span>
                                                     <div className={styles.confirmActions}>
                                                         <button
@@ -574,7 +575,7 @@ export default function OrderingSheet({
                                                             onClick={() => setConfirmingCancelId(null)}
                                                             disabled={isProcessing}
                                                         >
-                                                            No
+                                                            {t("ordering.no")}
                                                         </button>
                                                         <button
                                                             type="button"
@@ -582,7 +583,7 @@ export default function OrderingSheet({
                                                             onClick={() => handleCancelConfirm(order.id)}
                                                             disabled={isProcessing}
                                                         >
-                                                            {isProcessing ? "Annullamento..." : "Sì, annulla"}
+                                                            {isProcessing ? t("ordering.cancelling") : t("ordering.cancel_yes")}
                                                         </button>
                                                     </div>
                                                 </div>

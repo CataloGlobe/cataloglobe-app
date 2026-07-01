@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from "react";
 import { Check, Clock, ChefHat, BellRing } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import type { SessionOrderSummary } from "@/types/orders";
 import styles from "./OrderStatusStepper.module.scss";
 
@@ -19,42 +20,42 @@ interface StepDef {
 function computeSteps(order: SessionOrderSummary): StepDef[] {
     if (order.status === "submitted") {
         return [
-            { label: "Inviato", state: "active", icon: "clock" },
-            { label: "In cucina", state: "pending", icon: "chef-hat" },
-            { label: "Pronto", state: "pending", icon: "bell-ring" },
-            { label: "Consegnato", state: "pending", icon: "check" }
+            { label: "ordering.step_sent", state: "active", icon: "clock" },
+            { label: "ordering.step_kitchen", state: "pending", icon: "chef-hat" },
+            { label: "ordering.step_ready", state: "pending", icon: "bell-ring" },
+            { label: "ordering.step_delivered", state: "pending", icon: "check" }
         ];
     }
     if (order.status === "acknowledged") {
         return [
-            { label: "Inviato", state: "done", icon: "check" },
-            { label: "In cucina", state: "active", icon: "chef-hat" },
-            { label: "Pronto", state: "pending", icon: "bell-ring" },
-            { label: "Consegnato", state: "pending", icon: "check" }
+            { label: "ordering.step_sent", state: "done", icon: "check" },
+            { label: "ordering.step_kitchen", state: "active", icon: "chef-hat" },
+            { label: "ordering.step_ready", state: "pending", icon: "bell-ring" },
+            { label: "ordering.step_delivered", state: "pending", icon: "check" }
         ];
     }
     if (order.status === "ready") {
         return [
-            { label: "Inviato", state: "done", icon: "check" },
-            { label: "In cucina", state: "done", icon: "check" },
-            { label: "Pronto", state: "active", icon: "bell-ring" },
-            { label: "Consegnato", state: "pending", icon: "check" }
+            { label: "ordering.step_sent", state: "done", icon: "check" },
+            { label: "ordering.step_kitchen", state: "done", icon: "check" },
+            { label: "ordering.step_ready", state: "active", icon: "bell-ring" },
+            { label: "ordering.step_delivered", state: "pending", icon: "check" }
         ];
     }
     if (order.status === "delivered") {
         return [
-            { label: "Inviato", state: "done", icon: "check" },
-            { label: "In cucina", state: "done", icon: "check" },
-            { label: "Pronto", state: "done", icon: "check" },
-            { label: "Consegnato", state: "done", icon: "check" }
+            { label: "ordering.step_sent", state: "done", icon: "check" },
+            { label: "ordering.step_kitchen", state: "done", icon: "check" },
+            { label: "ordering.step_ready", state: "done", icon: "check" },
+            { label: "ordering.step_delivered", state: "done", icon: "check" }
         ];
     }
     // Fallback (cancelled gestito a livello parent, ma safety)
     return [
-        { label: "Inviato", state: "done", icon: "check" },
-        { label: "In cucina", state: "pending", icon: "chef-hat" },
-        { label: "Pronto", state: "pending", icon: "bell-ring" },
-        { label: "Consegnato", state: "pending", icon: "check" }
+        { label: "ordering.step_sent", state: "done", icon: "check" },
+        { label: "ordering.step_kitchen", state: "pending", icon: "chef-hat" },
+        { label: "ordering.step_ready", state: "pending", icon: "bell-ring" },
+        { label: "ordering.step_delivered", state: "pending", icon: "check" }
     ];
 }
 
@@ -73,6 +74,7 @@ function renderIcon(icon: StepIcon, size: number) {
 }
 
 export default function OrderStatusStepper({ order }: Props) {
+    const { t } = useTranslation("public");
     // Re-render ogni 30s quando acknowledged per aggiornare "da N min".
     // Tick state silenzioso, unused-let by design (effect = trigger re-render).
     const [, setTick] = useState(0);
@@ -101,7 +103,7 @@ export default function OrderStatusStepper({ order }: Props) {
                                     <span className={styles.pulse} aria-hidden="true" />
                                 )}
                             </div>
-                            <div className={styles.label}>{step.label}</div>
+                            <div className={styles.label}>{t(step.label)}</div>
                         </div>
                         {idx < steps.length - 1 && (
                             <div
@@ -117,8 +119,7 @@ export default function OrderStatusStepper({ order }: Props) {
             </div>
             {minutesInKitchen !== null && (
                 <div className={styles.kitchenTime}>
-                    In preparazione da {minutesInKitchen}{" "}
-                    {minutesInKitchen === 1 ? "minuto" : "minuti"}
+                    {t("ordering.in_preparation", { count: minutesInKitchen })}
                 </div>
             )}
         </div>
