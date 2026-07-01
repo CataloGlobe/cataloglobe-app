@@ -195,7 +195,10 @@
     "err_items_unavailable": "Certains produits ne sont plus disponibles. Vérifiez votre sélection.",
     "err_empty_cart": "Ajoutez au moins un produit avant d'envoyer la commande.",
     "err_submit": "Erreur lors de l'envoi de la commande. Réessayez.",
-    "submitted_toast": "Commande envoyée ! Le personnel s'en occupe."
+    "submitted_toast": "Commande envoyée ! Le personnel s'en occupe.",
+    "maintenance_qr_suspended": "Le restaurant a temporairement suspendu la commande par QR. Veuillez demander au personnel pour commander.",
+    "maintenance_table_unavailable": "Cette table n'est pas disponible pour commander pour le moment. Demandez au personnel.",
+    "maintenance_qr_unavailable": "La commande par QR n'est pas disponible pour le moment. Demandez au personnel."
   },
   "fab": {
     "review_aria": "Votre avis ?",

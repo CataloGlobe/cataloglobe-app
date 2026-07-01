@@ -195,7 +195,10 @@
         "err_items_unavailable": "Some items are no longer available. Please review your selection.",
         "err_empty_cart": "Add at least one item before sending the order.",
         "err_submit": "Error while sending the order. Please try again.",
-        "submitted_toast": "Order sent! Staff will handle it."
+        "submitted_toast": "Order sent! Staff will handle it.",
+        "maintenance_qr_suspended": "The restaurant has temporarily suspended QR ordering. Please ask the staff to order.",
+        "maintenance_table_unavailable": "This table is currently unavailable for ordering. Ask the staff.",
+        "maintenance_qr_unavailable": "QR ordering is currently unavailable. Ask the staff."
     },
     "fab": {
         "review_aria": "How did it go?",

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { usePageHead } from "@/hooks/usePageHead";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
@@ -34,17 +35,14 @@ import pageStyles from "./PublicCollectionPage.module.scss";
 // Centralizza i testi user-facing per reason di ordering maintenance.
 // Single source of truth tra URL-param flow (table_maintenance) e
 // payload-derived flow (ordering_disabled).
-const ORDERING_DISABLED_MESSAGE =
-    "Il ristorante ha temporaneamente sospeso le ordinazioni tramite QR. Per favore, chiedi allo staff per ordinare.";
-
-function messageForReason(reason: OrderingStateReason): string {
+function messageForReason(reason: OrderingStateReason, t: TFunction): string {
     switch (reason) {
         case "ordering_disabled":
-            return ORDERING_DISABLED_MESSAGE;
+            return t("ordering.maintenance_qr_suspended");
         case "table_maintenance":
-            return "Questo tavolo non e' al momento disponibile per le ordinazioni. Chiedi allo staff.";
+            return t("ordering.maintenance_table_unavailable");
         default:
-            return "L'ordinazione tramite QR non e' al momento disponibile. Chiedi allo staff.";
+            return t("ordering.maintenance_qr_unavailable");
     }
 }
 
@@ -98,8 +96,8 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
             return null;
         }
         const reason = maintenanceParam as OrderingStateReason;
-        return { reason, message: messageForReason(reason) };
-    }, [maintenanceParam]);
+        return { reason, message: messageForReason(reason, t) };
+    }, [maintenanceParam, t]);
     const [effectiveSimulate, setEffectiveSimulate] = useState<string | null>(null);
     const isSimulation = !!effectiveSimulate;
     const [state, setState] = useState<PageState>(() =>
@@ -129,9 +127,9 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         if (state.business.ordering_enabled !== false) return null;
         return {
             reason: "ordering_disabled",
-            message: ORDERING_DISABLED_MESSAGE
+            message: t("ordering.maintenance_qr_suspended")
         };
-    }, [state]);
+    }, [state, t]);
 
     // Priorita: Router state > URL param legacy > payload server.
     // table_maintenance (state/URL) prevale su ordering_disabled (payload):
