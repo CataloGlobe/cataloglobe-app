@@ -4,6 +4,11 @@ import { enqueueWithSilentError, deleteTranslationJobsForEntity } from "./transl
 import { deleteTranslationsForEntity } from "./translations";
 import { deleteFeaturedContentImageBestEffort } from "./upload";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
+import type { MediaFraming, MediaFillMode } from "@/components/ui/ImageReframeEditor/types";
+
+// Re-export the canonical framing types so consumers can pull them from the
+// service alongside FeaturedContent (single source of truth stays in the editor).
+export type { MediaFraming, MediaFillMode };
 
 // Field di featured_contents tradotti via pipeline (Prompt 9 hook).
 const FEATURED_TRANSLATABLE_FIELDS = ["title", "subtitle", "description", "cta_text"] as const;
@@ -63,6 +68,53 @@ export interface FeaturedContent {
     show_original_total: boolean;
     created_at: string;
     updated_at: string;
+}
+
+/** Default framing, mirrors the DB column defaults (centered cover, blur fill). */
+const FRAMING_DEFAULTS: MediaFraming = {
+    focalX: 0.5,
+    focalY: 0.5,
+    zoom: 1,
+    fillMode: "blur",
+    fillColor: null
+};
+
+/** MediaFraming (camelCase) → featured_contents columns (snake_case). */
+export function framingToColumns(f: MediaFraming): {
+    media_focal_x: number;
+    media_focal_y: number;
+    media_zoom: number;
+    media_fill_mode: MediaFillMode;
+    media_fill_color: string | null;
+} {
+    return {
+        media_focal_x: f.focalX,
+        media_focal_y: f.focalY,
+        media_zoom: f.zoom,
+        media_fill_mode: f.fillMode,
+        media_fill_color: f.fillColor
+    };
+}
+
+/**
+ * featured_contents columns → MediaFraming. Tolerates null/undefined columns
+ * (featured saved before framing existed) by falling back to FRAMING_DEFAULTS.
+ */
+export function columnsToFraming(
+    row: Partial<
+        Pick<
+            FeaturedContent,
+            "media_focal_x" | "media_focal_y" | "media_zoom" | "media_fill_mode" | "media_fill_color"
+        >
+    >
+): MediaFraming {
+    return {
+        focalX: row.media_focal_x ?? FRAMING_DEFAULTS.focalX,
+        focalY: row.media_focal_y ?? FRAMING_DEFAULTS.focalY,
+        zoom: row.media_zoom ?? FRAMING_DEFAULTS.zoom,
+        fillMode: row.media_fill_mode ?? FRAMING_DEFAULTS.fillMode,
+        fillColor: row.media_fill_color ?? FRAMING_DEFAULTS.fillColor
+    };
 }
 
 export interface FeaturedContentProduct {
