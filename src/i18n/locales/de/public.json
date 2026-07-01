@@ -129,6 +129,14 @@
         "close_aria": "Schließen Sie",
         "format_required": "Wählen Sie ein Format, um fortzufahren"
     },
+    "order_confirmation": {
+        "aria": "Bestellung gesendet",
+        "title": "Bestellung gesendet!",
+        "subtitle": "Das Personal kümmert sich in Kürze um Ihre Bestellung.",
+        "summary": "Übersicht",
+        "my_orders": "Meine Bestellungen",
+        "close": "Schließen"
+    },
     "ordering": {
         "title": "Ihre Bestellung",
         "clear": "Leeren",

@@ -129,6 +129,14 @@
         "close_aria": "Close",
         "format_required": "Choose a format to continue"
     },
+    "order_confirmation": {
+        "aria": "Order sent",
+        "title": "Order sent!",
+        "subtitle": "Staff will start on your order shortly.",
+        "summary": "Summary",
+        "my_orders": "My orders",
+        "close": "Close"
+    },
     "ordering": {
         "title": "Your order",
         "clear": "Clear",

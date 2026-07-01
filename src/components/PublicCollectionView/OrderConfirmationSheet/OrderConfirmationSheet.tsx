@@ -1,4 +1,5 @@
 import { Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import type { SubmitOrderResult } from "@/types/orders";
 import styles from "./OrderConfirmationSheet.module.scss";
@@ -27,23 +28,24 @@ export default function OrderConfirmationSheet({
     onViewMyOrders,
     orderNote
 }: Props) {
+    const { t } = useTranslation("public");
     const total = order?.total_amount ?? 0;
     const items = order?.items ?? [];
 
     return (
-        <PublicSheet isOpen={isOpen} onClose={onClose} ariaLabel="Ordine inviato">
+        <PublicSheet isOpen={isOpen} onClose={onClose} ariaLabel={t("order_confirmation.aria")}>
             <div className={styles.container}>
                 <div className={styles.iconWrap}>
                     <Check size={48} strokeWidth={3} />
                 </div>
-                <h2 className={styles.title}>Ordine inviato!</h2>
+                <h2 className={styles.title}>{t("order_confirmation.title")}</h2>
                 <p className={styles.subtitle}>
-                    Lo staff prenderà in carico il tuo ordine a breve.
+                    {t("order_confirmation.subtitle")}
                 </p>
 
                 {items.length > 0 && (
                     <div className={styles.itemsBlock}>
-                        <h3 className={styles.itemsTitle}>Riepilogo</h3>
+                        <h3 className={styles.itemsTitle}>{t("order_confirmation.summary")}</h3>
                         <ul className={styles.itemsList}>
                             {items.map((item, idx) => (
                                 <li key={`${item.product_id ?? "x"}-${idx}`} className={styles.itemEntry}>
@@ -61,13 +63,13 @@ export default function OrderConfirmationSheet({
                             ))}
                         </ul>
                         <div className={styles.totalRow}>
-                            <span>Totale</span>
+                            <span>{t("ordering.total")}</span>
                             <span>{formatPrice(total)}</span>
                         </div>
                         {orderNote && (
                             <div className={styles.orderNoteRecap}>
                                 <div className={styles.orderNoteRecapLabel}>
-                                    Note per la cucina
+                                    {t("ordering.order_note_label")}
                                 </div>
                                 <div className={styles.orderNoteRecapText}>
                                     “{orderNote}”
@@ -83,14 +85,14 @@ export default function OrderConfirmationSheet({
                         className={styles.btnPrimary}
                         onClick={onViewMyOrders}
                     >
-                        I miei ordini
+                        {t("order_confirmation.my_orders")}
                     </button>
                     <button
                         type="button"
                         className={styles.btnSecondary}
                         onClick={onClose}
                     >
-                        Chiudi
+                        {t("order_confirmation.close")}
                     </button>
                 </div>
             </div>

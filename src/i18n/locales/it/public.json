@@ -129,6 +129,14 @@
         "close_aria": "Chiudi",
         "format_required": "Scegli un formato per continuare"
     },
+    "order_confirmation": {
+        "aria": "Ordine inviato",
+        "title": "Ordine inviato!",
+        "subtitle": "Lo staff prenderà in carico il tuo ordine a breve.",
+        "summary": "Riepilogo",
+        "my_orders": "I miei ordini",
+        "close": "Chiudi"
+    },
     "ordering": {
         "title": "Il tuo ordine",
         "clear": "Svuota",

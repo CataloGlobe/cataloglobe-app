@@ -129,6 +129,14 @@
         "close_aria": "Cerrar",
         "format_required": "Elija un formato para continuar"
     },
+    "order_confirmation": {
+        "aria": "Pedido enviado",
+        "title": "¡Pedido enviado!",
+        "subtitle": "El personal se ocupará de tu pedido en breve.",
+        "summary": "Resumen",
+        "my_orders": "Mis pedidos",
+        "close": "Cerrar"
+    },
     "ordering": {
         "title": "Tu pedido",
         "clear": "Vaciar",

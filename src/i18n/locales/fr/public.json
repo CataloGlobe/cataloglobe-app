@@ -129,6 +129,14 @@
     "close_aria": "Fermer",
     "format_required": "Choisissez un format pour continuer"
   },
+  "order_confirmation": {
+    "aria": "Commande envoyée",
+    "title": "Commande envoyée !",
+    "subtitle": "Le personnel va prendre en charge votre commande sous peu.",
+    "summary": "Récapitulatif",
+    "my_orders": "Mes commandes",
+    "close": "Fermer"
+  },
   "ordering": {
     "title": "Votre commande",
     "clear": "Vider",
