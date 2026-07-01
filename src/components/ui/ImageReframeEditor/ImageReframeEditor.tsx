@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Maximize2, Scan, Crosshair } from "lucide-react";
-import { Button } from "@components/ui/Button/Button";
+import {
+    Move,
+    Maximize2,
+    Minimize2,
+    Crosshair,
+    Layers,
+    Palette,
+    Ban
+} from "lucide-react";
 import { SegmentedControl } from "@components/ui/SegmentedControl/SegmentedControl";
 import {
     applyDrag,
@@ -21,11 +28,14 @@ const DEFAULT_RATIO = 16 / 9;
 const ZOOM_STEP = 0.001;
 const DOMINANT_FALLBACK = "#9ca3af"; // neutral grey until a real hex is available
 
-const FILL_OPTIONS: { value: MediaFillMode; label: string }[] = [
-    { value: "blur", label: "Sfocato" },
-    { value: "dominant", label: "Colore foto" },
-    { value: "color", label: "Colore" },
-    { value: "none", label: "Nessuno" }
+// Preset band-fill swatches: primario tenant, nero, bianco, accento.
+const PRESET_COLORS = ["#928E72", "#000000", "#ffffff", "#c2410c"];
+
+const FILL_OPTIONS: { value: MediaFillMode; label: string; icon: React.ReactNode }[] = [
+    { value: "blur", label: "Sfocato", icon: <Layers size={14} /> },
+    { value: "dominant", label: "Foto", icon: <Palette size={14} /> },
+    { value: "color", label: "Colore", icon: <span className={styles.dot} aria-hidden /> },
+    { value: "none", label: "No", icon: <Ban size={14} /> }
 ];
 
 export function ImageReframeEditor({
@@ -144,6 +154,13 @@ export function ImageReframeEditor({
         [value, onChange]
     );
 
+    const selectColor = useCallback(
+        (hex: string) => {
+            onChange({ ...value, fillMode: "color", fillColor: hex });
+        },
+        [value, onChange]
+    );
+
     // Resolve the fill background applied behind the image on the bands.
     const fillColor =
         value.fillMode === "dominant"
@@ -152,8 +169,17 @@ export function ImageReframeEditor({
               ? value.fillColor ?? DOMINANT_FALLBACK
               : null;
 
+    // Cover marker position on the zoom track (runtime presentation only).
+    const zoomRange = mzoom - czoom;
+    const coverPct =
+        zoomRange > 1e-6 ? Math.min(100, Math.max(0, ((1 - czoom) / zoomRange) * 100)) : 100;
+
+    const zoomPct = Math.round(value.zoom * 100);
+    const dominantSwatch = dominant ?? DOMINANT_FALLBACK;
+
     return (
         <div className={`${styles.editor} ${className ?? ""}`}>
+            {/* 1. Anteprima 16:9 + hint */}
             <div
                 ref={frameRef}
                 className={styles.frame}
@@ -163,7 +189,6 @@ export function ImageReframeEditor({
                 onPointerUp={onPointerUp}
                 onPointerCancel={onPointerUp}
             >
-                {/* Fill layer behind the image, only when bands are visible. */}
                 {bands && value.fillMode === "blur" && (
                     <img src={source} alt="" aria-hidden className={styles.fillBlur} draggable={false} />
                 )}
@@ -188,71 +213,123 @@ export function ImageReframeEditor({
                 <div className={styles.grid} aria-hidden />
             </div>
 
-            {/* Zoom + reset actions */}
-            <div className={styles.controls}>
-                <input
-                    type="range"
-                    className={styles.zoom}
-                    min={czoom}
-                    max={mzoom}
-                    step={ZOOM_STEP}
-                    value={value.zoom}
-                    disabled={!natural}
-                    onChange={e => onChange({ ...value, zoom: Number(e.target.value) })}
-                    aria-label="Zoom"
-                />
-                <div className={styles.actions}>
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => onChange({ ...value, zoom: 1 })}
+            <div className={styles.hint}>
+                <Move size={13} />
+                <span>Trascina per spostare l'inquadratura</span>
+            </div>
+
+            {/* 2. Zoom */}
+            <div className={styles.zoomBlock}>
+                <div className={styles.zoomHeader}>
+                    <span className={styles.zoomLabel}>Zoom</span>
+                    <span className={styles.zoomValue}>{zoomPct}%</span>
+                </div>
+
+                <div className={styles.trackWrap}>
+                    {natural && (
+                        <>
+                            <span className={styles.coverTag} style={{ left: `${coverPct}%` }}>
+                                riempie
+                            </span>
+                            <span className={styles.coverTick} style={{ left: `${coverPct}%` }} aria-hidden />
+                        </>
+                    )}
+                    <input
+                        type="range"
+                        className={styles.zoom}
+                        min={czoom}
+                        max={mzoom}
+                        step={ZOOM_STEP}
+                        value={value.zoom}
                         disabled={!natural}
-                    >
-                        <Maximize2 size={15} /> Riempi 16:9
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => onChange({ ...value, zoom: czoom })}
-                        disabled={!natural}
-                    >
-                        <Scan size={15} /> Mostra intera
-                    </Button>
-                    <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => onChange({ ...value, focalX: 0.5, focalY: 0.5 })}
-                        disabled={!natural}
-                    >
-                        <Crosshair size={15} /> Centra
-                    </Button>
+                        onChange={e => onChange({ ...value, zoom: Number(e.target.value) })}
+                        aria-label="Zoom"
+                    />
+                </div>
+
+                <div className={styles.zoomExtremes}>
+                    <span>Mostra intera</span>
+                    <span>Ingrandisci</span>
                 </div>
             </div>
 
-            {/* Contextual band-fill panel: active only when the image leaves bands. */}
-            <div className={`${styles.fillPanel} ${bands ? "" : styles.fillPanelIdle}`}>
+            {/* 3. Azioni */}
+            <div className={styles.actions}>
+                <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onChange({ ...value, zoom: 1 })}
+                    disabled={!natural}
+                >
+                    <Maximize2 size={15} />
+                    Riempi
+                </button>
+                <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onChange({ ...value, zoom: czoom })}
+                    disabled={!natural}
+                >
+                    <Minimize2 size={15} />
+                    Intera
+                </button>
+                <button
+                    type="button"
+                    className={styles.actionBtn}
+                    onClick={() => onChange({ ...value, focalX: 0.5, focalY: 0.5 })}
+                    disabled={!natural}
+                >
+                    <Crosshair size={15} />
+                    Centra
+                </button>
+            </div>
+
+            {/* 4. Pannello fasce contestuale */}
+            <div className={`${styles.fillPanel} ${bands ? styles.fillPanelActive : styles.fillPanelIdle}`}>
                 <span className={styles.fillLabel}>
-                    {bands ? "Riempimento fasce" : "Nessuna fascia — l'immagine copre il riquadro"}
+                    {bands
+                        ? "Fasce vuote — scegli il riempimento"
+                        : "L'immagine copre tutto il riquadro"}
                 </span>
-                <div className={styles.fillRow}>
-                    <SegmentedControl<MediaFillMode>
-                        value={value.fillMode}
-                        onChange={onFillModeChange}
-                        options={FILL_OPTIONS}
-                    />
-                    {value.fillMode === "color" && (
-                        <input
-                            type="color"
-                            className={styles.colorInput}
-                            value={value.fillColor ?? DOMINANT_FALLBACK}
-                            onChange={onColorPick}
-                            aria-label="Colore fasce"
-                        />
-                    )}
-                </div>
+
+                <SegmentedControl<MediaFillMode>
+                    value={value.fillMode}
+                    onChange={onFillModeChange}
+                    options={FILL_OPTIONS}
+                />
+
+                {value.fillMode === "color" && (
+                    <div className={styles.swatchRow}>
+                        <button
+                            type="button"
+                            className={`${styles.swatch} ${styles.swatchExtracted}`}
+                            style={{ backgroundColor: dominantSwatch }}
+                            onClick={() => selectColor(dominantSwatch)}
+                            aria-label="Colore estratto dalla foto"
+                        >
+                            <span className={styles.swatchTag}>estratto</span>
+                        </button>
+                        {PRESET_COLORS.map(hex => (
+                            <button
+                                key={hex}
+                                type="button"
+                                className={styles.swatch}
+                                style={{ backgroundColor: hex }}
+                                onClick={() => selectColor(hex)}
+                                aria-label={`Colore ${hex}`}
+                            />
+                        ))}
+                        <label className={styles.swatchCustom} aria-label="Colore personalizzato">
+                            +
+                            <input
+                                type="color"
+                                className={styles.swatchCustomInput}
+                                value={value.fillColor ?? DOMINANT_FALLBACK}
+                                onChange={onColorPick}
+                            />
+                        </label>
+                    </div>
+                )}
             </div>
         </div>
     );
