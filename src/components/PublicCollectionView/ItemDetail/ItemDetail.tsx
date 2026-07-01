@@ -211,11 +211,11 @@ export default function ItemDetail({
                                 <Text variant="body" weight={600} className={styles.price} color="var(--pub-surface-text)">
                                     {displayItem.original_price != null && (
                                         <span className={styles.priceOriginal}>
-                                            da € {displayItem.original_price.toFixed(2)}
+                                            {t("product.price_from", { price: `€ ${displayItem.original_price.toFixed(2)}` })}
                                         </span>
                                     )}
                                     <span className={styles.priceCurrent}>
-                                        da € {displayItem.from_price.toFixed(2)}
+                                        {t("product.price_from", { price: `€ ${displayItem.from_price.toFixed(2)}` })}
                                     </span>
                                 </Text>
                             ) : displayPrice != null ? (

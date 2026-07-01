@@ -121,6 +121,9 @@
         "fab_aria_one": "La mia selezione, {{count}} elemento",
         "fab_aria_other": "La mia selezione, {{count}} elementi"
     },
+    "product": {
+        "price_from": "da {{price}}"
+    },
     "item_detail": {
         "submit_default": "Aggiungi alla selezione",
         "close_aria": "Chiudi",

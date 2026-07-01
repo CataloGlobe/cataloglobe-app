@@ -348,13 +348,13 @@ function ProductRowInner({
                     <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
                         {dp.originalPrice != null && (
                             <span className={styles.priceOriginal}>
-                                da € {dp.originalPrice.toFixed(2)}
+                                {t("product.price_from", { price: `€ ${dp.originalPrice.toFixed(2)}` })}
                             </span>
                         )}
                         <span
                             className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
                         >
-                            da € {dp.price.toFixed(2)}
+                            {t("product.price_from", { price: `€ ${dp.price.toFixed(2)}` })}
                         </span>
                     </Text>
                 ) : dp.type === "single" ? (
@@ -487,11 +487,15 @@ function ProductCompactRowInner({
                         <span className={styles.compactPrice}>
                             {dp.originalPrice != null && (
                                 <span className={styles.compactPriceOriginal}>
-                                    {dp.type === "from" ? "da " : ""}€ {dp.originalPrice.toFixed(2)}
+                                    {dp.type === "from"
+                                        ? t("product.price_from", { price: `€ ${dp.originalPrice.toFixed(2)}` })
+                                        : `€ ${dp.originalPrice.toFixed(2)}`}
                                 </span>
                             )}
                             <span>
-                                {dp.type === "from" ? "da " : ""}€ {dp.price.toFixed(2)}
+                                {dp.type === "from"
+                                    ? t("product.price_from", { price: `€ ${dp.price.toFixed(2)}` })
+                                    : `€ ${dp.price.toFixed(2)}`}
                             </span>
                         </span>
                     )}

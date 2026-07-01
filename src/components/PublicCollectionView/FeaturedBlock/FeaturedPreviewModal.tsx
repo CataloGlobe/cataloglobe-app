@@ -159,7 +159,7 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
                                                 (product.is_from_price
                                                     ? product.fromPrice != null && (
                                                           <span className={styles.productPrice}>
-                                                              {"da " + formatPrice(product.fromPrice)}
+                                                              {t("product.price_from", { price: formatPrice(product.fromPrice) })}
                                                           </span>
                                                       )
                                                     : product.base_price != null && (
