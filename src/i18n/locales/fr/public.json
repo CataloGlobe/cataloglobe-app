@@ -81,6 +81,25 @@
       "status": "Statut"
     }
   },
+  "assistance": {
+    "aria": "Assistance à table",
+    "title": "Assistance",
+    "waiter_title": "Appeler le serveur",
+    "waiter_subtitle": "Le personnel viendra à votre table sous peu",
+    "waiter_subtitle_cooldown": "Serveur prévenu — rappel possible dans {{count}}s",
+    "waiter_error": "Erreur lors de l'appel du serveur",
+    "waiter_cta": "Appeler",
+    "waiter_cta_loading": "Appel en cours…",
+    "waiter_cta_cooldown": "{{count}}s",
+    "bill_title": "Demander l'addition",
+    "bill_subtitle": "Le personnel apportera l'addition à votre table",
+    "bill_subtitle_requested": "Demande envoyée — le personnel apportera l'addition",
+    "bill_subtitle_pending": "Vous avez des commandes en préparation — vous pourrez demander l'addition une fois prêtes",
+    "bill_error": "Erreur lors de la demande de l'addition",
+    "bill_cta": "Demander",
+    "bill_cta_loading": "Envoi…",
+    "bill_cta_requested": "Demandé"
+  },
   "selection": {
     "add_aria": "Ajouter à la sélection",
     "sheet_aria": "Ma sélection",

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ConciergeBell, Receipt } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import { callWaiter, requestBill } from "@/services/supabase/customerSessions";
 import { getOrdersForSession } from "@/services/supabase/orders";
@@ -29,6 +30,7 @@ export default function AssistanceSheet({
     waiterCalledAt,
     onWaiterCalledAtChange,
 }: Props) {
+    const { t } = useTranslation("public");
 
     // ── Waiter cooldown countdown ─────────────────────────────────────────
     const [cooldownLeft, setCooldownLeft] = useState(0);
@@ -86,7 +88,7 @@ export default function AssistanceSheet({
             const result = await callWaiter(session.jwt);
             onWaiterCalledAtChange(result.waiter_called_at);
         } catch (err) {
-            setWaiterError(err instanceof Error ? err.message : "Errore durante la chiamata al cameriere");
+            setWaiterError(err instanceof Error ? err.message : t("assistance.waiter_error"));
         } finally {
             setIsCallingWaiter(false);
         }
@@ -100,7 +102,7 @@ export default function AssistanceSheet({
             const result = await requestBill(session.jwt);
             onBillRequestedAtChange(result.bill_requested_at);
         } catch (err) {
-            setBillError(err instanceof Error ? err.message : "Errore durante la richiesta del conto");
+            setBillError(err instanceof Error ? err.message : t("assistance.bill_error"));
         } finally {
             setIsRequestingBill(false);
         }
@@ -118,10 +120,10 @@ export default function AssistanceSheet({
         <PublicSheet
             isOpen={isOpen}
             onClose={onClose}
-            ariaLabel="Assistenza al tavolo"
+            ariaLabel={t("assistance.aria")}
             headerContent={
                 <div className={styles.header}>
-                    <span className={styles.headerTitle}>Assistenza</span>
+                    <span className={styles.headerTitle}>{t("assistance.title")}</span>
                     {tableTitle && (
                         <span className={styles.headerSub}>{tableTitle}</span>
                     )}
@@ -136,11 +138,11 @@ export default function AssistanceSheet({
                         <ConciergeBell size={22} strokeWidth={1.7} />
                     </div>
                     <div className={styles.cardBody}>
-                        <span className={styles.cardTitle}>Chiama il cameriere</span>
+                        <span className={styles.cardTitle}>{t("assistance.waiter_title")}</span>
                         <span className={styles.cardDesc}>
                             {inCooldown
-                                ? `Cameriere avvisato — richiamabile tra ${cooldownLeft}s`
-                                : "Lo staff raggiungerà il tuo tavolo a breve"}
+                                ? t("assistance.waiter_subtitle_cooldown", { count: cooldownLeft })
+                                : t("assistance.waiter_subtitle")}
                         </span>
                         {waiterError && (
                             <span className={styles.cardError}>{waiterError}</span>
@@ -154,7 +156,7 @@ export default function AssistanceSheet({
                         onClick={handleCallWaiter}
                         aria-busy={isCallingWaiter}
                     >
-                        {isCallingWaiter ? "Chiamando…" : inCooldown ? `${cooldownLeft}s` : "Chiama"}
+                        {isCallingWaiter ? t("assistance.waiter_cta_loading") : inCooldown ? t("assistance.waiter_cta_cooldown", { count: cooldownLeft }) : t("assistance.waiter_cta")}
                     </button>
                 </div>
 
@@ -164,13 +166,13 @@ export default function AssistanceSheet({
                         <Receipt size={22} strokeWidth={1.7} />
                     </div>
                     <div className={styles.cardBody}>
-                        <span className={styles.cardTitle}>Chiedi il conto</span>
+                        <span className={styles.cardTitle}>{t("assistance.bill_title")}</span>
                         <span className={styles.cardDesc}>
                             {billRequestedAt
-                                ? "Richiesta inviata — lo staff porterà il conto"
+                                ? t("assistance.bill_subtitle_requested")
                                 : hasInProgressOrders
-                                    ? "Hai ordini in preparazione — potrai chiedere il conto quando saranno pronti"
-                                    : "Lo staff porterà il conto al tuo tavolo"}
+                                    ? t("assistance.bill_subtitle_pending")
+                                    : t("assistance.bill_subtitle")}
                         </span>
                         {billError && (
                             <span className={styles.cardError}>{billError}</span>
@@ -185,10 +187,10 @@ export default function AssistanceSheet({
                         aria-busy={isRequestingBill}
                     >
                         {isRequestingBill
-                            ? "Invio…"
+                            ? t("assistance.bill_cta_loading")
                             : billRequestedAt
-                                ? "Richiesto"
-                                : "Chiedi"}
+                                ? t("assistance.bill_cta_requested")
+                                : t("assistance.bill_cta")}
                     </button>
                 </div>
 

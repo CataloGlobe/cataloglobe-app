@@ -81,6 +81,25 @@
             "status": "Status"
         }
     },
+    "assistance": {
+        "aria": "Hilfe am Tisch",
+        "title": "Hilfe",
+        "waiter_title": "Kellner rufen",
+        "waiter_subtitle": "Das Personal kommt gleich an Ihren Tisch",
+        "waiter_subtitle_cooldown": "Kellner benachrichtigt — erneut rufbar in {{count}}s",
+        "waiter_error": "Fehler beim Rufen des Kellners",
+        "waiter_cta": "Rufen",
+        "waiter_cta_loading": "Wird gerufen…",
+        "waiter_cta_cooldown": "{{count}}s",
+        "bill_title": "Rechnung anfordern",
+        "bill_subtitle": "Das Personal bringt die Rechnung an Ihren Tisch",
+        "bill_subtitle_requested": "Anfrage gesendet — das Personal bringt die Rechnung",
+        "bill_subtitle_pending": "Sie haben Bestellungen in Zubereitung — Sie können die Rechnung anfordern, sobald sie fertig sind",
+        "bill_error": "Fehler beim Anfordern der Rechnung",
+        "bill_cta": "Anfordern",
+        "bill_cta_loading": "Wird gesendet…",
+        "bill_cta_requested": "Angefordert"
+    },
     "selection": {
         "add_aria": "Zur Auswahl hinzufügen",
         "sheet_aria": "Meine Auswahl",

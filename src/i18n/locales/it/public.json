@@ -81,6 +81,25 @@
             "status": "Stato"
         }
     },
+    "assistance": {
+        "aria": "Assistenza al tavolo",
+        "title": "Assistenza",
+        "waiter_title": "Chiama il cameriere",
+        "waiter_subtitle": "Lo staff raggiungerà il tuo tavolo a breve",
+        "waiter_subtitle_cooldown": "Cameriere avvisato — richiamabile tra {{count}}s",
+        "waiter_error": "Errore durante la chiamata al cameriere",
+        "waiter_cta": "Chiama",
+        "waiter_cta_loading": "Chiamando…",
+        "waiter_cta_cooldown": "{{count}}s",
+        "bill_title": "Chiedi il conto",
+        "bill_subtitle": "Lo staff porterà il conto al tuo tavolo",
+        "bill_subtitle_requested": "Richiesta inviata — lo staff porterà il conto",
+        "bill_subtitle_pending": "Hai ordini in preparazione — potrai chiedere il conto quando saranno pronti",
+        "bill_error": "Errore durante la richiesta del conto",
+        "bill_cta": "Chiedi",
+        "bill_cta_loading": "Invio…",
+        "bill_cta_requested": "Richiesto"
+    },
     "selection": {
         "add_aria": "Aggiungi alla selezione",
         "sheet_aria": "La mia selezione",

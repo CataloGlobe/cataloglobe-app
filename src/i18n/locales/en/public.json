@@ -81,6 +81,25 @@
             "status": "Status"
         }
     },
+    "assistance": {
+        "aria": "Table assistance",
+        "title": "Assistance",
+        "waiter_title": "Call the waiter",
+        "waiter_subtitle": "Staff will come to your table shortly",
+        "waiter_subtitle_cooldown": "Waiter notified — you can call again in {{count}}s",
+        "waiter_error": "Error while calling the waiter",
+        "waiter_cta": "Call",
+        "waiter_cta_loading": "Calling…",
+        "waiter_cta_cooldown": "{{count}}s",
+        "bill_title": "Ask for the bill",
+        "bill_subtitle": "Staff will bring the bill to your table",
+        "bill_subtitle_requested": "Request sent — staff will bring the bill",
+        "bill_subtitle_pending": "You have orders being prepared — you can ask for the bill when they're ready",
+        "bill_error": "Error while requesting the bill",
+        "bill_cta": "Ask",
+        "bill_cta_loading": "Sending…",
+        "bill_cta_requested": "Requested"
+    },
     "selection": {
         "add_aria": "Add to selection",
         "sheet_aria": "My selection",

@@ -81,6 +81,25 @@
             "status": "Estado"
         }
     },
+    "assistance": {
+        "aria": "Asistencia en la mesa",
+        "title": "Asistencia",
+        "waiter_title": "Llamar al camarero",
+        "waiter_subtitle": "El personal irá a tu mesa en breve",
+        "waiter_subtitle_cooldown": "Camarero avisado — puedes volver a llamar en {{count}}s",
+        "waiter_error": "Error al llamar al camarero",
+        "waiter_cta": "Llamar",
+        "waiter_cta_loading": "Llamando…",
+        "waiter_cta_cooldown": "{{count}}s",
+        "bill_title": "Pedir la cuenta",
+        "bill_subtitle": "El personal llevará la cuenta a tu mesa",
+        "bill_subtitle_requested": "Solicitud enviada — el personal traerá la cuenta",
+        "bill_subtitle_pending": "Tienes pedidos en preparación — podrás pedir la cuenta cuando estén listos",
+        "bill_error": "Error al pedir la cuenta",
+        "bill_cta": "Pedir",
+        "bill_cta_loading": "Enviando…",
+        "bill_cta_requested": "Solicitado"
+    },
     "selection": {
         "add_aria": "Añadir a la selección",
         "sheet_aria": "Mi selección",
