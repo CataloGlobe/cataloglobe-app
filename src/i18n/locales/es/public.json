@@ -126,7 +126,11 @@
         "badge_promo": "Promo",
         "badge_customizable": "Personalizable",
         "badge_unavailable": "No disponible",
-        "badge_variants": "Variantes"
+        "badge_variants": "Variantes",
+        "required": "obligatorio",
+        "max_select": "máx. {{count}}",
+        "included": "incluido",
+        "ingredients": "Ingredientes"
     },
     "item_detail": {
         "submit_default": "Añadir a la selección",
