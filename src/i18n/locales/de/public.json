@@ -22,7 +22,12 @@
         "info_aria": "Informationen zum Veranstaltungsort",
         "search_aria": "Suche im Katalog",
         "info_sheet_aria": "Informationen zum Veranstaltungsort",
-        "more_aria": "Weitere Optionen"
+        "more_aria": "Weitere Optionen",
+        "logo_alt": "Logo {{name}}"
+    },
+    "nav": {
+        "bottom_aria": "Navigation",
+        "subcategories_aria": "Unterkategorien von {{name}}"
     },
     "more": {
         "title": "Optionen",

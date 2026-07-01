@@ -262,7 +262,7 @@ export default function CollectionSectionNav({
                                     type="button"
                                     className={styles.pillChevron}
                                     data-open={openDropdownId === section.id}
-                                    aria-label={`Sottocategorie di ${section.name}`}
+                                    aria-label={t("nav.subcategories_aria", { name: section.name })}
                                     aria-expanded={openDropdownId === section.id}
                                     aria-haspopup="menu"
                                     onClick={() => handleChevronClick(section.id)}

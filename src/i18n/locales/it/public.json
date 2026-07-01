@@ -22,7 +22,12 @@
         "info_aria": "Informazioni sede",
         "search_aria": "Cerca nel catalogo",
         "info_sheet_aria": "Informazioni sede",
-        "more_aria": "Altre opzioni"
+        "more_aria": "Altre opzioni",
+        "logo_alt": "Logo {{name}}"
+    },
+    "nav": {
+        "bottom_aria": "Navigazione",
+        "subcategories_aria": "Sottocategorie di {{name}}"
     },
     "more": {
         "title": "Opzioni",

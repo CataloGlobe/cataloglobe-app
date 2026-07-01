@@ -323,7 +323,7 @@ export default function PublicCollectionHeader({
                             <div className={styles.logoWrapper}>
                                 <img
                                     src={logoUrl}
-                                    alt={`Logo ${activityName}`}
+                                    alt={t("header.logo_alt", { name: activityName })}
                                     className={styles.logo}
                                     decoding="async"
                                     width={80}
@@ -413,7 +413,7 @@ export default function PublicCollectionHeader({
                                         type="button"
                                         className={styles.iconBtn}
                                         onClick={onOpenSupport}
-                                        aria-label="Assistenza al tavolo"
+                                        aria-label={t("assistance.aria")}
                                     >
                                         <Bell size={15} strokeWidth={2} />
                                     </button>

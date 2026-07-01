@@ -164,7 +164,7 @@ export default function PublicBottomBar({
                 className={styles.bar}
                 data-shrink={shrink ? "true" : "false"}
                 data-theme={surfaceTheme}
-                aria-label="Navigazione"
+                aria-label={t("nav.bottom_aria")}
             >
                 <div className={styles.group} ref={groupRef}>
                 <span
@@ -205,7 +205,7 @@ export default function PublicBottomBar({
                 <button
                     type="button"
                     className={styles.cart}
-                    aria-label="Assistenza al tavolo"
+                    aria-label={t("assistance.aria")}
                     onClick={onOpenSupport}
                 >
                     <Bell size={19} strokeWidth={1.9} />

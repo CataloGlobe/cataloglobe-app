@@ -22,7 +22,12 @@
         "info_aria": "Información sobre el lugar",
         "search_aria": "Buscar en el catálogo",
         "info_sheet_aria": "Información sobre el lugar",
-        "more_aria": "Más opciones"
+        "more_aria": "Más opciones",
+        "logo_alt": "Logo {{name}}"
+    },
+    "nav": {
+        "bottom_aria": "Navegación",
+        "subcategories_aria": "Subcategorías de {{name}}"
     },
     "more": {
         "title": "Opciones",
