@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
+import LanguageSelectorView from "@components/PublicCollectionView/LanguageSelector/LanguageSelectorView";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import { usePageHead } from "@/hooks/usePageHead";
 import { usePublicLanguageSync } from "@/hooks/usePublicLanguageSync";
 import { fetchPublicCatalog } from "@/services/publicCatalog/fetchPublicCatalog";
 import type { SubmitReservationStatus } from "@/services/supabase/reservations";
+import type { AvailableLanguage } from "@context/Language/LanguageContext";
 import type { ResolvedStyle } from "@/types/resolvedCollections";
 import ReservationHeader from "./ReservationHeader";
 import ReservationForm from "./ReservationForm";
@@ -22,6 +24,7 @@ import styles from "./ReservationPage.module.scss";
 
 export default function ReservationPage() {
     const { slug, lang } = useParams<{ slug: string; lang?: string }>();
+    const navigate = useNavigate();
     const { t } = useTranslation("public");
     // Fase 1: applica la lingua dall'URL (segmento `:lang` sulla route
     // lang-aware `/:slug/:lang/prenota`; assente sulla base → default "it").
@@ -64,6 +67,10 @@ export default function ReservationPage() {
                 resolved?: { style?: ResolvedStyle | null };
                 opening_hours?: Brand["hours"];
                 upcoming_closures?: Brand["closures"];
+                // Già nel payload di resolve-public-catalog (serve al selettore
+                // lingua): lista lingue attive + lingua base del tenant.
+                available_languages?: AvailableLanguage[];
+                base_language_code?: string | null;
             };
             const business = payload.business;
             if (!business || !business.name) {
@@ -78,7 +85,9 @@ export default function ReservationPage() {
                 phone: business.phone ?? null,
                 phonePublic: business.phone_public ?? false,
                 hours: payload.opening_hours ?? [],
-                closures: payload.upcoming_closures ?? []
+                closures: payload.upcoming_closures ?? [],
+                languages: payload.available_languages ?? [],
+                baseLanguage: payload.base_language_code ?? "it"
             };
             if (business.status !== "active") {
                 setResolve({ status: "inactive", brand });
@@ -189,6 +198,24 @@ export default function ReservationPage() {
     const isSuccess =
         resolve.status === "ready" && successSnapshot !== null;
 
+    // Lingua corrente dal segmento URL (normalizzata lowercase); assente sulla
+    // route base → lingua base del tenant. Provider-free: il cambio naviga sul
+    // segmento e `usePublicLanguageSync` applica `i18n.changeLanguage` (writer
+    // unico, nessun secondo writer → nessun loop).
+    const currentLang = (lang ?? brand.baseLanguage).toLowerCase();
+    const languageSelector = (
+        <LanguageSelectorView
+            languages={brand.languages}
+            currentLang={currentLang}
+            onSelect={(code) => {
+                const url = code === brand.baseLanguage
+                    ? `/${slug}/prenota`
+                    : `/${slug}/${code}/prenota`;
+                navigate(url);
+            }}
+        />
+    );
+
     return (
         <PublicThemeScope style={brand.resolvedStyle}>
             <main className={styles.page}>
@@ -197,6 +224,7 @@ export default function ReservationPage() {
                     tenantLogoUrl={brand.tenantLogoUrl}
                     coverImage={brand.coverImage}
                     backHref={backHref}
+                    rightSlot={languageSelector}
                 />
 
                 <div className={styles.body}>

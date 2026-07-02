@@ -3,6 +3,7 @@ import type {
     OpeningHoursEntry,
     UpcomingClosure
 } from "@components/PublicCollectionView/PublicOpeningHours/PublicOpeningHours";
+import type { AvailableLanguage } from "@context/Language/LanguageContext";
 
 export type Brand = {
     brandName: string;
@@ -15,6 +16,10 @@ export type Brand = {
     hours: OpeningHoursEntry[];
     /** Upcoming closures (max 10 from resolve-public-catalog). */
     closures: UpcomingClosure[];
+    /** Lingue attive del tenant (base-first). Dal payload `available_languages`. */
+    languages: AvailableLanguage[];
+    /** Lingua base del tenant (senza segmento URL). Dal payload `base_language_code`. */
+    baseLanguage: string;
 };
 
 export type ResolveState =
