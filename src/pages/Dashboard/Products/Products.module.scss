@@ -213,22 +213,10 @@
 .productGrid {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   align-items: stretch;
   width: 100%;
   overflow: hidden;
-
-  @media (max-width: 767px) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  @media (min-width: 1024px) {
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-  }
-
-  @media (min-width: 1440px) {
-    grid-template-columns: repeat(7, minmax(0, 1fr));
-  }
 }
 
 // Drawers
