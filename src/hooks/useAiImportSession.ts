@@ -3,13 +3,13 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { supabase } from "@/services/supabase/client";
 import { compressImage } from "@/utils/compressImage";
 import { MAX_IMAGE_SIZE } from "@/pages/Dashboard/Catalogs/AiMenuImport/aiImportLimits";
-import { createProduct } from "@/services/supabase/products";
-import { createPrimaryPriceFormat } from "@/services/supabase/productOptions";
 import {
-    createCatalog,
-    createCategory,
-    addProductToCategory
-} from "@/services/supabase/catalogs";
+    buildImportManifest,
+    type ProductImportDecision,
+    type ExistingManifestCategory,
+    type AiImportProductInput
+} from "@/pages/Dashboard/Catalogs/AiMenuImport/buildImportManifest";
+import { importProductsIntoCatalog, enqueueImportSideEffects } from "@/services/supabase/aiImport";
 
 /* ────────────────────────────── Types ───────────────────── */
 
@@ -31,6 +31,41 @@ export type AiProduct = {
 };
 
 export type WizardStep = "upload" | "analyzing" | "review";
+
+/** Destinazione dell'import allo step 3: nuovo catalogo vs catalogo esistente. */
+export type ImportMode = "new" | "existing";
+
+/**
+ * Destinazione iniziale opzionale per la scorciatoia "Aggiungi prodotti con AI"
+ * dal kebab di un menu: apre il wizard già puntato su quel catalogo (selettore
+ * nascosto, destinazione bloccata). Vedi FASE 2C-5.
+ */
+export interface ImportOpenTarget {
+    catalogId: string;
+    catalogName: string;
+}
+
+/**
+ * Piano risolto per l'import nel ramo "catalogo esistente". Calcolato dalla UI
+ * (ExistingImportReview) a partire da catalogo scelto + mapping categorie +
+ * decisioni per prodotto, e sollevato qui perché footer del wizard e submit
+ * condividano la stessa sorgente. `null` finché manca il catalogo di
+ * destinazione. Consumato da `importIntoExistingCatalog`.
+ */
+export interface ExistingImportPlan {
+    catalogId: string;
+    catalogName: string;
+    /** Chiavi categoria (display, possibile gerarchia "L1 — L2") per il builder. */
+    aiCategories: string[];
+    /** Categorie già presenti nel catalogo, per il match del builder. */
+    existingCategories: ExistingManifestCategory[];
+    /** Decisioni per prodotto già risolte (create / reuse / skip). */
+    decisions: ProductImportDecision[];
+    createCount: number;
+    reuseCount: number;
+    /** true se resta almeno un `reusable_ambiguous` non risolto → blocca submit. */
+    hasUnresolvedAmbiguous: boolean;
+}
 
 /**
  * Stato derivato della sessione, sorgente di verità per la vista del wizard al
@@ -62,7 +97,7 @@ export interface AiImportSession {
      * `review`/`creating`) mostrando la vista corrente; riparte pulito solo se
      * `idle` o `done`. Garantisce single-flight: non avvia una seconda sessione.
      */
-    open: () => void;
+    open: (target?: ImportOpenTarget) => void;
     /** Chiude il drawer. NON annulla la richiesta: nasconde soltanto. */
     close: () => void;
     /** Scarta la sessione corrente e riparte dall'upload (affordance "ricomincia"). */
@@ -97,7 +132,23 @@ export interface AiImportSession {
     toggleCategory: (catKey: string) => void;
     toggleAll: () => void;
     setCategoryName: (key: string, name: string) => void;
-    createProducts: () => Promise<void>;
+    /** Submit del ramo "nuovo catalogo" (write-path atomico via RPC). */
+    importNewCatalog: () => Promise<void>;
+
+    // Ramo "catalogo esistente" (FASE 2C-1)
+    /** tenant corrente (per data-fetch/submit del ramo esistente). */
+    tenantId: string | null;
+    /** Destinazione step 3: nuovo catalogo vs esistente. */
+    importMode: ImportMode;
+    setImportMode: (mode: ImportMode) => void;
+    /** Catalogo pre-puntato dalla scorciatoia kebab (null = apertura standard). */
+    initialCatalogId: string | null;
+    initialCatalogName: string | null;
+    /** Piano risolto sollevato da ExistingImportReview (null = catalogo non scelto). */
+    existingImportPlan: ExistingImportPlan | null;
+    setExistingImportPlan: (plan: ExistingImportPlan | null) => void;
+    /** Submit atomico del ramo esistente via RPC + side-effect traduzioni. */
+    importIntoExistingCatalog: () => Promise<void>;
 
     /** Bumpato al successo dell'import → le pagine ricaricano (mirror translationRefreshKey). */
     importRefreshKey: number;
@@ -163,6 +214,19 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
     // Page-facing reload signal
     const [importRefreshKey, setImportRefreshKey] = useState(0);
 
+    // Existing-catalog import branch (FASE 2C-1)
+    const [importMode, setImportMode] = useState<ImportMode>("new");
+    const [existingImportPlan, setExistingImportPlan] = useState<ExistingImportPlan | null>(null);
+    // Destinazione bloccata dalla scorciatoia kebab (FASE 2C-5).
+    const [initialCatalogId, setInitialCatalogId] = useState<string | null>(null);
+    const [initialCatalogName, setInitialCatalogName] = useState<string | null>(null);
+    // Ref per leggere il piano più recente dentro il callback stabile di submit
+    // senza inserirlo nelle deps (identità azioni stabile per l'Outlet context).
+    const existingPlanRef = useRef<ExistingImportPlan | null>(null);
+    useEffect(() => {
+        existingPlanRef.current = existingImportPlan;
+    }, [existingImportPlan]);
+
     // AbortController della richiesta `analyze()` in volo. `cancelAnalysis()` lo
     // aborta per smettere di aspettare lato client (stessa plumbing del futuro
     // timeout per-tentativo). Catturato anche in closure dentro `analyze()` come
@@ -181,6 +245,10 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
         setCreateProgress({ current: 0, total: 0 });
         setImportDone(false);
         setImportResult({ created: 0, errors: 0 });
+        setImportMode("new");
+        setExistingImportPlan(null);
+        setInitialCatalogId(null);
+        setInitialCatalogName(null);
     }, []);
 
     // Stato derivato + ref per leggerlo dentro callback stabili (open/analyze)
@@ -202,11 +270,23 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
 
     // Ri-aggancia una sessione attiva (mostra la vista corrente al rimount del
     // wizard); riparte pulito solo se idle o done (import già salvato).
-    const open = useCallback(() => {
-        const s = statusRef.current;
-        if (s === "idle" || s === "done") reset();
-        setIsOpen(true);
-    }, [reset]);
+    const open = useCallback(
+        (target?: ImportOpenTarget) => {
+            const s = statusRef.current;
+            // Applica la destinazione bloccata solo su avvio pulito; se c'è una
+            // sessione attiva si ri-aggancia la vista corrente senza clobber.
+            if (s === "idle" || s === "done") {
+                reset();
+                if (target) {
+                    setInitialCatalogId(target.catalogId);
+                    setInitialCatalogName(target.catalogName);
+                    setImportMode("existing");
+                }
+            }
+            setIsOpen(true);
+        },
+        [reset]
+    );
 
     const close = useCallback(() => {
         setIsOpen(false);
@@ -411,149 +491,130 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
         [products]
     );
 
-    const createProducts = useCallback(async () => {
-        if (!tenantId || !menuName.trim() || selectedProducts.length === 0) return;
+    // Primitiva atomica condivisa dai due rami (nuovo + esistente): builder puro
+    // → RPC user-scoped `import_products_into_catalog` → side-effect traduzioni
+    // (fire-and-forget silent-error) → overlay/toast/close. Un solo write-path,
+    // rollback totale lato DB in caso di errore (niente più `errors++` per-row).
+    const submitManifest = useCallback(
+        async (
+            buildArgs: {
+                aiCategories: string[];
+                existingCategories: ExistingManifestCategory[];
+                decisions: ProductImportDecision[];
+            },
+            target: { catalogId: string | null; newCatalogName: string | null },
+            totalOps: number
+        ) => {
+            if (!tenantId) return;
+            setIsCreating(true);
+            setImportDone(false);
+            setCreateProgress({ current: 0, total: totalOps });
 
-        setIsCreating(true);
-        setImportDone(false);
-        setCreateProgress({ current: 0, total: selectedProducts.length });
+            try {
+                const manifest = await buildImportManifest(buildArgs);
 
-        let created = 0;
-        let errors = 0;
+                const summary = await importProductsIntoCatalog(tenantId, {
+                    catalogId: target.catalogId,
+                    newCatalogName: target.newCatalogName,
+                    categories: manifest.categories,
+                    products: manifest.products
+                });
 
-        try {
-            // 1. Parse category hierarchy from " — " separator
-            const usedCategoryKeys = [...new Set(selectedProducts.map(p => p._category))];
+                // Fire-and-forget silent-error: un fallimento di enqueue/revalidate
+                // NON deve rompere il flusso (import già committato dalla RPC).
+                await enqueueImportSideEffects(tenantId, manifest, summary);
 
-            const l1Names: string[] = [];
-            const l2Map = new Map<string, string[]>(); // l1Name → [l2Name, ...]
+                setCreateProgress({ current: totalOps, total: totalOps });
+                setImportResult({ created: summary.created_products, errors: 0 });
+                setImportDone(true);
 
-            for (const key of usedCategoryKeys) {
-                const display = categoryNames[key] ?? key;
-                const parts = display.split(" — ");
-                const l1 = parts[0].trim();
-
-                if (!l1Names.includes(l1)) l1Names.push(l1);
-
-                if (parts.length > 1) {
-                    const l2 = parts[1].trim();
-                    if (!l2Map.has(l1)) l2Map.set(l1, []);
-                    const l2List = l2Map.get(l1)!;
-                    if (!l2List.includes(l2)) l2List.push(l2);
-                }
-            }
-
-            // 2. Create catalog
-            const catalog = await createCatalog(tenantId, menuName.trim());
-
-            // 3. Create L1 categories
-            const l1IdMap = new Map<string, string>(); // l1Name → categoryId
-            for (let i = 0; i < l1Names.length; i++) {
-                const cat = await createCategory(tenantId, catalog.id, l1Names[i], 1, null, i);
-                l1IdMap.set(l1Names[i], cat.id);
-            }
-
-            // 4. Create L2 categories
-            const l2IdMap = new Map<string, string>(); // "l1Name — l2Name" → categoryId
-            for (const [l1Name, l2Names] of l2Map) {
-                const parentId = l1IdMap.get(l1Name)!;
-                for (let i = 0; i < l2Names.length; i++) {
-                    const cat = await createCategory(tenantId, catalog.id, l2Names[i], 2, parentId, i);
-                    l2IdMap.set(`${l1Name} — ${l2Names[i]}`, cat.id);
-                }
-            }
-
-            // 5. Create products and assign to categories
-            // Group selected products by category for sort_order
-            const productsByCategory = new Map<string, AiProduct[]>();
-            for (const p of selectedProducts) {
-                const key = p._category;
-                if (!productsByCategory.has(key)) productsByCategory.set(key, []);
-                productsByCategory.get(key)!.push(p);
-            }
-
-            for (const [catKey, catProducts] of productsByCategory) {
-                const display = categoryNames[catKey] ?? catKey;
-                const parts = display.split(" — ");
-                const l1 = parts[0].trim();
-
-                // Determine target category ID
-                let targetCategoryId: string;
-                if (parts.length > 1) {
-                    const l2Key = `${l1} — ${parts[1].trim()}`;
-                    targetCategoryId = l2IdMap.get(l2Key) ?? l1IdMap.get(l1)!;
-                } else {
-                    targetCategoryId = l1IdMap.get(l1)!;
-                }
-
-                for (let i = 0; i < catProducts.length; i++) {
-                    const p = catProducts[i];
-                    try {
-                        // Create product
-                        // Create as "simple" — createPrimaryPriceFormat auto-transitions to "formats"
-                        const newProduct = await createProduct(tenantId, {
-                            name: p.name,
-                            description: p.description,
-                            base_price: p.product_type === "simple" ? p.base_price : null
-                        });
-
-                        // Create formats if needed
-                        if (p.product_type === "formats" && p.formats) {
-                            for (const fmt of p.formats) {
-                                await createPrimaryPriceFormat(
-                                    newProduct.id,
-                                    tenantId,
-                                    fmt.name,
-                                    fmt.price
-                                );
-                            }
-                        }
-
-                        // Assign to category
-                        await addProductToCategory(
-                            tenantId,
-                            catalog.id,
-                            targetCategoryId,
-                            newProduct.id,
-                            i
-                        );
-
-                        created++;
-                    } catch (err) {
-                        console.error(`[AiMenuImport] Failed to create product "${p.name}":`, err);
-                        errors++;
-                    }
-
-                    setCreateProgress({ current: created + errors, total: selectedProducts.length });
-                }
-            }
-
-            // 6. Done
-            setImportResult({ created, errors });
-            setImportDone(true);
-
-            // Auto-close after brief display of success
-            setTimeout(() => {
-                if (errors === 0) {
+                setTimeout(() => {
+                    const parts = [`${summary.created_products} creati`];
+                    if (summary.reused_products > 0) parts.push(`${summary.reused_products} riusati`);
+                    if (summary.skipped > 0) parts.push(`${summary.skipped} saltati`);
                     showToast({
-                        message: `Menù importato con successo! ${created} prodotti creati.`,
+                        message: `Import completato: ${parts.join(", ")}.`,
                         type: "success"
                     });
-                } else {
-                    showToast({
-                        message: `${created} prodotti importati, ${errors} saltati per errori.`,
-                        type: "warning"
-                    });
-                }
-                setImportRefreshKey(k => k + 1);
-                setIsOpen(false);
-            }, 1500);
-        } catch (err) {
-            console.error("[AiMenuImport] creation error:", err);
-            showToast({ message: "Errore durante la creazione del menù.", type: "error" });
-            setIsCreating(false);
+                    setImportRefreshKey(k => k + 1);
+                    setIsOpen(false);
+                }, 1500);
+            } catch (err) {
+                console.error("[AiMenuImport] import error:", err);
+                const code = (err as { code?: string }).code;
+                showToast({
+                    message:
+                        code === "42501"
+                            ? "Permesso negato: non puoi scrivere in questo catalogo."
+                            : "Errore durante l'import nel catalogo.",
+                    type: "error"
+                });
+                setIsCreating(false);
+            }
+        },
+        [tenantId, showToast]
+    );
+
+    // Ramo "nuovo catalogo": UX invariata (nome menù + lista). Write-path ora
+    // sulla RPC: insiemi esistenti vuoti → manifest all-create (categorie AI con
+    // gerarchia " — " preservata dal builder, prodotti tutti create).
+    const importNewCatalog = useCallback(async () => {
+        if (!tenantId || !menuName.trim() || selectedProducts.length === 0) return;
+        if (statusRef.current === "creating") return;
+
+        const sortCounters = new Map<string, number>();
+        const aiCategoriesSet = new Set<string>();
+        const decisions: ProductImportDecision[] = [];
+
+        for (const p of selectedProducts) {
+            const key = categoryNames[p._category] ?? p._category;
+            aiCategoriesSet.add(key);
+            const so = sortCounters.get(key) ?? 0;
+            const product: AiImportProductInput = {
+                name: p.name,
+                description: p.description,
+                base_price: p.product_type === "simple" ? p.base_price : null,
+                formats:
+                    p.product_type === "formats" && Array.isArray(p.formats)
+                        ? p.formats.map(f => ({ name: f.name, price: f.price }))
+                        : undefined
+            };
+            decisions.push({ kind: "create", categoryKey: key, sortOrder: so, product });
+            sortCounters.set(key, so + 1);
         }
-    }, [tenantId, menuName, selectedProducts, categoryNames, showToast]);
+
+        await submitManifest(
+            {
+                aiCategories: Array.from(aiCategoriesSet),
+                existingCategories: [],
+                decisions
+            },
+            { catalogId: null, newCatalogName: menuName.trim() },
+            selectedProducts.length
+        );
+    }, [tenantId, menuName, selectedProducts, categoryNames, submitManifest]);
+
+    /* ── Import in catalogo esistente (ramo 2C-1) ─────────────── */
+
+    // Legge il piano dal ref (identità stabile). Il footer del wizard blocca già
+    // catalogo mancante / 0 selezionati / ambigui non risolti, ma ri-controllo
+    // qui per sicurezza. Delega il write-path a `submitManifest`.
+    const importIntoExistingCatalog = useCallback(async () => {
+        const plan = existingPlanRef.current;
+        if (!tenantId || !plan) return;
+        if (plan.createCount + plan.reuseCount === 0 || plan.hasUnresolvedAmbiguous) return;
+        if (statusRef.current === "creating") return;
+
+        await submitManifest(
+            {
+                aiCategories: plan.aiCategories,
+                existingCategories: plan.existingCategories,
+                decisions: plan.decisions
+            },
+            { catalogId: plan.catalogId, newCatalogName: null },
+            plan.createCount + plan.reuseCount
+        );
+    }, [tenantId, submitManifest]);
 
     const isBusy = step === "analyzing" || isCreating;
 
@@ -585,7 +646,15 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
         toggleCategory,
         toggleAll,
         setCategoryName,
-        createProducts,
+        importNewCatalog,
+        tenantId,
+        importMode,
+        setImportMode,
+        initialCatalogId,
+        initialCatalogName,
+        existingImportPlan,
+        setExistingImportPlan,
+        importIntoExistingCatalog,
         importRefreshKey
     };
 }

@@ -190,6 +190,12 @@ export default function Catalogs() {
         setIsDrawerOpen(true);
     };
 
+    // Scorciatoia: apre il wizard AI import puntato su questo catalogo (2C-5).
+    const handleAddWithAi = (catalog: V2Catalog) => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        openAiImport?.({ catalogId: catalog.id, catalogName: catalog.name });
+    };
+
     const handleOpenDelete = (catalog: V2Catalog) => {
         setCatalogToDelete(catalog);
         setIsDeleteOpen(true);
@@ -318,7 +324,17 @@ export default function Catalogs() {
             cell: (_value: unknown, catalog: V2Catalog) => (
                 <TableRowActions
                     actions={[
-                        { label: "Modifica nome", onClick: () => handleOpenEdit(catalog) },
+                        {
+                            label: "Aggiungi prodotti con AI",
+                            icon: Sparkles,
+                            variant: "accent" as const,
+                            onClick: () => handleAddWithAi(catalog)
+                        },
+                        {
+                            label: "Modifica nome",
+                            onClick: () => handleOpenEdit(catalog),
+                            separator: true
+                        },
                         {
                             label: `Elimina ${catalogLower}`,
                             onClick: () => handleOpenDelete(catalog),
@@ -380,6 +396,7 @@ export default function Catalogs() {
                                 catalogLower={catalogLower}
                                 onEdit={handleOpenEdit}
                                 onDelete={handleOpenDelete}
+                                onAddWithAi={handleAddWithAi}
                                 onClick={c =>
                                     navigate(`/business/${currentTenantId}/catalogs/${c.id}`)
                                 }

@@ -41,10 +41,18 @@ export function AiMenuImportWizard({ session }: AiMenuImportWizardProps) {
         toggleCategory,
         toggleAll,
         setCategoryName,
-        createProducts,
+        importNewCatalog,
         close,
         startNew,
-        cancelAnalysis
+        cancelAnalysis,
+        tenantId,
+        importMode,
+        setImportMode,
+        initialCatalogId,
+        initialCatalogName,
+        existingImportPlan,
+        setExistingImportPlan,
+        importIntoExistingCatalog
     } = session;
 
     /* ── Footer per step ──────────────────────────────────── */
@@ -97,21 +105,43 @@ export function AiMenuImportWizard({ session }: AiMenuImportWizardProps) {
         }
 
         // review — "Indietro" rimosso: duplicava "Ricomincia" (entrambi → upload).
+        // Il primary dipende dal ramo scelto (nuovo catalogo vs esistente).
         return (
             <>
                 <Button variant="ghost" onClick={startNew} disabled={isCreating}>
                     Ricomincia
                 </Button>
-                <Button
-                    variant="primary"
-                    onClick={createProducts}
-                    disabled={selectedProducts.length === 0 || !menuName.trim() || isCreating}
-                    loading={isCreating}
-                >
-                    {isCreating
-                        ? `Creazione... (${createProgress.current}/${createProgress.total})`
-                        : `Importa ${selectedProducts.length} prodotti`}
-                </Button>
+                {importMode === "new" ? (
+                    <Button
+                        variant="primary"
+                        onClick={importNewCatalog}
+                        disabled={selectedProducts.length === 0 || !menuName.trim() || isCreating}
+                        loading={isCreating}
+                    >
+                        {isCreating
+                            ? `Creazione... (${createProgress.current}/${createProgress.total})`
+                            : `Importa ${selectedProducts.length} prodotti`}
+                    </Button>
+                ) : (
+                    <Button
+                        variant="primary"
+                        onClick={importIntoExistingCatalog}
+                        disabled={
+                            !existingImportPlan ||
+                            existingImportPlan.createCount + existingImportPlan.reuseCount === 0 ||
+                            existingImportPlan.hasUnresolvedAmbiguous ||
+                            isCreating
+                        }
+                        loading={isCreating}
+                    >
+                        {existingImportPlan &&
+                        existingImportPlan.createCount + existingImportPlan.reuseCount > 0
+                            ? `Importa ${
+                                  existingImportPlan.createCount + existingImportPlan.reuseCount
+                              } prodotti in «${existingImportPlan.catalogName}»`
+                            : "Importa in catalogo"}
+                    </Button>
+                )}
             </>
         );
     };
@@ -157,6 +187,12 @@ export function AiMenuImportWizard({ session }: AiMenuImportWizardProps) {
                         onRemoveProduct={removeProduct}
                         onToggleCategory={toggleCategory}
                         onToggleAll={toggleAll}
+                        tenantId={tenantId}
+                        importMode={importMode}
+                        onImportModeChange={setImportMode}
+                        onSetExistingPlan={setExistingImportPlan}
+                        initialCatalogId={initialCatalogId}
+                        initialCatalogName={initialCatalogName}
                     />
                 )}
 

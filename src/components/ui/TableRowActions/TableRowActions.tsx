@@ -7,7 +7,7 @@ export interface TableRowAction {
     label: string;
     icon?: React.ComponentType<{ size?: number }>;
     onClick?: () => void;
-    variant?: "destructive";
+    variant?: "destructive" | "accent";
     separator?: boolean;
     hidden?: boolean;
 }
@@ -43,7 +43,13 @@ export function TableRowActions({ actions }: TableRowActionsProps) {
                                 <DropdownMenu.Separator className={styles.separator} />
                             )}
                             <DropdownMenu.Item
-                                className={`${styles.item}${action.variant === "destructive" ? ` ${styles.danger}` : ""}`}
+                                className={`${styles.item}${
+                                    action.variant === "destructive"
+                                        ? ` ${styles.danger}`
+                                        : action.variant === "accent"
+                                            ? ` ${styles.accent}`
+                                            : ""
+                                }`}
                                 onClick={action.onClick}
                             >
                                 {action.icon && <action.icon size={14} />}
