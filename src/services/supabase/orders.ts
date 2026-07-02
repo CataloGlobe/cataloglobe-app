@@ -48,6 +48,7 @@ import type {
     V2Order,
     V2OrderWithItems,
     V2OrderItem,
+    V2RectifiableResidual,
     ListOrdersOptions
 } from "@/types/orders";
 
@@ -359,6 +360,45 @@ export async function getOrderWithItems(
             line_total: Number(item.line_total)
         }))
     } as unknown as V2OrderWithItems;
+}
+
+/**
+ * Residuo stornabile per riga dell'ordine padre `orderId`, dalla RPC
+ * `get_rectifiable_residual`. Fonte unica allineata al cap cumulativo di
+ * `rectify_order_atomic` (residuo = qty originale − Σ storni non annullati).
+ * Il guard tenant (membership + `orders.read`) è nella funzione SECURITY
+ * DEFINER; `tenantId` resta il source-of-truth applicativo passato dal chiamante.
+ * Ritorna `[]` se l'ordine non ha righe. Convenzione `list*`: mai null.
+ */
+export async function listRectifiableResiduals(
+    orderId: string,
+    tenantId: string
+): Promise<V2RectifiableResidual[]> {
+    // Il guard tenant autorevole è nella RPC SECURITY DEFINER; qui una guardia
+    // applicativa difensiva assicura che il chiamante passi sempre il tenant
+    // selezionato (coerente con le altre chiamate del dominio ordini).
+    if (!tenantId) throw new Error("MISSING_TENANT_ID");
+
+    const { data, error } = await supabase.rpc("get_rectifiable_residual", {
+        p_order_id: orderId
+    });
+    if (error) throw error;
+
+    const rows = (data ?? []) as Array<{
+        r_order_item_id: string;
+        r_product_name: string;
+        r_original_qty: number;
+        r_rectified_qty: number;
+        r_residual_qty: number;
+    }>;
+
+    return rows.map(row => ({
+        orderItemId: row.r_order_item_id,
+        productName: row.r_product_name,
+        originalQty: Number(row.r_original_qty),
+        rectifiedQty: Number(row.r_rectified_qty),
+        residualQty: Number(row.r_residual_qty)
+    }));
 }
 
 /**
