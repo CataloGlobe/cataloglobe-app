@@ -112,6 +112,19 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
     const handleScroll = useCallback(() => {
         const el = trackRef.current;
         if (!el || el.children.length === 0) return;
+        // La prima/ultima card non possono mai centrare il proprio centro nel
+        // viewport (ancorate ai bordi): findCenteredIndex vincerebbe sempre la
+        // seconda/penultima agli estremi. Gestione esplicita dei bordi con
+        // tolleranza subpixel così il dot 0 e l'ultimo si attivano davvero.
+        const TOL = 4;
+        if (el.scrollLeft <= TOL) {
+            setActiveIndex(0);
+            return;
+        }
+        if (el.scrollLeft + el.clientWidth >= el.scrollWidth - TOL) {
+            setActiveIndex(el.children.length - 1);
+            return;
+        }
         setActiveIndex(findCenteredIndex(el));
     }, []);
 
