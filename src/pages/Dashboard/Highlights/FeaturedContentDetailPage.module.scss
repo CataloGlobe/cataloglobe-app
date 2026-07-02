@@ -42,17 +42,11 @@
   position: relative;
   width: 100%;
   max-width: 360px;
+  aspect-ratio: 16 / 9;
   border-radius: 10px;
   overflow: hidden;
   border: 1px solid var(--border-subtle, #e5e7eb);
   background: var(--surface-secondary, #f9fafb);
-}
-
-.mediaPreviewImg {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
-  display: block;
 }
 
 /* ── Read-only info layout ───────────────────────────── */

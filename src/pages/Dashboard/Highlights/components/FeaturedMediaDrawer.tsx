@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Image } from "lucide-react";
 import { ImageReframeEditor } from "@/components/ui/ImageReframeEditor";
+import { FramedMedia } from "@/components/ui/FramedMedia";
 import {
     updateFeaturedContent,
     framingToColumns,
@@ -258,10 +259,11 @@ export function FeaturedMediaDrawer({ open, onClose, content, tenantId, onSucces
                             {content.media_id && (
                                 <>
                                     <div className={styles.preview}>
-                                        <img
-                                            src={content.media_id}
+                                        <FramedMedia
+                                            source={content.media_id}
+                                            framing={columnsToFraming(content)}
+                                            aspectRatio={content.media_aspect_ratio}
                                             alt="Anteprima"
-                                            className={styles.previewImg}
                                         />
                                     </div>
                                     <Button

@@ -67,15 +67,6 @@
   border-radius: var(--pub-radius) var(--pub-radius) 0 0;
 }
 
-.cardThumbImg {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
 .cardThumbPlaceholder {
   width: 100%;
   height: 100%;
@@ -206,30 +197,6 @@
   }
 }
 
-.highlightBg {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-/* ── Fade-in: applicata da JS via onLoad ──────────────────────────────── */
-.imgLoaded {
-  opacity: 1;
-}
-
-/* .framedImg (parametric) is declared later in the file with opacity:0; at equal
-   specificity source-order would keep it transparent. Bump specificity so the
-   loaded state wins regardless of source order. */
-.framedImg.imgLoaded {
-  opacity: 1;
-}
-
 .highlightGradient {
   position: absolute;
   inset: 0;
@@ -313,34 +280,6 @@
   }
 }
 
-/* ── Parametric framing (zoom != 1): CSS-pure render, no box measurement.
-   width/height/left/top are runtime % (inline). Box matches the image's
-   natural ratio, so object-fit is distortion-free. ─────────────────────── */
-.framedImg {
-  position: absolute;
-  max-width: none; /* runtime % sets exact size; defeat responsive reset */
-  object-fit: cover;
-  display: block;
-  pointer-events: none;
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-/* Blurred cover copy painted behind the image on empty bands. */
-.framedFillBlur {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transform: scale(1.15);
-  filter: blur(18px);
-  pointer-events: none;
-}
-
-/* Solid-color band fill (dominant / color). backgroundColor is runtime (inline). */
-.framedFill {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
+/* Image rendering (cover + parametric framing + band fill) moved to the shared
+   FramedMedia component (@components/ui/FramedMedia). The image sits inside the
+   16:9 .cardThumb / .cardHighlight containers above. */
