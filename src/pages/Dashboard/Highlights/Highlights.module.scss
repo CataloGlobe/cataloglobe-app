@@ -1,12 +1,10 @@
 // Wrapper contenuto pagina: nessun padding/margin verticale aggiuntivo —
 // il ritmo navbar→banda→contenuto deriva da `MainLayout .content` (24px),
-// identico a Products/Catalogs/Styles.
+// identico a Catalogs.
 .wrapper {
   display: flex;
   flex-direction: column;
   gap: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
   width: 100%;
 }
 
