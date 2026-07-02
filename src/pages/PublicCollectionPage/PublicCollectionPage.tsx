@@ -56,9 +56,6 @@ type Props = {
 
 export default function PublicCollectionPage({ initialPayload }: Props) {
     const { slug, lang: langFromUrl } = useParams<{ slug: string; lang?: string }>();
-    // Fase 1: applica la lingua dall'URL subito, prima di ogni early-return →
-    // copre tutte le shell (loading/error/inactive/...) oltre al ramo ready.
-    usePublicLanguageSync();
     const navigate = useNavigate();
     const { t, i18n } = useTranslation("public");
     const location = useLocation();
@@ -109,6 +106,13 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
             ? derivePageState(initialPayload.payload, initialPayload.allergens)
             : { status: "loading" }
     );
+
+    // Fase 1 (URL-driven): applica la lingua dall'URL nelle SHELL
+    // (loading/error/inactive/...). Nel ramo "ready" comanda il
+    // `LanguageProvider` (Fase 2, dentro PublicCatalogReady): writer unico per
+    // stato → niente ping-pong di changeLanguage al cambio lingua (il provider
+    // conosce effective_language e preserva base≠it). Vedi usePublicLanguageSync.
+    usePublicLanguageSync(state.status !== "ready");
 
     // Skip-hydration one-shot: il payload inlinato dal server è SEMPRE nella
     // lingua base (il rewrite SSR serve solo /:slug, senza segmento lingua).
