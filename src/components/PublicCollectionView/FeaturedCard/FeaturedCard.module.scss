@@ -223,6 +223,13 @@
   opacity: 1;
 }
 
+/* .framedImg (parametric) is declared later in the file with opacity:0; at equal
+   specificity source-order would keep it transparent. Bump specificity so the
+   loaded state wins regardless of source order. */
+.framedImg.imgLoaded {
+  opacity: 1;
+}
+
 .highlightGradient {
   position: absolute;
   inset: 0;
