@@ -138,25 +138,69 @@
 
 .coverTick {
     position: absolute;
-    top: 16px;
+    top: 20px; // aligned to the 6px track centered in the 20px-tall input
     width: 2px;
-    height: 14px;
+    height: 12px;
     transform: translateX(-50%);
     background: var(--brand-primary);
     border-radius: 1px;
-    opacity: 0.65;
+    opacity: 0.7;
     pointer-events: none;
 }
 
+// Styled native range: neutral track + brand thumb (Firefox also gets a filled
+// progress). Track height 6px, input box 20px so the thumb centers on it.
 .zoom {
+    -webkit-appearance: none;
+    appearance: none;
     position: relative;
     width: 100%;
-    accent-color: var(--brand-primary);
+    height: 20px;
+    background: transparent;
     cursor: pointer;
 
     &:disabled {
         cursor: default;
         opacity: 0.5;
+    }
+
+    &::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--border);
+    }
+
+    &::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        margin-top: -5px; // (track 6 - thumb 16) / 2
+        border-radius: 50%;
+        background: var(--brand-primary);
+        border: 2px solid #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    }
+
+    &::-moz-range-track {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--border);
+    }
+
+    &::-moz-range-progress {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--brand-primary);
+    }
+
+    &::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        background: var(--brand-primary);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
     }
 }
 
