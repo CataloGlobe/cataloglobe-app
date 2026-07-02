@@ -3,7 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import Text from "@/components/ui/Text/Text";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
-import type { FeaturedContentWithProducts, FeaturedContentType } from "@/services/supabase/featuredContents";
+import { FramedMedia } from "@components/ui/FramedMedia";
+import {
+    columnsToFraming,
+    type FeaturedContentWithProducts,
+    type FeaturedContentType
+} from "@/services/supabase/featuredContents";
 import styles from "./FeaturedContentCard.module.scss";
 
 type Props = {
@@ -40,11 +45,11 @@ export default function FeaturedContentCard({ item, onEdit, onDelete }: Props) {
             {/* Immagine / Placeholder */}
             <div className={styles.imageWrapper}>
                 {item.media_id ? (
-                    <div
-                        className={styles.image}
-                        style={{ backgroundImage: `url(${item.media_id})` }}
-                        role="img"
-                        aria-label={item.title}
+                    <FramedMedia
+                        source={item.media_id}
+                        framing={columnsToFraming(item)}
+                        aspectRatio={item.media_aspect_ratio}
+                        alt={item.title}
                     />
                 ) : (
                     <div className={styles.placeholder} aria-hidden="true">
