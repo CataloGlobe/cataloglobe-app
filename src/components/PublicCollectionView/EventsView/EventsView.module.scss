@@ -23,28 +23,22 @@
 
 .grid {
   display: grid;
-  grid-template-columns: 1fr;
+  /* auto-fit: le colonne si adattano rispettando la soglia 340px (mai sotto) e
+     il cap 500px. min(340px,100%) evita l'overflow su viewport < 340px.
+     justify-content:center centra le colonne quando sono meno del massimo, così
+     il caso singolo è già centrato e cappato senza logica dedicata. */
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 500px));
+  justify-content: center;
   gap: 24px;
   padding: 1.5rem 1rem;
 
-  /* 1 col mobile · 2 col tablet · 3 col desktop — su larghezza del container. */
+  /* @container solo per il padding (le colonne le gestisce auto-fit). */
   @container events (min-width: 640px) {
-    grid-template-columns: repeat(2, 1fr);
     padding: 2rem 1.5rem;
   }
 
   @container events (min-width: 1000px) {
-    grid-template-columns: repeat(3, 1fr);
     padding: 2.5rem 1rem;
-  }
-}
-
-/* 1 solo contenuto: centrato e cappato, mai a piena larghezza della griglia. */
-.gridSingle {
-  @container events (min-width: 640px) {
-    grid-template-columns: 1fr;
-    max-width: 500px;
-    margin-inline: auto;
   }
 }
 

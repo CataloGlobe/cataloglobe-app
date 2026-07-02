@@ -27,12 +27,10 @@ export default function EventsView({ featuredContents, layout = "card" }: Events
         );
     }
 
-    const isSingle = featuredContents.length === 1;
-
     return (
         <div className={styles.root}>
             <div
-                className={`${styles.grid} ${isSingle ? styles.gridSingle : ""}`}
+                className={styles.grid}
                 role="list"
                 aria-label={t("events.list_aria")}
             >

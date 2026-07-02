@@ -34,7 +34,10 @@
      (dove vivono before/after_catalog), non sulla viewport — coerente col grid. */
   @container collection (min-width: 700px) {
     display: grid;
-    grid-template-columns: repeat(var(--grid-cols, 3), 1fr);
+    /* auto-fit: le colonne riflettono (vanno a capo) invece di scendere sotto
+       340px. Il container query gate (700px) impedisce overflow su mobile. */
+    grid-template-columns: repeat(auto-fit, minmax(340px, 440px));
+    justify-content: center;
     gap: 16px;
     overflow-x: visible;
     scroll-snap-type: none;
@@ -60,11 +63,12 @@
    CARD LAYOUT OVERRIDES (carousel/grid specific sizing)
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* Carousel card: sized for scroll-snap */
+/* Carousel card: fixed readable width that scrolls — never below 340px, never
+   above 440px. The peek emerges from the preferred % relative to the track. */
 .cardCarousel {
   flex-shrink: 0;
   scroll-snap-align: center;
-  width: 80%;
+  width: clamp(340px, 82%, 440px);
 
   &:first-child {
     scroll-snap-align: start;
@@ -90,17 +94,14 @@
    grow gigantic in the 2-column case. */
 .trackGridDesktop .cardCarousel {
   @container collection (min-width: 700px) {
+    /* auto-fit track (340–440px) already caps the width; card fills its cell. */
     width: auto;
-    max-width: 440px;
-    margin-inline: auto;
     scroll-snap-align: unset;
   }
 
   /* Ripristina dimensioni carousel nel preview mobile */
   :global(.preview-mobile) & {
-    width: 80%;
-    max-width: none;
-    margin-inline: 0;
+    width: clamp(340px, 82%, 440px);
     scroll-snap-align: center;
 
     &:first-child {
@@ -113,13 +114,8 @@
   }
 }
 
-/* Desktop carousel (5+): ~3 cards visible, capped so they never grow gigantic */
-.trackCarouselAlways .cardCarousel {
-  @container collection (min-width: 700px) {
-    width: 31%;
-    max-width: 440px;
-  }
-}
+/* Desktop carousel (5+): the base .cardCarousel clamp (340–440px) already sizes
+   the cards; ~3 visible at full width, scrolling. No extra override needed. */
 
 /* ══════════════════════════════════════════════════════════════════════════
    DOTS
