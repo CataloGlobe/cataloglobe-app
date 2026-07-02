@@ -8,7 +8,8 @@ import {
     hasBands,
     clamp01,
     applyDrag,
-    maxZoom
+    maxZoom,
+    framePercent
 } from "@/components/ui/ImageReframeEditor/reframeGeometry";
 
 // Frame box used across cases: a 16:9 viewport (1600x900).
@@ -114,6 +115,52 @@ describe("applyDrag", () => {
         const clamped = applyDrag({ x: 0.5, y: 0.9 }, 0, -100000, dw, dh, FW, FH);
         expect(clamped.y).toBeGreaterThanOrEqual(0);
         expect(clamped.y).toBeLessThanOrEqual(1);
+    });
+});
+
+describe("framePercent", () => {
+    const FR = 16 / 9;
+
+    it("16:9 image at zoom 1 → both axes exactly 100%", () => {
+        const { widthPct, heightPct } = framePercent(FR, 16 / 9, 1);
+        expect(widthPct).toBeCloseTo(100, 3);
+        expect(heightPct).toBeCloseTo(100, 3);
+    });
+
+    it("wide 21:9 image at zoom 1 → height 100%, width > 100%", () => {
+        const { widthPct, heightPct } = framePercent(FR, 21 / 9, 1);
+        expect(heightPct).toBeCloseTo(100, 3);
+        expect(widthPct).toBeGreaterThan(100);
+    });
+
+    it("vertical 4:5 image at zoom 1 → width 100%, height > 100%", () => {
+        const { widthPct, heightPct } = framePercent(FR, 4 / 5, 1);
+        expect(widthPct).toBeCloseTo(100, 3);
+        expect(heightPct).toBeGreaterThan(100);
+    });
+
+    it("zoom < 1 → both axes shrink below 100% (bands)", () => {
+        const { widthPct, heightPct } = framePercent(FR, 4 / 5, 0.3);
+        expect(widthPct).toBeLessThan(100);
+        expect(heightPct).toBeLessThan(100);
+    });
+
+    it("zoom > 1 → both axes grow above 100%", () => {
+        const { widthPct, heightPct } = framePercent(FR, 16 / 9, 2);
+        expect(widthPct).toBeGreaterThan(100);
+        expect(heightPct).toBeGreaterThan(100);
+    });
+
+    it("is consistent with dims(): pct == px/frame*100", () => {
+        // Frame 1600x900, vertical image, zoom 0.7.
+        const fw = 1600;
+        const fh = 900;
+        const r = 4 / 5;
+        const z = 0.7;
+        const { dw, dh } = dims(fw, fh, r, z);
+        const { widthPct, heightPct } = framePercent(fw / fh, r, z);
+        expect(widthPct).toBeCloseTo((dw / fw) * 100, 3);
+        expect(heightPct).toBeCloseTo((dh / fh) * 100, 3);
     });
 });
 

@@ -62,8 +62,7 @@
 .cardThumb {
   position: relative;
   width: 100%;
-  aspect-ratio: 16 / 10;
-  max-height: 200px;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
   border-radius: var(--pub-radius) var(--pub-radius) 0 0;
 }
@@ -195,7 +194,7 @@
 .cardHighlight {
   position: relative;
   overflow: hidden;
-  min-height: 200px;
+  aspect-ratio: 16 / 9;
   /* Fallback gradient when no image (uses primary color from CSS var) */
   background: linear-gradient(135deg, var(--pub-primary, #6366f1), color-mix(in srgb, var(--pub-primary, #6366f1) 55%, black));
   flex-direction: column;
@@ -305,4 +304,36 @@
     outline: 2px solid var(--pub-cta-bg, #F59E0B);
     outline-offset: 2px;
   }
+}
+
+/* ── Parametric framing (zoom != 1): CSS-pure render, no box measurement.
+   width/height/left/top are runtime % (inline). Box matches the image's
+   natural ratio, so object-fit is distortion-free. ─────────────────────── */
+.framedImg {
+  position: absolute;
+  max-width: none; /* runtime % sets exact size; defeat responsive reset */
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+/* Blurred cover copy painted behind the image on empty bands. */
+.framedFillBlur {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.15);
+  filter: blur(18px);
+  pointer-events: none;
+}
+
+/* Solid-color band fill (dominant / color). backgroundColor is runtime (inline). */
+.framedFill {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }

@@ -94,6 +94,25 @@ export function applyDrag(
     return { x, y };
 }
 
+interface FramePercent {
+    widthPct: number;
+    heightPct: number;
+}
+
+/**
+ * Rendered image size as a PERCENT of the frame, for CSS-only render (no box
+ * measurement, SSR-safe). Same derivation as cover()/dims() but scale-invariant:
+ * at cover baseline (zoom = 1) the short axis is 100% and the other is >= 100%;
+ * multiplying by zoom scales both. widthPct/heightPct < 100 means empty bands.
+ */
+export function framePercent(frameRatio: number, imageRatio: number, zoom: number): FramePercent {
+    const c = Math.max(frameRatio / imageRatio, 1) * zoom;
+    return {
+        widthPct: (imageRatio * c) / frameRatio * 100,
+        heightPct: c * 100
+    };
+}
+
 /**
  * Upper zoom bound: how far you can crop in before the source resolution runs
  * out relative to a reference render width. Never below 1 (cover must always be
