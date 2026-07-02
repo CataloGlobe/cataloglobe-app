@@ -62,6 +62,8 @@ export function FeaturedMediaDrawer({ open, onClose, content, tenantId, onSucces
     // File compresso da caricare; null quando si ri-inquadra un'immagine remota
     // esistente senza cambiare file (solo update del framing, nessun re-upload).
     const [pendingFile, setPendingFile] = useState<File | null>(null);
+    // Ratio naturale del nuovo file (pre-compressione); null in ri-inquadra.
+    const [pendingAspectRatio, setPendingAspectRatio] = useState<number | null>(null);
     const [framing, setFraming] = useState<MediaFraming>(() => columnsToFraming(content));
 
     // Object URL vivo da revocare (solo per file locali; gli URL remoti no).
@@ -81,6 +83,7 @@ export function FeaturedMediaDrawer({ open, onClose, content, tenantId, onSucces
         revokeObjectUrl();
         setEditSource(null);
         setPendingFile(null);
+        setPendingAspectRatio(null);
     }, [revokeObjectUrl]);
 
     // Fase SELECT: nuovo file → comprimi (con dimensioni naturali) → object URL
@@ -91,7 +94,7 @@ export function FeaturedMediaDrawer({ open, onClose, content, tenantId, onSucces
             return;
         }
         try {
-            const { file: compressed } = await compressImageWithMeta(
+            const { file: compressed, naturalWidth, naturalHeight } = await compressImageWithMeta(
                 file,
                 COMPRESS_PROFILES.featured
             );
@@ -99,6 +102,8 @@ export function FeaturedMediaDrawer({ open, onClose, content, tenantId, onSucces
             const objectUrl = URL.createObjectURL(compressed);
             objectUrlRef.current = objectUrl;
             setPendingFile(compressed);
+            // Ratio naturale dell'originale; guardia div-0 → null se anomalo.
+            setPendingAspectRatio(naturalHeight > 0 ? naturalWidth / naturalHeight : null);
             setFraming(columnsToFraming({})); // default: immagine nuova
             setEditSource(objectUrl);
         } catch (err) {
@@ -129,7 +134,10 @@ export function FeaturedMediaDrawer({ open, onClose, content, tenantId, onSucces
                 const url = await uploadFeaturedContentImage(tenantId, content.id, pendingFile);
                 // Cache-bust: stesso path storage → forza il refresh del browser.
                 payload.media_id = `${url}?t=${Date.now()}`;
+                // Nuovo file → persisti il ratio naturale (null se non calcolabile).
+                payload.media_aspect_ratio = pendingAspectRatio;
             }
+            // Ramo ri-inquadra (pendingFile null): media_aspect_ratio NON toccato.
 
             await updateFeaturedContent(content.id, tenantId, payload);
             showToast({
@@ -153,8 +161,12 @@ export function FeaturedMediaDrawer({ open, onClose, content, tenantId, onSucces
             setIsUploading(true);
             // Elimina il file dallo storage prima di aggiornare il DB
             await tryDeleteStorageFile(tenantId, content.id, content.media_id);
-            // media_id: null; i default DB di framing restano innocui.
-            await updateFeaturedContent(content.id, tenantId, { media_id: null });
+            // media_id: null + azzera il ratio (niente immagine, niente ratio);
+            // i default DB di framing restano innocui.
+            await updateFeaturedContent(content.id, tenantId, {
+                media_id: null,
+                media_aspect_ratio: null
+            });
             showToast({ type: "success", message: "Immagine rimossa" });
             onSuccess();
             onClose();
