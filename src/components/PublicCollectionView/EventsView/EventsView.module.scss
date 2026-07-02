@@ -30,7 +30,11 @@
      viewport < 340px). Niente justify-content:center (creava i buchi laterali). */
   grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
   gap: 24px;
-  padding: 1.5rem 1rem;
+  /* Su viewport strette niente padding orizzontale sulla griglia: in tab
+     Eventi il gutter laterale è già dato da .tabPatternSurface (16px), quindi
+     un ulteriore 1rem qui raddoppiava l'inset (32px) sprecando larghezza. I
+     breakpoint @container ripristinano il padding orizzontale dove serve. */
+  padding: 1.5rem 0;
 
   /* @container solo per il padding (le colonne le gestisce auto-fit). */
   @container events (min-width: 640px) {
