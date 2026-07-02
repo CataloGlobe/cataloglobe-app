@@ -30,7 +30,9 @@
 }
 
 .trackGridDesktop {
-  @media (min-width: 768px) {
+  /* @container collection: la soglia è sulla larghezza del container prodotti
+     (dove vivono before/after_catalog), non sulla viewport — coerente col grid. */
+  @container collection (min-width: 700px) {
     display: grid;
     grid-template-columns: repeat(var(--grid-cols, 3), 1fr);
     gap: 16px;
@@ -38,8 +40,8 @@
     scroll-snap-type: none;
   }
 
-  /* Nel preview mobile la viewport è desktop, quindi la media query sopra attiverebbe
-     sempre il layout a griglia. Forziamo il carousel come sul vero dispositivo mobile. */
+  /* Nel preview mobile la larghezza è desktop, quindi la container query sopra
+     attiverebbe la griglia. Forziamo il carousel come sul vero dispositivo mobile. */
   :global(.preview-mobile) & {
     display: flex;
     grid-template-columns: unset;
@@ -49,7 +51,7 @@
 }
 
 .trackCarouselAlways {
-  @media (min-width: 768px) {
+  @container collection (min-width: 700px) {
     gap: 16px;
   }
 }
@@ -73,22 +75,32 @@
   }
 }
 
-/* Single card: full-width, no snap */
+/* Single card: full-width on mobile, centered + capped on desktop */
 .cardSingle {
   width: 100%;
+
+  @container collection (min-width: 700px) {
+    max-width: 500px;
+    margin-inline: auto;
+  }
 }
 
 
-/* Desktop grid (2-4): cards fill grid columns */
+/* Desktop grid (2-4): cards fill grid columns, capped + centered so they never
+   grow gigantic in the 2-column case. */
 .trackGridDesktop .cardCarousel {
-  @media (min-width: 768px) {
+  @container collection (min-width: 700px) {
     width: auto;
+    max-width: 440px;
+    margin-inline: auto;
     scroll-snap-align: unset;
   }
 
   /* Ripristina dimensioni carousel nel preview mobile */
   :global(.preview-mobile) & {
     width: 80%;
+    max-width: none;
+    margin-inline: 0;
     scroll-snap-align: center;
 
     &:first-child {
@@ -101,10 +113,11 @@
   }
 }
 
-/* Desktop carousel (5+): ~3 cards visible */
+/* Desktop carousel (5+): ~3 cards visible, capped so they never grow gigantic */
 .trackCarouselAlways .cardCarousel {
-  @media (min-width: 768px) {
+  @container collection (min-width: 700px) {
     width: 31%;
+    max-width: 440px;
   }
 }
 
