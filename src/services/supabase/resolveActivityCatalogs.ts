@@ -158,6 +158,7 @@ export type V2FeaturedContent = {
     media_zoom: number;
     media_fill_mode: "blur" | "dominant" | "color" | "none";
     media_fill_color: string | null;
+    media_aspect_ratio: number | null;
     cta_text: string | null;
     cta_url: string | null;
     status: "draft" | "published";
