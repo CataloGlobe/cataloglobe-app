@@ -23,12 +23,12 @@
 
 .grid {
   display: grid;
-  /* auto-fit: le colonne si adattano rispettando la soglia 340px (mai sotto) e
-     il cap 500px. min(340px,100%) evita l'overflow su viewport < 340px.
-     justify-content:center centra le colonne quando sono meno del massimo, così
-     il caso singolo è già centrato e cappato senza logica dedicata. */
-  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 500px));
-  justify-content: center;
+  /* Fill-width: `1fr` (non un cap px) fa stirare le card a riempire la riga →
+     nessuno spazio morto ai lati. auto-fit collassa le tracce vuote così gli
+     elementi presenti occupano tutta la larghezza. min(340px,100%) fa scendere
+     il numero di colonne quando le card scenderebbero sotto 340 (e non sfora su
+     viewport < 340px). Niente justify-content:center (creava i buchi laterali). */
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
   gap: 24px;
   padding: 1.5rem 1rem;
 
@@ -44,4 +44,12 @@
 
 .cardFull {
   width: 100%;
+}
+
+/* Caso singolo: con `1fr` una sola card riempirebbe tutta la larghezza
+   (~720px alto a 16:9). Cap + centrata per non farla diventare un banner
+   gigante. Unica eccezione al fill. */
+.cardFull:only-child {
+  justify-self: center;
+  max-width: 560px;
 }
