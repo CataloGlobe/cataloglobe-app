@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { todayIsoDate } from "@/utils/dateLocal";
 import type {
     OpeningHoursEntry,
@@ -93,6 +94,7 @@ export default function ReservationDatePicker({
     errorId,
     invalid
 }: Props) {
+    const { t } = useTranslation("public");
     const today = useMemo(() => todayIsoDate(), []);
 
     const minView = useMemo(() => monthOfIso(today), [today]);
@@ -160,7 +162,7 @@ export default function ReservationDatePicker({
                     className={styles.navBtn}
                     onClick={goPrev}
                     disabled={!canPrev}
-                    aria-label="Mese precedente"
+                    aria-label={t("reservation.prev_month")}
                 >
                     <ChevronLeft />
                 </button>
@@ -172,19 +174,19 @@ export default function ReservationDatePicker({
                     className={styles.navBtn}
                     onClick={goNext}
                     disabled={!canNext}
-                    aria-label="Mese successivo"
+                    aria-label={t("reservation.next_month")}
                 >
                     <ChevronRight />
                 </button>
             </div>
 
             {days.length === 0 ? (
-                <p className={styles.emptyMonth}>Nessun giorno disponibile in questo mese.</p>
+                <p className={styles.emptyMonth}>{t("reservation.no_days")}</p>
             ) : (
                 <ul
                     className={styles.strip}
                     role="listbox"
-                    aria-label="Seleziona la data"
+                    aria-label={t("reservation.select_date")}
                 >
                     {days.map(d => {
                         const isSelected = d.iso === value;

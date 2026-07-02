@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import { usePageHead } from "@/hooks/usePageHead";
@@ -20,7 +21,8 @@ import styles from "./ReservationPage.module.scss";
 // enable_reservations + phone for the disabled-state fallback CTA).
 
 export default function ReservationPage() {
-    const { slug } = useParams<{ slug: string }>();
+    const { slug, lang } = useParams<{ slug: string; lang?: string }>();
+    const { t } = useTranslation("public");
     // Fase 1: applica la lingua dall'URL (segmento `:lang` sulla route
     // lang-aware `/:slug/:lang/prenota`; assente sulla base → default "it").
     usePublicLanguageSync();
@@ -114,8 +116,8 @@ export default function ReservationPage() {
         resolve.status === "loading"
             ? undefined
             : brandNameForTitle
-                ? `${brandNameForTitle} · Prenotazione`
-                : "Prenotazione";
+                ? t("reservation.doc_title", { brand: brandNameForTitle })
+                : t("reservation.title");
     usePageHead({ title: pageTitle });
 
     const handleResolveErrorCode = useCallback(
@@ -145,7 +147,7 @@ export default function ReservationPage() {
 
     // ── Loading: reuse AppLoader, override copy (not the menu loader) ─────
     if (resolve.status === "loading") {
-        return <AppLoader intent="public" message="Caricamento…" />;
+        return <AppLoader intent="public" message={t("reservation.loading")} />;
     }
 
     // ── Not-found / network-error: no brand resolved, use neutral page ────
@@ -155,8 +157,8 @@ export default function ReservationPage() {
                 <div className={styles.stateWrapper}>
                     <StateCard
                         icon={<SearchOffIcon />}
-                        title="Pagina non trovata"
-                        text="La sede che stai cercando non esiste o ha cambiato indirizzo."
+                        title={t("reservation.notfound_title")}
+                        text={t("reservation.notfound_text")}
                         actions={[]}
                     />
                 </div>
@@ -170,8 +172,8 @@ export default function ReservationPage() {
                 <div className={styles.stateWrapper}>
                     <StateCard
                         icon={<WifiOffIcon />}
-                        title="Caricamento non riuscito"
-                        text="Verifica la connessione e ricarica la pagina."
+                        title={t("reservation.error_title")}
+                        text={t("reservation.error_text")}
                         actions={[]}
                     />
                 </div>
@@ -181,7 +183,9 @@ export default function ReservationPage() {
 
     // ── Branded states ────────────────────────────────────────────────────
     const brand = resolve.brand!;
-    const backHref = `/${slug}`;
+    // Lingua preservata dal segmento URL (`:lang` sulla route lang-aware;
+    // assente sulla base → torna al menu in lingua base).
+    const backHref = lang ? `/${slug}/${lang}` : `/${slug}`;
     const isSuccess =
         resolve.status === "ready" && successSnapshot !== null;
 
@@ -200,10 +204,10 @@ export default function ReservationPage() {
                         <div className={styles.stateWrapper}>
                             <StateCard
                                 icon={<CalendarOffIcon />}
-                                title="Sede non disponibile"
-                                text={`${brand.brandName} non è al momento attivo sulla piattaforma.`}
+                                title={t("reservation.inactive_title")}
+                                text={t("reservation.inactive_text", { brand: brand.brandName })}
                                 actions={[
-                                    { kind: "secondary-link", to: backHref, label: "Torna al menu" }
+                                    { kind: "secondary-link", to: backHref, label: t("reservation.back_to_menu") }
                                 ]}
                             />
                         </div>
@@ -221,7 +225,7 @@ export default function ReservationPage() {
                     {resolve.status === "ready" && !isSuccess && slug && (
                         <>
                             <p className={styles.tagline}>
-                                Compila il modulo, riceverai una conferma via email.
+                                {t("reservation.tagline")}
                             </p>
                             <ReservationForm
                                 slug={slug}
@@ -235,7 +239,7 @@ export default function ReservationPage() {
 
                     {isSuccess && successSnapshot && slug && (
                         <SuccessRecap
-                            slug={slug}
+                            backHref={backHref}
                             brandName={brand.brandName}
                             snapshot={successSnapshot}
                             status={successStatus}
@@ -260,6 +264,7 @@ function ReservationsDisabled({
     phonePublic: boolean;
     backHref: string;
 }) {
+    const { t } = useTranslation("public");
     const showPhoneCta =
         phonePublic && phone != null && phone.trim().length > 0;
 
@@ -267,20 +272,20 @@ function ReservationsDisabled({
         <div className={styles.stateWrapper}>
             <StateCard
                 icon={<CalendarOffIcon />}
-                title="Prenotazioni non attive"
+                title={t("reservation.disabled_title")}
                 text={
                     <>
-                        {brandName} non accetta prenotazioni online al momento.
+                        {t("reservation.disabled_text", { brand: brandName })}
                         {showPhoneCta
-                            ? " Puoi chiamare direttamente il locale per richiedere un tavolo."
-                            : " Per richiedere un tavolo contatta direttamente la sede."}
+                            ? ` ${t("reservation.disabled_call")}`
+                            : ` ${t("reservation.disabled_contact")}`}
                     </>
                 }
                 actions={[
                     ...(showPhoneCta
-                        ? [{ kind: "primary-tel" as const, phone: phone as string, label: "Chiama il locale" }]
+                        ? [{ kind: "primary-tel" as const, phone: phone as string, label: t("reservation.call_venue") }]
                         : []),
-                    { kind: "secondary-link" as const, to: backHref, label: "Torna al menu" }
+                    { kind: "secondary-link" as const, to: backHref, label: t("reservation.back_to_menu") }
                 ]}
             />
         </div>

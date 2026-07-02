@@ -1,11 +1,13 @@
 import { Link } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { CheckIcon } from "./icons";
 import type { SubmitReservationStatus } from "@/services/supabase/reservations";
 import type { FormFields } from "./types";
 import styles from "./SuccessRecap.module.scss";
 
 type Props = {
-    slug: string;
+    /** Menu href con lingua preservata (`/:slug` o `/:slug/:lang`). */
+    backHref: string;
     brandName: string;
     snapshot: FormFields;
     /** Risultato della submit. `confirmed` = auto-confermata dalla sede;
@@ -30,36 +32,22 @@ function formatTime(hhmm: string): string {
     return hhmm.slice(0, 5);
 }
 
-function formatParty(value: string): string {
-    const n = Number(value);
-    if (!Number.isInteger(n) || n < 1) return value;
-    return n === 1 ? "1 persona" : `${n} persone`;
-}
-
-interface OutcomeCopy {
-    title: string;
-    lead: string;
-    pill: string;
-}
-
-const OUTCOME: Record<SubmitReservationStatus, OutcomeCopy> = {
-    confirmed: {
-        title: "Prenotazione confermata!",
-        lead: "La tua prenotazione è confermata. Ti abbiamo inviato l'email di conferma.",
-        pill: "Confermata"
-    },
-    pending: {
-        title: "Richiesta inviata!",
-        lead:
-            "Riceverai una conferma via email non appena la sede approverà la prenotazione.",
-        pill: "In attesa di conferma del locale"
-    }
-};
-
-export default function SuccessRecap({ slug, brandName, snapshot, status }: Props) {
+export default function SuccessRecap({ backHref, brandName, snapshot, status }: Props) {
+    const { t } = useTranslation("public");
     const dateLabel = formatDateIt(snapshot.reservation_date);
     const dateCapitalized = dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1);
-    const copy = OUTCOME[status];
+    const isConfirmed = status === "confirmed";
+    const copy = {
+        title: t(isConfirmed ? "reservation.confirmed_title" : "reservation.pending_title"),
+        lead: t(isConfirmed ? "reservation.confirmed_lead" : "reservation.pending_lead"),
+        pill: t(isConfirmed ? "reservation.confirmed_pill" : "reservation.pending_pill")
+    };
+
+    const partyN = Number(snapshot.party_size);
+    const partyLabel =
+        Number.isInteger(partyN) && partyN >= 1
+            ? t("reservation.party_count", { count: partyN })
+            : snapshot.party_size;
 
     return (
         <div className={styles.card}>
@@ -78,25 +66,25 @@ export default function SuccessRecap({ slug, brandName, snapshot, status }: Prop
 
             <div className={styles.recap}>
                 <div className={styles.row}>
-                    <span className={styles.rowLabel}>Sede</span>
+                    <span className={styles.rowLabel}>{t("reservation.venue")}</span>
                     <span className={styles.rowValue}>{brandName}</span>
                 </div>
                 <div className={styles.divider} aria-hidden="true" />
                 <div className={styles.row}>
-                    <span className={styles.rowLabel}>Data</span>
+                    <span className={styles.rowLabel}>{t("reservation.date")}</span>
                     <span className={styles.rowValue}>{dateCapitalized}</span>
                 </div>
                 <div className={styles.row}>
-                    <span className={styles.rowLabel}>Ora</span>
+                    <span className={styles.rowLabel}>{t("reservation.time")}</span>
                     <span className={styles.rowValue}>{formatTime(snapshot.reservation_time)}</span>
                 </div>
                 <div className={styles.row}>
-                    <span className={styles.rowLabel}>Persone</span>
-                    <span className={styles.rowValue}>{formatParty(snapshot.party_size)}</span>
+                    <span className={styles.rowLabel}>{t("reservation.people")}</span>
+                    <span className={styles.rowValue}>{partyLabel}</span>
                 </div>
                 <div className={styles.divider} aria-hidden="true" />
                 <div className={styles.row}>
-                    <span className={styles.rowLabel}>Nome</span>
+                    <span className={styles.rowLabel}>{t("reservation.name_short")}</span>
                     <span className={styles.rowValue}>{snapshot.customer_name}</span>
                 </div>
             </div>
@@ -119,8 +107,8 @@ export default function SuccessRecap({ slug, brandName, snapshot, status }: Prop
                 {copy.pill}
             </span>
 
-            <Link to={`/${slug}`} className={styles.cta}>
-                Torna al menu
+            <Link to={backHref} className={styles.cta}>
+                {t("reservation.back_to_menu")}
             </Link>
         </div>
     );

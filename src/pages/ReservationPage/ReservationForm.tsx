@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { Trans, useTranslation } from "react-i18next";
 import {
     submitReservation,
     type SubmitReservationStatus
@@ -18,9 +19,6 @@ type SubmitErrorCode =
     | "ACTIVITY_NOT_ACTIVE"
     | "RESERVATIONS_DISABLED";
 
-const CAPACITY_FULL_INLINE_MESSAGE =
-    "Non ci sono più posti per l'orario scelto. Prova un altro orario.";
-
 type Props = {
     slug: string;
     hours: OpeningHoursEntry[];
@@ -36,6 +34,7 @@ export default function ReservationForm({
     onSuccess,
     onResolveErrorCode
 }: Props) {
+    const { t } = useTranslation("public");
     const [form, setForm] = useState<FormFields>(EMPTY_FORM);
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
     const [submitError, setSubmitError] = useState<string | null>(null);
@@ -48,8 +47,8 @@ export default function ReservationForm({
     // Reactive availability validation against activity_hours / activity_closures.
     // Disabled when hours is empty (no schedule configured → free-form behavior).
     const availability = useMemo(
-        () => availabilityErrors(form.reservation_date, form.reservation_time, hours, closures),
-        [form.reservation_date, form.reservation_time, hours, closures]
+        () => availabilityErrors(form.reservation_date, form.reservation_time, hours, closures, t),
+        [form.reservation_date, form.reservation_time, hours, closures, t]
     );
 
     // Merge availability errors with format-level fieldErrors.
@@ -65,7 +64,7 @@ export default function ReservationForm({
             capacityFullSnapshot.date === form.reservation_date &&
             capacityFullSnapshot.time === form.reservation_time;
         if (!out.reservation_time && isCapFullStillRelevant) {
-            out.reservation_time = CAPACITY_FULL_INLINE_MESSAGE;
+            out.reservation_time = t("reservation.err_capacity_full");
         }
         if (!out.reservation_date && availability.dateError) {
             out.reservation_date = availability.dateError;
@@ -74,7 +73,7 @@ export default function ReservationForm({
             out.reservation_time = availability.timeError;
         }
         return out;
-    }, [fieldErrors, availability, capacityFullSnapshot, form.reservation_date, form.reservation_time]);
+    }, [fieldErrors, availability, capacityFullSnapshot, form.reservation_date, form.reservation_time, t]);
 
     const handleChange = useCallback(
         (name: keyof FormFields, value: string) => {
@@ -97,10 +96,10 @@ export default function ReservationForm({
 
     const handleBlur = useCallback(
         (name: keyof FormFields) => {
-            const err = validateField(name, form[name]);
+            const err = validateField(name, form[name], t);
             setFieldErrors(prev => ({ ...prev, [name]: err ?? undefined }));
         },
-        [form]
+        [form, t]
     );
 
     const handleSubmit = useCallback(
@@ -109,7 +108,7 @@ export default function ReservationForm({
 
             const next: FieldErrors = {};
             (Object.keys(form) as (keyof FormFields)[]).forEach(k => {
-                const err = validateField(k, form[k]);
+                const err = validateField(k, form[k], t);
                 if (err) next[k] = err;
             });
             setFieldErrors(next);
@@ -122,7 +121,8 @@ export default function ReservationForm({
                 form.reservation_date,
                 form.reservation_time,
                 hours,
-                closures
+                closures,
+                t
             );
             if (a.dateError || a.timeError) return;
 
@@ -177,12 +177,12 @@ export default function ReservationForm({
                 const message =
                     errorObj.message && errorObj.message !== code
                         ? errorObj.message
-                        : "Si è verificato un errore. Riprova tra qualche istante.";
+                        : t("reservation.err_submit");
                 setSubmitError(message);
                 setPhase("form");
             }
         },
-        [form, slug, hours, closures, onSuccess, onResolveErrorCode]
+        [form, slug, hours, closures, onSuccess, onResolveErrorCode, t]
     );
 
     const isSubmitting = phase === "submitting";
@@ -240,16 +240,27 @@ export default function ReservationForm({
                     {isSubmitting ? (
                         <>
                             <span className={styles.spinner} aria-hidden="true" />
-                            <span>Invio in corso…</span>
+                            <span>{t("reservation.submitting")}</span>
                         </>
                     ) : (
-                        "Invia richiesta"
+                        t("reservation.submit")
                     )}
                 </button>
 
                 <p className={styles.privacy}>
-                    Inviando la richiesta accetti il trattamento dei dati per gestire la prenotazione.{" "}
-                    <a href="/legal/privacy" target="_blank" rel="noopener noreferrer">Privacy</a>
+                    <Trans
+                        i18nKey="reservation.consent"
+                        ns="public"
+                        components={{
+                            privacy: (
+                                <a
+                                    href="/legal/privacy"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                />
+                            )
+                        }}
+                    />
                 </p>
             </div>
         </form>

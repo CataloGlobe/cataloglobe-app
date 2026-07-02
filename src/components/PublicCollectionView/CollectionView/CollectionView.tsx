@@ -1,8 +1,9 @@
-import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { LanguageContext } from "@/context/Language/LanguageContext";
 import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Phone, Plus } from "lucide-react";
 import type {
     ResolvedAllergen,
@@ -712,6 +713,10 @@ export default function CollectionView({
     previewDevice
 }: Props) {
     const navigate = useNavigate();
+    // Lettura non-throwing del context lingua: CollectionView è renderizzato
+    // anche in preview (StyleEditor, scope admin) FUORI da LanguageProvider →
+    // useContext ritorna null lì e il link prenotazione cade sulla base.
+    const langCtx = useContext(LanguageContext);
 
     // ── Bottom nav bar pubblica: split mobile/desktop CSS-driven ────────────────
     // Niente matchMedia in render (era la causa del mismatch SSR/hydration #2: il
@@ -2574,7 +2579,15 @@ export default function CollectionView({
                     onOpenInfo={() => setIsInfoSheetOpen(true)}
                     onOpenReservation={
                         enableReservations && slug
-                            ? () => navigate(`/${slug}/prenota`)
+                            ? () => {
+                                  const lang = langCtx?.currentLang;
+                                  const base = langCtx?.baseLanguage;
+                                  navigate(
+                                      lang && lang !== base
+                                          ? `/${slug}/${lang}/prenota`
+                                          : `/${slug}/prenota`
+                                  );
+                              }
                             : undefined
                     }
                     allergensCount={allergenFilterIds.length}
