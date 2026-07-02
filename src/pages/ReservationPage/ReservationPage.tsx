@@ -207,6 +207,7 @@ export default function ReservationPage() {
         <LanguageSelectorView
             languages={brand.languages}
             currentLang={currentLang}
+            variant="solid"
             onSelect={(code) => {
                 const url = code === brand.baseLanguage
                     ? `/${slug}/prenota`

@@ -16,6 +16,10 @@ type LanguageSelectorViewProps = {
     /** Contenitore scrollabile (preview = device frame). Fallback window a runtime.
      *  Qualsiasi scroll chiude il dropdown. */
     scrollContainerEl?: HTMLElement | null;
+    /** Trattamento visivo del trigger. `glass` (default) = pill 44×44 semi-
+     *  trasparente del menu catalogo. `solid` = gemello del pulsante "Menu"
+     *  in prenotazione (pill 36px + blur, più visibile su cover chiara). */
+    variant?: "glass" | "solid";
 };
 
 /**
@@ -31,6 +35,7 @@ export default function LanguageSelectorView({
     currentLang,
     onSelect,
     scrollContainerEl,
+    variant = "glass",
 }: LanguageSelectorViewProps) {
     const { t } = useTranslation("public");
     const [open, setOpen] = useState(false);
@@ -111,6 +116,7 @@ export default function LanguageSelectorView({
                 ref={triggerRef}
                 type="button"
                 className={triggerClass}
+                data-variant={variant}
                 onClick={() => setOpen(prev => !prev)}
                 aria-label={t("language_selector.trigger_aria")}
                 aria-expanded={open}
