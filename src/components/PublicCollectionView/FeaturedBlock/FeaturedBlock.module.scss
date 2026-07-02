@@ -7,19 +7,11 @@
   margin: 16px 0;
 }
 
-/* Su viewport strette il padding laterale del container prodotti (.container,
-   `collection`, 1rem sotto i 640px) sprecava spazio attorno al carosello.
-   Full-bleed locale — reclaim di quel padding via margin negativo — così la
-   strip usa tutta la larghezza e il peek arriva a filo. Solo il carosello
-   (`:has(.track)`); la card singola (hero) resta col suo respiro. */
-@container collection (max-width: 639px) {
-  .wrapper:has(.track) {
-    /* width:auto così i margini negativi allargano il box (con width:100%
-       resterebbe pinnato e il reclaim varrebbe solo a sinistra). */
-    width: auto;
-    margin-inline: -1rem;
-  }
-}
+/* Niente full-bleed né margini negativi: il wrapper eredita il gutter di
+   contenuto dal genitore `.container` (context `collection`, ~16px per lato su
+   mobile), lo stesso di titoli sezione e card prodotti. La prima card del
+   carosello si allinea a quelle; il peek deriva da larghezza card + scroll,
+   non dal padding. Un solo gutter, mai doppio, mai a filo dello schermo. */
 
 /* ══════════════════════════════════════════════════════════════════════════
    TRACK — carousel (mobile) / grid (desktop 2-4) / carousel (desktop 5+)
