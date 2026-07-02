@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import PartySizePicker from "./PartySizePicker";
 import ReservationDatePicker from "./components/ReservationDatePicker";
 import ReservationTimePicker from "./components/ReservationTimePicker";
@@ -27,6 +28,7 @@ export default function WhenSection({
     onChange,
     onBlur
 }: Props) {
+    const { t } = useTranslation("public");
     // Build the period groups for the picker. Recomputed when the selected
     // date changes or the upstream hours/closures change.
     // `getReservationPeriodsForDate` still routes through the unchanged slot
@@ -74,13 +76,13 @@ export default function WhenSection({
         <section className={styles.section} aria-labelledby="sec-quando">
             <div className={styles.sectionHead}>
                 <span className={styles.sectionNum}>01</span>
-                <span id="sec-quando" className={styles.sectionLabel}>Quando</span>
+                <span id="sec-quando" className={styles.sectionLabel}>{t("reservation.when")}</span>
                 <span className={styles.sectionRule} aria-hidden="true" />
             </div>
 
             <div className={styles.field}>
                 <span id="lbl-reservation_date" className={styles.label}>
-                    Data
+                    {t("reservation.date")}
                 </span>
                 <ReservationDatePicker
                     value={values.reservation_date}
@@ -99,14 +101,14 @@ export default function WhenSection({
 
             <div className={styles.field}>
                 <span id="lbl-reservation_time" className={styles.label}>
-                    Ora
+                    {t("reservation.time")}
                 </span>
                 <ReservationTimePicker
                     value={values.reservation_time}
                     onChange={handleTimeChange}
                     periods={servicePeriods}
                     disabled={!values.reservation_date}
-                    disabledMessage="Scegli prima la data."
+                    disabledMessage={t("reservation.choose_date_first")}
                     invalid={timeInvalid}
                     errorId={timeInvalid ? "err-reservation_time" : undefined}
                 />

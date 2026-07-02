@@ -9,11 +9,13 @@ import {
     BorderRadius,
     BackgroundPattern,
     PatternIntensity,
-    FeaturedStyle
+    FeaturedStyle,
+    CardTreatment
 } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
 import { StyleColorPicker } from "./StyleColorPicker";
+import { IconRefresh } from "@tabler/icons-react";
 import { usePaletteWarnings } from "./usePaletteWarnings";
 import { PaletteWarningsBox } from "./PaletteWarningsBox";
 import styles from "./StyleSettingsControls.module.scss";
@@ -26,7 +28,8 @@ type StylePropertiesPanelProps = {
 export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelProps) => {
     const paletteWarnings = usePaletteWarnings({
         primary: model.colors.primary,
-        surface: model.colors.surface
+        pageBackground: model.colors.pageBackground,
+        accent: model.colors.accent
     });
 
     const fontOptions: Array<{ value: FontFamily; label: string; css: string }> = [
@@ -65,6 +68,12 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "rounded", label: "Arrotondato" }
     ];
 
+    const cardTreatmentOptions: Array<{ value: CardTreatment; label: string }> = [
+        { value: "raised", label: "Elevata" },
+        { value: "bordered", label: "Contornata" },
+        { value: "glass", label: "Vetro" }
+    ];
+
     const backgroundPatternOptions: Array<{ value: BackgroundPattern; label: string }> = [
         { value: "none", label: "Nessuno" },
         { value: "dots", label: "Puntini" },
@@ -85,12 +94,15 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "highlight", label: "Highlight" }
     ];
 
-    const updateColor = (key: keyof StyleTokenModel["colors"], value: string) => {
+    const updateColor = (key: keyof StyleTokenModel["colors"], value: string | undefined) => {
         onChange({
             ...model,
             colors: { ...model.colors, [key]: value }
         });
     };
+
+    // accent "collegato al primario" = campo assente (undefined)
+    const accentLinked = !model.colors.accent;
 
     const updateTypography = (fontFamily: FontFamily) => {
         onChange({
@@ -101,6 +113,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const updateBorderRadius = (borderRadius: BorderRadius) => {
         onChange({ ...model, appearance: { ...model.appearance, borderRadius } });
+    };
+
+    const updateCardTreatment = (cardTreatment: CardTreatment) => {
+        onChange({ ...model, appearance: { ...model.appearance, cardTreatment } });
     };
 
     const updateBackgroundPattern = (backgroundPattern: BackgroundPattern) => {
@@ -173,16 +189,32 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                 />
                 <StyleColorPicker
                     label="Colore primario"
-                    labelSuffix={<InfoTooltip content="Colore principale applicato a header, navigazione, pulsanti e accenti nella pagina pubblica." />}
+                    labelSuffix={<InfoTooltip content="Colore identità: header, navigazione, sezioni attive e marchio." />}
                     value={model.colors.primary}
                     onChange={val => updateColor("primary", val)}
                 />
+
+                {/* COLORE ACCENT (ruolo azione) — sempre visibile, segue il primario finché non personalizzato */}
                 <StyleColorPicker
-                    label="Sfondo superfici"
-                    labelSuffix={<InfoTooltip content="Sfondo di card prodotti, modali, pulsanti dell'header e altri elementi in primo piano." />}
-                    value={model.colors.surface}
-                    onChange={val => updateColor("surface", val)}
+                    label="Colore accent"
+                    labelSuffix={<InfoTooltip content="Colore per gli elementi d'azione: pulsanti dei prodotti e CTA. Se non impostato, usa il colore primario." />}
+                    value={model.colors.accent ?? model.colors.primary}
+                    onChange={val => updateColor("accent", val)}
                 />
+                {accentLinked ? (
+                    <Text as="p" variant="body" className={styles.linkedCaption}>
+                        Uguale al colore primario · modificalo per personalizzarlo.
+                    </Text>
+                ) : (
+                    <button
+                        type="button"
+                        className={styles.resetLink}
+                        onClick={() => updateColor("accent", undefined)}
+                    >
+                        <IconRefresh size={13} stroke={1.8} />
+                        Usa il colore primario
+                    </button>
+                )}
 
                 <PaletteWarningsBox warnings={paletteWarnings} />
 
@@ -447,6 +479,35 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                         })}
                     </div>
                 </div>
+
+                {model.card.productStyle === "card" && (
+                    <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                        <Text variant="body" weight={500} className={styles.fieldLabel}>
+                            Aspetto card<InfoTooltip content="Aspetto di card e finestre: Elevata usa un'ombra, Contornata un bordo sottile, Vetro una superficie semitrasparente con sfocatura." />
+                        </Text>
+                        <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                            {cardTreatmentOptions.map(option => {
+                                const isActive = model.appearance.cardTreatment === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={isActive}
+                                        className={`${styles.optionButton} ${
+                                            isActive ? styles.optionButtonActive : ""
+                                        }`}
+                                        onClick={() => updateCardTreatment(option.value)}
+                                    >
+                                        <Text as="span" variant="body" weight={600}>
+                                            {option.label}
+                                        </Text>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>

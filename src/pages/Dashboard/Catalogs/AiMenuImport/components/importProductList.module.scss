@@ -1,0 +1,459 @@
+/* ═══════════════════════════════════════════════════════════
+   Import AI — lista prodotti condivisa (stile canonico)
+   Full-bleed: padding orizzontale interno = 24px (token drawer).
+   ═══════════════════════════════════════════════════════════ */
+
+.list {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Stats bar ────────────────────────────────────────────── */
+
+.statsBar {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  padding: 16px 24px;
+  border-bottom: 1px solid #e2e8f0;
+  background-color: #fafbfc;
+}
+
+.statItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  padding: 0 20px;
+
+  &:first-child {
+    padding-left: 0;
+  }
+}
+
+.statNumber {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text, #0f172a);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.statNumberAccent {
+  color: var(--brand-primary, #6366f1);
+}
+
+.statLabel {
+  font-size: 11px;
+  font-weight: 500;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.statDivider {
+  width: 1px;
+  height: 32px;
+  background-color: #e2e8f0;
+  flex-shrink: 0;
+}
+
+.selectAllBtn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid #e2e8f0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+
+  &:hover {
+    border-color: var(--brand-primary, #6366f1);
+    color: var(--brand-primary, #6366f1);
+    background-color: #f5f3ff;
+  }
+}
+
+/* ── Search ───────────────────────────────────────────────── */
+
+.searchBar {
+  padding: 12px 24px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.searchInputWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.searchIcon {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.searchInput {
+  width: 100%;
+  padding: 9px 36px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text, #0f172a);
+  background-color: #fff;
+  outline: none;
+  transition: border-color 0.15s ease;
+  font-family: inherit;
+
+  &::placeholder {
+    color: #94a3b8;
+  }
+
+  &:focus {
+    border-color: var(--brand-primary, #6366f1);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.08);
+  }
+}
+
+.searchClear {
+  position: absolute;
+  right: 8px;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #94a3b8;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    color: #64748b;
+    background-color: #f1f5f9;
+  }
+}
+
+/* ── Category list ────────────────────────────────────────── */
+
+.categoryList {
+  display: flex;
+  flex-direction: column;
+}
+
+.categoryGroup {
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.categoryHeader {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 24px;
+  background-color: #f8fafc;
+  border-bottom: 1px solid #f1f5f9;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.categoryNameInput {
+  flex: 1;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #0f172a);
+  padding: 4px 6px;
+  border-radius: 6px;
+  min-width: 0;
+  font-family: inherit;
+  letter-spacing: -0.01em;
+
+  &:hover {
+    background-color: #e2e8f0;
+  }
+
+  &:focus {
+    outline: none;
+    background-color: #fff;
+    box-shadow: 0 0 0 2px var(--brand-primary, #6366f1);
+  }
+}
+
+.categoryNameStatic {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #0f172a);
+  letter-spacing: -0.01em;
+  padding: 4px 6px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.categoryBadge {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  background-color: #e2e8f0;
+  padding: 2px 8px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+}
+
+/* ── Product rows ─────────────────────────────────────────── */
+
+.categoryProducts {
+  display: flex;
+  flex-direction: column;
+}
+
+.productRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 10px 24px;
+  border-bottom: 1px solid #f1f5f9;
+  transition: all 0.15s ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background-color: #fafbfc;
+  }
+}
+
+.productRowDeselected {
+  opacity: 0.4;
+}
+
+.productRowLowConf {
+  background-color: #fef2f2;
+
+  &:hover {
+    background-color: #fee2e2;
+  }
+}
+
+.productCheckbox {
+  margin-top: 3px;
+}
+
+.productContent {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.productMainRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nameWrap {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.productName {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  border: none;
+  background: none;
+  padding: 2px 4px;
+  border-radius: 4px;
+  font-family: inherit;
+
+  &:hover {
+    background-color: #f1f5f9;
+  }
+
+  &:focus {
+    outline: none;
+    background-color: #fff;
+    box-shadow: 0 0 0 2px var(--brand-primary, #6366f1);
+  }
+}
+
+.productNameStatic {
+  flex: 0 1 auto;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text, #0f172a);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  padding: 2px 4px;
+}
+
+.productPrice {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #0f172a);
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.productDescription {
+  font-size: 13px;
+  color: #94a3b8;
+  font-style: italic;
+  padding-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.productDescriptionPlaceholder {
+  color: #cbd5e1;
+}
+
+.productFormats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding-left: 4px;
+  margin-top: 2px;
+}
+
+.formatTag {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  background-color: #f1f5f9;
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+/* Seconda riga iniettata (levetta/selettore del ramo esistente). */
+.productBelow {
+  padding-left: 4px;
+  margin-top: 6px;
+}
+
+.lowConfBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #dc2626;
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  padding: 1px 7px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.productTrash {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: #cbd5e1;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 1px;
+
+  &:hover {
+    color: #ef4444;
+    background-color: #fef2f2;
+  }
+}
+
+/* ── Empty search ─────────────────────────────────────────── */
+
+.emptySearch {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 24px;
+  text-align: center;
+  color: #94a3b8;
+}
+
+.emptySearchText {
+  font-size: 14px;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.emptySearchHint {
+  font-size: 13px;
+  color: #94a3b8;
+}
+
+/* ── Checkbox ─────────────────────────────────────────────── */
+
+.checkbox {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 2px solid #cbd5e1;
+  background-color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  padding: 0;
+
+  &:hover {
+    border-color: var(--brand-primary, #6366f1);
+  }
+}
+
+.checkboxChecked {
+  background-color: var(--check-color, var(--brand-primary, #6366f1));
+  border-color: var(--check-color, var(--brand-primary, #6366f1));
+  color: #fff;
+}
+
+.checkboxIndeterminate {
+  background-color: var(--check-color, var(--brand-primary, #6366f1));
+  border-color: var(--check-color, var(--brand-primary, #6366f1));
+  color: #fff;
+}
+
+.checkboxDisabled {
+  background-color: #f1f5f9;
+  border-color: #e2e8f0;
+  color: #94a3b8;
+  cursor: not-allowed;
+
+  &:hover {
+    border-color: #e2e8f0;
+  }
+}

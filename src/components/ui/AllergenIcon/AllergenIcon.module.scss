@@ -2,10 +2,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border-radius: 50%;
-    background-color: var(--pub-primary-soft, #F1F3F5);
     color: var(--pub-primary, #4b5563);
-    padding: 4px;
     flex-shrink: 0;
     position: relative;
 }
@@ -73,6 +70,10 @@
     }
 }
 
-.hasTooltip:hover .tooltip {
-    opacity: 1;
+/* Solo puntatore fine: su touch il tap farebbe scattare :hover (tooltip sticky
+   + apertura modale). Vedi @mixin hover in src/styles/_mixins.scss. */
+@media (hover: hover) {
+    .hasTooltip:hover .tooltip {
+        opacity: 1;
+    }
 }

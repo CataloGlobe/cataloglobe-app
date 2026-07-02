@@ -394,14 +394,14 @@
 }
 
 .chipActive {
-  background: var(--pub-accent);
-  color: var(--pub-cta-text);
+  background: var(--pub-primary);
+  color: var(--pub-primary-text);
   border-color: transparent;
   font-weight: 700;
 
   @include hover {
-    background: color-mix(in srgb, var(--pub-accent) 85%, white);
-    color: var(--pub-cta-text);
+    background: color-mix(in srgb, var(--pub-primary) 85%, white);
+    color: var(--pub-primary-text);
   }
 }
 

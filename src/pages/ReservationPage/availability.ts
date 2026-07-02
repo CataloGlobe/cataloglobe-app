@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { addDays } from "@/utils/dateLocal";
 import type {
     OpeningHoursEntry,
@@ -213,23 +214,26 @@ export function availabilityErrors(
     date: string,
     time: string,
     hours: OpeningHoursEntry[],
-    closures: UpcomingClosure[]
+    closures: UpcomingClosure[],
+    t: TFunction
 ): AvailabilityErrors {
     if (hours.length === 0) return { dateError: null, timeError: null };
     if (!ISO_DATE_RE.test(date)) return { dateError: null, timeError: null };
 
     const closure = isDateFullyClosedByClosure(date, closures);
     if (closure) {
+        // La label della chiusura è dato utente del ristoratore (DB) → resta
+        // fuori dalla traduzione, interpolata as-is dopo la copy tradotta.
         const label = closure.label?.trim();
         const suffix = label ? ` (${label})` : "";
         return {
-            dateError: `Il locale è chiuso in questa data${suffix}.`,
+            dateError: `${t("reservation.closed_date")}${suffix}`,
             timeError: null
         };
     }
     if (isWeekdayFullyClosed(date, hours, closures)) {
         return {
-            dateError: "Il locale è chiuso il giorno selezionato.",
+            dateError: t("reservation.closed_day"),
             timeError: null
         };
     }
@@ -238,7 +242,7 @@ export function availabilityErrors(
     if (!isTimeWithinSlots(time, slots)) {
         return {
             dateError: null,
-            timeError: "L'orario selezionato è fuori dagli orari di apertura."
+            timeError: t("reservation.outside_hours")
         };
     }
     return { dateError: null, timeError: null };

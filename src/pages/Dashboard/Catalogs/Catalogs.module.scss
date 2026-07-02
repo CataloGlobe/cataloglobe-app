@@ -16,6 +16,13 @@
   height: var(--control-height, 38px);
 }
 
+/* Spinner del bottone "Importa con AI": eredita il colore del testo (viola)
+   invece del grigio scuro fisso del Loader globale. Override locale → nessuna
+   regressione sugli altri call site del Loader. */
+.importSpinner {
+  --loader-color: currentColor;
+}
+
 .catalogsGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));

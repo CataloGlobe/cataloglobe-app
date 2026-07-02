@@ -14,6 +14,10 @@ type Props = {
     scrollContainerEl?: HTMLElement | null;
     mode: "public" | "preview";
     activityId?: string;
+    /** Notifica il parent del prodotto scelto. Lo scroll + l'evidenziazione
+     *  vivono in CollectionView (che resta montato dopo la chiusura overlay e
+     *  può ospitare il detector di scroll-end). */
+    onSelectProduct?: (productId: string) => void;
 };
 
 // ── Helpers di normalizzazione e scoring ─────────────────────────────────────
@@ -61,13 +65,13 @@ function computeScore(item: CollectionViewSectionItem, q: string): number {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function formatPrice(item: CollectionViewSectionItem): string | null {
-    if (item.from_price != null) return `da €${item.from_price.toFixed(2)}`;
+function formatPrice(item: CollectionViewSectionItem): { price: string; isFrom: boolean } | null {
+    if (item.from_price != null) return { price: `€${item.from_price.toFixed(2)}`, isFrom: true };
     const p = item.effective_price ?? item.price;
-    return p != null ? `€${p.toFixed(2)}` : null;
+    return p != null ? { price: `€${p.toFixed(2)}`, isFrom: false } : null;
 }
 
-export default function SearchOverlay({ isOpen, onClose, sections, scrollContainerEl, mode, activityId }: Props) {
+export default function SearchOverlay({ isOpen, onClose, sections, scrollContainerEl, mode, activityId, onSelectProduct }: Props) {
     const { t } = useTranslation("public");
     const [query, setQuery] = useState("");
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -147,14 +151,13 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
                     selected_product_id: item.id
                 });
             }
+            // Lo scroll + l'evidenziazione avvengono in CollectionView, innescati
+            // a overlay completamente uscito (onExitComplete) — niente setTimeout
+            // magico qui. Segnaliamo il target prima di chiudere.
+            onSelectProduct?.(item.id);
             onClose();
-            setTimeout(() => {
-                document
-                    .getElementById(`product-${item.id}`)
-                    ?.scrollIntoView({ behavior: "smooth", block: "start" });
-            }, 200);
         },
-        [onClose, mode, activityId, query, totalCount]
+        [onClose, onSelectProduct, mode, activityId, query, totalCount]
     );
 
     // Escape + navigazione frecce + Invio
@@ -239,7 +242,7 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
                     onClick={onClose}
                     aria-label={t("search.close_aria")}
                 >
-                    {t("search.close_label")}
+                    <X size={18} strokeWidth={2} />
                 </button>
             </div>
 
@@ -289,7 +292,9 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
                                             </div>
                                             {price && (
                                                 <span className={styles.resultPrice}>
-                                                    {price}
+                                                    {price.isFrom
+                                                        ? t("product.price_from", { price: price.price })
+                                                        : price.price}
                                                 </span>
                                             )}
                                         </button>

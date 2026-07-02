@@ -1,6 +1,7 @@
+import { IMAGE_MIME_TYPES } from "@pages/Dashboard/Catalogs/AiMenuImport/aiImportFormats";
+
 const COMPRESS_TIMEOUT_MS = 15_000;
 const MAX_INPUT_SIZE = 10 * 1024 * 1024;
-const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
 export type CompressionErrorCode = "TOO_LARGE" | "INVALID_MIME" | "HEIC" | "LOAD_FAILED" | "TIMEOUT";
 
@@ -30,12 +31,29 @@ export const COMPRESS_PROFILES = {
     featured: { maxWidth: 1200, maxHeight: 800,  quality: 0.85, format: "webp" },
 } satisfies Record<string, CompressOptions>;
 
-export async function compressImage(
+/**
+ * Risultato esteso: il file compresso + le dimensioni NATURALI dell'originale
+ * (pre-downscale), lette da `img.naturalWidth`/`naturalHeight`. Servono ai
+ * consumer che devono conoscere il ratio reale del file caricato (es. editor di
+ * reframe: ratio + zoom minimo contain).
+ */
+export interface CompressedImageResult {
+    file: File;
+    naturalWidth: number;
+    naturalHeight: number;
+}
+
+/**
+ * Core condiviso: validazione input + race col timeout. Ritorna file compresso
+ * e dimensioni naturali dell'originale. `compressImage` e `compressImageWithMeta`
+ * delegano entrambe qui (nessuna duplicazione della logica di compressione).
+ */
+function compressCore(
     file: File,
-    maxWidthOrOptions: number | CompressOptions = 900,
-    quality = 0.8,
-    maxInputSize: number = MAX_INPUT_SIZE
-): Promise<File> {
+    maxWidthOrOptions: number | CompressOptions,
+    quality: number,
+    maxInputSize: number
+): Promise<CompressedImageResult> {
     if (file.size > maxInputSize) {
         const maxMb = Math.round(maxInputSize / (1024 * 1024));
         throw new CompressionError(`File troppo grande. Massimo ${maxMb}MB.`, "TOO_LARGE");
@@ -46,7 +64,7 @@ export async function compressImage(
             "HEIC"
         );
     }
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    if (!IMAGE_MIME_TYPES.includes(file.type)) {
         throw new CompressionError(
             "Formato file non supportato. Usa JPEG, PNG o WEBP.",
             "INVALID_MIME"
@@ -66,6 +84,35 @@ export async function compressImage(
             )
         )
     ]);
+}
+
+/**
+ * Comprime un'immagine secondo il profilo/opzioni dati. Ritorna solo il File
+ * compresso: firma e tipo di ritorno invariati per tutti i call site esistenti
+ * (cover, logo, prodotto, avatar, AI import, ecc.).
+ */
+export async function compressImage(
+    file: File,
+    maxWidthOrOptions: number | CompressOptions = 900,
+    quality = 0.8,
+    maxInputSize: number = MAX_INPUT_SIZE
+): Promise<File> {
+    const result = await compressCore(file, maxWidthOrOptions, quality, maxInputSize);
+    return result.file;
+}
+
+/**
+ * Variante che espone anche le dimensioni naturali dell'originale (pre-downscale).
+ * Stessa logica di compressione di `compressImage`. Usare quando serve il ratio
+ * reale del file caricato (es. editor di reframe).
+ */
+export async function compressImageWithMeta(
+    file: File,
+    maxWidthOrOptions: number | CompressOptions = 900,
+    quality = 0.8,
+    maxInputSize: number = MAX_INPUT_SIZE
+): Promise<CompressedImageResult> {
+    return compressCore(file, maxWidthOrOptions, quality, maxInputSize);
 }
 
 function resolveOutputType(originalType: string, format: CompressFormat): string {
@@ -89,7 +136,7 @@ function renameWithExtension(name: string, ext: string): string {
     return `${base}.${ext}`;
 }
 
-function doCompress(file: File, opts: CompressOptions): Promise<File> {
+function doCompress(file: File, opts: CompressOptions): Promise<CompressedImageResult> {
     const { maxWidth, maxHeight, quality, format = "auto" } = opts;
 
     return new Promise((resolve, reject) => {
@@ -98,6 +145,11 @@ function doCompress(file: File, opts: CompressOptions): Promise<File> {
 
         img.onload = () => {
             URL.revokeObjectURL(objectUrl);
+
+            // Dimensioni NATURALI dell'originale (pre-downscale): ritornate in
+            // entrambi i rami (compresso o skip-if-smaller).
+            const naturalWidth = img.naturalWidth;
+            const naturalHeight = img.naturalHeight;
 
             const canvas = document.createElement("canvas");
 
@@ -132,7 +184,7 @@ function doCompress(file: File, opts: CompressOptions): Promise<File> {
                             "compressImage: skip (output bigger), keeping original",
                             { original: file.size, compressed: blob.size }
                         );
-                        resolve(file);
+                        resolve({ file, naturalWidth, naturalHeight });
                         return;
                     }
                     // Sincronizza l'estensione del filename con il MIME del Blob:
@@ -140,11 +192,11 @@ function doCompress(file: File, opts: CompressOptions): Promise<File> {
                     // perche' i service di upload derivano il path da file.name.
                     const ext = extensionForType(outputType);
                     const newName = renameWithExtension(file.name, ext);
-                    resolve(
-                        new File([blob], newName, {
-                            type: outputType
-                        })
-                    );
+                    resolve({
+                        file: new File([blob], newName, { type: outputType }),
+                        naturalWidth,
+                        naturalHeight
+                    });
                 },
                 outputType,
                 quality

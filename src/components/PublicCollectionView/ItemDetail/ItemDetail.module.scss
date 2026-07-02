@@ -11,6 +11,11 @@
     background: var(--pub-surface, #fff);
 }
 
+/* Sotto vetro: header trasparente → condivide il panel-glass (materiale unico). */
+:global([data-card-treatment="glass"]) .header {
+    background: transparent;
+}
+
 .headerTitle {
     flex: 1;
     min-width: 0;
@@ -362,7 +367,7 @@
 .formatPillActive {
     border-color: var(--pub-primary, #333);
     background: var(--pub-primary, #333);
-    color: var(--pub-cta-text, #fff);
+    color: var(--pub-primary-text, #fff);
 }
 
 .formatPillName {
@@ -451,7 +456,7 @@
             left: 5px;
             width: 5px;
             height: 9px;
-            border: 2px solid var(--pub-cta-text, #fff);
+            border: 2px solid var(--pub-primary-text, #fff);
             border-top: none;
             border-left: none;
             transform: rotate(45deg);
@@ -509,7 +514,7 @@
     padding: 14px 20px;
     border-radius: var(--pub-btn-radius, 8px);
     border: none;
-    background: var(--pub-primary, #333);
+    background: var(--pub-accent, #333);
     color: var(--pub-cta-text, #fff);
     font-size: 15px;
     font-weight: 600;

@@ -154,8 +154,8 @@ export default function MoreSheet({
                             <CalendarCheck size={18} strokeWidth={2} />
                         </span>
                         <span className={styles.text}>
-                            <span className={styles.itemLabel}>Prenota un tavolo</span>
-                            <span className={styles.itemSubtitle}>Richiedi un tavolo online</span>
+                            <span className={styles.itemLabel}>{t("more.reservation_label")}</span>
+                            <span className={styles.itemSubtitle}>{t("more.reservation_subtitle")}</span>
                         </span>
                         <ChevronRight size={16} strokeWidth={2} className={styles.chevron} aria-hidden />
                     </button>

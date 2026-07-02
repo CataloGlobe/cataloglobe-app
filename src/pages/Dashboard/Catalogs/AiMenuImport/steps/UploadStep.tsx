@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Upload, X, FileText, Plus, Sparkles, AlertTriangle } from "lucide-react";
 import styles from "../aiMenuImport.module.scss";
 import { partitionBySizeBudget } from "../sizeBudget";
+import { IMPORT_MIME_TYPES } from "../aiImportFormats";
 
 interface UploadStepProps {
     files: File[];
@@ -9,7 +10,6 @@ interface UploadStepProps {
 }
 
 const MAX_FILES = 5;
-const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 
 function formatSize(bytes: number): string {
     if (bytes < 1024) return `${bytes} B`;
@@ -35,12 +35,12 @@ export function UploadStep({ files, onFilesChange }: UploadStepProps) {
             const all = Array.from(newFiles);
 
             // Check unsupported types
-            const rejected = all.filter(f => !ACCEPTED_TYPES.includes(f.type));
+            const rejected = all.filter(f => !IMPORT_MIME_TYPES.includes(f.type));
             if (rejected.length > 0) {
                 setFileWarning("Formati supportati: JPG, PNG, WebP, PDF");
             }
 
-            const accepted = all.filter(f => ACCEPTED_TYPES.includes(f.type));
+            const accepted = all.filter(f => IMPORT_MIME_TYPES.includes(f.type));
 
             // Partizionamento per cap (per-tipo 25/20 MB + aggregato 30 MB) via
             // helper puro. I warning derivano dalle rejection, con la stessa
@@ -50,7 +50,9 @@ export function UploadStep({ files, onFilesChange }: UploadStepProps) {
 
             const imageRejects = sizeRejected.filter(r => r.reason === "image_too_large").map(r => r.file);
             const pdfRejects = sizeRejected.filter(r => r.reason === "pdf_too_large").map(r => r.file);
-            const aggregateRejected = sizeRejected.some(r => r.reason === "aggregate_exceeded");
+            const aggregateRejects = sizeRejected
+                .filter(r => r.reason === "aggregate_exceeded")
+                .map(r => r.file);
 
             if (imageRejects.length > 0) {
                 const names = imageRejects.map(f => f.name).join(", ");
@@ -59,12 +61,24 @@ export function UploadStep({ files, onFilesChange }: UploadStepProps) {
                 const names = pdfRejects.map(f => f.name).join(", ");
                 setFileWarning(`PDF troppo grande (max 20 MB): ${names}`);
             }
-            if (aggregateRejected) {
-                setFileWarning("Dimensione totale troppo grande (max 30 MB). Rimuovi qualche file.");
+            if (aggregateRejects.length > 0) {
+                const names = aggregateRejects.map(f => `«${f.name}»`).join(", ");
+                const single = aggregateRejects.length === 1;
+                setFileWarning(
+                    `${names} super${single ? "a" : "ano"} il limite totale di 30 MB e ` +
+                        `non ${single ? "è stato aggiunto" : "sono stati aggiunti"}.`
+                );
             }
             if (withinBudget.length === 0) return;
 
+            // Lo slice scarta i file oltre MAX_FILES: avvisa invece di troncare in
+            // silenzio. Niente reset dei file gia' validi: ne accettiamo fino al cap.
             const combined = [...files, ...withinBudget].slice(0, MAX_FILES);
+            if (files.length + withinBudget.length > MAX_FILES) {
+                setFileWarning(
+                    `Puoi caricare al massimo ${MAX_FILES} file: i file in eccesso non sono stati aggiunti.`
+                );
+            }
             onFilesChange(combined);
         },
         [files, onFilesChange]

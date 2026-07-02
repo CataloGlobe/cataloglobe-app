@@ -1,8 +1,9 @@
-import { lazy, memo, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { lazy, memo, Suspense, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence } from "framer-motion";
 import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
+import { LanguageContext } from "@/context/Language/LanguageContext";
 import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Phone, Plus } from "lucide-react";
 import type {
     ResolvedAllergen,
@@ -338,7 +339,7 @@ function ProductRowInner({
                             {name}
                         </Text>
                         {dp.type !== "none" && dp.originalPrice != null && (
-                            <span className={styles.promoBadge}>Promo</span>
+                            <span className={styles.promoBadge}>{t("product.badge_promo")}</span>
                         )}
                     </div>
 
@@ -348,13 +349,13 @@ function ProductRowInner({
                     <Text variant="caption" className={styles.price} color="var(--pub-surface-text-secondary)">
                         {dp.originalPrice != null && (
                             <span className={styles.priceOriginal}>
-                                da € {dp.originalPrice.toFixed(2)}
+                                {t("product.price_from", { price: `€ ${dp.originalPrice.toFixed(2)}` })}
                             </span>
                         )}
                         <span
                             className={`${styles.priceCurrent}${dp.originalPrice != null ? ` ${styles.promoPrice}` : ""}`}
                         >
-                            da € {dp.price.toFixed(2)}
+                            {t("product.price_from", { price: `€ ${dp.price.toFixed(2)}` })}
                         </span>
                     </Text>
                 ) : dp.type === "single" ? (
@@ -378,7 +379,7 @@ function ProductRowInner({
                     </Text>
                 )}
                 {optionGroups && optionGroups.length > 0 && (
-                    <span className={styles.customizableHint}>Personalizzabile</span>
+                    <span className={styles.customizableHint}>{t("product.badge_customizable")}</span>
                 )}
                 {hasCardCharacteristics && (
                     <div className={styles.characteristicEmojis}>
@@ -487,11 +488,15 @@ function ProductCompactRowInner({
                         <span className={styles.compactPrice}>
                             {dp.originalPrice != null && (
                                 <span className={styles.compactPriceOriginal}>
-                                    {dp.type === "from" ? "da " : ""}€ {dp.originalPrice.toFixed(2)}
+                                    {dp.type === "from"
+                                        ? t("product.price_from", { price: `€ ${dp.originalPrice.toFixed(2)}` })
+                                        : `€ ${dp.originalPrice.toFixed(2)}`}
                                 </span>
                             )}
                             <span>
-                                {dp.type === "from" ? "da " : ""}€ {dp.price.toFixed(2)}
+                                {dp.type === "from"
+                                    ? t("product.price_from", { price: `€ ${dp.price.toFixed(2)}` })
+                                    : `€ ${dp.price.toFixed(2)}`}
                             </span>
                         </span>
                     )}
@@ -708,6 +713,10 @@ export default function CollectionView({
     previewDevice
 }: Props) {
     const navigate = useNavigate();
+    // Lettura non-throwing del context lingua: CollectionView è renderizzato
+    // anche in preview (StyleEditor, scope admin) FUORI da LanguageProvider →
+    // useContext ritorna null lì e il link prenotazione cade sulla base.
+    const langCtx = useContext(LanguageContext);
 
     // ── Bottom nav bar pubblica: split mobile/desktop CSS-driven ────────────────
     // Niente matchMedia in render (era la causa del mismatch SSR/hydration #2: il
@@ -1128,7 +1137,7 @@ export default function CollectionView({
         setIsOrderingOpen(false);
         setSubmitFeedback({
             type: "error",
-            message: "La sessione è scaduta. Scansiona di nuovo il QR.",
+            message: t("ordering.err_session_expired"),
         });
     }, []);
 
@@ -1158,8 +1167,7 @@ export default function CollectionView({
                     // Idempotente: setta solo se nessun maintenance gia attivo.
                     setDiscoveredMaintenance(prev => prev ?? {
                         reason: "table_closed",
-                        message:
-                            "Il servizio a questo tavolo è terminato. Per ordinare, chiedi al personale o riscansiona il codice QR."
+                        message: t("ordering.err_service_ended")
                     });
                 }
             },
@@ -1198,7 +1206,7 @@ export default function CollectionView({
         if (!customerSession?.session) {
             setSubmitFeedback({
                 type: "error",
-                message: "Sessione non disponibile. Scansiona di nuovo il QR."
+                message: t("ordering.err_session_unavailable")
             });
             return;
         }
@@ -1263,17 +1271,17 @@ export default function CollectionView({
                     customerSession.clear();
                     setSubmitFeedback({
                         type: "error",
-                        message: "La sessione è scaduta. Scansiona di nuovo il QR del tavolo."
+                        message: t("ordering.err_session_expired_table")
                     });
                 } else if (msg === "INVALID_ITEMS") {
                     setSubmitFeedback({
                         type: "error",
-                        message: "Alcuni prodotti non sono più disponibili. Ricontrolla la selezione."
+                        message: t("ordering.err_items_unavailable")
                     });
                 } else if (msg === "EMPTY_CART") {
                     setSubmitFeedback({
                         type: "error",
-                        message: "Aggiungi almeno un prodotto prima di inviare l'ordine."
+                        message: t("ordering.err_empty_cart")
                     });
                 } else {
                     setSubmitFeedback({ type: "error", message: msg });
@@ -1281,7 +1289,7 @@ export default function CollectionView({
             } else {
                 setSubmitFeedback({
                     type: "error",
-                    message: "Errore durante l'invio dell'ordine. Riprova."
+                    message: t("ordering.err_submit")
                 });
             }
         } finally {
@@ -1437,6 +1445,112 @@ export default function CollectionView({
             window.removeEventListener("resize", onResize);
         };
     }, [recomputeStickyOffset, l1Sections]);
+
+    // ── Evidenziazione prodotto raggiunto dalla ricerca (pop + velo) ────────
+    // Il prodotto scelto in SearchOverlay è scrollato qui (CollectionView resta
+    // montato dopo la chiusura overlay) e l'effetto parte al COMPLETAMENTO dello
+    // scroll: scrollend (con fallback debounce), scorciatoia "già in vista", rete
+    // di sicurezza max-timeout. Vedi onExitComplete sull'AnimatePresence ricerca.
+    const HIGHLIGHT_MS = 950;
+    const pendingProductIdRef = useRef<string | null>(null);
+    const scrollEndCleanupRef = useRef<(() => void) | null>(null);
+    const highlightDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const highlightMaxTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const highlightClassTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const cleanupHighlightDetector = useCallback(() => {
+        scrollEndCleanupRef.current?.();
+        scrollEndCleanupRef.current = null;
+        if (highlightDebounceRef.current !== null) {
+            clearTimeout(highlightDebounceRef.current);
+            highlightDebounceRef.current = null;
+        }
+        if (highlightMaxTimeoutRef.current !== null) {
+            clearTimeout(highlightMaxTimeoutRef.current);
+            highlightMaxTimeoutRef.current = null;
+        }
+    }, []);
+
+    const applyHighlight = useCallback((el: HTMLElement) => {
+        // CSS Modules: la classe è hashata → usare styles.highlightPulse, NON la
+        // stringa letterale (non matcherebbe il selettore compilato).
+        const cls = styles.highlightPulse;
+        el.classList.remove(cls);
+        // Reflow forzato → riavvia l'animazione anche su click ripetuti.
+        void el.offsetWidth;
+        el.classList.add(cls);
+        if (highlightClassTimerRef.current !== null) clearTimeout(highlightClassTimerRef.current);
+        highlightClassTimerRef.current = setTimeout(() => {
+            el.classList.remove(cls);
+        }, HIGHLIGHT_MS);
+    }, []);
+
+    const scrollToProductAndHighlight = useCallback((productId: string) => {
+        const el = document.getElementById(`product-${productId}`);
+        if (!el) return;
+        cleanupHighlightDetector();
+
+        // Offset misurato (header + nav + gap): STESSA fonte di scrollToSection,
+        // così prodotto e categoria atterrano allo stesso punto sotto la nav
+        // sticky, su ogni tenant/viewport (no più 12rem fissi).
+        const scrollOffset = recomputeStickyOffset();
+        const rect = el.getBoundingClientRect();
+        // Scorciatoia "già in vista": il prodotto è già alla riga target → niente
+        // scroll, effetto subito (lo scroll non emetterebbe eventi).
+        if (Math.abs(rect.top - scrollOffset) < 4) {
+            applyHighlight(el);
+            return;
+        }
+
+        // scrollTo manuale (mirror di scrollToSection) sullo STESSO container del
+        // tracking scroll esistente — così lo scroll-end detector riceve eventi.
+        const container: HTMLElement | Window = containerRef.current ?? window;
+        if (container === window) {
+            const top = rect.top + window.scrollY - scrollOffset;
+            window.scrollTo({ top, behavior: "smooth" });
+        } else {
+            const containerEl = container as HTMLElement;
+            const top =
+                rect.top -
+                containerEl.getBoundingClientRect().top +
+                containerEl.scrollTop -
+                scrollOffset;
+            containerEl.scrollTo({ top, behavior: "smooth" });
+        }
+
+        let done = false;
+        const fire = () => {
+            if (done) return;
+            done = true;
+            cleanupHighlightDetector();
+            applyHighlight(el);
+        };
+
+        if ("onscrollend" in window) {
+            container.addEventListener("scrollend", fire, { once: true } as AddEventListenerOptions);
+            scrollEndCleanupRef.current = () => container.removeEventListener("scrollend", fire);
+        } else {
+            // Fallback Safari < 17.4: "scroll fermo" via debounce.
+            const onScroll = () => {
+                if (highlightDebounceRef.current !== null) clearTimeout(highlightDebounceRef.current);
+                highlightDebounceRef.current = setTimeout(fire, 140);
+            };
+            container.addEventListener("scroll", onScroll, { passive: true });
+            highlightDebounceRef.current = setTimeout(fire, 140);
+            scrollEndCleanupRef.current = () => container.removeEventListener("scroll", onScroll);
+        }
+
+        // Rete di sicurezza: l'effetto parte comunque entro ~800ms.
+        highlightMaxTimeoutRef.current = setTimeout(fire, 800);
+    }, [applyHighlight, cleanupHighlightDetector, recomputeStickyOffset]);
+
+    // Cleanup di timer/listener all'unmount.
+    useEffect(() => {
+        return () => {
+            cleanupHighlightDetector();
+            if (highlightClassTimerRef.current !== null) clearTimeout(highlightClassTimerRef.current);
+        };
+    }, [cleanupHighlightDetector]);
 
     // ── Analytics: section_view (IntersectionObserver, una volta per sezione) ─
     const viewedSectionsRef = useRef(new Set<string>());
@@ -1723,6 +1837,32 @@ export default function CollectionView({
         }
     };
 
+    // ── Scroll-to-top del container giusto (re-tap tab attiva, pattern tab bar iOS) ──
+    const scrollContainerToTop = useCallback(() => {
+        const container = containerRef.current;
+        if (!container) return;
+        // Non scrivere lo scroll mentre il body è in lock iOS (PublicSheet aperto).
+        // Caso non raggiungibile dal re-tap (sheet copre la barra), guardia difensiva.
+        if (document.body.style.position === "fixed") return;
+        if (container === window) {
+            window.scrollTo({ top: 0, behavior: "smooth" });
+        } else {
+            (container as HTMLElement).scrollTo({ top: 0, behavior: "smooth" });
+        }
+    }, []);
+
+    // ── Intercetta il tap hub tab: re-tap sulla tab attiva = scroll-to-top ──
+    const handleHubTabTap = useCallback(
+        (tab: HubTab) => {
+            if (tab === activeTab) {
+                scrollContainerToTop();
+                return; // re-tap: niente cambio stato, niente analytics (già gated su prevTab !== tab)
+            }
+            onTabChange?.(tab);
+        },
+        [activeTab, onTabChange, scrollContainerToTop]
+    );
+
     // ── Subsection margin — distanza dipende dal contesto (child precedente) ──
     const getSubsectionMarginTop = useCallback(
         (
@@ -1842,7 +1982,7 @@ export default function CollectionView({
                         >
                             {isDisabled && style.productStyle !== "compact" && (
                                 <span className={styles.unavailableBadge}>
-                                    Non disponibile
+                                    {t("product.badge_unavailable")}
                                 </span>
                             )}
                             {/* Case A/B: parent row — only if parentSelected */}
@@ -1875,7 +2015,7 @@ export default function CollectionView({
                                     <div className={styles.variantsDivider}>
                                         {item.parentSelected && (
                                             <span className={styles.variantsLabel}>
-                                                Varianti
+                                                {t("product.badge_variants")}
                                             </span>
                                         )}
                                     </div>
@@ -1963,7 +2103,7 @@ export default function CollectionView({
                     previewDevice={previewDevice}
                     headerRadius={style.appearanceRadius}
                     activeTab={activeTab}
-                    onTabChange={onTabChange ?? (() => {})}
+                    onTabChange={handleHubTabTap}
                     // Hub-tabs sempre nel markup header: lo split CSS-driven le
                     // nasconde ≤640px quando la bottom-bar è attiva (public).
                     showHubTabs
@@ -1986,7 +2126,15 @@ export default function CollectionView({
                 viene eseguita prima dell'unmount. */}
             {mode !== "preview" && (
                 <Suspense fallback={null}>
-                    <AnimatePresence>
+                    <AnimatePresence
+                        onExitComplete={() => {
+                            const id = pendingProductIdRef.current;
+                            if (id) {
+                                pendingProductIdRef.current = null;
+                                scrollToProductAndHighlight(id);
+                            }
+                        }}
+                    >
                         {isSearchOpen && (
                             <SearchOverlay
                                 key="search"
@@ -1996,6 +2144,7 @@ export default function CollectionView({
                                 scrollContainerEl={scrollContainerEl}
                                 mode={mode}
                                 activityId={activityId}
+                                onSelectProduct={(id) => { pendingProductIdRef.current = id; }}
                             />
                         )}
                     </AnimatePresence>
@@ -2358,7 +2507,7 @@ export default function CollectionView({
             {(useBottomBar || (mode === "preview" && previewDevice === "mobile")) && (
                 <PublicBottomBar
                     activeTab={mode === "preview" ? "menu" : activeTab}
-                    onTabChange={mode === "preview" ? () => {} : tab => onTabChange?.(tab)}
+                    onTabChange={mode === "preview" ? () => {} : handleHubTabTap}
                     showEventsTab={showEventsTab}
                     selectionCount={selectionCount}
                     supportVisible={mode === "public" && orderingActive}
@@ -2397,7 +2546,7 @@ export default function CollectionView({
                     aria-live="polite"
                 >
                     {submitFeedback.type === "success"
-                        ? "Ordine inviato! Lo staff lo prenderà in carico."
+                        ? t("ordering.submitted_toast")
                         : submitFeedback.message}
                 </div>
             )}
@@ -2430,7 +2579,15 @@ export default function CollectionView({
                     onOpenInfo={() => setIsInfoSheetOpen(true)}
                     onOpenReservation={
                         enableReservations && slug
-                            ? () => navigate(`/${slug}/prenota`)
+                            ? () => {
+                                  const lang = langCtx?.currentLang;
+                                  const base = langCtx?.baseLanguage;
+                                  navigate(
+                                      lang && lang !== base
+                                          ? `/${slug}/${lang}/prenota`
+                                          : `/${slug}/prenota`
+                                  );
+                              }
                             : undefined
                     }
                     allergensCount={allergenFilterIds.length}

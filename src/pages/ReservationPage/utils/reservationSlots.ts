@@ -41,6 +41,9 @@ export type ReservationPeriodKey =
 
 export type ReservationPeriodGroup = {
     key: ReservationPeriodKey;
+    /** Label italiana della fascia. Usata dall'admin (scope IT-only). La
+     *  pagina pubblica NON la legge: risolve la label localizzata a render nel
+     *  TimePicker via `t(reservation.period_*)` mappando su `key`. */
     label: string;
     slots: ReservationSlot[];
 };
@@ -136,6 +139,8 @@ function generateDaySlots(
 
 // ── Period (time-of-day band) classification ────────────────────────────────
 
+// La `label` IT serve all'admin (IT-only); la pagina pubblica la ignora e
+// localizza a render via `key`. Vedi ReservationTimePicker (PERIOD_I18N).
 const PERIOD_ORDER: { key: ReservationPeriodKey; label: string }[] = [
     { key: "notte", label: "Notte" },
     { key: "mattina", label: "Mattina" },

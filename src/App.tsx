@@ -281,6 +281,16 @@ export default function App() {
                 }
             />
 
+            {/* RESERVATION FORM lang-aware — /:slug/:lang/prenota (stesso componente, lingua da URL) */}
+            <Route
+                path="/:slug/:lang/prenota"
+                element={
+                    <PublicErrorBoundary>
+                        <ReservationPage />
+                    </PublicErrorBoundary>
+                }
+            />
+
             {/* PUBLIC BUSINESS */}
             <Route
                 path="/:slug/:lang?"

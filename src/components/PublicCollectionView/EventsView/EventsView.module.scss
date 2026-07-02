@@ -13,22 +13,47 @@
   color: var(--pub-bg-text-muted);
 }
 
-.container {
+/* Dedicated container context for the Events & Promo tab. Isolated to this
+   subtree — does NOT affect the menu (grid prodotti = container `collection`). */
+.root {
+  container-type: inline-size;
+  container-name: events;
   width: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
-  padding: 1.5rem 1rem;
+}
 
-  @media (min-width: 640px) {
+.grid {
+  display: grid;
+  /* Fill-width: `1fr` (non un cap px) fa stirare le card a riempire la riga →
+     nessuno spazio morto ai lati. auto-fit collassa le tracce vuote così gli
+     elementi presenti occupano tutta la larghezza. min(340px,100%) fa scendere
+     il numero di colonne quando le card scenderebbero sotto 340 (e non sfora su
+     viewport < 340px). Niente justify-content:center (creava i buchi laterali). */
+  grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
+  gap: 24px;
+  /* Su viewport strette niente padding orizzontale sulla griglia: in tab
+     Eventi il gutter laterale è già dato da .tabPatternSurface (16px), quindi
+     un ulteriore 1rem qui raddoppiava l'inset (32px) sprecando larghezza. I
+     breakpoint @container ripristinano il padding orizzontale dove serve. */
+  padding: 1.5rem 0;
+
+  /* @container solo per il padding (le colonne le gestisce auto-fit). */
+  @container events (min-width: 640px) {
     padding: 2rem 1.5rem;
   }
 
-  @media (min-width: 1024px) {
+  @container events (min-width: 1000px) {
     padding: 2.5rem 1rem;
   }
 }
 
 .cardFull {
   width: 100%;
+}
+
+/* Caso singolo: con `1fr` una sola card riempirebbe tutta la larghezza
+   (~720px alto a 16:9). Cap + centrata per non farla diventare un banner
+   gigante. Unica eccezione al fill. */
+.cardFull:only-child {
+  justify-self: center;
+  max-width: 560px;
 }

@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 /* ─────────────────────────────────────────────────────────
    LanguageSelector
    Selettore lingua per public collection header
@@ -26,9 +28,29 @@
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: #fff;
 
-  &:hover {
+  @include hover {
     background: rgba(255, 255, 255, 0.22);
     border-color: rgba(255, 255, 255, 0.35);
+  }
+}
+
+/* Variante solid — gemello del pulsante "Menu" in prenotazione
+   (valori da ReservationHeader `.menuBtn`). Solo prenotazione via
+   data-variant="solid"; il menu catalogo resta glass (default). */
+.triggerHero[data-variant="solid"] {
+  min-width: 0;
+  min-height: 0;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+
+  @include hover {
+    background: rgba(255, 255, 255, 0.26);
+    border-color: rgba(255, 255, 255, 0.32);
   }
 }
 
@@ -84,16 +106,16 @@
   cursor: pointer;
   transition: background 0.12s ease;
 
-  &:hover {
+  @include hover {
     background: color-mix(in srgb, var(--pub-surface-text) 6%, transparent);
   }
 }
 
 .itemActive {
-  background: color-mix(in srgb, var(--pub-accent, #F59E0B) 10%, transparent);
+  background: color-mix(in srgb, var(--pub-primary) 10%, transparent);
 
-  &:hover {
-    background: color-mix(in srgb, var(--pub-accent, #F59E0B) 14%, transparent);
+  @include hover {
+    background: color-mix(in srgb, var(--pub-primary) 14%, transparent);
   }
 }
 
@@ -111,5 +133,5 @@
 
 .itemCheck {
   flex-shrink: 0;
-  color: var(--pub-accent, #F59E0B);
+  color: var(--pub-primary);
 }

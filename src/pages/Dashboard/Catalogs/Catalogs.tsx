@@ -15,7 +15,7 @@ import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/Data
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconBook2 } from "@tabler/icons-react";
-import { Sparkles, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Sparkles, Eye, LayoutGrid, List as ListIcon } from "lucide-react";
 import { Loader } from "@/components/ui/Loader/Loader";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import {
@@ -147,8 +147,10 @@ export default function Catalogs() {
                     disabled={!canEdit}
                     leftIcon={
                         importStatus === "analyzing" || importStatus === "creating"
-                            ? <Loader size="sm" />
-                            : <Sparkles size={16} />
+                            ? <Loader size="sm" className={styles.importSpinner} />
+                            : importStatus === "review"
+                                ? <Eye size={16} />
+                                : <Sparkles size={16} />
                     }
                     className={styles.toolbarCta}
                 >
@@ -156,7 +158,9 @@ export default function Catalogs() {
                         ? "Analisi in corso…"
                         : importStatus === "creating"
                             ? "Salvataggio…"
-                            : "Importa con AI"}
+                            : importStatus === "review"
+                                ? "Rivedi menù analizzato"
+                                : "Importa con AI"}
                 </Button>
             )}
             {canWriteCatalog && (
@@ -184,6 +188,12 @@ export default function Catalogs() {
         setEditingCatalog(catalog);
         setName(catalog.name);
         setIsDrawerOpen(true);
+    };
+
+    // Scorciatoia: apre il wizard AI import puntato su questo catalogo (2C-5).
+    const handleAddWithAi = (catalog: V2Catalog) => {
+        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        openAiImport?.({ catalogId: catalog.id, catalogName: catalog.name });
     };
 
     const handleOpenDelete = (catalog: V2Catalog) => {
@@ -314,7 +324,17 @@ export default function Catalogs() {
             cell: (_value: unknown, catalog: V2Catalog) => (
                 <TableRowActions
                     actions={[
-                        { label: "Modifica nome", onClick: () => handleOpenEdit(catalog) },
+                        {
+                            label: "Aggiungi prodotti con AI",
+                            icon: Sparkles,
+                            variant: "accent" as const,
+                            onClick: () => handleAddWithAi(catalog)
+                        },
+                        {
+                            label: "Modifica nome",
+                            onClick: () => handleOpenEdit(catalog),
+                            separator: true
+                        },
                         {
                             label: `Elimina ${catalogLower}`,
                             onClick: () => handleOpenDelete(catalog),
@@ -376,6 +396,7 @@ export default function Catalogs() {
                                 catalogLower={catalogLower}
                                 onEdit={handleOpenEdit}
                                 onDelete={handleOpenDelete}
+                                onAddWithAi={handleAddWithAi}
                                 onClick={c =>
                                     navigate(`/business/${currentTenantId}/catalogs/${c.id}`)
                                 }

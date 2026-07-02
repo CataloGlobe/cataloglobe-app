@@ -1,6 +1,6 @@
 import { useOutletContext } from "react-router-dom";
 import type { TranslationCoverage } from "@/services/supabase/tenantLanguages";
-import type { AiImportStatus } from "@/hooks/useAiImportSession";
+import type { AiImportStatus, ImportOpenTarget } from "@/hooks/useAiImportSession";
 
 /**
  * Valore esposto da `MainLayout` alle pagine business via `<Outlet context>`.
@@ -22,8 +22,9 @@ export interface BusinessOutletContext {
     /**
      * Apre il drawer import AI (sessione sollevata in MainLayout). Lo stato e la
      * richiesta vivono nel layout → sopravvivono all'unmount della pagina.
+     * Con `target` opzionale apre puntato su un catalogo (scorciatoia kebab, 2C-5).
      */
-    openAiImport: () => void;
+    openAiImport: (target?: ImportOpenTarget) => void;
     /**
      * Bumpato al successo di un import → le pagine che mostrano cataloghi/prodotti
      * ricaricano. Stesso pattern di `translationRefreshKey`.

@@ -11,6 +11,8 @@ import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { useAiDescription } from "./hooks/useAiDescription";
+import { AiDescriptionField } from "./components/AiDescriptionField";
 import {
     type V2Product,
     type ProductNote,
@@ -177,6 +179,15 @@ export function SchedaTab({
     const [draftName, setDraftName] = useState(product.name);
     const [draftDescription, setDraftDescription] = useState(product.description ?? "");
     const [isSavingInformation, setIsSavingInformation] = useState(false);
+
+    // AI description enrichment — shared affordance. Generated text fills the
+    // draft, which marks the form dirty; persistence stays on the existing
+    // UnsavedChangesBar → handleSaveInformation → updateProduct path.
+    const ai = useAiDescription({
+        name: draftName,
+        tenantId,
+        onDescriptionGenerated: setDraftDescription
+    });
 
     const isInformationDirty = useMemo(() => {
         const baseName = product.name ?? "";
@@ -560,14 +571,23 @@ export function SchedaTab({
                         />
 
                         <div className={styles.descriptionField}>
-                            <Textarea
-                                label="Descrizione"
-                                value={draftDescription}
-                                onChange={e => setDraftDescription(e.target.value)}
-                                disabled={isSavingInformation}
-                                rows={4}
-                                placeholder="Descrizione del prodotto..."
-                            />
+                            <AiDescriptionField
+                                aiState={ai.aiState}
+                                isGenerating={ai.isGenerating}
+                                canGenerate={ai.canGenerate}
+                                onGenerate={ai.generate}
+                            >
+                                <Textarea
+                                    value={draftDescription}
+                                    onChange={e => {
+                                        setDraftDescription(e.target.value);
+                                        ai.markManualEdit();
+                                    }}
+                                    disabled={isSavingInformation || ai.isGenerating}
+                                    rows={4}
+                                    placeholder="Descrizione del prodotto..."
+                                />
+                            </AiDescriptionField>
                             {isBaseProduct && product.description && (
                                 <div className={styles.translationRow}>
                                     <TranslationStatusBadge

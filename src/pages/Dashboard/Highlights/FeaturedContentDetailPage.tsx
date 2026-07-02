@@ -16,8 +16,10 @@ import { type V2Product } from "@/services/supabase/products";
 import {
     type FeaturedContentWithProducts,
     type FeaturedContentType,
-    getFeaturedContentById
+    getFeaturedContentById,
+    columnsToFraming
 } from "@/services/supabase/featuredContents";
+import { FramedMedia } from "@/components/ui/FramedMedia";
 import { useTenantId } from "@/context/useTenantId";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -299,10 +301,11 @@ export default function FeaturedContentDetailPage() {
                 </div>
                 {content?.media_id ? (
                     <div className={styles.mediaPreview}>
-                        <img
-                            src={content.media_id}
+                        <FramedMedia
+                            source={content.media_id}
+                            framing={columnsToFraming(content)}
+                            aspectRatio={content.media_aspect_ratio}
                             alt="Anteprima"
-                            className={styles.mediaPreviewImg}
                         />
                     </div>
                 ) : (

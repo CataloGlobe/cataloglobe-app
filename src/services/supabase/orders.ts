@@ -48,6 +48,7 @@ import type {
     V2Order,
     V2OrderWithItems,
     V2OrderItem,
+    V2RectifiableResidual,
     ListOrdersOptions
 } from "@/types/orders";
 
@@ -327,6 +328,77 @@ export async function listOrdersForActivity(
         }
         return normalized as unknown as V2OrderWithItems;
     });
+}
+
+/**
+ * Singolo ordine con i suoi `order_items`. Usato dal conto (TableDetailDrawer)
+ * quando serve la granularità per-articolo per lo storno — il conto carica la
+ * lista con `includeItems:false`, qui si recupera solo l'ordine scelto.
+ * `tenant_id` filtrato esplicitamente oltre la RLS (difesa in profondità).
+ * Lancia se non trovato (convenzione `get*`).
+ */
+export async function getOrderWithItems(
+    orderId: string,
+    tenantId: string
+): Promise<V2OrderWithItems> {
+    const { data, error } = await supabase
+        .from("orders")
+        .select("*, items:order_items(*)")
+        .eq("id", orderId)
+        .eq("tenant_id", tenantId)
+        .single();
+    if (error) throw error;
+
+    const row = data as unknown as Record<string, unknown>;
+    const rawItems = row.items as V2OrderItem[] | undefined;
+    return {
+        ...row,
+        total_amount: Number(row.total_amount),
+        items: (rawItems ?? []).map(item => ({
+            ...item,
+            unit_price_snapshot: Number(item.unit_price_snapshot),
+            line_total: Number(item.line_total)
+        }))
+    } as unknown as V2OrderWithItems;
+}
+
+/**
+ * Residuo stornabile per riga dell'ordine padre `orderId`, dalla RPC
+ * `get_rectifiable_residual`. Fonte unica allineata al cap cumulativo di
+ * `rectify_order_atomic` (residuo = qty originale − Σ storni non annullati).
+ * Il guard tenant (membership + `orders.read`) è nella funzione SECURITY
+ * DEFINER; `tenantId` resta il source-of-truth applicativo passato dal chiamante.
+ * Ritorna `[]` se l'ordine non ha righe. Convenzione `list*`: mai null.
+ */
+export async function listRectifiableResiduals(
+    orderId: string,
+    tenantId: string
+): Promise<V2RectifiableResidual[]> {
+    // Il guard tenant autorevole è nella RPC SECURITY DEFINER; qui una guardia
+    // applicativa difensiva assicura che il chiamante passi sempre il tenant
+    // selezionato (coerente con le altre chiamate del dominio ordini).
+    if (!tenantId) throw new Error("MISSING_TENANT_ID");
+
+    const { data, error } = await supabase.rpc("get_rectifiable_residual", {
+        p_order_id: orderId
+    });
+    if (error) throw error;
+
+    const rows = (data ?? []) as Array<{
+        r_order_item_id: string;
+        r_product_name: string;
+        r_original_qty: number;
+        r_rectified_qty: number;
+        r_residual_qty: number;
+    }>;
+
+    return rows.map(row => ({
+        orderItemId: row.r_order_item_id,
+        productName: row.r_product_name,
+        originalQty: Number(row.r_original_qty),
+        rectifiedQty: Number(row.r_rectified_qty),
+        residualQty: Number(row.r_residual_qty)
+    }));
 }
 
 /**
@@ -1095,6 +1167,8 @@ export async function getOrdersServedToday(
 /**
  * Storico ordini della giornata operativa per una sede: delivered + cancelled
  * con timestamp di uscita >= start_of_today (Europe/Rome, DST-aware via RPC).
+ * Include anche gli storni (is_rectification, delivered_at NULL) filtrati per
+ * created_at, così la vista Storico può mostrarli sotto l'ordine padre.
  *
  * Filtra esplicitamente tenant_id + activity_id oltre alla RLS, in modo che
  * un bug futuro nelle policy non possa esporre storico cross-tenant o cross-
@@ -1119,7 +1193,10 @@ export async function listOrdersHistoryToday(
         .eq("activity_id", activityId)
         .or(
             `and(status.eq.delivered,delivered_at.gte.${fromIso}),` +
-                `and(status.eq.cancelled,cancelled_at.gte.${fromIso})`
+                `and(status.eq.cancelled,cancelled_at.gte.${fromIso}),` +
+                // Storni (is_rectification): status='delivered' ma delivered_at=NULL,
+                // quindi esclusi dal primo ramo. Entrano via created_at (DEFAULT now()).
+                `and(is_rectification.eq.true,created_at.gte.${fromIso})`
         )
         .order("updated_at", { ascending: false })
         .limit(200);

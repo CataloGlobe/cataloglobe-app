@@ -72,3 +72,13 @@
     color: var(--color-red-700, #b91c1c);
   }
 }
+
+.accent {
+  color: var(--brand-primary, #6366f1);
+  font-weight: 600;
+
+  &[data-highlighted] {
+    background-color: var(--color-violet-50, #f5f3ff);
+    color: var(--brand-primary, #6366f1);
+  }
+}

@@ -299,10 +299,10 @@
 }
 
 .pillActive {
-    background: var(--pub-accent);
-    color: var(--pub-cta-text);
-    border-color: var(--pub-accent);
-    box-shadow: 0 2px 8px color-mix(in srgb, var(--pub-accent) 28%, transparent);
+    background: var(--pub-primary);
+    color: var(--pub-primary-text);
+    border-color: var(--pub-primary);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--pub-primary) 28%, transparent);
 }
 
 .partyPlus {

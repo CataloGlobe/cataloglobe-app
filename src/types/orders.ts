@@ -598,6 +598,20 @@ export interface RectifyOrderItem {
 }
 
 /**
+ * Residuo stornabile per riga di un ordine padre, dalla RPC
+ * `get_rectifiable_residual`. `residualQty = originalQty - rectifiedQty`
+ * (già clampato a >= 0 server-side). Fonte unica allineata al cap cumulativo
+ * di `rectify_order_atomic`.
+ */
+export interface V2RectifiableResidual {
+    orderItemId: string;
+    productName: string;
+    originalQty: number;
+    rectifiedQty: number;
+    residualQty: number;
+}
+
+/**
  * Order embed dalla query listOrdersForActivity. Include items se richiesto.
  */
 export interface V2OrderWithItems extends V2Order {

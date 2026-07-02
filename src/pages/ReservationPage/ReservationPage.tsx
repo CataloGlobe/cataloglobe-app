@@ -1,10 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
+import LanguageSelectorView from "@components/PublicCollectionView/LanguageSelector/LanguageSelectorView";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import { usePageHead } from "@/hooks/usePageHead";
+import { usePublicLanguageSync } from "@/hooks/usePublicLanguageSync";
 import { fetchPublicCatalog } from "@/services/publicCatalog/fetchPublicCatalog";
 import type { SubmitReservationStatus } from "@/services/supabase/reservations";
+import type { AvailableLanguage } from "@context/Language/LanguageContext";
 import type { ResolvedStyle } from "@/types/resolvedCollections";
 import ReservationHeader from "./ReservationHeader";
 import ReservationForm from "./ReservationForm";
@@ -19,7 +23,12 @@ import styles from "./ReservationPage.module.scss";
 // enable_reservations + phone for the disabled-state fallback CTA).
 
 export default function ReservationPage() {
-    const { slug } = useParams<{ slug: string }>();
+    const { slug, lang } = useParams<{ slug: string; lang?: string }>();
+    const navigate = useNavigate();
+    const { t } = useTranslation("public");
+    // Fase 1: applica la lingua dall'URL (segmento `:lang` sulla route
+    // lang-aware `/:slug/:lang/prenota`; assente sulla base → default "it").
+    usePublicLanguageSync();
     const [resolve, setResolve] = useState<ResolveState>({ status: "loading" });
     const [successSnapshot, setSuccessSnapshot] = useState<FormFields | null>(null);
     const [successStatus, setSuccessStatus] = useState<SubmitReservationStatus>("pending");
@@ -58,6 +67,10 @@ export default function ReservationPage() {
                 resolved?: { style?: ResolvedStyle | null };
                 opening_hours?: Brand["hours"];
                 upcoming_closures?: Brand["closures"];
+                // Già nel payload di resolve-public-catalog (serve al selettore
+                // lingua): lista lingue attive + lingua base del tenant.
+                available_languages?: AvailableLanguage[];
+                base_language_code?: string | null;
             };
             const business = payload.business;
             if (!business || !business.name) {
@@ -72,7 +85,9 @@ export default function ReservationPage() {
                 phone: business.phone ?? null,
                 phonePublic: business.phone_public ?? false,
                 hours: payload.opening_hours ?? [],
-                closures: payload.upcoming_closures ?? []
+                closures: payload.upcoming_closures ?? [],
+                languages: payload.available_languages ?? [],
+                baseLanguage: payload.base_language_code ?? "it"
             };
             if (business.status !== "active") {
                 setResolve({ status: "inactive", brand });
@@ -110,8 +125,8 @@ export default function ReservationPage() {
         resolve.status === "loading"
             ? undefined
             : brandNameForTitle
-                ? `${brandNameForTitle} · Prenotazione`
-                : "Prenotazione";
+                ? t("reservation.doc_title", { brand: brandNameForTitle })
+                : t("reservation.title");
     usePageHead({ title: pageTitle });
 
     const handleResolveErrorCode = useCallback(
@@ -141,7 +156,7 @@ export default function ReservationPage() {
 
     // ── Loading: reuse AppLoader, override copy (not the menu loader) ─────
     if (resolve.status === "loading") {
-        return <AppLoader intent="public" message="Caricamento…" />;
+        return <AppLoader intent="public" message={t("reservation.loading")} />;
     }
 
     // ── Not-found / network-error: no brand resolved, use neutral page ────
@@ -151,8 +166,8 @@ export default function ReservationPage() {
                 <div className={styles.stateWrapper}>
                     <StateCard
                         icon={<SearchOffIcon />}
-                        title="Pagina non trovata"
-                        text="La sede che stai cercando non esiste o ha cambiato indirizzo."
+                        title={t("reservation.notfound_title")}
+                        text={t("reservation.notfound_text")}
                         actions={[]}
                     />
                 </div>
@@ -166,8 +181,8 @@ export default function ReservationPage() {
                 <div className={styles.stateWrapper}>
                     <StateCard
                         icon={<WifiOffIcon />}
-                        title="Caricamento non riuscito"
-                        text="Verifica la connessione e ricarica la pagina."
+                        title={t("reservation.error_title")}
+                        text={t("reservation.error_text")}
                         actions={[]}
                     />
                 </div>
@@ -177,9 +192,30 @@ export default function ReservationPage() {
 
     // ── Branded states ────────────────────────────────────────────────────
     const brand = resolve.brand!;
-    const backHref = `/${slug}`;
+    // Lingua preservata dal segmento URL (`:lang` sulla route lang-aware;
+    // assente sulla base → torna al menu in lingua base).
+    const backHref = lang ? `/${slug}/${lang}` : `/${slug}`;
     const isSuccess =
         resolve.status === "ready" && successSnapshot !== null;
+
+    // Lingua corrente dal segmento URL (normalizzata lowercase); assente sulla
+    // route base → lingua base del tenant. Provider-free: il cambio naviga sul
+    // segmento e `usePublicLanguageSync` applica `i18n.changeLanguage` (writer
+    // unico, nessun secondo writer → nessun loop).
+    const currentLang = (lang ?? brand.baseLanguage).toLowerCase();
+    const languageSelector = (
+        <LanguageSelectorView
+            languages={brand.languages}
+            currentLang={currentLang}
+            variant="solid"
+            onSelect={(code) => {
+                const url = code === brand.baseLanguage
+                    ? `/${slug}/prenota`
+                    : `/${slug}/${code}/prenota`;
+                navigate(url);
+            }}
+        />
+    );
 
     return (
         <PublicThemeScope style={brand.resolvedStyle}>
@@ -189,6 +225,7 @@ export default function ReservationPage() {
                     tenantLogoUrl={brand.tenantLogoUrl}
                     coverImage={brand.coverImage}
                     backHref={backHref}
+                    rightSlot={languageSelector}
                 />
 
                 <div className={styles.body}>
@@ -196,10 +233,10 @@ export default function ReservationPage() {
                         <div className={styles.stateWrapper}>
                             <StateCard
                                 icon={<CalendarOffIcon />}
-                                title="Sede non disponibile"
-                                text={`${brand.brandName} non è al momento attivo sulla piattaforma.`}
+                                title={t("reservation.inactive_title")}
+                                text={t("reservation.inactive_text", { brand: brand.brandName })}
                                 actions={[
-                                    { kind: "secondary-link", to: backHref, label: "Torna al menu" }
+                                    { kind: "secondary-link", to: backHref, label: t("reservation.back_to_menu") }
                                 ]}
                             />
                         </div>
@@ -217,7 +254,7 @@ export default function ReservationPage() {
                     {resolve.status === "ready" && !isSuccess && slug && (
                         <>
                             <p className={styles.tagline}>
-                                Compila il modulo, riceverai una conferma via email.
+                                {t("reservation.tagline")}
                             </p>
                             <ReservationForm
                                 slug={slug}
@@ -231,7 +268,7 @@ export default function ReservationPage() {
 
                     {isSuccess && successSnapshot && slug && (
                         <SuccessRecap
-                            slug={slug}
+                            backHref={backHref}
                             brandName={brand.brandName}
                             snapshot={successSnapshot}
                             status={successStatus}
@@ -256,6 +293,7 @@ function ReservationsDisabled({
     phonePublic: boolean;
     backHref: string;
 }) {
+    const { t } = useTranslation("public");
     const showPhoneCta =
         phonePublic && phone != null && phone.trim().length > 0;
 
@@ -263,20 +301,20 @@ function ReservationsDisabled({
         <div className={styles.stateWrapper}>
             <StateCard
                 icon={<CalendarOffIcon />}
-                title="Prenotazioni non attive"
+                title={t("reservation.disabled_title")}
                 text={
                     <>
-                        {brandName} non accetta prenotazioni online al momento.
+                        {t("reservation.disabled_text", { brand: brandName })}
                         {showPhoneCta
-                            ? " Puoi chiamare direttamente il locale per richiedere un tavolo."
-                            : " Per richiedere un tavolo contatta direttamente la sede."}
+                            ? ` ${t("reservation.disabled_call")}`
+                            : ` ${t("reservation.disabled_contact")}`}
                     </>
                 }
                 actions={[
                     ...(showPhoneCta
-                        ? [{ kind: "primary-tel" as const, phone: phone as string, label: "Chiama il locale" }]
+                        ? [{ kind: "primary-tel" as const, phone: phone as string, label: t("reservation.call_venue") }]
                         : []),
-                    { kind: "secondary-link" as const, to: backHref, label: "Torna al menu" }
+                    { kind: "secondary-link" as const, to: backHref, label: t("reservation.back_to_menu") }
                 ]}
             />
         </div>

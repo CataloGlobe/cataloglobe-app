@@ -6,16 +6,14 @@ export type FontFamily = "inter" | "poppins" | "montserrat" | "josefin-sans" | "
 export type BackgroundPattern = "none" | "dots" | "diagonal" | "waves" | "crosshatch" | "noise";
 export type PatternIntensity = "subtle" | "medium" | "strong";
 export type FeaturedStyle = "card" | "highlight";
+export type CardTreatment = "raised" | "bordered" | "glass";
 
 export interface StyleTokenModel {
     colors: {
         pageBackground: string;
         primary: string;
-        headerBackground: string;
-        textPrimary: string;
-        textSecondary: string;
-        surface: string;
-        border: string;
+        /** Colore azione (pulsanti prodotto + CTA). Opzionale: assente = segue il primario. */
+        accent?: string;
     };
     typography: {
         fontFamily: FontFamily;
@@ -25,6 +23,7 @@ export interface StyleTokenModel {
         backgroundPattern: BackgroundPattern;
         patternIntensity: PatternIntensity;
         featuredStyle: FeaturedStyle;
+        cardTreatment: CardTreatment;
     };
     header: {
         showLogo: boolean;
@@ -50,12 +49,7 @@ export interface StyleTokenModel {
 export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
     colors: {
         pageBackground: "#FFFFFF",
-        primary: "#6366f1",
-        headerBackground: "#6366f1",
-        textPrimary: "#1a1a2e",
-        textSecondary: "#6b7280",
-        surface: "#FFFFFF",
-        border: "#f1f5f9"
+        primary: "#6366f1"
     },
     typography: {
         fontFamily: "inter"
@@ -64,7 +58,8 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
         borderRadius: "rounded",
         backgroundPattern: "none",
         patternIntensity: "medium",
-        featuredStyle: "card"
+        featuredStyle: "card",
+        cardTreatment: "raised"
     },
     header: {
         showLogo: true,
@@ -89,6 +84,7 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
 const VALID_PATTERNS: BackgroundPattern[] = ["none", "dots", "diagonal", "waves", "crosshatch", "noise"];
 const VALID_PATTERN_INTENSITIES: PatternIntensity[] = ["subtle", "medium", "strong"];
 const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight"];
+const VALID_CARD_TREATMENTS: CardTreatment[] = ["raised", "bordered", "glass"];
 
 /**
  * Parses raw JSON configuration (from DB) into a structured UI Token Model.
@@ -139,6 +135,11 @@ export function parseTokens(rawJson: any): StyleTokenModel {
         ? rawAppearance.featuredStyle as FeaturedStyle
         : "card";
 
+    // cardTreatment: default sicuro "raised" per stili vecchi senza campo
+    const cardTreatment: CardTreatment = VALID_CARD_TREATMENTS.includes(rawAppearance.cardTreatment)
+        ? rawAppearance.cardTreatment as CardTreatment
+        : "raised";
+
     return {
         colors: {
             pageBackground:
@@ -146,15 +147,9 @@ export function parseTokens(rawJson: any): StyleTokenModel {
                 rawColors.background ||
                 DEFAULT_STYLE_TOKENS.colors.pageBackground,
             primary: rawColors.primary || DEFAULT_STYLE_TOKENS.colors.primary,
-            headerBackground:
-                rawColors.headerBackground ||
-                rawHeader.background ||
-                rawColors.primary ||
-                DEFAULT_STYLE_TOKENS.colors.headerBackground,
-            textPrimary: rawColors.textPrimary || DEFAULT_STYLE_TOKENS.colors.textPrimary,
-            textSecondary: rawColors.textSecondary || DEFAULT_STYLE_TOKENS.colors.textSecondary,
-            surface: rawColors.surface || DEFAULT_STYLE_TOKENS.colors.surface,
-            border: rawColors.border || DEFAULT_STYLE_TOKENS.colors.border
+            // accent opzionale: assente = "collegato al primario". Il fallback a primary
+            // avviene nel mapper, così "collegato" resta semanticamente "campo assente".
+            accent: rawColors.accent || undefined
         },
         typography: {
             fontFamily: ["inter", "poppins", "montserrat", "josefin-sans", "raleway", "playfair", "lora", "cormorant-garamond", "caveat"].includes(
@@ -167,7 +162,8 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             borderRadius,
             backgroundPattern,
             patternIntensity,
-            featuredStyle
+            featuredStyle,
+            cardTreatment
         },
         header: {
             showLogo:
@@ -226,16 +222,14 @@ export function parseTokens(rawJson: any): StyleTokenModel {
  * Serializes the UI Token Model back into the raw JSON config shape expected by the DB logic.
  */
 export function serializeTokens(model: StyleTokenModel): Record<string, unknown> {
+    const colors: Record<string, unknown> = {
+        pageBackground: model.colors.pageBackground,
+        primary: model.colors.primary
+    };
+    // accent serializzato solo se scollegato dal primario (collegato → chiave omessa)
+    if (model.colors.accent) colors.accent = model.colors.accent;
     return {
-        colors: {
-            pageBackground: model.colors.pageBackground,
-            primary: model.colors.primary,
-            headerBackground: model.colors.headerBackground,
-            textPrimary: model.colors.textPrimary,
-            textSecondary: model.colors.textSecondary,
-            surface: model.colors.surface,
-            border: model.colors.border
-        },
+        colors,
         typography: {
             fontFamily: model.typography.fontFamily
         },
@@ -243,7 +237,8 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
             borderRadius: model.appearance.borderRadius,
             backgroundPattern: model.appearance.backgroundPattern,
             patternIntensity: model.appearance.patternIntensity,
-            featuredStyle: model.appearance.featuredStyle
+            featuredStyle: model.appearance.featuredStyle,
+            cardTreatment: model.appearance.cardTreatment
         },
         header: {
             showLogo: model.header.showLogo,

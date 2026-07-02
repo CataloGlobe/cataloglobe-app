@@ -76,6 +76,16 @@ export function contrastText(bgHex: string): string {
 }
 
 /**
+ * Converts a hex color (#rrggbb or #rgb) into an rgba() string at the given alpha [0, 1].
+ * Used to build the glass surface "tint floor" — a semi-transparent surface color that
+ * keeps text legible behind the blur even over a flat background.
+ */
+export function hexToRgba(hex: string, alpha: number): string {
+    const { r, g, b } = parseHex(hex);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/**
  * Generates the CSS background-image value for a given pattern + color + intensity.
  * Returns [backgroundImage, backgroundSize] tuple.
  * Base opacities are perceptually normalized across patterns;
@@ -138,6 +148,18 @@ export function borderRadiusToPx(br: BorderRadius): number {
 }
 
 /**
+ * Superficie (card/modali) derivata dallo sfondo pagina: bianca per sfondi chiari e
+ * mid-tone, neutro sollevato (+12% bianco) solo per sfondi davvero scuri (luminanza < 0.15).
+ * Fonte unica, riusata dal mapper e da usePaletteWarnings (avviso accent-vs-superficie).
+ */
+export function deriveSurface(pageBackground: string): string {
+    const DARK_BG_THRESHOLD = 0.15;
+    return hexLuminance(pageBackground) < DARK_BG_THRESHOLD
+        ? mixHex(pageBackground, "#FFFFFF", 0.12)
+        : "#FFFFFF";
+}
+
+/**
  * Maps parsed style tokens to a flat record of --pub-* CSS custom properties.
  * Used by PublicThemeScope to apply scoped inline styles instead of :root injection.
  */
@@ -160,11 +182,23 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
     const btnRadius = br === "none" ? "0px" : br === "soft" ? "6px" : "10px";
 
     const bgLight = isLight(tokens.colors.pageBackground);
-    const surfaceLight = isLight(tokens.colors.surface);
+
+    // superficie derivata dallo sfondo (no più colore utente) — vedi deriveSurface
+    const surface = deriveSurface(tokens.colors.pageBackground);
+    const surfaceLight = isLight(surface);
+
+    // Accent (ruolo "azione"): se non impostato segue il primario → stili esistenti invariati
+    const accent = tokens.colors.accent || tokens.colors.primary;
+
+    // Ink (neutro utility/chrome): quasi-nero/quasi-bianco che assorbe il 12% del colore pagina.
+    // Su sfondo chiaro resta scuro, su sfondo scuro diventa una pill chiara → sempre leggibile.
+    // Derivato dallo sfondo pagina così le pill utility si staccano da --pub-surface.
+    const ink = mixHex(contrastText(tokens.colors.pageBackground), tokens.colors.pageBackground, 0.12);
+    const inkText = contrastText(ink);
 
     // Derived text colors — always computed from background contrast, never from saved tokens
     const bgText = contrastText(tokens.colors.pageBackground);
-    const surfaceText = contrastText(tokens.colors.surface);
+    const surfaceText = contrastText(surface);
     const surfaceTextSecondary = surfaceLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.65)";
     const surfaceTextMuted = surfaceLight ? "rgba(0, 0, 0, 0.38)" : "rgba(255, 255, 255, 0.45)";
     const bgTextSecondary = bgLight ? "rgba(0, 0, 0, 0.55)" : "rgba(255, 255, 255, 0.65)";
@@ -172,7 +206,7 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
 
     // Border colors — 10% contrast text blended into background
     const borderOnBg = mixHex(tokens.colors.pageBackground, bgText, 0.1);
-    const borderOnSurface = mixHex(tokens.colors.surface, surfaceText, 0.15);
+    const borderOnSurface = mixHex(surface, surfaceText, 0.15);
 
     const [patternImage, patternSize] = getPatternCss(
         tokens.appearance.backgroundPattern,
@@ -184,6 +218,9 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         // ── Existing pub vars ────────────────────────────────────────────
         "--pub-bg": tokens.colors.pageBackground,
         "--pub-primary": tokens.colors.primary,
+        // --pub-primary-text: testo su elementi primary-filled (nav attiva, badge) →
+        // contrasto sul primario, NON sull'accent (cta-text serve solo agli elementi accent-filled)
+        "--pub-primary-text": contrastText(tokens.colors.primary),
         "--pub-header-bg": tokens.colors.primary,
         "--pub-font-family": fontFamily,
 
@@ -195,22 +232,30 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         "--pub-bg-pattern-size": patternSize,
 
         // ── New semantic vars ────────────────────────────────────────────
-        "--pub-surface": tokens.colors.surface,
+        "--pub-surface": surface,
+        // Pavimento-tinta del materiale "vetro" (unico, condiviso da card/modale/header):
+        // surface resa semitrasparente così il testo resta leggibile dietro il blur anche
+        // su sfondo piatto. Tono auto-derivato (alpha 0.80 chiaro / 0.68 scuro).
+        // Emessa sempre; consumata solo da [data-card-treatment="glass"] (no-op con raised/bordered).
+        "--pub-surface-glass": hexToRgba(surface, surfaceLight ? 0.8 : 0.68),
+        // Neutro utility/chrome (pill allergeni/caratteristiche + cerchi social) — staccato da surface
+        "--pub-ink": ink,
+        "--pub-ink-text": inkText,
         // Base text vars default to surface context (most text sits on cards)
         "--pub-text": surfaceText,
         "--pub-text-secondary": surfaceTextSecondary,
         "--pub-text-muted": surfaceTextMuted,
-        "--pub-primary-soft": `color-mix(in srgb, ${tokens.colors.primary} 20%, ${tokens.colors.surface})`,
+        "--pub-primary-soft": `color-mix(in srgb, ${tokens.colors.primary} 20%, ${surface})`,
         "--pub-border": borderOnBg,
         "--pub-surface-border": borderOnSurface,
 
         // ── FeaturedBlock / CTA vars ─────────────────────────────────────
-        // --pub-accent: colore accento testi (es. titolo CTA) → primario brand
-        "--pub-accent": tokens.colors.primary,
-        // --pub-cta-bg: sfondo pulsante CTA → primario brand
-        "--pub-cta-bg": tokens.colors.primary,
-        // --pub-cta-text: testo pulsante CTA → bianco/nero calcolato per contrasto
-        "--pub-cta-text": contrastText(tokens.colors.primary),
+        // --pub-accent: colore azione (pulsanti prodotto + accento CTA) → accent (fallback primario)
+        "--pub-accent": accent,
+        // --pub-cta-bg: sfondo pulsante CTA → accent (fallback primario)
+        "--pub-cta-bg": accent,
+        // --pub-cta-text: testo pulsante CTA → bianco/nero calcolato per contrasto sull'accent
+        "--pub-cta-text": contrastText(accent),
         // --pub-btn-radius: arrotondamento pulsanti → coerente con --pub-radius
         "--pub-btn-radius": btnRadius,
         // --pub-page-background: alias di --pub-bg per PublicBrandHeader
@@ -228,10 +273,15 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         "--pub-surface-text-muted": surfaceTextMuted,
 
         // ── Card shadows ─────────────────────────────────────────────────
-        // Centralized to keep FeaturedCard and product cards in sync
-        "--pub-card-shadow":
-            "0 2px 8px color-mix(in srgb, var(--pub-bg-text) 10%, transparent), 0 0 1px color-mix(in srgb, var(--pub-surface-text) 8%, transparent)",
-        "--pub-card-shadow-hover":
-            "0 4px 14px color-mix(in srgb, var(--pub-bg-text) 14%, transparent), 0 0 2px color-mix(in srgb, var(--pub-surface-text) 10%, transparent)"
+        // Centralized to keep FeaturedCard and product cards in sync.
+        // Bg-aware: su sfondo chiaro l'ombra a base contrast-text resta morbida e scura;
+        // su sfondo scuro quei colori diventerebbero bianchi (glow + anello 0 0 1px = alone),
+        // quindi si passa a un'ombra nero puro più profonda senza layer chiaro.
+        "--pub-card-shadow": bgLight
+            ? "0 2px 8px color-mix(in srgb, var(--pub-bg-text) 10%, transparent), 0 0 1px color-mix(in srgb, var(--pub-surface-text) 8%, transparent)"
+            : "0 6px 20px rgba(0, 0, 0, 0.45), 0 2px 6px rgba(0, 0, 0, 0.35)",
+        "--pub-card-shadow-hover": bgLight
+            ? "0 4px 14px color-mix(in srgb, var(--pub-bg-text) 14%, transparent), 0 0 2px color-mix(in srgb, var(--pub-surface-text) 10%, transparent)"
+            : "0 10px 28px rgba(0, 0, 0, 0.55), 0 3px 8px rgba(0, 0, 0, 0.4)"
     };
 }

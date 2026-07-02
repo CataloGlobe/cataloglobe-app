@@ -19,6 +19,63 @@
   min-width: 0;
 }
 
+// ── Vista storna: header con back ──
+.stornaHeaderBlock {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.backButton {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text-muted, #64748b);
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:hover {
+    background: var(--surface-hover, #f1f5f9);
+    color: var(--text-default, #0f172a);
+  }
+}
+
+// Stimato a sinistra nel footer (buttons restano a destra via justify-end).
+.footerEstimate {
+  margin-right: auto;
+}
+
+// Azione "Storna" su una riga delivered del conto: outline rosa.
+.stornaActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  color: var(--color-error-fg, #b91c1c);
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--color-error-fg, #b91c1c) 40%, transparent);
+  transition: background 0.15s ease;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--color-error-fg, #b91c1c) 8%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
 .drawerHeaderMeta {
   display: flex;
   align-items: center;
@@ -136,6 +193,113 @@
 .orderRowPending {
   border-color: var(--color-warning, #f59e0b);
   background: var(--color-warning-surface, #fffbeb);
+}
+
+// ── Blocco comanda del conto: riga ordine + sotto-righe storno agganciate ──
+// Il blocco è la card (bordo/arrotondamento); la riga ordine interna perde
+// bordo/sfondo propri (un solo contorno per comanda, nessuna linea tra ordine
+// e storno).
+.orderBlock {
+  background: var(--surface-elevated, #ffffff);
+  border: 1px solid var(--border-default, #e1e3e8);
+  border-radius: 8px;
+  overflow: hidden;
+  padding-bottom: 2px;
+
+  .orderRow {
+    border: none;
+    background: transparent;
+    border-radius: 0;
+  }
+}
+
+// Importo: lordo barrato (piccolo, muted) sopra il netto (grande).
+.amountStack {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 1px;
+}
+
+.grossStrike {
+  text-decoration: line-through;
+}
+
+// Sotto-riga storno agganciata: card rosa compatta, connettore a sinistra,
+// indentata DENTRO il blocco (no full-bleed). Classi locali: nessun
+// accoppiamento col modulo SCSS dello Storico.
+.stornoSubRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 12px 8px 36px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--color-error-fg, #b91c1c);
+  background: color-mix(in srgb, var(--color-error-fg, #b91c1c) 6%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--color-error-fg, #b91c1c) 50%, transparent);
+}
+
+.stornoSubLeft {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.stornoSubArrow {
+  color: var(--text-muted, #64748b);
+  font-size: 0.875rem;
+}
+
+.stornoSubIcon {
+  flex-shrink: 0;
+}
+
+.stornoSubTag {
+  font-weight: 700;
+}
+
+.stornoSubSep {
+  color: color-mix(in srgb, var(--color-error-fg, #b91c1c) 45%, transparent);
+}
+
+.stornoSubReason {
+  color: var(--text-muted, #64748b);
+  font-style: italic;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.stornoSubAmount {
+  flex-shrink: 0;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+// Blocco netto "Da pagare" in fondo alla sezione conto.
+.netTotalRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 12px;
+  background: var(--surface-subtle, #f8fafc);
+  border: 1px solid var(--border-default, #e1e3e8);
+  border-radius: 8px;
+}
+
+.netTotalCopy {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .orderMeta {

@@ -46,6 +46,13 @@ export interface TranslateInput {
      * In MVP è ignorato; documentato per estensioni future.
      */
     context?: TranslationContext;
+    /**
+     * Segnale di abort opzionale. Il worker (process-translation-jobs) lo usa
+     * per imporre un timeout esplicito sulla chiamata al provider: allo scadere
+     * la fetch viene abortita. I provider che fanno I/O di rete (DeepL) DEVONO
+     * inoltrarlo a `fetch`; i provider sincroni (Mock) lo ignorano.
+     */
+    signal?: AbortSignal;
 }
 
 export type TranslationContext =

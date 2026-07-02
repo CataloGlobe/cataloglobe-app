@@ -1,6 +1,6 @@
 import React from "react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { MoreVertical } from "lucide-react";
+import { MoreVertical, Sparkles } from "lucide-react";
 import Text from "@components/ui/Text/Text";
 import type { V2Catalog, CatalogStats } from "@/services/supabase/catalogs";
 import styles from "./CatalogCard.module.scss";
@@ -13,6 +13,8 @@ interface CatalogCardProps {
     onEdit: (catalog: V2Catalog) => void;
     onDelete: (catalog: V2Catalog) => void;
     onClick: (catalog: V2Catalog) => void;
+    /** Scorciatoia "Aggiungi prodotti con AI" (2C-5). Assente → voce non mostrata. */
+    onAddWithAi?: (catalog: V2Catalog) => void;
 }
 
 export const CatalogCard: React.FC<CatalogCardProps> = ({
@@ -22,7 +24,8 @@ export const CatalogCard: React.FC<CatalogCardProps> = ({
     catalogLower = "catalogo",
     onEdit,
     onDelete,
-    onClick
+    onClick,
+    onAddWithAi
 }) => {
     const formattedDate = new Intl.DateTimeFormat("it-IT", {
         day: "2-digit",
@@ -97,6 +100,21 @@ export const CatalogCard: React.FC<CatalogCardProps> = ({
                                 align="end"
                                 sideOffset={6}
                             >
+                                {onAddWithAi && (
+                                    <>
+                                        <DropdownMenu.Item
+                                            className={`${styles.menuItem} ${styles.menuAccent}`}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                onAddWithAi(catalog);
+                                            }}
+                                        >
+                                            <Sparkles size={14} />
+                                            Aggiungi prodotti con AI
+                                        </DropdownMenu.Item>
+                                        <DropdownMenu.Separator className={styles.menuSeparator} />
+                                    </>
+                                )}
                                 <DropdownMenu.Item
                                     className={styles.menuItem}
                                     onClick={e => {

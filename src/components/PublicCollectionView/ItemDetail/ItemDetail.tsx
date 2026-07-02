@@ -211,11 +211,11 @@ export default function ItemDetail({
                                 <Text variant="body" weight={600} className={styles.price} color="var(--pub-surface-text)">
                                     {displayItem.original_price != null && (
                                         <span className={styles.priceOriginal}>
-                                            da € {displayItem.original_price.toFixed(2)}
+                                            {t("product.price_from", { price: `€ ${displayItem.original_price.toFixed(2)}` })}
                                         </span>
                                     )}
                                     <span className={styles.priceCurrent}>
-                                        da € {displayItem.from_price.toFixed(2)}
+                                        {t("product.price_from", { price: `€ ${displayItem.from_price.toFixed(2)}` })}
                                     </span>
                                 </Text>
                             ) : displayPrice != null ? (
@@ -242,7 +242,7 @@ export default function ItemDetail({
                                             {primaryPriceGroup.name}
                                         </Text>
                                         {primaryPriceGroup.isRequired && (
-                                            <span className={styles.requiredBadge}>obbligatorio</span>
+                                            <span className={styles.requiredBadge}>{t("product.required")}</span>
                                         )}
                                     </div>
                                     <div className={styles.formatPills}>
@@ -321,7 +321,7 @@ export default function ItemDetail({
                                                     </Text>
                                                     {group.maxSelectable != null && (
                                                         <span className={styles.sectionLabelHint}>
-                                                            max {group.maxSelectable}
+                                                            {t("product.max_select", { count: group.maxSelectable })}
                                                         </span>
                                                     )}
                                                 </div>
@@ -368,7 +368,7 @@ export default function ItemDetail({
                                                                         v.priceModifier < 0 ? styles.addonPriceNegative : ""
                                                                     ].filter(Boolean).join(" ")}>
                                                                         {v.priceModifier === 0
-                                                                            ? "incluso"
+                                                                            ? t("product.included")
                                                                             : v.priceModifier > 0
                                                                                 ? `+ € ${v.priceModifier.toFixed(2)}`
                                                                                 : `- € ${Math.abs(v.priceModifier).toFixed(2)}`}
@@ -404,7 +404,7 @@ export default function ItemDetail({
                                                                 color={v.priceModifier === 0 ? "var(--pub-surface-text-muted)" : "var(--pub-surface-text)"}
                                                             >
                                                                 {v.priceModifier === 0
-                                                                    ? "incluso"
+                                                                    ? t("product.included")
                                                                     : v.priceModifier > 0
                                                                         ? `+${v.priceModifier.toFixed(2)} €`
                                                                         : `${v.priceModifier.toFixed(2)} €`}
@@ -457,7 +457,7 @@ export default function ItemDetail({
                         {displayItem.ingredients && displayItem.ingredients.length > 0 && (
                             <div className={styles.ingredientSection}>
                                 <Text variant="body-sm" weight={700} className={styles.ingredientSectionLabel} color="var(--pub-surface-text)">
-                                    Ingredienti
+                                    {t("product.ingredients")}
                                 </Text>
                                 <Text variant="body-sm" className={styles.ingredientList} color="var(--pub-surface-text-muted)">
                                     {displayItem.ingredients.map(i => i.name).join(", ")}
@@ -509,7 +509,7 @@ export default function ItemDetail({
                         onClick={orderingDisabled ? undefined : handleAddToSelection}
                     >
                         {orderingDisabled ? (
-                            "Ordinazioni sospese"
+                            t("ordering.suspended")
                         ) : isAddDisabled ? (
                             t("item_detail.format_required")
                         ) : (

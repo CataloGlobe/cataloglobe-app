@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { FieldErrors, FormFields } from "./types";
 import styles from "./ReservationForm.module.scss";
 
@@ -9,17 +10,18 @@ type Props = {
 };
 
 export default function WhoSection({ values, errors, onChange, onBlur }: Props) {
+    const { t } = useTranslation("public");
     return (
         <section className={styles.section} aria-labelledby="sec-chi">
             <div className={styles.sectionHead}>
                 <span className={styles.sectionNum}>02</span>
-                <span id="sec-chi" className={styles.sectionLabel}>Chi</span>
+                <span id="sec-chi" className={styles.sectionLabel}>{t("reservation.who")}</span>
                 <span className={styles.sectionRule} aria-hidden="true" />
             </div>
 
             <div className={styles.field}>
                 <label htmlFor="customer_name" className={styles.label}>
-                    Nome e cognome
+                    {t("reservation.name")}
                 </label>
                 <input
                     id="customer_name"
@@ -45,7 +47,7 @@ export default function WhoSection({ values, errors, onChange, onBlur }: Props) 
             <div className={styles.row}>
                 <div className={styles.field}>
                     <label htmlFor="customer_phone" className={styles.label}>
-                        Telefono
+                        {t("reservation.phone")}
                     </label>
                     <input
                         id="customer_phone"
@@ -69,7 +71,7 @@ export default function WhoSection({ values, errors, onChange, onBlur }: Props) 
                 </div>
                 <div className={styles.field}>
                     <label htmlFor="customer_email" className={styles.label}>
-                        Email
+                        {t("reservation.email")}
                     </label>
                     <input
                         id="customer_email"

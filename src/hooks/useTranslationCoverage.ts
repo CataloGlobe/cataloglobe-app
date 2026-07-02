@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     getTranslationCoverage,
@@ -6,7 +6,11 @@ import {
 } from "@/services/supabase/tenantLanguages";
 import { useToast } from "@/context/Toast/ToastContext";
 
-const POLL_INTERVAL_MS = 5000;
+// Intervallo base del polling. Alzato da 5s a 15s: 5s era aggressivo e, con la
+// tab lasciata aperta, raddoppiava il carico di baseline sull'RPC.
+const BASE_POLL_INTERVAL_MS = 15000;
+// Tetto del backoff esponenziale sugli errori (5 min).
+const MAX_BACKOFF_MS = 300000;
 
 /** Somma pending su tutte le lingue (lavoro live in corso). */
 function sumPending(coverage: TranslationCoverage): number {
@@ -52,41 +56,94 @@ export function useTranslationCoverage(
         prevPendingRef.current = null;
     }, [tenantId, refreshKey]);
 
-    const fetchCoverage = useCallback(async () => {
+    // Poller self-scheduling (setTimeout ricorsivo) invece di setInterval fisso:
+    // serve per variare il delay tra un tick e l'altro (backoff sull'errore) e
+    // per potersi mettere in pausa quando la tab non è visibile.
+    //
+    //  - Successo con pending>0  → prossimo tick all'intervallo base.
+    //  - Successo con pending==0 → stop (lavoro concluso).
+    //  - Errore (500/timeout)    → backoff esponenziale con tetto, NIENTE ripoll
+    //    immediato: sotto carico l'RPC va in timeout e ripollare subito
+    //    alimenterebbe la saturazione (loop autoalimentato, incident 2026-06-29).
+    //  - Tab hidden              → pausa (nessun timer); alla ripresa di
+    //    visibilità un refetch immediato e poi ritmo base.
+    useEffect(() => {
         if (!tenantId) return;
-        try {
-            const data = await getTranslationCoverage(tenantId);
-            if (!isMountedRef.current) return;
 
-            const prev = prevPendingRef.current;
-            const currPending = sumPending(data);
-            const currFailed = sumFailed(data);
-            // Transition pending>0 → 0 senza errori = lavoro di traduzione concluso.
-            // prev=null al primo fetch evita toast spurio al mount con stato già done.
-            if (prev !== null && prev > 0 && currPending === 0 && currFailed === 0) {
-                showToast({
-                    message: t("languages.progress.completed"),
-                    type: "success"
-                });
+        let cancelled = false;
+        let failures = 0;
+        let timer: ReturnType<typeof setTimeout> | undefined;
+
+        const clearTimer = () => {
+            if (timer !== undefined) {
+                clearTimeout(timer);
+                timer = undefined;
             }
-            prevPendingRef.current = currPending;
+        };
 
-            setCoverage(data);
-        } catch (err) {
-            console.error("[useTranslationCoverage]", err);
-        }
-    }, [tenantId, showToast, t]);
+        const scheduleNext = () => {
+            const delay = failures === 0
+                ? BASE_POLL_INTERVAL_MS
+                : Math.min(BASE_POLL_INTERVAL_MS * 2 ** failures, MAX_BACKOFF_MS);
+            clearTimer();
+            timer = setTimeout(() => { void tick(); }, delay);
+        };
 
-    useEffect(() => {
-        if (!tenantId) return;
-        fetchCoverage();
-    }, [tenantId, fetchCoverage, refreshKey]);
+        const tick = async (): Promise<void> => {
+            let keepPolling: boolean;
+            try {
+                const data = await getTranslationCoverage(tenantId);
+                if (cancelled || !isMountedRef.current) return;
+                failures = 0; // reset backoff al primo successo
 
-    useEffect(() => {
-        if (!coverage || sumPending(coverage) === 0) return;
-        const interval = setInterval(fetchCoverage, POLL_INTERVAL_MS);
-        return () => clearInterval(interval);
-    }, [coverage, fetchCoverage]);
+                const prev = prevPendingRef.current;
+                const currPending = sumPending(data);
+                const currFailed = sumFailed(data);
+                // Transition pending>0 → 0 senza errori = lavoro concluso.
+                // prev=null al primo fetch evita toast spurio al mount con stato già done.
+                if (prev !== null && prev > 0 && currPending === 0 && currFailed === 0) {
+                    showToast({
+                        message: t("languages.progress.completed"),
+                        type: "success"
+                    });
+                }
+                prevPendingRef.current = currPending;
+                setCoverage(data);
+
+                keepPolling = currPending > 0;
+            } catch (err) {
+                if (cancelled || !isMountedRef.current) return;
+                console.error("[useTranslationCoverage]", err);
+                failures += 1;
+                keepPolling = true; // ritenta, ma con backoff
+            }
+
+            if (cancelled) return;
+            if (!keepPolling) { clearTimer(); return; }   // pending==0 → stop
+            if (document.hidden) { clearTimer(); return; } // tab non visibile → pausa
+            scheduleNext();
+        };
+
+        const handleVisibility = () => {
+            if (document.hidden) {
+                clearTimer(); // niente polling in background
+                return;
+            }
+            // Tornati visibili: refetch immediato (che poi rischedula al ritmo base).
+            clearTimer();
+            void tick();
+        };
+
+        // Kickoff (mount / cambio tenantId|refreshKey).
+        void tick();
+        document.addEventListener("visibilitychange", handleVisibility);
+
+        return () => {
+            cancelled = true;
+            clearTimer();
+            document.removeEventListener("visibilitychange", handleVisibility);
+        };
+    }, [tenantId, refreshKey, showToast, t]);
 
     return coverage;
 }

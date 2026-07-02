@@ -5,6 +5,9 @@
     align-items: center;
     justify-content: flex-end;
     padding: 10px 12px;
+    /* Divisore full-bleed sotto "Chiudi" — stesso trattamento di ItemDetail
+       (.header) per coerenza visiva tra le due modali. */
+    border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
     flex-shrink: 0;
 }
 

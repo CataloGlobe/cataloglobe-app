@@ -40,7 +40,7 @@ export default function AllergenIcon({ code, size = 20, className, label, varian
             aria-hidden="true"
         >
             <IconComponent
-                size={size}
+                size={size + 8}
                 className={styles.icon}
             />
             {label && <span className={styles.tooltip}>{label}</span>}

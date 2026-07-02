@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useSearchParams } from "react-router-dom";
-import { AlertCircle, ClipboardList, Plus, RefreshCw, Volume2, VolumeX } from "lucide-react";
+import { AlertCircle, ClipboardList, Plus, RefreshCw, RotateCcw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
@@ -21,7 +21,6 @@ import {
     markOrderReady,
     deliverOrder,
     cancelOrderAdmin,
-    rectifyOrder,
     cancelOrderItem,
     restoreOrder,
     unacknowledgeOrder,
@@ -33,10 +32,7 @@ import {
     listOrdersHistoryToday
 } from "@/services/supabase/orders";
 import type { CancelOrderItemResult } from "@/services/supabase/orders";
-import type {
-    V2OrderWithItems,
-    RectifyOrderItem
-} from "@/types/orders";
+import type { V2OrderWithItems } from "@/types/orders";
 
 import { listTables } from "@/services/supabase/tables";
 import { getTenantMemberNames } from "@/services/supabase/team";
@@ -45,11 +41,10 @@ import type { V2Table } from "@/types/orders";
 import OrderDetailDrawer from "./OrderDetailDrawer";
 import PrintReceipt from "./PrintReceipt";
 import OrderCancelDrawer from "./OrderCancelDrawer";
-import OrderRectifyDrawer from "./OrderRectifyDrawer";
 import OrderCancelItemDrawer from "./OrderCancelItemDrawer";
 import { DataTable } from "@/components/ui/DataTable/DataTable";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { makeHistoryColumns } from "./historyColumns";
+import { makeHistoryColumns, type HistoryRow } from "./historyColumns";
 import OrdersKanban from "./OrdersKanban";
 import { CreateOrderDrawer } from "./CreateOrderDrawer/CreateOrderDrawer";
 import { useActiveOrdersRealtime } from "./hooks/useActiveOrdersRealtime";
@@ -63,6 +58,71 @@ import styles from "./Orders.module.scss";
 
 type MainTab = "comande" | "tavoli" | "storico";
 type HistoryFilter = "all" | "delivered" | "cancelled";
+
+/**
+ * Riga Storico con gli storni figli agganciati. `storni` vive qui (non in
+ * `HistoryRow`): il rowWrapper li renderizza come sotto-righe DENTRO il blocco
+ * del padre.
+ */
+type HistoryRowWithStorni = HistoryRow & { storni?: HistoryRow[] };
+
+const STORNO_CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
+    style: "currency",
+    currency: "EUR"
+});
+
+function formatStornoEur(n: number): string {
+    return STORNO_CURRENCY_FORMATTER.format(n);
+}
+
+/**
+ * Sotto-riga storno: NON è una riga del DataTable, ma vive DENTRO il blocco
+ * del padre (rowWrapper) allineata alla gabbia delle colonne. Il box esterno
+ * (`stornoStripRow`) usa padding-left 144px (= padding 24 + Stato 120) per
+ * partire sotto "Tavolo" e padding-right 80px (= azioni 56 + gutter 24) per
+ * fermarsi a fine "Totale" (mai dentro il kebab). Dentro: card rosa compatta
+ * con connettore a sinistra. Niente netto qui (è nella colonna Totale del padre).
+ *   ↳  ⟲ Storno · <articoli> · <motivo>                          −<importo>
+ */
+function StornoStrip({ storno }: { storno: HistoryRow }) {
+    const items = (storno.items ?? [])
+        .map(it => `${it.quantity}× ${it.product_name_snapshot}`)
+        .join(", ");
+    return (
+        <div className={styles.stornoStripRow}>
+            <div className={styles.stornoStrip}>
+                <div className={styles.stornoStripLeft}>
+                    <span className={styles.stornoStripArrow} aria-hidden>
+                        ↳
+                    </span>
+                    <RotateCcw size={12} aria-hidden className={styles.stornoStripIcon} />
+                    <span className={styles.stornoStripTag}>Storno</span>
+                    {items && (
+                        <>
+                            <span className={styles.stornoStripSep} aria-hidden>
+                                ·
+                            </span>
+                            <span className={styles.stornoStripItems}>{items}</span>
+                        </>
+                    )}
+                    {storno.notes && (
+                        <>
+                            <span className={styles.stornoStripSep} aria-hidden>
+                                ·
+                            </span>
+                            <span className={styles.stornoStripReason}>
+                                {storno.notes}
+                            </span>
+                        </>
+                    )}
+                </div>
+                <span className={styles.stornoStripAmount}>
+                    {formatStornoEur(-storno.total_amount)}
+                </span>
+            </div>
+        </div>
+    );
+}
 
 export default function Orders() {
     const tenantId = useTenantId();
@@ -123,10 +183,6 @@ export default function Orders() {
     // Cancel drawer
     const [isCancelOpen, setIsCancelOpen] = useState(false);
     const [orderToCancel, setOrderToCancel] = useState<V2OrderWithItems | null>(null);
-
-    // Rectify drawer
-    const [isRectifyOpen, setIsRectifyOpen] = useState(false);
-    const [orderToRectify, setOrderToRectify] = useState<V2OrderWithItems | null>(null);
 
     // Cancel-item drawer (annullo articolo pre-servizio)
     const [isCancelItemOpen, setIsCancelItemOpen] = useState(false);
@@ -330,11 +386,75 @@ export default function Orders() {
         return activeOrders.filter(o => o.table_id === tableFilter);
     }, [activeOrders, tableFilter]);
 
-    // ── Storico: filtro client-side per status ──
-    const filteredHistory = useMemo(() => {
-        if (historyFilter === "all") return historyOrders;
-        return historyOrders.filter(o => o.status === historyFilter);
-    }, [historyOrders, historyFilter]);
+    // ── Storico: annotazione (rectified + netto) + storni agganciati al padre ──
+    // Calcolato sull'insieme COMPLETO (pre-filtro segmenti) così il padre
+    // conosce i suoi storni anche nel segmento "Serviti".
+    const annotatedHistory = useMemo<HistoryRowWithStorni[]>(() => {
+        // Mappa figli storno per parent_order_id.
+        const stornoByParent = new Map<string, V2OrderWithItems[]>();
+        for (const o of historyOrders) {
+            if (o.is_rectification && o.parent_order_id) {
+                const arr = stornoByParent.get(o.parent_order_id);
+                if (arr) arr.push(o);
+                else stornoByParent.set(o.parent_order_id, [o]);
+            }
+        }
+
+        const groupTime = (o: V2OrderWithItems): number =>
+            new Date(o.updated_at).getTime();
+
+        const parents = historyOrders.filter(o => !o.is_rectification);
+        const parentIds = new Set(parents.map(p => p.id));
+
+        // Una riga per comanda: il padre porta i suoi storni in `storni`
+        // (resi come sotto-righe DENTRO il blocco padre dal rowWrapper).
+        // Nessuna riga storno interlacciata → il contatore conta le comande.
+        const rows: HistoryRowWithStorni[] = parents.map(p => {
+            const children = (stornoByParent.get(p.id) ?? [])
+                .slice()
+                .sort(
+                    (a, b) =>
+                        new Date(a.created_at).getTime() -
+                        new Date(b.created_at).getTime()
+                );
+            const hasStorno = children.length > 0;
+            if (!hasStorno) return p;
+            const net =
+                p.total_amount - children.reduce((s, c) => s + c.total_amount, 0);
+            return { ...p, rectified: true, netTotal: net, storni: children };
+        });
+
+        // Edge case orfano: storno il cui padre non è nell'insieme (es. padre
+        // servito ieri, storno oggi) → riga standalone, non persa.
+        for (const o of historyOrders) {
+            if (
+                o.is_rectification &&
+                (!o.parent_order_id || !parentIds.has(o.parent_order_id))
+            ) {
+                rows.push(o);
+            }
+        }
+
+        // Ordine: per timestamp più recente DESC. Per un padre rettificato il
+        // timestamp è il max tra il suo updated_at e i created_at degli storni.
+        const rowTime = (r: HistoryRowWithStorni): number =>
+            Math.max(groupTime(r), ...(r.storni ?? []).map(groupTime));
+        return rows.sort((a, b) => rowTime(b) - rowTime(a));
+    }, [historyOrders]);
+
+    // ── Storico: filtro segmenti (dopo annotazione) ──
+    const filteredHistory = useMemo<HistoryRowWithStorni[]>(() => {
+        if (historyFilter === "delivered") {
+            // Serviti: esclude gli storni orfani (non inquina il conteggio).
+            return annotatedHistory.filter(
+                o => o.status === "delivered" && !o.is_rectification
+            );
+        }
+        if (historyFilter === "cancelled") {
+            return annotatedHistory.filter(o => o.status === "cancelled");
+        }
+        return annotatedHistory; // "all" — padri (con storni annidati) + orfani
+    }, [annotatedHistory, historyFilter]);
 
     function labelFor(order: V2OrderWithItems): string {
         const t = tables.find(tt => tt.id === order.table_id);
@@ -609,94 +729,6 @@ export default function Orders() {
         }
     }
 
-    function handleRectifyOpen(order: V2OrderWithItems) {
-        setOrderToRectify(order);
-        setIsRectifyOpen(true);
-    }
-
-    async function handleRectifyConfirm(
-        items: RectifyOrderItem[],
-        reason: string
-    ) {
-        if (!orderToRectify) return;
-        try {
-            await rectifyOrder(
-                orderToRectify.id,
-                items,
-                reason.length > 0 ? reason : undefined
-            );
-            showToast({ message: "Rettifica registrata", type: "success" });
-            setIsRectifyOpen(false);
-            setOrderToRectify(null);
-            void refetchOrders();
-            // Lo storno è un nuovo ordine is_rectification (status delivered):
-            // entra nello Storico della giornata → refresh della lista history,
-            // da cui ora parte la rettifica.
-            void loadHistory();
-        } catch (err) {
-            if (err instanceof Error) {
-                switch (err.message) {
-                    case "EMPTY_RECTIFICATION":
-                        showToast({
-                            message: "Seleziona almeno un articolo da stornare",
-                            type: "error"
-                        });
-                        return;
-                    case "INVALID_RECTIFICATION_QUANTITY":
-                        showToast({
-                            message: "Quantità di storno non valida",
-                            type: "error"
-                        });
-                        return;
-                    case "REASON_TOO_LONG":
-                        showToast({
-                            message: "Il motivo è troppo lungo (max 500 caratteri)",
-                            type: "error"
-                        });
-                        return;
-                    case "INVALID_PARENT":
-                        showToast({
-                            message: "Non puoi rettificare una rettifica esistente",
-                            type: "error"
-                        });
-                        setIsRectifyOpen(false);
-                        setOrderToRectify(null);
-                        void refetchOrders();
-                        return;
-                    case "INVALID_PARENT_STATE": {
-                        const details = (err as Error & {
-                            details?: { current_status?: string };
-                        }).details;
-                        showToast({
-                            message: `Impossibile rettificare: stato corrente ${details?.current_status ?? "non valido"}`,
-                            type: "error"
-                        });
-                        setIsRectifyOpen(false);
-                        setOrderToRectify(null);
-                        void refetchOrders();
-                        return;
-                    }
-                    case "INVALID_RECTIFICATION_ITEMS": {
-                        const details = (err as Error & {
-                            details?: { reason?: string };
-                        }).details;
-                        const subReason = details?.reason;
-                        let msg = "Rettifica non valida";
-                        if (subReason === "STORNO_QTY_EXCEEDS_RESIDUAL")
-                            msg = "Quantità di storno superiore al residuo disponibile";
-                        else if (subReason === "ORDER_ITEM_NOT_FOUND")
-                            msg = "Articolo non trovato nell'ordine";
-                        else if (subReason === "INVALID_STORNO_ITEM")
-                            msg = "Articolo non rettificabile";
-                        showToast({ message: msg, type: "error" });
-                        return;
-                    }
-                }
-            }
-            showToast({ message: "Errore durante la rettifica", type: "error" });
-        }
-    }
-
     function handleCancelItemOpen(order: V2OrderWithItems) {
         setOrderToCancelItem(order);
         setIsCancelItemOpen(true);
@@ -830,7 +862,6 @@ export default function Orders() {
         operatorNames,
         onViewDetail: handleViewDetail,
         onRestore: handleRestore,
-        onRectify: handleRectifyOpen,
         onPrint: handlePrint,
         canManage
     });
@@ -928,11 +959,40 @@ export default function Orders() {
                                     ]}
                                 />
                             </div>
-                            <DataTable<V2OrderWithItems>
+                            <DataTable<HistoryRowWithStorni>
                                 data={filteredHistory}
                                 columns={historyColumns}
                                 isLoading={isHistoryLoading}
                                 getRowId={o => o.id}
+                                rowWrapper={(rowEl, rowData) => {
+                                    // Storno orfano: blocco standalone (solo striscia).
+                                    if (rowData.is_rectification) {
+                                        return (
+                                            <div
+                                                key={rowData.id}
+                                                className={styles.rectifiedBlock}
+                                            >
+                                                <StornoStrip storno={rowData} />
+                                            </div>
+                                        );
+                                    }
+                                    // Padre rettificato: riga nativa + sotto-righe storno
+                                    // DENTRO un unico blocco (un solo separatore in fondo).
+                                    if (rowData.storni && rowData.storni.length > 0) {
+                                        return (
+                                            <div
+                                                key={rowData.id}
+                                                className={styles.rectifiedBlock}
+                                            >
+                                                {rowEl}
+                                                {rowData.storni.map(s => (
+                                                    <StornoStrip key={s.id} storno={s} />
+                                                ))}
+                                            </div>
+                                        );
+                                    }
+                                    return rowEl;
+                                }}
                                 emptyState={{
                                     title: "Nessun ordine nello storico di oggi",
                                     description: "Gli ordini serviti o annullati nella giornata operativa appariranno qui."
@@ -981,22 +1041,6 @@ export default function Orders() {
                     setOrderToCancel(null);
                 }}
                 onConfirm={handleCancelConfirm}
-            />
-
-            <OrderRectifyDrawer
-                open={isRectifyOpen}
-                order={orderToRectify}
-                tableLabel={
-                    tables.find(t => t.id === orderToRectify?.table_id)?.label ?? "?"
-                }
-                tableZone={
-                    tables.find(t => t.id === orderToRectify?.table_id)?.zone_name ?? null
-                }
-                onClose={() => {
-                    setIsRectifyOpen(false);
-                    setOrderToRectify(null);
-                }}
-                onConfirm={handleRectifyConfirm}
             />
 
             <OrderCancelItemDrawer

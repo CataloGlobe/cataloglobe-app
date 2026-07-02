@@ -112,6 +112,19 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
     const handleScroll = useCallback(() => {
         const el = trackRef.current;
         if (!el || el.children.length === 0) return;
+        // La prima/ultima card non possono mai centrare il proprio centro nel
+        // viewport (ancorate ai bordi): findCenteredIndex vincerebbe sempre la
+        // seconda/penultima agli estremi. Gestione esplicita dei bordi con
+        // tolleranza subpixel così il dot 0 e l'ultimo si attivano davvero.
+        const TOL = 4;
+        if (el.scrollLeft <= TOL) {
+            setActiveIndex(0);
+            return;
+        }
+        if (el.scrollLeft + el.clientWidth >= el.scrollWidth - TOL) {
+            setActiveIndex(el.children.length - 1);
+            return;
+        }
         setActiveIndex(findCenteredIndex(el));
     }, []);
 
@@ -178,15 +191,10 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
         );
     }
 
-    /* ── 2-4: Grid desktop / Carousel mobile ──────────────────────────── */
-    /* ── 5+: Carousel everywhere ──────────────────────────────────────── */
-    const isMany = blocks.length >= 5;
-    const gridCols = Math.min(blocks.length, 4);
-
-    const trackClass = [
-        styles.track,
-        isMany ? styles.trackCarouselAlways : styles.trackGridDesktop
-    ].join(" ");
+    /* ── ≥ 2 contenuti → SEMPRE carosello monoriga (mai wrap) ──────────── */
+    /* Se ci stanno tutte nella riga si vedono tutte (nessuno scroll); se non
+       ci stanno si scrolla. Nessuna griglia che va a capo. */
+    const trackClass = [styles.track, styles.trackCarouselAlways].join(" ");
 
     return (
         <>
@@ -196,7 +204,6 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
                 ref={trackRef}
                 role="list"
                 aria-label={t("featured.section_aria")}
-                style={!isMany ? { "--grid-cols": gridCols } as React.CSSProperties : undefined}
             >
                 {blocks.map((block) => (
                     <FeaturedCard

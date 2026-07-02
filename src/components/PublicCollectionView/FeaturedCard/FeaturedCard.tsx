@@ -1,6 +1,8 @@
-import { type KeyboardEvent, useState, useEffect, useRef } from "react";
+import { type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
+import { FramedMedia } from "@components/ui/FramedMedia";
+import type { MediaFraming } from "@components/ui/ImageReframeEditor/types";
 import styles from "./FeaturedCard.module.scss";
 
 export type FeaturedCardProps = {
@@ -13,6 +15,17 @@ export type FeaturedCardProps = {
     /** Above-the-fold: loading="eager" + fetchpriority="high". Default: lazy. */
     eager?: boolean;
 };
+
+/** Adatta lo snake_case di V2FeaturedContent alla forma canonica MediaFraming. */
+function toFraming(b: V2FeaturedContent): MediaFraming {
+    return {
+        focalX: b.media_focal_x ?? 0.5,
+        focalY: b.media_focal_y ?? 0.5,
+        zoom: b.media_zoom ?? 1,
+        fillMode: b.media_fill_mode ?? "blur",
+        fillColor: b.media_fill_color ?? null
+    };
+}
 
 function formatPrice(price: number): string {
     return new Intl.NumberFormat("it-IT", {
@@ -40,23 +53,6 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
     };
 
-    // ── Fade-in: reset quando cambia immagine ─────────────────────────────
-    const imgRef = useRef<HTMLImageElement>(null);
-    const [imgLoaded, setImgLoaded] = useState(false);
-    useEffect(() => {
-        // Cached image: browser completa load prima che React attacchi onLoad → evento perso.
-        // Verifica img.complete dopo mount/cambio src.
-        const img = imgRef.current;
-        if (img?.complete && img.naturalWidth > 0) setImgLoaded(true);
-        else setImgLoaded(false);
-    }, [block.media_id]);
-
-    const imgProps = {
-        ref: imgRef,
-        loading: (eager ? "eager" : "lazy") as "eager" | "lazy",
-        onLoad: () => setImgLoaded(true),
-    };
-
     if (variant === "highlight") {
         return (
             <div
@@ -67,12 +63,13 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                 onKeyDown={keyHandler}
             >
                 {hasImage && (
-                    <img
-                        src={block.media_id!}
+                    <FramedMedia
+                        source={block.media_id!}
+                        framing={toFraming(block)}
+                        aspectRatio={block.media_aspect_ratio}
                         alt=""
-                        aria-hidden="true"
-                        className={`${styles.highlightBg} ${imgLoaded ? styles.imgLoaded : ""}`}
-                        {...imgProps}
+                        ariaHidden
+                        eager={eager}
                     />
                 )}
                 <div className={styles.highlightGradient} aria-hidden="true" />
@@ -117,11 +114,12 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
         >
             <div className={styles.cardThumb}>
                 {hasImage ? (
-                    <img
-                        src={block.media_id!}
+                    <FramedMedia
+                        source={block.media_id!}
+                        framing={toFraming(block)}
+                        aspectRatio={block.media_aspect_ratio}
                         alt={block.title}
-                        className={`${styles.cardThumbImg} ${imgLoaded ? styles.imgLoaded : ""}`}
-                        {...imgProps}
+                        eager={eager}
                     />
                 ) : (
                     <div className={styles.cardThumbPlaceholder} />

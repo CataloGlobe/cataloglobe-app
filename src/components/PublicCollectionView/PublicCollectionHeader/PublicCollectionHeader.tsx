@@ -323,7 +323,7 @@ export default function PublicCollectionHeader({
                             <div className={styles.logoWrapper}>
                                 <img
                                     src={logoUrl}
-                                    alt={`Logo ${activityName}`}
+                                    alt={t("header.logo_alt", { name: activityName })}
                                     className={styles.logo}
                                     decoding="async"
                                     width={80}
@@ -413,8 +413,7 @@ export default function PublicCollectionHeader({
                                         type="button"
                                         className={styles.iconBtn}
                                         onClick={onOpenSupport}
-                                        aria-label="Assistenza al tavolo"
-                                        title="Assistenza"
+                                        aria-label={t("assistance.aria")}
                                     >
                                         <Bell size={15} strokeWidth={2} />
                                     </button>
@@ -433,7 +432,6 @@ export default function PublicCollectionHeader({
                                                 ? t("fab.cart_aria_count", { count: selectionCount })
                                                 : t("fab.cart_aria")
                                         }
-                                        title="Ordine"
                                     >
                                         <ShoppingBag size={15} strokeWidth={2} />
                                         {selectionCount > 0 && (

@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { todayIsoDate } from "@/utils/dateLocal";
 import type { FormFields } from "./types";
 
@@ -40,48 +41,52 @@ export function snapTimeToQuarter(time: string): string {
 
 const TIME_HHMM_RE = /^\d{2}:\d{2}/;
 
-export function validateField(name: keyof FormFields, value: string): string | null {
+export function validateField(
+    name: keyof FormFields,
+    value: string,
+    t: TFunction
+): string | null {
     const v = value.trim();
     if (name === "reservation_date") {
-        if (!v || !DATE_RE.test(v)) return "Inserisci una data valida.";
-        if (v < todayIsoDate()) return "La data non può essere nel passato.";
+        if (!v || !DATE_RE.test(v)) return t("reservation.val_date_invalid");
+        if (v < todayIsoDate()) return t("reservation.val_date_past");
         return null;
     }
     if (name === "reservation_time") {
-        if (!v || !TIME_RE.test(v)) return "Inserisci un orario valido.";
+        if (!v || !TIME_RE.test(v)) return t("reservation.val_time_invalid");
         return null;
     }
     if (name === "party_size") {
         const n = Number(v);
         if (!Number.isInteger(n) || n < 1 || n > 50) {
-            return "Numero di persone tra 1 e 50.";
+            return t("reservation.val_people_range");
         }
         return null;
     }
     if (name === "customer_name") {
-        if (!v) return "Il nome è obbligatorio.";
-        if (v.length > 200) return "Il nome è troppo lungo.";
+        if (!v) return t("reservation.val_name_required");
+        if (v.length > 200) return t("reservation.val_name_long");
         return null;
     }
     if (name === "customer_email") {
-        if (!v) return "L'email è obbligatoria.";
-        if (!EMAIL_RE.test(v) || v.length > 320) return "Inserisci un'email valida.";
+        if (!v) return t("reservation.val_email_required");
+        if (!EMAIL_RE.test(v) || v.length > 320) return t("reservation.val_email_invalid");
         return null;
     }
     if (name === "customer_phone") {
-        if (!v) return "Il telefono è obbligatorio.";
-        if (v.length > 50) return "Il telefono è troppo lungo.";
+        if (!v) return t("reservation.val_phone_required");
+        if (v.length > 50) return t("reservation.val_phone_long");
         if (!PHONE_ALLOWED_CHARS_RE.test(v)) {
-            return "Inserisci un numero di telefono valido.";
+            return t("reservation.val_phone_invalid");
         }
         const digits = v.replace(/\D/g, "");
         if (digits.length < MIN_PHONE_DIGITS || digits.length > MAX_PHONE_DIGITS) {
-            return "Inserisci un numero di telefono valido.";
+            return t("reservation.val_phone_invalid");
         }
         return null;
     }
     if (name === "notes") {
-        if (v.length > 500) return "Massimo 500 caratteri.";
+        if (v.length > 500) return t("reservation.val_notes_max");
         return null;
     }
     return null;

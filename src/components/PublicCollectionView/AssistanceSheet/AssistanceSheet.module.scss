@@ -104,12 +104,12 @@
   }
 
   &[data-variant="theme"] {
-    background: var(--pub-primary, #6366f1);
-    color: var(--pub-on-primary, #ffffff);
+    background: var(--pub-accent, #6366f1);
+    color: var(--pub-cta-text);
 
     @media (hover: hover) {
       &:not(:disabled):hover {
-        background: color-mix(in srgb, var(--pub-primary, #6366f1) 85%, black);
+        background: color-mix(in srgb, var(--pub-accent, #6366f1) 85%, black);
       }
     }
   }

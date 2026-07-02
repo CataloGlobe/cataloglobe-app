@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { Plus, X, Pencil, Check } from "lucide-react";
+import { useTranslation } from "react-i18next";
 import { useAutoGrow } from "./useAutoGrow";
 import styles from "./OrderNoteEditor.module.scss";
 
@@ -16,6 +17,7 @@ interface Props {
 type Mode = "hidden" | "editing" | "saved";
 
 export default function OrderNoteEditor({ note, onSave, onRemove }: Props) {
+    const { t } = useTranslation("public");
     const [mode, setMode] = useState<Mode>(note ? "saved" : "hidden");
     const [draft, setDraft] = useState(note ?? "");
     const textareaRef = useAutoGrow(draft, 5);
@@ -69,7 +71,7 @@ export default function OrderNoteEditor({ note, onSave, onRemove }: Props) {
 
     return (
         <div className={styles.section}>
-            <div className={styles.label}>Note per la cucina</div>
+            <div className={styles.label}>{t("ordering.order_note_label")}</div>
 
             {mode === "hidden" && (
                 <button
@@ -78,7 +80,7 @@ export default function OrderNoteEditor({ note, onSave, onRemove }: Props) {
                     className={styles.addBtn}
                 >
                     <Plus size={12} />
-                    Aggiungi nota per l’ordine
+                    {t("ordering.order_note_add")}
                 </button>
             )}
 
@@ -93,7 +95,7 @@ export default function OrderNoteEditor({ note, onSave, onRemove }: Props) {
                     <span
                         onClick={handleRemoveSaved}
                         className={styles.savedRemove}
-                        aria-label="Rimuovi nota"
+                        aria-label={t("ordering.note_remove_aria")}
                         role="button"
                         tabIndex={-1}
                     >
@@ -113,11 +115,11 @@ export default function OrderNoteEditor({ note, onSave, onRemove }: Props) {
                             onChange={e =>
                                 setDraft(e.target.value.slice(0, ORDER_NOTE_MAX))
                             }
-                            placeholder="Es. consegnare tutto insieme, senza fretta…"
+                            placeholder={t("ordering.order_note_placeholder")}
                             rows={2}
                             maxLength={ORDER_NOTE_MAX}
                             className={styles.textarea}
-                            aria-label="Note per la cucina"
+                            aria-label={t("ordering.order_note_label")}
                         />
                         <div className={styles.footer}>
                             <button
@@ -125,7 +127,7 @@ export default function OrderNoteEditor({ note, onSave, onRemove }: Props) {
                                 onClick={handleCancelEdit}
                                 className={styles.cancelBtn}
                             >
-                                Annulla
+                                {t("ordering.note_cancel")}
                             </button>
                             <span
                                 className={`${styles.counter} ${
@@ -140,7 +142,7 @@ export default function OrderNoteEditor({ note, onSave, onRemove }: Props) {
                                 className={styles.confirmBtn}
                             >
                                 <Check size={11} />
-                                Conferma
+                                {t("ordering.note_confirm")}
                             </button>
                         </div>
                     </div>

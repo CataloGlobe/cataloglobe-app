@@ -82,7 +82,8 @@ export class DeepLProvider implements TranslationProvider {
                     "Authorization": `DeepL-Auth-Key ${this.apiKey}`,
                     "Content-Type": "application/x-www-form-urlencoded"
                 },
-                body: body.toString()
+                body: body.toString(),
+                signal: input.signal
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);

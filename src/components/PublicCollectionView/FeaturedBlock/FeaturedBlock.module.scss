@@ -7,6 +7,12 @@
   margin: 16px 0;
 }
 
+/* Niente full-bleed né margini negativi: il wrapper eredita il gutter di
+   contenuto dal genitore `.container` (context `collection`, ~16px per lato su
+   mobile), lo stesso di titoli sezione e card prodotti. La prima card del
+   carosello si allinea a quelle; il peek deriva da larghezza card + scroll,
+   non dal padding. Un solo gutter, mai doppio, mai a filo dello schermo. */
+
 /* ══════════════════════════════════════════════════════════════════════════
    TRACK — carousel (mobile) / grid (desktop 2-4) / carousel (desktop 5+)
    ══════════════════════════════════════════════════════════════════════════ */
@@ -29,27 +35,11 @@
   }
 }
 
-.trackGridDesktop {
-  @media (min-width: 768px) {
-    display: grid;
-    grid-template-columns: repeat(var(--grid-cols, 3), 1fr);
-    gap: 16px;
-    overflow-x: visible;
-    scroll-snap-type: none;
-  }
-
-  /* Nel preview mobile la viewport è desktop, quindi la media query sopra attiverebbe
-     sempre il layout a griglia. Forziamo il carousel come sul vero dispositivo mobile. */
-  :global(.preview-mobile) & {
-    display: flex;
-    grid-template-columns: unset;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-  }
-}
-
+/* Menu strip: SEMPRE monoriga. Il carosello (.track = flex nowrap + overflow-x
+   auto) vale a ogni breakpoint; qui solo il gap desktop. Nessuna griglia,
+   nessun wrap. */
 .trackCarouselAlways {
-  @media (min-width: 768px) {
+  @container collection (min-width: 700px) {
     gap: 16px;
   }
 }
@@ -58,11 +48,14 @@
    CARD LAYOUT OVERRIDES (carousel/grid specific sizing)
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* Carousel card: sized for scroll-snap */
+/* Carousel card: fixed readable width that scrolls — never below 340px, never
+   above 440px. The peek emerges from the preferred % relative to the track. */
 .cardCarousel {
-  flex-shrink: 0;
+  flex: 0 0 auto;
   scroll-snap-align: center;
-  width: 80%;
+  /* Larghezza comoda e fissa: mai < 340, mai > 440. Guardia 90vw così su
+     viewport molto strette (~320px) la card non sfora oltre lo schermo. */
+  width: min(clamp(340px, 82%, 440px), 90vw);
 
   &:first-child {
     scroll-snap-align: start;
@@ -73,40 +66,19 @@
   }
 }
 
-/* Single card: full-width, no snap */
+/* Single card: full-width on mobile, centered + capped on desktop */
 .cardSingle {
   width: 100%;
-}
 
-
-/* Desktop grid (2-4): cards fill grid columns */
-.trackGridDesktop .cardCarousel {
-  @media (min-width: 768px) {
-    width: auto;
-    scroll-snap-align: unset;
-  }
-
-  /* Ripristina dimensioni carousel nel preview mobile */
-  :global(.preview-mobile) & {
-    width: 80%;
-    scroll-snap-align: center;
-
-    &:first-child {
-      scroll-snap-align: start;
-    }
-
-    &:last-child {
-      scroll-snap-align: end;
-    }
+  @container collection (min-width: 700px) {
+    max-width: 500px;
+    margin-inline: auto;
   }
 }
 
-/* Desktop carousel (5+): ~3 cards visible */
-.trackCarouselAlways .cardCarousel {
-  @media (min-width: 768px) {
-    width: 31%;
-  }
-}
+
+/* La base .cardCarousel (clamp 340–440px) dimensiona le card a ogni
+   breakpoint; ~3 visibili a piena larghezza desktop, il resto scrollando. */
 
 /* ══════════════════════════════════════════════════════════════════════════
    DOTS

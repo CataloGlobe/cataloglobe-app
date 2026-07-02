@@ -31,8 +31,7 @@ function resolvePreviewColors(style: V2Style) {
         : DEFAULT_STYLE_TOKENS;
     return {
         pageBackground: tokens.colors.pageBackground,
-        primary: tokens.colors.primary,
-        headerBackground: tokens.colors.headerBackground
+        primary: tokens.colors.primary
     };
 }
 

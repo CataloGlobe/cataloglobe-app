@@ -31,7 +31,11 @@ export default function PublicThemeScope({ tokens: tokensProp, style, className,
     const [portalNode, setPortalNode] = useState<HTMLElement | null>(null);
 
     return (
-        <div className={className} style={cssVars as React.CSSProperties}>
+        <div
+            className={className}
+            style={cssVars as React.CSSProperties}
+            data-card-treatment={tokens.appearance.cardTreatment}
+        >
             <PublicPortalContext.Provider value={portalNode}>
                 {children}
                 {/* Portal-root: plain div, nessuno stile → nessuno stacking

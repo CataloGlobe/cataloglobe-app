@@ -17,6 +17,7 @@
 // =============================================================================
 
 import type { TranslationProvider } from "./TranslationProvider.ts";
+import { TranslationProviderError } from "./TranslationProvider.ts";
 import { DeepLProvider } from "./DeepLProvider.ts";
 import { MockProvider } from "./MockProvider.ts";
 
@@ -41,7 +42,17 @@ export function getProviderForLanguage(targetLang: string): TranslationProvider 
     // const google = getGoogleProvider();
     // if (google.supportedLanguages.includes(targetLang.toLowerCase())) return google;
 
-    throw new Error(`Lingua non supportata da nessun provider: ${targetLang}`);
+    // Fail-fast: lingua non supportata e' una condizione per-job PERMANENTE.
+    // Con un Error semplice il tick (isRetryable default true) rimbalzerebbe il
+    // job fino al poison-cap. TranslationProviderError con retryable=false lo
+    // manda subito a failed. Categoria 'validation' coerente coi 4xx fatali di
+    // DeepLProvider.
+    throw new TranslationProviderError(
+        `Lingua non supportata da nessun provider: ${targetLang}`,
+        "validation",
+        "router",
+        false
+    );
 }
 
 // Singleton instances (lazy) ---------------------------------------------------

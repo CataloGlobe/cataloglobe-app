@@ -1,5 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { BellRing, Check, Clock, ConciergeBell, Receipt, X } from "lucide-react";
+import {
+    ArrowLeft,
+    BellRing,
+    Check,
+    Clock,
+    ConciergeBell,
+    Receipt,
+    RotateCcw,
+    X
+} from "lucide-react";
 
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
@@ -22,13 +31,22 @@ import {
     listActiveSessionsForTable,
     getOpenOrderGroupForTable
 } from "@/services/supabase/customerSessions";
-import { acknowledgeOrder, listOrdersForActivity } from "@/services/supabase/orders";
+import {
+    acknowledgeOrder,
+    listOrdersForActivity,
+    getOrderWithItems,
+    rectifyOrder
+} from "@/services/supabase/orders";
+import OrderRectifyForm, {
+    type RectifyFormState
+} from "@/pages/Dashboard/Orders/OrderRectifyForm";
 import type {
     V2Table,
     V2CustomerSession,
     V2OrderGroup,
     V2OrderWithItems,
-    OrderStatus
+    OrderStatus,
+    RectifyOrderItem
 } from "@/types/orders";
 
 import { usePermissions } from "@/context/PermissionsContext";
@@ -43,6 +61,14 @@ interface Props {
     tenantId: string | null;
     activityId: string | null;
     tableId: string | null;
+    /**
+     * Netto "Da pagare" del tavolo = `current_total` della riga
+     * `V2TableWithState` (view, già al netto degli storni). Passato dal
+     * parent (`TablesLiveView`) che ha la riga in mano — il drawer NON
+     * fa fetch della view. `null` = dato non disponibile → blocco netto
+     * nascosto (no `NaN`/`0` fuorviante).
+     */
+    currentTotal: number | null;
     onClose: () => void;
     /**
      * Richiesta di apertura "Chiudi tavolo" dal detail. Il parent
@@ -74,6 +100,40 @@ interface Props {
      */
     onBillCleared?: (tableId: string) => void;
     onWaiterCleared?: (tableId: string) => void;
+    /**
+     * Notifica al parent che è stato creato uno storno dal conto. Il parent
+     * deve rifare il fetch della sorgente di `current_total` (es.
+     * `useTablesLiveRealtime.refetch`) per aggiornare "Da pagare" subito —
+     * il realtime su `orders` arriverebbe comunque ma con debounce.
+     */
+    onStornoCreated?: (tableId: string) => void;
+}
+
+type DrawerView = "conto" | "storna";
+
+/**
+ * Mappa l'errore di `rectifyOrder` a un messaggio toast italiano.
+ */
+function mapStornoError(err: unknown): string {
+    if (err instanceof Error) {
+        const details = (err as Error & { details?: { reason?: string } }).details;
+        if (
+            err.message === "INVALID_RECTIFICATION_ITEMS" &&
+            details?.reason === "STORNO_QTY_EXCEEDS_RESIDUAL"
+        ) {
+            return "Quantità superiore al residuo stornabile per questo articolo.";
+        }
+        if (err.message === "INVALID_PARENT_STATE") {
+            return "Solo gli ordini serviti possono essere stornati.";
+        }
+        if (
+            err.message === "EMPTY_RECTIFICATION" ||
+            err.message === "INVALID_RECTIFICATION_QUANTITY"
+        ) {
+            return "Seleziona almeno un articolo da stornare.";
+        }
+    }
+    return "Errore durante lo storno. Riprova.";
 }
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -156,16 +216,60 @@ interface DetailData {
     orders: V2OrderWithItems[];
 }
 
+/**
+ * Unità di render del conto raggruppato:
+ *   - `order`  = una comanda (delivered|cancelled) coi suoi storni agganciati
+ *                e il netto per ordine (lordo − Σ storni);
+ *   - `orphan` = uno storno il cui padre non è nel conto → riga standalone.
+ */
+type ContoUnit =
+    | { kind: "order"; order: V2OrderWithItems; storni: V2OrderWithItems[]; netto: number }
+    | { kind: "orphan"; storno: V2OrderWithItems };
+
+/**
+ * Sotto-riga storno agganciata dentro il blocco della comanda: card rosa
+ * compatta con connettore a sinistra, `↳ ⟲ Storno · <motivo> … −<importo>`.
+ * Gli articoli non sono mostrati: il conto carica gli ordini senza items
+ * (`includeItems:false`); il motivo (`notes`) è invece sempre disponibile.
+ * Stesso linguaggio visivo della striscia dello Storico.
+ */
+function renderStornoSubRow(s: V2OrderWithItems) {
+    return (
+        <div key={s.id} className={styles.stornoSubRow}>
+            <div className={styles.stornoSubLeft}>
+                <span className={styles.stornoSubArrow} aria-hidden>
+                    ↳
+                </span>
+                <RotateCcw size={12} aria-hidden className={styles.stornoSubIcon} />
+                <span className={styles.stornoSubTag}>Storno</span>
+                {s.notes && (
+                    <>
+                        <span className={styles.stornoSubSep} aria-hidden>
+                            ·
+                        </span>
+                        <span className={styles.stornoSubReason}>{s.notes}</span>
+                    </>
+                )}
+            </div>
+            <span className={styles.stornoSubAmount}>
+                {formatEur(-s.total_amount)}
+            </span>
+        </div>
+    );
+}
+
 export function TableDetailDrawer({
     open,
     tenantId,
     activityId,
     tableId,
+    currentTotal,
     onClose,
     onRequestClose,
     onMaintenanceChanged,
     onBillCleared,
-    onWaiterCleared
+    onWaiterCleared,
+    onStornoCreated
 }: Props) {
     const [data, setData] = useState<DetailData | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -175,6 +279,16 @@ export function TableDetailDrawer({
     const [isClearingWaiter, setIsClearingWaiter] = useState(false);
     const [showAllRecent, setShowAllRecent] = useState(false);
     const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
+
+    // ── Vista interna "storna" (B2: niente secondo drawer) ──
+    const [view, setView] = useState<DrawerView>("conto");
+    const [stornaOrder, setStornaOrder] = useState<V2OrderWithItems | null>(null);
+    const [stornaLoadingOrderId, setStornaLoadingOrderId] = useState<string | null>(null);
+    const [stornaState, setStornaState] = useState<RectifyFormState>({
+        estimate: 0,
+        canConfirm: false
+    });
+    const [isSavingStorno, setIsSavingStorno] = useState(false);
 
     const { showToast } = useToast();
     const { permissions } = usePermissions();
@@ -302,11 +416,60 @@ export function TableDetailDrawer({
         }
     }
 
+    async function handleOpenStorna(order: V2OrderWithItems): Promise<void> {
+        if (!tenantId) return;
+        setStornaLoadingOrderId(order.id);
+        try {
+            const full = await getOrderWithItems(order.id, tenantId);
+            setStornaOrder(full);
+            setStornaState({ estimate: 0, canConfirm: false });
+            setView("storna");
+        } catch {
+            showToast({
+                message: "Errore nel caricamento dell'ordine. Riprova.",
+                type: "error"
+            });
+        } finally {
+            setStornaLoadingOrderId(null);
+        }
+    }
+
+    function handleBackToConto(): void {
+        setView("conto");
+        setStornaOrder(null);
+        setStornaState({ estimate: 0, canConfirm: false });
+    }
+
+    async function handleConfirmStorno(
+        items: RectifyOrderItem[],
+        reason: string
+    ): Promise<void> {
+        if (!stornaOrder) return;
+        setIsSavingStorno(true);
+        try {
+            await rectifyOrder(stornaOrder.id, items, reason || undefined);
+            showToast({ message: "Storno registrato", type: "success" });
+            setView("conto");
+            setStornaOrder(null);
+            setStornaState({ estimate: 0, canConfirm: false });
+            await loadDetail();
+            if (tableId) onStornoCreated?.(tableId);
+        } catch (err) {
+            // Resta nella vista storna: non perdere la selezione.
+            showToast({ message: mapStornoError(err), type: "error" });
+        } finally {
+            setIsSavingStorno(false);
+        }
+    }
+
     useEffect(() => {
         if (!open || !tableId) {
             setData(null);
             setError(null);
             setShowAllRecent(false);
+            setView("conto");
+            setStornaOrder(null);
+            setStornaState({ estimate: 0, canConfirm: false });
             return;
         }
         void loadDetail();
@@ -328,6 +491,33 @@ export function TableDetailDrawer({
                   o.order_group_id === data.openGroup?.id
           )
         : [];
+
+    // Blocchi del conto: ogni comanda (delivered|cancelled, non-storno) con i
+    // suoi storni agganciati + netto per ordine. Gli storni il cui padre non è
+    // nel conto restano righe standalone. Ordine preservato da `recentOrders`
+    // (submitted_at DESC → comanda più recente in alto).
+    const contoStornoByParent = new Map<string, V2OrderWithItems[]>();
+    for (const o of recentOrders) {
+        if (o.is_rectification && o.parent_order_id) {
+            const arr = contoStornoByParent.get(o.parent_order_id);
+            if (arr) arr.push(o);
+            else contoStornoByParent.set(o.parent_order_id, [o]);
+        }
+    }
+    const contoParentIds = new Set(
+        recentOrders.filter(o => !o.is_rectification).map(o => o.id)
+    );
+    const contoUnits: ContoUnit[] = [];
+    for (const o of recentOrders) {
+        if (!o.is_rectification) {
+            const storni = contoStornoByParent.get(o.id) ?? [];
+            const netto =
+                o.total_amount - storni.reduce((s, c) => s + c.total_amount, 0);
+            contoUnits.push({ kind: "order", order: o, storni, netto });
+        } else if (!o.parent_order_id || !contoParentIds.has(o.parent_order_id)) {
+            contoUnits.push({ kind: "orphan", storno: o });
+        }
+    }
 
     // openGroup is NOT rendered but kept for nothingToClose + deriveTableStatus.
     const nothingToClose =
@@ -358,43 +548,88 @@ export function TableDetailDrawer({
         <SystemDrawer open={open} onClose={onClose} width={560}>
             <DrawerLayout
                 header={
-                    <div className={styles.drawerHeaderBlock}>
-                        <div className={styles.drawerHeaderInfo}>
-                            <Text variant="title-sm" weight={600}>
-                                {tableLabel}
-                                {zoneName ? ` · ${zoneName}` : ""}
-                            </Text>
-                            {data && (
-                                <div className={styles.drawerHeaderMeta}>
-                                    <StatusBadge variant={statusVariant} label={statusLabel} />
-                                    {data.table.seats != null && (
-                                        <Text variant="body-sm" colorVariant="muted">
-                                            {data.table.seats}{" "}
-                                            {data.table.seats === 1 ? "posto" : "posti"}
-                                        </Text>
-                                    )}
-                                    {isOccupied && firstSeenAt && (
-                                        <div className={styles.elapsedRow}>
-                                            <Clock size={13} />
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                da {formatElapsedMinutes(firstSeenAt)}
-                                            </Text>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
+                    view === "storna" ? (
+                        <div className={styles.stornaHeaderBlock}>
+                            <button
+                                className={styles.backButton}
+                                onClick={handleBackToConto}
+                                aria-label="Torna al conto"
+                            >
+                                <ArrowLeft size={18} />
+                            </button>
+                            <div className={styles.drawerHeaderInfo}>
+                                <Text variant="title-sm" weight={600}>
+                                    Storna articoli
+                                </Text>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    {tableLabel}
+                                    {zoneName ? ` · ${zoneName}` : ""}
+                                </Text>
+                            </div>
                         </div>
-                        <button
-                            className={styles.dismissButton}
-                            onClick={onClose}
-                            aria-label="Chiudi"
-                        >
-                            <X size={18} />
-                        </button>
-                    </div>
+                    ) : (
+                        <div className={styles.drawerHeaderBlock}>
+                            <div className={styles.drawerHeaderInfo}>
+                                <Text variant="title-sm" weight={600}>
+                                    {tableLabel}
+                                    {zoneName ? ` · ${zoneName}` : ""}
+                                </Text>
+                                {data && (
+                                    <div className={styles.drawerHeaderMeta}>
+                                        <StatusBadge variant={statusVariant} label={statusLabel} />
+                                        {data.table.seats != null && (
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                {data.table.seats}{" "}
+                                                {data.table.seats === 1 ? "posto" : "posti"}
+                                            </Text>
+                                        )}
+                                        {isOccupied && firstSeenAt && (
+                                            <div className={styles.elapsedRow}>
+                                                <Clock size={13} />
+                                                <Text variant="body-sm" colorVariant="muted">
+                                                    da {formatElapsedMinutes(firstSeenAt)}
+                                                </Text>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+                            <button
+                                className={styles.dismissButton}
+                                onClick={onClose}
+                                aria-label="Chiudi"
+                            >
+                                <X size={18} />
+                            </button>
+                        </div>
+                    )
                 }
                 footer={
-                    hasClosePermission && !nothingToClose && tableId ? (
+                    view === "storna" ? (
+                        <>
+                            {stornaState.estimate > 0 && (
+                                <Text weight={600} className={styles.footerEstimate}>
+                                    Storno stimato −{formatEur(stornaState.estimate)}
+                                </Text>
+                            )}
+                            <Button
+                                variant="secondary"
+                                onClick={handleBackToConto}
+                                disabled={isSavingStorno}
+                            >
+                                Annulla
+                            </Button>
+                            <Button
+                                type="submit"
+                                form="conto-storna-form"
+                                variant="primary"
+                                loading={isSavingStorno}
+                                disabled={!stornaState.canConfirm || isSavingStorno}
+                            >
+                                Conferma storno
+                            </Button>
+                        </>
+                    ) : hasClosePermission && !nothingToClose && tableId ? (
                         <Button variant="primary" onClick={() => onRequestClose!(tableId)}>
                             Chiudi tavolo
                         </Button>
@@ -405,7 +640,21 @@ export function TableDetailDrawer({
                     )
                 }
             >
-                {isLoading && !data ? (
+                {view === "storna" ? (
+                    stornaOrder ? (
+                        <OrderRectifyForm
+                            formId="conto-storna-form"
+                            order={stornaOrder}
+                            onSubmit={handleConfirmStorno}
+                            onStateChange={setStornaState}
+                            disabled={isSavingStorno}
+                        />
+                    ) : (
+                        <div className={styles.loading}>
+                            <Text colorVariant="muted">Caricamento...</Text>
+                        </div>
+                    )
+                ) : isLoading && !data ? (
                     <div className={styles.loading}>
                         <Text colorVariant="muted">Caricamento...</Text>
                     </div>
@@ -566,7 +815,7 @@ export function TableDetailDrawer({
                             </section>
                         )}
 
-                        {recentOrders.length > 0 && (
+                        {contoUnits.length > 0 && (
                             <section className={styles.section}>
                                 <Text variant="body-sm" weight={600} colorVariant="muted">
                                     Ordini del conto
@@ -574,46 +823,150 @@ export function TableDetailDrawer({
                                 <>
                                     <ul className={styles.ordersList}>
                                         {(showAllRecent
-                                            ? recentOrders
-                                            : recentOrders.slice(0, RECENT_ORDERS_CAP)
-                                        ).map(o => {
-                                            const { variant, label } = orderStatusInfo(o.status);
+                                            ? contoUnits
+                                            : contoUnits.slice(0, RECENT_ORDERS_CAP)
+                                        ).map(unit => {
+                                            // Storno orfano (padre fuori dal conto): riga
+                                            // standalone, dentro un blocco proprio.
+                                            if (unit.kind === "orphan") {
+                                                return (
+                                                    <li
+                                                        key={unit.storno.id}
+                                                        className={styles.orderBlock}
+                                                    >
+                                                        {renderStornoSubRow(unit.storno)}
+                                                    </li>
+                                                );
+                                            }
+
+                                            const o = unit.order;
+                                            const hasStorni = unit.storni.length > 0;
                                             const timestamp =
                                                 o.status === "delivered" && o.delivered_at
                                                     ? formatAbsolute(o.delivered_at)
                                                     : formatAbsolute(o.submitted_at);
+                                            const { variant, label } = orderStatusInfo(
+                                                o.status
+                                            );
+                                            // Storna solo su delivered; disabilitato a netto≤0.
+                                            const canStorna =
+                                                canManageTable && o.status === "delivered";
+                                            const stornaDisabled = unit.netto <= 0;
                                             return (
-                                                <li key={o.id} className={styles.orderRow}>
-                                                    <StatusBadge variant={variant} label={label} />
-                                                    <div className={styles.orderMeta}>
-                                                        <Text variant="body-sm">{timestamp}</Text>
-                                                        {o.customer_name_snapshot && (
-                                                            <Text
-                                                                variant="body-sm"
-                                                                colorVariant="muted"
-                                                            >
-                                                                {o.customer_name_snapshot}
+                                                <li key={o.id} className={styles.orderBlock}>
+                                                    <div className={styles.orderRow}>
+                                                        <StatusBadge
+                                                            variant={variant}
+                                                            label={label}
+                                                        />
+                                                        <div className={styles.orderMeta}>
+                                                            <Text variant="body-sm">
+                                                                {timestamp}
                                                             </Text>
-                                                        )}
+                                                            {o.customer_name_snapshot && (
+                                                                <Text
+                                                                    variant="body-sm"
+                                                                    colorVariant="muted"
+                                                                >
+                                                                    {o.customer_name_snapshot}
+                                                                </Text>
+                                                            )}
+                                                        </div>
+                                                        <div className={styles.orderActions}>
+                                                            {hasStorni ? (
+                                                                <div
+                                                                    className={
+                                                                        styles.amountStack
+                                                                    }
+                                                                >
+                                                                    <Text
+                                                                        variant="body-sm"
+                                                                        colorVariant="muted"
+                                                                        className={
+                                                                            styles.grossStrike
+                                                                        }
+                                                                    >
+                                                                        {formatEur(
+                                                                            o.total_amount
+                                                                        )}
+                                                                    </Text>
+                                                                    <Text weight={600}>
+                                                                        {formatEur(unit.netto)}
+                                                                    </Text>
+                                                                </div>
+                                                            ) : (
+                                                                <Text weight={500}>
+                                                                    {formatEur(o.total_amount)}
+                                                                </Text>
+                                                            )}
+                                                            {canStorna && (
+                                                                <button
+                                                                    type="button"
+                                                                    className={
+                                                                        styles.stornaActionBtn
+                                                                    }
+                                                                    onClick={() =>
+                                                                        void handleOpenStorna(o)
+                                                                    }
+                                                                    disabled={
+                                                                        stornaDisabled ||
+                                                                        stornaLoadingOrderId !==
+                                                                            null
+                                                                    }
+                                                                    title={
+                                                                        stornaDisabled
+                                                                            ? "Ordine già stornato per intero"
+                                                                            : undefined
+                                                                    }
+                                                                >
+                                                                    <RotateCcw
+                                                                        size={12}
+                                                                        aria-hidden
+                                                                    />
+                                                                    {stornaLoadingOrderId ===
+                                                                    o.id
+                                                                        ? "Apro…"
+                                                                        : "Storna"}
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
-                                                    <Text weight={500}>
-                                                        {formatEur(o.total_amount)}
-                                                    </Text>
+                                                    {unit.storni.map(s =>
+                                                        renderStornoSubRow(s)
+                                                    )}
                                                 </li>
                                             );
                                         })}
                                     </ul>
                                     {!showAllRecent &&
-                                        recentOrders.length > RECENT_ORDERS_CAP && (
+                                        contoUnits.length > RECENT_ORDERS_CAP && (
                                             <button
                                                 className={styles.showAllButton}
                                                 onClick={() => setShowAllRecent(true)}
                                             >
                                                 Mostra tutti (
-                                                {recentOrders.length - RECENT_ORDERS_CAP} in
+                                                {contoUnits.length - RECENT_ORDERS_CAP} in
                                                 più)
                                             </button>
                                         )}
+                                    {currentTotal != null && (
+                                        <div className={styles.netTotalRow}>
+                                            <div className={styles.netTotalCopy}>
+                                                <Text weight={600}>Da pagare</Text>
+                                                {recentOrders.some(o => o.is_rectification) && (
+                                                    <Text
+                                                        variant="body-sm"
+                                                        colorVariant="muted"
+                                                    >
+                                                        storni già scalati
+                                                    </Text>
+                                                )}
+                                            </div>
+                                            <Text variant="title-sm" weight={700}>
+                                                {formatEur(currentTotal)}
+                                            </Text>
+                                        </div>
+                                    )}
                                 </>
                             </section>
                         )}

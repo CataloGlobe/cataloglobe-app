@@ -29,8 +29,13 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                     Aspetto Generale
                 </Text>
                 <ColorReadRow label="Sfondo pagina" value={model.colors.pageBackground} tooltip="Colore di sfondo dell'intera pagina pubblica." />
-                <ColorReadRow label="Colore primario" value={model.colors.primary} tooltip="Colore principale applicato a header, navigazione, pulsanti e accenti nella pagina pubblica." />
-                <ColorReadRow label="Sfondo superfici" value={model.colors.surface} tooltip="Sfondo di card prodotti, modali, pulsanti dell'header e altri elementi in primo piano." />
+                <ColorReadRow label="Colore primario" value={model.colors.primary} tooltip="Colore identità: header, navigazione, sezioni attive e marchio." />
+                <ColorReadRow
+                    label="Colore accent"
+                    value={model.colors.accent || model.colors.primary}
+                    note={model.colors.accent ? undefined : "(= primario)"}
+                    tooltip="Colore per gli elementi d'azione: pulsanti dei prodotti e CTA. Se non impostato, usa il colore primario."
+                />
                 <div className={sharedStyles.controlField}>
                     <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
                         Arrotondamento<InfoTooltip content="Controlla la curvatura degli angoli di card, immagini, pulsanti e pannelli nella pagina pubblica." />
@@ -152,7 +157,6 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
                     Header
                 </Text>
-                <ColorReadRow label="Colore header" value={model.colors.headerBackground} tooltip="Colore di sfondo dell'header nella pagina pubblica." />
                 <ValueReadRow
                     label="Logo"
                     tooltip="Mostra o nascondi il logo dell'azienda nella pagina pubblica."
@@ -244,6 +248,19 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         })}
                     </div>
                 </div>
+                {model.card.productStyle === "card" && (
+                    <ValueReadRow
+                        label="Aspetto card"
+                        tooltip="Aspetto di card e finestre: Elevata usa un'ombra, Contornata un bordo sottile, Vetro una superficie semitrasparente con sfocatura."
+                        value={
+                            model.appearance.cardTreatment === "glass"
+                                ? "Vetro"
+                                : model.appearance.cardTreatment === "bordered"
+                                    ? "Contornata"
+                                    : "Elevata"
+                        }
+                    />
+                )}
                 <div className={sharedStyles.controlField}>
                     <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
                         Layout lista prodotti<InfoTooltip content="Grid mostra più prodotti affiancati su schermi ampi (desktop/tablet). Su mobile, entrambi i layout mostrano un prodotto per riga." />
@@ -337,16 +354,6 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 </div>
             </section>
 
-            {/* TESTI */}
-            <section className={sharedStyles.panelSection}>
-                <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
-                    Testi
-                </Text>
-                <ColorReadRow label="Colore testo principale" value={model.colors.textPrimary} />
-                <ColorReadRow label="Colore testo secondario" value={model.colors.textSecondary} />
-                <ColorReadRow label="Colore bordi" value={model.colors.border} />
-            </section>
-
             {/* TIPOGRAFIA */}
             <section className={sharedStyles.panelSection}>
                 <Text as="h4" variant="title-sm" weight={700} className={sharedStyles.sectionTitle}>
@@ -384,7 +391,7 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
 
 /* ── Sub-components ─────────────────────────────────────────────────────── */
 
-function ColorReadRow({ label, value, tooltip }: { label: string; value: string; tooltip?: string }) {
+function ColorReadRow({ label, value, tooltip, note }: { label: string; value: string; tooltip?: string; note?: string }) {
     return (
         <div className={roStyles.readField}>
             <Text variant="body" weight={500} className={roStyles.readLabel}>
@@ -392,7 +399,7 @@ function ColorReadRow({ label, value, tooltip }: { label: string; value: string;
             </Text>
             <div className={roStyles.colorReadValue}>
                 <span className={roStyles.colorDot} style={{ background: value }} />
-                <span className={roStyles.colorHex}>{value.toUpperCase()}</span>
+                <span className={roStyles.colorHex}>{value.toUpperCase()}{note ? ` ${note}` : ""}</span>
             </div>
         </div>
     );

@@ -1,10 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
     findDefaultPeriodIndex,
     type ReservationPeriodGroup,
+    type ReservationPeriodKey,
     type ReservationSlot
 } from "@pages/ReservationPage/utils/reservationSlots";
 import styles from "./ReservationTimePicker.module.scss";
+
+// La fascia oraria è modellata come `key` neutra nel data layer
+// (reservationSlots resta puro); la label localizzata si risolve qui a render.
+const PERIOD_I18N: Record<ReservationPeriodKey, string> = {
+    notte: "reservation.period_night",
+    mattina: "reservation.period_morning",
+    pranzo: "reservation.period_lunch",
+    pomeriggio: "reservation.period_afternoon",
+    sera: "reservation.period_evening"
+};
 
 type Props = {
     /** "HH:MM" or empty string when no time is selected yet. */
@@ -27,9 +40,9 @@ function slotIsInteractive(slot: ReservationSlot): boolean {
     return slot.state === "available";
 }
 
-function slotAriaLabel(slot: ReservationSlot): string | undefined {
-    if (slot.state === "soldout") return `${slot.time} (esaurito)`;
-    if (slot.state === "past") return `${slot.time} (orario passato)`;
+function slotAriaLabel(slot: ReservationSlot, t: TFunction): string | undefined {
+    if (slot.state === "soldout") return t("reservation.slot_soldout_aria", { time: slot.time });
+    if (slot.state === "past") return t("reservation.slot_past_aria", { time: slot.time });
     return undefined;
 }
 
@@ -42,6 +55,7 @@ export default function ReservationTimePicker({
     errorId,
     invalid
 }: Props) {
+    const { t } = useTranslation("public");
     // Recompute `now` (and the default period) only when `periods` change —
     // typically on date pick. The picker does not ticker-refresh: "past"
     // labels are best-effort and the server is the final gate via capacity
@@ -82,7 +96,7 @@ export default function ReservationTimePicker({
                 aria-describedby={errorId}
             >
                 <p className={styles.placeholder}>
-                    {disabledMessage ?? "Scegli prima la data."}
+                    {disabledMessage ?? t("reservation.choose_date_first")}
                 </p>
             </div>
         );
@@ -96,7 +110,7 @@ export default function ReservationTimePicker({
                 aria-describedby={errorId}
             >
                 <p className={styles.placeholder}>
-                    Nessun orario disponibile per la data selezionata.
+                    {t("reservation.no_times")}
                 </p>
             </div>
         );
@@ -115,7 +129,7 @@ export default function ReservationTimePicker({
                 <div
                     className={styles.segmented}
                     role="radiogroup"
-                    aria-label="Fascia oraria"
+                    aria-label={t("reservation.time_slot_group")}
                 >
                     {periods.map((p, i) => {
                         const isActive = i === safeIdx;
@@ -129,7 +143,7 @@ export default function ReservationTimePicker({
                                 className={styles.segment}
                                 data-active={isActive ? "true" : undefined}
                             >
-                                {p.label}
+                                {t(PERIOD_I18N[p.key])}
                             </button>
                         );
                     })}
@@ -139,12 +153,12 @@ export default function ReservationTimePicker({
             <ul
                 className={styles.grid}
                 role="listbox"
-                aria-label="Seleziona l'orario"
+                aria-label={t("reservation.select_time")}
             >
                 {activePeriod.slots.map(slot => {
                     const isSelected = slot.time === value;
                     const interactive = slotIsInteractive(slot);
-                    const label = slotAriaLabel(slot);
+                    const label = slotAriaLabel(slot, t);
                     return (
                         <li key={slot.time} className={styles.cell}>
                             <button
@@ -160,7 +174,7 @@ export default function ReservationTimePicker({
                             >
                                 <span className={styles.slotTime}>{slot.time}</span>
                                 {slot.state === "soldout" && (
-                                    <span className={styles.slotTag}>esaurito</span>
+                                    <span className={styles.slotTag}>{t("reservation.soldout_tag")}</span>
                                 )}
                             </button>
                         </li>

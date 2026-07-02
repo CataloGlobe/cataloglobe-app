@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import styles from "./ReservationForm.module.scss";
 
 type Props = {
@@ -10,6 +11,7 @@ type Props = {
 const PARTY_PILLS = ["1", "2", "3", "4", "5", "6", "7+"] as const;
 
 export default function PartySizePicker({ value, error, onChange, onBlur }: Props) {
+    const { t } = useTranslation("public");
     const n = Number(value);
     const isExplicitPill =
         Number.isInteger(n) && n >= 1 && n <= 6;
@@ -22,9 +24,9 @@ export default function PartySizePicker({ value, error, onChange, onBlur }: Prop
 
     return (
         <div className={styles.party}>
-            <span className={styles.label}>Persone</span>
+            <span className={styles.label}>{t("reservation.people")}</span>
 
-            <div className={styles.partyPills} role="group" aria-label="Persone">
+            <div className={styles.partyPills} role="group" aria-label={t("reservation.people")}>
                 {PARTY_PILLS.map(v => {
                     const isActive =
                         v === "7+" ? isOpenSeven : isExplicitPill && value === v;
@@ -45,7 +47,7 @@ export default function PartySizePicker({ value, error, onChange, onBlur }: Prop
             {isOpenSeven && (
                 <div className={styles.partyPlus}>
                     <label htmlFor="party_size_exact" className={styles.label}>
-                        <span className={styles.labelHint}>Indica il numero esatto</span>
+                        <span className={styles.labelHint}>{t("reservation.exact_number")}</span>
                     </label>
                     <input
                         id="party_size_exact"

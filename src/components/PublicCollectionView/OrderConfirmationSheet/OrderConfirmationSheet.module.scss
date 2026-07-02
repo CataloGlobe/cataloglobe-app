@@ -152,8 +152,8 @@
 }
 
 .btnPrimary {
-    background: var(--pub-primary);
-    color: var(--pub-on-primary, #ffffff);
+    background: var(--pub-accent);
+    color: var(--pub-cta-text);
     border: none;
 
     &:hover:not(:disabled) {

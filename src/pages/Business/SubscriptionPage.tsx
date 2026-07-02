@@ -90,10 +90,11 @@ export default function SubscriptionPage() {
     const [plans, setPlans] = useState<Plan[]>([]);
     const [activityCount, setActivityCount] = useState(0);
     const [isChangeOpen, setIsChangeOpen] = useState(false);
-    // "current" = editor parte dallo stato live (B2 e cambi normali). "edit-pending"
-    // = parte dal target FUTURO del cambio programmato (B5, sempre €0).
-    const [changeMode, setChangeMode] = useState<"current" | "edit-pending">("current");
-    const [changeStep, setChangeStep] = useState<"select" | "confirm">("select");
+    // Flusso a 3 step: scegli piano/sedi → quando applicare → conferma.
+    const [changeStep, setChangeStep] = useState<"select" | "when" | "confirm">("select");
+    // Scelta "quando applicare". Reale solo nel caso "più sedi con cambio
+    // programmato in volo"; negli altri casi è il default forzato (informativo).
+    const [applyAt, setApplyAt] = useState<"now" | "renewal">("now");
     const [draftPlan, setDraftPlan] = useState<PlanCode>("base");
     const [draftSeats, setDraftSeats] = useState(1);
     const [preview, setPreview] = useState<SubscriptionChangePreview | null>(null);
@@ -266,20 +267,14 @@ export default function SubscriptionPage() {
     const currentPlanBaseline = (optimisticPlan ?? selectedTenant.plan) as PlanCode;
     const currentSeatsBaseline = optimisticSeats ?? paidSeats;
 
-    // --- Flusso "Modifica piano" ---
-    // mode "current": seed dallo stato live. mode "edit-pending" (B5): seed dal
-    // target FUTURO del cambio programmato, così l'utente edita il futuro (€0).
-    const openChange = (mode: "current" | "edit-pending" = "current") => {
-        setChangeMode(mode);
-        if (mode === "edit-pending" && subState?.pendingChange) {
-            const pc = subState.pendingChange;
-            setDraftPlan((pc.targetPlan ?? currentPlanBaseline) as PlanCode);
-            setDraftSeats(Math.max(1, pc.targetSeats ?? currentSeatsBaseline, activityCount));
-        } else {
-            setDraftPlan(currentPlanBaseline);
-            setDraftSeats(Math.max(1, currentSeatsBaseline, activityCount));
-        }
+    // --- Flusso "Modifica piano" (ingresso unico) ---
+    // Parte SEMPRE dallo stato live. La distinzione presente/futuro non vive più
+    // in due ingressi: diventa lo step "quando applicare" dentro il flusso.
+    const openChange = () => {
+        setDraftPlan(currentPlanBaseline);
+        setDraftSeats(Math.max(1, currentSeatsBaseline, activityCount));
         setChangeStep("select");
+        setApplyAt("now");
         setPreview(null);
         setChangeError(null);
         setIsChangeOpen(true);
@@ -299,13 +294,48 @@ export default function SubscriptionPage() {
     const hasChange = draftPlan !== currentPlanBaseline || draftSeats !== currentSeatsBaseline;
     const isDowngradeToBase = draftPlan === "base" && currentPlanBaseline === "pro";
 
-    const handleContinue = async () => {
+    // --- Descrittore del cambio (draft vs live + presenza pending) ---
+    // Decide quale step "quando applicare" mostrare e il routing preview/commit.
+    // La classificazione AUTORITATIVA resta lato edge: qui serve solo a scegliere
+    // la UI e, nell'unico caso a scelta vera, quale path edge esistente invocare.
+    const planRank = (p: PlanCode): number => (p === "pro" ? 1 : 0);
+    const tierDir = planRank(draftPlan) - planRank(currentPlanBaseline); // >0 up, <0 down, 0 same
+    const seatDir = draftSeats - currentSeatsBaseline; // >0 up, <0 down, 0 same
+    const hasPending = !!subState?.pendingChange;
+    const pendingPlanCode = (subState?.pendingChange?.targetPlan ?? draftPlan) as PlanCode;
+    const pendingPlanName = plans.find(p => p.code === pendingPlanCode)?.name ?? pendingPlanCode;
+    // Scelta VERA solo qui: aggiungo sedi (vs live), tier non in upgrade, e c'è già
+    // un cambio programmato → "subito" (B2/combined pagante) vs "dal rinnovo"
+    // (updateScheduledChange €0, sedi sulla fase futura del pending).
+    const isSeatChoice = hasPending && seatDir > 0 && tierDir <= 0;
+    // Tipo per la copy dello step "when".
+    const whenKind: "choice" | "tier-up" | "seats-up" | "mixed" | "downgrade" = isSeatChoice
+        ? "choice"
+        : tierDir > 0
+        ? "tier-up"
+        : tierDir < 0 && seatDir > 0
+        ? "mixed"
+        : seatDir > 0
+        ? "seats-up"
+        : "downgrade";
+
+    // select → when. Calcola il default "quando applicare" dal tipo di cambio.
+    const handleToWhen = () => {
+        setChangeError(null);
+        // Default intelligente: value-up (tier-up / più sedi) → subito; value-down
+        // (downgrade / meno sedi) → al rinnovo. Misto → subito (le sedi valgono ora).
+        setApplyAt(whenKind === "downgrade" ? "renewal" : "now");
+        setChangeStep("when");
+    };
+
+    // when → confirm. Preview sul path giusto in base alla scelta.
+    const handleToConfirm = async () => {
         setPreviewLoading(true);
         setChangeError(null);
         try {
             const result =
-                changeMode === "edit-pending"
-                    ? await previewScheduledChange(selectedTenant.id, { plan: draftPlan, seats: draftSeats })
+                isSeatChoice && applyAt === "renewal"
+                    ? await previewScheduledChange(selectedTenant.id, { plan: pendingPlanCode, seats: draftSeats })
                     : await previewSubscriptionChange(selectedTenant.id, { plan: draftPlan, seats: draftSeats });
             setPreview(result);
             setChangeStep("confirm");
@@ -320,36 +350,28 @@ export default function SubscriptionPage() {
         setCommitLoading(true);
         setChangeError(null);
         try {
-            // B5 — modifica del cambio programmato (sempre €0, solo fase futura).
-            if (changeMode === "edit-pending") {
-                const res = await updateScheduledChange(selectedTenant.id, {
-                    plan: draftPlan,
+            // Scelta "dal rinnovo" sul caso più-sedi-con-pending: aggiunge le sedi
+            // alla fase FUTURA del cambio programmato (piano del pending preservato),
+            // €0 oggi. Riusa updateScheduledChange (nessun edge nuovo).
+            if (isSeatChoice && applyAt === "renewal") {
+                await updateScheduledChange(selectedTenant.id, {
+                    plan: pendingPlanCode,
                     seats: draftSeats
                 });
-                if (res.action === "released") {
-                    // Caso degenere: il nuovo futuro coincide col piano attuale →
-                    // lo schedule è stato rilasciato (equivale ad annullare).
-                    setScheduledChange(null);
-                    showToast({
-                        message: "Cambio programmato annullato: coincide con il piano attuale.",
-                        type: "success"
-                    });
-                } else {
-                    setScheduledChange({
-                        planName: plans.find(p => p.code === draftPlan)?.name ?? draftPlan,
-                        seats: draftSeats,
-                        nextDate:
-                            preview?.nextDate ??
-                            subState?.pendingChange?.effectiveDate ??
-                            selectedTenant.current_period_end ??
-                            null,
-                        isDowngradeToBase
-                    });
-                    showToast({
-                        message: "Cambio programmato aggiornato: avrà effetto al rinnovo.",
-                        type: "success"
-                    });
-                }
+                setScheduledChange({
+                    planName: pendingPlanName,
+                    seats: draftSeats,
+                    nextDate:
+                        preview?.nextDate ??
+                        subState?.pendingChange?.effectiveDate ??
+                        selectedTenant.current_period_end ??
+                        null,
+                    isDowngradeToBase: pendingPlanCode === "base" && currentPlanBaseline === "pro"
+                });
+                showToast({
+                    message: "Cambio programmato aggiornato: le sedi partiranno dal rinnovo.",
+                    type: "success"
+                });
                 setIsChangeOpen(false);
                 reloadSubState();
                 return;
@@ -607,15 +629,7 @@ export default function SubscriptionPage() {
                             {pendingBanner.isBase && " Ordini e prenotazioni da QR verranno disattivati."}
                         </Text>
                         {canManageBilling && (
-                            <>
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => openChange("edit-pending")}
-                                    leftIcon={<Pencil size={14} />}
-                                >
-                                    Modifica
-                                </Button>
+                            <div className={styles.scheduledNoteActions}>
                                 <Button
                                     variant="secondary"
                                     size="sm"
@@ -624,7 +638,7 @@ export default function SubscriptionPage() {
                                 >
                                     Annulla cambio
                                 </Button>
-                            </>
+                            </div>
                         )}
                     </div>
                 )}
@@ -779,8 +793,8 @@ export default function SubscriptionPage() {
                         <Text variant="title-sm" weight={600}>
                             {changeStep === "confirm"
                                 ? "Conferma il cambio"
-                                : changeMode === "edit-pending"
-                                ? "Modifica cambio programmato"
+                                : changeStep === "when"
+                                ? "Quando applicare"
                                 : "Modifica piano e sedi"}
                         </Text>
                     }
@@ -792,10 +806,18 @@ export default function SubscriptionPage() {
                                 </Button>
                                 <Button
                                     variant="primary"
-                                    onClick={handleContinue}
+                                    onClick={handleToWhen}
                                     disabled={!hasChange}
-                                    loading={previewLoading}
                                 >
+                                    Continua
+                                </Button>
+                            </>
+                        ) : changeStep === "when" ? (
+                            <>
+                                <Button variant="secondary" onClick={() => setChangeStep("select")}>
+                                    Indietro
+                                </Button>
+                                <Button variant="primary" onClick={handleToConfirm} loading={previewLoading}>
                                     Continua
                                 </Button>
                             </>
@@ -803,7 +825,7 @@ export default function SubscriptionPage() {
                             <>
                                 <Button
                                     variant="secondary"
-                                    onClick={() => setChangeStep("select")}
+                                    onClick={() => setChangeStep("when")}
                                     disabled={commitLoading}
                                 >
                                     Indietro
@@ -854,6 +876,84 @@ export default function SubscriptionPage() {
                                     <Text variant="body-sm" weight={500}>
                                         Passando a Base, ordini e prenotazioni da QR verranno disattivati al rinnovo.
                                     </Text>
+                                </div>
+                            )}
+
+                            {changeError && (
+                                <Text variant="body-sm" className={styles.changeError}>
+                                    {changeError}
+                                </Text>
+                            )}
+                        </div>
+                    ) : changeStep === "when" ? (
+                        <div className={styles.changeBody}>
+                            {whenKind === "choice" ? (
+                                <>
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Hai un cambio già programmato. Quando vuoi che le sedi in più siano attive?
+                                    </Text>
+                                    <div className={styles.whenOptions}>
+                                        <button
+                                            type="button"
+                                            className={`${styles.whenOption} ${applyAt === "now" ? styles.whenOptionSelected : ""}`}
+                                            onClick={() => setApplyAt("now")}
+                                        >
+                                            <Text variant="body" weight={600}>Attive subito</Text>
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                Le sedi in più valgono da ora: paghi il prorata per i giorni
+                                                rimanenti del periodo.
+                                            </Text>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className={`${styles.whenOption} ${applyAt === "renewal" ? styles.whenOptionSelected : ""}`}
+                                            onClick={() => setApplyAt("renewal")}
+                                        >
+                                            <Text variant="body" weight={600}>Dal rinnovo</Text>
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                Nessun addebito oggi. Le sedi partono dal {formatDate(periodEndDate)},
+                                                sul piano {pendingPlanName} già programmato.
+                                            </Text>
+                                        </button>
+                                    </div>
+                                </>
+                            ) : (
+                                <div className={styles.whenInfo}>
+                                    {whenKind === "tier-up" && (
+                                        <Text variant="body-sm">
+                                            L&apos;upgrade si applica <strong>subito</strong>: avrai le nuove
+                                            funzioni da ora e paghi il prorata per i giorni rimanenti del periodo.
+                                        </Text>
+                                    )}
+                                    {whenKind === "seats-up" && (
+                                        <Text variant="body-sm">
+                                            Le sedi in più si attivano <strong>subito</strong>: paghi il prorata
+                                            per i giorni rimanenti del periodo.
+                                        </Text>
+                                    )}
+                                    {whenKind === "mixed" && (
+                                        <Text variant="body-sm">
+                                            Le sedi in più valgono <strong>subito</strong> (paghi il prorata); il
+                                            passaggio a {targetPlanName} avviene <strong>al rinnovo</strong>{" "}
+                                            ({formatDate(periodEndDate)}).
+                                        </Text>
+                                    )}
+                                    {whenKind === "downgrade" && (
+                                        <Text variant="body-sm">
+                                            La modifica si applica <strong>al rinnovo</strong>{" "}
+                                            ({formatDate(periodEndDate)}): nessun addebito oggi, mantieni tutto
+                                            fino ad allora.
+                                        </Text>
+                                    )}
+                                    {isDowngradeToBase && (whenKind === "downgrade" || whenKind === "mixed") && (
+                                        <div className={styles.changeWarning}>
+                                            <AlertTriangle size={16} />
+                                            <Text variant="body-sm" weight={500}>
+                                                Passando a Base, ordini e prenotazioni da QR verranno disattivati
+                                                al rinnovo.
+                                            </Text>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -919,7 +1019,7 @@ export default function SubscriptionPage() {
                                                 <Text variant="title-sm" weight={700}>€0,00</Text>
                                             </div>
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Il tuo piano passerà a {targetPlanName} il {formatDate(preview.nextDate)}.
+                                                Il tuo piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)}.
                                                 Da quella data pagherai {formatCents(preview.nextAmount)}/mese.
                                             </Text>
                                             {isDowngradeToBase && (

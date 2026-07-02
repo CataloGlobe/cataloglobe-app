@@ -110,7 +110,8 @@
 }
 
 .inputWrapper {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0; /* flex item che si restringe: evita overflow su viewport stretti */
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -175,20 +176,26 @@
 }
 
 .closeBtn {
-  flex-shrink: 0;
+  /* Ingombro fisso: la X resta costante per ogni lingua, l'input prende il resto. */
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: none;
   background: transparent;
-  color: var(--pub-primary);
-  font-size: 0.875rem;
-  font-weight: 600;
-  font-family: var(--pub-font-family, sans-serif);
+  /* Surface-aware: la X poggia su --pub-bg (.panel/.searchRow), quindi usa il
+     testo-su-bg (stesso token dell'hint), non quello della surface. */
+  color: var(--pub-bg-text-muted);
   cursor: pointer;
-  padding: 0.4rem 0;
-  white-space: nowrap;
-  transition: opacity 0.15s ease;
+  /* Radius del token pulsanti, coerente con gli icon-button dell'header. */
+  border-radius: var(--pub-btn-radius, 8px);
+  transition: background 0.12s ease, color 0.12s ease;
 
   &:hover {
-    opacity: 0.65;
+    background: color-mix(in srgb, var(--pub-bg-text) 10%, transparent);
+    color: var(--pub-bg-text);
   }
 }
 
@@ -306,7 +313,7 @@
   flex-shrink: 0;
   font-size: 0.875rem;
   font-weight: 600;
-  color: var(--pub-primary);
+  color: var(--pub-bg-text);
   font-family: var(--pub-font-family, sans-serif);
 }
 

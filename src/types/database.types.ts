@@ -3806,6 +3806,7 @@ export type Database = {
       translation_jobs: {
         Row: {
           attempts: number
+          claimed_at: string | null
           created_at: string
           entity_id: string
           entity_type: string
@@ -3821,6 +3822,7 @@ export type Database = {
         }
         Insert: {
           attempts?: number
+          claimed_at?: string | null
           created_at?: string
           entity_id: string
           entity_type: string
@@ -3836,6 +3838,7 @@ export type Database = {
         }
         Update: {
           attempts?: number
+          claimed_at?: string | null
           created_at?: string
           entity_id?: string
           entity_type?: string
@@ -4379,7 +4382,11 @@ export type Database = {
         Returns: string
       }
       claim_pending_translation_jobs: {
-        Args: { p_limit: number }
+        Args: {
+          p_limit: number
+          p_max_attempts?: number
+          p_reclaim_after_minutes?: number
+        }
         Returns: {
           attempts: number
           entity_id: string

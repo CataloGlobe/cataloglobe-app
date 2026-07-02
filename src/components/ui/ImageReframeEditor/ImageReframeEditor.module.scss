@@ -1,0 +1,362 @@
+.editor {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    width: 100%;
+}
+
+// --- 1. Anteprima --------------------------------------------------------
+.frame {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+
+    &:active {
+        cursor: grabbing;
+    }
+}
+
+// Rendered source image. width/height/transform are runtime geometry (inline).
+.image {
+    position: absolute;
+    top: 0;
+    left: 0;
+    max-width: none; // geometry sets exact px; defeat responsive img reset
+    display: block;
+    will-change: transform;
+    pointer-events: none;
+}
+
+// Blurred cover copy painted behind the image on the bands.
+.fillBlur {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    transform: scale(1.15);
+    filter: blur(18px);
+    pointer-events: none;
+}
+
+// Solid-color band fill (dominant / custom). backgroundColor is runtime (inline).
+.fillColor {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+}
+
+// Rule-of-thirds overlay, revealed while dragging.
+.grid {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+        linear-gradient(to right, rgba(255, 255, 255, 0.35) 1px, transparent 1px),
+        linear-gradient(to right, rgba(255, 255, 255, 0.35) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.35) 1px, transparent 1px);
+    background-position:
+        33.333% 0,
+        66.666% 0,
+        0 33.333%,
+        0 66.666%;
+    background-size:
+        1px 100%,
+        1px 100%,
+        100% 1px,
+        100% 1px;
+    background-repeat: no-repeat;
+    opacity: 0;
+    transition: opacity 0.15s ease;
+}
+
+.frame:active .grid {
+    opacity: 1;
+}
+
+.hint {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: -6px;
+    font-size: 12px;
+    color: var(--color-muted);
+}
+
+// --- 2. Zoom -------------------------------------------------------------
+.zoomBlock {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.zoomHeader {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+}
+
+.zoomLabel {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+}
+
+.zoomValue {
+    font-family: ui-monospace, "SF Mono", Menlo, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+}
+
+// Track wrapper hosts the cover marker + tick, positioned in % at runtime.
+.trackWrap {
+    position: relative;
+    padding-top: 16px; // room for the "riempie" tag above the track
+}
+
+.coverTag {
+    position: absolute;
+    top: 0;
+    transform: translateX(-50%);
+    font-size: 10px;
+    font-weight: 600;
+    color: var(--brand-primary);
+    white-space: nowrap;
+    pointer-events: none;
+}
+
+.coverTick {
+    position: absolute;
+    top: 20px; // aligned to the 6px track centered in the 20px-tall input
+    width: 2px;
+    height: 12px;
+    transform: translateX(-50%);
+    background: var(--brand-primary);
+    border-radius: 1px;
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+// Styled native range: neutral track + brand thumb (Firefox also gets a filled
+// progress). Track height 6px, input box 20px so the thumb centers on it.
+.zoom {
+    -webkit-appearance: none;
+    appearance: none;
+    position: relative;
+    width: 100%;
+    height: 20px;
+    background: transparent;
+    cursor: pointer;
+
+    &:disabled {
+        cursor: default;
+        opacity: 0.5;
+    }
+
+    &::-webkit-slider-runnable-track {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--border);
+    }
+
+    &::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 16px;
+        height: 16px;
+        margin-top: -5px; // (track 6 - thumb 16) / 2
+        border-radius: 50%;
+        background: var(--brand-primary);
+        border: 2px solid #fff;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    }
+
+    &::-moz-range-track {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--border);
+    }
+
+    &::-moz-range-progress {
+        height: 6px;
+        border-radius: 3px;
+        background: var(--brand-primary);
+    }
+
+    &::-moz-range-thumb {
+        width: 16px;
+        height: 16px;
+        border: 2px solid #fff;
+        border-radius: 50%;
+        background: var(--brand-primary);
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    }
+}
+
+.zoomExtremes {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: var(--color-muted);
+}
+
+// --- 3. Azioni -----------------------------------------------------------
+.actions {
+    display: flex;
+    gap: 8px;
+}
+
+.actionBtn {
+    flex: 1 1 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 38px;
+    padding: 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    transition:
+        background 0.12s ease,
+        border-color 0.12s ease;
+
+    &:hover:not(:disabled) {
+        background: var(--hover-bg);
+        border-color: var(--brand-primary);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+}
+
+// --- 4. Pannello fasce ---------------------------------------------------
+.fillPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    transition:
+        opacity 0.15s ease,
+        border-color 0.15s ease,
+        background 0.15s ease;
+}
+
+.fillPanelActive {
+    border-color: var(--color-warning-300);
+    background: var(--color-warning-50);
+}
+
+.fillPanelIdle {
+    opacity: 0.55;
+    pointer-events: none;
+}
+
+.fillLabel {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-muted);
+}
+
+// Small colored dot used as the "Colore" segmented icon.
+.dot {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #c2410c, #928e72);
+}
+
+// Inline swatches (no native picker overflowing the drawer).
+.swatchRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.swatch {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    padding: 0;
+    cursor: pointer;
+
+    &:hover {
+        border-color: var(--brand-primary);
+    }
+}
+
+.swatchExtracted {
+    width: auto;
+    min-width: 30px;
+    padding: 0 6px 4px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.swatchTag {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #fff;
+    text-shadow: 0 0 3px rgba(0, 0, 0, 0.6);
+    pointer-events: none;
+}
+
+.swatchCustom {
+    position: relative;
+    width: 30px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    border: 1px dashed var(--border);
+    color: var(--color-muted);
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    overflow: hidden;
+
+    &:hover {
+        border-color: var(--brand-primary);
+        color: var(--brand-primary);
+    }
+}
+
+// Native color input sits invisibly over the "+" swatch.
+.swatchCustomInput {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    border: none;
+    padding: 0;
+}
