@@ -27,24 +27,30 @@ export default function EventsView({ featuredContents, layout = "card" }: Events
         );
     }
 
+    const isSingle = featuredContents.length === 1;
+
     return (
-        <>
-        <div className={styles.container} role="list" aria-label={t("events.list_aria")}>
-            {featuredContents.map(fc => (
-                <FeaturedCard
-                    key={fc.id}
-                    block={fc}
-                    onClick={() => setPreviewBlock(fc)}
-                    className={styles.cardFull}
-                    variant={layout}
-                />
-            ))}
+        <div className={styles.root}>
+            <div
+                className={`${styles.grid} ${isSingle ? styles.gridSingle : ""}`}
+                role="list"
+                aria-label={t("events.list_aria")}
+            >
+                {featuredContents.map(fc => (
+                    <FeaturedCard
+                        key={fc.id}
+                        block={fc}
+                        onClick={() => setPreviewBlock(fc)}
+                        className={styles.cardFull}
+                        variant={layout}
+                    />
+                ))}
+            </div>
+            <FeaturedPreviewModal
+                block={previewBlock}
+                isOpen={!!previewBlock}
+                onClose={() => setPreviewBlock(null)}
+            />
         </div>
-        <FeaturedPreviewModal
-            block={previewBlock}
-            isOpen={!!previewBlock}
-            onClose={() => setPreviewBlock(null)}
-        />
-        </>
     );
 }
