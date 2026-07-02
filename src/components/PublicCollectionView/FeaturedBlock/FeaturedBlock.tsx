@@ -178,15 +178,10 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
         );
     }
 
-    /* ── 2-4: Grid desktop / Carousel mobile ──────────────────────────── */
-    /* ── 5+: Carousel everywhere ──────────────────────────────────────── */
-    const isMany = blocks.length >= 5;
-    const gridCols = Math.min(blocks.length, 4);
-
-    const trackClass = [
-        styles.track,
-        isMany ? styles.trackCarouselAlways : styles.trackGridDesktop
-    ].join(" ");
+    /* ── ≥ 2 contenuti → SEMPRE carosello monoriga (mai wrap) ──────────── */
+    /* Se ci stanno tutte nella riga si vedono tutte (nessuno scroll); se non
+       ci stanno si scrolla. Nessuna griglia che va a capo. */
+    const trackClass = [styles.track, styles.trackCarouselAlways].join(" ");
 
     return (
         <>
@@ -196,7 +191,6 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
                 ref={trackRef}
                 role="list"
                 aria-label={t("featured.section_aria")}
-                style={!isMany ? { "--grid-cols": gridCols } as React.CSSProperties : undefined}
             >
                 {blocks.map((block) => (
                     <FeaturedCard

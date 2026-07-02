@@ -29,30 +29,9 @@
   }
 }
 
-.trackGridDesktop {
-  /* @container collection: la soglia è sulla larghezza del container prodotti
-     (dove vivono before/after_catalog), non sulla viewport — coerente col grid. */
-  @container collection (min-width: 700px) {
-    display: grid;
-    /* auto-fit: le colonne riflettono (vanno a capo) invece di scendere sotto
-       340px. Il container query gate (700px) impedisce overflow su mobile. */
-    grid-template-columns: repeat(auto-fit, minmax(340px, 440px));
-    justify-content: center;
-    gap: 16px;
-    overflow-x: visible;
-    scroll-snap-type: none;
-  }
-
-  /* Nel preview mobile la larghezza è desktop, quindi la container query sopra
-     attiverebbe la griglia. Forziamo il carousel come sul vero dispositivo mobile. */
-  :global(.preview-mobile) & {
-    display: flex;
-    grid-template-columns: unset;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-  }
-}
-
+/* Menu strip: SEMPRE monoriga. Il carosello (.track = flex nowrap + overflow-x
+   auto) vale a ogni breakpoint; qui solo il gap desktop. Nessuna griglia,
+   nessun wrap. */
 .trackCarouselAlways {
   @container collection (min-width: 700px) {
     gap: 16px;
@@ -66,9 +45,11 @@
 /* Carousel card: fixed readable width that scrolls — never below 340px, never
    above 440px. The peek emerges from the preferred % relative to the track. */
 .cardCarousel {
-  flex-shrink: 0;
+  flex: 0 0 auto;
   scroll-snap-align: center;
-  width: clamp(340px, 82%, 440px);
+  /* Larghezza comoda e fissa: mai < 340, mai > 440. Guardia 90vw così su
+     viewport molto strette (~320px) la card non sfora oltre lo schermo. */
+  width: min(clamp(340px, 82%, 440px), 90vw);
 
   &:first-child {
     scroll-snap-align: start;
@@ -90,32 +71,8 @@
 }
 
 
-/* Desktop grid (2-4): cards fill grid columns, capped + centered so they never
-   grow gigantic in the 2-column case. */
-.trackGridDesktop .cardCarousel {
-  @container collection (min-width: 700px) {
-    /* auto-fit track (340–440px) already caps the width; card fills its cell. */
-    width: auto;
-    scroll-snap-align: unset;
-  }
-
-  /* Ripristina dimensioni carousel nel preview mobile */
-  :global(.preview-mobile) & {
-    width: clamp(340px, 82%, 440px);
-    scroll-snap-align: center;
-
-    &:first-child {
-      scroll-snap-align: start;
-    }
-
-    &:last-child {
-      scroll-snap-align: end;
-    }
-  }
-}
-
-/* Desktop carousel (5+): the base .cardCarousel clamp (340–440px) already sizes
-   the cards; ~3 visible at full width, scrolling. No extra override needed. */
+/* La base .cardCarousel (clamp 340–440px) dimensiona le card a ogni
+   breakpoint; ~3 visibili a piena larghezza desktop, il resto scrollando. */
 
 /* ══════════════════════════════════════════════════════════════════════════
    DOTS
