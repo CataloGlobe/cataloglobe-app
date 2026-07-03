@@ -74,6 +74,7 @@ interface RectifyOrderRequestBody {
 interface ParentOrderRow {
     id: string;
     tenant_id: string;
+    activity_id: string;
 }
 
 interface RpcSuccessPayload {
@@ -222,6 +223,27 @@ async function _isMemberOfTenant(
     return { kind: "ok", member: ids.includes(tenantId) };
 }
 
+// Permission gate (FASE 2, approccio A): oltre all'appartenenza al tenant
+// l'utente deve avere `orders.manage` SULLA sede dell'ordine. La RPC finale
+// gira in service_role (RLS bypassata) e non controlla i permessi: questo è
+// l'unico layer che li verifica. Chiamato con la user-client (JWT valido →
+// auth.uid() popolato, richiesto da has_permission). Fail-closed: qualunque
+// errore RPC → false (nega), MAI concedere in dubbio.
+async function _hasOrdersManage(
+    supabaseUser: SupabaseClient,
+    activityId: string
+): Promise<boolean> {
+    const { data, error } = await supabaseUser.rpc("has_permission", {
+        p_permission_id: "orders.manage",
+        p_activity_id: activityId
+    });
+    if (error) {
+        console.error("[rectify-order] has_permission read error:", error.message);
+        return false;
+    }
+    return data === true;
+}
+
 async function _fetchParentOrder(
     supabase: SupabaseClient,
     parentOrderId: string
@@ -232,7 +254,7 @@ async function _fetchParentOrder(
 > {
     const { data, error } = await supabase
         .from("orders")
-        .select("id, tenant_id")
+        .select("id, tenant_id, activity_id")
         .eq("id", parentOrderId)
         .maybeSingle();
     if (error) return { kind: "db_error", message: error.message };
@@ -392,6 +414,26 @@ serve(async (req: Request) => {
             });
         }
         if (!membership.member) {
+            return jsonResponse(403, {
+                code: "FORBIDDEN",
+                message: "Operazione non autorizzata su questo ordine."
+            });
+        }
+
+        // ── Permission gate: orders.manage on the parent's activity ──
+        // Fail-closed: if activity_id is missing on the parent (should never
+        // happen — orders.activity_id is NOT NULL) deny rather than risk an
+        // unscoped grant. The parent is already fetched above.
+        const parentActivityId = parentFetch.row.activity_id;
+        if (!parentActivityId) {
+            console.error("[rectify-order] parent order has no activity_id");
+            return jsonResponse(403, {
+                code: "FORBIDDEN",
+                message: "Operazione non autorizzata su questo ordine."
+            });
+        }
+        const canManage = await _hasOrdersManage(supabaseUser, parentActivityId);
+        if (!canManage) {
             return jsonResponse(403, {
                 code: "FORBIDDEN",
                 message: "Operazione non autorizzata su questo ordine."
