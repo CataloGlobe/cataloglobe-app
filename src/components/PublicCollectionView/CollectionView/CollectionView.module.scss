@@ -1159,6 +1159,14 @@
   pointer-events: none;
 }
 
+.addBtnBadgeOnSurface {
+  box-shadow: 0 0 0 2px var(--pub-surface);
+}
+
+.addBtnBadgeOnBg {
+  box-shadow: 0 0 0 2px var(--pub-bg);
+}
+
 /* ----------------------------------------------------
    SELECTION FAB
 ---------------------------------------------------- */

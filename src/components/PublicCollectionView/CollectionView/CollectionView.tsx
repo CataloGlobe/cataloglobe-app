@@ -327,7 +327,9 @@ function ProductRowInner({
                             aria-label={t("selection.add_aria")}
                         >
                             <Plus size={16} strokeWidth={2.5} />
-                            {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
+                            {selectionQty > 0 && (
+                                <span className={`${styles.addBtnBadge} ${styles.addBtnBadgeOnSurface}`}>{selectionQty}</span>
+                            )}
                         </button>
                     )}
                 </div>
@@ -422,7 +424,9 @@ function ProductRowInner({
                     aria-label={t("selection.add_aria")}
                 >
                     <Plus size={16} strokeWidth={2.5} />
-                    {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
+                    {selectionQty > 0 && (
+                        <span className={`${styles.addBtnBadge} ${styles.addBtnBadgeOnSurface}`}>{selectionQty}</span>
+                    )}
                 </button>
             )}
         </div>
@@ -510,7 +514,9 @@ function ProductCompactRowInner({
                             aria-label={t("selection.add_aria")}
                         >
                             <Plus size={14} strokeWidth={2.5} />
-                            {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
+                            {selectionQty > 0 && (
+                                <span className={`${styles.addBtnBadge} ${styles.addBtnBadgeOnBg}`}>{selectionQty}</span>
+                            )}
                         </button>
                     )}
                 </div>
