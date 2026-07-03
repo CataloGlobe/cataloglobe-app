@@ -7,6 +7,7 @@ export type BackgroundPattern = "none" | "dots" | "diagonal" | "waves" | "crossh
 export type PatternIntensity = "subtle" | "medium" | "strong";
 export type FeaturedStyle = "card" | "highlight";
 export type CardTreatment = "raised" | "bordered" | "glass";
+export type OutlinedBorderColor = "auto" | "primary";
 
 export interface StyleTokenModel {
     colors: {
@@ -24,6 +25,8 @@ export interface StyleTokenModel {
         patternIntensity: PatternIntensity;
         featuredStyle: FeaturedStyle;
         cardTreatment: CardTreatment;
+        /** Colore bordo per cardTreatment "bordered". Assente = "auto" (blend derivato, comportamento storico). */
+        outlinedBorderColor?: OutlinedBorderColor;
     };
     header: {
         showLogo: boolean;
@@ -85,6 +88,7 @@ const VALID_PATTERNS: BackgroundPattern[] = ["none", "dots", "diagonal", "waves"
 const VALID_PATTERN_INTENSITIES: PatternIntensity[] = ["subtle", "medium", "strong"];
 const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight"];
 const VALID_CARD_TREATMENTS: CardTreatment[] = ["raised", "bordered", "glass"];
+const VALID_OUTLINED_BORDER_COLORS: OutlinedBorderColor[] = ["auto", "primary"];
 
 /**
  * Parses raw JSON configuration (from DB) into a structured UI Token Model.
@@ -140,6 +144,11 @@ export function parseTokens(rawJson: any): StyleTokenModel {
         ? rawAppearance.cardTreatment as CardTreatment
         : "raised";
 
+    // outlinedBorderColor: assente = "auto" (nessun campo mai salvato per stili vecchi)
+    const outlinedBorderColor: OutlinedBorderColor | undefined = VALID_OUTLINED_BORDER_COLORS.includes(rawAppearance.outlinedBorderColor)
+        ? rawAppearance.outlinedBorderColor as OutlinedBorderColor
+        : undefined;
+
     return {
         colors: {
             pageBackground:
@@ -163,7 +172,8 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             backgroundPattern,
             patternIntensity,
             featuredStyle,
-            cardTreatment
+            cardTreatment,
+            outlinedBorderColor
         },
         header: {
             showLogo:
@@ -228,18 +238,23 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
     };
     // accent serializzato solo se scollegato dal primario (collegato → chiave omessa)
     if (model.colors.accent) colors.accent = model.colors.accent;
+
+    const appearance: Record<string, unknown> = {
+        borderRadius: model.appearance.borderRadius,
+        backgroundPattern: model.appearance.backgroundPattern,
+        patternIntensity: model.appearance.patternIntensity,
+        featuredStyle: model.appearance.featuredStyle,
+        cardTreatment: model.appearance.cardTreatment
+    };
+    // outlinedBorderColor serializzato solo se "primary" (auto → chiave omessa, stesso pattern di accent)
+    if (model.appearance.outlinedBorderColor === "primary") appearance.outlinedBorderColor = "primary";
+
     return {
         colors,
         typography: {
             fontFamily: model.typography.fontFamily
         },
-        appearance: {
-            borderRadius: model.appearance.borderRadius,
-            backgroundPattern: model.appearance.backgroundPattern,
-            patternIntensity: model.appearance.patternIntensity,
-            featuredStyle: model.appearance.featuredStyle,
-            cardTreatment: model.appearance.cardTreatment
-        },
+        appearance,
         header: {
             showLogo: model.header.showLogo,
             showCoverImage: model.header.showCoverImage,

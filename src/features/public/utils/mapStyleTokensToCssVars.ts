@@ -206,7 +206,11 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
 
     // Border colors — 10% contrast text blended into background
     const borderOnBg = mixHex(tokens.colors.pageBackground, bgText, 0.1);
-    const borderOnSurface = mixHex(surface, surfaceText, 0.15);
+    // "bordered" può forzare il colore primario invece del blend derivato (default "auto")
+    const borderOnSurface =
+        tokens.appearance.outlinedBorderColor === "primary"
+            ? tokens.colors.primary
+            : mixHex(surface, surfaceText, 0.15);
 
     const [patternImage, patternSize] = getPatternCss(
         tokens.appearance.backgroundPattern,

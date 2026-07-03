@@ -10,7 +10,8 @@ import {
     BackgroundPattern,
     PatternIntensity,
     FeaturedStyle,
-    CardTreatment
+    CardTreatment,
+    OutlinedBorderColor
 } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
@@ -74,6 +75,11 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "glass", label: "Vetro" }
     ];
 
+    const outlinedBorderColorOptions: Array<{ value: OutlinedBorderColor; label: string }> = [
+        { value: "auto", label: "Automatico" },
+        { value: "primary", label: "Primario" }
+    ];
+
     const backgroundPatternOptions: Array<{ value: BackgroundPattern; label: string }> = [
         { value: "none", label: "Nessuno" },
         { value: "dots", label: "Puntini" },
@@ -117,6 +123,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const updateCardTreatment = (cardTreatment: CardTreatment) => {
         onChange({ ...model, appearance: { ...model.appearance, cardTreatment } });
+    };
+
+    const updateOutlinedBorderColor = (outlinedBorderColor: OutlinedBorderColor) => {
+        onChange({ ...model, appearance: { ...model.appearance, outlinedBorderColor } });
     };
 
     const updateBackgroundPattern = (backgroundPattern: BackgroundPattern) => {
@@ -498,6 +508,35 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                             isActive ? styles.optionButtonActive : ""
                                         }`}
                                         onClick={() => updateCardTreatment(option.value)}
+                                    >
+                                        <Text as="span" variant="body" weight={600}>
+                                            {option.label}
+                                        </Text>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {model.card.productStyle === "card" && model.appearance.cardTreatment === "bordered" && (
+                    <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                        <Text variant="body" weight={500} className={styles.fieldLabel}>
+                            Colore bordo<InfoTooltip content="Automatico deriva il colore dal contrasto con lo sfondo. Primario usa il colore identità dello stile." />
+                        </Text>
+                        <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                            {outlinedBorderColorOptions.map(option => {
+                                const isActive = (model.appearance.outlinedBorderColor ?? "auto") === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={isActive}
+                                        className={`${styles.optionButton} ${
+                                            isActive ? styles.optionButtonActive : ""
+                                        }`}
+                                        onClick={() => updateOutlinedBorderColor(option.value)}
                                     >
                                         <Text as="span" variant="body" weight={600}>
                                             {option.label}
