@@ -174,7 +174,11 @@ export default function Orders() {
 
     // Detail drawer
     const [isDetailOpen, setIsDetailOpen] = useState(false);
-    const [orderInDetail, setOrderInDetail] = useState<V2OrderWithItems | null>(null);
+    // HistoryRowWithStorni (non V2OrderWithItems grezzo): dallo Storico l'ordine
+    // porta a runtime l'annotazione `rectified`/`netTotal`/`storni` — tipizzarla
+    // qui la preserva fino al drawer. Dalla board Comande arriva un ordine grezzo
+    // (campi opzionali assenti) → assegnabile, quel path resta invariato.
+    const [orderInDetail, setOrderInDetail] = useState<HistoryRowWithStorni | null>(null);
 
     // Standalone print (from card, without opening the detail drawer)
     const [orderToPrint, setOrderToPrint] = useState<V2OrderWithItems | null>(null);
@@ -626,7 +630,7 @@ export default function Orders() {
         }
     }
 
-    function handleViewDetail(order: V2OrderWithItems) {
+    function handleViewDetail(order: HistoryRowWithStorni) {
         setOrderInDetail(order);
         setIsDetailOpen(true);
     }

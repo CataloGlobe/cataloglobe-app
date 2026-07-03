@@ -1,5 +1,5 @@
 import { useRef } from "react";
-import { Ban, Printer } from "lucide-react";
+import { Ban, Printer, RotateCcw } from "lucide-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -10,9 +10,25 @@ import type { V2OrderWithItems } from "@/types/orders";
 import PrintReceipt from "./PrintReceipt";
 import styles from "./OrderDetailDrawer.module.scss";
 
+/**
+ * Ordine del dettaglio con l'annotazione storno opzionale che lo Storico
+ * calcola a runtime (`annotatedHistory` in Orders.tsx) e passa per reference:
+ *   - `rectified` = il padre ha almeno uno storno figlio;
+ *   - `netTotal`  = lordo − Σ storni (mostrato barrato/netto nel Totale);
+ *   - `storni`    = figli storno (non renderizzati a questo livello).
+ * Tutti opzionali: dalla board Comande arriva un ordine grezzo (assenti) e il
+ * chip/netto semplicemente non compaiono. Tipo locale: nessun accoppiamento a
+ * `historyColumns`/`Orders` (stesso principio delle classi SCSS locali).
+ */
+type OrderDetailOrder = V2OrderWithItems & {
+    rectified?: boolean;
+    netTotal?: number;
+    storni?: V2OrderWithItems[];
+};
+
 interface Props {
     open: boolean;
-    order: V2OrderWithItems | null;
+    order: OrderDetailOrder | null;
     tableLabel: string;
     tableZone: string | null;
     /**
@@ -109,6 +125,14 @@ export default function OrderDetailDrawer({
     const { variant: stVariant, label: stLabel } = statusInfo(order.status);
     const canPrint = order.status !== "cancelled";
 
+    // Padre rettificato (NON l'ordine-che-È-storno, gestito dal banner più sotto).
+    const isRectifiedParent = !order.is_rectification && !!order.rectified;
+    // Netto valido solo se distinto dal lordo: altrimenti importo singolo.
+    const showNet =
+        isRectifiedParent &&
+        order.netTotal != null &&
+        order.netTotal !== order.total_amount;
+
     return (
         <SystemDrawer open={open} onClose={onClose} width={560}>
             <DrawerLayout
@@ -137,6 +161,12 @@ export default function OrderDetailDrawer({
                 <div className={styles.content}>
                     <div className={styles.headerInfo}>
                         <StatusBadge variant={stVariant} label={stLabel} />
+                        {isRectifiedParent && (
+                            <span className={styles.rettificatoChip}>
+                                <RotateCcw size={11} aria-hidden />
+                                Rettificato
+                            </span>
+                        )}
                         <Text weight={600}>
                             {tableLabel}
                             {tableZone ? ` · ${tableZone}` : ""}
@@ -280,9 +310,24 @@ export default function OrderDetailDrawer({
                         <Text variant="title-sm" weight={600}>
                             Totale
                         </Text>
-                        <Text variant="title-sm" weight={600}>
-                            {formatEur(order.total_amount)}
-                        </Text>
+                        {showNet ? (
+                            <div className={styles.totalAmounts}>
+                                <Text
+                                    variant="body-sm"
+                                    colorVariant="muted"
+                                    className={styles.grossStrike}
+                                >
+                                    {formatEur(order.total_amount)}
+                                </Text>
+                                <Text variant="title-sm" weight={600}>
+                                    {formatEur(order.netTotal as number)}
+                                </Text>
+                            </div>
+                        ) : (
+                            <Text variant="title-sm" weight={600}>
+                                {formatEur(order.total_amount)}
+                            </Text>
+                        )}
                     </div>
 
                     {order.notes && (
