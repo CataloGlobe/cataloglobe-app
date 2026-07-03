@@ -35,8 +35,8 @@ const MOCK_FEATURED: V2FeaturedContent[] = [
         media_fill_mode: "blur",
         media_fill_color: null,
         media_aspect_ratio: null,
-        cta_text: null,
-        cta_url: null,
+        cta_text: "Scopri di più",
+        cta_url: "#",
         status: "published",
         layout_style: null,
         pricing_mode: "none",
@@ -373,7 +373,7 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
                                 style={collectionStyle}
                                 mode="preview"
                                 previewDevice="mobile"
-                                orderingActive={false}
+                                orderingActive={true}
                                 scrollContainerEl={screenEl}
                                 viewportWidthEl={screenEl}
                                 activityAddress="Via Example, 1 - Città"
@@ -408,7 +408,7 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
                                     style={collectionStyle}
                                     mode="preview"
                                     previewDevice="desktop"
-                                    orderingActive={false}
+                                    orderingActive={true}
                                     scrollContainerEl={screenEl}
                                     viewportWidthEl={screenEl}
                                     activityAddress="Via Example, 1 - Città"
