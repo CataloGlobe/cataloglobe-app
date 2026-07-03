@@ -67,3 +67,6 @@ node-compile-cache/
 
 # Backup .md curati manualmente (CLAUDE.md, MEMORY.md) — tenuti locali per rollback
 *.original.md
+
+# Git worktrees (isolated feature workspaces)
+.worktrees/
