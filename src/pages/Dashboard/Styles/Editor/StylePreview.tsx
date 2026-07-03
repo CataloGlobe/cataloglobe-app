@@ -3,6 +3,7 @@ import { StyleTokenModel } from "./StyleTokenModel";
 import CollectionView, {
     type CollectionViewSectionGroup
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
+import type { SelectionItem } from "@/components/PublicCollectionView/OrderingSheet/OrderingSheet";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import {
@@ -265,6 +266,20 @@ const MOCK_SECTION_GROUPS: CollectionViewSectionGroup[] = [
     }
 ];
 
+// "Prodotto Premium" (id "i2" in MOCK_SECTION_GROUPS) già selezionato al primo
+// render, per mostrare il colore secondario sul badge senza richiedere un click.
+// Stesso id/name/prezzo del mock catalogo — non un id parallelo scollegato.
+const MOCK_INITIAL_SELECTION: SelectionItem[] = [
+    {
+        id: "i2",
+        name: "Prodotto Premium",
+        basePrice: 24.0,
+        qty: 1,
+        unitPrice: 24.0,
+        note: null
+    }
+];
+
 const MOCK_OPENING_HOURS: OpeningHoursEntry[] = [
     { day_of_week: 0, slot_index: 0, opens_at: "09:00", closes_at: "13:00", is_closed: false },
     { day_of_week: 0, slot_index: 1, opens_at: "19:00", closes_at: "23:00", is_closed: false },
@@ -370,6 +385,7 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
                                 businessImage={null}
                                 collectionTitle="Nome Catalogo"
                                 sectionGroups={MOCK_SECTION_GROUPS}
+                                initialSelection={MOCK_INITIAL_SELECTION}
                                 style={collectionStyle}
                                 mode="preview"
                                 previewDevice="mobile"
@@ -405,6 +421,7 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
                                     businessImage={null}
                                     collectionTitle="Nome Catalogo"
                                     sectionGroups={MOCK_SECTION_GROUPS}
+                                    initialSelection={MOCK_INITIAL_SELECTION}
                                     style={collectionStyle}
                                     mode="preview"
                                     previewDevice="desktop"

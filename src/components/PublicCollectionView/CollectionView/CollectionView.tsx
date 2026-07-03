@@ -682,6 +682,12 @@ type Props = {
      * SENZA matchMedia/@media su window. Ignorato in runtime (mode==="public").
      */
     previewDevice?: "mobile" | "desktop";
+    /**
+     * Solo preview: seed iniziale della selezione (badge/qty già valorizzati al
+     * primo render, senza click). Ignorato in runtime (mode==="public") — mai
+     * passata dal path pubblico.
+     */
+    initialSelection?: SelectionItem[];
 };
 
 export default function CollectionView({
@@ -716,7 +722,8 @@ export default function CollectionView({
     orderingMaintenance = null,
     slug,
     enableReservations = false,
-    previewDevice
+    previewDevice,
+    initialSelection
 }: Props) {
     const navigate = useNavigate();
     // Lettura non-throwing del context lingua: CollectionView è renderizzato
@@ -949,7 +956,7 @@ export default function CollectionView({
 
     // Hydration-safe: default vuoto in render (= server), lettura sessionStorage
     // spostata in effect post-mount (client-only) → niente mismatch #418/#425.
-    const [selection, setSelection] = useState<SelectionItem[]>([]);
+    const [selection, setSelection] = useState<SelectionItem[]>(initialSelection ?? []);
     const [isOrderingOpen, setIsOrderingOpen] = useState(false);
     const [activeOrderingTab, setActiveOrderingTab] = useState<"cart" | "orders">("cart");
     const [ordersRefreshKey, setOrdersRefreshKey] = useState(0);
