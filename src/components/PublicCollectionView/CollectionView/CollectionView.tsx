@@ -742,7 +742,7 @@ export default function CollectionView({
     // "Bottom bar montata" (public, entrambi i viewport). CSS la nasconde ≥641px.
     const useBottomBar = mode === "public";
     // "Azioni header montate" (public, entrambi i viewport). CSS le nasconde ≤640px.
-    const showHeaderActions = mode === "public";
+    const showHeaderActions = mode === "public" || (mode === "preview" && orderingActive);
     // Maintenance scoperto runtime via 423 ORDERING_UNAVAILABLE su submit
     // (Strict + Reactive: il cliente lo apprende solo al tentativo). Solo
     // OrderingSheet usa effectiveMaintenance per banner inline + submit
@@ -2125,9 +2125,9 @@ export default function CollectionView({
                     onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
                     selectionCount={selectionCount}
                     orderVisible={showHeaderActions && !shouldHideOrderingEntry}
-                    onOpenOrder={showHeaderActions ? openOrdering : undefined}
+                    onOpenOrder={showHeaderActions ? (mode === "preview" ? () => {} : openOrdering) : undefined}
                     supportVisible={showHeaderActions && orderingActive}
-                    onOpenSupport={showHeaderActions ? () => setIsSupportOpen(true) : undefined}
+                    onOpenSupport={showHeaderActions ? (mode === "preview" ? () => {} : () => setIsSupportOpen(true)) : undefined}
                     reviewDot={showHeaderActions ? valutaVisible : false}
                 />
             )}
@@ -2525,7 +2525,7 @@ export default function CollectionView({
                     selectionCount={selectionCount}
                     supportVisible={mode === "public" && orderingActive}
                     onOpenSupport={mode === "preview" ? () => {} : () => setIsSupportOpen(true)}
-                    cartVisible={mode === "preview" ? false : !shouldHideOrderingEntry}
+                    cartVisible={mode === "preview" ? orderingActive && !shouldHideOrderingEntry : !shouldHideOrderingEntry}
                     onOpenCart={mode === "preview" ? () => {} : openOrdering}
                     reviewDot={mode === "preview" ? false : valutaVisible}
                     onReviewDotDismiss={mode === "preview" ? () => {} : () => {

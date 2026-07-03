@@ -222,6 +222,7 @@ export default function PublicBottomBar({
                             : t("fab.cart_aria")
                     }
                     onClick={handleCart}
+                    tabIndex={preview ? -1 : undefined}
                 >
                     <span className={styles.cartIcon} data-bump={bump ? "true" : "false"}>
                         {/* Sempre a contorno: il fill bianco riduce la leggibilità ed è

@@ -271,10 +271,14 @@
    Misura = device frame (toggle Mobile/Desktop), NON il viewport del browser
    dell'editor. Separato dalla regola runtime sopra (data-bottombar + @media):
    le due non si toccano, nessuna regressione runtime.
-   Mobile-preview: hub tab spostati nella bottom bar → nascosti in header.
-   Desktop-preview: hub tab restano in header (nessuna regola). */
+   Mobile-preview: hub tab e azioni (campanella/carrello) spostati nella
+   bottom bar → nascosti in header, stesso split della pagina pubblica reale.
+   Desktop-preview: hub tab e azioni restano in header (nessuna regola). */
 .root[data-preview-device="mobile"] {
   .chips {
+    display: none;
+  }
+  .headerActions {
     display: none;
   }
 }

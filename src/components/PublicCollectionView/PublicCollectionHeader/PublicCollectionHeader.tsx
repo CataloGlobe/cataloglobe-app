@@ -414,6 +414,7 @@ export default function PublicCollectionHeader({
                                         className={styles.iconBtn}
                                         onClick={onOpenSupport}
                                         aria-label={t("assistance.aria")}
+                                        tabIndex={mode === "preview" ? -1 : undefined}
                                     >
                                         <Bell size={15} strokeWidth={2} />
                                     </button>
@@ -432,6 +433,7 @@ export default function PublicCollectionHeader({
                                                 ? t("fab.cart_aria_count", { count: selectionCount })
                                                 : t("fab.cart_aria")
                                         }
+                                        tabIndex={mode === "preview" ? -1 : undefined}
                                     >
                                         <ShoppingBag size={15} strokeWidth={2} />
                                         {selectionCount > 0 && (
