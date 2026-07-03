@@ -1863,7 +1863,6 @@ export default function CatalogEngine() {
                                 <DataTable<ProductRow>
                                     data={visibleRows}
                                     columns={columns}
-                                    pageSize={20}
                                     selectable
                                     onBulkDelete={handleBulkRemoveSelected}
                                     emptyState={{
