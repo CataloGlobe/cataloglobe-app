@@ -976,8 +976,9 @@ export default function SubscriptionPage() {
                                                 </Text>
                                             </div>
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Le {preview.seats} sedi aggiunte sono attive subito, riproporzionate
-                                                a tariffa Pro fino al rinnovo.
+                                                {seatDir === 1
+                                                    ? "La sede aggiunta è attiva subito, riproporzionata a tariffa Pro fino al rinnovo."
+                                                    : `Le ${seatDir} sedi aggiunte sono attive subito, riproporzionate a tariffa Pro fino al rinnovo.`}
                                             </Text>
                                             <div className={styles.confirmDivider} />
                                             <Text variant="body-sm" colorVariant="muted">
