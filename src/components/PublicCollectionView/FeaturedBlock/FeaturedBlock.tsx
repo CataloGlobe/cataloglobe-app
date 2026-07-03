@@ -15,6 +15,8 @@ type Props = {
     activityId?: string;
     slot?: string;
     layout?: "card" | "highlight";
+    /** false in StyleEditor preview: card e CTA restano visive ma inerti. Default true. */
+    interactive?: boolean;
 };
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -90,7 +92,7 @@ function scrollToSnap(el: HTMLElement, idx: number, totalCount: number) {
    MAIN COMPONENT
    ══════════════════════════════════════════════════════════════════════════ */
 
-export default function FeaturedBlock({ blocks, activityId, slot, layout = "card" }: Props) {
+export default function FeaturedBlock({ blocks, activityId, slot, layout = "card", interactive = true }: Props) {
     const { t } = useTranslation("public");
     // Slot above-the-fold: immagini caricate eager con priorità alta
     const isAboveFold = slot === "before_catalog";
@@ -176,6 +178,7 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
                     className={styles.cardSingle}
                     variant={layout}
                     eager={isAboveFold}
+                    interactive={interactive}
                 />
             </div>
             {!!previewBlock && (
@@ -214,6 +217,7 @@ export default function FeaturedBlock({ blocks, activityId, slot, layout = "card
                         className={styles.cardCarousel}
                         variant={layout}
                         eager={isAboveFold}
+                        interactive={interactive}
                     />
                 ))}
             </div>

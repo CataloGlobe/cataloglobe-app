@@ -14,6 +14,8 @@ export type FeaturedCardProps = {
     variant?: "card" | "highlight";
     /** Above-the-fold: loading="eager" + fetchpriority="high". Default: lazy. */
     eager?: boolean;
+    /** false in StyleEditor preview: card e CTA restano visive ma inerti (niente click/modale/navigazione). Default true. */
+    interactive?: boolean;
 };
 
 /** Adatta lo snake_case di V2FeaturedContent alla forma canonica MediaFraming. */
@@ -44,12 +46,13 @@ function getTagKey(contentType: string | null): string {
     }
 }
 
-export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", eager = false }: FeaturedCardProps) {
+export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", eager = false, interactive = true }: FeaturedCardProps) {
     const { t } = useTranslation("public");
     const tagLabel = t(getTagKey(block.content_type));
     const hasImage = !!block.media_id;
     const hasCta = !!block.cta_text && !!block.cta_url;
     const keyHandler = (e: KeyboardEvent) => {
+        if (!interactive) return;
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
     };
 
@@ -57,9 +60,9 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
         return (
             <div
                 role="listitem"
-                tabIndex={0}
-                className={`${styles.card} ${styles.cardHighlight} ${className ?? ""}`}
-                onClick={onClick}
+                tabIndex={interactive ? 0 : -1}
+                className={`${styles.card} ${styles.cardHighlight} ${interactive ? "" : styles.nonInteractive} ${className ?? ""}`}
+                onClick={interactive ? onClick : undefined}
                 onKeyDown={keyHandler}
             >
                 {hasImage && (
@@ -88,15 +91,25 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                     )}
                     {hasCta && (
                         <div className={styles.highlightCtaWrapper}>
-                            <a
-                                href={block.cta_url!}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className={styles.highlightCta}
-                                onClick={(e) => { e.stopPropagation(); onCtaClick?.(); }}
-                            >
-                                {block.cta_text}
-                            </a>
+                            {interactive ? (
+                                <a
+                                    href={block.cta_url!}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className={styles.highlightCta}
+                                    onClick={(e) => { e.stopPropagation(); onCtaClick?.(); }}
+                                >
+                                    {block.cta_text}
+                                </a>
+                            ) : (
+                                <span
+                                    className={styles.highlightCta}
+                                    tabIndex={-1}
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    {block.cta_text}
+                                </span>
+                            )}
                         </div>
                     )}
                 </div>
@@ -107,9 +120,9 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
     return (
         <div
             role="listitem"
-            tabIndex={0}
-            className={`${styles.card} ${className ?? ""}`}
-            onClick={onClick}
+            tabIndex={interactive ? 0 : -1}
+            className={`${styles.card} ${interactive ? "" : styles.nonInteractive} ${className ?? ""}`}
+            onClick={interactive ? onClick : undefined}
             onKeyDown={keyHandler}
         >
             <div className={styles.cardThumb}>
@@ -138,15 +151,25 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                 )}
                 {hasCta && (
                     <div className={styles.cardCtaWrapper}>
-                        <a
-                            href={block.cta_url!}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className={styles.cardCta}
-                            onClick={(e) => { e.stopPropagation(); onCtaClick?.(); }}
-                        >
-                            {block.cta_text}
-                        </a>
+                        {interactive ? (
+                            <a
+                                href={block.cta_url!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={styles.cardCta}
+                                onClick={(e) => { e.stopPropagation(); onCtaClick?.(); }}
+                            >
+                                {block.cta_text}
+                            </a>
+                        ) : (
+                            <span
+                                className={styles.cardCta}
+                                tabIndex={-1}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {block.cta_text}
+                            </span>
+                        )}
                     </div>
                 )}
             </div>
