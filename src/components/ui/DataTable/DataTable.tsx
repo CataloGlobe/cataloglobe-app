@@ -325,14 +325,6 @@ export function DataTable<T>({
     );
     const pageSizeMin: number = firstNumericOption ?? DEFAULT_PAGE_SIZE;
 
-    // Auto-reset currentPageSize to initial when dataset drops at/below threshold
-    useEffect(() => {
-        if (data.length <= pageSizeMin && currentPageSize !== initialSelection) {
-            setCurrentPageSize(initialSelection);
-            setCurrentPage(1);
-        }
-    }, [data.length, pageSizeMin, initialSelection, currentPageSize]);
-
     const displayData = useMemo(() => {
         if (!hasOverflow) return data;
         const start = (safePage - 1) * numericPageSize;
