@@ -31,10 +31,10 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 <ColorReadRow label="Sfondo pagina" value={model.colors.pageBackground} tooltip="Colore di sfondo dell'intera pagina pubblica." />
                 <ColorReadRow label="Colore primario" value={model.colors.primary} tooltip="Colore identità: header, navigazione, sezioni attive e marchio." />
                 <ColorReadRow
-                    label="Colore accent"
+                    label="Colore secondario"
                     value={model.colors.accent || model.colors.primary}
                     note={model.colors.accent ? undefined : "(= primario)"}
-                    tooltip="Colore per gli elementi d'azione: pulsanti dei prodotti e CTA. Se non impostato, usa il colore primario."
+                    tooltip="Applicato ai pulsanti dei prodotti e alle call-to-action. Se non impostato, usa il colore primario."
                 />
                 <div className={sharedStyles.controlField}>
                     <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>

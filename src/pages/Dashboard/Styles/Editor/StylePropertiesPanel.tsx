@@ -196,8 +196,8 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 {/* COLORE ACCENT (ruolo azione) — sempre visibile, segue il primario finché non personalizzato */}
                 <StyleColorPicker
-                    label="Colore accent"
-                    labelSuffix={<InfoTooltip content="Colore per gli elementi d'azione: pulsanti dei prodotti e CTA. Se non impostato, usa il colore primario." />}
+                    label="Colore secondario"
+                    labelSuffix={<InfoTooltip content="Applicato ai pulsanti dei prodotti e alle call-to-action. Se non impostato, usa il colore primario." />}
                     value={model.colors.accent ?? model.colors.primary}
                     onChange={val => updateColor("accent", val)}
                 />
