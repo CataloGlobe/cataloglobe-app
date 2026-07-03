@@ -102,6 +102,19 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         }
     }
 
+    // In-memory patch of the selected tenant only (matched by the route businessId).
+    // Reflects authoritative post-commit values immediately, ahead of the async
+    // Stripe webhook that syncs `tenants` in the DB. No network refetch, no race.
+    const patchSelectedTenant = useCallback(
+        (patch: Partial<Pick<V2Tenant, "plan" | "paid_seats">>) => {
+            if (!businessId) return;
+            setTenants(prev =>
+                prev.map(t => (t.id === businessId ? { ...t, ...patch } : t))
+            );
+        },
+        [businessId]
+    );
+
     return (
         <TenantContext.Provider
             value={{
@@ -111,7 +124,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
                 userRole,
                 loading,
                 selectTenant,
-                refreshTenants: fetchTenants
+                refreshTenants: fetchTenants,
+                patchSelectedTenant
             }}
         >
             {children}
