@@ -225,11 +225,16 @@ export default function PublicBottomBar({
                 >
                     <span className={styles.cartIcon} data-bump={bump ? "true" : "false"}>
                         {/* Sempre a contorno: il fill bianco riduce la leggibilità ed è
-                            ridondante col pallino che già segnala la selezione. */}
+                            ridondante col badge numerico che già segnala la selezione. */}
                         <ShoppingBag size={19} strokeWidth={1.9} fill="none" />
                     </span>
-                    {/* Indicatore binario: pallino rosso quando selectionCount > 0 (niente numero). */}
-                    {selectionCount > 0 && <span className={styles.cartDot} aria-hidden="true" />}
+                    {/* Badge numerico: conteggio selezione, stessa fonte dati del badge desktop
+                        equivalente (PublicCollectionHeader). */}
+                    {selectionCount > 0 && (
+                        <span className={styles.cartBadge} aria-hidden="true">
+                            {selectionCount}
+                        </span>
+                    )}
                 </button>
             )}
             </nav>
