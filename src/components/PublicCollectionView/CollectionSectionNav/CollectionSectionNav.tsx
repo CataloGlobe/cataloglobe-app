@@ -22,7 +22,7 @@ export type CollectionSectionNavProps = {
     activeChildId?: string | null;
     variant?: "preview" | "public";
     style?: {
-        navStyle?: "filled" | "outline" | "tabs" | "dot" | "minimal";
+        navStyle?: "filled" | "outline" | "tabs" | "minimal";
     };
     /** Ref opzionale alla `<nav>` sticky — usata dal parent per misurarne
      *  l'offsetHeight reale nel calcolo dell'offset di scroll-to-categoria. */

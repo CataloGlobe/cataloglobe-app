@@ -170,7 +170,7 @@
     background: transparent;
 
     &[data-active="true"] {
-      background: var(--pub-primary-soft);
+      background: transparent;
       color: var(--pub-primary);
       border: 2px solid var(--pub-primary);
 
@@ -196,7 +196,7 @@
 
   .pill {
     border-radius: 0;
-    padding: 0.6rem 1rem;
+    padding: 0.5rem 1rem;
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
@@ -224,50 +224,17 @@
   }
 
   .pill {
-    border-radius: var(--pub-btn-radius, 4px);
-    background: transparent;
-    border: none;
-    color: var(--pub-bg-text-secondary);
-    font-weight: 400;
-
-    &[data-active="true"] {
-      background: transparent;
-      color: var(--pub-primary);
-      font-weight: 500;
-
-      * {
-        color: inherit;
-      }
-    }
-  }
-}
-
-/* ---------------------------------------------
-   STILE DOT
---------------------------------------------- */
-.nav[data-nav-style="dot"] {
-  background: color-mix(in srgb, var(--pub-bg) 95%, transparent);
-  backdrop-filter: blur(4px);
-  border-bottom: 1px solid color-mix(in srgb, var(--pub-border) 50%, transparent);
-
-  .list {
-    gap: 0.5rem;
-  }
-
-  .pill {
     position: relative;
     border-radius: var(--pub-btn-radius, 4px);
     background: transparent;
     border: none;
     color: var(--pub-bg-text-secondary);
     font-weight: 400;
-    padding-bottom: 1.1rem;
 
     &[data-active="true"] {
       background: transparent;
       color: var(--pub-primary);
       font-weight: 500;
-      padding-bottom: 1.1rem;
 
       * {
         color: inherit;
@@ -276,12 +243,12 @@
       &::after {
         content: "";
         position: absolute;
-        bottom: 0.35rem;
+        bottom: -6px;
         left: 50%;
         transform: translateX(-50%);
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
+        width: 16px;
+        height: 1.5px;
+        border-radius: 1px;
         background: var(--pub-primary);
       }
     }
@@ -325,7 +292,7 @@
   border: 1.5px solid transparent;
 
   &[data-active="true"] {
-    background: var(--pub-primary-soft);
+    background: transparent;
     border: 2px solid var(--pub-primary);
 
     .pillLabel,
@@ -352,39 +319,11 @@
 }
 
 .nav[data-nav-style="minimal"] .pillWithChildren {
-  border-radius: var(--pub-btn-radius, 4px);
-
-  &[data-active="true"] {
-    background: transparent;
-
-    .pillLabel,
-    .pillChevron {
-      color: var(--pub-primary);
-    }
-  }
-}
-
-.nav[data-nav-style="dot"] .pillWithChildren {
   position: relative;
   border-radius: var(--pub-btn-radius, 4px);
-  /* Nessun padding sul wrapper: lo spazio del dot viene dai figli */
-  padding-bottom: 0;
-
-  /* Il label porta il padding-bottom del dot, identico a .pill */
-  .pillLabel {
-    padding-bottom: 1.1rem;
-  }
-
-  /* Il chevron allineato al label: togliamo min-height che gonfiava l'altezza */
-  .pillChevron {
-    min-height: 0;
-    padding-top: 0.5rem;
-    padding-bottom: 1.1rem;
-  }
 
   &[data-active="true"] {
     background: transparent;
-    padding-bottom: 0;
 
     .pillLabel,
     .pillChevron {
@@ -394,12 +333,12 @@
     &::after {
       content: "";
       position: absolute;
-      bottom: 0.35rem;
+      bottom: -6px;
       left: 50%;
       transform: translateX(-50%);
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
+      width: 16px;
+      height: 1.5px;
+      border-radius: 1px;
       background: var(--pub-primary);
     }
   }
@@ -428,14 +367,15 @@
   }
 }
 
-/* Bottone chevron — area touch minima 44×44px (Apple HIG) */
+/* Bottone chevron — area touch minima 44px in larghezza (Apple HIG).
+   Altezza NON forzata a 44px: seguirebbe il padding verticale della pill,
+   altrimenti gonfia la riga nav quando la categoria attiva ha sottocategorie. */
 .pillChevron {
   display: flex;
   align-items: center;
   justify-content: center;
   min-width: 44px;
-  min-height: 44px;
-  padding: 0 0.5rem;
+  padding: 0.5rem;
   border: none;
   background: transparent;
   color: inherit;
@@ -462,11 +402,7 @@
 /* Varianti: padding label per tabs */
 .nav[data-nav-style="tabs"] {
   .pillLabel {
-    padding: 0.6rem 0.35rem 0.6rem 1rem;
-  }
-
-  .pillChevron {
-    padding: 0.6rem 0.5rem;
+    padding: 0.5rem 0.35rem 0.5rem 1rem;
   }
 }
 

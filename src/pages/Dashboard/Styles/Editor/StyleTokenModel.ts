@@ -1,4 +1,4 @@
-export type NavigationStyle = "filled" | "outline" | "tabs" | "dot" | "minimal";
+export type NavigationStyle = "filled" | "outline" | "tabs" | "minimal";
 export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type BorderRadius = "none" | "soft" | "rounded";
@@ -197,12 +197,12 @@ export function parseTokens(rawJson: any): StyleTokenModel {
         },
         navigation: {
             style: (() => {
-                // Mapping deprecato: "pill" e "chip" consolidati in "filled"
+                // Mapping deprecato: "pill", "chip" e "dot" (variante rimossa) consolidati in "filled"
                 const migrated =
-                    rawNav.style === "pill" || rawNav.style === "chip"
+                    rawNav.style === "pill" || rawNav.style === "chip" || rawNav.style === "dot"
                         ? "filled"
                         : rawNav.style;
-                return ["filled", "outline", "tabs", "dot", "minimal"].includes(migrated)
+                return ["filled", "outline", "tabs", "minimal"].includes(migrated)
                     ? (migrated as NavigationStyle)
                     : DEFAULT_STYLE_TOKENS.navigation.style;
             })()

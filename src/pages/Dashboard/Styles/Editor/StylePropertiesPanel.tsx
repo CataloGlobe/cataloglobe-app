@@ -49,7 +49,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "filled", label: "Pill" },
         { value: "outline", label: "Outline" },
         { value: "tabs", label: "Tabs" },
-        { value: "dot", label: "Dot" },
         { value: "minimal", label: "Minimal" }
     ];
 

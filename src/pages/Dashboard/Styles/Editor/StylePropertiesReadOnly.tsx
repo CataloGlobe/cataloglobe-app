@@ -194,7 +194,6 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                                 { value: "filled" as NavigationStyle, label: "Pill" },
                                 { value: "outline" as NavigationStyle, label: "Outline" },
                                 { value: "tabs" as NavigationStyle, label: "Tabs" },
-                                { value: "dot" as NavigationStyle, label: "Dot" },
                                 { value: "minimal" as NavigationStyle, label: "Minimal" }
                             ]
                         ).map(opt => {

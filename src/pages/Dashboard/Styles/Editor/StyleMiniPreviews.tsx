@@ -57,21 +57,6 @@ export function NavMiniPreview({
                     </span>
                 </>
             );
-        case "dot":
-            return (
-                <>
-                    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                        <span style={{ ...B, width: 18, height: 3, background: primaryColor, borderRadius: 1 }} />
-                        <span style={{ ...B, width: 4, height: 4, borderRadius: 99, background: primaryColor }} />
-                    </span>
-                    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2, opacity: 0.35, flexShrink: 0 }}>
-                        <span style={{ ...B, width: 14, height: 3, background: G, borderRadius: 1 }} />
-                    </span>
-                    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2, opacity: 0.35, flexShrink: 0 }}>
-                        <span style={{ ...B, width: 14, height: 3, background: G, borderRadius: 1 }} />
-                    </span>
-                </>
-            );
         case "minimal":
             return (
                 <>
