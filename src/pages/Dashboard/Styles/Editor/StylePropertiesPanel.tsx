@@ -47,6 +47,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const navigationOptions: Array<{ value: NavigationStyle; label: string }> = [
         { value: "filled", label: "Pill" },
+        { value: "tinted", label: "Soft" },
         { value: "outline", label: "Outline" },
         { value: "tabs", label: "Tabs" },
         { value: "minimal", label: "Minimal" }

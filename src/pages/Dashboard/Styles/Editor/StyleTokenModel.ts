@@ -1,4 +1,4 @@
-export type NavigationStyle = "filled" | "outline" | "tabs" | "minimal";
+export type NavigationStyle = "filled" | "outline" | "tabs" | "minimal" | "tinted";
 export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type BorderRadius = "none" | "soft" | "rounded";
@@ -211,7 +211,7 @@ export function parseTokens(rawJson: any): StyleTokenModel {
                     rawNav.style === "pill" || rawNav.style === "chip" || rawNav.style === "dot"
                         ? "filled"
                         : rawNav.style;
-                return ["filled", "outline", "tabs", "minimal"].includes(migrated)
+                return ["filled", "outline", "tabs", "minimal", "tinted"].includes(migrated)
                     ? (migrated as NavigationStyle)
                     : DEFAULT_STYLE_TOKENS.navigation.style;
             })()

@@ -65,6 +65,14 @@ export function NavMiniPreview({
                     <span style={{ ...B, width: 16, height: 5, background: G, borderRadius: 2, opacity: 0.35 }} />
                 </>
             );
+        case "tinted":
+            return (
+                <>
+                    <span style={{ ...B, background: primaryColor, opacity: 0.18, borderRadius: radiusPx, width: 24, height: 11 }} />
+                    <span style={{ ...B, background: G, borderRadius: radiusPx, width: 18, height: 11, opacity: 0.45 }} />
+                    <span style={{ ...B, background: G, borderRadius: radiusPx, width: 18, height: 11, opacity: 0.45 }} />
+                </>
+            );
     }
 }
 

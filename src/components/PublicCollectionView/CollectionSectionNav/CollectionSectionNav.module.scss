@@ -166,13 +166,13 @@
 .nav[data-nav-style="outline"] {
   .pill {
     border-radius: var(--pub-radius, 20px);
-    border: 1.5px solid transparent;
+    border: none;
     background: transparent;
 
     &[data-active="true"] {
       background: transparent;
       color: var(--pub-primary);
-      border: 2px solid var(--pub-primary);
+      box-shadow: inset 0 0 0 1px var(--pub-primary);
 
       * {
         color: inherit;
@@ -256,6 +256,28 @@
 }
 
 /* ---------------------------------------------
+   STILE TINTED (sfondo soffuso)
+--------------------------------------------- */
+.nav[data-nav-style="tinted"] {
+  .pill {
+    background: transparent;
+    border: none;
+    color: var(--pub-bg-text-secondary);
+    font-weight: 400;
+
+    &[data-active="true"] {
+      background: var(--pub-primary-soft);
+      color: var(--pub-primary);
+      font-weight: 500;
+
+      * {
+        color: inherit;
+      }
+    }
+  }
+}
+
+/* ---------------------------------------------
    PILL WITH CHILDREN — wrapper con label + chevron
 --------------------------------------------- */
 
@@ -289,11 +311,11 @@
 /* Varianti: aggiusta border-radius e active state */
 .nav[data-nav-style="outline"] .pillWithChildren {
   border-radius: var(--pub-radius, 20px);
-  border: 1.5px solid transparent;
+  border: none;
 
   &[data-active="true"] {
     background: transparent;
-    border: 2px solid var(--pub-primary);
+    box-shadow: inset 0 0 0 1px var(--pub-primary);
 
     .pillLabel,
     .pillChevron {
@@ -340,6 +362,17 @@
       height: 1.5px;
       border-radius: 1px;
       background: var(--pub-primary);
+    }
+  }
+}
+
+.nav[data-nav-style="tinted"] .pillWithChildren {
+  &[data-active="true"] {
+    background: var(--pub-primary-soft);
+
+    .pillLabel,
+    .pillChevron {
+      color: var(--pub-primary);
     }
   }
 }

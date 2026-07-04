@@ -283,7 +283,7 @@ export default function PublicCatalogReady({
 
     // Derive CollectionStyle from stored tokens so runtime matches preview
     const tokens = parseTokens(resolved.style?.config ?? null);
-    const navStyle = tokens.navigation.style; // "filled" | "outline" | "tabs" | "minimal"
+    const navStyle = tokens.navigation.style; // "filled" | "outline" | "tabs" | "minimal" | "tinted"
     const cardTemplate: "no-image" | "left" | "right" =
         tokens.card.image.mode === "hide"
             ? "no-image"

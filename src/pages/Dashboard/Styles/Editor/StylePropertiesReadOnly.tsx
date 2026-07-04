@@ -192,6 +192,7 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         {(
                             [
                                 { value: "filled" as NavigationStyle, label: "Pill" },
+                                { value: "tinted" as NavigationStyle, label: "Soft" },
                                 { value: "outline" as NavigationStyle, label: "Outline" },
                                 { value: "tabs" as NavigationStyle, label: "Tabs" },
                                 { value: "minimal" as NavigationStyle, label: "Minimal" }
