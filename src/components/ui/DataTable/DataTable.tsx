@@ -86,7 +86,6 @@ interface DataTableProps<T> {
     rowWrapper?: (row: ReactNode, rowData: T, rowIndex: number) => ReactNode;
 }
 
-const DEFAULT_PAGE_SIZE = 25;
 const DEFAULT_PAGE_SIZE_OPTIONS: DataTablePageSizeOption[] = [25, 50, 100, "all"];
 const DEFAULT_MAX_HEIGHT = "calc(100dvh - 280px)";
 const CHECKBOX_COLUMN_WIDTH = "48px";
@@ -307,7 +306,10 @@ export function DataTable<T>({
     );
 
     const { fit: autoFit, measuredHeightPx } = useAutoPageSize({
-        enabled: isAutoMode && !isLoading && data.length > 0,
+        // Misura sempre (anche in manuale) per riempire il probe vincolato; il
+        // fit (righe/pagina) è calcolato solo in auto via `autoMode`.
+        enabled: !isLoading && data.length > 0,
+        autoMode: isAutoMode,
         probeRef,
         tableRef,
         headerRef,
@@ -322,11 +324,6 @@ export function DataTable<T>({
     const hasOverflow = !isAllMode && data.length > numericPageSize;
     const totalPages = hasOverflow ? Math.max(1, Math.ceil(data.length / numericPageSize)) : 1;
     const safePage = Math.min(currentPage, totalPages);
-
-    const firstNumericOption = pageSizeOptions.find(
-        (o): o is number => typeof o === "number"
-    );
-    const pageSizeMin: number = firstNumericOption ?? DEFAULT_PAGE_SIZE;
 
     const displayData = useMemo(() => {
         if (!hasOverflow) return data;
@@ -471,11 +468,11 @@ export function DataTable<T>({
 
         const showRange = hasOverflow;
         const showControls = hasOverflow && !isAllMode;
-        // hasOverflow incluso: in auto mode il fit può scendere sotto pageSizeMin
-        // (viewport basso) → pagina i risultati anche con dataset piccolo; senza
-        // questo, i controlli pagina apparirebbero col selettore nascosto.
-        const showDropdown =
-            pageSizeOptions.length > 1 && (data.length > pageSizeMin || hasOverflow);
+        // Il selettore "Per pagina" resta SEMPRE visibile: "Auto" è una scelta
+        // reversibile, l'utente deve poter tornare indietro o cambiare valore
+        // anche quando totale ≤ pageSize (niente overflow). Solo le frecce di
+        // navigazione (showControls) restano condizionate a hasOverflow.
+        const showDropdown = pageSizeOptions.length > 1;
 
         const countLabel = showRange
             ? `${startRow}–${endRow} di ${data.length}`

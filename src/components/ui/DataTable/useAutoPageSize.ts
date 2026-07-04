@@ -35,8 +35,19 @@ function isProbeStretchedByParent(probe: HTMLElement): boolean {
 }
 
 interface UseAutoPageSizeArgs {
-    /** false quando la selezione è manuale/"all": nessuna misura. */
+    /**
+     * Gate della MISURA: true quando c'è un dataset da misurare (non-loading,
+     * data.length > 0), INDIPENDENTE dalla modalità. La misura serve anche in
+     * manuale per riempire il probe vincolato (`measuredHeightPx`). false =
+     * niente misura (loading/empty) → reset.
+     */
     enabled: boolean;
+    /**
+     * true solo in modalità "auto": gate del CALCOLO righe (`fit`). In manuale
+     * la misura continua (per il fill) ma `fit` non viene né calcolato né
+     * ritornato — il chiamante usa il pageSize scelto.
+     */
+    autoMode: boolean;
     probeRef: RefObject<HTMLDivElement | null>;
     tableRef: RefObject<HTMLDivElement | null>;
     headerRef: RefObject<HTMLDivElement | null>;
@@ -72,6 +83,7 @@ export interface AutoPageSizeResult {
  */
 export function useAutoPageSize({
     enabled,
+    autoMode,
     probeRef,
     tableRef,
     headerRef,
@@ -88,10 +100,10 @@ export function useAutoPageSize({
 
     useEffect(() => {
         if (!enabled) {
-            // Uscita dalla modalità auto: lo stato di isteresi vale solo per
-            // continuità DENTRO una sessione di misura viva — azzerarlo qui fa
-            // sì che il rientro in auto riparta dal ramo "prima misura".
-            // `fit` resta: alla riattivazione evita il flash sul fallback 25.
+            // Niente dataset da misurare (loading/empty): lo stato di isteresi
+            // vale solo per continuità DENTRO una sessione di misura viva —
+            // azzerarlo qui fa ripartire dal ramo "prima misura". `fit` resta:
+            // alla riattivazione evita il flash sul fallback 25.
             hysteresisRef.current = null;
             setMeasuredHeightPx(null);
             return;
@@ -129,6 +141,24 @@ export function useAutoPageSize({
                 maxHeightIsExplicit,
                 isProbeStretched
             });
+            // ── measuredHeightPx (altezza di riempimento) — SEMPRE ──────────
+            // Il riempimento del probe vincolato NON dipende dalla modalità:
+            // anche in manuale la tabella deve restare piena e scrollare
+            // internamente. Ramo non-ambiguo + maxHeight default → usa lo spazio
+            // reale; ramo ambiguo (block non vincolato) o esplicito (drawer) →
+            // null, il chiamante tiene il proprio maxHeight (shrink-to-fit).
+            // Il probe stretchato non è mai ambiguo anche con diff piccolo.
+            const ambiguous =
+                Math.abs(probeHeightPx - contentHeightPx) <= AMBIGUITY_TOLERANCE_PX &&
+                !isProbeStretched;
+            const nextMeasuredHeightPx =
+                !ambiguous && !maxHeightIsExplicit ? available : null;
+            setMeasuredHeightPx(prev =>
+                prev === nextMeasuredHeightPx ? prev : nextMeasuredHeightPx
+            );
+
+            // ── fit (righe per pagina) — SOLO in modalità auto ──────────────
+            if (!autoMode) return;
             const candidate = computeFit(available, chromePx, avg);
             if (candidate == null) return;
 
@@ -138,22 +168,6 @@ export function useAutoPageSize({
                     : applyHysteresis(hysteresisRef.current, candidate);
             hysteresisRef.current = next;
             setFit(prev => (prev === next.applied ? prev : next.applied));
-
-            // Ramo non-ambiguo + maxHeight default: il box del `.table` deve
-            // poter crescere fino al probe reale, non restare capato dal
-            // default CSS (vedi resolveAvailable). Ramo ambiguo/esplicito:
-            // nessun override, il chiamante continua a usare il proprio
-            // `maxHeight` statico — comportamento invariato.
-            // Stessa logica di resolveAvailable: il probe stretchato non è mai
-            // ambiguo anche con diff piccolo (tabella che riempie il probe).
-            const ambiguous =
-                Math.abs(probeHeightPx - contentHeightPx) <= AMBIGUITY_TOLERANCE_PX &&
-                !isProbeStretched;
-            const nextMeasuredHeightPx =
-                !ambiguous && !maxHeightIsExplicit ? available : null;
-            setMeasuredHeightPx(prev =>
-                prev === nextMeasuredHeightPx ? prev : nextMeasuredHeightPx
-            );
         };
 
         const schedule = () => {
@@ -177,6 +191,7 @@ export function useAutoPageSize({
         };
     }, [
         enabled,
+        autoMode,
         sampleKey,
         probeRef,
         tableRef,
@@ -187,7 +202,7 @@ export function useAutoPageSize({
         maxHeightIsExplicit
     ]);
 
-    return enabled
-        ? { fit, measuredHeightPx }
-        : { fit: null, measuredHeightPx: null };
+    if (!enabled) return { fit: null, measuredHeightPx: null };
+    // `fit` solo in auto; `measuredHeightPx` (fill) vale in entrambe le modalità.
+    return { fit: autoMode ? fit : null, measuredHeightPx };
 }
