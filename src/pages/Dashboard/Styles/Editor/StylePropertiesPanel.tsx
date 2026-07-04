@@ -140,6 +140,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         onChange({ ...model, appearance: { ...model.appearance, featuredStyle } });
     };
 
+    const updateShowFeaturedSubtitle = (showFeaturedSubtitle: boolean) => {
+        onChange({ ...model, appearance: { ...model.appearance, showFeaturedSubtitle } });
+    };
+
     const updateHeaderBool = (
         key: "showLogo" | "showCoverImage" | "showCatalogName" | "showAddress",
         value: boolean
@@ -450,6 +454,36 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                 >
                                     <FeaturedStylePreview variant={option.value} />
                                     <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Descrizione nell'anteprima<InfoTooltip content="Mostra o nascondi la riga descrittiva sotto il titolo, nella card dell'overview. Nella finestra di dettaglio resta sempre visibile." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {(
+                            [
+                                { value: true, label: "Mostra" },
+                                { value: false, label: "Nascondi" }
+                            ] as Array<{ value: boolean; label: string }>
+                        ).map(opt => {
+                            const isActive = (model.appearance.showFeaturedSubtitle ?? true) === opt.value;
+                            return (
+                                <button
+                                    key={String(opt.value)}
+                                    type="button"
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateShowFeaturedSubtitle(opt.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {opt.label}
+                                    </Text>
                                 </button>
                             );
                         })}

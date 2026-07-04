@@ -12,6 +12,8 @@ export type FeaturedCardProps = {
     onCtaClick?: () => void;
     className?: string;
     variant?: "card" | "highlight";
+    /** Mostra il subtitle nella card overview. Default true (comportamento storico). */
+    showSubtitle?: boolean;
     /** Above-the-fold: loading="eager" + fetchpriority="high". Default: lazy. */
     eager?: boolean;
     /** false in StyleEditor preview: card e CTA restano visive ma inerti (niente click/modale/navigazione). Default true. */
@@ -46,7 +48,7 @@ function getTagKey(contentType: string | null): string {
     }
 }
 
-export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", eager = false, interactive = true }: FeaturedCardProps) {
+export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", showSubtitle = true, eager = false, interactive = true }: FeaturedCardProps) {
     const { t } = useTranslation("public");
     const tagLabel = t(getTagKey(block.content_type));
     const hasImage = !!block.media_id;
@@ -83,7 +85,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                 </span>
                 <div className={styles.highlightContent}>
                     <span className={styles.highlightTitle}>{block.title}</span>
-                    {block.subtitle && (
+                    {showSubtitle && block.subtitle && (
                         <span className={styles.highlightSubtitle}>{block.subtitle}</span>
                     )}
                     {block.pricing_mode === "bundle" && block.bundle_price != null && (
@@ -143,7 +145,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
             </div>
             <div className={styles.cardBody}>
                 <span className={styles.cardTitle}>{block.title}</span>
-                {block.subtitle && (
+                {showSubtitle && block.subtitle && (
                     <span className={styles.cardSubtitle}>{block.subtitle}</span>
                 )}
                 {block.pricing_mode === "bundle" && block.bundle_price != null && (

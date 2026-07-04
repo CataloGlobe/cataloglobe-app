@@ -396,7 +396,7 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
                                 openingHours={MOCK_OPENING_HOURS}
                                 upcomingClosures={MOCK_UPCOMING_CLOSURES}
                                 featuredBeforeCatalogSlot={
-                                    <FeaturedBlock blocks={MOCK_FEATURED} layout={model.appearance.featuredStyle} interactive={false} />
+                                    <FeaturedBlock blocks={MOCK_FEATURED} layout={model.appearance.featuredStyle} showSubtitle={model.appearance.showFeaturedSubtitle ?? true} interactive={false} />
                                 }
                             />
                         </div>
@@ -432,7 +432,7 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
                                     openingHours={MOCK_OPENING_HOURS}
                                     upcomingClosures={MOCK_UPCOMING_CLOSURES}
                                     featuredBeforeCatalogSlot={
-                                        <FeaturedBlock blocks={MOCK_FEATURED} layout={model.appearance.featuredStyle} interactive={false} />
+                                        <FeaturedBlock blocks={MOCK_FEATURED} layout={model.appearance.featuredStyle} showSubtitle={model.appearance.showFeaturedSubtitle ?? true} interactive={false} />
                                     }
                                 />
                             </div>

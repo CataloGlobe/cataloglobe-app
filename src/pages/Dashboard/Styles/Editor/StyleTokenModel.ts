@@ -27,6 +27,8 @@ export interface StyleTokenModel {
         cardTreatment: CardTreatment;
         /** Colore bordo per cardTreatment "bordered". Assente = "auto" (blend derivato, comportamento storico). */
         outlinedBorderColor?: OutlinedBorderColor;
+        /** Sottotitolo nella card overview dei contenuti in evidenza. Assente = true (mostrato, comportamento storico). */
+        showFeaturedSubtitle?: boolean;
     };
     header: {
         showLogo: boolean;
@@ -149,6 +151,12 @@ export function parseTokens(rawJson: any): StyleTokenModel {
         ? rawAppearance.outlinedBorderColor as OutlinedBorderColor
         : undefined;
 
+    // showFeaturedSubtitle: assente = true (mostrato, comportamento storico per stili vecchi)
+    const showFeaturedSubtitle: boolean | undefined =
+        typeof rawAppearance.showFeaturedSubtitle === "boolean" && rawAppearance.showFeaturedSubtitle === false
+            ? false
+            : undefined;
+
     return {
         colors: {
             pageBackground:
@@ -173,7 +181,8 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             patternIntensity,
             featuredStyle,
             cardTreatment,
-            outlinedBorderColor
+            outlinedBorderColor,
+            showFeaturedSubtitle
         },
         header: {
             showLogo:
@@ -248,6 +257,8 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
     };
     // outlinedBorderColor serializzato solo se "primary" (auto → chiave omessa, stesso pattern di accent)
     if (model.appearance.outlinedBorderColor === "primary") appearance.outlinedBorderColor = "primary";
+    // showFeaturedSubtitle serializzato solo se false (true = default, chiave omessa)
+    if (model.appearance.showFeaturedSubtitle === false) appearance.showFeaturedSubtitle = false;
 
     return {
         colors,
