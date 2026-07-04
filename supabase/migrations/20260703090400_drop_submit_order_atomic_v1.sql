@@ -1,0 +1,15 @@
+-- Drop the previous 10-arg submit_order_atomic signature in its OWN migration.
+--
+-- Rationale: `supabase db push` delivers a CREATE FUNCTION migration as a single
+-- prepared statement. A file containing CREATE FUNCTION alongside any other
+-- top-level command (here a DROP) fails with SQLSTATE 42601 "cannot insert
+-- multiple commands into a prepared statement" (same failure mode documented in
+-- CLAUDE.md storage-sql for CREATE FUNCTION + REVOKE/GRANT). Isolating the DROP
+-- lets the companion 20260703090500 hold ONLY the CREATE OR REPLACE.
+--
+-- Runs before 090500 via the earlier timestamp, so the new 11-arg version fully
+-- supersedes the old 10-arg one (adding an 11th param, even DEFAULT NULL, would
+-- otherwise create a second overload and make a 10-named-arg call ambiguous:
+-- "function submit_order_atomic(...) is not unique"). Single statement, so it is
+-- itself immune to the 42601 multi-command error.
+DROP FUNCTION IF EXISTS public.submit_order_atomic(uuid,uuid,uuid,uuid,text,uuid,numeric,text,jsonb,uuid);

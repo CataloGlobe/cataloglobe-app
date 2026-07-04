@@ -97,7 +97,8 @@ export type OrderingStateReason =
     | "ordering_disabled"
     | "table_maintenance"
     | "table_deleted"
-    | "table_closed";
+    | "table_closed"
+    | "ordering_closed";
 
 /**
  * Payload di errore 423 da resolve-table. `canViewMenu=true` significa che

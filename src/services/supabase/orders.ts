@@ -107,7 +107,11 @@ export interface InvalidStateTransitionErrorDetails {
  *   404 SESSION_NOT_FOUND   → "Sessione non trovata"
  *   409 SESSION_EXPIRED     → "Sessione scaduta, scansiona di nuovo il QR"
  *   409 GROUP_CONFLICT      → "Conflitto sul gruppo ordine, riprova"
+ *   409 IDEMPOTENCY_IN_PROGRESS → "Ordine già in elaborazione, attendi qualche istante"
  *   422 INVALID_ITEMS       → "INVALID_ITEMS" (raw + extension `details`)
+ *   423 ORDERING_CLOSED     → messaggio italiano (raw + extension `code`),
+ *                             locale chiuso per orari di apertura (fail-open
+ *                             lato server su errore interno)
  *   429                     → "Troppe richieste, riprova tra un momento"
  *   500                     → "Errore del server"
  */
@@ -121,7 +125,16 @@ export async function submitOrder(
         throw new Error("EMPTY_CART");
     }
 
-    const body: Record<string, unknown> = { items };
+    // One idempotency key per logical submit attempt: generated once before
+    // the invoke below, never regenerated for the lifetime of this call. If
+    // the underlying fetch is retried at the network layer (or the caller
+    // re-invokes after a timeout with the SAME cart), reusing this key lets
+    // submit_order_atomic dedupe server-side instead of creating a duplicate
+    // order. A brand-new user submit (new cart / new click) calls submitOrder
+    // again, generating a fresh key.
+    const idempotencyKey = crypto.randomUUID();
+
+    const body: Record<string, unknown> = { items, idempotency_key: idempotencyKey };
     if (notes !== undefined) body.notes = notes;
     if (targetGroupId !== undefined) body.target_group_id = targetGroupId;
 
@@ -149,6 +162,9 @@ export async function submitOrder(
         if (status === 409 && code === "GROUP_CONFLICT") {
             throw new Error("Conflitto sul gruppo ordine, riprova");
         }
+        if (status === 409 && code === "IDEMPOTENCY_IN_PROGRESS") {
+            throw new Error("Ordine già in elaborazione, attendi qualche istante");
+        }
         if (status === 422 && code === "INVALID_ITEMS") {
             const err = new Error("INVALID_ITEMS");
             (err as Error & { details?: unknown }).details = details;
@@ -162,6 +178,15 @@ export async function submitOrder(
             const err = new Error(rawMessage ?? "ORDERING_UNAVAILABLE");
             (err as Error & { code?: string; reason?: string }).code = "ORDERING_UNAVAILABLE";
             (err as Error & { code?: string; reason?: string }).reason = reason;
+            throw err;
+        }
+        if (status === 423 && code === "ORDERING_CLOSED") {
+            // Locale chiuso in questo momento (opening-hours gate). Non e'
+            // maintenance mode: il cliente resta sul menu, niente redirect.
+            const err = new Error(
+                rawMessage ?? "Il locale è chiuso in questo momento."
+            );
+            (err as Error & { code?: string }).code = "ORDERING_CLOSED";
             throw err;
         }
         if (status === 429) {
