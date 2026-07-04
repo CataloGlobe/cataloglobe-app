@@ -2,9 +2,17 @@
 
 .container {
   background-color: var(--color-gray-50);
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .content {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 // CTA della header band: altezza armonizzata a search/toggle via

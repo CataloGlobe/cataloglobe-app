@@ -1,6 +1,7 @@
 // src/components/ui/DataTable/useAutoPageSize.ts
 import { RefObject, useEffect, useRef, useState } from "react";
 import {
+    AMBIGUITY_TOLERANCE_PX,
     applyHysteresis,
     averageRowHeight,
     computeFit,
@@ -11,6 +12,27 @@ import {
 const ROW_SAMPLE_SIZE = 5;
 // Bordi top/bottom del root .table (1px + 1px) non inclusi in header/footer.
 const BORDERS_PX = 2;
+
+/**
+ * Segnale STRUTTURALE (non basato sull'altezza) per distinguere probe vincolato
+ * da contenitore non vincolato. Il probe è stretchato quando il suo genitore è
+ * un flex/grid a colonna e il probe ha `flex-grow > 0`: in quel caso l'altezza
+ * del probe è imposta dal parent (catena flex vincolata a monte), indipendente
+ * dal contenuto. Un genitore block dà invece probe = altezza-contenuto → NON
+ * stretchato → si applica il fallback diff-based di `resolveAvailable`.
+ */
+function isProbeStretchedByParent(probe: HTMLElement): boolean {
+    const parent = probe.parentElement;
+    if (!parent) return false;
+    const ps = getComputedStyle(parent);
+    const isFlexOrGrid =
+        ps.display === "flex" || ps.display === "inline-flex" || ps.display === "grid";
+    if (!isFlexOrGrid) return false;
+    // grid: l'asse di blocco è verticale; flex: serve la colonna.
+    const column = ps.display === "grid" || ps.flexDirection === "column";
+    if (!column) return false;
+    return (parseFloat(getComputedStyle(probe).flexGrow) || 0) > 0;
+}
 
 interface UseAutoPageSizeArgs {
     /** false quando la selezione è manuale/"all": nessuna misura. */
@@ -24,6 +46,22 @@ interface UseAutoPageSizeArgs {
     rowClassName: string;
     /** Cambia quando cambia il set di righe visibili (pagina/filtri/dataset). */
     sampleKey: string;
+    /** true se il chiamante ha passato `maxHeight` esplicitamente (tetto voluto). */
+    maxHeightIsExplicit: boolean;
+}
+
+export interface AutoPageSizeResult {
+    /** Righe per pagina calcolate dallo spazio reale. null finché non misurato. */
+    fit: number | null;
+    /**
+     * Altezza reale (px) da applicare come `max-height` inline sul `.table`,
+     * quando `maxHeightIsExplicit` è false e il probe è vincolato/non-ambiguo.
+     * null quando il chiamante deve continuare a usare il proprio `maxHeight`
+     * (esplicito, o nessuna misura ancora disponibile/ramo ambiguo) — vedi
+     * `resolveAvailable`: il default CSS è solo rete di sicurezza pre-misura,
+     * NON deve capare un box che il probe misura più alto.
+     */
+    measuredHeightPx: number | null;
 }
 
 /**
@@ -40,9 +78,11 @@ export function useAutoPageSize({
     footerRef,
     bodyRef,
     rowClassName,
-    sampleKey
-}: UseAutoPageSizeArgs): number | null {
+    sampleKey,
+    maxHeightIsExplicit
+}: UseAutoPageSizeArgs): AutoPageSizeResult {
     const [fit, setFit] = useState<number | null>(null);
+    const [measuredHeightPx, setMeasuredHeightPx] = useState<number | null>(null);
     const hysteresisRef = useRef<HysteresisState | null>(null);
     const rafRef = useRef<number | null>(null);
 
@@ -53,6 +93,7 @@ export function useAutoPageSize({
             // sì che il rientro in auto riparta dal ramo "prima misura".
             // `fit` resta: alla riattivazione evita il flash sul fallback 25.
             hysteresisRef.current = null;
+            setMeasuredHeightPx(null);
             return;
         }
         const probe = probeRef.current;
@@ -78,10 +119,15 @@ export function useAutoPageSize({
                 (footerRef.current?.offsetHeight ?? 0) +
                 BORDERS_PX;
 
+            const probeHeightPx = probe.offsetHeight;
+            const contentHeightPx = table.scrollHeight;
+            const isProbeStretched = isProbeStretchedByParent(probe);
             const available = resolveAvailable({
-                probeHeightPx: probe.offsetHeight,
-                contentHeightPx: table.scrollHeight,
-                maxHeightPx
+                probeHeightPx,
+                contentHeightPx,
+                maxHeightPx,
+                maxHeightIsExplicit,
+                isProbeStretched
             });
             const candidate = computeFit(available, chromePx, avg);
             if (candidate == null) return;
@@ -92,6 +138,22 @@ export function useAutoPageSize({
                     : applyHysteresis(hysteresisRef.current, candidate);
             hysteresisRef.current = next;
             setFit(prev => (prev === next.applied ? prev : next.applied));
+
+            // Ramo non-ambiguo + maxHeight default: il box del `.table` deve
+            // poter crescere fino al probe reale, non restare capato dal
+            // default CSS (vedi resolveAvailable). Ramo ambiguo/esplicito:
+            // nessun override, il chiamante continua a usare il proprio
+            // `maxHeight` statico — comportamento invariato.
+            // Stessa logica di resolveAvailable: il probe stretchato non è mai
+            // ambiguo anche con diff piccolo (tabella che riempie il probe).
+            const ambiguous =
+                Math.abs(probeHeightPx - contentHeightPx) <= AMBIGUITY_TOLERANCE_PX &&
+                !isProbeStretched;
+            const nextMeasuredHeightPx =
+                !ambiguous && !maxHeightIsExplicit ? available : null;
+            setMeasuredHeightPx(prev =>
+                prev === nextMeasuredHeightPx ? prev : nextMeasuredHeightPx
+            );
         };
 
         const schedule = () => {
@@ -113,7 +175,19 @@ export function useAutoPageSize({
             if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
             rafRef.current = null;
         };
-    }, [enabled, sampleKey, probeRef, tableRef, headerRef, footerRef, bodyRef, rowClassName]);
+    }, [
+        enabled,
+        sampleKey,
+        probeRef,
+        tableRef,
+        headerRef,
+        footerRef,
+        bodyRef,
+        rowClassName,
+        maxHeightIsExplicit
+    ]);
 
-    return enabled ? fit : null;
+    return enabled
+        ? { fit, measuredHeightPx }
+        : { fit: null, measuredHeightPx: null };
 }

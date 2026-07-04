@@ -40,32 +40,112 @@ describe("computeFit", () => {
 });
 
 describe("resolveAvailable — euristica vincolato/non vincolato", () => {
-    it("probe ≠ contenuto (non ambiguo) → contenitore vincolato: usa il probe, cappato da maxHeight", () => {
+    it("probe ≠ contenuto (non ambiguo), maxHeight DEFAULT → usa il probe reale, NON cappato", () => {
         // probe stretchato dal flex parent (spazio reale 700), contenuto naturale 1400
         expect(
-            resolveAvailable({ probeHeightPx: 700, contentHeightPx: 1400, maxHeightPx: 800 })
+            resolveAvailable({
+                probeHeightPx: 700,
+                contentHeightPx: 1400,
+                maxHeightPx: 800,
+                maxHeightIsExplicit: false,
+                isProbeStretched: true
+            })
         ).toBe(700);
-        // probe più grande del contenuto (parent vincolato, poche righe)
+        // probe più grande del contenuto (parent vincolato, poche righe): il default
+        // maxHeight (800) NON deve cappare la misura reale (900) — bug regression:
+        // Prodotti misurava probe=667 valido e veniva cappato a maxHeight=548.
         expect(
-            resolveAvailable({ probeHeightPx: 900, contentHeightPx: 300, maxHeightPx: 800 })
-        ).toBe(800); // cappato da maxHeight
+            resolveAvailable({
+                probeHeightPx: 900,
+                contentHeightPx: 300,
+                maxHeightPx: 800,
+                maxHeightIsExplicit: false,
+                isProbeStretched: true
+            })
+        ).toBe(900);
     });
 
-    it("caso AMBIGUO (probe ≈ contenuto) → fallback CONSERVATIVO su maxHeight, mai il valore misurato", () => {
-        // Contenitore block non vincolato: il probe cresce col contenuto.
+    it("probe ≈ contenuto MA probe STRETCHED (tabella riempie il probe vincolato) → usa il probe, NON fallback: niente oscillazione al fixpoint", () => {
+        // Il caso che causava il ping-pong 548↔667: diff piccolo (≤4px) ma il probe
+        // è flex-stretched da un genitore vincolato → segnale strutturale vince.
+        expect(
+            resolveAvailable({
+                probeHeightPx: 667,
+                contentHeightPx: 663,
+                maxHeightPx: 548,
+                maxHeightIsExplicit: false,
+                isProbeStretched: true
+            })
+        ).toBe(667);
+    });
+
+    it("probe ≠ contenuto (non ambiguo), maxHeight ESPLICITO più piccolo → cappa (tetto voluto dal chiamante)", () => {
+        expect(
+            resolveAvailable({
+                probeHeightPx: 667,
+                contentHeightPx: 492,
+                maxHeightPx: 500,
+                maxHeightIsExplicit: true,
+                isProbeStretched: true
+            })
+        ).toBe(500);
+    });
+
+    it("probe ≠ contenuto (non ambiguo), maxHeight ESPLICITO più grande del probe → resta il probe", () => {
+        expect(
+            resolveAvailable({
+                probeHeightPx: 667,
+                contentHeightPx: 492,
+                maxHeightPx: 800,
+                maxHeightIsExplicit: true,
+                isProbeStretched: true
+            })
+        ).toBe(667);
+    });
+
+    it("caso AMBIGUO (probe ≈ contenuto E probe NON stretched) → fallback CONSERVATIVO su maxHeight", () => {
+        // Contenitore block NON vincolato: il probe cresce col contenuto.
         // Usare probeHeight qui innescherebbe un loop di crescita.
         expect(
-            resolveAvailable({ probeHeightPx: 1400, contentHeightPx: 1400, maxHeightPx: 800 })
+            resolveAvailable({
+                probeHeightPx: 1400,
+                contentHeightPx: 1400,
+                maxHeightPx: 800,
+                maxHeightIsExplicit: false,
+                isProbeStretched: false
+            })
         ).toBe(800);
         // Entro la tolleranza (±4px) resta ambiguo
         expect(
-            resolveAvailable({ probeHeightPx: 1403, contentHeightPx: 1400, maxHeightPx: 800 })
+            resolveAvailable({
+                probeHeightPx: 1403,
+                contentHeightPx: 1400,
+                maxHeightPx: 800,
+                maxHeightIsExplicit: false,
+                isProbeStretched: false
+            })
+        ).toBe(800);
+        // ambiguo con maxHeight esplicito → resta il fallback su maxHeight
+        expect(
+            resolveAvailable({
+                probeHeightPx: 1400,
+                contentHeightPx: 1400,
+                maxHeightPx: 800,
+                maxHeightIsExplicit: true,
+                isProbeStretched: false
+            })
         ).toBe(800);
     });
 
     it("misure NaN → fallback conservativo su maxHeight", () => {
         expect(
-            resolveAvailable({ probeHeightPx: NaN, contentHeightPx: 1400, maxHeightPx: 800 })
+            resolveAvailable({
+                probeHeightPx: NaN,
+                contentHeightPx: 1400,
+                maxHeightPx: 800,
+                maxHeightIsExplicit: false,
+                isProbeStretched: true
+            })
         ).toBe(800);
     });
 });

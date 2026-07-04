@@ -212,7 +212,7 @@ export function DataTable<T>({
     isLoading = false,
     emptyState,
     loadingState,
-    maxHeight = DEFAULT_MAX_HEIGHT,
+    maxHeight: maxHeightProp,
     pageSize,
     pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
     onRowClick,
@@ -228,6 +228,8 @@ export function DataTable<T>({
     getRowId = defaultGetRowId,
     rowWrapper
 }: DataTableProps<T>) {
+    const maxHeight = maxHeightProp ?? DEFAULT_MAX_HEIGHT;
+    const maxHeightIsExplicit = maxHeightProp !== undefined;
     const initialSelection: PageSizeSelection = pageSize ?? "auto";
     const [currentPageSize, setCurrentPageSize] =
         useState<PageSizeSelection>(initialSelection);
@@ -304,7 +306,7 @@ export function DataTable<T>({
         [data, getRowId]
     );
 
-    const autoFit = useAutoPageSize({
+    const { fit: autoFit, measuredHeightPx } = useAutoPageSize({
         enabled: isAutoMode && !isLoading && data.length > 0,
         probeRef,
         tableRef,
@@ -312,7 +314,8 @@ export function DataTable<T>({
         footerRef,
         bodyRef,
         rowClassName: styles.row,
-        sampleKey: `${data.length}:${currentPage}:${sampleIdentity}`
+        sampleKey: `${data.length}:${currentPage}:${sampleIdentity}`,
+        maxHeightIsExplicit
     });
 
     const numericPageSize = resolveNumericPageSize(currentPageSize, autoFit, data.length);
@@ -542,12 +545,22 @@ export function DataTable<T>({
         );
     };
 
-    const containerStyle: CSSProperties = { maxHeight };
+    // Probe vincolato non-ambiguo + maxHeight default: usa lo spazio reale
+    // misurato invece del default CSS, che altrimenti capa il box sotto lo
+    // spazio realmente disponibile (vedi resolveAvailable).
+    const containerStyle: CSSProperties = {
+        maxHeight: measuredHeightPx != null ? `${measuredHeightPx}px` : maxHeight
+    };
 
     return (
         <>
             <div ref={probeRef} className={styles.autoSizeProbe}>
-                <div ref={tableRef} className={styles.table} style={containerStyle}>
+                <div
+                    ref={tableRef}
+                    className={styles.table}
+                    style={containerStyle}
+                    data-fill={measuredHeightPx != null ? "true" : undefined}
+                >
                     <div className={styles.scrollArea}>
                         <div ref={headerRef} className={styles.header} style={gridStyle}>
                             {selectable && (

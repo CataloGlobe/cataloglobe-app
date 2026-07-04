@@ -17,23 +17,48 @@ export interface ProbeMeasure {
     contentHeightPx: number;
     /** max-height risolta in px del root .table */
     maxHeightPx: number;
+    /**
+     * true se `maxHeight` è stato passato ESPLICITAMENTE dal chiamante (tetto
+     * voluto, es. drawer che non deve sfondare). false se è il default interno
+     * del componente (rete di sicurezza solo per il ramo ambiguo/fallback).
+     */
+    maxHeightIsExplicit: boolean;
+    /**
+     * true se il probe è realmente stretchato da un genitore flex/grid a colonna
+     * VINCOLATO (altezza imposta dal parent, indipendente dal contenuto). Segnale
+     * STRUTTURALE, non basato sull'altezza: risolve la collisione del ramo
+     * ambiguo quando la tabella riempie il probe (probe≈content ma vincolato).
+     * false = genitore block non vincolato (probe cresce col contenuto).
+     */
+    isProbeStretched: boolean;
 }
 
 /**
  * Spazio verticale utilizzabile. Se il probe ha un'altezza chiaramente diversa
- * dal contenuto, il genitore lo sta vincolando → misura reale (cappata da
- * maxHeight). Se probe ≈ contenuto il caso è ambiguo (contenitore block non
- * vincolato: il probe cresce col contenuto) → MAI usare la misura, fallback
- * conservativo su maxHeight per evitare loop di crescita.
+ * dal contenuto, il genitore lo sta vincolando → misura reale affidabile.
+ * Il tetto `maxHeight` di DEFAULT è solo una rete di sicurezza per il ramo
+ * ambiguo: NON va applicato sopra una misura reale valida, altrimenti
+ * sottostima lo spazio disponibile e vanifica la catena flex. Un `maxHeight`
+ * ESPLICITO del chiamante resta invece un tetto voluto anche sul probe reale.
+ * Se probe ≈ contenuto il caso è ambiguo (contenitore block non vincolato: il
+ * probe cresce col contenuto) → MAI usare la misura, fallback su maxHeight
+ * per evitare loop di crescita.
  */
 export function resolveAvailable(m: ProbeMeasure): number {
     if (!Number.isFinite(m.probeHeightPx) || !Number.isFinite(m.contentHeightPx)) {
         return m.maxHeightPx;
     }
-    const ambiguous =
+    // `diff` piccolo capita in DUE casi opposti: (a) probe VINCOLATO che la tabella
+    // ha riempito → vogliamo tenere la misura reale; (b) contenitore NON vincolato
+    // dove probe≈content per crescita → fallback. Il segnale strutturale
+    // `isProbeStretched` (parent flex a colonna vincolato) li distingue senza
+    // dipendere dall'altezza del contenuto → niente più oscillazione al fixpoint.
+    const diffSmall =
         Math.abs(m.probeHeightPx - m.contentHeightPx) <= AMBIGUITY_TOLERANCE_PX;
+    const ambiguous = diffSmall && !m.isProbeStretched;
     if (ambiguous) return m.maxHeightPx;
-    return Math.min(m.probeHeightPx, m.maxHeightPx);
+    if (m.maxHeightIsExplicit) return Math.min(m.probeHeightPx, m.maxHeightPx);
+    return m.probeHeightPx;
 }
 
 /** Righe che entrano nello spazio disponibile, clampate [5, 100]. */

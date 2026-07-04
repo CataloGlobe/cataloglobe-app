@@ -23,6 +23,15 @@
     background: var(--card-bg, #ffffff);
 }
 
+// Probe vincolato (flex-stretched, maxHeight non esplicito): il `.table` deve
+// RIEMPIRE il probe invece di restare shrink-to-fit, così footer e bordo
+// arrivano in fondo e sparisce il gap sotto. Default (fallback/drawer) resta
+// `flex: 0 1 auto` shrink-to-fit — invariato.
+.table[data-fill="true"] {
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
 .scrollArea {
     flex: 1 1 auto;
     min-height: 0;
