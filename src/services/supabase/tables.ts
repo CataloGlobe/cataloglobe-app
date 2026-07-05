@@ -305,25 +305,32 @@ export async function deleteTable(id: string, tenantId: string): Promise<void> {
 }
 
 /**
- * Rigenera `qr_token` (nuovo UUID v4 client-side via crypto.randomUUID).
- * Invalida QR fisici stampati. Le sessioni customer attive restano valide
- * (il JWT customer è firmato su customer_session_id, non sul qr_token).
+ * Rigenera `qr_token` (nuovo UUID v4 lato DB via RPC `regenerate_table_qr_token`).
+ * Invalida QR fisici stampati. La RPC è SECURITY DEFINER e riverifica
+ * `tables.manage` server-side (kill-switch, non affidato solo a RLS).
  *
- * Nota: nessuna RPC `regenerate_table_qr_token` esiste in supabase/migrations/,
- * quindi UPDATE diretto. Il vincolo UNIQUE su `qr_token` rende collisioni
- * statisticamente trascurabili (UUID v4 collision probability ≈ 0).
+ * `terminateActiveSessions` (default true): se true, la RPC azzera anche
+ * `expires_at` delle `customer_sessions` attive sul tavolo — i clienti
+ * connessi dovranno riscansionare il nuovo QR.
  */
 export async function regenerateTableQrToken(
     id: string,
-    tenantId: string
+    tenantId: string,
+    terminateActiveSessions: boolean = true
 ): Promise<V2Table> {
+    const { error: rpcError } = await supabase.rpc("regenerate_table_qr_token", {
+        p_table_id: id,
+        p_terminate_active_sessions: terminateActiveSessions,
+    });
+    if (rpcError) throw rpcError;
+
+    // Re-read the row with the zone join so callers keep zone_name.
     const { data, error } = await supabase
         .from("tables")
-        .update({ qr_token: crypto.randomUUID() })
+        .select("*, zone:table_zones!tables_zone_id_fkey(name)")
         .eq("id", id)
         .eq("tenant_id", tenantId)
         .is("deleted_at", null)
-        .select("*, zone:table_zones!tables_zone_id_fkey(name)")
         .single();
     if (error) throw error;
     return mapJoinedRowToV2Table(data);

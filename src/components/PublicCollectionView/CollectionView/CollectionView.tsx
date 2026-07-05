@@ -1280,6 +1280,12 @@ export default function CollectionView({
                         reason: reason ?? "ordering_disabled",
                         message: msg
                     });
+                } else if (code === "ORDERING_CLOSED") {
+                    // Locale chiuso per orari di apertura: niente redirect,
+                    // il cliente resta sul menu con un feedback inline (stesso
+                    // pattern maintenance/session, no toast su questa pagina
+                    // pubblica).
+                    setSubmitFeedback({ type: "error", message: msg });
                 } else if (msg.toLowerCase().includes("scaduta") || msg === "SESSION_EXPIRED") {
                     customerSession.clear();
                     setSubmitFeedback({

@@ -37,17 +37,19 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyCustomerJwt } from "../_shared/customerJwt.ts";
-import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { checkRateLimit, RateLimitExceededError, extractClientIp, hashIp } from "../_shared/rateLimit.ts";
 import {
     validateAndSnapshotOrderItems,
     ValidateOrderItemsError,
     type RequestedOrderItem,
     type ValidatedOrder
 } from "../_shared/validateOrderItems.ts";
+import { OrderCapError } from "../_shared/orderCaps.ts";
 import {
     checkOrderingState,
     orderingStateMessage
 } from "../_shared/checkOrderingState.ts";
+import { isActivityOpen, nowInRomeParts } from "../_shared/openingHours.ts";
 
 // ============================================================
 // Constants
@@ -59,6 +61,15 @@ const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // Rate-limit configuration. 10 submits / minute per customer_session is well
 // above any human ordering pace and bounds abuse to one session at a time.
 const RATE_LIMIT_PER_SESSION_PER_MIN = 10;
+
+// Table-scoped counter: catches abuse spread across multiple sessions at the
+// same physical table (e.g. rotating device_id / re-scanning to reset the
+// session-scoped counter).
+const RATE_LIMIT_PER_TABLE_PER_MIN = 15;
+
+// IP-scoped counter: catches abuse spread across multiple tables/sessions
+// from the same origin.
+const RATE_LIMIT_PER_IP_PER_MIN = 20;
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -102,6 +113,7 @@ interface SubmitOrderRequestBody {
     items: RequestedOrderItem[];
     notes: string | null;
     target_group_id: string | null;
+    idempotency_key: string | null;
 }
 
 interface CustomerSessionLookupRow {
@@ -251,7 +263,20 @@ function _parseAndValidateBody(raw: unknown): SubmitOrderRequestBody | { error: 
         targetGroupId = obj.target_group_id as string;
     }
 
-    return { items, notes, target_group_id: targetGroupId };
+    // idempotency_key (optional; body field takes precedence, header fallback
+    // is applied by the caller after this parse — see handler below)
+    let idempotencyKey: string | null = null;
+    if (obj.idempotency_key !== undefined && obj.idempotency_key !== null) {
+        if (typeof obj.idempotency_key !== "string" || obj.idempotency_key.trim().length === 0) {
+            return { error: "`idempotency_key` must be a non-empty string or null." };
+        }
+        if (obj.idempotency_key.length > 200) {
+            return { error: "`idempotency_key` too long (max 200 characters)." };
+        }
+        idempotencyKey = obj.idempotency_key;
+    }
+
+    return { items, notes, target_group_id: targetGroupId, idempotency_key: idempotencyKey };
 }
 
 async function _fetchSessionForDiagnostics(
@@ -299,16 +324,24 @@ interface RpcSuccessPayload {
     order_group_id: string;
     status: string;
     created_at: string;
+    // Present + true only when submit_order_atomic short-circuited on a
+    // previously-seen idempotency key (network retry of the same submit).
+    // On a replay the RPC does NOT re-return total_amount/items — the caller
+    // must reuse the already-validated snapshot from THIS request.
+    idempotent_replay?: boolean;
 }
 
 async function _invokeSubmitOrderAtomic(
     supabase: SupabaseClient,
     validated: ValidatedOrder,
-    targetGroupId: string | null
+    targetGroupId: string | null,
+    idempotencyKey: string | null
 ): Promise<
     | { kind: "ok"; payload: RpcSuccessPayload }
     | { kind: "group_conflict"; message: string }
     | { kind: "invalid_params"; message: string }
+    | { kind: "idempotency_in_progress"; message: string }
+    | { kind: "unverified_group_burst"; message: string }
     | { kind: "db_error"; message: string }
 > {
     const { data, error } = await supabase.rpc("submit_order_atomic", {
@@ -321,7 +354,8 @@ async function _invokeSubmitOrderAtomic(
         p_total_amount: validated.total_amount,
         p_notes: validated.notes,
         p_items: validated.items,
-        p_target_group_id: targetGroupId
+        p_target_group_id: targetGroupId,
+        p_idempotency_key: idempotencyKey
     });
 
     if (error) {
@@ -331,6 +365,18 @@ async function _invokeSubmitOrderAtomic(
         }
         if (msg.startsWith("INVALID_PARAMS:")) {
             return { kind: "invalid_params", message: msg.replace(/^INVALID_PARAMS:\s*/, "") };
+        }
+        if (msg.startsWith("IDEMPOTENCY_IN_PROGRESS:")) {
+            return {
+                kind: "idempotency_in_progress",
+                message: msg.replace(/^IDEMPOTENCY_IN_PROGRESS:\s*/, "")
+            };
+        }
+        if (msg.startsWith("UNVERIFIED_GROUP_BURST:")) {
+            return {
+                kind: "unverified_group_burst",
+                message: msg.replace(/^UNVERIFIED_GROUP_BURST:\s*/, "")
+            };
         }
         return { kind: "db_error", message: msg };
     }
@@ -389,6 +435,13 @@ serve(async (req: Request) => {
     }
     const body = parsed as SubmitOrderRequestBody;
 
+    // ── Idempotency key: body field `idempotency_key` takes precedence,
+    // `Idempotency-Key` HTTP header is the fallback. Optional — null keeps
+    // the pre-Fase-2 behaviour (no dedup). ──
+    const idempotencyHeader = req.headers.get("Idempotency-Key") ?? req.headers.get("idempotency-key");
+    const idempotencyKey =
+        body.idempotency_key ?? (idempotencyHeader && idempotencyHeader.trim().length > 0 ? idempotencyHeader.trim() : null);
+
     // ── JWT verify ──
     const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
     if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) {
@@ -416,27 +469,47 @@ serve(async (req: Request) => {
     });
 
     try {
-        // ── Rate limit (per customer_session) ──
-        try {
-            await checkRateLimit(supabase, {
-                key: `submit-order:session:${customerSessionId}`,
-                limit: RATE_LIMIT_PER_SESSION_PER_MIN,
-                windowSeconds: 60
-            });
-        } catch (e) {
-            if (e instanceof RateLimitExceededError) {
-                return jsonResponse(
-                    429,
-                    {
-                        code: "RATE_LIMITED",
-                        message: "Troppe richieste, riprova tra poco.",
-                        retry_after_seconds: e.retryAfterSeconds
-                    },
-                    { "Retry-After": String(e.retryAfterSeconds) }
-                );
+        // Run a rate-limit check and, on RateLimitExceededError, return the
+        // shared 429 response. Any other error (fail-closed DB failure) is
+        // rethrown to the outer catch → 500. Returns null when under limit.
+        const enforceRateLimit = async (
+            key: string,
+            limit: number
+        ): Promise<Response | null> => {
+            try {
+                await checkRateLimit(supabase, { key, limit, windowSeconds: 60 });
+                return null;
+            } catch (e) {
+                if (e instanceof RateLimitExceededError) {
+                    return jsonResponse(
+                        429,
+                        {
+                            code: "RATE_LIMITED",
+                            message: "Troppe richieste, riprova tra poco.",
+                            retry_after_seconds: e.retryAfterSeconds
+                        },
+                        { "Retry-After": String(e.retryAfterSeconds) }
+                    );
+                }
+                throw e;
             }
-            throw e;
-        }
+        };
+
+        // ── Rate limit (per customer_session + per IP) ──
+        // Cheap fast-fail BEFORE the diagnostics DB read: these two counters
+        // need no table_id, so a flood of requests with a valid JWT is
+        // short-circuited without one SELECT each. Fail-closed on DB errors.
+        const ipHash = await hashIp(extractClientIp(req));
+        const sessionLimited = await enforceRateLimit(
+            `submit-order:session:${customerSessionId}`,
+            RATE_LIMIT_PER_SESSION_PER_MIN
+        );
+        if (sessionLimited) return sessionLimited;
+        const ipLimited = await enforceRateLimit(
+            `submit-order:ip:${ipHash}`,
+            RATE_LIMIT_PER_IP_PER_MIN
+        );
+        if (ipLimited) return ipLimited;
 
         // ── Pre-fetch session for 404 vs 409 disambiguation ──
         const diag = await _fetchSessionForDiagnostics(supabase, customerSessionId);
@@ -458,6 +531,17 @@ serve(async (req: Request) => {
                 code: "INTERNAL_ERROR",
                 message: "Errore interno."
             });
+        }
+
+        // ── Rate limit (per table) ──
+        // Table id is always set for a live ordering session; the guard
+        // avoids a shared null bucket in the degenerate case. Same 429 map.
+        if (diag.tableId) {
+            const tableLimited = await enforceRateLimit(
+                `submit-order:table:${diag.tableId}`,
+                RATE_LIMIT_PER_TABLE_PER_MIN
+            );
+            if (tableLimited) return tableLimited;
         }
 
         // ── Ordering state check (tenant + activity + table) ──
@@ -486,6 +570,29 @@ serve(async (req: Request) => {
             });
         }
 
+        // ── Opening-hours gate (submit only; menu stays consultable via resolve-table) ──
+        // Fail-OPEN on error: this is UX, not a security boundary. This is the ONLY
+        // control permitted to fail open; every other guard fails closed.
+        try {
+            const [{ data: hoursRows }, { data: closureRows }] = await Promise.all([
+                supabase.from("activity_hours")
+                    .select("day_of_week, opens_at, closes_at, closes_next_day, is_closed, slot_index")
+                    .eq("activity_id", diag.activityId),
+                supabase.from("activity_closures")
+                    .select("closure_date, end_date, is_closed, slots")
+                    .eq("activity_id", diag.activityId)
+            ]);
+            const open = isActivityOpen(nowInRomeParts(new Date()), hoursRows ?? [], closureRows ?? []);
+            if (!open) {
+                return jsonResponse(423, {
+                    code: "ORDERING_CLOSED",
+                    message: "Il locale è chiuso in questo momento. Le ordinazioni riapriranno negli orari di apertura."
+                });
+            }
+        } catch (e) {
+            console.error("[submit-order] opening-hours check failed, failing open:", e);
+        }
+
         // ── Validate + snapshot items ──
         // The shared validator re-fetches the session and re-derives every
         // sensitive field server-side. The pre-fetch above only served to
@@ -500,6 +607,9 @@ serve(async (req: Request) => {
                 body.notes ?? undefined
             );
         } catch (e) {
+            if (e instanceof OrderCapError) {
+                return jsonResponse(422, { code: e.code, message: e.message });
+            }
             if (e instanceof ValidateOrderItemsError) {
                 // SESSION_INVALID at this point would mean a race between the
                 // pre-fetch and the validator (session deleted in between).
@@ -524,13 +634,32 @@ serve(async (req: Request) => {
         const rpc = await _invokeSubmitOrderAtomic(
             supabase,
             validated,
-            body.target_group_id
+            body.target_group_id,
+            idempotencyKey
         );
 
         if (rpc.kind === "group_conflict") {
             return jsonResponse(409, {
                 code: "GROUP_CONFLICT",
                 message: rpc.message
+            });
+        }
+        if (rpc.kind === "idempotency_in_progress") {
+            // Concurrent retry of the SAME idempotency key raced us: the
+            // first attempt claimed the row but hasn't backfilled order_id
+            // yet. Fail-closed — surface 409, never let a duplicate through.
+            return jsonResponse(409, {
+                code: "IDEMPOTENCY_IN_PROGRESS",
+                message: "Ordine già in elaborazione, attendi qualche istante."
+            });
+        }
+        if (rpc.kind === "unverified_group_burst") {
+            // Anti-abuse cap: too many 'submitted' orders piled up in a group
+            // that staff hasn't verified yet (no acknowledge). Fail-closed —
+            // surface 429, do not let the burst through.
+            return jsonResponse(429, {
+                code: "UNVERIFIED_ORDER_LIMIT",
+                message: "Attendi che lo staff confermi il primo ordine prima di inviarne altri."
             });
         }
         if (rpc.kind === "invalid_params") {
@@ -589,15 +718,27 @@ serve(async (req: Request) => {
         }
 
         // ── Success ──
-        console.log("[submit-order] order_submitted", {
-            event: "order_submitted",
-            customer_session_id: customerSessionId,
-            order_id: rpc.payload.order_id,
-            order_group_id: rpc.payload.order_group_id,
-            item_count: validated.items.length,
-            total_amount: validated.total_amount
-        });
+        // On idempotent_replay the RPC short-circuited on a previously-seen
+        // idempotency key and did NOT insert a new order — order_id/
+        // order_group_id/created_at come from the FIRST successful attempt.
+        // total_amount/items are NOT re-returned by the RPC on replay; we
+        // reuse `validated.total_amount` / `validated.items` from THIS
+        // request, which re-validated the same cart content server-side
+        // (validateAndSnapshotOrderItems), so the response stays well-formed.
+        console.log(
+            rpc.payload.idempotent_replay ? "[submit-order] order_submit_replay" : "[submit-order] order_submitted",
+            {
+                event: rpc.payload.idempotent_replay ? "order_submit_replay" : "order_submitted",
+                customer_session_id: customerSessionId,
+                order_id: rpc.payload.order_id,
+                order_group_id: rpc.payload.order_group_id,
+                item_count: validated.items.length,
+                total_amount: validated.total_amount
+            }
+        );
 
+        // total_amount/items are re-derived from THIS request's validated snapshot
+        // (the RPC replay payload omits them) → 201 body well-formed for fresh + replay.
         return jsonResponse(201, {
             order_id: rpc.payload.order_id,
             order_group_id: rpc.payload.order_group_id,

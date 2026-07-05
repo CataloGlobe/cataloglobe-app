@@ -30,6 +30,7 @@
 import type { SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { resolveRulesForActivity } from "./scheduleResolver.ts";
 import { getNowInRome } from "./schedulingNow.ts";
+import { enforceOrderCaps } from "./orderCaps.ts";
 
 // ============================================================
 // Public types
@@ -764,6 +765,8 @@ function _assembleValidatedOrder(
 
     // current_table_id is non-null here — _loadCustomerSession guarantees it.
     const tableId = session.current_table_id!;
+
+    enforceOrderCaps(totalAmount, items.length);
 
     return {
         tenant_id: session.tenant_id,

@@ -350,10 +350,10 @@ export function TablesManagement({
         }
     }
 
-    async function handleRegenerate() {
+    async function handleRegenerate(terminateSessions: boolean) {
         if (!itemToRegen || !tenantId) return;
         try {
-            await regenerateTableQrToken(itemToRegen.id, tenantId);
+            await regenerateTableQrToken(itemToRegen.id, tenantId, terminateSessions);
             showToast({
                 message: "Token rigenerato. Stampa il nuovo QR.",
                 type: "success"

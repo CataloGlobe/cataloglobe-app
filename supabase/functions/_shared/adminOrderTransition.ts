@@ -483,6 +483,18 @@ export async function performAdminOrderTransition(
         );
 
         if (updateResult.kind === "db_error") {
+            // DB-level verification gate (trigger enforce_order_group_verification,
+            // migration 20260703101000/101100) raises P0001 with this marker when
+            // an order tries to reach ready/delivered while its order_group is
+            // still unverified. Staff normally never hits this (acknowledge always
+            // precedes ready/delivered) — this is a friendly-message fallback, not
+            // a hot path. Map it like the other business-rule 409s in this file.
+            if (updateResult.message.includes("GROUP_NOT_VERIFIED")) {
+                return jsonResponse(409, {
+                    code: "GROUP_NOT_VERIFIED",
+                    message: "Conferma prima il primo ordine per verificare il tavolo."
+                });
+            }
             console.error(`[${config.function_name}] update error:`, updateResult.message);
             return jsonResponse(500, {
                 code: "INTERNAL_ERROR",
