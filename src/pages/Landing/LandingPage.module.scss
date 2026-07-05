@@ -11,7 +11,7 @@ $slate: #f6f5f9;
 $slate-border: #eae8f0;
 $text: #1a1a2e;
 $text-mid: #55536a;
-$text-muted: #9895a8;
+$text-muted: #6f6c80;
 
 // ─── Base ─────────────────────────────────────────────
 .landing {
@@ -567,7 +567,7 @@ $text-muted: #9895a8;
 .featuresSub {
     font-size: 15px;
     line-height: 1.6;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(255, 255, 255, 0.6);
     max-width: 440px;
     margin: 0 0 56px;
 }
@@ -1417,7 +1417,7 @@ $text-muted: #9895a8;
 
 .finalSub {
     font-size: 15px;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(255, 255, 255, 0.6);
     margin-bottom: 32px;
 }
 
@@ -1489,7 +1489,7 @@ $text-muted: #9895a8;
 
 .footerDesc {
     font-size: 12.5px;
-    color: rgba(255, 255, 255, 0.35);
+    color: rgba(255, 255, 255, 0.6);
     margin-top: 10px;
     max-width: 260px;
     line-height: 1.5;
@@ -1506,14 +1506,14 @@ $text-muted: #9895a8;
     font-weight: 700;
     letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: rgba(255, 255, 255, 0.25);
+    color: rgba(255, 255, 255, 0.75);
     margin-bottom: 14px;
 }
 
 .footerLink {
     display: block;
     font-size: 13px;
-    color: rgba(255, 255, 255, 0.45);
+    color: rgba(255, 255, 255, 0.6);
     text-decoration: none;
     margin-bottom: 9px;
     transition: color 0.2s;
@@ -1533,7 +1533,7 @@ $text-muted: #9895a8;
 
 .copyright {
     font-size: 11.5px;
-    color: rgba(255, 255, 255, 0.3);
+    color: rgba(255, 255, 255, 0.55);
     margin: 0;
     font-weight: 400;
 }
