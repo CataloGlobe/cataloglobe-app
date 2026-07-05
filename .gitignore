@@ -70,3 +70,4 @@ node-compile-cache/
 
 # Git worktrees (isolated feature workspaces)
 .worktrees/
+.codex/

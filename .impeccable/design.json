@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-07-05T00:00:00Z",
+  "title": "Design System: CataloGlobe Admin",
+  "extensions": {
+    "colorMeta": {
+      "indigo-primary": {
+        "role": "primary",
+        "displayName": "Indigo Action",
+        "canonical": "#6366f1",
+        "darkValue": "#2563eb",
+        "tonalRamp": ["#1e1b4b", "#312e81", "#3730a3", "#4338ca", "#4648c6", "#6366f1", "#a5b4fc", "#e0e7ff"]
+      },
+      "slate-bg": {
+        "role": "neutral",
+        "displayName": "Slate Background",
+        "canonical": "#f8fafc",
+        "darkValue": "#0f172a",
+        "tonalRamp": ["#0f172a", "#1e293b", "#334155", "#475569", "#64748b", "#cbd5e1", "#e2e8f0", "#f8fafc"]
+      },
+      "surface": {
+        "role": "neutral",
+        "displayName": "Surface",
+        "canonical": "#ffffff",
+        "darkValue": "#1e293b"
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#0f172a",
+        "darkValue": "#f9fafb"
+      },
+      "amber-warning": {
+        "role": "tertiary",
+        "displayName": "Amber Warning",
+        "canonical": "#f59e0b",
+        "tonalRamp": ["#b45309", "#d97706", "#f59e0b", "#fcd34d", "#fde68a", "#fef3c7", "#fffbeb"]
+      },
+      "emerald-success": {
+        "role": "tertiary",
+        "displayName": "Emerald Success",
+        "canonical": "#10b981",
+        "tonalRamp": ["#065f46", "#047857", "#059669", "#10b981", "#6ee7b7", "#bbf7d0", "#d1fae5", "#f0fdf4"]
+      },
+      "red-danger": {
+        "role": "tertiary",
+        "displayName": "Red Danger",
+        "canonical": "#dc2626",
+        "tonalRamp": ["#450a0a", "#7f1d1d", "#b91c1c", "#dc2626", "#f87171", "#fecdd3", "#fff1f2"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Rare page-level hero numerals; not a per-section reflex." },
+      "headline": { "displayName": "Headline", "purpose": "Page titles in the PageHeader." },
+      "title": { "displayName": "Title", "purpose": "Section and card headings." },
+      "body": { "displayName": "Body", "purpose": "Default reading text; cap prose 65-75ch." },
+      "label": { "displayName": "Label", "purpose": "Buttons and control labels; 0.05em tracking." }
+    },
+    "shadows": [
+      { "name": "card-rest", "value": "0 2px 6px rgba(0,0,0,0.03)", "purpose": "Content surfaces at rest (near-flat)." },
+      { "name": "card-hover", "value": "0 4px 10px rgba(0,0,0,0.08)", "purpose": "Card hover, paired with translateY(-2px)." },
+      { "name": "focus-ring", "value": "0 0 0 3px rgba(99,102,241,0.25)", "purpose": "Keyboard focus / active input; always visible." },
+      { "name": "focus-ring-danger", "value": "0 0 0 3px rgba(220,38,38,0.2)", "purpose": "Focus on danger / error controls." },
+      { "name": "menu", "value": "0 10px 38px -10px rgba(22,23,24,0.35), 0 10px 20px -15px rgba(22,23,24,0.2)", "purpose": "Floating dropdowns / popovers." },
+      { "name": "tooltip", "value": "0 4px 16px rgba(0,0,0,0.12)", "purpose": "Tooltips." },
+      { "name": "toast", "value": "0 8px 24px rgba(0,0,0,0.15)", "purpose": "Toasts." },
+      { "name": "drawer", "value": "-4px 0 24px -4px rgba(0,0,0,0.1)", "purpose": "Right-side SystemDrawer edge." },
+      { "name": "modal", "value": "0 20px 60px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.05)", "purpose": "Centered modal (non-CRUD only)." }
+    ],
+    "motion": [
+      { "name": "duration-fast", "value": "150ms", "purpose": "Dominant transition duration (hover, state)." },
+      { "name": "duration-standard", "value": "200ms", "purpose": "Buttons and larger state changes." },
+      { "name": "ease-default", "value": "ease", "purpose": "General-purpose transitions." },
+      { "name": "ease-drawer", "value": "cubic-bezier(0.4, 0, 0.2, 1)", "purpose": "Drawer slide in/out." },
+      { "name": "ease-enter", "value": "cubic-bezier(0.16, 1, 0.3, 1)", "purpose": "Menu / tooltip enter (150ms), ease-out." }
+    ],
+    "breakpoints": [
+      { "name": "mobile", "value": "768px", "note": "Ad-hoc; no breakpoint token file exists." },
+      { "name": "tablet", "value": "900px", "note": "Ad-hoc media query." },
+      { "name": "wide", "value": "980px", "note": "Ad-hoc media query." }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Default primary action; the one place indigo fills a control.",
+      "html": "<button class=\"ds-btn-primary\">Salva</button>",
+      "css": ".ds-btn-primary { background: var(--brand-primary, #6366f1); color: #fff; font-weight: 500; font-size: 0.9rem; line-height: 1; padding: 0.55rem 0.9rem; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s ease, box-shadow 0.2s ease; } .ds-btn-primary:hover { background: var(--brand-primary-hover, #4648c6); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.25); } .ds-btn-primary:disabled { opacity: 0.6; pointer-events: none; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Neutral secondary action.",
+      "html": "<button class=\"ds-btn-secondary\">Annulla</button>",
+      "css": ".ds-btn-secondary { background: #e6ebf0; color: var(--text, #0f172a); font-weight: 500; font-size: 0.9rem; line-height: 1; padding: 0.55rem 0.9rem; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s ease; } .ds-btn-secondary:hover { background: #dbe2e8; } .ds-btn-secondary:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(99,102,241,0.25); }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "Destructive action inside delete drawers / confirms.",
+      "html": "<button class=\"ds-btn-danger\">Elimina</button>",
+      "css": ".ds-btn-danger { background: #dc2626; color: #fff; font-weight: 500; font-size: 0.9rem; line-height: 1; padding: 0.55rem 0.9rem; border: none; border-radius: 8px; cursor: pointer; transition: background 0.2s ease; } .ds-btn-danger:hover { background: #b91c1c; } .ds-btn-danger:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(220,38,38,0.2); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Standard text field used across forms and drawers.",
+      "html": "<input class=\"ds-input\" type=\"text\" placeholder=\"Nome prodotto\" />",
+      "css": ".ds-input { background: var(--card-bg, #fff); color: var(--text, #0f172a); font-size: 0.95rem; padding: 0.62rem 0.85rem; border: 1.5px solid var(--border, #cbd5e1); border-radius: 8px; width: 100%; transition: border-color 0.15s ease, box-shadow 0.15s ease; } .ds-input::placeholder { color: #64748b; } .ds-input:focus-visible { outline: none; border-color: var(--brand-primary, #6366f1); box-shadow: 0 0 0 3px rgba(99,102,241,0.25); } .ds-input:disabled { opacity: 0.6; background: var(--hover-bg, #f1f5f9); }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Content surface for grouped info; never nested.",
+      "html": "<div class=\"ds-card\"><h3>Sede</h3><p>Trattoria del Porto</p></div>",
+      "css": ".ds-card { background: var(--card-bg, #fff); color: var(--text, #0f172a); border: 1px solid var(--border, #e2e8f0); border-radius: 12px; padding: 1.5rem; box-shadow: 0 2px 6px rgba(0,0,0,0.03); transition: box-shadow 0.15s ease, transform 0.15s ease; } .ds-card:hover { box-shadow: 0 4px 10px rgba(0,0,0,0.08); transform: translateY(-2px); } .ds-card h3 { font-weight: 600; font-size: 1.25rem; margin: 0 0 0.25rem; } .ds-card p { color: #475569; margin: 0; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "status-badge",
+      "description": "Pill status indicator; color always paired with a dot + label.",
+      "html": "<span class=\"ds-status ds-status--success\"><span class=\"ds-status__dot\"></span>Pubblicata</span>",
+      "css": ".ds-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 500; line-height: 1; padding: 4px 10px; border-radius: 999px; } .ds-status__dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: 0.9; } .ds-status--success { background: #d1fae5; color: #065f46; }"
+    },
+    {
+      "name": "DataTable Row",
+      "kind": "custom",
+      "refersTo": "datatable-row",
+      "description": "Standard table shell with sticky header and 56px rows.",
+      "html": "<table class=\"ds-table\"><thead><tr><th>Prodotto</th><th>Prezzo</th></tr></thead><tbody><tr><td>Margherita</td><td>7,50 &euro;</td></tr></tbody></table>",
+      "css": ".ds-table { width: 100%; border-collapse: collapse; border: 1px solid var(--border, #e2e8f0); border-radius: 12px; overflow: hidden; background: var(--card-bg, #fff); } .ds-table thead th { position: sticky; top: 0; background: var(--hover-bg, #f1f5f9); text-align: left; font-size: 12px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; opacity: 0.72; padding: 12px 24px; min-height: 44px; } .ds-table tbody td { padding: 12px 24px; height: 56px; border-bottom: 1px solid var(--border, #e2e8f0); color: var(--text, #0f172a); transition: background 0.18s ease; } .ds-table tbody tr:hover td { background: var(--hover-bg, #f1f5f9); }"
+    },
+    {
+      "name": "Right-side Drawer",
+      "kind": "custom",
+      "refersTo": "card",
+      "description": "SystemDrawer — the CRUD surface; never a centered modal.",
+      "html": "<aside class=\"ds-drawer\"><header class=\"ds-drawer__hd\">Nuovo prodotto</header><div class=\"ds-drawer__body\">&hellip;</div></aside>",
+      "css": ".ds-drawer { width: 520px; max-width: 100%; height: 100%; background: var(--card-bg, #fff); box-shadow: -4px 0 24px -4px rgba(0,0,0,0.1); display: flex; flex-direction: column; } .ds-drawer__hd { padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border, #e2e8f0); font-weight: 600; font-size: 1.125rem; } .ds-drawer__body { padding: 1.5rem; overflow-y: auto; flex: 1; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Operator",
+    "overview": "CataloGlobe Admin is a dependable business tool that disappears into the task. Its users are restaurant and shop owners — largely non-technical, often 40+, on a phone in-store — plus staff who live in the live Orders board during a shift. The interface earns trust by being calm, legible, and predictable: slate neutrals carry the surface, and the indigo brand color appears only where action, selection, or state actually happen. It is fully theme-aware (light + dark, both AA), Stripe-dashboard dense without legacy-POS crowding, single-family Inter on a fixed rem scale, with short 150-250ms state motion and no page-load choreography.",
+    "keyCharacteristics": [
+      "Slate neutrals carry the surface; indigo marks action/selection/state only.",
+      "One type family (Inter), fixed rem scale, no fluid heading clamps.",
+      "Theme-aware: light + dark, both AA, tuned for older eyes on phones.",
+      "Soft, shallow elevation; depth grows with layer distance from the page.",
+      "Motion is feedback (150-250ms), never decoration or choreography."
+    ],
+    "rules": [
+      { "name": "The One Accent Rule", "body": "Indigo is the only accent. It marks action, current selection, and state — never decoration. On any screen it should touch ≤10% of the surface.", "section": "colors" },
+      { "name": "The No-Color-On-Inactive Rule", "body": "Inactive, disabled, and resting elements are neutral. Saturation is a signal; spending it on idle chrome makes real signals unreadable.", "section": "colors" },
+      { "name": "The One Family Rule", "body": "Inter does everything. No second UI face for display flavor — no serif headings, no Sora/Outfit in labels or data. Contrast comes from weight and size.", "section": "typography" },
+      { "name": "The Fixed-Scale Rule", "body": "Headings use fixed rem steps, never fluid clamp(). Users view at consistent DPI; a heading that shrinks in a sidebar looks worse.", "section": "typography" },
+      { "name": "The Flat-At-Rest Rule", "body": "Surfaces are flat or near-flat at rest. Elevation is a response to layering and state (hover, focus, floating), not a default decoration.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do carry surfaces on slate neutrals and spend indigo only on action, current selection, and state (≤10% of a screen).",
+      "Do keep body text ≥4.5:1 (large/bold ≥3:1) in both themes; hold placeholder text to the same 4.5:1.",
+      "Do size for older eyes on phones: comfortable body sizes, tap targets ≥44px.",
+      "Do use one family (Inter) at fixed rem steps; get contrast from weight and size.",
+      "Do keep motion to 150-250ms state feedback, with a prefers-reduced-motion fallback on every animation.",
+      "Do pair every semantic color with a non-color cue (dot, icon, label).",
+      "Do put all CRUD in a right-side SystemDrawer; ship every control with default/hover/focus/active/disabled states."
+    ],
+    "donts": [
+      "Don't ship the generic AI/SaaS template: no gradient hero-metric cards, no purple-gradient decoration, no identical icon-card grids, no tiny tracked-uppercase eyebrows.",
+      "Don't drift toward the cluttered legacy POS: no gray-on-gray chrome, unlabeled dense toolbars, or 2010-era enterprise heaviness.",
+      "Don't over-animate: no bouncy/elastic easing, no decorative motion, no page-load choreography.",
+      "Don't use background-clip:text gradient text, border-left/right >1px colored side-stripes, or glassmorphism as a default surface.",
+      "Don't introduce a second UI font, a fluid clamp() heading, or a color not already in this palette.",
+      "Don't put color or full-saturation accents on inactive/disabled states.",
+      "Don't use a centered modal for CRUD, add a top navbar, or write CSS inline."
+    ]
+  }
+}
