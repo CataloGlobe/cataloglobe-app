@@ -323,6 +323,8 @@ export interface V2Order {
     created_by_user_id: string | null;
     created_at: string;
     updated_at: string;
+    // populated by joins that include order_groups.verified_at (e.g. listOrdersForActivity); undefined on raw rows
+    group_verified_at?: string | null;
 }
 
 export interface OrderOptionsSnapshotPrimary {
@@ -385,6 +387,8 @@ export interface V2OrderGroup {
     table_id: string;
     status: OrderGroupStatus;
     closed_at: string | null;
+    /** Set when the group is proven present (first order acknowledged, mode=first_order) or at creation (mode=none). NULL = unverified. */
+    verified_at: string | null;
     created_at: string;
     updated_at: string;
 }

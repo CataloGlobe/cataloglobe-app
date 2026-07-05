@@ -341,6 +341,7 @@ async function _invokeSubmitOrderAtomic(
     | { kind: "group_conflict"; message: string }
     | { kind: "invalid_params"; message: string }
     | { kind: "idempotency_in_progress"; message: string }
+    | { kind: "unverified_group_burst"; message: string }
     | { kind: "db_error"; message: string }
 > {
     const { data, error } = await supabase.rpc("submit_order_atomic", {
@@ -369,6 +370,12 @@ async function _invokeSubmitOrderAtomic(
             return {
                 kind: "idempotency_in_progress",
                 message: msg.replace(/^IDEMPOTENCY_IN_PROGRESS:\s*/, "")
+            };
+        }
+        if (msg.startsWith("UNVERIFIED_GROUP_BURST:")) {
+            return {
+                kind: "unverified_group_burst",
+                message: msg.replace(/^UNVERIFIED_GROUP_BURST:\s*/, "")
             };
         }
         return { kind: "db_error", message: msg };
@@ -644,6 +651,15 @@ serve(async (req: Request) => {
             return jsonResponse(409, {
                 code: "IDEMPOTENCY_IN_PROGRESS",
                 message: "Ordine già in elaborazione, attendi qualche istante."
+            });
+        }
+        if (rpc.kind === "unverified_group_burst") {
+            // Anti-abuse cap: too many 'submitted' orders piled up in a group
+            // that staff hasn't verified yet (no acknowledge). Fail-closed —
+            // surface 429, do not let the burst through.
+            return jsonResponse(429, {
+                code: "UNVERIFIED_ORDER_LIMIT",
+                message: "Attendi che lo staff confermi il primo ordine prima di inviarne altri."
             });
         }
         if (rpc.kind === "invalid_params") {
