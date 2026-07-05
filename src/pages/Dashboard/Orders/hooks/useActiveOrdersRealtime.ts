@@ -264,6 +264,22 @@ export function useActiveOrdersRealtime(
             setOrders(prev => prev.filter(o => o.id !== id));
         }
 
+        function handleGroupVerifiedUpdate(group: {
+            id: string;
+            verified_at: string | null;
+        }): void {
+            // Patch group_verified_at su tutti gli ordini locali del gruppo,
+            // cosi' il badge "Primo ordine · verifica il tavolo" scompare live
+            // quando lo staff conferma il primo ordine del tavolo.
+            setOrders(prev =>
+                prev.map(o =>
+                    o.order_group_id === group.id
+                        ? { ...o, group_verified_at: group.verified_at }
+                        : o
+                )
+            );
+        }
+
         channel = supabase
             .channel(`active-orders-${activityId}-${Date.now()}`)
             .on(
@@ -284,6 +300,20 @@ export function useActiveOrdersRealtime(
                         const oldId = (payload.old as { id?: string })?.id;
                         if (oldId) handleDelete(oldId);
                     }
+                }
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "order_groups",
+                    filter: `activity_id=eq.${activityId}`
+                },
+                payload => {
+                    if (cancelled) return;
+                    const g = payload.new as { id: string; verified_at: string | null };
+                    handleGroupVerifiedUpdate(g);
                 }
             )
             .subscribe(status => {

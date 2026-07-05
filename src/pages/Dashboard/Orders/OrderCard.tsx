@@ -176,6 +176,14 @@ export default function OrderCard({
                             <User size={12} aria-hidden />
                         </span>
                     )}
+                    {order.group_verified_at == null && (
+                        <span
+                            className={styles.unverifiedBadge}
+                            title="Il primo ordine di questo tavolo non è ancora stato confermato"
+                        >
+                            Primo ordine · verifica il tavolo
+                        </span>
+                    )}
                     <span className={styles.timeStamp}>
                         <Clock size={14} />
                         <Text variant="body-sm" colorVariant="muted">

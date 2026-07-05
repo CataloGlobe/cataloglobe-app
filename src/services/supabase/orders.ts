@@ -314,7 +314,11 @@ export async function listOrdersForActivity(
 ): Promise<V2OrderWithItems[]> {
     const includeItems = options?.includeItems !== false;
     const limit = options?.limit ?? 100;
-    const select = includeItems ? "*, items:order_items(*)" : "*";
+    const groupVerifiedJoin =
+        "order_group:order_groups!orders_order_group_id_fkey(verified_at)";
+    const select = includeItems
+        ? `*, items:order_items(*), ${groupVerifiedJoin}`
+        : `*, ${groupVerifiedJoin}`;
 
     let query = supabase
         .from("orders")
@@ -339,10 +343,24 @@ export async function listOrdersForActivity(
     if (error) throw error;
 
     return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(row => {
+        // L'embed FK many-to-one (order_group_id → order_groups) torna come
+        // oggetto singolo con PostgREST; fallback ad array difensivo nel caso
+        // il planner scelga una forma diversa.
+        const rawGroup = row.order_group as
+            | { verified_at: string | null }
+            | { verified_at: string | null }[]
+            | null
+            | undefined;
+        const groupVerifiedAt = Array.isArray(rawGroup)
+            ? (rawGroup[0]?.verified_at ?? null)
+            : (rawGroup?.verified_at ?? null);
+
         const normalized: Record<string, unknown> = {
             ...row,
-            total_amount: Number(row.total_amount)
+            total_amount: Number(row.total_amount),
+            group_verified_at: groupVerifiedAt
         };
+        delete normalized.order_group;
         if (includeItems) {
             const rawItems = row.items as V2OrderItem[] | undefined;
             normalized.items = (rawItems ?? []).map(item => ({
