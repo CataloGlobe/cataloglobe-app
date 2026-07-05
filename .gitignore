@@ -71,3 +71,12 @@ node-compile-cache/
 # Git worktrees (isolated feature workspaces)
 .worktrees/
 .codex/
+
+# Tool-generated screenshots in repo root (impeccable/browser)
+/*.png
+
+# Impeccable tool artifacts (critique, etc.)
+.impeccable/
+
+# Landing hero mockup — non pubblicare (servito da public/)
+public/hero-concepts.html
