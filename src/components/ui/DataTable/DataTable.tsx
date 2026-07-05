@@ -542,9 +542,11 @@ export function DataTable<T>({
         );
     };
 
-    // Probe vincolato non-ambiguo + maxHeight default: usa lo spazio reale
-    // misurato invece del default CSS, che altrimenti capa il box sotto lo
-    // spazio realmente disponibile (vedi resolveAvailable).
+    // Probe vincolato non-ambiguo: usa come `max-height` lo spazio reale
+    // misurato (es. 667) invece del default CSS statico (548, sbagliato). Il
+    // `.table` resta shrink-to-fit (nessun flex-grow) → altezza = min(contenuto,
+    // probe): corta con poche righe, cappata + scroll interno quando il
+    // contenuto eccede. Il default `maxHeight` resta per fallback/drawer.
     const containerStyle: CSSProperties = {
         maxHeight: measuredHeightPx != null ? `${measuredHeightPx}px` : maxHeight
     };
@@ -552,12 +554,7 @@ export function DataTable<T>({
     return (
         <>
             <div ref={probeRef} className={styles.autoSizeProbe}>
-                <div
-                    ref={tableRef}
-                    className={styles.table}
-                    style={containerStyle}
-                    data-fill={measuredHeightPx != null ? "true" : undefined}
-                >
+                <div ref={tableRef} className={styles.table} style={containerStyle}>
                     <div className={styles.scrollArea}>
                         <div ref={headerRef} className={styles.header} style={gridStyle}>
                             {selectable && (
