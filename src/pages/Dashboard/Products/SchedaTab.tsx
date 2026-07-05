@@ -44,8 +44,15 @@ import {
 } from "@/services/supabase/productCharacteristics";
 import { ProductGroupsEditDrawer } from "./ProductGroupsEditDrawer";
 import { IngredientCombobox } from "./components/IngredientCombobox";
+import {
+    listPairings,
+    savePairings
+} from "@/services/supabase/productPairings";
 import CharacteristicsSection from "./components/CharacteristicsSection/CharacteristicsSection";
 import ProductNotesSection from "./components/ProductNotesSection/ProductNotesSection";
+import PairingsSection, {
+    type PairingDraftItem
+} from "./components/PairingsSection/PairingsSection";
 import styles from "./SchedaTab.module.scss";
 
 interface SchedaTabProps {
@@ -90,6 +97,7 @@ export function SchedaTab({
     const showCharacteristics =
         verticalConfig.productSections.characteristics && isBaseProduct;
     const showNotes = verticalConfig.productSections.notes && isBaseProduct;
+    const showPairings = verticalConfig.productSections.pairings && isBaseProduct;
 
     // ── Card Immagine ──────────────────────────────────────────────────
     const [draftImageUrl, setDraftImageUrl] = useState<string | null>(product.image_url ?? null);
@@ -421,6 +429,74 @@ export function SchedaTab({
             setIsSavingCharacteristics(false);
         }
     }, [tenantId, productId, draftCharacteristicIds, showToast]);
+
+    // ── Card Abbinamenti ───────────────────────────────────────────────
+    const [draftPairings, setDraftPairings] = useState<PairingDraftItem[]>([]);
+    const [savedPairings, setSavedPairings] = useState<PairingDraftItem[]>([]);
+    const [pairingsLoading, setPairingsLoading] = useState(true);
+    const [isSavingPairings, setIsSavingPairings] = useState(false);
+
+    const isPairingsDirty = useMemo(() => {
+        const shape = (items: PairingDraftItem[]) =>
+            JSON.stringify(items.map(p => ({ id: p.pairedProductId, note: p.note.trim() })));
+        return shape(draftPairings) !== shape(savedPairings);
+    }, [draftPairings, savedPairings]);
+
+    const loadPairings = useCallback(async () => {
+        if (!showPairings) return;
+        try {
+            setPairingsLoading(true);
+            const rows = await listPairings(productId, tenantId);
+            const mapped: PairingDraftItem[] = rows.map(r => ({
+                pairedProductId: r.pairedProductId,
+                pairedProductName: r.pairedProductName,
+                pairedProductImageUrl: r.pairedProductImageUrl,
+                note: r.note ?? ""
+            }));
+            setDraftPairings(mapped);
+            setSavedPairings(mapped);
+        } catch {
+            showToast({ message: "Errore nel caricamento degli abbinamenti", type: "error" });
+        } finally {
+            setPairingsLoading(false);
+        }
+    }, [productId, tenantId, showPairings, showToast]);
+
+    useEffect(() => {
+        loadPairings();
+    }, [loadPairings]);
+
+    const handleCancelPairings = useCallback(() => {
+        setDraftPairings(savedPairings);
+    }, [savedPairings]);
+
+    const handleSavePairings = useCallback(async () => {
+        try {
+            setIsSavingPairings(true);
+            await savePairings(
+                tenantId,
+                productId,
+                draftPairings.map((p, idx) => ({
+                    pairedProductId: p.pairedProductId,
+                    note: p.note.trim() || null,
+                    sortOrder: idx
+                }))
+            );
+            // Normalizza le note come fa il persist (trim), così il diff dirty
+            // torna pulito senza un reload che farebbe flicker.
+            const normalized = draftPairings.map(p => ({ ...p, note: p.note.trim() }));
+            setDraftPairings(normalized);
+            setSavedPairings(normalized);
+            showToast({ message: "Abbinamenti salvati", type: "success" });
+        } catch (err) {
+            showToast({
+                message: err instanceof Error ? err.message : "Errore nel salvataggio",
+                type: "error"
+            });
+        } finally {
+            setIsSavingPairings(false);
+        }
+    }, [tenantId, productId, draftPairings, showToast]);
 
     // ── Card Note prodotto ─────────────────────────────────────────────
     const [draftNotes, setDraftNotes] = useState<ProductNote[]>(product.notes ?? []);
@@ -778,6 +854,37 @@ export function SchedaTab({
                                 isSaving={isSavingCharacteristics}
                                 onCancel={handleCancelCharacteristics}
                                 onSave={handleSaveCharacteristics}
+                            />
+                        )}
+                    </section>
+                )}
+
+                {/* Card Abbinamenti */}
+                {showPairings && (
+                    <section className={styles.card} data-section="pairings">
+                        <header className={styles.cardHeader}>
+                            <span className={styles.cardLabel}>Abbinamenti</span>
+                        </header>
+
+                        {pairingsLoading ? (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Caricamento abbinamenti...
+                            </Text>
+                        ) : (
+                            <PairingsSection
+                                tenantId={tenantId}
+                                currentProductId={productId}
+                                value={draftPairings}
+                                onChange={setDraftPairings}
+                                disabled={isSavingPairings}
+                            />
+                        )}
+
+                        {isPairingsDirty && (
+                            <UnsavedChangesBar
+                                isSaving={isSavingPairings}
+                                onCancel={handleCancelPairings}
+                                onSave={handleSavePairings}
                             />
                         )}
                     </section>

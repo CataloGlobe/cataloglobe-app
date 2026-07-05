@@ -98,6 +98,8 @@ export interface VerticalConfig {
         characteristics: boolean;
         customAttributes: boolean;
         notes: boolean;
+        /** Sezione "Abbinamenti" (product_pairings) — base product only. */
+        pairings: boolean;
     };
     /**
      * Vertical-dependent copy. Only the sections owned by Phase 3 scope are
@@ -134,7 +136,8 @@ const FOOD_BEVERAGE_CONFIG: VerticalConfig = {
         ingredients: true,
         characteristics: true,
         customAttributes: false,
-        notes: true
+        notes: true,
+        pairings: true
     },
     copy: {
         productSections: {
@@ -184,7 +187,8 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
             ingredients: false,
             characteristics: true,
             customAttributes: true,
-            notes: true
+            notes: true,
+            pairings: true
         },
         copy: {
             productSections: {
@@ -216,7 +220,8 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
             ingredients: false,
             characteristics: true,
             customAttributes: true,
-            notes: true
+            notes: true,
+            pairings: true
         },
         copy: {
             productSections: {
@@ -248,7 +253,8 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
             ingredients: false,
             characteristics: false,
             customAttributes: true,
-            notes: true
+            notes: true,
+            pairings: true
         },
         copy: {
             productSections: {

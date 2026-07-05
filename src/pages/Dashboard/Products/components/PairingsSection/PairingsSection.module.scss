@@ -1,0 +1,133 @@
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+// ── Riga tabella: prodotto abbinato ─────────────────────────────────
+.productCell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.thumb,
+.thumbPlaceholder {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.thumb {
+    object-fit: cover;
+}
+
+.thumbPlaceholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-gray-100, #f1f5f9);
+    color: var(--text-muted, #94a3b8);
+}
+
+.name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dragBtn,
+.removeBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted, #94a3b8);
+    border-radius: 6px;
+}
+
+.dragBtn {
+    cursor: grab;
+}
+
+.removeBtn {
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: var(--color-danger-600, #dc2626);
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+}
+
+.addRow {
+    display: flex;
+}
+
+// ── Picker drawer ───────────────────────────────────────────────────
+.pickerSearch {
+    margin-bottom: 12px;
+}
+
+.pickerList {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.pickerItem {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover {
+        background: var(--color-gray-50, #f8fafc);
+    }
+}
+
+.pickerThumb,
+.pickerThumbPlaceholder {
+    width: 40px;
+    height: 40px;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.pickerThumb {
+    object-fit: cover;
+}
+
+.pickerThumbPlaceholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-gray-100, #f1f5f9);
+    color: var(--text-muted, #94a3b8);
+}
+
+.pickerName {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.pickerEmpty {
+    padding: 24px;
+    text-align: center;
+}
