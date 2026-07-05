@@ -27,3 +27,17 @@ export function addDays(date: Date, n: number): Date {
     d.setDate(d.getDate() + n);
     return d;
 }
+
+/**
+ * Shift a `YYYY-MM-DD` string by `n` calendar days, returning `YYYY-MM-DD`.
+ * Pure calendar arithmetic on local fields: only Y-M-D matter, so DST /
+ * timezone offsets never skew the result. Malformed input returns unchanged.
+ */
+export function shiftIsoDate(iso: string, n: number): string {
+    const y = Number(iso.slice(0, 4));
+    const mo = Number(iso.slice(5, 7));
+    const d = Number(iso.slice(8, 10));
+    if (!y || !mo || !d) return iso;
+    const shifted = new Date(y, mo - 1, d + n);
+    return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, "0")}-${String(shifted.getDate()).padStart(2, "0")}`;
+}

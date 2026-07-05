@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { useSearchParams } from "react-router-dom";
-import { AlertCircle, ClipboardList, Plus, RefreshCw, RotateCcw, Volume2, VolumeX } from "lucide-react";
+import { AlertCircle, Calendar, ChevronLeft, ChevronRight, ClipboardList, Plus, RefreshCw, RotateCcw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
@@ -29,7 +29,8 @@ import {
     uncancelToSubmitted,
     uncancelToAcknowledged,
     uncancelToReady,
-    listOrdersHistoryToday
+    listOrdersHistory,
+    getOperativeDayBounds
 } from "@/services/supabase/orders";
 import type { CancelOrderItemResult } from "@/services/supabase/orders";
 import type { V2OrderWithItems } from "@/types/orders";
@@ -53,11 +54,28 @@ import { useNotificationChime } from "@/hooks/useNotificationChime";
 
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnActivity } from "@/lib/permissions";
+import { todayIsoDate, shiftIsoDate } from "@/utils/dateLocal";
 
 import styles from "./Orders.module.scss";
 
 type MainTab = "comande" | "tavoli" | "storico";
 type HistoryFilter = "all" | "delivered" | "cancelled";
+
+// Label giorno Storico (es. "sab 5 lug"). Costruito da campi locali della
+// data civile, coerente con dateLocal (mai `new Date("YYYY-MM-DD")`).
+const historyDayFormatter = new Intl.DateTimeFormat("it-IT", {
+    weekday: "short",
+    day: "numeric",
+    month: "short"
+});
+function formatHistoryDay(iso: string): string {
+    const y = Number(iso.slice(0, 4));
+    const mo = Number(iso.slice(5, 7));
+    const d = Number(iso.slice(8, 10));
+    if (!y || !mo || !d) return iso;
+    const raw = historyDayFormatter.format(new Date(y, mo - 1, d));
+    return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
 
 /**
  * Riga Storico con gli storni figli agganciati. `storni` vive qui (non in
@@ -168,6 +186,12 @@ export default function Orders() {
     const [isHistoryLoading, setIsHistoryLoading] = useState(false);
     const [historyError, setHistoryError] = useState<Error | null>(null);
     const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("all");
+    // Giorno operativo visualizzato nello Storico (data civile "YYYY-MM-DD"
+    // Europe/Rome). Default = oggi. La FINESTRA [start,end) è sempre risolta
+    // server-side da getOperativeDayBounds(historyDate): qui la stringa data
+    // serve solo per UI + navigazione ±1 giorno (pura aritmetica calendario).
+    const today = useMemo(() => todayIsoDate(), []);
+    const [historyDate, setHistoryDate] = useState<string>(() => today);
 
     // Filtri (tab Comande): solo dropdown tavolo.
     const [tableFilter, setTableFilter] = useState<string>("all");
@@ -218,14 +242,23 @@ export default function Orders() {
         setIsHistoryLoading(true);
         setHistoryError(null);
         try {
-            const data = await listOrdersHistoryToday(tenantId, selectedActivityId);
+            // Bounds SEMPRE da RPC (DST-safe, unico punto di verità): mai
+            // calcolati in JS. historyDate === today ⇒ stessa finestra del
+            // no-arg (DEFAULT server-side).
+            const { dayStart, dayEnd } = await getOperativeDayBounds(historyDate);
+            const data = await listOrdersHistory(
+                tenantId,
+                selectedActivityId,
+                dayStart,
+                dayEnd
+            );
             setHistoryOrders(data);
         } catch (err) {
             setHistoryError(err instanceof Error ? err : new Error("Errore caricamento storico"));
         } finally {
             setIsHistoryLoading(false);
         }
-    }, [tenantId, selectedActivityId]);
+    }, [tenantId, selectedActivityId, historyDate]);
 
     // ── Realtime active orders board ──
     // triggerAlert e' definito DOPO la chiamata a useActiveOrdersRealtime
@@ -295,7 +328,8 @@ export default function Orders() {
     useEffect(() => {
         setTableFilter("all");
         setHistoryFilter("all");
-    }, [selectedActivityId]);
+        setHistoryDate(today);
+    }, [selectedActivityId, today]);
 
     // Carica lo Storico solo quando la tab e' attiva (o si cambia sede / si rientra).
     useEffect(() => {
@@ -459,6 +493,30 @@ export default function Orders() {
         }
         return annotatedHistory; // "all" — padri (con storni annidati) + orfani
     }, [annotatedHistory, historyFilter]);
+
+    // ── Storico: navigazione giorno operativo ──
+    const isToday = historyDate === today;
+    const dayLabel = useMemo(() => {
+        if (historyDate === today) return "Oggi";
+        if (historyDate === shiftIsoDate(today, -1)) return "Ieri";
+        return formatHistoryDay(historyDate);
+    }, [historyDate, today]);
+    const goPrevDay = useCallback(() => {
+        setHistoryDate(d => shiftIsoDate(d, -1));
+    }, []);
+    const goNextDay = useCallback(() => {
+        setHistoryDate(d => {
+            const next = shiftIsoDate(d, 1);
+            return next > today ? d : next; // mai oltre oggi (nessun futuro)
+        });
+    }, [today]);
+    const onPickDay = useCallback(
+        (iso: string) => {
+            if (!iso) return; // input svuotato → ignora
+            setHistoryDate(iso > today ? today : iso);
+        },
+        [today]
+    );
 
     function labelFor(order: V2OrderWithItems): string {
         const t = tables.find(tt => tt.id === order.table_id);
@@ -952,7 +1010,38 @@ export default function Orders() {
                         />
                     ) : (
                         <div className={styles.historySection}>
-                            <div className={styles.historyFilter}>
+                            <div className={styles.historyToolbar}>
+                                <div className={styles.dayNav}>
+                                    <button
+                                        type="button"
+                                        className={styles.dayNavBtn}
+                                        onClick={goPrevDay}
+                                        aria-label="Giorno precedente"
+                                    >
+                                        <ChevronLeft size={18} />
+                                    </button>
+                                    <label className={styles.dayField}>
+                                        <Calendar size={15} aria-hidden="true" />
+                                        <span className={styles.dayLabel}>{dayLabel}</span>
+                                        <input
+                                            type="date"
+                                            className={styles.dayInput}
+                                            value={historyDate}
+                                            max={today}
+                                            onChange={e => onPickDay(e.target.value)}
+                                            aria-label="Scegli il giorno dello storico"
+                                        />
+                                    </label>
+                                    <button
+                                        type="button"
+                                        className={styles.dayNavBtn}
+                                        onClick={goNextDay}
+                                        disabled={isToday}
+                                        aria-label="Giorno successivo"
+                                    >
+                                        <ChevronRight size={18} />
+                                    </button>
+                                </div>
                                 <SegmentedControl<HistoryFilter>
                                     value={historyFilter}
                                     onChange={setHistoryFilter}

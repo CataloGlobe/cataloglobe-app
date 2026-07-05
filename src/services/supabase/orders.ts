@@ -1123,6 +1123,32 @@ export async function fetchOperativeDayStartIso(): Promise<string> {
 }
 
 /**
+ * Bounds half-open [dayStart, dayEnd) di una giornata operativa arbitraria.
+ * Server-side via RPC `get_operative_day_bounds(p_date date)` (DST-aware
+ * Europe/Rome, migration 20260705120000). Il calcolo della data NON va MAI
+ * fatto in JS (`new Date()`): reintrodurrebbe il rischio DST e un secondo
+ * punto di verità sul confine. Passthrough puro come fetchOperativeDayStartIso.
+ *
+ * @param dateIso data civile in formato `YYYY-MM-DD` (Europe/Rome). Se
+ *   omesso, la RPC usa il DEFAULT = data civile "oggi" Europe/Rome
+ *   (calcolata server-side, mai in JS).
+ */
+export async function getOperativeDayBounds(
+    dateIso?: string
+): Promise<{ dayStart: string; dayEnd: string }> {
+    const { data, error } = await supabase.rpc(
+        "get_operative_day_bounds",
+        dateIso === undefined ? {} : { p_date: dateIso }
+    );
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : undefined;
+    if (!row || typeof row.day_start !== "string" || typeof row.day_end !== "string") {
+        throw new Error("get_operative_day_bounds returned unexpected shape");
+    }
+    return { dayStart: row.day_start, dayEnd: row.day_end };
+}
+
+/**
  * Conta ordini con `submitted_at >= start_of_today_Europe/Rome`. Per KPI bar.
  * Non scarica row dati, usa COUNT lato Postgres.
  */
@@ -1181,22 +1207,23 @@ export async function getOrdersServedToday(
  * Include items (il drawer dettaglio li richiede). Limite alto (200) per
  * coprire la giornata operativa di una singola sede.
  */
-export async function listOrdersHistoryToday(
+export async function listOrdersHistory(
     tenantId: string,
-    activityId: string
+    activityId: string,
+    dayStartIso: string,
+    dayEndIso: string
 ): Promise<V2OrderWithItems[]> {
-    const fromIso = await fetchOperativeDayStartIso();
     const { data, error } = await supabase
         .from("orders")
         .select("*, items:order_items(*)")
         .eq("tenant_id", tenantId)
         .eq("activity_id", activityId)
         .or(
-            `and(status.eq.delivered,delivered_at.gte.${fromIso}),` +
-                `and(status.eq.cancelled,cancelled_at.gte.${fromIso}),` +
+            `and(status.eq.delivered,delivered_at.gte.${dayStartIso},delivered_at.lt.${dayEndIso}),` +
+                `and(status.eq.cancelled,cancelled_at.gte.${dayStartIso},cancelled_at.lt.${dayEndIso}),` +
                 // Storni (is_rectification): status='delivered' ma delivered_at=NULL,
                 // quindi esclusi dal primo ramo. Entrano via created_at (DEFAULT now()).
-                `and(is_rectification.eq.true,created_at.gte.${fromIso})`
+                `and(is_rectification.eq.true,created_at.gte.${dayStartIso},created_at.lt.${dayEndIso})`
         )
         .order("updated_at", { ascending: false })
         .limit(200);
@@ -1213,4 +1240,18 @@ export async function listOrdersHistoryToday(
             }))
         } as unknown as V2OrderWithItems;
     });
+}
+
+/**
+ * Storico della giornata operativa "oggi". Thin wrapper retrocompat su
+ * listOrdersHistory: risolve i bounds di oggi via getOperativeDayBounds()
+ * (no-arg → DEFAULT server-side data civile Europe/Rome) e delega. I bounds
+ * NON sono mai calcolati in JS. I call-site esistenti restano invariati (2 arg).
+ */
+export async function listOrdersHistoryToday(
+    tenantId: string,
+    activityId: string
+): Promise<V2OrderWithItems[]> {
+    const { dayStart, dayEnd } = await getOperativeDayBounds();
+    return listOrdersHistory(tenantId, activityId, dayStart, dayEnd);
 }
