@@ -1011,6 +1011,19 @@ export default function Orders() {
                     ) : (
                         <div className={styles.historySection}>
                             <div className={styles.historyToolbar}>
+                                {/* Ordine allineato a ReservationsAgenda:
+                                    filtri-segmento a SINISTRA, navigazione data
+                                    a DESTRA. justify-content:space-between li
+                                    distribuisce agli estremi. */}
+                                <SegmentedControl<HistoryFilter>
+                                    value={historyFilter}
+                                    onChange={setHistoryFilter}
+                                    options={[
+                                        { value: "all", label: "Tutti" },
+                                        { value: "delivered", label: "Serviti" },
+                                        { value: "cancelled", label: "Annullati" }
+                                    ]}
+                                />
                                 <div className={styles.dayNav}>
                                     <button
                                         type="button"
@@ -1042,15 +1055,6 @@ export default function Orders() {
                                         <ChevronRight size={18} />
                                     </button>
                                 </div>
-                                <SegmentedControl<HistoryFilter>
-                                    value={historyFilter}
-                                    onChange={setHistoryFilter}
-                                    options={[
-                                        { value: "all", label: "Tutti" },
-                                        { value: "delivered", label: "Serviti" },
-                                        { value: "cancelled", label: "Annullati" }
-                                    ]}
-                                />
                             </div>
                             <DataTable<HistoryRowWithStorni>
                                 data={filteredHistory}
