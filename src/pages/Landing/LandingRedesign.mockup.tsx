@@ -173,6 +173,11 @@ export default function LandingRedesign() {
                             transition={{ duration: reduce ? 0 : 1.1, ease: "easeInOut" }}
                         />
                     ))}
+                    <div className={s.aurora} aria-hidden="true">
+                        <span className={s.blob1} />
+                        <span className={s.blob2} />
+                        <span className={s.blob3} />
+                    </div>
                     <div className={s.ambient} />
                     <div className={s.grain} />
                 </div>
@@ -341,83 +346,67 @@ export default function LandingRedesign() {
                         </div>
 
                         <div className={s.levers}>
-                            {/* Leva 1 — contenuti in evidenza / promo / eventi */}
+                            {/* Leva 1 — programmazione / in evidenza (scrubber ora) */}
                             <div className={s.lever}>
                                 <div className={s.leverText}>
-                                    <span className={s.leverIndex}>La prima leva</span>
                                     <h3 className={s.leverH3}>
                                         Il venerdì sera va in vetrina da solo.
                                     </h3>
                                     <p className={s.leverBody}>
-                                        Programmi una promo o un evento e il motore lo porta in
-                                        home all'ora giusta, poi lo ritira quando è finito.
-                                        L'aperitivo del venerdì non te lo dimentichi mai più.
+                                        Programmi una promo e il motore la porta in home all'ora
+                                        giusta, poi la ritira quando è finita. Muovi l'ora qui a
+                                        fianco: guarda la vetrina accendersi e spegnersi da sola.
                                     </p>
                                 </div>
                                 <div className={s.leverDemo}>
                                     <div className={s.chip}>
-                                        <div className={s.chipHead}>In evidenza · adesso in home</div>
+                                        <div className={s.chipHead}>Anteprima home · trascina l'ora</div>
                                         <div className={s.chipBody}>
-                                            <div className={s.promoCard}>
-                                                <span className={s.promoWhen}>
-                                                    <b>VEN</b>
-                                                    <span>18:30</span>
-                                                </span>
-                                                <span>
-                                                    <span className={s.promoTitle}>
-                                                        Aperitivo in terrazza
-                                                    </span>
-                                                    <span className={s.promoMeta}>
-                                                        Attivo · si chiude alle 21:00
-                                                    </span>
-                                                </span>
-                                            </div>
+                                            <ScheduleDemo reduce={!!reduce} />
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Leva 2 — cambio stile quando vuoi */}
+                            {/* Leva 2 — cambio stile (skin cliccabile) */}
                             <div className={`${s.lever} ${s.leverAlt}`}>
                                 <div className={s.leverText}>
-                                    <span className={s.leverIndex}>La seconda leva</span>
                                     <h3 className={s.leverH3}>
                                         Cambi veste al locale in un gesto.
                                     </h3>
                                     <p className={s.leverBody}>
-                                        Estate chiara, feste in tono caldo, dehors la sera in blu
-                                        profondo. Cambi lo stile della pagina quando vuoi — i
-                                        prodotti e i prezzi restano esattamente gli stessi.
+                                        Tocca uno stile: la pagina cambia pelle davvero — colori,
+                                        tono, atmosfera. I piatti e i prezzi restano identici. Il
+                                        contenuto non si tocca, l'abito sì.
                                     </p>
                                 </div>
                                 <div className={s.leverDemo}>
                                     <div className={s.chip}>
-                                        <div className={s.chipHead}>Stile della pagina</div>
+                                        <div className={s.chipHead}>Stile della pagina · tocca per provare</div>
                                         <div className={s.chipBody}>
-                                            <StyleSwapDemo reduce={!!reduce} />
+                                            <StyleDemo reduce={!!reduce} />
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            {/* Leva 3 — traduzione realtime */}
+                            {/* Leva 3 — traduzione realtime (toggle lingua) */}
                             <div className={s.lever}>
                                 <div className={s.leverText}>
-                                    <span className={s.leverIndex}>La terza leva</span>
                                     <h3 className={s.leverH3}>
                                         Il turista legge il menu nella sua lingua.
                                     </h3>
                                     <p className={s.leverBody}>
-                                        La pagina si traduce da sola in base a chi la apre. Un
-                                        cliente da Monaco inquadra il QR e trova già tutto in
-                                        tedesco — tu non traduci niente a mano.
+                                        Cambia lingua qui a fianco: i nomi dei piatti virano sul
+                                        posto, i prezzi restano. Un cliente da Monaco inquadra il
+                                        QR e trova già tutto in tedesco — tu non traduci niente.
                                     </p>
                                 </div>
                                 <div className={s.leverDemo}>
                                     <div className={s.chip}>
-                                        <div className={s.chipHead}>Traduzione della pagina</div>
+                                        <div className={s.chipHead}>Lingua del visitatore · tocca IT · DE · EN</div>
                                         <div className={s.chipBody}>
-                                            <TranslateDemo />
+                                            <TranslateDemo reduce={!!reduce} />
                                         </div>
                                     </div>
                                 </div>
@@ -627,60 +616,177 @@ function Check({ className }: { className?: string }) {
     );
 }
 
-/* ── Leva 2: cambio stile (swatch auto-ciclanti, pausabile) ─────────── */
-function StyleSwapDemo({ reduce }: { reduce: boolean }) {
-    const styles = [
-        { key: "warm", cls: s.swatchWarm, label: "Caldo" },
-        { key: "cool", cls: s.swatchCool, label: "Chiaro" },
-        { key: "night", cls: s.swatchNight, label: "Sera" },
-    ];
-    const [i, setI] = useState(0);
-    useEffect(() => {
-        if (reduce) return;
-        const id = window.setInterval(() => setI((v) => (v + 1) % styles.length), 2600);
-        return () => window.clearInterval(id);
-    }, [reduce, styles.length]);
+/* ── Leva 1: programmazione / in evidenza — scrubber dell'ora ────────
+   Il protagonista è lo SLOT "in evidenza" che compare e sparisce DENTRO la
+   mini-home (l'anteprima della pagina pubblica), non un badge isolato. */
+function ScheduleDemo({ reduce }: { reduce: boolean }) {
+    const START = 1110; // 18:30
+    const END = 1260; //   21:00
+    const [min, setMin] = useState(1170); // 19:30 → Attiva (stato iniziale leggibile)
+    const status = min < START ? "scheduled" : min < END ? "active" : "done";
+    const label =
+        status === "scheduled" ? "Programmata" : status === "active" ? "Attiva ora" : "Conclusa";
+    const badgeCls =
+        status === "active" ? s.ruleActive : status === "scheduled" ? s.ruleScheduled : s.ruleDone;
+    const hh = String(Math.floor(min / 60)).padStart(2, "0");
+    const mm = String(min % 60).padStart(2, "0");
     return (
-        <div className={s.styleSwap}>
-            <div className={s.styleSwatches}>
-                {styles.map((st, idx) => (
-                    <span
-                        key={st.key}
-                        className={`${st.cls} ${s.swatch} ${idx === i ? s.swatchActive : ""}`}
-                    >
-                        {st.label}
-                    </span>
-                ))}
+        <div className={s.schedDemo}>
+            <div className={s.schedHead}>
+                <span className={s.schedHeadLabel}>
+                    Ora · {hh}:{mm}
+                </span>
+                <span className={`${s.ruleBadge} ${badgeCls}`}>
+                    <span className={s.ruleDot} />
+                    {label}
+                </span>
+            </div>
+
+            {/* la "vetrina": mini-home della pagina pubblica */}
+            <div className={s.miniHome}>
+                <div className={s.miniHomeBar}>
+                    <span className={s.miniHomeName}>Il Molo 34</span>
+                    <span className={s.miniHomeNav}>Menu · Prenota</span>
+                </div>
+
+                <AnimatePresence initial={false}>
+                    {status === "active" && (
+                        <motion.div
+                            key="feat"
+                            className={s.miniFeatured}
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: reduce ? 0 : 0.34, ease: "easeOut" }}
+                        >
+                            <div className={s.miniFeaturedInner}>
+                                <span className={s.miniFeaturedTag}>In evidenza</span>
+                                <span className={s.miniFeaturedTitle}>Aperitivo del venerdì</span>
+                                <span className={s.miniFeaturedMeta}>18:30–21:00 · in terrazza</span>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
+
+                <div className={s.miniSection}>Menu della sera</div>
+                <div className={s.miniRow}>
+                    <span>Spritz del Molo</span>
+                    <span>€8</span>
+                </div>
+                <div className={s.miniRow}>
+                    <span>Tagliere ligure</span>
+                    <span>€14</span>
+                </div>
+            </div>
+
+            <input
+                className={s.schedRange}
+                type="range"
+                min={420}
+                max={1380}
+                step={15}
+                value={min}
+                onChange={(e) => setMin(Number(e.target.value))}
+                aria-label={`Ora del giorno: ${hh}:${mm}. Vetrina: ${label}`}
+            />
+            <div className={s.schedTicks} aria-hidden="true">
+                <span>07:00</span>
+                <span>18:30</span>
+                <span>23:00</span>
+            </div>
+        </div>
+    );
+}
+
+/* ── Leva 2: cambio stile — 3 preset veri (colore + font + forma).
+   Stessi piatti, stessi prezzi in ogni veste. NON è lo Style Editor:
+   sono 3 preset credibili che fanno intuire la profondità del prodotto. */
+type SkinKey = "warm" | "cool" | "night";
+function StyleDemo({ reduce }: { reduce: boolean }) {
+    const skins: { key: SkinKey; label: string }[] = [
+        { key: "warm", label: "Caldo" },
+        { key: "cool", label: "Chiaro" },
+        { key: "night", label: "Sera" },
+    ];
+    const [skin, setSkin] = useState<SkinKey>("cool");
+    const dishes = [
+        { name: "Trofie al pesto", price: "€12" },
+        { name: "Insalata di mare", price: "€16" },
+        { name: "Focaccia di Recco", price: "€7" },
+    ];
+    const previewCls =
+        skin === "warm" ? s.previewWarm : skin === "cool" ? s.previewCool : s.previewNight;
+    return (
+        <div className={s.styleDemo}>
+            <div className={s.styleSwatches} role="group" aria-label="Stile della pagina">
+                {skins.map((st) => {
+                    const cls =
+                        st.key === "warm"
+                            ? s.swatchWarm
+                            : st.key === "cool"
+                              ? s.swatchCool
+                              : s.swatchNight;
+                    return (
+                        <button
+                            key={st.key}
+                            className={`${s.swatch} ${cls} ${skin === st.key ? s.swatchActive : ""}`}
+                            aria-pressed={skin === st.key}
+                            onClick={() => setSkin(st.key)}
+                        >
+                            {st.label}
+                        </button>
+                    );
+                })}
+            </div>
+            <div
+                className={`${s.stylePreview} ${previewCls}`}
+                data-reduce={reduce ? "1" : undefined}
+            >
+                <div className={s.spNav}>
+                    <span className={s.spName}>Il Molo 34</span>
+                    <span className={s.spTag}>Menu</span>
+                </div>
+                <div className={s.spMenu}>
+                    {dishes.map((d) => (
+                        <div className={s.spRow} key={d.name}>
+                            <span className={s.spRowName}>{d.name}</span>
+                            <span className={s.spRowPrice}>{d.price}</span>
+                        </div>
+                    ))}
+                </div>
             </div>
             <p className={s.styleNote}>
-                Stile attivo: <b>{styles[i].label}</b> — stessi prodotti, stessi prezzi.
+                Cambia la <b>veste</b> — colori, font, forma. Stessi piatti, stessi prezzi.
             </p>
         </div>
     );
 }
 
-/* ── Leva 3: traduzione realtime (toggle IT/DE/EN) ──────────────────── */
-function TranslateDemo() {
+/* ── Leva 3: traduzione realtime — i nomi virano, i prezzi restano ───── */
+function TranslateDemo({ reduce }: { reduce: boolean }) {
     const langs = ["IT", "DE", "EN"] as const;
     const [lang, setLang] = useState<(typeof langs)[number]>("IT");
     const rows: Record<(typeof langs)[number], { name: string; price: string }[]> = {
         IT: [
             { name: "Trofie al pesto", price: "€12" },
             { name: "Insalata di mare", price: "€16" },
+            { name: "Focaccia di Recco", price: "€7" },
         ],
         DE: [
             { name: "Trofie mit Pesto", price: "€12" },
             { name: "Meeresfrüchtesalat", price: "€16" },
+            { name: "Focaccia aus Recco", price: "€7" },
         ],
         EN: [
             { name: "Trofie with pesto", price: "€12" },
             { name: "Seafood salad", price: "€16" },
+            { name: "Recco focaccia", price: "€7" },
         ],
     };
     return (
-        <div>
+        <div className={s.transDemo}>
             <div className={s.langRow}>
-                <span className={s.langToggle}>
+                <span className={s.langToggle} role="group" aria-label="Lingua del visitatore">
                     {langs.map((l) => (
                         <button
                             key={l}
@@ -694,12 +800,25 @@ function TranslateDemo() {
                 </span>
                 <span className={s.langLine}>lingua del visitatore</span>
             </div>
-            {rows[lang].map((r) => (
-                <div className={s.transRow} key={r.name}>
-                    <span className={s.transName}>{r.name}</span>
-                    <span className={s.transPrice}>{r.price}</span>
-                </div>
-            ))}
+            <div className={s.transRows}>
+                {rows[lang].map((r, idx) => (
+                    <div className={s.transRow} key={idx}>
+                        <AnimatePresence initial={false} mode="wait">
+                            <motion.span
+                                key={lang}
+                                className={s.transName}
+                                initial={{ opacity: 0, y: reduce ? 0 : 5 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: reduce ? 0 : -5 }}
+                                transition={{ duration: reduce ? 0 : 0.22, ease: "easeOut" }}
+                            >
+                                {r.name}
+                            </motion.span>
+                        </AnimatePresence>
+                        <span className={s.transPrice}>{r.price}</span>
+                    </div>
+                ))}
+            </div>
         </div>
     );
 }

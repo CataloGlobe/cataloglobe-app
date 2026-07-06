@@ -87,10 +87,10 @@
   --scene-ink: #1f2937;
   --scene-sub: #414c5e;
 }
-.hero[data-daypart="mattino"]   { --scene-ink: #1a2b40; --scene-sub: #38495e; }
-.hero[data-daypart="pranzo"]    { --scene-ink: #262019; --scene-sub: #48412f; }
-.hero[data-daypart="aperitivo"] { --scene-ink: #34270f; --scene-sub: #4d3a14; }
-.hero[data-daypart="cena"]      { --scene-ink: #eaeef8; --scene-sub: #bcc3d8; }
+.hero[data-daypart="mattino"]   { --scene-ink: #26232c; --scene-sub: #474351; }  /* alba rosata */
+.hero[data-daypart="pranzo"]    { --scene-ink: #1f2733; --scene-sub: #3f4756; }  /* mezzogiorno chiaro */
+.hero[data-daypart="aperitivo"] { --scene-ink: #341c12; --scene-sub: #3a1a0e; }  /* tramonto rosso (sub extra-scuro per AA sul caldo) */
+.hero[data-daypart="cena"]      { --scene-ink: #eaeef8; --scene-sub: #bcc3d8; }  /* notte — invariata */
 
 .scene {
   position: absolute;
@@ -104,10 +104,10 @@
 }
 /* Cielo calmo che vira con l'ora — l'accento "wow" lo dà il SOLE (sotto),
    non un fondo super-saturo. La scheda resta l'ancora bianca. */
-.sceneMattino   { background: linear-gradient(180deg, #ccdcee 0%, #dbe7f2 55%, #e8eff5 100%); }
-.scenePranzo    { background: linear-gradient(180deg, #e8eef2 0%, #f1eee6 55%, #f6f1e6 100%); }
-.sceneAperitivo { background: linear-gradient(180deg, #f5e6cd 0%, #f0d4a2 60%, #eac88d 100%); }
-.sceneCena      { background: linear-gradient(180deg, #1b2444 0%, #151d38 55%, #0e1526 100%); }
+.sceneMattino   { background: linear-gradient(180deg, #cdd9ec 0%, #e3d6db 52%, #f1d3c6 100%); }  /* alba: freddo in alto → rosa/pesca all'orizzonte */
+.scenePranzo    { background: linear-gradient(180deg, #cfe4f5 0%, #e6f0f7 55%, #f3f4f0 100%); }  /* mezzogiorno: azzurro chiaro, cielo pieno */
+.sceneAperitivo { background: linear-gradient(180deg, #edc2a4 0%, #e2906a 55%, #d3624f 100%); }  /* tramonto: pesca → arancio → rosso */
+.sceneCena      { background: linear-gradient(180deg, #1b2444 0%, #151d38 55%, #0e1526 100%); }  /* notte — invariata */
 
 /* ── Trattamento elegante minimal (no oggetti): luce ambientale soffusa
    dall'alto + leggera vignettatura in basso → profondità sobria. Il colore
@@ -129,6 +129,63 @@
   mix-blend-mode: soft-light;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
   background-size: 180px 180px;
+}
+
+/* ── Aurora: macchie di luce brand che derivano lentissime (effetto wow leggero).
+   Radial-gradient soft (niente filter costoso), drift via transform. ── */
+.aurora {
+  position: absolute;
+  inset: -12%;
+  pointer-events: none;
+  overflow: hidden;
+  opacity: 0.85;
+  mix-blend-mode: screen; /* si accende sul cielo scuro, resta tenue sul chiaro */
+}
+.blob1,
+.blob2,
+.blob3 {
+  position: absolute;
+  border-radius: 50%;
+  will-change: transform;
+}
+.blob1 {
+  left: -8%;
+  top: -12%;
+  width: 62vw;
+  height: 62vw;
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.38) 0%, rgba(99, 102, 241, 0) 62%);
+  animation: auroraDrift1 27s ease-in-out infinite;
+}
+.blob2 {
+  right: -10%;
+  bottom: -14%;
+  width: 58vw;
+  height: 58vw;
+  background: radial-gradient(circle, rgba(246, 184, 96, 0.32) 0%, rgba(246, 184, 96, 0) 62%);
+  animation: auroraDrift2 33s ease-in-out infinite;
+}
+.blob3 {
+  left: 42%;
+  top: 24%;
+  width: 48vw;
+  height: 48vw;
+  background: radial-gradient(circle, rgba(122, 178, 232, 0.30) 0%, rgba(122, 178, 232, 0) 64%);
+  animation: auroraDrift3 24s ease-in-out infinite;
+}
+@keyframes auroraDrift1 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(8vw, 6vh) scale(1.14); }
+}
+@keyframes auroraDrift2 {
+  0%, 100% { transform: translate(0, 0) scale(1.06); }
+  50%      { transform: translate(-7vw, -5vh) scale(0.94); }
+}
+@keyframes auroraDrift3 {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50%      { transform: translate(6vw, -8vh) scale(1.12); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .blob1, .blob2, .blob3 { animation: none; }
 }
 
 .heroInner {
@@ -587,13 +644,17 @@
   min-height: 44px;
   border-radius: 10px;
   border: 2px solid transparent;
-  cursor: default;
+  cursor: pointer;
   font-family: var(--sans);
   font-size: 11px;
   font-weight: 600;
   display: flex;
   align-items: flex-end;
   padding: 7px 9px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+
+  &:hover { transform: translateY(-1px); }
+  &:focus-visible { outline: 3px solid color-mix(in srgb, var(--indigo) 55%, transparent); outline-offset: 2px; }
 }
 .swatchActive { border-color: var(--ink); box-shadow: 0 2px 8px -2px rgba(20,22,31,0.3); }
 .swatchWarm { background: linear-gradient(135deg, #f3e6d2, #e8c9a0); color: #4a3618; }
@@ -611,9 +672,9 @@
   overflow: hidden;
 }
 .langOpt {
-  min-width: 44px;
-  min-height: 34px;
-  padding: 0 12px;
+  min-width: 48px;
+  min-height: 44px;
+  padding: 0 14px;
   border: none;
   background: var(--surface);
   color: var(--muted);
@@ -638,6 +699,217 @@
 }
 .transName { font-family: var(--sans); font-size: 14.5px; font-weight: 500; color: var(--ink); }
 .transPrice { font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--body); font-variant-numeric: tabular-nums; }
+.transDemo { display: block; }
+.transRows { min-height: 0; }
+
+/* ── Leva 1 (interattiva): scrubber ora → slot che entra nella mini-home ── */
+.schedDemo { display: flex; flex-direction: column; gap: 12px; }
+.schedHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.schedHeadLabel {
+  font-family: var(--sans);
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+/* la "vetrina": anteprima della pagina pubblica del locale */
+.miniHome {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  overflow: hidden;
+  background: var(--surface);
+}
+.miniHomeBar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.miniHomeName { font-family: var(--serif); font-size: 16px; font-weight: 500; color: var(--ink); }
+.miniHomeNav { font-family: var(--sans); font-size: 11.5px; font-weight: 500; color: var(--muted); }
+/* lo slot "in evidenza": entra/esce DENTRO la home (height animata) */
+.miniFeatured { overflow: hidden; }
+.miniFeaturedInner {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 12px 14px 2px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: var(--indigo-soft);
+  border: 1px solid color-mix(in srgb, var(--indigo) 22%, transparent);
+}
+.miniFeaturedTag {
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--indigo-deep);
+}
+.miniFeaturedTitle { font-family: var(--serif); font-size: 15px; font-weight: 500; color: var(--ink); }
+.miniFeaturedMeta { font-family: var(--sans); font-size: 12px; font-weight: 500; color: var(--indigo-deep); }
+.miniSection {
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 12px 14px 4px;
+}
+.miniRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 14px;
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--ink);
+
+  span:last-child { font-weight: 600; color: var(--body); font-variant-numeric: tabular-nums; }
+  & + .miniRow { border-top: 1px solid var(--border); }
+}
+.schedRange {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 44px;               /* hit target ≥44px */
+  background: transparent;
+  cursor: pointer;
+  margin: 0;
+
+  &:focus-visible { outline: 3px solid color-mix(in srgb, var(--indigo) 55%, transparent); outline-offset: 2px; border-radius: 8px; }
+  &::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: var(--border-strong); }
+  &::-moz-range-track { height: 6px; border-radius: 999px; background: var(--border-strong); }
+  &::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 24px; height: 24px;
+    margin-top: -9px;
+    border-radius: 50%;
+    background: var(--indigo-deep);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(20, 22, 31, 0.3);
+  }
+  &::-moz-range-thumb {
+    width: 24px; height: 24px;
+    border-radius: 50%;
+    background: var(--indigo-deep);
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgba(20, 22, 31, 0.3);
+  }
+}
+.schedTicks {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--sans);
+  font-size: 11px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-top: -4px;
+
+  span:nth-child(2) { color: var(--indigo-deep); font-weight: 600; }
+}
+
+/* ── Leva 2 (interattiva): 3 preset veri — colore + font + forma ─────────
+   Ogni skin imposta un set di CSS var lette dal markup. Stessi piatti,
+   stessi prezzi in ogni veste. AA garantito, incluso "Sera" scuro. */
+.styleDemo { display: flex; flex-direction: column; gap: 12px; }
+.stylePreview {
+  overflow: hidden;
+  border: 1px solid var(--sk-border);
+  border-radius: var(--sk-radius);
+  background: var(--sk-bg);
+  color: var(--sk-text);
+  transition: background 0.35s ease, color 0.35s ease, border-color 0.35s ease,
+    border-radius 0.35s ease;
+
+  &[data-reduce="1"] { transition: none; }
+}
+.spNav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  border-bottom: var(--sk-divider);
+}
+.spName {
+  font-family: var(--sk-title-font);
+  font-size: 16px;
+  font-weight: var(--sk-title-weight);
+  letter-spacing: var(--sk-title-tracking);
+  color: var(--sk-text);
+}
+.spTag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 2px 12px;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: var(--sk-tag-tracking);
+  text-transform: var(--sk-tag-case);
+  border-radius: var(--sk-nav-radius);
+  border: 1px solid var(--sk-accent);
+  color: var(--sk-accent);
+}
+.spMenu { padding: var(--sk-menu-pad, 6px 0); }
+.spRow {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: var(--sk-row-pad, 9px 14px);
+  border: var(--sk-row-border, 0 solid transparent);
+  border-radius: var(--sk-row-radius, 0);
+
+  & + .spRow { border-top: var(--sk-row-divider, 1px solid transparent); }
+}
+.spRowName { font-family: var(--sk-title-font); font-size: 14px; font-weight: 500; color: var(--sk-text); }
+.spRowPrice { font-family: var(--sans); font-size: 13.5px; font-weight: 600; color: var(--sk-price); font-variant-numeric: tabular-nums; }
+
+/* Chiaro — sans pulito, squadrato, hairline (SaaS minimale) */
+.previewCool {
+  --sk-bg: #ffffff; --sk-text: #14161f; --sk-price: #3a4152;
+  --sk-accent: #4648c6; --sk-border: #e4e7ef;
+  --sk-title-font: var(--sans); --sk-title-weight: 600; --sk-title-tracking: -0.01em;
+  --sk-radius: 8px; --sk-nav-radius: 6px;
+  --sk-divider: 1px solid #eef1f6;
+  --sk-row-divider: 1px solid #f2f4f8;
+  --sk-tag-case: uppercase; --sk-tag-tracking: 0.06em;
+}
+/* Caldo — serif editoriale, pill, angoli morbidi (trattoria) */
+.previewWarm {
+  --sk-bg: #f7ede1; --sk-text: #33240f; --sk-price: #5a4326;
+  --sk-accent: #a8542a; --sk-border: #e4cba9;
+  --sk-title-font: var(--serif); --sk-title-weight: 500; --sk-title-tracking: 0;
+  --sk-radius: 18px; --sk-nav-radius: 999px;
+  --sk-divider: 1px solid #e7d5bf;
+  --sk-row-divider: 1px solid #ecdcc8;
+  --sk-tag-case: none; --sk-tag-tracking: 0.02em;
+}
+/* Sera — scuro, serif, righe come box bordati, accento oro (bar la sera) */
+.previewNight {
+  --sk-bg: #191d31; --sk-text: #eef0f8; --sk-price: #d3d8ec;
+  --sk-accent: #e8b45f; --sk-border: #2c3149;
+  --sk-title-font: var(--serif); --sk-title-weight: 500; --sk-title-tracking: 0;
+  --sk-radius: 12px; --sk-nav-radius: 999px;
+  --sk-divider: 1px solid #2a2f47;
+  --sk-tag-case: uppercase; --sk-tag-tracking: 0.09em;
+  --sk-menu-pad: 8px;
+  --sk-row-pad: 9px 12px;
+  --sk-row-border: 1px solid #2f3550;
+  --sk-row-radius: 8px;
+  --sk-row-divider: 0 solid transparent;
+
+  .spMenu { display: flex; flex-direction: column; gap: 6px; }
+}
 
 /* ================================================================
    TERZO CERCHIO — gestisci e cresci (UN pannello sobrio e denso)
