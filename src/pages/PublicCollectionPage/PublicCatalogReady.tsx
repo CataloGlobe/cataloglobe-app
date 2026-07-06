@@ -73,8 +73,60 @@ function mapAttributes(
     return mapped && mapped.length > 0 ? mapped : undefined;
 }
 
-function mapProductToItem(p: ResolvedProduct): CollectionViewSectionItem {
+/** Prezzo display dell'abbinato — stessa precedenza della card prodotto
+ *  (`effective_price ?? price`, poi `from_price` come fallback "da €"). */
+function pairingDisplayPrice(p: ResolvedProduct): number | null {
+    if (typeof p.effective_price === "number") return p.effective_price;
+    if (typeof p.price === "number") return p.price;
+    if (typeof p.from_price === "number") return p.from_price;
+    return null;
+}
+
+/** Hydration by-id dei riferimenti abbinamento in oggetti display-ready.
+ *  Nome/prezzo/immagine dall'abbinato risolto (single source of truth).
+ *  Ref senza match nella mappa → skip difensivo (l'edge già filtra ai soli
+ *  abbinati presenti-e-visibili, ma non crashiamo se assente). */
+function hydratePairings(
+    p: ResolvedProduct,
+    productById: Map<string, ResolvedProduct>
+): CollectionViewSectionItem["pairings"] {
+    if (!p.pairings || p.pairings.length === 0) return undefined;
+    const items = [...p.pairings]
+        .sort((a, b) => a.sort_order - b.sort_order)
+        .map(ref => {
+            const paired = productById.get(ref.paired_product_id);
+            if (!paired) return null;
+            return {
+                id: paired.id,
+                name: paired.name,
+                imageUrl: paired.image_url ?? null,
+                price: pairingDisplayPrice(paired),
+                note: ref.note
+            };
+        })
+        .filter((x): x is NonNullable<typeof x> => x !== null);
+    return items.length > 0 ? items : undefined;
+}
+
+/** Mappa id → prodotto risolto, solo prodotti visibili (renderabili). */
+function buildProductIndex(
+    catalog: ResolvedCollections["catalog"]
+): Map<string, ResolvedProduct> {
+    const map = new Map<string, ResolvedProduct>();
+    for (const category of catalog?.categories ?? []) {
+        for (const product of category.products) {
+            if (product.is_visible) map.set(product.id, product);
+        }
+    }
+    return map;
+}
+
+function mapProductToItem(
+    p: ResolvedProduct,
+    productById: Map<string, ResolvedProduct>
+): CollectionViewSectionItem {
     const attributes = mapAttributes(p.attributes);
+    const pairings = hydratePairings(p, productById);
 
     const variants = p.variants?.map(v => ({
         id: v.id,
@@ -140,6 +192,7 @@ function mapProductToItem(p: ResolvedProduct): CollectionViewSectionItem {
             : {}),
         ...(p.ingredients && p.ingredients.length > 0 ? { ingredients: p.ingredients } : {}),
         ...(p.notes && p.notes.length > 0 ? { notes: p.notes } : {}),
+        ...(pairings && pairings.length > 0 ? { pairings } : {}),
         is_disabled: p.is_disabled ?? false
     };
 }
@@ -168,20 +221,26 @@ function collectCatalogCharacteristics(
     return Array.from(seen.values()).sort((a, b) => a.sort_order - b.sort_order);
 }
 
-function mapCategoryToSection(cat: ResolvedCategory): CollectionViewSection {
+function mapCategoryToSection(
+    cat: ResolvedCategory,
+    productById: Map<string, ResolvedProduct>
+): CollectionViewSection {
     return {
         id: cat.id,
         name: cat.name,
         level: cat.level,
         parentCategoryId: cat.parent_category_id,
-        items: cat.products.filter(p => p.is_visible).map(mapProductToItem)
+        items: cat.products.filter(p => p.is_visible).map(p => mapProductToItem(p, productById))
     };
 }
 
 function mapCatalogToSectionGroups(resolved: ResolvedCollections): CollectionViewSectionGroup[] {
     if (!resolved.catalog?.categories) return [];
 
-    const allSections = resolved.catalog.categories.map(mapCategoryToSection);
+    const productById = buildProductIndex(resolved.catalog);
+    const allSections = resolved.catalog.categories.map(cat =>
+        mapCategoryToSection(cat, productById)
+    );
 
     // Raccoglie L1 — incluse quelle senza prodotti diretti ma con figli che ne hanno
     const l1Sections = allSections.filter(s => s.level === 1);

@@ -1,7 +1,10 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { resolveActivityCatalogs } from "../_shared/resolveActivityCatalogs.ts";
+import {
+    resolveActivityCatalogs,
+    type ResolvedProduct
+} from "../_shared/resolveActivityCatalogs.ts";
 import { toRomeDateTime, getNowInRome } from "../_shared/schedulingNow.ts";
 
 interface ActivityFee { key: string; value: string; }
@@ -455,6 +458,61 @@ serve(async (req: Request) => {
                 .eq("id", activity.tenant_id)
                 .single()
         ]);
+
+        // 3c. Abbinamenti (product_pairings) — riferimenti leggeri per prodotto.
+        // Stesso-catalogo: attacchiamo un ref { paired_product_id, note,
+        // sort_order } ai prodotti sorgente presenti-e-visibili nel catalogo
+        // risolto, e SOLO quando anche l'abbinato è presente-e-visibile qui.
+        // Questo: (a) garantisce che ogni ref sia renderizzabile (hydration
+        // frontend troverà sempre l'abbinato), (b) realizza la degradazione
+        // silenziosa dell'abbinato nascosto/assente, (c) evita di esporre nel
+        // payload id/note di prodotti nascosti da regola visibilità.
+        {
+            const productsById = new Map<string, ResolvedProduct>();
+            for (const category of resolved.catalog?.categories ?? []) {
+                for (const product of category.products) {
+                    if (product.is_visible) productsById.set(product.id, product);
+                }
+            }
+            const activeIds = [...productsById.keys()];
+            if (activeIds.length > 0) {
+                const { data: pairingData, error: pairingErr } = await supabase
+                    .from("product_pairings")
+                    .select("product_id, paired_product_id, note, sort_order")
+                    .eq("tenant_id", activity.tenant_id)
+                    .in("product_id", activeIds)
+                    .order("sort_order", { ascending: true });
+
+                if (pairingErr) {
+                    console.error("[resolver] product_pairings fetch failed:", pairingErr);
+                } else {
+                    type RawPairingRow = {
+                        product_id: string;
+                        paired_product_id: string;
+                        note: string | null;
+                        sort_order: number;
+                    };
+                    const rows = (pairingData ?? []) as RawPairingRow[];
+                    type PairingRef = { paired_product_id: string; note: string | null; sort_order: number };
+                    const byProduct = new Map<string, PairingRef[]>();
+                    for (const row of rows) {
+                        // Attach solo se l'abbinato è presente-e-visibile nel catalogo attivo.
+                        if (!productsById.has(row.paired_product_id)) continue;
+                        const list = byProduct.get(row.product_id) ?? [];
+                        list.push({
+                            paired_product_id: row.paired_product_id,
+                            note: row.note ?? null,
+                            sort_order: row.sort_order
+                        });
+                        byProduct.set(row.product_id, list);
+                    }
+                    for (const [productId, refs] of byProduct) {
+                        const product = productsById.get(productId);
+                        if (product) product.pairings = refs;
+                    }
+                }
+            }
+        }
 
         const opening_hours = hoursResult.data ?? undefined;
         const upcoming_closures = closuresResult.data ?? undefined;

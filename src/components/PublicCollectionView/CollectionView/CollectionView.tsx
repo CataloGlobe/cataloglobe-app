@@ -144,6 +144,15 @@ export type CollectionViewSectionItem = {
     }[];
     parentSelected: boolean;
     is_disabled?: boolean;
+    /** Abbinamenti hydratati (display-ready) — risolti by-id dal catalogo
+     *  risolto. Prezzo = valore effettivo già in contesto. Ordine = sort_order. */
+    pairings?: {
+        id: string;
+        name: string;
+        imageUrl: string | null;
+        price: number | null;
+        note: string | null;
+    }[];
 };
 
 export type CollectionViewSection = {
