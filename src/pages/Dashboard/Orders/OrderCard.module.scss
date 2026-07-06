@@ -78,16 +78,21 @@
 }
 
 // Badge "primo ordine non verificato": il gruppo tavolo non ha ancora un
-// ordine confermato dallo staff. Tono ambra coerente con .orderNotes /
-// .ctaAcknowledged ma non allarmistico (no icona, testo informativo).
+// ordine confermato dallo staff. Vive su una riga dedicata (.unverifiedRow)
+// sotto l'header per non comprimere/sovrapporre il nome tavolo · zona.
+// Tono ambra coerente con .orderNotes / .ctaAcknowledged ma non allarmistico.
+.unverifiedRow {
+    display: flex;
+}
+
 .unverifiedBadge {
     display: inline-flex;
     align-items: center;
-    padding: 2px 8px;
+    gap: 5px;
+    padding: 3px 10px;
     border-radius: 999px;
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 600;
-    white-space: nowrap;
     color: var(--color-warning-700, #b45309);
     background: var(--color-warning-50, #fffbeb);
     border: 1px solid var(--color-warning-300, #fcd34d);

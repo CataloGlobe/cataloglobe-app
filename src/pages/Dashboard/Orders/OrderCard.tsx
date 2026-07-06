@@ -176,14 +176,6 @@ export default function OrderCard({
                             <User size={12} aria-hidden />
                         </span>
                     )}
-                    {order.group_verified_at == null && (
-                        <span
-                            className={styles.unverifiedBadge}
-                            title="Il primo ordine di questo tavolo non è ancora stato confermato"
-                        >
-                            Primo ordine · verifica il tavolo
-                        </span>
-                    )}
                     <span className={styles.timeStamp}>
                         <Clock size={14} />
                         <Text variant="body-sm" colorVariant="muted">
@@ -192,6 +184,18 @@ export default function OrderCard({
                     </span>
                 </div>
             </div>
+
+            {order.group_verified_at == null && (
+                <div className={styles.unverifiedRow}>
+                    <span
+                        className={styles.unverifiedBadge}
+                        title="Il primo ordine di questo tavolo non è ancora stato confermato"
+                    >
+                        <AlertCircle size={13} aria-hidden />
+                        Primo ordine · verifica il tavolo
+                    </span>
+                </div>
+            )}
 
             <div className={styles.items}>
                 {visibleItems.map(item => {
