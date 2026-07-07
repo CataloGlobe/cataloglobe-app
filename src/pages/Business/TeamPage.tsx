@@ -86,7 +86,7 @@ function ActivitiesCell({ member }: { member: TenantMemberRow }) {
 }
 
 export default function TeamPage() {
-    const { selectedTenant, selectedTenantId } = useTenant();
+    const { selectedTenantId } = useTenant();
     const { showToast } = useToast();
 
     const [members, setMembers] = useState<TenantMemberRow[]>([]);
