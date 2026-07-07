@@ -137,3 +137,47 @@ export async function deleteFeaturedContentImageBestEffort(
     const { error } = await supabase.storage.from("featured-contents").remove(paths);
     if (error) throw error;
 }
+
+/** Mirrors uploadFeaturedContentImage. Shared by story cover + tenant "cappello" cover. */
+export async function uploadStoryImage(
+    tenantId: string,
+    storyId: string,
+    file: File
+): Promise<string> {
+    const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const filePath = `${tenantId}/${storyId}.${ext}`;
+
+    const { error } = await supabase.storage
+        .from("stories")
+        .upload(filePath, file, { upsert: true, contentType: file.type });
+
+    if (error) throw new Error("Upload immagine fallito");
+
+    const { data } = supabase.storage.from("stories").getPublicUrl(filePath);
+    return appendCacheBuster(data.publicUrl);
+}
+
+const STORY_IMAGE_EXTS = ["jpg", "jpeg", "png", "webp"] as const;
+
+/** Mirrors deleteFeaturedContentImageBestEffort. */
+export async function deleteStoryImageBestEffort(
+    tenantId: string,
+    storyId: string,
+    media: string | null
+): Promise<void> {
+    let paths: string[];
+    if (media) {
+        const parsed = extractStoragePath(media, "stories");
+        if (parsed) {
+            paths = [parsed];
+        } else if (media.includes("/")) {
+            paths = [media];
+        } else {
+            paths = STORY_IMAGE_EXTS.map(ext => `${tenantId}/${storyId}.${ext}`);
+        }
+    } else {
+        paths = STORY_IMAGE_EXTS.map(ext => `${tenantId}/${storyId}.${ext}`);
+    }
+    const { error } = await supabase.storage.from("stories").remove(paths);
+    if (error) throw error;
+}

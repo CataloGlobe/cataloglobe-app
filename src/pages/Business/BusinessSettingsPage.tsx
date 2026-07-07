@@ -12,7 +12,13 @@ import { Button } from "@/components/ui/Button/Button";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
-import { deleteTenantSoft, getTenantLogoPublicUrl, updateTenantLogoUrl, updateTenantName, uploadTenantLogo } from "@/services/supabase/tenants";
+import {
+    deleteTenantSoft,
+    getTenantLogoPublicUrl,
+    updateTenantLogoUrl,
+    updateTenantName,
+    uploadTenantLogo
+} from "@/services/supabase/tenants";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { TENANT_KEY } from "@/constants/storageKeys";
 import { SUBTYPE_LABELS, DEFAULT_SUBTYPE } from "@/constants/verticalTypes";

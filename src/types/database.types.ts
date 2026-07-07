@@ -3261,6 +3261,73 @@ export type Database = {
         }
         Relationships: []
       }
+      stories: {
+        Row: {
+          activity_id: string | null
+          body_blocks: Json
+          cover_media: string | null
+          created_at: string
+          eyebrow: string | null
+          id: string
+          product_id: string | null
+          sort_order: number
+          status: string
+          tenant_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          activity_id?: string | null
+          body_blocks?: Json
+          cover_media?: string | null
+          created_at?: string
+          eyebrow?: string | null
+          id?: string
+          product_id?: string | null
+          sort_order?: number
+          status?: string
+          tenant_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string | null
+          body_blocks?: Json
+          cover_media?: string | null
+          created_at?: string
+          eyebrow?: string | null
+          id?: string
+          product_id?: string | null
+          sort_order?: number
+          status?: string
+          tenant_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stories_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stories_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stories_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       stripe_processed_events: {
         Row: {
           event_id: string
@@ -3693,6 +3760,9 @@ export type Database = {
           postal_code: string | null
           province: string | null
           rea_code: string | null
+          story_cover: string | null
+          story_intro: string | null
+          story_title: string | null
           street_number: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
@@ -3703,6 +3773,7 @@ export type Database = {
           trial_until: string | null
           vat_number: string | null
           vertical_type: string
+          website: string | null
         }
         Insert: {
           address?: string | null
@@ -3734,6 +3805,9 @@ export type Database = {
           postal_code?: string | null
           province?: string | null
           rea_code?: string | null
+          story_cover?: string | null
+          story_intro?: string | null
+          story_title?: string | null
           street_number?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -3744,6 +3818,7 @@ export type Database = {
           trial_until?: string | null
           vat_number?: string | null
           vertical_type?: string
+          website?: string | null
         }
         Update: {
           address?: string | null
@@ -3775,6 +3850,9 @@ export type Database = {
           postal_code?: string | null
           province?: string | null
           rea_code?: string | null
+          story_cover?: string | null
+          story_intro?: string | null
+          story_title?: string | null
           street_number?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
@@ -3785,6 +3863,7 @@ export type Database = {
           trial_until?: string | null
           vat_number?: string | null
           vertical_type?: string
+          website?: string | null
         }
         Relationships: [
           {

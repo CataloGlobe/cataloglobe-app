@@ -11,6 +11,7 @@ import {
     Settings,
     Calendar,
     BookOpen,
+    BookOpenText,
     Layers,
     Palette,
     BarChart3,
@@ -115,6 +116,12 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
                     label: "Contenuti in evidenza",
                     icon: <Layers size={18} />,
                     permission: perms => canDoOnAnyActivity(perms, "featured.read")
+                },
+                {
+                    to: `${b}/stories`,
+                    label: "Storie",
+                    icon: <BookOpenText size={18} />,
+                    permission: perms => canDoOnAnyActivity(perms, "stories.read")
                 },
                 { to: `${b}/styles`, label: "Stili", icon: <Palette size={18} />,
                   permission: perms => canDoOnTenant(perms, "styles.read") },
