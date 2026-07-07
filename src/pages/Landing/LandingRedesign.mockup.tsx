@@ -875,16 +875,18 @@ export default function LandingRedesign() {
                                         Il turista legge il menu nella sua lingua.
                                     </h3>
                                     <p className={s.leverBody}>
-                                        Cambia lingua qui a fianco: i nomi dei piatti virano sul
-                                        posto, i prezzi restano. Un cliente da Monaco inquadra il
-                                        QR e trova già tutto in tedesco — tu non traduci niente.
+                                        Cambia lingua qui a fianco: le descrizioni si traducono da
+                                        sole, i prezzi restano. Il nome del piatto resta in
+                                        italiano — l'autenticità che il turista cerca — ma la
+                                        descrizione la legge nella sua lingua, così sa sempre cosa
+                                        ordina.
                                     </p>
                                 </div>
                                 <div className={s.leverDemo}>
                                     <div className={s.chip}>
-                                        <div className={s.chipHead}>Lingua del visitatore · tocca IT · DE · EN</div>
+                                        <div className={s.chipHead}>Lingua del visitatore · tocca una lingua</div>
                                         <div className={s.chipBody}>
-                                            <TranslateDemo reduce={!!reduce} />
+                                            <TranslateDemo />
                                         </div>
                                     </div>
                                 </div>
@@ -1442,59 +1444,72 @@ function StyleDemo({ reduce }: { reduce: boolean }) {
 }
 
 /* ── Leva 3: traduzione realtime — i nomi virano, i prezzi restano ───── */
-function TranslateDemo({ reduce }: { reduce: boolean }) {
-    const langs = ["IT", "DE", "EN"] as const;
-    const [lang, setLang] = useState<(typeof langs)[number]>("IT");
-    const rows: Record<(typeof langs)[number], { name: string; price: string }[]> = {
-        IT: [
-            { name: "Trofie al pesto", price: "€12" },
-            { name: "Insalata di mare", price: "€16" },
-            { name: "Focaccia di Recco", price: "€7" },
-        ],
-        DE: [
-            { name: "Trofie mit Pesto", price: "€12" },
-            { name: "Meeresfrüchtesalat", price: "€16" },
-            { name: "Focaccia aus Recco", price: "€7" },
-        ],
-        EN: [
-            { name: "Trofie with pesto", price: "€12" },
-            { name: "Seafood salad", price: "€16" },
-            { name: "Recco focaccia", price: "€7" },
-        ],
-    };
+type LangKey = "IT" | "EN" | "FR" | "DE" | "ES";
+const TRANS_LANGS: LangKey[] = ["IT", "EN", "FR", "DE", "ES"];
+
+type TransDish = { name: string; price: string; desc: Record<LangKey, string> };
+const TRANS_DISHES: TransDish[] = [
+    {
+        name: "Spaghetti al pomodoro",
+        price: "€10",
+        desc: {
+            IT: "Pasta con pomodoro fresco e basilico",
+            EN: "Pasta with fresh tomato and basil",
+            FR: "Pâtes à la tomate fraîche et basilic",
+            DE: "Pasta mit frischen Tomaten und Basilikum",
+            ES: "Pasta con tomate fresco y albahaca",
+        },
+    },
+    {
+        name: "Bruschetta",
+        price: "€6",
+        desc: {
+            IT: "Pane tostato con pomodoro e aglio",
+            EN: "Toasted bread with tomato and garlic",
+            FR: "Pain grillé à la tomate et à l'ail",
+            DE: "Geröstetes Brot mit Tomate und Knoblauch",
+            ES: "Pan tostado con tomate y ajo",
+        },
+    },
+    {
+        name: "Tiramisù",
+        price: "€6",
+        desc: {
+            IT: "Dolce al caffè con mascarpone",
+            EN: "Coffee dessert with mascarpone",
+            FR: "Dessert au café avec mascarpone",
+            DE: "Kaffee-Dessert mit Mascarpone",
+            ES: "Postre de café con mascarpone",
+        },
+    },
+];
+
+/* Nome piatto e prezzo restano fissi in ogni lingua (scelta di prodotto:
+   autenticità del nome originale); cambia solo la descrizione tradotta. */
+function TranslateDemo() {
+    const [lang, setLang] = useState<LangKey>("IT");
     return (
         <div className={s.transDemo}>
-            <div className={s.langRow}>
-                <span className={s.langToggle} role="group" aria-label="Lingua del visitatore">
-                    {langs.map((l) => (
-                        <button
-                            key={l}
-                            className={`${s.langOpt} ${lang === l ? s.langOptActive : ""}`}
-                            aria-pressed={lang === l}
-                            onClick={() => setLang(l)}
-                        >
-                            {l}
-                        </button>
-                    ))}
-                </span>
-                <span className={s.langLine}>lingua del visitatore</span>
-            </div>
+            <span className={s.langToggle} role="group" aria-label="Lingua del visitatore">
+                {TRANS_LANGS.map((l) => (
+                    <button
+                        key={l}
+                        className={`${s.langOpt} ${lang === l ? s.langOptActive : ""}`}
+                        aria-pressed={lang === l}
+                        onClick={() => setLang(l)}
+                    >
+                        {l}
+                    </button>
+                ))}
+            </span>
             <div className={s.transRows}>
-                {rows[lang].map((r, idx) => (
-                    <div className={s.transRow} key={idx}>
-                        <AnimatePresence initial={false} mode="wait">
-                            <motion.span
-                                key={lang}
-                                className={s.transName}
-                                initial={{ opacity: 0, y: reduce ? 0 : 5 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                exit={{ opacity: 0, y: reduce ? 0 : -5 }}
-                                transition={{ duration: reduce ? 0 : 0.22, ease: "easeOut" }}
-                            >
-                                {r.name}
-                            </motion.span>
-                        </AnimatePresence>
-                        <span className={s.transPrice}>{r.price}</span>
+                {TRANS_DISHES.map((d) => (
+                    <div className={s.transRow} key={d.name}>
+                        <div className={s.transTop}>
+                            <span className={s.transName}>{d.name}</span>
+                            <span className={s.transPrice}>{d.price}</span>
+                        </div>
+                        <p className={s.transDesc}>{d.desc[lang]}</p>
                     </div>
                 ))}
             </div>

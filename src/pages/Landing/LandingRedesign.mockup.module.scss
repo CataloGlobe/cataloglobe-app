@@ -730,41 +730,60 @@
 .swatchNight { background: linear-gradient(135deg, #23283f, #12172a); color: #e7ebf6; }
 
 /* leva 3 — traduzione realtime */
-.langRow { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
 .langToggle {
   display: inline-flex;
+  width: 100%;
+  margin-bottom: 12px;
   border: 1px solid var(--border-strong);
   border-radius: 8px;
   overflow: hidden;
 }
 .langOpt {
-  min-width: 48px;
-  min-height: 44px;
-  padding: 0 14px;
+  flex: 1;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 0 6px;
   border: none;
   background: var(--surface);
   color: var(--muted);
   font-family: var(--sans);
-  font-size: 12.5px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s ease, color 0.2s ease;
 
   &:focus-visible { outline: 2px solid var(--indigo); outline-offset: -2px; }
+  & + & { border-left: 1px solid var(--border-strong); }
 }
 .langOptActive { background: var(--indigo-deep); color: #fff; }
-.langLine { font-family: var(--sans); font-size: 12px; color: var(--muted); }
+/* riga fissa: nome (IT, invariato in ogni lingua) + prezzo, poi descrizione
+   tradotta. Slot ad altezza fissa con contenuto centrato verticalmente, così
+   il cambio lingua (il tedesco è il più lungo) non sposta il layout e i
+   piatti con descrizione corta non restano "appesi" al bordo superiore. */
 .transRow {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 84px;
   padding: 11px 0;
   border-bottom: 1px solid var(--border);
   &:last-child { border-bottom: none; }
 }
+.transTop {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
 .transName { font-family: var(--sans); font-size: 14.5px; font-weight: 500; color: var(--ink); }
 .transPrice { font-family: var(--sans); font-size: 14px; font-weight: 600; color: var(--body); font-variant-numeric: tabular-nums; }
+.transDesc {
+  margin: 3px 0 0;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted);
+}
 .transDemo { display: block; }
 .transRows { min-height: 0; }
 
