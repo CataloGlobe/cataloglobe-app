@@ -1,20 +1,29 @@
 .container {
+  // Figlio diretto del `.body` del DrawerLayout (aperto con bodyLayout="flex"):
+  // flex:1 1 auto invece di height:100% per ricevere l'altezza bounded del body.
   display: flex;
   flex-direction: column;
   gap: 16px;
-  height: 100%;
+  flex: 1 1 auto;
   min-height: 0;
 }
 
+// Blocco filtri fisso sopra la tabella (Gruppo + Cerca): non deve comprimersi
+// né rubare spazio flessibile alla tabella.
 .filtersBlock {
+  flex: 0 0 auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
 
+// Ultimo anello: deve essere flex-CONTAINER (non solo flex-item) così che il
+// `.autoSizeProbe` figlio del DataTable, con flex:1 1 auto, si stiri e misuri.
 .tableWrap {
   flex: 1 1 auto;
   min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .nameCell {
