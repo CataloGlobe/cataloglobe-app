@@ -11,6 +11,7 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { listIngredients, deleteIngredient, V2Ingredient } from "@/services/supabase/ingredients";
 import { IngredientsCreateEditDrawer } from "./IngredientsCreateEditDrawer";
 import { IngredientsDeleteDrawer } from "./IngredientsDeleteDrawer";
+import styles from "./Ingredients.module.scss";
 
 type IngredientsProps = {
     createTrigger?: number;
@@ -161,12 +162,12 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
     ];
 
     return (
-        <>
-            <Text variant="body-sm" colorVariant="muted" style={{ marginBottom: 20 }}>
+        <div className={styles.root}>
+            <Text variant="body-sm" colorVariant="muted" className={styles.intro}>
                 Gli ingredienti vengono associati ai prodotti per descriverne la composizione.
             </Text>
 
-            <div style={{ marginBottom: 16 }}>
+            <div className={styles.filterRow}>
                 <FilterBar
                     search={{
                         value: searchQuery,
@@ -226,6 +227,6 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
                     />
                 </>
             )}
-        </>
+        </div>
     );
 }
