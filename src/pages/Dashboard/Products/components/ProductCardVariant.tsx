@@ -2,6 +2,8 @@ import { Package } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
+import { FramedMedia } from "@components/ui/FramedMedia";
+import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./productImageFraming";
 import type { V2Product, ProductListMetadata } from "@/services/supabase/products";
 import styles from "./ProductCardVariant.module.scss";
 
@@ -58,11 +60,11 @@ export default function ProductCardVariant({ variant, metadata, parentPrice }: P
             {/* Image */}
             <div className={styles.imageWrapper}>
                 {variant.image_url ? (
-                    <div
-                        className={styles.image}
-                        style={{ backgroundImage: `url(${variant.image_url})` }}
-                        role="img"
-                        aria-label={variant.name}
+                    <FramedMedia
+                        source={variant.image_url}
+                        framing={PRODUCT_IMAGE_DEFAULT_FRAMING}
+                        aspectRatio={null}
+                        alt={variant.name}
                     />
                 ) : (
                     <div className={styles.placeholder} aria-hidden="true">

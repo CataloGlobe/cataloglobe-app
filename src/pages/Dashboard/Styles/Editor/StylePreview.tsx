@@ -3,6 +3,7 @@ import { StyleTokenModel } from "./StyleTokenModel";
 import CollectionView, {
     type CollectionViewSectionGroup
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
+import type { SelectionItem } from "@/components/PublicCollectionView/OrderingSheet/OrderingSheet";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import {
@@ -35,8 +36,8 @@ const MOCK_FEATURED: V2FeaturedContent[] = [
         media_fill_mode: "blur",
         media_fill_color: null,
         media_aspect_ratio: null,
-        cta_text: null,
-        cta_url: null,
+        cta_text: "Scopri di più",
+        cta_url: "#",
         status: "published",
         layout_style: null,
         pricing_mode: "none",
@@ -160,7 +161,16 @@ const MOCK_SECTION_GROUPS: CollectionViewSectionGroup[] = [
                     description: "Descrizione breve del prodotto o servizio.",
                     price: 12.0,
                     image: null,
-                    parentSelected: true
+                    parentSelected: true,
+                    pairings: [
+                        {
+                            id: "i2",
+                            name: "Barolo DOCG 2019",
+                            imageUrl: null,
+                            price: 24.0,
+                            note: "Tannini morbidi che esaltano il piatto."
+                        }
+                    ]
                 },
                 {
                     id: "i2",
@@ -262,6 +272,20 @@ const MOCK_SECTION_GROUPS: CollectionViewSectionGroup[] = [
             ]
         },
         children: []
+    }
+];
+
+// "Prodotto Premium" (id "i2" in MOCK_SECTION_GROUPS) già selezionato al primo
+// render, per mostrare il colore secondario sul badge senza richiedere un click.
+// Stesso id/name/prezzo del mock catalogo — non un id parallelo scollegato.
+const MOCK_INITIAL_SELECTION: SelectionItem[] = [
+    {
+        id: "i2",
+        name: "Prodotto Premium",
+        basePrice: 24.0,
+        qty: 1,
+        unitPrice: 24.0,
+        note: null
     }
 ];
 
@@ -370,17 +394,18 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
                                 businessImage={null}
                                 collectionTitle="Nome Catalogo"
                                 sectionGroups={MOCK_SECTION_GROUPS}
+                                initialSelection={MOCK_INITIAL_SELECTION}
                                 style={collectionStyle}
                                 mode="preview"
                                 previewDevice="mobile"
-                                orderingActive={false}
+                                orderingActive={true}
                                 scrollContainerEl={screenEl}
                                 viewportWidthEl={screenEl}
                                 activityAddress="Via Example, 1 - Città"
                                 openingHours={MOCK_OPENING_HOURS}
                                 upcomingClosures={MOCK_UPCOMING_CLOSURES}
                                 featuredBeforeCatalogSlot={
-                                    <FeaturedBlock blocks={MOCK_FEATURED} layout={model.appearance.featuredStyle} />
+                                    <FeaturedBlock blocks={MOCK_FEATURED} layout={model.appearance.featuredStyle} showSubtitle={model.appearance.showFeaturedSubtitle ?? true} interactive={false} />
                                 }
                             />
                         </div>
@@ -405,17 +430,18 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
                                     businessImage={null}
                                     collectionTitle="Nome Catalogo"
                                     sectionGroups={MOCK_SECTION_GROUPS}
+                                    initialSelection={MOCK_INITIAL_SELECTION}
                                     style={collectionStyle}
                                     mode="preview"
                                     previewDevice="desktop"
-                                    orderingActive={false}
+                                    orderingActive={true}
                                     scrollContainerEl={screenEl}
                                     viewportWidthEl={screenEl}
                                     activityAddress="Via Example, 1 - Città"
                                     openingHours={MOCK_OPENING_HOURS}
                                     upcomingClosures={MOCK_UPCOMING_CLOSURES}
                                     featuredBeforeCatalogSlot={
-                                        <FeaturedBlock blocks={MOCK_FEATURED} layout={model.appearance.featuredStyle} />
+                                        <FeaturedBlock blocks={MOCK_FEATURED} layout={model.appearance.featuredStyle} showSubtitle={model.appearance.showFeaturedSubtitle ?? true} interactive={false} />
                                     }
                                 />
                             </div>

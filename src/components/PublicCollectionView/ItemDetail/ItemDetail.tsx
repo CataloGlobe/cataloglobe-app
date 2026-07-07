@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Package, X } from "lucide-react";
+import { Package, Sparkles, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import PublicSheet from "../PublicSheet/PublicSheet";
+import PairingDetailCard from "../PairingDetailCard/PairingDetailCard";
 import styles from "./ItemDetail.module.scss";
 import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
 import type { SelectedAddon, SelectedFormat } from "../OrderingSheet/OrderingSheet";
@@ -303,6 +304,31 @@ export default function ItemDetail({
                             >
                                 {displayItem.description}
                             </Text>
+                        )}
+
+                        {/* ABBINAMENTI — consiglio "Perfetto con", dopo la descrizione,
+                            prima del meta. Resa identica con ordinazione ON/OFF. */}
+                        {displayItem.pairings && displayItem.pairings.length > 0 && (
+                            <div className={styles.pairingSection}>
+                                <Text
+                                    variant="body-sm"
+                                    weight={700}
+                                    className={styles.pairingSectionLabel}
+                                    color="var(--pub-surface-text)"
+                                >
+                                    <Sparkles size={14} className={styles.pairingSectionIcon} />
+                                    {t("product.pairing_prefix")}
+                                </Text>
+                                <div className={styles.pairingCards}>
+                                    {displayItem.pairings.map(p => (
+                                        <PairingDetailCard
+                                            key={p.id}
+                                            pairing={p}
+                                            showThumbnail={showImage}
+                                        />
+                                    ))}
+                                </div>
+                            </div>
                         )}
 
                         {/* ADD-ON (non-PRIMARY_PRICE) */}

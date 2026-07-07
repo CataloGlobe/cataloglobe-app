@@ -146,6 +146,10 @@ export type ResolvedProduct = {
     parentSelected: boolean;
     /** Raw DB base_price — used to detect if parent has its own independent price. */
     base_price?: number | null;
+    /** Riferimenti leggeri agli abbinamenti (stesso catalogo). Nome/prezzo/
+     *  immagine dell'abbinato NON viaggiano qui: li risolve il frontend con
+     *  lookup by-id nel catalogo risolto. */
+    pairings?: { paired_product_id: string; note: string | null; sort_order: number }[];
 };
 
 export type ResolvedCategory = {

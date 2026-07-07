@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LanguageContext } from "@/context/Language/LanguageContext";
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Phone, Plus } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Phone, Plus, Sparkles } from "lucide-react";
 import type {
     ResolvedAllergen,
     ResolvedCharacteristic,
@@ -28,7 +28,6 @@ import { contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
-import AssistanceSheet from "../AssistanceSheet/AssistanceSheet";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 
@@ -51,6 +50,7 @@ import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/P
 import type { ActivityFee } from "@/types/activity";
 import type { Allergen } from "@/services/supabase/allergens";
 import PublicSheet from "../PublicSheet/PublicSheet";
+import PairingUpsellSheet, { type UpsellPairing } from "../PairingUpsellSheet/PairingUpsellSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 import { submitOrder } from "@/services/supabase/orders";
 import { subscribeToCustomerSession } from "@/services/supabase/customerSessions";
@@ -144,6 +144,15 @@ export type CollectionViewSectionItem = {
     }[];
     parentSelected: boolean;
     is_disabled?: boolean;
+    /** Abbinamenti hydratati (display-ready) — risolti by-id dal catalogo
+     *  risolto. Prezzo = valore effettivo già in contesto. Ordine = sort_order. */
+    pairings?: {
+        id: string;
+        name: string;
+        imageUrl: string | null;
+        price: number | null;
+        note: string | null;
+    }[];
 };
 
 export type CollectionViewSection = {
@@ -327,7 +336,9 @@ function ProductRowInner({
                             aria-label={t("selection.add_aria")}
                         >
                             <Plus size={16} strokeWidth={2.5} />
-                            {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
+                            {selectionQty > 0 && (
+                                <span className={`${styles.addBtnBadge} ${styles.addBtnBadgeOnSurface}`}>{selectionQty}</span>
+                            )}
                         </button>
                     )}
                 </div>
@@ -378,6 +389,17 @@ function ProductRowInner({
                         {description}
                     </Text>
                 )}
+                {item.pairings && item.pairings.length > 0 && (
+                    <span className={`${styles.pairingChip} ${styles.pairingChipSurface}`}>
+                        <Sparkles size={13} className={styles.pairingChipIcon} />
+                        <span className={styles.pairingChipText}>
+                            {t("product.pairing_prefix")} · {item.pairings[0].name}
+                        </span>
+                        {item.pairings.length > 1 && (
+                            <span className={styles.pairingChipMore}>+{item.pairings.length - 1}</span>
+                        )}
+                    </span>
+                )}
                 {optionGroups && optionGroups.length > 0 && (
                     <span className={styles.customizableHint}>{t("product.badge_customizable")}</span>
                 )}
@@ -422,7 +444,9 @@ function ProductRowInner({
                     aria-label={t("selection.add_aria")}
                 >
                     <Plus size={16} strokeWidth={2.5} />
-                    {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
+                    {selectionQty > 0 && (
+                        <span className={`${styles.addBtnBadge} ${styles.addBtnBadgeOnSurface}`}>{selectionQty}</span>
+                    )}
                 </button>
             )}
         </div>
@@ -510,11 +534,24 @@ function ProductCompactRowInner({
                             aria-label={t("selection.add_aria")}
                         >
                             <Plus size={14} strokeWidth={2.5} />
-                            {selectionQty > 0 && <span className={styles.addBtnBadge}>{selectionQty}</span>}
+                            {selectionQty > 0 && (
+                                <span className={`${styles.addBtnBadge} ${styles.addBtnBadgeOnBg}`}>{selectionQty}</span>
+                            )}
                         </button>
                     )}
                 </div>
                 {description && <span className={styles.compactDescription}>{description}</span>}
+                {item.pairings && item.pairings.length > 0 && (
+                    <span className={`${styles.pairingChip} ${styles.pairingChipBg}`}>
+                        <Sparkles size={12} className={styles.pairingChipIcon} />
+                        <span className={styles.pairingChipText}>
+                            {t("product.pairing_prefix")} · {item.pairings[0].name}
+                        </span>
+                        {item.pairings.length > 1 && (
+                            <span className={styles.pairingChipMore}>+{item.pairings.length - 1}</span>
+                        )}
+                    </span>
+                )}
                 {hasCardCharacteristics && (
                     <div className={styles.compactCharacteristics}>
                         {visibleCharacteristics.map(c => (
@@ -676,6 +713,12 @@ type Props = {
      * SENZA matchMedia/@media su window. Ignorato in runtime (mode==="public").
      */
     previewDevice?: "mobile" | "desktop";
+    /**
+     * Solo preview: seed iniziale della selezione (badge/qty già valorizzati al
+     * primo render, senza click). Ignorato in runtime (mode==="public") — mai
+     * passata dal path pubblico.
+     */
+    initialSelection?: SelectionItem[];
 };
 
 export default function CollectionView({
@@ -710,7 +753,8 @@ export default function CollectionView({
     orderingMaintenance = null,
     slug,
     enableReservations = false,
-    previewDevice
+    previewDevice,
+    initialSelection
 }: Props) {
     const navigate = useNavigate();
     // Lettura non-throwing del context lingua: CollectionView è renderizzato
@@ -729,7 +773,7 @@ export default function CollectionView({
     // "Bottom bar montata" (public, entrambi i viewport). CSS la nasconde ≥641px.
     const useBottomBar = mode === "public";
     // "Azioni header montate" (public, entrambi i viewport). CSS le nasconde ≤640px.
-    const showHeaderActions = mode === "public";
+    const showHeaderActions = mode === "public" || (mode === "preview" && orderingActive);
     // Maintenance scoperto runtime via 423 ORDERING_UNAVAILABLE su submit
     // (Strict + Reactive: il cliente lo apprende solo al tentativo). Solo
     // OrderingSheet usa effectiveMaintenance per banner inline + submit
@@ -792,6 +836,10 @@ export default function CollectionView({
     // identica reference). Propagato in contentKey verso PublicSheet → l'abort
     // di close-interruption scatta uniformemente, A→A incluso.
     const [openSeq, setOpenSeq] = useState(0);
+
+    // Upsell abbinamenti (D3): prodotto-sorgente + abbinati idonei congelati
+    // all'apertura. null = nessun upsell aperto.
+    const [upsell, setUpsell] = useState<{ sourceName: string; pairings: UpsellPairing[] } | null>(null);
 
     // ── Search overlay ──────────────────────────────────────────────────────
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -943,7 +991,7 @@ export default function CollectionView({
 
     // Hydration-safe: default vuoto in render (= server), lettura sessionStorage
     // spostata in effect post-mount (client-only) → niente mismatch #418/#425.
-    const [selection, setSelection] = useState<SelectionItem[]>([]);
+    const [selection, setSelection] = useState<SelectionItem[]>(initialSelection ?? []);
     const [isOrderingOpen, setIsOrderingOpen] = useState(false);
     const [activeOrderingTab, setActiveOrderingTab] = useState<"cart" | "orders">("cart");
     const [ordersRefreshKey, setOrdersRefreshKey] = useState(0);
@@ -1143,10 +1191,9 @@ export default function CollectionView({
 
     // Bill + waiter state — single source of truth a livello CollectionView per
     // garantire che la subscription customer_sessions sia always-on
-    // (OrderingSheet/AssistanceSheet sono montati solo a sheet aperta).
+    // (OrderingSheet è montato solo a sheet aperta).
     const [billRequestedAt, setBillRequestedAt] = useState<string | null>(null);
     const [waiterCalledAt, setWaiterCalledAt] = useState<string | null>(null);
-    const [isSupportOpen, setIsSupportOpen] = useState(false);
 
     // Realtime subscribe customer_sessions: single channel always-on quando
     // JWT presente. Propaga:
@@ -1267,6 +1314,12 @@ export default function CollectionView({
                         reason: reason ?? "ordering_disabled",
                         message: msg
                     });
+                } else if (code === "ORDERING_CLOSED") {
+                    // Locale chiuso per orari di apertura: niente redirect,
+                    // il cliente resta sul menu con un feedback inline (stesso
+                    // pattern maintenance/session, no toast su questa pagina
+                    // pubblica).
+                    setSubmitFeedback({ type: "error", message: msg });
                 } else if (msg.toLowerCase().includes("scaduta") || msg === "SESSION_EXPIRED") {
                     customerSession.clear();
                     setSubmitFeedback({
@@ -1330,6 +1383,50 @@ export default function CollectionView({
         }
         return null;
     }, [sectionGroups]);
+
+    // Aggiunge un abbinato per id (upsell D3). Add DIRETTO: non passa dal
+    // detail né riapre l'upsell → un solo livello, nessuna ricorsione.
+    const addPairingToSelection = useCallback((pairedProductId: string) => {
+        const p = findProductById(pairedProductId);
+        if (!p) return;
+        addToSelection(p.id, p.name, p.effective_price ?? p.price ?? p.from_price ?? 0, null, []);
+    }, [findProductById, addToSelection]);
+
+    // Abbinato configurabile: non add diretto — chiude l'upsell e apre il suo
+    // detail per configurarlo (stesso meccanismo del catalogo). Un solo livello:
+    // l'eventuale upsell dell'abbinato nascerà solo dal CTA del suo detail.
+    const handleViewPairingOptions = useCallback((pairedProductId: string) => {
+        const p = findProductById(pairedProductId);
+        if (!p) return;
+        setUpsell(null);
+        openItemDetail(p);
+    }, [findProductById, openItemDetail]);
+
+    // Flusso A: aggiunge il principale (comportamento attuale) e, SOLO se
+    // esistono abbinati idonei (non già in selezione), apre l'upsell. Ramo
+    // senza idonei = byte-equivalente al comportamento pre-D3.
+    const handleAddFromDetail = useCallback((
+        productId: string,
+        productName: string,
+        basePrice: number,
+        format?: SelectedFormat | null,
+        addons?: SelectedAddon[]
+    ) => {
+        addToSelection(productId, productName, basePrice, format, addons);
+        setSelectedItem(null);
+        const product = findProductById(productId);
+        const eligible: UpsellPairing[] = (product?.pairings ?? [])
+            .filter(p => (selectionMap[p.id] ?? 0) === 0)
+            .map(p => ({
+                ...p,
+                // Ref leggero senza optionGroups → risalgo al prodotto risolto.
+                // Stesso predicato del "+" lista (handleAddClick).
+                isConfigurable: ((findProductById(p.id)?.optionGroups?.length) ?? 0) > 0
+            }));
+        if (product && eligible.length > 0) {
+            setUpsell({ sourceName: product.name, pairings: eligible });
+        }
+    }, [addToSelection, findProductById, selectionMap]);
 
     const handleUpdateSelection = useCallback((
         _productId: string,
@@ -2112,9 +2209,7 @@ export default function CollectionView({
                     onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
                     selectionCount={selectionCount}
                     orderVisible={showHeaderActions && !shouldHideOrderingEntry}
-                    onOpenOrder={showHeaderActions ? openOrdering : undefined}
-                    supportVisible={showHeaderActions && orderingActive}
-                    onOpenSupport={showHeaderActions ? () => setIsSupportOpen(true) : undefined}
+                    onOpenOrder={showHeaderActions ? (mode === "preview" ? () => {} : openOrdering) : undefined}
                     reviewDot={showHeaderActions ? valutaVisible : false}
                 />
             )}
@@ -2427,10 +2522,7 @@ export default function CollectionView({
                                                 !(effectiveMaintenance != null && SILENT_MAINTENANCE_REASONS.has(effectiveMaintenance.reason))
                                                     ? (editingSelectionIndex !== null
                                                         ? handleUpdateSelection
-                                                        : (productId, productName, basePrice, format, addons) => {
-                                                            addToSelection(productId, productName, basePrice, format, addons);
-                                                            setSelectedItem(null);
-                                                        })
+                                                        : handleAddFromDetail)
                                                     : undefined
                                             }
                                             initialFormat={editingSelectionIndex !== null
@@ -2446,6 +2538,18 @@ export default function CollectionView({
                                     </Suspense>
                                 )}
 
+                                {upsell && (
+                                    <PairingUpsellSheet
+                                        isOpen={!!upsell}
+                                        onClose={() => setUpsell(null)}
+                                        sourceName={upsell.sourceName}
+                                        pairings={upsell.pairings}
+                                        selectionMap={selectionMap}
+                                        onAdd={addPairingToSelection}
+                                        onViewOptions={handleViewPairingOptions}
+                                        showThumbnail={style.productStyle !== "compact" && style.cardTemplate !== "no-image"}
+                                    />
+                                )}
 
                             </>
                         )}
@@ -2510,16 +2614,14 @@ export default function CollectionView({
                     onTabChange={mode === "preview" ? () => {} : handleHubTabTap}
                     showEventsTab={showEventsTab}
                     selectionCount={selectionCount}
-                    supportVisible={mode === "public" && orderingActive}
-                    onOpenSupport={mode === "preview" ? () => {} : () => setIsSupportOpen(true)}
-                    cartVisible={mode === "preview" ? false : !shouldHideOrderingEntry}
+                    cartVisible={mode === "preview" ? orderingActive && !shouldHideOrderingEntry : !shouldHideOrderingEntry}
                     onOpenCart={mode === "preview" ? () => {} : openOrdering}
                     reviewDot={mode === "preview" ? false : valutaVisible}
                     onReviewDotDismiss={mode === "preview" ? () => {} : () => {
                         setValutaVisible(false);
                         valutaEligibleRef.current = false;
                     }}
-                    isSheetOpen={mode === "preview" ? false : (!!selectedItem || isOrderingOpen || isSupportOpen)}
+                    isSheetOpen={mode === "preview" ? false : (!!selectedItem || isOrderingOpen)}
                     preview={mode === "preview"}
                     // Vetro adattivo: bg pagina chiaro → vetro chiaro, altrimenti scuro.
                     // contrastText() riusa isLight() (luminanza); "#1a1a1a" ⇒ bg chiaro.
@@ -2609,23 +2711,6 @@ export default function CollectionView({
                 />
             )}
 
-            <AssistanceSheet
-                isOpen={isSupportOpen}
-                onClose={() => setIsSupportOpen(false)}
-                session={customerSession?.session
-                    ? {
-                        jwt: customerSession.session.jwt,
-                        tableLabel: customerSession.session.tableLabel,
-                        tableZone: customerSession.session.tableZone ?? null,
-                    }
-                    : null
-                }
-                billRequestedAt={billRequestedAt}
-                onBillRequestedAtChange={setBillRequestedAt}
-                waiterCalledAt={waiterCalledAt}
-                onWaiterCalledAtChange={setWaiterCalledAt}
-            />
-
             {isOrderingOpen && (
                 <Suspense fallback={null}>
                     <OrderingSheet
@@ -2666,6 +2751,10 @@ export default function CollectionView({
                         maintenance={effectiveMaintenance}
                         onSessionExpired={handleSessionExpired}
                         ordersRefreshKey={ordersRefreshKey}
+                        billRequestedAt={billRequestedAt}
+                        onBillRequestedAtChange={setBillRequestedAt}
+                        waiterCalledAt={waiterCalledAt}
+                        onWaiterCalledAtChange={setWaiterCalledAt}
                     />
                 </Suspense>
             )}

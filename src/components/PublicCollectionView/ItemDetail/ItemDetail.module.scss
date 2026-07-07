@@ -166,6 +166,32 @@
     border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
 }
 
+/* Abbinamenti — consiglio "Perfetto con" sotto la descrizione. Blocco
+   featured (no border-top separatore): le card portano il frame accento. */
+.pairingSection {
+    margin-top: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.pairingSectionLabel {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.pairingSectionIcon {
+    flex-shrink: 0;
+    color: var(--pub-accent);
+}
+
+.pairingCards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
 .characteristicSectionLabel {
     color: var(--pub-text);
 }

@@ -4471,6 +4471,13 @@ export type Database = {
         }[]
       }
       get_my_tenant_ids: { Args: never; Returns: string[] }
+      get_operative_day_bounds: {
+        Args: { p_date?: string }
+        Returns: {
+          day_end: string
+          day_start: string
+        }[]
+      }
       get_operative_day_start: { Args: never; Returns: string }
       get_public_catalog: { Args: { p_catalog_id: string }; Returns: Json }
       get_public_tenant_ids: { Args: never; Returns: string[] }

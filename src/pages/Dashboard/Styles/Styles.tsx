@@ -31,7 +31,8 @@ function resolvePreviewColors(style: V2Style) {
         : DEFAULT_STYLE_TOKENS;
     return {
         pageBackground: tokens.colors.pageBackground,
-        primary: tokens.colors.primary
+        primary: tokens.colors.primary,
+        accent: tokens.colors.accent ?? tokens.colors.primary
     };
 }
 
@@ -76,7 +77,7 @@ function StyleCardPreview({ style, compact = false }: { style: V2Style; compact?
                 </div>
                 <span
                     className={styles.cardPreviewCta}
-                    style={{ backgroundColor: palette.primary }}
+                    style={{ backgroundColor: palette.accent }}
                 />
             </div>
         </div>

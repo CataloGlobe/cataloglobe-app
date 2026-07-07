@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import { Minus, Plus, Trash2, RefreshCw, X, AlertCircle } from "lucide-react";
 import type { OrderingStateReason } from "@/types/orders";
 import PublicSheet from "../PublicSheet/PublicSheet";
+import AssistanceActions from "../AssistanceActions/AssistanceActions";
 import OrderStatusStepper from "./OrderStatusStepper";
 import ItemNoteEditor from "./ItemNoteEditor";
 import OrderNoteEditor from "./OrderNoteEditor";
@@ -103,6 +104,13 @@ interface OrderingSheetProps {
 
     onSessionExpired?: () => void;
     ordersRefreshKey?: number;
+
+    /** Stato "Chiedi il conto" — single source of truth in CollectionView (synced via realtime). */
+    billRequestedAt: string | null;
+    onBillRequestedAtChange: (next: string | null) => void;
+    /** Stato "Chiama cameriere" — single source of truth in CollectionView (synced via realtime). */
+    waiterCalledAt: string | null;
+    onWaiterCalledAtChange: (next: string | null) => void;
 }
 
 
@@ -126,7 +134,11 @@ export default function OrderingSheet({
     isSubmitting = false,
     maintenance = null,
     onSessionExpired,
-    ordersRefreshKey
+    ordersRefreshKey,
+    billRequestedAt,
+    onBillRequestedAtChange,
+    waiterCalledAt,
+    onWaiterCalledAtChange
 }: OrderingSheetProps) {
     const { t } = useTranslation("public");
     const { session, clear } = useCustomerSession();
@@ -595,6 +607,18 @@ export default function OrderingSheet({
                         )}
                     </div>
                 )}
+
+                {/* Footer assistenza — persistente, fuori dallo scroll e dai branch di
+                    tab (visibile in Selezione/Ordini, anche a carrello vuoto). Sotto
+                    la sezione Totale+Invia ordine quando presente (tab cart, carrello
+                    pieno). Renderizza null se nessuna sessione tavolo (guardia interna). */}
+                <AssistanceActions
+                    billRequestedAt={billRequestedAt}
+                    onBillRequestedAtChange={onBillRequestedAtChange}
+                    waiterCalledAt={waiterCalledAt}
+                    onWaiterCalledAtChange={onWaiterCalledAtChange}
+                    ordersRefreshKey={ordersRefreshKey}
+                />
             </div>
         </PublicSheet>
     );

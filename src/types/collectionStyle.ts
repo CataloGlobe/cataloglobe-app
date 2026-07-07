@@ -1,7 +1,7 @@
 export type HubTab = "menu" | "events" | "reviews";
 
 export type CardTemplate = "left" | "right" | "no-image";
-export type SectionNavStyle = "filled" | "outline" | "tabs" | "dot" | "minimal";
+export type SectionNavStyle = "filled" | "outline" | "tabs" | "minimal" | "tinted";
 export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type CardTreatment = "raised" | "bordered" | "glass";

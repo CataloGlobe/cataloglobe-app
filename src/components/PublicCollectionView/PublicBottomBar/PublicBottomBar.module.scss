@@ -115,7 +115,7 @@
       background: rgba(0, 0, 0, 0.1);
     }
     .dot,
-    .cartDot {
+    .cartBadge {
       border-color: rgba(255, 255, 255, 0.92);
     }
   }
@@ -160,7 +160,7 @@
       background: rgba(255, 255, 255, 0.16);
     }
     .dot,
-    .cartDot {
+    .cartBadge {
       border-color: rgba(20, 20, 20, 0.92);
     }
   }
@@ -308,20 +308,31 @@
   }
 }
 
-// Indicatore binario carrello: pallino rosso (--pub-alert) in alto a destra dell'icona.
-// Ancorato al centro slot via translate (come `.dot`): resta sul glifo nello slot largo.
+// Badge numerico carrello: conteggio selezione, in alto a destra dell'icona.
+// Ancorato al centro slot via translate (come il vecchio `.cartDot`): il top-left del
+// badge resta sul glifo nello slot largo, crescendo verso destra con 2+ cifre (non
+// verso il glifo). Pattern maturo min-width+padding+pill, coerente con `.iconBtnBadge`
+// desktop (PublicCollectionHeader) — stesso colore/contrasto tra le due piattaforme.
 // Bordo del colore di sfondo barra (per tema) così si stacca pulito senza coprire il glifo.
-.cartDot {
+.cartBadge {
   position: absolute;
   top: 50%;
   left: 50%;
-  transform: translate(7px, -12px);
-  width: 8px;
-  height: 8px;
+  transform: translate(3px, -13px);
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
   border-radius: 999px;
-  background: var(--pub-alert);
+  background: var(--pub-accent, #F59E0B);
+  color: var(--pub-cta-text, #fff);
+  font-size: 0.625rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 2px solid rgba(20, 20, 20, 0.92);
-  box-sizing: content-box;
+  line-height: 1;
+  pointer-events: none;
 }
 
 // Rispetta prefers-reduced-motion: niente animazioni di scala/entrata.

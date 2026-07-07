@@ -3,6 +3,8 @@ import { Link } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import Text from "@/components/ui/Text/Text";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { FramedMedia } from "@components/ui/FramedMedia";
+import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./productImageFraming";
 import type { V2Product, ProductListMetadata } from "@/services/supabase/products";
 import styles from "./ProductCard.module.scss";
 
@@ -40,11 +42,11 @@ export default function ProductCard({ product, metadata, onEdit, onDelete }: Pro
                 aria-hidden="true"
             >
                 {product.image_url ? (
-                    <div
-                        className={styles.image}
-                        style={{ backgroundImage: `url(${product.image_url})` }}
-                        role="img"
-                        aria-label={product.name}
+                    <FramedMedia
+                        source={product.image_url}
+                        framing={PRODUCT_IMAGE_DEFAULT_FRAMING}
+                        aspectRatio={null}
+                        alt={product.name}
                     />
                 ) : (
                     <div className={styles.placeholder} aria-hidden="true">

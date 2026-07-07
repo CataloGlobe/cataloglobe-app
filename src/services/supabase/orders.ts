@@ -107,7 +107,11 @@ export interface InvalidStateTransitionErrorDetails {
  *   404 SESSION_NOT_FOUND   → "Sessione non trovata"
  *   409 SESSION_EXPIRED     → "Sessione scaduta, scansiona di nuovo il QR"
  *   409 GROUP_CONFLICT      → "Conflitto sul gruppo ordine, riprova"
+ *   409 IDEMPOTENCY_IN_PROGRESS → "Ordine già in elaborazione, attendi qualche istante"
  *   422 INVALID_ITEMS       → "INVALID_ITEMS" (raw + extension `details`)
+ *   423 ORDERING_CLOSED     → messaggio italiano (raw + extension `code`),
+ *                             locale chiuso per orari di apertura (fail-open
+ *                             lato server su errore interno)
  *   429                     → "Troppe richieste, riprova tra un momento"
  *   500                     → "Errore del server"
  */
@@ -121,7 +125,16 @@ export async function submitOrder(
         throw new Error("EMPTY_CART");
     }
 
-    const body: Record<string, unknown> = { items };
+    // One idempotency key per logical submit attempt: generated once before
+    // the invoke below, never regenerated for the lifetime of this call. If
+    // the underlying fetch is retried at the network layer (or the caller
+    // re-invokes after a timeout with the SAME cart), reusing this key lets
+    // submit_order_atomic dedupe server-side instead of creating a duplicate
+    // order. A brand-new user submit (new cart / new click) calls submitOrder
+    // again, generating a fresh key.
+    const idempotencyKey = crypto.randomUUID();
+
+    const body: Record<string, unknown> = { items, idempotency_key: idempotencyKey };
     if (notes !== undefined) body.notes = notes;
     if (targetGroupId !== undefined) body.target_group_id = targetGroupId;
 
@@ -149,6 +162,9 @@ export async function submitOrder(
         if (status === 409 && code === "GROUP_CONFLICT") {
             throw new Error("Conflitto sul gruppo ordine, riprova");
         }
+        if (status === 409 && code === "IDEMPOTENCY_IN_PROGRESS") {
+            throw new Error("Ordine già in elaborazione, attendi qualche istante");
+        }
         if (status === 422 && code === "INVALID_ITEMS") {
             const err = new Error("INVALID_ITEMS");
             (err as Error & { details?: unknown }).details = details;
@@ -162,6 +178,15 @@ export async function submitOrder(
             const err = new Error(rawMessage ?? "ORDERING_UNAVAILABLE");
             (err as Error & { code?: string; reason?: string }).code = "ORDERING_UNAVAILABLE";
             (err as Error & { code?: string; reason?: string }).reason = reason;
+            throw err;
+        }
+        if (status === 423 && code === "ORDERING_CLOSED") {
+            // Locale chiuso in questo momento (opening-hours gate). Non e'
+            // maintenance mode: il cliente resta sul menu, niente redirect.
+            const err = new Error(
+                rawMessage ?? "Il locale è chiuso in questo momento."
+            );
+            (err as Error & { code?: string }).code = "ORDERING_CLOSED";
             throw err;
         }
         if (status === 429) {
@@ -289,7 +314,11 @@ export async function listOrdersForActivity(
 ): Promise<V2OrderWithItems[]> {
     const includeItems = options?.includeItems !== false;
     const limit = options?.limit ?? 100;
-    const select = includeItems ? "*, items:order_items(*)" : "*";
+    const groupVerifiedJoin =
+        "order_group:order_groups!orders_order_group_id_fkey(verified_at)";
+    const select = includeItems
+        ? `*, items:order_items(*), ${groupVerifiedJoin}`
+        : `*, ${groupVerifiedJoin}`;
 
     let query = supabase
         .from("orders")
@@ -314,10 +343,24 @@ export async function listOrdersForActivity(
     if (error) throw error;
 
     return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(row => {
+        // L'embed FK many-to-one (order_group_id → order_groups) torna come
+        // oggetto singolo con PostgREST; fallback ad array difensivo nel caso
+        // il planner scelga una forma diversa.
+        const rawGroup = row.order_group as
+            | { verified_at: string | null }
+            | { verified_at: string | null }[]
+            | null
+            | undefined;
+        const groupVerifiedAt = Array.isArray(rawGroup)
+            ? (rawGroup[0]?.verified_at ?? null)
+            : (rawGroup?.verified_at ?? null);
+
         const normalized: Record<string, unknown> = {
             ...row,
-            total_amount: Number(row.total_amount)
+            total_amount: Number(row.total_amount),
+            group_verified_at: groupVerifiedAt
         };
+        delete normalized.order_group;
         if (includeItems) {
             const rawItems = row.items as V2OrderItem[] | undefined;
             normalized.items = (rawItems ?? []).map(item => ({
@@ -1123,6 +1166,32 @@ export async function fetchOperativeDayStartIso(): Promise<string> {
 }
 
 /**
+ * Bounds half-open [dayStart, dayEnd) di una giornata operativa arbitraria.
+ * Server-side via RPC `get_operative_day_bounds(p_date date)` (DST-aware
+ * Europe/Rome, migration 20260705120000). Il calcolo della data NON va MAI
+ * fatto in JS (`new Date()`): reintrodurrebbe il rischio DST e un secondo
+ * punto di verità sul confine. Passthrough puro come fetchOperativeDayStartIso.
+ *
+ * @param dateIso data civile in formato `YYYY-MM-DD` (Europe/Rome). Se
+ *   omesso, la RPC usa il DEFAULT = data civile "oggi" Europe/Rome
+ *   (calcolata server-side, mai in JS).
+ */
+export async function getOperativeDayBounds(
+    dateIso?: string
+): Promise<{ dayStart: string; dayEnd: string }> {
+    const { data, error } = await supabase.rpc(
+        "get_operative_day_bounds",
+        dateIso === undefined ? {} : { p_date: dateIso }
+    );
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : undefined;
+    if (!row || typeof row.day_start !== "string" || typeof row.day_end !== "string") {
+        throw new Error("get_operative_day_bounds returned unexpected shape");
+    }
+    return { dayStart: row.day_start, dayEnd: row.day_end };
+}
+
+/**
  * Conta ordini con `submitted_at >= start_of_today_Europe/Rome`. Per KPI bar.
  * Non scarica row dati, usa COUNT lato Postgres.
  */
@@ -1181,22 +1250,23 @@ export async function getOrdersServedToday(
  * Include items (il drawer dettaglio li richiede). Limite alto (200) per
  * coprire la giornata operativa di una singola sede.
  */
-export async function listOrdersHistoryToday(
+export async function listOrdersHistory(
     tenantId: string,
-    activityId: string
+    activityId: string,
+    dayStartIso: string,
+    dayEndIso: string
 ): Promise<V2OrderWithItems[]> {
-    const fromIso = await fetchOperativeDayStartIso();
     const { data, error } = await supabase
         .from("orders")
         .select("*, items:order_items(*)")
         .eq("tenant_id", tenantId)
         .eq("activity_id", activityId)
         .or(
-            `and(status.eq.delivered,delivered_at.gte.${fromIso}),` +
-                `and(status.eq.cancelled,cancelled_at.gte.${fromIso}),` +
+            `and(status.eq.delivered,delivered_at.gte.${dayStartIso},delivered_at.lt.${dayEndIso}),` +
+                `and(status.eq.cancelled,cancelled_at.gte.${dayStartIso},cancelled_at.lt.${dayEndIso}),` +
                 // Storni (is_rectification): status='delivered' ma delivered_at=NULL,
                 // quindi esclusi dal primo ramo. Entrano via created_at (DEFAULT now()).
-                `and(is_rectification.eq.true,created_at.gte.${fromIso})`
+                `and(is_rectification.eq.true,created_at.gte.${dayStartIso},created_at.lt.${dayEndIso})`
         )
         .order("updated_at", { ascending: false })
         .limit(200);
@@ -1213,4 +1283,18 @@ export async function listOrdersHistoryToday(
             }))
         } as unknown as V2OrderWithItems;
     });
+}
+
+/**
+ * Storico della giornata operativa "oggi". Thin wrapper retrocompat su
+ * listOrdersHistory: risolve i bounds di oggi via getOperativeDayBounds()
+ * (no-arg → DEFAULT server-side data civile Europe/Rome) e delega. I bounds
+ * NON sono mai calcolati in JS. I call-site esistenti restano invariati (2 arg).
+ */
+export async function listOrdersHistoryToday(
+    tenantId: string,
+    activityId: string
+): Promise<V2OrderWithItems[]> {
+    const { dayStart, dayEnd } = await getOperativeDayBounds();
+    return listOrdersHistory(tenantId, activityId, dayStart, dayEnd);
 }

@@ -10,7 +10,8 @@ import {
     BackgroundPattern,
     PatternIntensity,
     FeaturedStyle,
-    CardTreatment
+    CardTreatment,
+    OutlinedBorderColor
 } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
@@ -46,9 +47,9 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const navigationOptions: Array<{ value: NavigationStyle; label: string }> = [
         { value: "filled", label: "Pill" },
+        { value: "tinted", label: "Soft" },
         { value: "outline", label: "Outline" },
         { value: "tabs", label: "Tabs" },
-        { value: "dot", label: "Dot" },
         { value: "minimal", label: "Minimal" }
     ];
 
@@ -72,6 +73,11 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "raised", label: "Elevata" },
         { value: "bordered", label: "Contornata" },
         { value: "glass", label: "Vetro" }
+    ];
+
+    const outlinedBorderColorOptions: Array<{ value: OutlinedBorderColor; label: string }> = [
+        { value: "auto", label: "Automatico" },
+        { value: "primary", label: "Primario" }
     ];
 
     const backgroundPatternOptions: Array<{ value: BackgroundPattern; label: string }> = [
@@ -119,6 +125,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         onChange({ ...model, appearance: { ...model.appearance, cardTreatment } });
     };
 
+    const updateOutlinedBorderColor = (outlinedBorderColor: OutlinedBorderColor) => {
+        onChange({ ...model, appearance: { ...model.appearance, outlinedBorderColor } });
+    };
+
     const updateBackgroundPattern = (backgroundPattern: BackgroundPattern) => {
         onChange({ ...model, appearance: { ...model.appearance, backgroundPattern } });
     };
@@ -129,6 +139,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const updateFeaturedStyle = (featuredStyle: FeaturedStyle) => {
         onChange({ ...model, appearance: { ...model.appearance, featuredStyle } });
+    };
+
+    const updateShowFeaturedSubtitle = (showFeaturedSubtitle: boolean) => {
+        onChange({ ...model, appearance: { ...model.appearance, showFeaturedSubtitle } });
     };
 
     const updateHeaderBool = (
@@ -196,8 +210,8 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 {/* COLORE ACCENT (ruolo azione) — sempre visibile, segue il primario finché non personalizzato */}
                 <StyleColorPicker
-                    label="Colore accent"
-                    labelSuffix={<InfoTooltip content="Colore per gli elementi d'azione: pulsanti dei prodotti e CTA. Se non impostato, usa il colore primario." />}
+                    label="Colore secondario"
+                    labelSuffix={<InfoTooltip content="Applicato ai pulsanti dei prodotti e alle call-to-action. Se non impostato, usa il colore primario." />}
                     value={model.colors.accent ?? model.colors.primary}
                     onChange={val => updateColor("accent", val)}
                 />
@@ -446,6 +460,36 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                         })}
                     </div>
                 </div>
+
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Descrizione nell'anteprima<InfoTooltip content="Mostra o nascondi la riga descrittiva sotto il titolo, nella card dell'overview. Nella finestra di dettaglio resta sempre visibile." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {(
+                            [
+                                { value: true, label: "Mostra" },
+                                { value: false, label: "Nascondi" }
+                            ] as Array<{ value: boolean; label: string }>
+                        ).map(opt => {
+                            const isActive = (model.appearance.showFeaturedSubtitle ?? true) === opt.value;
+                            return (
+                                <button
+                                    key={String(opt.value)}
+                                    type="button"
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateShowFeaturedSubtitle(opt.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {opt.label}
+                                    </Text>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </section>
 
             {/* PRODOTTI */}
@@ -498,6 +542,35 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                             isActive ? styles.optionButtonActive : ""
                                         }`}
                                         onClick={() => updateCardTreatment(option.value)}
+                                    >
+                                        <Text as="span" variant="body" weight={600}>
+                                            {option.label}
+                                        </Text>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
+
+                {model.card.productStyle === "card" && model.appearance.cardTreatment === "bordered" && (
+                    <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                        <Text variant="body" weight={500} className={styles.fieldLabel}>
+                            Colore bordo<InfoTooltip content="Automatico deriva il colore dal contrasto con lo sfondo. Primario usa il colore identità dello stile." />
+                        </Text>
+                        <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                            {outlinedBorderColorOptions.map(option => {
+                                const isActive = (model.appearance.outlinedBorderColor ?? "auto") === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={isActive}
+                                        className={`${styles.optionButton} ${
+                                            isActive ? styles.optionButtonActive : ""
+                                        }`}
+                                        onClick={() => updateOutlinedBorderColor(option.value)}
                                     >
                                         <Text as="span" variant="body" weight={600}>
                                             {option.label}

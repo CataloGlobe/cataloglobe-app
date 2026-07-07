@@ -128,6 +128,13 @@
     },
     "product": {
         "price_from": "from {{price}}",
+        "pairing_prefix": "Perfect with",
+        "pairing_added": "Added",
+        "pairing_view_options": "View options",
+        "pairing_upsell_aria": "Recommended pairings",
+        "pairing_upsell_added": "{{name}} added",
+        "pairing_upsell_subtitle": "A house recommendation to round off your choice",
+        "pairing_upsell_continue": "Continue",
         "badge_promo": "Promo",
         "badge_customizable": "Customizable",
         "badge_unavailable": "Unavailable",

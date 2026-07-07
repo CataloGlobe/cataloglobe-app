@@ -73,7 +73,7 @@ function mapChangeError(err: unknown, activityCount: number, cap: number): strin
 }
 
 export default function SubscriptionPage() {
-    const { selectedTenant, loading } = useTenant();
+    const { selectedTenant, loading, patchSelectedTenant } = useTenant();
     const { permissions, loading: permissionsLoading } = usePermissions();
     const canReadBilling = permissions ? canDoOnTenant(permissions, "billing.read") : false;
     const canManageBilling = permissions ? canDoOnTenant(permissions, "billing.manage") : false;
@@ -377,7 +377,7 @@ export default function SubscriptionPage() {
                 return;
             }
 
-            await commitSubscriptionChange(selectedTenant.id, { plan: draftPlan, seats: draftSeats });
+            const commitResult = await commitSubscriptionChange(selectedTenant.id, { plan: draftPlan, seats: draftSeats });
             if (preview && preview.effective === "now") {
                 // Upgrade immediato: rifletti subito il nuovo stato. NIENTE refetch
                 // di `tenants`: il webhook sincronizza in modo asincrono e una
@@ -388,6 +388,12 @@ export default function SubscriptionPage() {
                 setOptimisticSeats(draftSeats);
                 setOptimisticMonthlyCents(preview.nextAmount);
                 setScheduledChange(null);
+                // Patch the tenant in memory with the authoritative commit result
+                // (Stripe already applied it). Survives SPA remounts — where the
+                // mount-scoped optimistic state above would be lost — and keeps the
+                // baseline/header (and other pages reading `selectedTenant`) correct
+                // ahead of the async webhook, without a DB refetch race.
+                patchSelectedTenant({ plan: commitResult.plan, paid_seats: commitResult.seats });
                 showToast({ message: "Piano aggiornato.", type: "success" });
             } else {
                 // Downgrade/programmato: piano e sedi correnti restano invariati
@@ -976,8 +982,9 @@ export default function SubscriptionPage() {
                                                 </Text>
                                             </div>
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Le {preview.seats} sedi aggiunte sono attive subito, riproporzionate
-                                                a tariffa Pro fino al rinnovo.
+                                                {seatDir === 1
+                                                    ? "La sede aggiunta è attiva subito, riproporzionata a tariffa Pro fino al rinnovo."
+                                                    : `Le ${seatDir} sedi aggiunte sono attive subito, riproporzionate a tariffa Pro fino al rinnovo.`}
                                             </Text>
                                             <div className={styles.confirmDivider} />
                                             <Text variant="body-sm" colorVariant="muted">

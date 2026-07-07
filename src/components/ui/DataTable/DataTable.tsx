@@ -4,6 +4,7 @@ import {
     useCallback,
     useEffect,
     useMemo,
+    useRef,
     useState
 } from "react";
 import { IconChevronLeft, IconChevronRight, IconInbox } from "@tabler/icons-react";
@@ -12,6 +13,12 @@ import Text from "@/components/ui/Text/Text";
 import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
+import { useAutoPageSize } from "./useAutoPageSize";
+import {
+    resolveNumericPageSize,
+    withAutoOption,
+    type PageSizeSelection
+} from "./autoPageSize";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type CellValue = any;
@@ -38,7 +45,7 @@ export type DataTableLoadingState = {
     compact?: boolean;
 };
 
-export type DataTablePageSizeOption = number | "all";
+export type DataTablePageSizeOption = PageSizeSelection; // number | "all" | "auto"
 
 interface DataTableProps<T> {
     data: T[];
@@ -50,6 +57,8 @@ interface DataTableProps<T> {
 
     maxHeight?: string;
 
+    /** Override manuale iniziale. Se omesso, il pageSize è calcolato
+     *  automaticamente dallo spazio disponibile (mode "auto"). */
     pageSize?: number;
     pageSizeOptions?: DataTablePageSizeOption[];
 
@@ -77,7 +86,6 @@ interface DataTableProps<T> {
     rowWrapper?: (row: ReactNode, rowData: T, rowIndex: number) => ReactNode;
 }
 
-const DEFAULT_PAGE_SIZE = 25;
 const DEFAULT_PAGE_SIZE_OPTIONS: DataTablePageSizeOption[] = [25, 50, 100, "all"];
 const DEFAULT_MAX_HEIGHT = "calc(100dvh - 280px)";
 const CHECKBOX_COLUMN_WIDTH = "48px";
@@ -98,6 +106,7 @@ function getAlignClass(align: ColumnDefinition<unknown>["align"]): string {
 }
 
 function formatPageSizeLabel(option: DataTablePageSizeOption): string {
+    if (option === "auto") return "Auto";
     return option === "all" ? "Tutti" : String(option);
 }
 
@@ -202,8 +211,8 @@ export function DataTable<T>({
     isLoading = false,
     emptyState,
     loadingState,
-    maxHeight = DEFAULT_MAX_HEIGHT,
-    pageSize = DEFAULT_PAGE_SIZE,
+    maxHeight: maxHeightProp,
+    pageSize,
     pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
     onRowClick,
     selectable = false,
@@ -218,12 +227,16 @@ export function DataTable<T>({
     getRowId = defaultGetRowId,
     rowWrapper
 }: DataTableProps<T>) {
-    const [currentPageSize, setCurrentPageSize] = useState<DataTablePageSizeOption>(pageSize);
+    const maxHeight = maxHeightProp ?? DEFAULT_MAX_HEIGHT;
+    const maxHeightIsExplicit = maxHeightProp !== undefined;
+    const initialSelection: PageSizeSelection = pageSize ?? "auto";
+    const [currentPageSize, setCurrentPageSize] =
+        useState<PageSizeSelection>(initialSelection);
     const [currentPage, setCurrentPage] = useState(1);
 
     // External pageSize prop changes reset internal state
     useEffect(() => {
-        setCurrentPageSize(pageSize);
+        setCurrentPageSize(pageSize ?? "auto");
         setCurrentPage(1);
     }, [pageSize]);
 
@@ -271,23 +284,46 @@ export function DataTable<T>({
         return { gridTemplateColumns: template };
     }, [columns, selectable]);
 
+    // ─── Auto page size refs ────────────────────────────────────────────────
+    const probeRef = useRef<HTMLDivElement | null>(null);
+    const tableRef = useRef<HTMLDivElement | null>(null);
+    const headerRef = useRef<HTMLDivElement | null>(null);
+    const footerRef = useRef<HTMLDivElement | null>(null);
+    const bodyRef = useRef<HTMLDivElement | null>(null);
+
     // ─── Pagination slicing ─────────────────────────────────────────────────
     const isAllMode = currentPageSize === "all";
-    const numericPageSize = typeof currentPageSize === "number" ? currentPageSize : data.length;
+    const isAutoMode = currentPageSize === "auto";
+
+    // sampleKey: identifica il set di righe visibili. `data` è già il set
+    // FILTRATO in tutti i call site → un filtro che cambia il contenuto senza
+    // cambiare il conteggio cambia comunque gli id dei primi elementi.
+    // Limite residuo accettato: contenuto mutato a parità di id non cambia la
+    // chiave — coperto da ResizeObserver/window-resize alla prossima misura.
+    const sampleIdentity = useMemo(
+        () => data.slice(0, 5).map((row, i) => getRowId(row, i)).join("|"),
+        [data, getRowId]
+    );
+
+    const { fit: autoFit, measuredHeightPx } = useAutoPageSize({
+        // Misura sempre (anche in manuale) per riempire il probe vincolato; il
+        // fit (righe/pagina) è calcolato solo in auto via `autoMode`.
+        enabled: !isLoading && data.length > 0,
+        autoMode: isAutoMode,
+        probeRef,
+        tableRef,
+        headerRef,
+        footerRef,
+        bodyRef,
+        rowClassName: styles.row,
+        sampleKey: `${data.length}:${currentPage}:${sampleIdentity}`,
+        maxHeightIsExplicit
+    });
+
+    const numericPageSize = resolveNumericPageSize(currentPageSize, autoFit, data.length);
     const hasOverflow = !isAllMode && data.length > numericPageSize;
     const totalPages = hasOverflow ? Math.max(1, Math.ceil(data.length / numericPageSize)) : 1;
     const safePage = Math.min(currentPage, totalPages);
-
-    const pageSizeMin: number =
-        typeof pageSizeOptions[0] === "number" ? pageSizeOptions[0] : DEFAULT_PAGE_SIZE;
-
-    // Auto-reset currentPageSize to initial when dataset drops at/below threshold
-    useEffect(() => {
-        if (data.length <= pageSizeMin && currentPageSize !== pageSize) {
-            setCurrentPageSize(pageSize);
-            setCurrentPage(1);
-        }
-    }, [data.length, pageSizeMin, pageSize, currentPageSize]);
 
     const displayData = useMemo(() => {
         if (!hasOverflow) return data;
@@ -432,7 +468,11 @@ export function DataTable<T>({
 
         const showRange = hasOverflow;
         const showControls = hasOverflow && !isAllMode;
-        const showDropdown = pageSizeOptions.length > 1 && data.length > pageSizeMin;
+        // Il selettore "Per pagina" resta SEMPRE visibile: "Auto" è una scelta
+        // reversibile, l'utente deve poter tornare indietro o cambiare valore
+        // anche quando totale ≤ pageSize (niente overflow). Solo le frecce di
+        // navigazione (showControls) restano condizionate a hasOverflow.
+        const showDropdown = pageSizeOptions.length > 1;
 
         const countLabel = showRange
             ? `${startRow}–${endRow} di ${data.length}`
@@ -457,11 +497,13 @@ export function DataTable<T>({
                                     value={String(currentPageSize)}
                                     onChange={e => {
                                         const v = e.target.value;
-                                        handlePageSizeChange(v === "all" ? "all" : Number(v));
+                                        handlePageSizeChange(
+                                            v === "all" || v === "auto" ? v : Number(v)
+                                        );
                                     }}
                                     aria-label="Righe per pagina"
                                 >
-                                    {pageSizeOptions.map(opt => (
+                                    {withAutoOption(pageSizeOptions).map(opt => (
                                         <option key={String(opt)} value={String(opt)}>
                                             {formatPageSizeLabel(opt)}
                                         </option>
@@ -500,41 +542,50 @@ export function DataTable<T>({
         );
     };
 
-    const containerStyle: CSSProperties = { maxHeight };
+    // Probe vincolato non-ambiguo: usa come `max-height` lo spazio reale
+    // misurato (es. 667) invece del default CSS statico (548, sbagliato). Il
+    // `.table` resta shrink-to-fit (nessun flex-grow) → altezza = min(contenuto,
+    // probe): corta con poche righe, cappata + scroll interno quando il
+    // contenuto eccede. Il default `maxHeight` resta per fallback/drawer.
+    const containerStyle: CSSProperties = {
+        maxHeight: measuredHeightPx != null ? `${measuredHeightPx}px` : maxHeight
+    };
 
     return (
         <>
-            <div className={styles.table} style={containerStyle}>
-                <div className={styles.scrollArea}>
-                    <div className={styles.header} style={gridStyle}>
-                        {selectable && (
-                            <div className={`${styles.headerCell} ${styles.checkboxCell}`}>
-                                <input
-                                    type="checkbox"
-                                    className={styles.checkbox}
-                                    checked={allCurrentPageSelected}
-                                    ref={el => {
-                                        if (el) el.indeterminate = someCurrentPageSelected;
-                                    }}
-                                    onChange={e => handleSelectAll(e.target.checked)}
-                                    aria-label="Seleziona tutte le righe"
-                                />
-                            </div>
-                        )}
-                        {columns.map(column => (
-                            <div
-                                key={column.id}
-                                className={`${styles.headerCell} ${getAlignClass(column.align)}${column.id === "actions" ? ` ${styles.cellActions}` : ""}`}
-                            >
-                                {column.header}
-                            </div>
-                        ))}
+            <div ref={probeRef} className={styles.autoSizeProbe}>
+                <div ref={tableRef} className={styles.table} style={containerStyle}>
+                    <div className={styles.scrollArea}>
+                        <div ref={headerRef} className={styles.header} style={gridStyle}>
+                            {selectable && (
+                                <div className={`${styles.headerCell} ${styles.checkboxCell}`}>
+                                    <input
+                                        type="checkbox"
+                                        className={styles.checkbox}
+                                        checked={allCurrentPageSelected}
+                                        ref={el => {
+                                            if (el) el.indeterminate = someCurrentPageSelected;
+                                        }}
+                                        onChange={e => handleSelectAll(e.target.checked)}
+                                        aria-label="Seleziona tutte le righe"
+                                    />
+                                </div>
+                            )}
+                            {columns.map(column => (
+                                <div
+                                    key={column.id}
+                                    className={`${styles.headerCell} ${getAlignClass(column.align)}${column.id === "actions" ? ` ${styles.cellActions}` : ""}`}
+                                >
+                                    {column.header}
+                                </div>
+                            ))}
+                        </div>
+
+                        <div ref={bodyRef} className={styles.body}>{renderRows()}</div>
                     </div>
 
-                    <div className={styles.body}>{renderRows()}</div>
+                    <div ref={footerRef} className={styles.footer}>{renderFooter()}</div>
                 </div>
-
-                <div className={styles.footer}>{renderFooter()}</div>
             </div>
 
             {selectable && showSelectionBar && (

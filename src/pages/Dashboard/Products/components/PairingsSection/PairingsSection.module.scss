@@ -1,0 +1,84 @@
+.root {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+// ── Riga tabella: prodotto abbinato ─────────────────────────────────
+.productCell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.thumb,
+.thumbPlaceholder {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.thumb {
+    object-fit: cover;
+}
+
+.thumbPlaceholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-gray-100, #f1f5f9);
+    color: var(--text-muted, #94a3b8);
+}
+
+.name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.dragBtn,
+.removeBtn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted, #94a3b8);
+    border-radius: 6px;
+}
+
+.dragBtn {
+    cursor: grab;
+}
+
+.removeBtn {
+    cursor: pointer;
+
+    &:hover:not(:disabled) {
+        color: var(--color-danger-600, #dc2626);
+    }
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+}
+
+.addRow {
+    display: flex;
+}
+
+// ── Picker drawer (DataTable selectable + SearchInput, stesso pattern
+// di ProductPickerList in Highlights) ────────────────────────────────
+.pickerSearch {
+    margin-bottom: 12px;
+}
+
+.pickerTableWrap {
+    flex: 1 1 auto;
+    min-height: 0;
+}

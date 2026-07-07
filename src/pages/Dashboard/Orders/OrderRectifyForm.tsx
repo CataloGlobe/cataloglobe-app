@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import Text from "@/components/ui/Text/Text";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import type { V2OrderWithItems, RectifyOrderItem } from "@/types/orders";
+import type {
+    V2OrderWithItems,
+    V2OrderItem,
+    RectifyOrderItem,
+    V2RectifiableResidual
+} from "@/types/orders";
 import styles from "./OrderRectifyForm.module.scss";
 
 const MAX_REASON_LENGTH = 500;
@@ -19,6 +24,16 @@ interface Props {
     /** Notifica al consumer estimate + canConfirm per footer (stimato + gating). */
     onStateChange?: (state: RectifyFormState) => void;
     disabled?: boolean;
+    /**
+     * Residui stornabili per riga (dalla RPC `get_rectifiable_residual`), forniti
+     * dal consumer che ha già l'ordine in mano. Quando presenti: lo stepper mostra
+     * `di <residuo>` con `max = residualQty`, e le righe già stornate del tutto
+     * (`residualQty === 0`) restano visibili ma disabilitate. Quando `undefined`
+     * o `null` (es. `OrderRectifyDrawer` dormiente, o fetch residui fallito) il form
+     * ripiega sul comportamento legacy `max = qty servita`; la RPC resta la difesa
+     * finale sul cap cumulativo reale.
+     */
+    residuals?: V2RectifiableResidual[] | null;
 }
 
 interface RectifyItemState {
@@ -47,10 +62,25 @@ export default function OrderRectifyForm({
     order,
     onSubmit,
     onStateChange,
-    disabled
+    disabled,
+    residuals
 }: Props) {
     const [itemStates, setItemStates] = useState<Record<string, RectifyItemState>>({});
     const [reason, setReason] = useState("");
+
+    // Mappa orderItemId → residuo. `null`/`undefined` = modalità fallback
+    // (nessun residuo noto → tetto = qty servita, la RPC valida il cap reale).
+    const residualByItem = useMemo(() => {
+        const m = new Map<string, V2RectifiableResidual>();
+        if (residuals) for (const r of residuals) m.set(r.orderItemId, r);
+        return m;
+    }, [residuals]);
+
+    // Tetto stornabile per riga: residuo se noto, altrimenti qty servita.
+    function capForItem(item: V2OrderItem): number {
+        const residual = residualByItem.get(item.id);
+        return residual ? residual.residualQty : item.quantity;
+    }
 
     useEffect(() => {
         const init: Record<string, RectifyItemState> = {};
@@ -85,24 +115,30 @@ export default function OrderRectifyForm({
     const selectedItems = useMemo<RectifyOrderItem[]>(() => {
         const items: RectifyOrderItem[] = [];
         for (const item of order.items ?? []) {
+            const cap = capForItem(item);
             const state = itemStates[item.id];
-            if (state?.included && state.quantity > 0) {
-                items.push({ order_item_id: item.id, quantity: state.quantity });
+            if (state?.included && state.quantity > 0 && cap > 0) {
+                const qty = Math.min(state.quantity, cap);
+                items.push({ order_item_id: item.id, quantity: qty });
             }
         }
         return items;
-    }, [order, itemStates]);
+        // capForItem dipende da residualByItem → incluso nelle deps.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [order, itemStates, residualByItem]);
 
     const estimate = useMemo(() => {
         let total = 0;
         for (const item of order.items ?? []) {
+            const cap = capForItem(item);
             const state = itemStates[item.id];
-            if (state?.included) {
-                total += item.unit_price_snapshot * state.quantity;
+            if (state?.included && cap > 0) {
+                total += item.unit_price_snapshot * Math.min(state.quantity, cap);
             }
         }
         return total;
-    }, [order, itemStates]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [order, itemStates, residualByItem]);
 
     const reasonOverflow = reason.length - MAX_REASON_LENGTH;
     const canConfirm = selectedItems.length > 0 && reasonOverflow <= 0 && !disabled;
@@ -136,19 +172,28 @@ export default function OrderRectifyForm({
                             included: false,
                             quantity: 1
                         };
+                        const residual = residualByItem.get(item.id);
+                        // Tetto = residuo se noto, altrimenti qty servita (fallback).
+                        const cap = residual ? residual.residualQty : item.quantity;
+                        const fullyStorned = !!residual && residual.residualQty === 0;
+                        // Contesto solo se stornato in parte (residuo + già-stornato > 0).
+                        const partiallyStorned =
+                            !!residual &&
+                            residual.rectifiedQty > 0 &&
+                            residual.residualQty > 0;
+                        const rowClass = fullyStorned
+                            ? styles.itemRowDisabled
+                            : state.included
+                              ? styles.itemRowSelected
+                              : styles.itemRow;
                         return (
-                            <div
-                                key={item.id}
-                                className={
-                                    state.included ? styles.itemRowSelected : styles.itemRow
-                                }
-                            >
+                            <div key={item.id} className={rowClass}>
                                 <label className={styles.itemCheckbox}>
                                     <input
                                         type="checkbox"
-                                        checked={state.included}
+                                        checked={state.included && !fullyStorned}
                                         onChange={() => toggleItem(item.id)}
-                                        disabled={disabled}
+                                        disabled={disabled || fullyStorned}
                                     />
                                     <div className={styles.itemInfo}>
                                         <Text weight={500}>
@@ -162,36 +207,49 @@ export default function OrderRectifyForm({
                                                 {item.options_snapshot.primary_option.value_name}
                                             </Text>
                                         )}
+                                        {partiallyStorned && (
+                                            <Text variant="body-sm" colorVariant="muted">
+                                                {residual.residualQty} di{" "}
+                                                {residual.originalQty} ·{" "}
+                                                {residual.rectifiedQty} già stornato
+                                            </Text>
+                                        )}
                                         <Text variant="body-sm" colorVariant="muted">
                                             {formatEur(item.line_total)} totali
                                         </Text>
                                     </div>
                                 </label>
 
-                                <div className={styles.qtyControl}>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        Storno:
-                                    </Text>
-                                    <input
-                                        type="number"
-                                        min={1}
-                                        max={item.quantity}
-                                        step={1}
-                                        value={state.quantity}
-                                        disabled={!state.included || disabled}
-                                        onChange={e =>
-                                            setItemQuantity(
-                                                item.id,
-                                                Number(e.target.value),
-                                                item.quantity
-                                            )
-                                        }
-                                        className={styles.qtyInput}
-                                    />
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        di {item.quantity}
-                                    </Text>
-                                </div>
+                                {fullyStorned ? (
+                                    <span className={styles.stornedBadge}>
+                                        Già stornato
+                                    </span>
+                                ) : (
+                                    <div className={styles.qtyControl}>
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Storno:
+                                        </Text>
+                                        <input
+                                            type="number"
+                                            min={1}
+                                            max={cap}
+                                            step={1}
+                                            value={state.quantity}
+                                            disabled={!state.included || disabled}
+                                            onChange={e =>
+                                                setItemQuantity(
+                                                    item.id,
+                                                    Number(e.target.value),
+                                                    cap
+                                                )
+                                            }
+                                            className={styles.qtyInput}
+                                        />
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            di {cap}
+                                        </Text>
+                                    </div>
+                                )}
                             </div>
                         );
                     })}

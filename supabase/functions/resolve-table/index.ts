@@ -28,7 +28,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { signCustomerJwt } from "../_shared/customerJwt.ts";
-import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { checkRateLimit, RateLimitExceededError, extractClientIp, hashIp } from "../_shared/rateLimit.ts";
 import {
     checkOrderingState,
     orderingStateMessage,
@@ -50,6 +50,10 @@ const SESSION_TTL_SECONDS = 12 * 60 * 60;
 // legitimate "many guests scan the same QR" scenario and still narrows
 // abuse to one specific token at a time.
 const RATE_LIMIT_PER_TOKEN_PER_MIN = 30;
+
+// IP-scoped counter: catches abuse that rotates qr_token but not IP (e.g.
+// scraping multiple tables' QR codes from the same origin).
+const RATE_LIMIT_PER_IP_PER_MIN = 30;
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -467,6 +471,14 @@ serve(async (req: Request) => {
         await checkRateLimit(supabase, {
             key: `resolve-table:qr-token:${qrToken}`,
             limit: RATE_LIMIT_PER_TOKEN_PER_MIN,
+            windowSeconds: 60
+        });
+
+        // ── Rate limit (per IP) ──
+        const ipHash = await hashIp(extractClientIp(req));
+        await checkRateLimit(supabase, {
+            key: `resolve-table:ip:${ipHash}`,
+            limit: RATE_LIMIT_PER_IP_PER_MIN,
             windowSeconds: 60
         });
 

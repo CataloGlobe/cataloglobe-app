@@ -1,0 +1,102 @@
+/* Card consiglio abbinamento nel dettaglio. Framing accento tenue = "curato".
+   Token pubblici only, nessun colore hardcoded. */
+.card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 13px 14px;
+    border-radius: 12px;
+    background: var(--pub-surface);
+    border: 1px solid color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface));
+    box-shadow: 0 1px 2px color-mix(in srgb, var(--pub-text) 8%, transparent);
+}
+
+.thumb {
+    width: 52px;
+    height: 52px;
+    border-radius: 8px;
+    flex-shrink: 0;
+    object-fit: cover;
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+    flex: 1;
+}
+
+.headRow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.name {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.price {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.note {
+    line-height: 1.4;
+}
+
+/* Azione "+" (upsell). Outline accento; "✓ Aggiunto" = pill accento pieno. */
+.addBtn {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border-radius: 999px;
+    border: 1px solid var(--pub-accent);
+    background: transparent;
+    color: var(--pub-accent);
+    cursor: pointer;
+
+    &:hover {
+        background: color-mix(in srgb, var(--pub-accent) 12%, transparent);
+    }
+}
+
+.addedBadge {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    background: var(--pub-accent);
+    color: var(--pub-accent-contrast, #fff);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+/* Abbinato configurabile: apre il detail invece di add diretto. */
+.optionsBtn {
+    flex-shrink: 0;
+    padding: 7px 12px;
+    border-radius: 999px;
+    border: 1px solid var(--pub-accent);
+    background: transparent;
+    color: var(--pub-accent);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+    cursor: pointer;
+
+    &:hover {
+        background: color-mix(in srgb, var(--pub-accent) 12%, transparent);
+    }
+}

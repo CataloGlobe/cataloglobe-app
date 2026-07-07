@@ -57,27 +57,20 @@ export function NavMiniPreview({
                     </span>
                 </>
             );
-        case "dot":
-            return (
-                <>
-                    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2, flexShrink: 0 }}>
-                        <span style={{ ...B, width: 18, height: 3, background: primaryColor, borderRadius: 1 }} />
-                        <span style={{ ...B, width: 4, height: 4, borderRadius: 99, background: primaryColor }} />
-                    </span>
-                    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2, opacity: 0.35, flexShrink: 0 }}>
-                        <span style={{ ...B, width: 14, height: 3, background: G, borderRadius: 1 }} />
-                    </span>
-                    <span style={{ display: "inline-flex", flexDirection: "column", alignItems: "center", gap: 2, opacity: 0.35, flexShrink: 0 }}>
-                        <span style={{ ...B, width: 14, height: 3, background: G, borderRadius: 1 }} />
-                    </span>
-                </>
-            );
         case "minimal":
             return (
                 <>
                     <span style={{ ...B, width: 20, height: 5, background: primaryColor, borderRadius: 2 }} />
                     <span style={{ ...B, width: 16, height: 5, background: G, borderRadius: 2, opacity: 0.35 }} />
                     <span style={{ ...B, width: 16, height: 5, background: G, borderRadius: 2, opacity: 0.35 }} />
+                </>
+            );
+        case "tinted":
+            return (
+                <>
+                    <span style={{ ...B, background: primaryColor, opacity: 0.18, borderRadius: radiusPx, width: 24, height: 11 }} />
+                    <span style={{ ...B, background: G, borderRadius: radiusPx, width: 18, height: 11, opacity: 0.45 }} />
+                    <span style={{ ...B, background: G, borderRadius: radiusPx, width: 18, height: 11, opacity: 0.45 }} />
                 </>
             );
     }

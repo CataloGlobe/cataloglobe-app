@@ -128,3 +128,17 @@ function _extractCount(data: unknown): number {
         `Rate limit RPC returned an unexpected payload shape: ${JSON.stringify(data)}`
     );
 }
+
+/** First hop of x-forwarded-for (client IP). Falls back to "unknown". */
+export function extractClientIp(req: Request): string {
+    const xff = req.headers.get("x-forwarded-for") ?? "";
+    const first = xff.split(",")[0]?.trim();
+    return first && first.length > 0 ? first : "unknown";
+}
+
+/** SHA-256 hex of the IP — never persist raw IP in the rate-limit bucket key. */
+export async function hashIp(ip: string): Promise<string> {
+    const data = new TextEncoder().encode(ip);
+    const digest = await crypto.subtle.digest("SHA-256", data);
+    return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, "0")).join("");
+}

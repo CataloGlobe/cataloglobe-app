@@ -33,6 +33,7 @@ export interface V2Activity {
     fees_public: boolean;
     hours_public: boolean;
     ordering_enabled: boolean;
+    ordering_verification_mode: "none" | "first_order";
     enable_reservations: boolean;
     /**
      * Lista di email destinatarie degli avvisi nuova prenotazione per la sede.

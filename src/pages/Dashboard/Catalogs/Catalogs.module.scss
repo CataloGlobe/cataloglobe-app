@@ -1,5 +1,12 @@
 .container {
   width: 100%;
+  // Catena flex vincolata (template Prodotti): propaga l'altezza bounded di
+  // `MainLayout .content` fino al `.autoSizeProbe` del DataTable, così l'auto
+  // page-size misura lo spazio reale e la tabella riempie il probe.
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 // Wrapper contenuto pagina: nessun padding-block — il ritmo verticale
@@ -7,6 +14,10 @@
 // padding 24px). Coerente con Products e le altre pagine post-rollout.
 .content {
   background-color: var(--color-gray-50);
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 // CTA della header band: altezza armonizzata a search/toggle via

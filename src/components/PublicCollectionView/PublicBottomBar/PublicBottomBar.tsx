@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Bell, BookOpen, CalendarDays, MessageSquareHeart, ShoppingBag } from "lucide-react";
+import { MessageCircle, ShoppingBag, Sparkles, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { useScrollCollapse } from "../hooks/useScrollCollapse";
 import styles from "./PublicBottomBar.module.scss";
@@ -14,7 +14,7 @@ import styles from "./PublicBottomBar.module.scss";
  * - Slot carrello separato da divider (non è un tab attivo).
  * - Shrink-on-scroll: riusa `useScrollCollapse` (segnale già usato dai FAB pubblici),
  *   nessun nuovo scroll listener su window è scritto qui dentro. Tap su un'icona riespande.
- * - Dot recensione su MessageSquareHeart guidato dalla stessa condizione del valutaFab
+ * - Dot recensione sull'icona recensioni guidato dalla stessa condizione del valutaFab
  *   (prop `reviewDot`, derivata da `valutaVisible` nel parent).
  */
 
@@ -22,9 +22,9 @@ type TabDef = { id: HubTab; icon: ReactNode; labelKey: string };
 
 // ⚠️ Visibilità tab "events" sincronizzata con PublicCollectionHeader.tsx (stesso filtro)
 const TABS: TabDef[] = [
-    { id: "menu", icon: <BookOpen size={19} strokeWidth={1.9} />, labelKey: "hub.menu" },
-    { id: "events", icon: <CalendarDays size={19} strokeWidth={1.9} />, labelKey: "hub.events" },
-    { id: "reviews", icon: <MessageSquareHeart size={19} strokeWidth={1.9} />, labelKey: "hub.reviews" },
+    { id: "menu", icon: <Utensils size={19} strokeWidth={1.9} />, labelKey: "hub.menu" },
+    { id: "events", icon: <Sparkles size={19} strokeWidth={1.9} />, labelKey: "hub.events" },
+    { id: "reviews", icon: <MessageCircle size={19} strokeWidth={1.9} />, labelKey: "hub.reviews" },
 ];
 
 type Props = {
@@ -33,9 +33,6 @@ type Props = {
     /** Mostra la tab "events". Default true (retrocompatibile). Sincronizzato con PublicCollectionHeader. */
     showEventsTab?: boolean;
     selectionCount: number;
-    /** Mostra lo slot assistenza. Dipende dalla sessione tavolo (indipendente da ordering maintenance). */
-    supportVisible: boolean;
-    onOpenSupport: () => void;
     /** Mostra lo slot carrello. Allineato a `!shouldHideOrderingEntry` del parent. */
     cartVisible: boolean;
     onOpenCart: () => void;
@@ -59,8 +56,6 @@ export default function PublicBottomBar({
     onTabChange,
     showEventsTab = true,
     selectionCount,
-    supportVisible,
-    onOpenSupport,
     cartVisible,
     onOpenCart,
     reviewDot,
@@ -194,22 +189,9 @@ export default function PublicBottomBar({
                 ))}
             </div>
 
-            {/* Un solo divisore tra il gruppo nav e il gruppo azioni (campanello +
-                carrello). Campanello e carrello stanno insieme, dalla stessa parte;
-                fra loro solo il gap del `.bar`, nessun divisore interno. */}
-            {(supportVisible || cartVisible) && (
+            {/* Divisore tra il gruppo nav e l'azione carrello. */}
+            {cartVisible && (
                 <span className={styles.divider} aria-hidden="true" />
-            )}
-
-            {supportVisible && (
-                <button
-                    type="button"
-                    className={styles.cart}
-                    aria-label={t("assistance.aria")}
-                    onClick={onOpenSupport}
-                >
-                    <Bell size={19} strokeWidth={1.9} />
-                </button>
             )}
 
             {cartVisible && (
@@ -222,14 +204,20 @@ export default function PublicBottomBar({
                             : t("fab.cart_aria")
                     }
                     onClick={handleCart}
+                    tabIndex={preview ? -1 : undefined}
                 >
                     <span className={styles.cartIcon} data-bump={bump ? "true" : "false"}>
                         {/* Sempre a contorno: il fill bianco riduce la leggibilità ed è
-                            ridondante col pallino che già segnala la selezione. */}
+                            ridondante col badge numerico che già segnala la selezione. */}
                         <ShoppingBag size={19} strokeWidth={1.9} fill="none" />
                     </span>
-                    {/* Indicatore binario: pallino rosso quando selectionCount > 0 (niente numero). */}
-                    {selectionCount > 0 && <span className={styles.cartDot} aria-hidden="true" />}
+                    {/* Badge numerico: conteggio selezione, stessa fonte dati del badge desktop
+                        equivalente (PublicCollectionHeader). */}
+                    {selectionCount > 0 && (
+                        <span className={styles.cartBadge} aria-hidden="true">
+                            {selectionCount}
+                        </span>
+                    )}
                 </button>
             )}
             </nav>

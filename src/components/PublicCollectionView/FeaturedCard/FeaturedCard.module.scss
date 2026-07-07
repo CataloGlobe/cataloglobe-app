@@ -280,6 +280,35 @@
   }
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   PREVIEW (non-interactive) — StyleEditor: card e CTA visive ma inerti.
+   Selettori a specificità maggiorata (classe extra + :hover) per vincere
+   sempre sulle regole @include hover sopra, indipendentemente dall'ordine.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.card.nonInteractive,
+.cardHighlight.nonInteractive {
+  cursor: default;
+
+  @media (hover: hover) {
+    &:hover {
+      transform: none;
+      box-shadow: var(--pub-card-shadow);
+    }
+  }
+}
+
+.nonInteractive .cardCta,
+.nonInteractive .highlightCta {
+  cursor: default;
+
+  @media (hover: hover) {
+    &:hover {
+      opacity: 1;
+    }
+  }
+}
+
 /* Image rendering (cover + parametric framing + band fill) moved to the shared
    FramedMedia component (@components/ui/FramedMedia). The image sits inside the
    16:9 .cardThumb / .cardHighlight containers above. */

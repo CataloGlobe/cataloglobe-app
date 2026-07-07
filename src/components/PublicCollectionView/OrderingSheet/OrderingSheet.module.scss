@@ -349,7 +349,6 @@
     flex-direction: column;
     gap: 12px;
     padding: 16px 20px;
-    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
     border-top: 2px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 12%, var(--pub-surface)));
     background: var(--pub-surface, #ffffff);
 }

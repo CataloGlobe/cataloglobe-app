@@ -54,7 +54,7 @@ export function usePaletteWarnings(colors: Colors): PaletteWarning[] {
                     warnings.push({
                         id: "accent-surface-similar",
                         message:
-                            "Il colore accent ha poco contrasto con le card: i pulsanti dei prodotti potrebbero risultare poco visibili.",
+                            "Il colore secondario ha poco contrasto con le card: i pulsanti dei prodotti potrebbero risultare poco visibili.",
                         affectedFields: ["accent", "surface"]
                     });
                 }

@@ -1071,10 +1071,19 @@ Hook `useMyOrdersRealtime(jwtToken, customerSessionId)`:
 | Nome                       | Frequenza              | Funzione                                                                            |
 | -------------------------- | ---------------------- | ----------------------------------------------------------------------------------- |
 | `daily_reset_availability` | `0 4 * * *` UTC        | Reset overrides con `auto_reset_at < now()`                                         |
-| `expire_customer_sessions` | `0 * * * *` (ogni ora) | Mark sessioni con `expires_at < now()` come "scadute" (UPDATE solo flag, no delete) |
-| `cleanup-old-sessions`     | `0 5 * * *` UTC        | DELETE sessioni scadute da > 30 giorni senza ordini collegati                       |
 
-Tutti via `pg_cron` con SECRET come pattern `cleanup-draft-schedules`.
+Via `pg_cron` con SECRET come pattern `cleanup-draft-schedules`.
+
+### Lifecycle sessioni cliente — TTL passivo (nessun cron)
+
+**Non esiste** alcun cron di scadenza/pulizia per `customer_sessions`. Le sessioni scadono **passivamente** via colonna `expires_at` (settata da `resolve-table` a `now() + 12h`): tutte le policy RLS anon e le Edge filtrano su `expires_at > now()`, quindi una sessione scaduta smette di funzionare senza bisogno di essere marcata da un job. Scelta deliberata (migration `20260520185853`):
+
+- `expire_customer_sessions` (marcatura flag) — **non necessario**: `expires_at` è già la fonte di verità, RLS filtra da sé.
+- `cleanup-old-sessions` (delete storico) — **prematuro**: la FK `RESTRICT` da `orders → customer_sessions` bloccherebbe comunque la cancellazione delle sessioni con ordini collegati; nessun beneficio finora.
+
+**Expiry attivo staff-side** (forza `expires_at = now()` senza attendere il TTL): `close-table` (RPC `close_table_with_resolution`) e `regenerate_table_qr_token(..., p_terminate_active_sessions => true)` — kill-switch alla rigenerazione del QR (FASE 2).
+
+> Nota storica: versioni precedenti di questa sezione descrivevano due cron (`expire_customer_sessions`, `cleanup-old-sessions`) mai esistiti in migration — riferimenti rimossi in FASE 2.
 
 ---
 

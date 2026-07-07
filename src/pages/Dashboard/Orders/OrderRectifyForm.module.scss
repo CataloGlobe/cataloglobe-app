@@ -33,6 +33,38 @@
     background: var(--surface-muted, #f4f5f7);
 }
 
+.itemRowDisabled {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 12px;
+    border: 1px solid var(--border-default, #e1e3e8);
+    border-radius: 8px;
+    background: var(--surface-muted, #f4f5f7);
+    opacity: 0.65;
+
+    .itemCheckbox {
+        cursor: not-allowed;
+
+        input[type="checkbox"] {
+            cursor: not-allowed;
+        }
+    }
+}
+
+.stornedBadge {
+    flex-shrink: 0;
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--surface-elevated, #fff);
+    border: 1px solid var(--border-default, #e1e3e8);
+    color: var(--text-muted, #6b6f76);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
 .itemCheckbox {
     display: flex;
     align-items: flex-start;

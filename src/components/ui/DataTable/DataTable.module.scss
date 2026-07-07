@@ -1,3 +1,17 @@
+// Probe di misura per l'auto page size: si stretcha SOLO se il genitore è
+// una colonna flex vincolata (align-self + flex). In un genitore block resta
+// alto quanto il contenuto → il caso è riconosciuto come "non vincolato"
+// dall'euristica (resolveAvailable) che fa fallback su maxHeight.
+// Il .table interno resta shrink-to-fit: NESSUNO stretch forzato della tabella.
+.autoSizeProbe {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    flex: 1 1 auto;
+    align-self: stretch;
+    min-height: 0;
+}
+
 .table {
     width: 100%;
     display: flex;
@@ -7,6 +21,11 @@
     border-radius: var(--radius-md, 12px);
     overflow: hidden;
     background: var(--card-bg, #ffffff);
+    // NESSUN flex-grow: il `.table` resta shrink-to-fit (alto quanto il
+    // contenuto). Il limite allo spazio disponibile arriva dal `max-height`
+    // inline = probe reale misurato (vedi containerStyle in DataTable.tsx) →
+    // altezza = min(contenuto, probe). Con poche righe resta corto; quando il
+    // contenuto eccede, `.scrollArea` scrolla internamente.
 }
 
 .scrollArea {

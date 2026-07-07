@@ -1,0 +1,113 @@
+/* Header conforme al dettaglio (ItemDetail .header): titolo + divisore.
+   PublicSheet non disegna un header standard → replichiamo il markup. */
+.header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+    flex-shrink: 0;
+    background: var(--pub-surface, #fff);
+}
+
+.headerTitle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+.headerIcon {
+    flex-shrink: 0;
+    color: var(--pub-accent);
+}
+
+.closeBtn {
+    /* Mobile: nascosto — l'utente chiude con drag/overlay/swipe o "Continua". */
+    display: none;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border-radius: var(--pub-btn-radius, 6px);
+    border: none;
+    background: color-mix(in srgb, var(--pub-text) 8%, transparent);
+    color: var(--pub-text);
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s ease;
+
+    &:hover {
+        background: color-mix(in srgb, var(--pub-text) 14%, transparent);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pub-primary);
+        outline-offset: 2px;
+    }
+
+    @media (min-width: 640px) {
+        display: inline-flex;
+    }
+}
+
+.confirmRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.confirmIcon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    flex-shrink: 0;
+    border-radius: 999px;
+    background: var(--pub-accent);
+    color: var(--pub-accent-contrast, #fff);
+}
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    /* Padding 20px = valore del dettaglio (PublicSheet non padda i children).
+       20px top = respiro sotto il divisore dell'header. */
+    padding: 20px 20px 8px;
+}
+
+.subtitle {
+    margin-bottom: 8px;
+}
+
+.cards {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.continueBtn {
+    margin-top: 8px;
+    width: 100%;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1px solid color-mix(in srgb, var(--pub-text) 15%, var(--pub-surface));
+    background: transparent;
+    color: var(--pub-surface-text);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+        background: color-mix(in srgb, var(--pub-text) 5%, var(--pub-surface));
+    }
+}

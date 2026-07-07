@@ -9,6 +9,9 @@ export interface TenantContextType {
     loading: boolean;
     selectTenant: (id: string) => void;
     refreshTenants: () => Promise<void>;
+    /** In-memory patch of the currently selected tenant (no network refetch).
+     * Used to reflect authoritative post-commit values ahead of the async webhook. */
+    patchSelectedTenant: (patch: Partial<Pick<V2Tenant, "plan" | "paid_seats">>) => void;
 }
 
 export const TenantContext = createContext<TenantContextType>({
@@ -18,5 +21,6 @@ export const TenantContext = createContext<TenantContextType>({
     userRole: null,
     loading: true,
     selectTenant: () => {},
-    refreshTenants: async () => {}
+    refreshTenants: async () => {},
+    patchSelectedTenant: () => {}
 });

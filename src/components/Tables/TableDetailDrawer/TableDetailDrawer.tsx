@@ -35,6 +35,7 @@ import {
     acknowledgeOrder,
     listOrdersForActivity,
     getOrderWithItems,
+    listRectifiableResiduals,
     rectifyOrder
 } from "@/services/supabase/orders";
 import OrderRectifyForm, {
@@ -45,6 +46,7 @@ import type {
     V2CustomerSession,
     V2OrderGroup,
     V2OrderWithItems,
+    V2RectifiableResidual,
     OrderStatus,
     RectifyOrderItem
 } from "@/types/orders";
@@ -283,6 +285,12 @@ export function TableDetailDrawer({
     // ── Vista interna "storna" (B2: niente secondo drawer) ──
     const [view, setView] = useState<DrawerView>("conto");
     const [stornaOrder, setStornaOrder] = useState<V2OrderWithItems | null>(null);
+    // Residui stornabili dell'ordine in storno. `null` = residui non disponibili
+    // (fetch fallito) → il form ripiega su qty servita; la RPC resta la difesa
+    // finale sul cap cumulativo.
+    const [stornaResiduals, setStornaResiduals] = useState<
+        V2RectifiableResidual[] | null
+    >(null);
     const [stornaLoadingOrderId, setStornaLoadingOrderId] = useState<string | null>(null);
     const [stornaState, setStornaState] = useState<RectifyFormState>({
         estimate: 0,
@@ -421,7 +429,21 @@ export function TableDetailDrawer({
         setStornaLoadingOrderId(order.id);
         try {
             const full = await getOrderWithItems(order.id, tenantId);
+            // Residui in fetch separato: il loro fallimento NON deve bloccare lo
+            // storno. Fallback meno rischioso = si prosegue con qty servita (il
+            // form ripiega su `residuals=null`) e la RPC valida il cap reale.
+            let residuals: V2RectifiableResidual[] | null = null;
+            try {
+                residuals = await listRectifiableResiduals(order.id, tenantId);
+            } catch {
+                showToast({
+                    message:
+                        "Impossibile calcolare il residuo stornabile: verranno usate le quantità servite.",
+                    type: "warning"
+                });
+            }
             setStornaOrder(full);
+            setStornaResiduals(residuals);
             setStornaState({ estimate: 0, canConfirm: false });
             setView("storna");
         } catch {
@@ -437,6 +459,7 @@ export function TableDetailDrawer({
     function handleBackToConto(): void {
         setView("conto");
         setStornaOrder(null);
+        setStornaResiduals(null);
         setStornaState({ estimate: 0, canConfirm: false });
     }
 
@@ -451,6 +474,7 @@ export function TableDetailDrawer({
             showToast({ message: "Storno registrato", type: "success" });
             setView("conto");
             setStornaOrder(null);
+            setStornaResiduals(null);
             setStornaState({ estimate: 0, canConfirm: false });
             await loadDetail();
             if (tableId) onStornoCreated?.(tableId);
@@ -469,6 +493,7 @@ export function TableDetailDrawer({
             setShowAllRecent(false);
             setView("conto");
             setStornaOrder(null);
+            setStornaResiduals(null);
             setStornaState({ estimate: 0, canConfirm: false });
             return;
         }
@@ -645,6 +670,7 @@ export function TableDetailDrawer({
                         <OrderRectifyForm
                             formId="conto-storna-form"
                             order={stornaOrder}
+                            residuals={stornaResiduals}
                             onSubmit={handleConfirmStorno}
                             onStateChange={setStornaState}
                             disabled={isSavingStorno}
