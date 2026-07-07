@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { Bell, BookOpen, CalendarDays, ImageIcon, MessageSquareHeart, MoreHorizontal, Search, ShoppingBag } from "lucide-react";
+import { ImageIcon, MessageCircle, MoreHorizontal, Search, ShoppingBag, Sparkles, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { buildCoverImageSet } from "@/utils/imageTransform";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
@@ -8,9 +8,9 @@ import styles from "./PublicCollectionHeader.module.scss";
 
 // ⚠️ Visibilità tab "events" sincronizzata con PublicBottomBar.tsx (stesso filtro)
 const HUB_TABS: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
-    { id: "menu", icon: <BookOpen size={14} />, labelKey: "hub.menu" },
-    { id: "events", icon: <CalendarDays size={14} />, labelKey: "hub.events" },
-    { id: "reviews", icon: <MessageSquareHeart size={14} />, labelKey: "hub.reviews" },
+    { id: "menu", icon: <Utensils size={14} />, labelKey: "hub.menu" },
+    { id: "events", icon: <Sparkles size={14} />, labelKey: "hub.events" },
+    { id: "reviews", icon: <MessageCircle size={14} />, labelKey: "hub.reviews" },
 ];
 
 // ── Prototype constants (authoritative — do not change) ─────────────────────
@@ -85,10 +85,6 @@ export type PublicCollectionHeaderProps = {
     orderVisible?: boolean;
     /** Apre il drawer ordine. Undefined ⇒ bottone non renderizzato. */
     onOpenOrder?: () => void;
-    /** Mostra il bottone Assistenza (campanello). */
-    supportVisible?: boolean;
-    /** Apre il drawer Assistenza. Undefined ⇒ bottone non renderizzato. */
-    onOpenSupport?: () => void;
     /** Dot promemoria recensione sulla tab "Dicci la tua" (riusa valutaVisible). */
     reviewDot?: boolean;
     /** Solo preview: device emulato dal toggle Mobile/Desktop. Settato come
@@ -124,8 +120,6 @@ export default function PublicCollectionHeader({
     selectionCount = 0,
     orderVisible = false,
     onOpenOrder,
-    supportVisible = false,
-    onOpenSupport,
     reviewDot = false,
     previewDevice,
 }: PublicCollectionHeaderProps) {
@@ -398,51 +392,35 @@ export default function PublicCollectionHeader({
                             </button>
                         )}
 
-                        {/* Gruppo azioni desktop (Assistenza/Ordine). Sotto flag
-                            bottom-bar è montato sempre ma nascosto ≤640px via @media
-                            (la bottom-bar mobile porta le stesse azioni). */}
-                        {((onOpenSupport && supportVisible) || (onOpenOrder && orderVisible)) && (
+                        {/* Gruppo azioni desktop (Ordine). Sotto flag bottom-bar è montato
+                            sempre ma nascosto ≤640px via @media (la bottom-bar mobile porta
+                            la stessa azione). */}
+                        {onOpenOrder && orderVisible && (
                             <div className={styles.headerActions}>
                                 {/* Divisore tra gruppo utility (IT/search/···) e azioni. */}
                                 <span className={styles.actionsDivider} aria-hidden="true" />
 
-                                {/* Assistenza (campanello) — entry point desktop, stessa
-                                    condizione del campanello mobile (supportVisible). */}
-                                {onOpenSupport && supportVisible && (
-                                    <button
-                                        type="button"
-                                        className={styles.iconBtn}
-                                        onClick={onOpenSupport}
-                                        aria-label={t("assistance.aria")}
-                                        tabIndex={mode === "preview" ? -1 : undefined}
-                                    >
-                                        <Bell size={15} strokeWidth={2} />
-                                    </button>
-                                )}
-
                                 {/* Ordine (carrello) — apre il drawer ordine, badge conteggio.
                                     Tinta accent quando ci sono articoli (data-accent). */}
-                                {onOpenOrder && orderVisible && (
-                                    <button
-                                        type="button"
-                                        className={styles.iconBtn}
-                                        data-accent={selectionCount > 0 ? "true" : undefined}
-                                        onClick={onOpenOrder}
-                                        aria-label={
-                                            selectionCount > 0
-                                                ? t("fab.cart_aria_count", { count: selectionCount })
-                                                : t("fab.cart_aria")
-                                        }
-                                        tabIndex={mode === "preview" ? -1 : undefined}
-                                    >
-                                        <ShoppingBag size={15} strokeWidth={2} />
-                                        {selectionCount > 0 && (
-                                            <span className={styles.iconBtnBadge} aria-hidden>
-                                                {selectionCount}
-                                            </span>
-                                        )}
-                                    </button>
-                                )}
+                                <button
+                                    type="button"
+                                    className={styles.iconBtn}
+                                    data-accent={selectionCount > 0 ? "true" : undefined}
+                                    onClick={onOpenOrder}
+                                    aria-label={
+                                        selectionCount > 0
+                                            ? t("fab.cart_aria_count", { count: selectionCount })
+                                            : t("fab.cart_aria")
+                                    }
+                                    tabIndex={mode === "preview" ? -1 : undefined}
+                                >
+                                    <ShoppingBag size={15} strokeWidth={2} />
+                                    {selectionCount > 0 && (
+                                        <span className={styles.iconBtnBadge} aria-hidden>
+                                            {selectionCount}
+                                        </span>
+                                    )}
+                                </button>
                             </div>
                         )}
                     </div>

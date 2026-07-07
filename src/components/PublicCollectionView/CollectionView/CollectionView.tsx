@@ -2212,8 +2212,6 @@ export default function CollectionView({
                     selectionCount={selectionCount}
                     orderVisible={showHeaderActions && !shouldHideOrderingEntry}
                     onOpenOrder={showHeaderActions ? (mode === "preview" ? () => {} : openOrdering) : undefined}
-                    supportVisible={showHeaderActions && orderingActive}
-                    onOpenSupport={showHeaderActions ? (mode === "preview" ? () => {} : () => setIsSupportOpen(true)) : undefined}
                     reviewDot={showHeaderActions ? valutaVisible : false}
                 />
             )}
@@ -2618,8 +2616,6 @@ export default function CollectionView({
                     onTabChange={mode === "preview" ? () => {} : handleHubTabTap}
                     showEventsTab={showEventsTab}
                     selectionCount={selectionCount}
-                    supportVisible={mode === "public" && orderingActive}
-                    onOpenSupport={mode === "preview" ? () => {} : () => setIsSupportOpen(true)}
                     cartVisible={mode === "preview" ? orderingActive && !shouldHideOrderingEntry : !shouldHideOrderingEntry}
                     onOpenCart={mode === "preview" ? () => {} : openOrdering}
                     reviewDot={mode === "preview" ? false : valutaVisible}
