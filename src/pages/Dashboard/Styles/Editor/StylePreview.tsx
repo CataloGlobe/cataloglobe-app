@@ -161,7 +161,16 @@ const MOCK_SECTION_GROUPS: CollectionViewSectionGroup[] = [
                     description: "Descrizione breve del prodotto o servizio.",
                     price: 12.0,
                     image: null,
-                    parentSelected: true
+                    parentSelected: true,
+                    pairings: [
+                        {
+                            id: "i2",
+                            name: "Barolo DOCG 2019",
+                            imageUrl: null,
+                            price: 24.0,
+                            note: "Tannini morbidi che esaltano il piatto."
+                        }
+                    ]
                 },
                 {
                     id: "i2",

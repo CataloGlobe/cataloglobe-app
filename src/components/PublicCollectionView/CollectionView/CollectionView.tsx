@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LanguageContext } from "@/context/Language/LanguageContext";
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Phone, Plus } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Phone, Plus, Sparkles } from "lucide-react";
 import type {
     ResolvedAllergen,
     ResolvedCharacteristic,
@@ -51,6 +51,7 @@ import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/P
 import type { ActivityFee } from "@/types/activity";
 import type { Allergen } from "@/services/supabase/allergens";
 import PublicSheet from "../PublicSheet/PublicSheet";
+import PairingUpsellSheet, { type UpsellPairing } from "../PairingUpsellSheet/PairingUpsellSheet";
 import PublicOpeningHours from "../PublicOpeningHours/PublicOpeningHours";
 import { submitOrder } from "@/services/supabase/orders";
 import { subscribeToCustomerSession } from "@/services/supabase/customerSessions";
@@ -389,6 +390,17 @@ function ProductRowInner({
                         {description}
                     </Text>
                 )}
+                {item.pairings && item.pairings.length > 0 && (
+                    <span className={`${styles.pairingChip} ${styles.pairingChipSurface}`}>
+                        <Sparkles size={13} className={styles.pairingChipIcon} />
+                        <span className={styles.pairingChipText}>
+                            {t("product.pairing_prefix")} · {item.pairings[0].name}
+                        </span>
+                        {item.pairings.length > 1 && (
+                            <span className={styles.pairingChipMore}>+{item.pairings.length - 1}</span>
+                        )}
+                    </span>
+                )}
                 {optionGroups && optionGroups.length > 0 && (
                     <span className={styles.customizableHint}>{t("product.badge_customizable")}</span>
                 )}
@@ -530,6 +542,17 @@ function ProductCompactRowInner({
                     )}
                 </div>
                 {description && <span className={styles.compactDescription}>{description}</span>}
+                {item.pairings && item.pairings.length > 0 && (
+                    <span className={`${styles.pairingChip} ${styles.pairingChipBg}`}>
+                        <Sparkles size={12} className={styles.pairingChipIcon} />
+                        <span className={styles.pairingChipText}>
+                            {t("product.pairing_prefix")} · {item.pairings[0].name}
+                        </span>
+                        {item.pairings.length > 1 && (
+                            <span className={styles.pairingChipMore}>+{item.pairings.length - 1}</span>
+                        )}
+                    </span>
+                )}
                 {hasCardCharacteristics && (
                     <div className={styles.compactCharacteristics}>
                         {visibleCharacteristics.map(c => (
@@ -814,6 +837,10 @@ export default function CollectionView({
     // identica reference). Propagato in contentKey verso PublicSheet → l'abort
     // di close-interruption scatta uniformemente, A→A incluso.
     const [openSeq, setOpenSeq] = useState(0);
+
+    // Upsell abbinamenti (D3): prodotto-sorgente + abbinati idonei congelati
+    // all'apertura. null = nessun upsell aperto.
+    const [upsell, setUpsell] = useState<{ sourceName: string; pairings: UpsellPairing[] } | null>(null);
 
     // ── Search overlay ──────────────────────────────────────────────────────
     const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -1358,6 +1385,50 @@ export default function CollectionView({
         }
         return null;
     }, [sectionGroups]);
+
+    // Aggiunge un abbinato per id (upsell D3). Add DIRETTO: non passa dal
+    // detail né riapre l'upsell → un solo livello, nessuna ricorsione.
+    const addPairingToSelection = useCallback((pairedProductId: string) => {
+        const p = findProductById(pairedProductId);
+        if (!p) return;
+        addToSelection(p.id, p.name, p.effective_price ?? p.price ?? p.from_price ?? 0, null, []);
+    }, [findProductById, addToSelection]);
+
+    // Abbinato configurabile: non add diretto — chiude l'upsell e apre il suo
+    // detail per configurarlo (stesso meccanismo del catalogo). Un solo livello:
+    // l'eventuale upsell dell'abbinato nascerà solo dal CTA del suo detail.
+    const handleViewPairingOptions = useCallback((pairedProductId: string) => {
+        const p = findProductById(pairedProductId);
+        if (!p) return;
+        setUpsell(null);
+        openItemDetail(p);
+    }, [findProductById, openItemDetail]);
+
+    // Flusso A: aggiunge il principale (comportamento attuale) e, SOLO se
+    // esistono abbinati idonei (non già in selezione), apre l'upsell. Ramo
+    // senza idonei = byte-equivalente al comportamento pre-D3.
+    const handleAddFromDetail = useCallback((
+        productId: string,
+        productName: string,
+        basePrice: number,
+        format?: SelectedFormat | null,
+        addons?: SelectedAddon[]
+    ) => {
+        addToSelection(productId, productName, basePrice, format, addons);
+        setSelectedItem(null);
+        const product = findProductById(productId);
+        const eligible: UpsellPairing[] = (product?.pairings ?? [])
+            .filter(p => (selectionMap[p.id] ?? 0) === 0)
+            .map(p => ({
+                ...p,
+                // Ref leggero senza optionGroups → risalgo al prodotto risolto.
+                // Stesso predicato del "+" lista (handleAddClick).
+                isConfigurable: ((findProductById(p.id)?.optionGroups?.length) ?? 0) > 0
+            }));
+        if (product && eligible.length > 0) {
+            setUpsell({ sourceName: product.name, pairings: eligible });
+        }
+    }, [addToSelection, findProductById, selectionMap]);
 
     const handleUpdateSelection = useCallback((
         _productId: string,
@@ -2455,10 +2526,7 @@ export default function CollectionView({
                                                 !(effectiveMaintenance != null && SILENT_MAINTENANCE_REASONS.has(effectiveMaintenance.reason))
                                                     ? (editingSelectionIndex !== null
                                                         ? handleUpdateSelection
-                                                        : (productId, productName, basePrice, format, addons) => {
-                                                            addToSelection(productId, productName, basePrice, format, addons);
-                                                            setSelectedItem(null);
-                                                        })
+                                                        : handleAddFromDetail)
                                                     : undefined
                                             }
                                             initialFormat={editingSelectionIndex !== null
@@ -2474,6 +2542,18 @@ export default function CollectionView({
                                     </Suspense>
                                 )}
 
+                                {upsell && (
+                                    <PairingUpsellSheet
+                                        isOpen={!!upsell}
+                                        onClose={() => setUpsell(null)}
+                                        sourceName={upsell.sourceName}
+                                        pairings={upsell.pairings}
+                                        selectionMap={selectionMap}
+                                        onAdd={addPairingToSelection}
+                                        onViewOptions={handleViewPairingOptions}
+                                        showThumbnail={style.productStyle !== "compact" && style.cardTemplate !== "no-image"}
+                                    />
+                                )}
 
                             </>
                         )}

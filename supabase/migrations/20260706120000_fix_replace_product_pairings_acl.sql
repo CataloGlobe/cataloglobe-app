@@ -1,0 +1,17 @@
+-- Fix ACL su replace_product_pairings: EXECUTE solo a `authenticated`.
+--
+-- Supabase concede EXECUTE di default a anon + authenticated + service_role su
+-- ogni funzione nuova. Il `REVOKE ALL FROM PUBLIC` nella migration originale
+-- (20260705120100) NON rimuove quei grant: anon e service_role sono ruoli
+-- NOMINATI, non PUBLIC. Vanno revocati esplicitamente. Una funzione di
+-- scrittura non deve essere invocabile da anon/service_role (difesa in
+-- profondità: il guard interno get_my_tenant_ids() bloccherebbe comunque anon
+-- con 42501, ma l'ACL va corretta a monte).
+--
+-- authenticated conserva EXECUTE (grant dal file RPC, non toccato dal REVOKE) →
+-- nessun GRANT qui.
+--
+-- One command per migration file (db push single-prepared-statement rule):
+-- lista ruoli comma-separated = un solo statement. Pattern di
+-- 20260703091501_revoke_regenerate_table_qr_token.sql.
+REVOKE EXECUTE ON FUNCTION public.replace_product_pairings(UUID, UUID, JSONB) FROM PUBLIC, anon, service_role;

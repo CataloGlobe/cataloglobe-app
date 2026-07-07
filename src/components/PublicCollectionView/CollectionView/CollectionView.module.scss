@@ -799,6 +799,53 @@
   margin-top: 2px;
 }
 
+/* Chip abbinamento — segnale "Perfetto con · <nome>" sotto la descrizione.
+   Pill tint accento tenue, testo troncato con ellipsis. Visivo: nessun
+   handler proprio (eredita il tap della card). */
+.pairingChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  /* fit-content: il parent è flex-column (align-items:stretch) → senza
+     align-self:flex-start il chip verrebbe stirato a tutta la riga. */
+  align-self: flex-start;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pub-accent) 12%, transparent);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.pairingChipIcon {
+  flex-shrink: 0;
+  color: var(--pub-accent);
+}
+
+.pairingChipMore {
+  flex-shrink: 0;
+  font-weight: 700;
+  color: var(--pub-accent);
+}
+
+.pairingChipText {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+/* Testo coerente col contesto superficie: Card su surface, Compatto su bg. */
+.pairingChipSurface .pairingChipText {
+  color: var(--pub-surface-text-secondary);
+}
+
+.pairingChipBg .pairingChipText {
+  color: var(--pub-bg-text-secondary);
+}
+
 .allergenEmojis {
   display: flex;
   align-items: center;
