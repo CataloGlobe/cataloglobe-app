@@ -14,7 +14,7 @@
  *
  * Dati reali riusati (read-only) da landingData.ts.
  */
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -24,9 +24,66 @@ import {
     MessageSquareText,
     Users,
     QrCode,
+    CalendarCheck,
+    CircleCheck,
+    X,
 } from "lucide-react";
-import { PRICING_PLANS, FAQ_ITEMS, DEMOS } from "./landingData";
+import { FAQ_ITEMS, DEMOS } from "./landingData";
+import { COMPANY } from "@/config/company";
+import logoHorizontal from "@/assets/brand/logo-horizontal.png";
 import s from "./LandingRedesign.mockup.module.scss";
+
+/* ── Prezzi (dati locali al mockup — la landing vera usa landingData) ─── */
+interface MockupPricingAddition {
+    name: string;
+    benefit: string;
+}
+interface MockupPricingPlan {
+    key: "base" | "pro";
+    name: string;
+    priceLabel: string;
+    discountNote: string;
+    framing: string;
+    features?: string[];
+    additions?: MockupPricingAddition[];
+    popular: boolean;
+}
+const MOCKUP_PRICING_PLANS: MockupPricingPlan[] = [
+    {
+        key: "base",
+        name: "Base",
+        priceLabel: "€39/sede/mese",
+        discountNote: "dal 2° locale −10% · €35,10/sede · IVA inclusa",
+        framing: "Il tuo locale online, che si aggiorna da solo.",
+        features: [
+            "Menu con scheduling automatico",
+            "Hub pubblico (Menu · Recensioni · Promo)",
+            "Contenuti in evidenza programmabili",
+            "Review Guard con routing per stelle",
+            "Multi-sede e aggiornamento centralizzato",
+            "Stili e temi con versionamento",
+        ],
+        popular: false,
+    },
+    {
+        key: "pro",
+        name: "Pro",
+        priceLabel: "€59/sede/mese",
+        discountNote: "dal 2° locale −10% · €53,10/sede · IVA inclusa",
+        framing: "Tutto il piano Base — e in più i clienti fanno da soli:",
+        additions: [
+            {
+                name: "Ordini al tavolo via QR",
+                benefit: "Il cliente ordina dal tavolo col telefono, senza aspettare che qualcuno passi.",
+            },
+            {
+                name: "Prenotazioni tavolo",
+                benefit: "Il cliente prenota online, tu gestisci la sala e i coperti da un posto solo.",
+            },
+        ],
+        popular: true,
+    },
+];
 
 /* ── Fasce del giorno (staged su "Il Molo 34", Portofino) ──────────── */
 type DaypartKey = "mattino" | "pranzo" | "aperitivo" | "cena";
@@ -111,6 +168,265 @@ function ruleFor(index: number, active: number): { label: string; cls: string } 
     return { label: "Programmata", cls: s.ruleScheduled };
 }
 
+/* ── Reveal — micro-motion condiviso: fade-up on-scroll, once, reduced-motion safe.
+   Rende un solo <motion.div className>: sostituisce un <div> esistente senza
+   alterare albero/CSS (:last-child, grid, gap restano validi). */
+function Reveal({
+    children,
+    className,
+    as = "div",
+}: {
+    children: ReactNode;
+    className?: string;
+    as?: "div" | "p" | "li";
+}) {
+    const reduce = useReducedMotion();
+    const M = as === "p" ? motion.p : as === "li" ? motion.li : motion.div;
+    return (
+        <M
+            className={className}
+            initial={reduce ? false : { opacity: 0, y: 18 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, amount: 0.2 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        >
+            {children}
+        </M>
+    );
+}
+
+/* ── Sezione demo — "Provalo dal vivo": device + selettore sedi, fondo serale.
+   Riusa DEMOS (screenshot reali) + QRCodeSVG. Variante B su banda serale.
+   NB: i menu demo esistono solo in produzione → l'URL punta SEMPRE al dominio
+   di produzione (come la landing viva), mai a window.origin (in locale = 404). */
+function demoHref(slug: string) {
+    return `${COMPANY.web.homepage}/${slug}`;
+}
+
+function DemoSection() {
+    const reduce = useReducedMotion();
+    const [active, setActive] = useState(0);
+    const [showQr, setShowQr] = useState(false);
+    const demo = DEMOS[active];
+    const url = demoHref(demo.slug);
+
+    const qrBtnRef = useRef<HTMLButtonElement>(null);
+    const closeBtnRef = useRef<HTMLButtonElement>(null);
+    const wasOpen = useRef(false);
+
+    useEffect(() => {
+        if (!showQr) return;
+        const onKey = (e: KeyboardEvent) => {
+            if (e.key === "Escape") setShowQr(false);
+        };
+        window.addEventListener("keydown", onKey);
+        return () => window.removeEventListener("keydown", onKey);
+    }, [showQr]);
+
+    // Focus management: sposta il focus nel modal all'apertura, lo restituisce alla chiusura.
+    useEffect(() => {
+        if (showQr) {
+            wasOpen.current = true;
+            closeBtnRef.current?.focus();
+        } else if (wasOpen.current) {
+            wasOpen.current = false;
+            qrBtnRef.current?.focus();
+        }
+    }, [showQr]);
+
+    return (
+        <section className={s.demo} id="prova" aria-labelledby="demo-h2">
+            <div className={s.container}>
+                <Reveal className={s.demoLead}>
+                    <h2 className={s.demoH2} id="demo-h2">
+                        Scansiona. Esplora. <em>Decidi.</em>
+                    </h2>
+                    <p className={s.demoSub}>
+                        Menu demo reali — scegli una sede, guarda il menu, inquadra il QR.
+                    </p>
+                </Reveal>
+
+                <div className={s.demoGrid}>
+                    <div className={s.demoStage}>
+                        <a
+                            className={s.demoDevice}
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={`Apri il menu di ${demo.name}`}
+                        >
+                            <AnimatePresence mode="wait" initial={false}>
+                                <motion.img
+                                    key={demo.slug}
+                                    src={demo.screenshot}
+                                    alt={`Menu di ${demo.name}`}
+                                    className={s.demoShot}
+                                    loading="lazy"
+                                    initial={{ opacity: 0, scale: reduce ? 1 : 1.03 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    exit={{ opacity: 0, scale: reduce ? 1 : 0.99 }}
+                                    transition={{ duration: 0.35, ease: "easeOut" }}
+                                />
+                            </AnimatePresence>
+                        </a>
+                    </div>
+
+                    <div className={s.demoPanel}>
+                        <div className={s.demoList} role="group" aria-label="Sedi demo">
+                            {DEMOS.map((d, i) => (
+                                <div
+                                    key={d.slug}
+                                    className={`${s.demoItem} ${i === active ? s.demoItemOn : ""}`}
+                                >
+                                    <button
+                                        type="button"
+                                        aria-pressed={i === active}
+                                        className={s.demoItemMain}
+                                        onClick={() => setActive(i)}
+                                    >
+                                        <span
+                                            className={s.demoThumb}
+                                            style={{ backgroundImage: `url(${d.screenshot})` }}
+                                            aria-hidden="true"
+                                        />
+                                        <span className={s.demoItemText}>
+                                            <span className={s.demoItemName}>{d.name}</span>
+                                            <span className={s.demoItemAddr}>{d.address}</span>
+                                        </span>
+                                    </button>
+                                    <a
+                                        className={s.demoGo}
+                                        href={demoHref(d.slug)}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        tabIndex={i === active ? 0 : -1}
+                                        aria-hidden={i !== active}
+                                    >
+                                        Vedi il menu <ArrowRight size={15} strokeWidth={2.2} />
+                                    </a>
+                                </div>
+                            ))}
+                        </div>
+
+                        <button
+                            ref={qrBtnRef}
+                            type="button"
+                            className={s.demoQr}
+                            onClick={() => setShowQr(true)}
+                            aria-label={`Ingrandisci il QR di ${demo.name}`}
+                        >
+                            <span className={s.demoQrFrame}>
+                                <QRCodeSVG value={url} size={88} level="M" aria-hidden="true" />
+                            </span>
+                            <span className={s.demoQrText}>
+                                <span className={s.demoQrName}>{demo.name}</span>
+                                <span className={s.demoQrSub}>
+                                    Ingrandisci il QR e apri il menu del ristorante
+                                </span>
+                            </span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <AnimatePresence>
+                {showQr && (
+                    <motion.div
+                        className={s.qrOverlay}
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label={`QR del menu di ${demo.name}`}
+                        onClick={() => setShowQr(false)}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <motion.div
+                            className={s.qrModal}
+                            onClick={(e) => e.stopPropagation()}
+                            initial={{ opacity: 0, scale: reduce ? 1 : 0.94, y: reduce ? 0 : 10 }}
+                            animate={{ opacity: 1, scale: 1, y: 0 }}
+                            exit={{ opacity: 0, scale: reduce ? 1 : 0.96 }}
+                            transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                        >
+                            <button
+                                ref={closeBtnRef}
+                                type="button"
+                                className={s.qrClose}
+                                onClick={() => setShowQr(false)}
+                                aria-label="Chiudi"
+                            >
+                                <X size={18} strokeWidth={2.2} />
+                            </button>
+                            <span className={s.qrModalFrame}>
+                                <QRCodeSVG value={url} size={216} level="M" aria-hidden="true" />
+                            </span>
+                            <p className={s.qrModalName}>{demo.name}</p>
+                            <p className={s.qrModalSub}>Inquadra il QR per aprire il menu</p>
+                            <a
+                                className={s.qrModalLink}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                Oppure apri il menu <ArrowRight size={16} strokeWidth={2.2} />
+                            </a>
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </section>
+    );
+}
+
+/* ── Header sticky — logo (→ top) + Accedi (login reale) + Richiedi accesso.
+   Trasparente in cima; scrollando diventa frost bianco + blur (testo scuro,
+   leggibile su ogni sezione). In cima adatta testo/logo alla fascia dell'hero
+   (chiaro su "cena" scura). Niente link centrali, niente switch tema. */
+function RedesignHeader({ daypart }: { daypart: DaypartKey }) {
+    const [scrolled, setScrolled] = useState(false);
+
+    useEffect(() => {
+        const onScroll = () => setScrolled(window.scrollY > 24);
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+        return () => window.removeEventListener("scroll", onScroll);
+    }, []);
+
+    const toTop = (e: React.MouseEvent) => {
+        e.preventDefault();
+        window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    return (
+        <header
+            className={s.appbar}
+            data-scrolled={scrolled ? "true" : "false"}
+            data-daypart={daypart}
+        >
+            <div className={s.appbarInner}>
+                <a
+                    href="#top"
+                    className={s.appbarLogo}
+                    onClick={toTop}
+                    aria-label="CataloGlobe — torna in cima"
+                >
+                    <img src={logoHorizontal} alt="CataloGlobe" className={s.appbarLogoImg} />
+                </a>
+                <nav className={s.appbarActions} aria-label="Accesso">
+                    <a href="/login" className={s.appbarLogin}>
+                        Accedi
+                    </a>
+                    <a href="#waitlist" className={s.appbarCta}>
+                        Richiedi accesso
+                    </a>
+                </nav>
+            </div>
+        </header>
+    );
+}
+
 /* =================================================================== */
 
 export default function LandingRedesign() {
@@ -127,6 +443,20 @@ export default function LandingRedesign() {
         }, AUTO_MS);
         return () => window.clearInterval(id);
     }, [reduce, paused]);
+
+    // Scroll fluido sugli anchor interni. Applicato sull'elemento che scrolla
+    // davvero (la root <html>), solo mentre il redesign è montato (revert
+    // all'unmount → la landing viva e le altre route non sono toccate).
+    // Reduced-motion → nessuno smooth (salto istantaneo).
+    useEffect(() => {
+        if (reduce) return;
+        const root = document.documentElement;
+        const prev = root.style.scrollBehavior;
+        root.style.scrollBehavior = "smooth";
+        return () => {
+            root.style.scrollBehavior = prev;
+        };
+    }, [reduce]);
 
     const dp = DAYPARTS[active];
     const rule = ruleFor(active, active); // active row is always "Attiva ora"
@@ -148,9 +478,7 @@ export default function LandingRedesign() {
 
     return (
         <div className={s.page}>
-            <div className={s.ribbon}>
-                Mockup redesign — la landing viva resta intatta · route <code>/landing-redesign</code>
-            </div>
+            <RedesignHeader daypart={dp.key} />
 
             {/* ============ HERO — la giornata che scorre ============ */}
             <header
@@ -186,29 +514,21 @@ export default function LandingRedesign() {
                     <div className={s.heroInner}>
                         {/* Voce umana (serif) */}
                         <div className={s.voice}>
-                            <span className={s.wordmark}>
-                                <span className={s.wordmarkDot} />
-                                CataloGlobe
-                            </span>
                             <h1 className={s.heroH1}>
-                                Il tuo menu <em>vive la giornata</em> del tuo locale.
+                                E se il menu si aggiornasse <em>da solo</em>?
                             </h1>
                             <p className={s.heroSub}>
-                                Colazioni, pranzo, aperitivo, cena. Imposti le regole una volta:
-                                il menu giusto compare da solo, all'ora giusta. Tu servi ai
-                                tavoli, non aggiorni il sito.
+                                Non solo il menu: prezzi, promozioni e lingue si aggiornano
+                                quando serve — mentre tu pensi al locale.
                             </p>
                             <div className={s.heroCtas}>
                                 <a className={s.ctaPrimary} href="#waitlist">
                                     Richiedi accesso <ArrowRight size={17} strokeWidth={2.2} />
                                 </a>
-                                <a className={s.ctaGhost} href="#giornata">
+                                <a className={s.ctaGhost} href="#prova">
                                     Guarda com'è fatto
                                 </a>
                             </div>
-                            <p className={s.heroNote}>
-                                Configuri tutto gratis · paghi solo quando vai live.
-                            </p>
                         </div>
 
                         {/* Demo prodotto — superficie bianca costante, sempre leggibile */}
@@ -334,8 +654,7 @@ export default function LandingRedesign() {
                 {/* ============ SECONDO CERCHIO — le leve del motore ============ */}
                 <section className={s.section} id="giornata" aria-labelledby="leve-h2">
                     <div className={s.container}>
-                        <div className={s.sectionLead}>
-                            <p className={s.sectionKicker}>Quello che il motore ti mette in mano</p>
+                        <Reveal className={s.sectionLead}>
                             <h2 className={s.sectionH2} id="leve-h2">
                                 Impostata la giornata, il resto sono <em>gesti singoli</em>.
                             </h2>
@@ -343,11 +662,11 @@ export default function LandingRedesign() {
                                 Non sono funzioni sparse: sono cose che il motore fa succedere
                                 al momento giusto, senza che tu ci torni sopra.
                             </p>
-                        </div>
+                        </Reveal>
 
                         <div className={s.levers}>
                             {/* Leva 1 — programmazione / in evidenza (scrubber ora) */}
-                            <div className={s.lever}>
+                            <Reveal className={s.lever}>
                                 <div className={s.leverText}>
                                     <h3 className={s.leverH3}>
                                         Il venerdì sera va in vetrina da solo.
@@ -366,10 +685,10 @@ export default function LandingRedesign() {
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </Reveal>
 
                             {/* Leva 2 — cambio stile (skin cliccabile) */}
-                            <div className={`${s.lever} ${s.leverAlt}`}>
+                            <Reveal className={`${s.lever} ${s.leverAlt}`}>
                                 <div className={s.leverText}>
                                     <h3 className={s.leverH3}>
                                         Cambi veste al locale in un gesto.
@@ -388,10 +707,10 @@ export default function LandingRedesign() {
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </Reveal>
 
                             {/* Leva 3 — traduzione realtime (toggle lingua) */}
-                            <div className={s.lever}>
+                            <Reveal className={s.lever}>
                                 <div className={s.leverText}>
                                     <h3 className={s.leverH3}>
                                         Il turista legge il menu nella sua lingua.
@@ -410,15 +729,18 @@ export default function LandingRedesign() {
                                         </div>
                                     </div>
                                 </div>
-                            </div>
+                            </Reveal>
                         </div>
                     </div>
                 </section>
 
+                {/* ============ PROVALO DAL VIVO — demo reali (device + selettore, serale) ============ */}
+                <DemoSection />
+
                 {/* ============ TERZO CERCHIO — gestisci e cresci ============ */}
                 <section className={`${s.section} ${s.sectionAlt}`} aria-labelledby="cresci-h2">
                     <div className={s.container}>
-                        <div className={s.sectionLead}>
+                        <Reveal className={s.sectionLead}>
                             <h2 className={s.sectionH2} id="cresci-h2">
                                 E quando vuoi <em>capire e crescere</em>.
                             </h2>
@@ -426,56 +748,59 @@ export default function LandingRedesign() {
                                 Gli strumenti per gestire il locale, non una vetrina di funzioni.
                                 Ci sono quando ti servono.
                             </p>
-                        </div>
+                        </Reveal>
 
                         <div className={s.growPanel}>
-                            <div className={s.growRow}>
+                            <Reveal className={s.growRow}>
                                 <span className={s.growName}>
                                     <span className={s.growIcon}><BarChart3 size={18} strokeWidth={2} /></span>
                                     Analitiche
                                 </span>
                                 <p className={s.growDesc}>
-                                    Capisci cosa vende davvero e a che ora — non a sensazione.
+                                    Capisci cosa vende davvero, e a che ora — decidi sui numeri,
+                                    non a sensazione.
                                 </p>
-                                <span className={s.growStat}>
-                                    Trofie al pesto · <b>128</b> questa settimana
-                                </span>
-                            </div>
-                            <div className={s.growRow}>
+                            </Reveal>
+                            <Reveal className={s.growRow}>
                                 <span className={s.growName}>
                                     <span className={s.growIcon}><MessageSquareText size={18} strokeWidth={2} /></span>
                                     Recensioni interne
                                 </span>
                                 <p className={s.growDesc}>
-                                    Intercetti il feedback prima che finisca su Google.
+                                    Raccogli il feedback dei clienti prima che finisca su Google.
                                 </p>
-                                <span className={s.growStat}>
-                                    <b>★ 4,6</b> · 12 nuove da leggere
-                                </span>
-                            </div>
-                            <div className={s.growRow}>
+                            </Reveal>
+                            <Reveal className={s.growRow}>
                                 <span className={s.growName}>
                                     <span className={s.growIcon}><Users size={18} strokeWidth={2} /></span>
                                     Team
                                 </span>
                                 <p className={s.growDesc}>
-                                    Deleghi al personale senza dare le chiavi di tutto.
+                                    Deleghi al personale con permessi per sede, senza dare le
+                                    chiavi di tutto.
                                 </p>
-                                <span className={s.growStat}>
-                                    <b>3</b> membri · permessi per sede
-                                </span>
-                            </div>
-                            <div className={s.growRow}>
+                            </Reveal>
+                            <Reveal className={s.growRow}>
                                 <span className={s.growName}>
                                     <span className={s.growIcon}><QrCode size={18} strokeWidth={2} /></span>
-                                    Al tavolo
+                                    Ordine al tavolo
                                     <span className={s.proTag}>PRO</span>
                                 </span>
                                 <p className={s.growDesc}>
-                                    Ordine al tavolo e prenotazioni via QR, quando sei pronto.
+                                    Il cliente ordina dal QR al tavolo, senza chiamare nessuno.
                                 </p>
-                                <span className={s.growStat}>Attivi con un clic</span>
-                            </div>
+                            </Reveal>
+                            <Reveal className={s.growRow}>
+                                <span className={s.growName}>
+                                    <span className={s.growIcon}><CalendarCheck size={18} strokeWidth={2} /></span>
+                                    Prenotazioni
+                                    <span className={s.proTag}>PRO</span>
+                                </span>
+                                <p className={s.growDesc}>
+                                    Il cliente prenota un tavolo online, tu gestisci la sala da un
+                                    posto solo.
+                                </p>
+                            </Reveal>
                         </div>
                     </div>
                 </section>
@@ -483,34 +808,33 @@ export default function LandingRedesign() {
                 {/* ============ CHIUSURA-PROMESSA — multi-sede come crescita ============ */}
                 <section className={s.promise} aria-label="Da un locale a una catena">
                     <div className={s.container}>
-                        <p className={s.promiseLine}>
+                        <Reveal className={s.promiseLine} as="p">
                             Inizia con un locale, scala a una catena <em>con lo stesso gesto</em>.
-                        </p>
-                        <p className={s.promiseSub}>
+                        </Reveal>
+                        <Reveal className={s.promiseSub} as="p">
                             Le regole che imposti per un menu valgono per venti. Aggiungi una
                             sede e il motore fa già tutto il resto.
-                        </p>
+                        </Reveal>
                     </div>
                 </section>
 
                 {/* ============ PREZZI (dati reali) ============ */}
                 <section className={s.section} id="prezzi" aria-labelledby="prezzi-h2">
                     <div className={s.container}>
-                        <div className={s.sectionLead}>
+                        <Reveal className={s.sectionLead}>
                             <h2 className={s.sectionH2} id="prezzi-h2">
                                 Un prezzo per sede. <em>Chiaro.</em>
                             </h2>
                             <p className={s.sectionH2Sub}>
                                 IVA inclusa. Dal secondo locale ogni sede costa il 10% in meno.
                             </p>
-                        </div>
+                        </Reveal>
 
                         <div className={s.plans}>
-                            {PRICING_PLANS.map((plan) => {
-                                const base = PRICING_PLANS.find((p) => p.key === "base")!;
+                            {MOCKUP_PRICING_PLANS.map((plan) => {
                                 const isPro = plan.key === "pro";
                                 return (
-                                    <div
+                                    <Reveal
                                         key={plan.key}
                                         className={`${s.plan} ${plan.popular ? s.planPopular : ""}`}
                                     >
@@ -520,37 +844,34 @@ export default function LandingRedesign() {
                                         <span className={s.planName}>{plan.name}</span>
                                         <span className={s.planPrice}>{plan.priceLabel}</span>
                                         <span className={s.planDiscount}>{plan.discountNote}</span>
+                                        <p className={s.planFraming}>{plan.framing}</p>
                                         <div className={s.planDivider} />
-                                        {isPro && (
-                                            <p className={s.planIntro}>{plan.featuresIntro}</p>
-                                        )}
-                                        <ul className={s.planList}>
-                                            {plan.features.map((f) => (
-                                                <li className={s.planItem} key={f}>
-                                                    <Check className={s.checkIcon} />
-                                                    {f}
-                                                </li>
-                                            ))}
-                                            {/* Pro: eco compatta del Base → non sembra "più vuoto" */}
-                                            {isPro &&
-                                                base.features.slice(0, 3).map((f) => (
-                                                    <li
-                                                        className={`${s.planItem} ${s.planItemInherited}`}
-                                                        key={`inh-${f}`}
-                                                    >
-                                                        <Check className={s.checkIconMuted} />
+                                        {isPro ? (
+                                            <ul className={`${s.planList} ${s.planAdditions}`}>
+                                                {plan.additions!.map((add) => (
+                                                    <li className={s.addition} key={add.name}>
+                                                        <span className={s.additionHead}>
+                                                            <Check className={s.checkIcon} />
+                                                            <span className={s.additionName}>
+                                                                {add.name}
+                                                            </span>
+                                                        </span>
+                                                        <span className={s.additionBenefit}>
+                                                            {add.benefit}
+                                                        </span>
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        ) : (
+                                            <ul className={s.planList}>
+                                                {plan.features!.map((f) => (
+                                                    <li className={s.planItem} key={f}>
+                                                        <Check className={s.checkIcon} />
                                                         {f}
                                                     </li>
                                                 ))}
-                                            {isPro && (
-                                                <li
-                                                    className={`${s.planItem} ${s.planItemInherited}`}
-                                                >
-                                                    <Check className={s.checkIconMuted} />
-                                                    …e tutto il resto del piano Base
-                                                </li>
-                                            )}
-                                        </ul>
+                                            </ul>
+                                        )}
                                         <a
                                             href="#waitlist"
                                             className={`${s.planCta} ${
@@ -559,7 +880,7 @@ export default function LandingRedesign() {
                                         >
                                             Richiedi accesso
                                         </a>
-                                    </div>
+                                    </Reveal>
                                 );
                             })}
                         </div>
@@ -569,30 +890,213 @@ export default function LandingRedesign() {
                 {/* ============ FAQ (dati reali) ============ */}
                 <section className={`${s.section} ${s.sectionAlt}`} aria-labelledby="faq-h2">
                     <div className={s.container}>
-                        <div className={s.sectionLead}>
+                        <Reveal className={s.sectionLead}>
                             <h2 className={s.sectionH2} id="faq-h2">
                                 Domande, in breve.
                             </h2>
-                        </div>
+                        </Reveal>
                         <FaqList />
                     </div>
                 </section>
             </main>
 
-            {/* ============ CTA finale (serale) ============ */}
-            <section className={s.finalCta} id="waitlist" aria-labelledby="final-h2">
-                <h2 className={s.finalTitle} id="final-h2">
-                    Metti in scena la giornata del tuo locale. <em>Da oggi.</em>
-                </h2>
-                <p className={s.finalSub}>
-                    Configuri prodotti, regole e stile gratis. Paghi solo quando pubblichi.
-                </p>
-                <a className={s.finalCtaBtn} href="#">
-                    Richiedi accesso <ArrowRight size={18} strokeWidth={2.2} />
-                </a>
-                <p className={s.finalNote}>Nessuna carta richiesta per iniziare.</p>
+            {/* ============ CHIUSURA (serale) — messaggio + form in UN blocco ============ */}
+            <section className={s.close} id="waitlist" aria-labelledby="close-h2">
+                <div className={s.closeInner}>
+                    <div className={s.closeLead}>
+                        <h2 className={s.closeTitle} id="close-h2">
+                            Metti in scena la giornata del tuo locale. <em>Da oggi.</em>
+                        </h2>
+                        <p className={s.closeOffer}>
+                            Ai primi locali offriamo il primo mese.
+                        </p>
+                        <p className={s.closeSub}>
+                            Lasciaci i tuoi dati: ti ricontattiamo noi e seguiamo insieme
+                            l'attivazione.
+                        </p>
+                    </div>
+                    <ContactForm />
+                </div>
             </section>
+
+            {/* ============ FOOTER (riuso struttura landing viva) ============ */}
+            <RedesignFooter />
         </div>
+    );
+}
+
+/* ── Form contatto — riusa ESATTAMENTE la logica del WaitlistForm vivo ─────
+   Stessi campi (email, nome, tipo attività opzionale), stesso endpoint
+   Edge Function `join-waitlist`, stesso payload. Cambia solo veste + copy. */
+type ContactStatus = "idle" | "submitting" | "success" | "error";
+
+const CONTACT_ACTIVITY_TYPES = [
+    { value: "ristorante", label: "Ristorante" },
+    { value: "bar", label: "Bar" },
+    { value: "hotel", label: "Hotel" },
+    { value: "retail", label: "Retail" },
+    { value: "altro", label: "Altro" },
+] as const;
+
+function isValidContactEmail(email: string): boolean {
+    const i = email.indexOf("@");
+    return i > 0 && email.slice(i + 1).includes(".");
+}
+
+function ContactForm() {
+    const [email, setEmail] = useState("");
+    const [name, setName] = useState("");
+    const [activityType, setActivityType] = useState("");
+    const [status, setStatus] = useState<ContactStatus>("idle");
+
+    async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        if (!isValidContactEmail(email.trim())) return;
+
+        setStatus("submitting");
+        try {
+            const res = await fetch(
+                `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/join-waitlist`,
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        email: email.trim(),
+                        name: name.trim() || undefined,
+                        activity_type: activityType || undefined,
+                    }),
+                }
+            );
+            const data = await res.json();
+            setStatus(data.success ? "success" : "error");
+        } catch {
+            setStatus("error");
+        }
+    }
+
+    if (status === "success") {
+        return (
+            <div className={s.contactSuccess}>
+                <CircleCheck size={24} strokeWidth={2} />
+                <span>Perfetto! Ti contattiamo a breve.</span>
+            </div>
+        );
+    }
+
+    return (
+        <form className={s.contactForm} onSubmit={handleSubmit} noValidate>
+            <input
+                className={s.contactInput}
+                type="email"
+                placeholder="La tua email"
+                aria-label="La tua email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+            />
+            <input
+                className={s.contactInput}
+                type="text"
+                placeholder="Il tuo nome"
+                aria-label="Il tuo nome"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+            />
+            <select
+                className={`${s.contactSelect} ${activityType === "" ? s.contactSelectEmpty : ""}`}
+                aria-label="Tipo di attività (opzionale)"
+                value={activityType}
+                onChange={(e) => setActivityType(e.target.value)}
+            >
+                <option value="">Tipo di attività (opzionale)</option>
+                {CONTACT_ACTIVITY_TYPES.map((t) => (
+                    <option key={t.value} value={t.value}>
+                        {t.label}
+                    </option>
+                ))}
+            </select>
+            <button
+                className={s.contactSubmit}
+                type="submit"
+                disabled={status === "submitting"}
+            >
+                {status === "submitting" ? "Invio in corso…" : "Richiedi accesso"}
+            </button>
+            {status === "error" && (
+                <p className={s.contactError}>Si è verificato un errore. Riprova.</p>
+            )}
+        </form>
+    );
+}
+
+/* ── Footer — riuso struttura del footer vivo (Prodotto / Legale / Contatti) ── */
+interface RedesignFooterLink {
+    label: string;
+    href: string;
+}
+interface RedesignFooterCol {
+    title: string;
+    links: RedesignFooterLink[];
+}
+
+function RedesignFooter() {
+    const cols: RedesignFooterCol[] = [
+        {
+            title: "Prodotto",
+            links: [
+                { label: "Funzionalità", href: "#giornata" },
+                { label: "Prezzi", href: "#prezzi" },
+                { label: "FAQ", href: "#faq" },
+            ],
+        },
+        {
+            title: "Legale",
+            links: [
+                { label: "Privacy Policy", href: "/legal/privacy" },
+                { label: "Termini di Servizio", href: "/legal/termini" },
+            ],
+        },
+        {
+            title: "Contatti",
+            links: [
+                { label: "Informazioni", href: `mailto:${COMPANY.contact.info}` },
+                { label: "Supporto", href: `mailto:${COMPANY.contact.support}` },
+            ],
+        },
+    ];
+
+    return (
+        <footer className={s.footer}>
+            <div className={s.footerTop}>
+                <div className={s.footerBrand}>
+                    <div className={s.footerLogo}>
+                        Catalo<span className={s.footerGlobe}>Globe</span>
+                    </div>
+                    <p className={s.footerDesc}>
+                        Menu digitali dinamici per ristoranti, bar, hotel e attività
+                        commerciali.
+                    </p>
+                </div>
+                <div className={s.footerCols}>
+                    {cols.map((col) => (
+                        <div key={col.title} className={s.footerCol}>
+                            <p className={s.footerColTitle}>{col.title}</p>
+                            {col.links.map((link) => (
+                                <a key={link.label} href={link.href} className={s.footerLink}>
+                                    {link.label}
+                                </a>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            </div>
+            <div className={s.footerBottom}>
+                <p className={s.footerCopyright}>
+                    © {new Date().getFullYear()} {COMPANY.businessName} ·{" "}
+                    {COMPANY.legalAddress.city} ({COMPANY.legalAddress.province})
+                </p>
+            </div>
+        </footer>
     );
 }
 
