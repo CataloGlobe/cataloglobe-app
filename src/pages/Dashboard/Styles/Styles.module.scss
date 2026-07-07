@@ -17,7 +17,10 @@
 }
 
 .container {
-  flex: 1;
+  // flex-basis auto (non lo shorthand `flex:1` = `1 1 0%`) per allinearsi al
+  // template validato (Cataloghi/Prodotti): propaga l'altezza bounded di
+  // `MainLayout .content` fino al `.autoSizeProbe` del DataTable (vista lista).
+  flex: 1 1 auto;
   min-height: 0;
   max-height: 100%;
   display: flex;
@@ -30,7 +33,10 @@
 // navbar→banda→contenuto deriva da `MainLayout .content` (24px),
 // identico a Products/Catalogs.
 .content {
-  flex: 1;
+  // Come `.container`: flex-basis auto per il template validato. Ospita la
+  // vista lista (DataTable, bare flex-child → auto-size) o la vista grid
+  // (`.gridWrapper`, scroll interno proprio).
+  flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
@@ -43,7 +49,10 @@
 }
 
 .tableCard {
-  flex: 1;
+  // Anello finale della catena: contenitore diretto del DataTable in vista
+  // lista (ora un <div>, non più <Card> — il cui .content interno spezzava la
+  // catena). flex-basis auto per il template validato.
+  flex: 1 1 auto;
   min-height: 0;
   padding: 0;
   overflow: hidden;

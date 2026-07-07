@@ -354,7 +354,7 @@ export default function Styles() {
                 ) : filteredStyles.length === 0 ? (
                     emptyState
                 ) : viewMode === "list" ? (
-                    <Card className={styles.tableCard} noHoverLift>
+                    <div className={styles.tableCard}>
                         <DataTable<V2Style>
                             data={filteredStyles}
                             columns={columns}
@@ -377,7 +377,7 @@ export default function Styles() {
                                 ) : undefined
                             }}
                         />
-                    </Card>
+                    </div>
                 ) : (
                     <div className={styles.gridWrapper}>
                         <div className={styles.gridView}>
