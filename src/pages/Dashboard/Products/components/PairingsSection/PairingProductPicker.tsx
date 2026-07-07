@@ -4,6 +4,7 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
+import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -20,18 +21,19 @@ interface PairingProductPickerProps {
     currentProductId: string;
     /** Abbinati già presenti nel draft — esclusi dalla lista. */
     excludeIds: string[];
-    onAdd: (item: {
+    onAdd: (items: {
         pairedProductId: string;
         pairedProductName: string | null;
         pairedProductImageUrl: string | null;
-    }) => void;
+    }[]) => void;
 }
 
 /**
- * Picker category-free (base products del tenant) per aggiungere abbinamenti.
- * Resta aperto ad ogni scelta: il prodotto scelto sparisce dalla lista
- * (escluso dal parent via `excludeIds`), così si possono aggiungere più
- * abbinamenti in sequenza. Chiusura esplicita via footer.
+ * Picker standard (DataTable selectable + SearchInput) per aggiungere
+ * abbinamenti — stesso pattern del picker prodotti di Highlights
+ * (`ProductPickerList`), con fetch/esclusione dedicate: solo base products
+ * del tenant, esclusi prodotto corrente + già-abbinati. Selezione multipla
+ * con conferma esplicita ("Aggiungi") invece di add-on-click.
  */
 export function PairingProductPicker({
     open,
@@ -45,12 +47,14 @@ export function PairingProductPicker({
     const [products, setProducts] = useState<ProductPickerItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [search, setSearch] = useState("");
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     useEffect(() => {
         if (!open) return;
         let cancelled = false;
         setLoading(true);
         setSearch("");
+        setSelectedIds([]);
         listBaseProductsForPicker(tenantId)
             .then(rows => {
                 if (!cancelled) setProducts(rows);
@@ -81,6 +85,45 @@ export function PairingProductPicker({
         });
     }, [products, excludeSet, search]);
 
+    const columns = useMemo<ColumnDefinition<ProductPickerItem>[]>(
+        () => [
+            {
+                id: "product",
+                header: "Prodotto",
+                accessor: row => row.name,
+                cell: (_value, row) => (
+                    <div className={styles.productCell}>
+                        {row.image_url ? (
+                            <img src={row.image_url} alt="" className={styles.thumb} />
+                        ) : (
+                            <span className={styles.thumbPlaceholder} aria-hidden>
+                                <ImageOff size={14} />
+                            </span>
+                        )}
+                        <Text variant="body-sm" weight={600} className={styles.name}>
+                            {row.name}
+                        </Text>
+                    </div>
+                )
+            }
+        ],
+        []
+    );
+
+    const handleConfirm = () => {
+        if (selectedIds.length === 0) return;
+        const selectedSet = new Set(selectedIds);
+        const items = products
+            .filter(product => selectedSet.has(product.id))
+            .map(product => ({
+                pairedProductId: product.id,
+                pairedProductName: product.name,
+                pairedProductImageUrl: product.image_url
+            }));
+        onAdd(items);
+        onClose();
+    };
+
     return (
         <SystemDrawer open={open} onClose={onClose} width={520}>
             <DrawerLayout
@@ -95,9 +138,18 @@ export function PairingProductPicker({
                     </div>
                 }
                 footer={
-                    <Button variant="secondary" onClick={onClose}>
-                        Chiudi
-                    </Button>
+                    <>
+                        <Button variant="secondary" onClick={onClose}>
+                            Annulla
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={handleConfirm}
+                            disabled={selectedIds.length === 0}
+                        >
+                            Aggiungi
+                        </Button>
+                    </>
                 }
             >
                 <div className={styles.pickerSearch}>
@@ -109,51 +161,25 @@ export function PairingProductPicker({
                     />
                 </div>
 
-                {loading ? (
-                    <Text variant="body-sm" colorVariant="muted">
-                        Caricamento prodotti...
-                    </Text>
-                ) : filtered.length === 0 ? (
-                    <div className={styles.pickerEmpty}>
-                        <Text variant="body-sm" colorVariant="muted">
-                            {products.length === 0
-                                ? "Nessun prodotto disponibile."
-                                : "Nessun prodotto da aggiungere."}
-                        </Text>
-                    </div>
-                ) : (
-                    <div className={styles.pickerList}>
-                        {filtered.map(product => (
-                            <button
-                                key={product.id}
-                                type="button"
-                                className={styles.pickerItem}
-                                onClick={() =>
-                                    onAdd({
-                                        pairedProductId: product.id,
-                                        pairedProductName: product.name,
-                                        pairedProductImageUrl: product.image_url
-                                    })
-                                }
-                            >
-                                {product.image_url ? (
-                                    <img
-                                        src={product.image_url}
-                                        alt=""
-                                        className={styles.pickerThumb}
-                                    />
-                                ) : (
-                                    <span className={styles.pickerThumbPlaceholder} aria-hidden>
-                                        <ImageOff size={16} />
-                                    </span>
-                                )}
-                                <Text variant="body-sm" weight={500} className={styles.pickerName}>
-                                    {product.name}
-                                </Text>
-                            </button>
-                        ))}
-                    </div>
-                )}
+                <div className={styles.pickerTableWrap}>
+                    <DataTable<ProductPickerItem>
+                        data={filtered}
+                        columns={columns}
+                        isLoading={loading}
+                        loadingState={{ message: "Caricamento prodotti..." }}
+                        emptyState={{
+                            title:
+                                products.length === 0
+                                    ? "Nessun prodotto disponibile."
+                                    : "Nessun prodotto da aggiungere."
+                        }}
+                        maxHeight="calc(100dvh - 320px)"
+                        selectable
+                        selectedRowIds={selectedIds}
+                        onSelectedRowsChange={setSelectedIds}
+                        showSelectionBar={false}
+                    />
+                </div>
             </DrawerLayout>
         </SystemDrawer>
     );

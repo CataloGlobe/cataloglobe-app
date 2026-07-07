@@ -84,13 +84,19 @@ export default function PairingsSection({
         onChange(value.filter(item => item.pairedProductId !== pairedProductId));
     };
 
-    const handleAdd = (item: {
-        pairedProductId: string;
-        pairedProductName: string | null;
-        pairedProductImageUrl: string | null;
-    }) => {
-        if (value.some(existing => existing.pairedProductId === item.pairedProductId)) return;
-        onChange([...value, { ...item, note: "" }]);
+    const handleAdd = (
+        items: {
+            pairedProductId: string;
+            pairedProductName: string | null;
+            pairedProductImageUrl: string | null;
+        }[]
+    ) => {
+        const existingIds = new Set(value.map(item => item.pairedProductId));
+        const toAdd = items
+            .filter(item => !existingIds.has(item.pairedProductId))
+            .map(item => ({ ...item, note: "" }));
+        if (toAdd.length === 0) return;
+        onChange([...value, ...toAdd]);
     };
 
     const columns = useMemo<ColumnDefinition<PairingDraftItem>[]>(
@@ -189,6 +195,15 @@ export default function PairingsSection({
                             data={value}
                             columns={columns}
                             getRowId={row => row.pairedProductId}
+                            // maxHeight esplicito: disattiva la modalità "auto"
+                            // (isProbeStretchedByParent dà falso positivo in un
+                            // wrapper flex-column non vincolato → scroll interno
+                            // anche con 1-2 righe). Tetto ragionevole, scroll
+                            // solo oltre ~10 righe; sotto quel numero la tabella
+                            // si distende e le mostra tutte.
+                            maxHeight="480px"
+                            pageSize={25}
+                            pageSizeOptions={[25, 50, "all"]}
                             rowWrapper={(row, rowData) => (
                                 <SortableDataTableRow
                                     key={rowData.pairedProductId}

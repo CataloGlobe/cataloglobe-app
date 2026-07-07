@@ -788,6 +788,37 @@ export function SchedaTab({
                         )}
                     </section>
                 )}
+
+                {/* Card Abbinamenti */}
+                {showPairings && (
+                    <section className={styles.card} data-section="pairings">
+                        <header className={styles.cardHeader}>
+                            <span className={styles.cardLabel}>Abbinamenti</span>
+                        </header>
+
+                        {pairingsLoading ? (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Caricamento abbinamenti...
+                            </Text>
+                        ) : (
+                            <PairingsSection
+                                tenantId={tenantId}
+                                currentProductId={productId}
+                                value={draftPairings}
+                                onChange={setDraftPairings}
+                                disabled={isSavingPairings}
+                            />
+                        )}
+
+                        {isPairingsDirty && (
+                            <UnsavedChangesBar
+                                isSaving={isSavingPairings}
+                                onCancel={handleCancelPairings}
+                                onSave={handleSavePairings}
+                            />
+                        )}
+                    </section>
+                )}
             </div>
 
             {/* ─────────────── COLONNA DESTRA ─────────────── */}
@@ -854,37 +885,6 @@ export function SchedaTab({
                                 isSaving={isSavingCharacteristics}
                                 onCancel={handleCancelCharacteristics}
                                 onSave={handleSaveCharacteristics}
-                            />
-                        )}
-                    </section>
-                )}
-
-                {/* Card Abbinamenti */}
-                {showPairings && (
-                    <section className={styles.card} data-section="pairings">
-                        <header className={styles.cardHeader}>
-                            <span className={styles.cardLabel}>Abbinamenti</span>
-                        </header>
-
-                        {pairingsLoading ? (
-                            <Text variant="body-sm" colorVariant="muted">
-                                Caricamento abbinamenti...
-                            </Text>
-                        ) : (
-                            <PairingsSection
-                                tenantId={tenantId}
-                                currentProductId={productId}
-                                value={draftPairings}
-                                onChange={setDraftPairings}
-                                disabled={isSavingPairings}
-                            />
-                        )}
-
-                        {isPairingsDirty && (
-                            <UnsavedChangesBar
-                                isSaving={isSavingPairings}
-                                onCancel={handleCancelPairings}
-                                onSave={handleSavePairings}
                             />
                         )}
                     </section>
