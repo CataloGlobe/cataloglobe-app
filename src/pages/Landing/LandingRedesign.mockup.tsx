@@ -29,7 +29,44 @@ import {
     X,
     Store,
 } from "lucide-react";
-import { FAQ_ITEMS, DEMOS } from "./landingData";
+import { DEMOS } from "./landingData";
+
+/* FAQ del mockup — locale al redesign, NON condivisa con landingData.ts
+   (quella resta di uso esclusivo della landing vera). */
+const REDESIGN_FAQ_ITEMS: { q: string; a: string }[] = [
+    {
+        q: "Quanto costa?",
+        a: "Due piani per sede: Base €39/mese, Pro €59/mese (IVA inclusa). Dal secondo locale ogni sede costa il 10% in meno. Per attivare, ci lasci i tuoi contatti e ti seguiamo noi nella configurazione.",
+    },
+    {
+        q: "Posso disdire quando voglio?",
+        a: "Sì, quando vuoi, senza vincoli. Se chiudi l'account, i tuoi dati restano recuperabili per un periodo prima di essere eliminati definitivamente.",
+    },
+    {
+        q: "Funziona anche con una sola sede?",
+        a: "Certo. Il menu che si aggiorna da solo, i contenuti in evidenza e la gestione delle recensioni funzionano anche con un locale singolo — non serve avere una catena.",
+    },
+    {
+        q: "Il menu si aggiorna davvero da solo?",
+        a: "Sì. Imposti una volta gli orari e le regole — menu del pranzo, aperitivo, promozioni — e la pagina cambia da sola all'ora giusta, senza che tu debba toccarla.",
+    },
+    {
+        q: "Il menu è disponibile in altre lingue?",
+        a: "Sì, e le traduzioni le fa il sistema in automatico: il menu è subito consultabile in italiano, inglese, francese, tedesco e spagnolo — con altre lingue in arrivo. Se vuoi, puoi sempre correggere una traduzione a mano.",
+    },
+    {
+        q: "Come funziona il QR code?",
+        a: "Ogni tua sede ha la sua pagina con un indirizzo unico. Il QR lo trovi pronto sulla piattaforma: lo stampi e lo metti sui tavoli. Il cliente lo inquadra e trova sempre il menu giusto per quell'ora.",
+    },
+    {
+        q: "I miei dati sono al sicuro?",
+        a: "Sì. I dati del tuo locale sono protetti e tenuti separati da quelli di ogni altro cliente. Nessuno può accedere ai tuoi contenuti al posto tuo.",
+    },
+    {
+        q: "Come vi contatto se ho bisogno?",
+        a: "Ci scrivi via email e ti rispondiamo noi. Nessun centralino automatico.",
+    },
+];
 import { COMPANY } from "@/config/company";
 import logoHorizontal from "@/assets/brand/logo-horizontal.png";
 import s from "./LandingRedesign.mockup.module.scss";
@@ -1441,7 +1478,7 @@ function FaqList() {
     const reduce = useReducedMotion();
     return (
         <div className={s.faqList}>
-            {FAQ_ITEMS.map((item, i) => {
+            {REDESIGN_FAQ_ITEMS.map((item, i) => {
                 const isOpen = open === i;
                 return (
                     <div className={s.faqItem} key={item.q}>
