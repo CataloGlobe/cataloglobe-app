@@ -27,6 +27,7 @@ import {
     CalendarCheck,
     CircleCheck,
     X,
+    Store,
 } from "lucide-react";
 import { FAQ_ITEMS, DEMOS } from "./landingData";
 import { COMPANY } from "@/config/company";
@@ -239,10 +240,11 @@ function DemoSection() {
             <div className={s.container}>
                 <Reveal className={s.demoLead}>
                     <h2 className={s.demoH2} id="demo-h2">
-                        Scansiona. Esplora. <em>Decidi.</em>
+                        Guarda cosa può diventare il tuo locale.
                     </h2>
                     <p className={s.demoSub}>
-                        Menu demo reali — scegli una sede, guarda il menu, inquadra il QR.
+                        Demo reali con stili diversi — tocca un locale e guarda la sua
+                        pagina dal vivo. La tua la disegni come vuoi.
                     </p>
                 </Reveal>
 
@@ -376,6 +378,122 @@ function DemoSection() {
                     </motion.div>
                 )}
             </AnimatePresence>
+        </section>
+    );
+}
+
+/* ── Sezione multi-sede — voce + pannello catena. Dimostra: una sola insegna
+   ("Il tuo ristorante" — placeholder dichiarato), tante sedi, ognuna configurata
+   diversa, governate da un posto solo. La ripetizione dell'insegna per zona
+   (Duomo/Navigli/…) è la chiave: è una CATENA, non locali scollegati. */
+const CHAIN_SEDI: {
+    zona: string;
+    menu: string;
+    orario: string;
+    evidenza: string | null;
+    stile: "Chiaro" | "Sera" | "Caldo";
+}[] = [
+    { zona: "Duomo", menu: "Turistico", orario: "multilingua · 12–22", evidenza: "Menu fisso pranzo", stile: "Chiaro" },
+    { zona: "Navigli", menu: "Aperitivo", orario: "18–23", evidenza: "Aperitivo del venerdì", stile: "Sera" },
+    { zona: "Stazione", menu: "Veloce", orario: "7–21", evidenza: null, stile: "Chiaro" },
+    { zona: "Bergamo", menu: "Cena", orario: "19–24", evidenza: "Menu degustazione", stile: "Caldo" },
+];
+
+function styleClass(stile: "Chiaro" | "Sera" | "Caldo") {
+    if (stile === "Sera") return s.chainStyleEve;
+    if (stile === "Caldo") return s.chainStyleWarm;
+    return s.chainStyleLight;
+}
+
+function ChainSection() {
+    return (
+        <section className={s.chain} aria-labelledby="chain-h2">
+            <div className={s.container}>
+                <div className={s.chainGrid}>
+                    <Reveal className={s.chainVoice}>
+                        <h2 className={s.chainH2} id="chain-h2">
+                            Un locale o cento. <em>Li gestisci da qui.</em>
+                        </h2>
+                        <p className={s.chainSub}>
+                            Ogni tua sede con il suo menu, i suoi contenuti in evidenza, il
+                            suo stile. Li decidi tu — da un posto solo, senza aprire venti
+                            pannelli diversi.
+                        </p>
+                        <p className={s.chainSubNote}>
+                            Il Duomo con il menu turistico, i Navigli con l'aperitivo. Sedi
+                            diverse, gestione unica.
+                        </p>
+                    </Reveal>
+
+                    <Reveal className={s.chainPanel}>
+                        <div className={s.chainHead}>
+                            <span className={s.chainMonogram} aria-hidden="true">
+                                <Store size={18} strokeWidth={2} />
+                            </span>
+                            <span className={s.chainBrand}>
+                                <span className={s.chainBrandName}>Le tue sedi</span>
+                                <span className={s.chainBrandMeta}>
+                                    9 attive · un solo posto per gestirle
+                                </span>
+                            </span>
+                        </div>
+
+                        <div
+                            className={s.chainTable}
+                            role="table"
+                            aria-label="Le tue sedi"
+                        >
+                            <div className={`${s.chainRow} ${s.chainRowHead}`} role="row">
+                                <span className={s.chainColSede} role="columnheader">
+                                    Sede
+                                </span>
+                                <span role="columnheader">Menu attivo</span>
+                                <span role="columnheader">In evidenza</span>
+                                <span role="columnheader">Stile</span>
+                            </div>
+
+                            {CHAIN_SEDI.map((r) => (
+                                <div className={s.chainRow} role="row" key={r.zona}>
+                                    <span className={s.chainSede} role="cell">
+                                        <span className={s.chainSedeZona}>{r.zona}</span>
+                                    </span>
+                                    <span className={s.chainCell} role="cell">
+                                        <span className={s.cellLabel}>Menu attivo</span>
+                                        <span className={s.chainCellMain}>
+                                            {r.menu}
+                                            <span className={s.chainCellSub}>{r.orario}</span>
+                                        </span>
+                                    </span>
+                                    <span className={s.chainCell} role="cell">
+                                        <span className={s.cellLabel}>In evidenza</span>
+                                        <span
+                                            className={
+                                                r.evidenza ? s.chainCellMain : s.chainEmpty
+                                            }
+                                        >
+                                            {r.evidenza ?? "—"}
+                                        </span>
+                                    </span>
+                                    <span className={s.chainCell} role="cell">
+                                        <span className={s.cellLabel}>Stile</span>
+                                        <span
+                                            className={`${s.chainStyle} ${styleClass(r.stile)}`}
+                                        >
+                                            <span
+                                                className={s.chainStyleDot}
+                                                aria-hidden="true"
+                                            />
+                                            {r.stile}
+                                        </span>
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+
+                        <p className={s.chainMore}>e altre 5 sedi — tutte governate da qui.</p>
+                    </Reveal>
+                </div>
+            </div>
         </section>
     );
 }
@@ -805,18 +923,8 @@ export default function LandingRedesign() {
                     </div>
                 </section>
 
-                {/* ============ CHIUSURA-PROMESSA — multi-sede come crescita ============ */}
-                <section className={s.promise} aria-label="Da un locale a una catena">
-                    <div className={s.container}>
-                        <Reveal className={s.promiseLine} as="p">
-                            Inizia con un locale, scala a una catena <em>con lo stesso gesto</em>.
-                        </Reveal>
-                        <Reveal className={s.promiseSub} as="p">
-                            Le regole che imposti per un menu valgono per venti. Aggiungi una
-                            sede e il motore fa già tutto il resto.
-                        </Reveal>
-                    </div>
-                </section>
+                {/* ============ MULTI-SEDE — voce + cruscotto catena (mostra, non dice) ============ */}
+                <ChainSection />
 
                 {/* ============ PREZZI (dati reali) ============ */}
                 <section className={s.section} id="prezzi" aria-labelledby="prezzi-h2">
