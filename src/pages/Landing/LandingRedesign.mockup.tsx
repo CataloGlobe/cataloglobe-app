@@ -812,8 +812,6 @@ export default function LandingRedesign() {
                         <Reveal className={s.sectionLead}>
                             <h2 className={s.sectionH2} id="leve-h2">
                                 Ogni cosa al momento giusto.
-                                <br />
-                                Da sola.
                             </h2>
                             <p className={s.sectionH2Sub}>
                                 La promo giusta all'ora giusta, lo stile che veste il locale,
@@ -827,12 +825,12 @@ export default function LandingRedesign() {
                             <Reveal className={s.lever}>
                                 <div className={s.leverText}>
                                     <h3 className={s.leverH3}>
-                                        La settimana si accende da sola.
+                                        Programmi la settimana, poi non ci pensi più.
                                     </h3>
                                     <p className={s.leverBody}>
                                         Programmi le promozioni una volta — l'aperitivo del
-                                        venerdì, la musica del sabato — e ognuna compare da sola
-                                        nel suo giorno. Tocca un giorno e guarda cosa cambia.
+                                        venerdì, la musica del sabato — e ognuna appare nel suo
+                                        giorno, quando serve. Tocca un giorno e guarda cosa cambia.
                                     </p>
                                 </div>
                                 <div className={s.leverDemo}>
