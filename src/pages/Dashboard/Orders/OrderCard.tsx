@@ -69,6 +69,18 @@ const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
 
 const ITEMS_PREVIEW_LIMIT = 3;
 
+/**
+ * Badge "Primo ordine · verifica il tavolo" disattivato in attesa di
+ * validazione UX con cliente reale — il gate backend (trigger
+ * enforce_order_group_verification, colonna order_groups.verified_at) RESTA
+ * ATTIVO e continua a bloccare l'avanzamento degli ordini non verificati.
+ * Qui si disattiva SOLO il rendering del badge (rumore/wording da ripensare:
+ * appare duplicato su ogni ordine del gruppo, testo "primo" fuorviante).
+ * Markup, logica realtime e join group_verified_at restano intatti.
+ * Riattivare mettendo `true`.
+ */
+const SHOW_UNVERIFIED_BADGE = false;
+
 function formatEur(n: number): string {
     return CURRENCY_FORMATTER.format(n);
 }
@@ -185,7 +197,7 @@ export default function OrderCard({
                 </div>
             </div>
 
-            {order.group_verified_at == null && (
+            {SHOW_UNVERIFIED_BADGE && order.group_verified_at == null && (
                 <div className={styles.unverifiedRow}>
                     <span
                         className={styles.unverifiedBadge}
