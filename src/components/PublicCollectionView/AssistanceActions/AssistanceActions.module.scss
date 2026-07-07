@@ -1,0 +1,95 @@
+// Footer persistente "Assistenza al tavolo" — due bottoni compatti affiancati
+// (cameriere outline + conto primario). Sempre visibile in fondo a OrderingSheet,
+// indipendente da tab/carrello. Bottommost dell'albero → possiede la safe-area.
+
+.footer {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 20px;
+    padding-bottom: max(16px, env(safe-area-inset-bottom, 16px));
+    border-top: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 10%, var(--pub-surface)));
+    background: var(--pub-surface, #ffffff);
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+}
+
+.error {
+    font-size: 0.75rem;
+    color: #f87171;
+    line-height: 1.4;
+}
+
+// Base condivisa dai due bottoni.
+.waiterBtn,
+.billBtn {
+    flex: 1 1 0;
+    min-width: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    min-height: 44px;
+    padding: 0 12px;
+    border-radius: var(--pub-btn-radius, 12px);
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+    transition: opacity 0.18s ease, transform 0.15s ease, background 0.15s ease;
+
+    span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    &:active:not(:disabled) {
+        transform: scale(0.97);
+    }
+
+    &:disabled {
+        opacity: 0.5;
+        cursor: default;
+    }
+}
+
+// "Chiama il cameriere" — outline neutro.
+.waiterBtn {
+    background: transparent;
+    border: 1px solid var(--pub-surface-border, color-mix(in srgb, var(--pub-surface-text) 20%, var(--pub-surface)));
+    color: var(--pub-surface-text);
+
+    @media (hover: hover) {
+        &:not(:disabled):hover {
+            background: color-mix(in srgb, var(--pub-surface-text) 6%, var(--pub-surface));
+        }
+    }
+}
+
+// "Chiedi il conto" — scuro/primario, azione più committal.
+.billBtn {
+    background: var(--pub-surface-text, #171717);
+    color: var(--pub-surface, #ffffff);
+    border: none;
+
+    @media (hover: hover) {
+        &:not(:disabled):hover {
+            opacity: 0.9;
+        }
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .waiterBtn,
+    .billBtn {
+        transition: none;
+    }
+}

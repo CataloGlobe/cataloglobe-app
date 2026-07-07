@@ -28,7 +28,6 @@ import { contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
-import AssistanceSheet from "../AssistanceSheet/AssistanceSheet";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 
@@ -1192,10 +1191,9 @@ export default function CollectionView({
 
     // Bill + waiter state — single source of truth a livello CollectionView per
     // garantire che la subscription customer_sessions sia always-on
-    // (OrderingSheet/AssistanceSheet sono montati solo a sheet aperta).
+    // (OrderingSheet è montato solo a sheet aperta).
     const [billRequestedAt, setBillRequestedAt] = useState<string | null>(null);
     const [waiterCalledAt, setWaiterCalledAt] = useState<string | null>(null);
-    const [isSupportOpen, setIsSupportOpen] = useState(false);
 
     // Realtime subscribe customer_sessions: single channel always-on quando
     // JWT presente. Propaga:
@@ -2623,7 +2621,7 @@ export default function CollectionView({
                         setValutaVisible(false);
                         valutaEligibleRef.current = false;
                     }}
-                    isSheetOpen={mode === "preview" ? false : (!!selectedItem || isOrderingOpen || isSupportOpen)}
+                    isSheetOpen={mode === "preview" ? false : (!!selectedItem || isOrderingOpen)}
                     preview={mode === "preview"}
                     // Vetro adattivo: bg pagina chiaro → vetro chiaro, altrimenti scuro.
                     // contrastText() riusa isLight() (luminanza); "#1a1a1a" ⇒ bg chiaro.
@@ -2713,23 +2711,6 @@ export default function CollectionView({
                 />
             )}
 
-            <AssistanceSheet
-                isOpen={isSupportOpen}
-                onClose={() => setIsSupportOpen(false)}
-                session={customerSession?.session
-                    ? {
-                        jwt: customerSession.session.jwt,
-                        tableLabel: customerSession.session.tableLabel,
-                        tableZone: customerSession.session.tableZone ?? null,
-                    }
-                    : null
-                }
-                billRequestedAt={billRequestedAt}
-                onBillRequestedAtChange={setBillRequestedAt}
-                waiterCalledAt={waiterCalledAt}
-                onWaiterCalledAtChange={setWaiterCalledAt}
-            />
-
             {isOrderingOpen && (
                 <Suspense fallback={null}>
                     <OrderingSheet
@@ -2770,6 +2751,10 @@ export default function CollectionView({
                         maintenance={effectiveMaintenance}
                         onSessionExpired={handleSessionExpired}
                         ordersRefreshKey={ordersRefreshKey}
+                        billRequestedAt={billRequestedAt}
+                        onBillRequestedAtChange={setBillRequestedAt}
+                        waiterCalledAt={waiterCalledAt}
+                        onWaiterCalledAtChange={setWaiterCalledAt}
                     />
                 </Suspense>
             )}
