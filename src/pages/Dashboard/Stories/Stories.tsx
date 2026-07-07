@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { usePageHeader } from "@/context/usePageHeader";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
@@ -7,10 +8,11 @@ import { SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTabl
 import { Pencil, Trash2, BookOpenText, GripVertical } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { Badge } from "@/components/ui/Badge/Badge";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { useToast } from "@/context/Toast/ToastContext";
 import { listStories, reorderStories, type StoryWithProduct } from "@/services/supabase/stories";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import StoryCreateEditDrawer from "./StoryCreateEditDrawer";
+import StoryCreateDrawer from "./StoryCreateDrawer";
 import StoryDeleteDrawer from "./StoryDeleteDrawer";
 import { StoryBrandPanel } from "./components/StoryBrandPanel";
 import styles from "./Stories.module.scss";
@@ -36,17 +38,20 @@ function reindexRows(rows: StoryWithProduct[]): StoryWithProduct[] {
     return rows.map((row, index) => ({ ...row, sort_order: index + 1 }));
 }
 
+type StoriesTab = "stories" | "brand";
+
 export default function Stories() {
     const { showToast } = useToast();
+    const navigate = useNavigate();
     const tenantId = useTenantId();
     const { canEdit } = useSubscriptionGuard();
     const { permissions } = usePermissions();
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "stories.write") : false;
 
+    const [activeTab, setActiveTab] = useState<StoriesTab>("stories");
     const [loading, setLoading] = useState(true);
     const [stories, setStories] = useState<StoryWithProduct[]>([]);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
-    const [editTarget, setEditTarget] = useState<StoryWithProduct | null>(null);
     const [deleteTarget, setDeleteTarget] = useState<StoryWithProduct | null>(null);
 
     const loadData = useCallback(async () => {
@@ -78,22 +83,29 @@ export default function Stories() {
         setIsCreateOpen(true);
     }, [canEdit, showToast]);
 
-    const headerActions = useMemo(
+    const leading = useMemo(
+        () => (
+            <Tabs<StoriesTab> value={activeTab} onChange={setActiveTab} variant="line">
+                <Tabs.List>
+                    <Tabs.Tab value="stories">Storie</Tabs.Tab>
+                    <Tabs.Tab value="brand">Storia del brand</Tabs.Tab>
+                </Tabs.List>
+            </Tabs>
+        ),
+        [activeTab]
+    );
+
+    const actions = useMemo(
         () =>
-            canWrite ? (
+            activeTab === "stories" && canWrite ? (
                 <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
                     Crea storia
                 </Button>
             ) : undefined,
-        [handleCreate, canEdit, canWrite]
+        [activeTab, handleCreate, canEdit, canWrite]
     );
 
-    usePageHeader({
-        title: "Storie",
-        subtitle: "Racconta il tuo brand con contenuti editoriali di approfondimento.",
-        actions: headerActions,
-        sticky: true
-    });
+    usePageHeader({ leading, actions, sticky: true });
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
@@ -123,6 +135,8 @@ export default function Stories() {
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
+
+    const goToDetail = (item: StoryWithProduct) => navigate(`/business/${tenantId}/stories/${item.id}`);
 
     const columns: ColumnDefinition<StoryWithProduct>[] = [
         ...(canWrite
@@ -190,7 +204,7 @@ export default function Stories() {
             cell: (_value, item) => (
                 <TableRowActions
                     actions={[
-                        { label: "Modifica", icon: Pencil, onClick: () => setEditTarget(item) },
+                        { label: "Modifica", icon: Pencil, onClick: () => goToDetail(item) },
                         ...(canWrite
                             ? [
                                   {
@@ -213,9 +227,9 @@ export default function Stories() {
             {() => (
                 <>
                     <div className={styles.wrapper}>
-                        {tenantId && <StoryBrandPanel tenantId={tenantId} canWrite={canWrite} />}
-
-                        {loading ? (
+                        {activeTab === "brand" ? (
+                            tenantId && <StoryBrandPanel tenantId={tenantId} canWrite={canWrite} />
+                        ) : loading ? (
                             <div className={styles.loadingState}>
                                 <Text colorVariant="muted">Caricamento in corso...</Text>
                             </div>
@@ -241,7 +255,7 @@ export default function Stories() {
                                     <DataTable<StoryWithProduct>
                                         data={stories}
                                         columns={columns}
-                                        onRowClick={item => setEditTarget(item)}
+                                        onRowClick={goToDetail}
                                         rowWrapper={(row, rowData) => (
                                             <SortableDataTableRow key={rowData.id} id={rowData.id} draggingOpacity={0.55}>
                                                 {row}
@@ -253,26 +267,12 @@ export default function Stories() {
                         )}
                     </div>
 
-                    <StoryCreateEditDrawer
+                    <StoryCreateDrawer
                         open={isCreateOpen}
                         onClose={() => setIsCreateOpen(false)}
-                        mode="create"
-                        storyData={null}
                         tenantId={tenantId ?? undefined}
                         onSuccess={() => {
                             setIsCreateOpen(false);
-                            loadData();
-                        }}
-                    />
-
-                    <StoryCreateEditDrawer
-                        open={Boolean(editTarget)}
-                        onClose={() => setEditTarget(null)}
-                        mode="edit"
-                        storyData={editTarget}
-                        tenantId={tenantId ?? undefined}
-                        onSuccess={() => {
-                            setEditTarget(null);
                             loadData();
                         }}
                     />
