@@ -728,8 +728,6 @@
 .swatchWarm { background: linear-gradient(135deg, #f3e6d2, #e8c9a0); color: #4a3618; }
 .swatchCool { background: linear-gradient(135deg, #e6ecf6, #c9d6ee); color: #23324e; }
 .swatchNight { background: linear-gradient(135deg, #23283f, #12172a); color: #e7ebf6; }
-.styleNote { font-family: var(--sans); font-size: 12.5px; color: var(--muted); }
-.styleNote b { color: var(--body); font-weight: 600; }
 
 /* leva 3 — traduzione realtime */
 .langRow { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
@@ -772,14 +770,47 @@
 
 /* ── Leva 1 (interattiva): scrubber ora → slot che entra nella mini-home ── */
 .schedDemo { display: flex; flex-direction: column; gap: 12px; }
-.schedHead { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.schedHeadLabel {
+
+/* selettore giorni — 7 tap target ≥44px, dot sotto il nome se il giorno ha promo */
+.dayPicker {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+.dayBtn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 44px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--surface);
   font-family: var(--sans);
   font-size: 12.5px;
   font-weight: 600;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
+  color: var(--body);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+
+  &:hover { border-color: var(--border-strong); }
+  &:focus-visible { outline: 3px solid color-mix(in srgb, var(--indigo) 55%, transparent); outline-offset: 2px; }
 }
+.dayBtnActive {
+  background: var(--indigo-deep);
+  border-color: var(--indigo-deep);
+  color: #fff;
+}
+.dayDot {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: transparent;
+}
+.dayDotOn { background: var(--indigo-deep); }
+.dayBtnActive .dayDotOn { background: #fff; }
+
 /* la "vetrina": anteprima della pagina pubblica del locale */
 .miniHome {
   border: 1px solid var(--border);
@@ -797,13 +828,20 @@
 }
 .miniHomeName { font-family: var(--serif); font-size: 16px; font-weight: 500; color: var(--ink); }
 .miniHomeNav { font-family: var(--sans); font-size: 11.5px; font-weight: 500; color: var(--muted); }
-/* lo slot "in evidenza": entra/esce DENTRO la home (height animata) */
-.miniFeatured { overflow: hidden; }
+/* lo slot "in evidenza": altezza fissa, il contenuto cambia ma il layout
+   sotto (Menu della sera) non si muove mai al cambio giorno. */
+.miniSlot {
+  height: 78px;
+  margin: 12px 14px 2px;
+}
+.miniFeatured, .miniEmpty { height: 100%; box-sizing: border-box; }
 .miniFeaturedInner {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 2px;
-  margin: 12px 14px 2px;
+  height: 100%;
+  box-sizing: border-box;
   padding: 12px 14px;
   border-radius: 10px;
   background: var(--indigo-soft);
@@ -819,6 +857,40 @@
 }
 .miniFeaturedTitle { font-family: var(--serif); font-size: 15px; font-weight: 500; color: var(--ink); }
 .miniFeaturedMeta { font-family: var(--sans); font-size: 12px; font-weight: 500; color: var(--indigo-deep); }
+
+/* varianti colore per tipo di promo — a colpo d'occhio, contenuti diversi */
+.miniFeaturedMusica .miniFeaturedInner {
+  background: #f7ecd9;
+  border-color: color-mix(in srgb, #a8542a 28%, transparent);
+}
+.miniFeaturedMusica .miniFeaturedTag,
+.miniFeaturedMusica .miniFeaturedMeta { color: #8a5a10; }
+.miniFeaturedDegustazione .miniFeaturedInner {
+  background: #f7e6ec;
+  border-color: color-mix(in srgb, #9c3f56 28%, transparent);
+}
+.miniFeaturedDegustazione .miniFeaturedTag,
+.miniFeaturedDegustazione .miniFeaturedMeta { color: #9c3f56; }
+.miniFeaturedCena .miniFeaturedInner {
+  background: #eee5f7;
+  border-color: color-mix(in srgb, #6b3fa0 28%, transparent);
+}
+.miniFeaturedCena .miniFeaturedTag,
+.miniFeaturedCena .miniFeaturedMeta { color: #6b3fa0; }
+
+/* stato "nessuna promo oggi" — la home resta pulita, non un vuoto anonimo */
+.miniEmpty {
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 10px 14px;
+  font-family: var(--sans);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--muted);
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+}
 .miniSection {
   font-family: var(--sans);
   font-size: 10.5px;
@@ -841,48 +913,6 @@
   span:last-child { font-weight: 600; color: var(--body); font-variant-numeric: tabular-nums; }
   & + .miniRow { border-top: 1px solid var(--border); }
 }
-.schedRange {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 44px;               /* hit target ≥44px */
-  background: transparent;
-  cursor: pointer;
-  margin: 0;
-
-  &:focus-visible { outline: 3px solid color-mix(in srgb, var(--indigo) 55%, transparent); outline-offset: 2px; border-radius: 8px; }
-  &::-webkit-slider-runnable-track { height: 6px; border-radius: 999px; background: var(--border-strong); }
-  &::-moz-range-track { height: 6px; border-radius: 999px; background: var(--border-strong); }
-  &::-webkit-slider-thumb {
-    -webkit-appearance: none;
-    appearance: none;
-    width: 24px; height: 24px;
-    margin-top: -9px;
-    border-radius: 50%;
-    background: var(--indigo-deep);
-    border: 3px solid #fff;
-    box-shadow: 0 2px 6px rgba(20, 22, 31, 0.3);
-  }
-  &::-moz-range-thumb {
-    width: 24px; height: 24px;
-    border-radius: 50%;
-    background: var(--indigo-deep);
-    border: 3px solid #fff;
-    box-shadow: 0 2px 6px rgba(20, 22, 31, 0.3);
-  }
-}
-.schedTicks {
-  display: flex;
-  justify-content: space-between;
-  font-family: var(--sans);
-  font-size: 11px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  margin-top: -4px;
-
-  span:nth-child(2) { color: var(--indigo-deep); font-weight: 600; }
-}
-
 /* ── Leva 2 (interattiva): 3 preset veri — colore + font + forma ─────────
    Ogni skin imposta un set di CSS var lette dal markup. Stessi piatti,
    stessi prezzi in ogni veste. AA garantito, incluso "Sera" scuro. */

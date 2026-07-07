@@ -811,32 +811,35 @@ export default function LandingRedesign() {
                     <div className={s.container}>
                         <Reveal className={s.sectionLead}>
                             <h2 className={s.sectionH2} id="leve-h2">
-                                Impostata la giornata, il resto sono <em>gesti singoli</em>.
+                                Ogni cosa al momento giusto.
+                                <br />
+                                Da sola.
                             </h2>
                             <p className={s.sectionH2Sub}>
-                                Non sono funzioni sparse: sono cose che il motore fa succedere
-                                al momento giusto, senza che tu ci torni sopra.
+                                La promo giusta all'ora giusta, lo stile che veste il locale,
+                                il menu nella lingua di chi legge — succede senza che tu ci
+                                pensi.
                             </p>
                         </Reveal>
 
                         <div className={s.levers}>
-                            {/* Leva 1 — programmazione / in evidenza (scrubber ora) */}
+                            {/* Leva 1 — programmazione / in evidenza (selettore giorni) */}
                             <Reveal className={s.lever}>
                                 <div className={s.leverText}>
                                     <h3 className={s.leverH3}>
-                                        Il venerdì sera va in vetrina da solo.
+                                        La settimana si accende da sola.
                                     </h3>
                                     <p className={s.leverBody}>
-                                        Programmi una promo e il motore la porta in home all'ora
-                                        giusta, poi la ritira quando è finita. Muovi l'ora qui a
-                                        fianco: guarda la vetrina accendersi e spegnersi da sola.
+                                        Programmi le promozioni una volta — l'aperitivo del
+                                        venerdì, la musica del sabato — e ognuna compare da sola
+                                        nel suo giorno. Tocca un giorno e guarda cosa cambia.
                                     </p>
                                 </div>
                                 <div className={s.leverDemo}>
                                     <div className={s.chip}>
-                                        <div className={s.chipHead}>Anteprima home · trascina l'ora</div>
+                                        <div className={s.chipHead}>Anteprima home · tocca un giorno</div>
                                         <div className={s.chipBody}>
-                                            <ScheduleDemo reduce={!!reduce} />
+                                            <ScheduleDemo />
                                         </div>
                                     </div>
                                 </div>
@@ -849,14 +852,15 @@ export default function LandingRedesign() {
                                         Cambi veste al locale in un gesto.
                                     </h3>
                                     <p className={s.leverBody}>
-                                        Tocca uno stile: la pagina cambia pelle davvero — colori,
-                                        tono, atmosfera. I piatti e i prezzi restano identici. Il
-                                        contenuto non si tocca, l'abito sì.
+                                        Tocca uno stile e la pagina cambia colori, tono, atmosfera.
+                                        I piatti e i prezzi restano identici — cambia l'aspetto,
+                                        non il contenuto. Questi sono solo esempi: il tuo stile lo
+                                        componi tu — colori, caratteri, forme, ogni dettaglio.
                                     </p>
                                 </div>
                                 <div className={s.leverDemo}>
                                     <div className={s.chip}>
-                                        <div className={s.chipHead}>Stile della pagina · tocca per provare</div>
+                                        <div className={s.chipHead}>Tre esempi di stile · tocca per provare</div>
                                         <div className={s.chipBody}>
                                             <StyleDemo reduce={!!reduce} />
                                         </div>
@@ -1265,83 +1269,112 @@ function Check({ className }: { className?: string }) {
     );
 }
 
-/* ── Leva 1: programmazione / in evidenza — scrubber dell'ora ────────
+/* ── Leva 1: programmazione / in evidenza — selettore giorni ────────
    Il protagonista è lo SLOT "in evidenza" che compare e sparisce DENTRO la
-   mini-home (l'anteprima della pagina pubblica), non un badge isolato. */
-function ScheduleDemo({ reduce }: { reduce: boolean }) {
-    const START = 1110; // 18:30
-    const END = 1260; //   21:00
-    const [min, setMin] = useState(1170); // 19:30 → Attiva (stato iniziale leggibile)
-    const status = min < START ? "scheduled" : min < END ? "active" : "done";
-    const label =
-        status === "scheduled" ? "Programmata" : status === "active" ? "Attiva ora" : "Conclusa";
-    const badgeCls =
-        status === "active" ? s.ruleActive : status === "scheduled" ? s.ruleScheduled : s.ruleDone;
-    const hh = String(Math.floor(min / 60)).padStart(2, "0");
-    const mm = String(min % 60).padStart(2, "0");
+   mini-home (l'anteprima della pagina pubblica), non un badge isolato.
+   Palinsesto vario (non solo Ven) per dimostrare che ogni giorno ha la sua
+   promo, o nessuna — distinto dallo scrubber dell'ora dell'hero. */
+type DayKey = "lun" | "mar" | "mer" | "gio" | "ven" | "sab" | "dom";
+type PromoKind = "aperitivo" | "degustazione" | "cena" | "musica";
+type DayPromo = { title: string; time: string; meta: string; kind: PromoKind };
+
+const SCHED_DAYS: { key: DayKey; label: string; full: string }[] = [
+    { key: "lun", label: "Lun", full: "Lunedì" },
+    { key: "mar", label: "Mar", full: "Martedì" },
+    { key: "mer", label: "Mer", full: "Mercoledì" },
+    { key: "gio", label: "Gio", full: "Giovedì" },
+    { key: "ven", label: "Ven", full: "Venerdì" },
+    { key: "sab", label: "Sab", full: "Sabato" },
+    { key: "dom", label: "Dom", full: "Domenica" },
+];
+
+const SCHED_PROMOS: Record<DayKey, DayPromo | null> = {
+    lun: null,
+    mar: { title: "Serata degustazione", time: "20:00", meta: "dalle 20:00", kind: "degustazione" },
+    mer: null,
+    gio: { title: "Cena a tema", time: "20:00", meta: "dalle 20:00", kind: "cena" },
+    ven: {
+        title: "Aperitivo del venerdì",
+        time: "18:30",
+        meta: "18:30–21:00 · in terrazza",
+        kind: "aperitivo",
+    },
+    sab: {
+        title: "Musica dal vivo",
+        time: "21:00",
+        meta: "dalle 21:00 · ingresso libero",
+        kind: "musica",
+    },
+    dom: null,
+};
+
+function promoKindClass(kind: PromoKind) {
+    if (kind === "musica") return s.miniFeaturedMusica;
+    if (kind === "degustazione") return s.miniFeaturedDegustazione;
+    if (kind === "cena") return s.miniFeaturedCena;
+    return s.miniFeaturedAperitivo;
+}
+
+function ScheduleDemo() {
+    const [day, setDay] = useState<DayKey>("ven");
+    const dayInfo = SCHED_DAYS.find((d) => d.key === day)!;
+    const promo = SCHED_PROMOS[day];
+
     return (
         <div className={s.schedDemo}>
-            <div className={s.schedHead}>
-                <span className={s.schedHeadLabel}>
-                    Ora · {hh}:{mm}
-                </span>
-                <span className={`${s.ruleBadge} ${badgeCls}`}>
-                    <span className={s.ruleDot} />
-                    {label}
-                </span>
+            <div className={s.dayPicker} role="group" aria-label="Giorno della settimana">
+                {SCHED_DAYS.map((d) => (
+                    <button
+                        key={d.key}
+                        type="button"
+                        className={`${s.dayBtn} ${day === d.key ? s.dayBtnActive : ""}`}
+                        aria-pressed={day === d.key}
+                        onClick={() => setDay(d.key)}
+                    >
+                        {d.label}
+                        <span
+                            className={`${s.dayDot} ${SCHED_PROMOS[d.key] ? s.dayDotOn : ""}`}
+                            aria-hidden="true"
+                        />
+                    </button>
+                ))}
             </div>
 
             {/* la "vetrina": mini-home della pagina pubblica */}
             <div className={s.miniHome}>
                 <div className={s.miniHomeBar}>
-                    <span className={s.miniHomeName}>Il Molo 34</span>
-                    <span className={s.miniHomeNav}>Menu · Prenota</span>
+                    <span className={s.miniHomeName}>Il tuo locale</span>
+                    <span className={s.miniHomeNav}>
+                        {dayInfo.full}
+                        {promo ? ` · ${promo.time}` : ""}
+                    </span>
                 </div>
 
-                <AnimatePresence initial={false}>
-                    {status === "active" && (
-                        <motion.div
-                            key="feat"
-                            className={s.miniFeatured}
-                            initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: "auto", opacity: 1 }}
-                            exit={{ height: 0, opacity: 0 }}
-                            transition={{ duration: reduce ? 0 : 0.34, ease: "easeOut" }}
-                        >
+                <div className={s.miniSlot}>
+                    {promo ? (
+                        <div className={`${s.miniFeatured} ${promoKindClass(promo.kind)}`}>
                             <div className={s.miniFeaturedInner}>
                                 <span className={s.miniFeaturedTag}>In evidenza</span>
-                                <span className={s.miniFeaturedTitle}>Aperitivo del venerdì</span>
-                                <span className={s.miniFeaturedMeta}>18:30–21:00 · in terrazza</span>
+                                <span className={s.miniFeaturedTitle}>{promo.title}</span>
+                                <span className={s.miniFeaturedMeta}>{promo.meta}</span>
                             </div>
-                        </motion.div>
+                        </div>
+                    ) : (
+                        <p className={s.miniEmpty}>
+                            Nessuna promo oggi — la home mostra solo il menu.
+                        </p>
                     )}
-                </AnimatePresence>
+                </div>
 
                 <div className={s.miniSection}>Menu della sera</div>
                 <div className={s.miniRow}>
-                    <span>Spritz del Molo</span>
+                    <span>Spritz della casa</span>
                     <span>€8</span>
                 </div>
                 <div className={s.miniRow}>
-                    <span>Tagliere ligure</span>
+                    <span>Tagliere misto</span>
                     <span>€14</span>
                 </div>
-            </div>
-
-            <input
-                className={s.schedRange}
-                type="range"
-                min={420}
-                max={1380}
-                step={15}
-                value={min}
-                onChange={(e) => setMin(Number(e.target.value))}
-                aria-label={`Ora del giorno: ${hh}:${mm}. Vetrina: ${label}`}
-            />
-            <div className={s.schedTicks} aria-hidden="true">
-                <span>07:00</span>
-                <span>18:30</span>
-                <span>23:00</span>
             </div>
         </div>
     );
@@ -1392,7 +1425,7 @@ function StyleDemo({ reduce }: { reduce: boolean }) {
                 data-reduce={reduce ? "1" : undefined}
             >
                 <div className={s.spNav}>
-                    <span className={s.spName}>Il Molo 34</span>
+                    <span className={s.spName}>Il tuo locale</span>
                     <span className={s.spTag}>Menu</span>
                 </div>
                 <div className={s.spMenu}>
@@ -1404,9 +1437,6 @@ function StyleDemo({ reduce }: { reduce: boolean }) {
                     ))}
                 </div>
             </div>
-            <p className={s.styleNote}>
-                Cambia la <b>veste</b> — colori, font, forma. Stessi piatti, stessi prezzi.
-            </p>
         </div>
     );
 }
