@@ -328,7 +328,8 @@
         "back_to_list": "Back to stories",
         "product_link": "From the menu → {{name}}",
         "video_unavailable": "Video unavailable",
-        "video_aria": "Story video"
+        "video_aria": "Story video",
+        "discover_label": "Discover the story"
     },
     "reviews": {
         "rating_labels": {

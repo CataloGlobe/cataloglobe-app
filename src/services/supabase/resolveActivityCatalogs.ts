@@ -116,6 +116,9 @@ export type ResolvedProduct = {
      *  immagine dell'abbinato NON viaggiano qui: li risolve il frontend con
      *  lookup by-id nel catalogo risolto. */
     pairings?: { paired_product_id: string; note: string | null; sort_order: number }[];
+    /** Reverse-link storia → prodotto (sub-fase 6): attaccato SOLO ai prodotti
+     *  bersaglio da resolve-public-catalog (non da questo resolver). */
+    story_ref?: { id: string; title: string; cover: string | null };
 };
 
 export type ResolvedCategory = {

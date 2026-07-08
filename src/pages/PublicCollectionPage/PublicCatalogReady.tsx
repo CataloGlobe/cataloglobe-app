@@ -193,6 +193,7 @@ function mapProductToItem(
         ...(p.ingredients && p.ingredients.length > 0 ? { ingredients: p.ingredients } : {}),
         ...(p.notes && p.notes.length > 0 ? { notes: p.notes } : {}),
         ...(pairings && pairings.length > 0 ? { pairings } : {}),
+        ...(p.story_ref ? { story_ref: p.story_ref } : {}),
         is_disabled: p.is_disabled ?? false
     };
 }

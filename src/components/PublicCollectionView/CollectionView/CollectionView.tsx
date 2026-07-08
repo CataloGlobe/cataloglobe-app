@@ -154,6 +154,9 @@ export type CollectionViewSectionItem = {
         price: number | null;
         note: string | null;
     }[];
+    /** Reverse-link storia → prodotto (sub-fase 6). Passthrough diretto dal
+     *  payload risolto (già { id, title, cover }, nessuna hydration extra). */
+    story_ref?: { id: string; title: string; cover: string | null };
 };
 
 export type CollectionViewSection = {
@@ -1412,6 +1415,18 @@ export default function CollectionView({
         openItemDetail(p);
     }, [findProductById, onTabChange, openItemDetail]);
 
+    // Reverse-link storia dal prodotto (sub-fase 6): chiude l'ItemDetail,
+    // passa al tab Storia e apre il lettore sulla storia collegata. Direzione
+    // opposta di openProductFromStory — qui NON serve skipNextTabCloseRef:
+    // nessun effect resetta selectedStoryId al cambio tab (StoryView si
+    // smonta/rimonta ma selectedStoryId vive in CollectionView ed è già
+    // valorizzato al mount, quindi il lettore si apre subito).
+    const openStoryFromProduct = useCallback((storyId: string) => {
+        setSelectedItem(null);
+        onTabChange?.("storia");
+        setSelectedStoryId(storyId);
+    }, [onTabChange]);
+
     // Aggiunge un abbinato per id (upsell D3). Add DIRETTO: non passa dal
     // detail né riapre l'upsell → un solo livello, nessuna ricorsione.
     const addPairingToSelection = useCallback((pairedProductId: string) => {
@@ -2553,6 +2568,7 @@ export default function CollectionView({
                                             mode={mode}
                                             showImage={style.productStyle !== "compact" && style.cardTemplate !== "no-image"}
                                             orderingDisabled={itemDetailOrderingDisabled}
+                                            onOpenStory={openStoryFromProduct}
                                             onAddToSelection={
                                                 mode === "public" &&
                                                 activeTab === "menu" &&

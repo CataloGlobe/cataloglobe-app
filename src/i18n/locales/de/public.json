@@ -328,7 +328,8 @@
         "back_to_list": "Zurück zu den Geschichten",
         "product_link": "Aus der Speisekarte → {{name}}",
         "video_unavailable": "Video nicht verfügbar",
-        "video_aria": "Video der Geschichte"
+        "video_aria": "Video der Geschichte",
+        "discover_label": "Geschichte entdecken"
     },
     "reviews": {
         "rating_labels": {

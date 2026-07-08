@@ -328,7 +328,8 @@
         "back_to_list": "Volver a las historias",
         "product_link": "Del menú → {{name}}",
         "video_unavailable": "Vídeo no disponible",
-        "video_aria": "Vídeo de la historia"
+        "video_aria": "Vídeo de la historia",
+        "discover_label": "Descubre la historia"
     },
     "reviews": {
         "rating_labels": {
