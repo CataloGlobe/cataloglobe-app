@@ -1,4 +1,9 @@
 .container {
+    // flex:1 1 auto + min-height:0 → nella TAB (parent bounded) la tabella
+    // riempie e scrolla interna. Nel DRAWER (`.body` block, non bounded) questi
+    // restano inerti → nessuna regressione. Dual-use safe.
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 14px;
@@ -8,10 +13,19 @@
 // Toolbar di sezione: filtro segmented a sinistra, ricerca a destra.
 // Controlli a --control-height (38px) via SegmentedControl + ToolbarSearch.
 .toolbar {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+}
+
+// Conteggio in posizione "top" (solo tab, via prop countPlacement): riga fissa
+// sopra la tabella, allineata a destra come il footer originale.
+.countTop {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .searchSlot {
@@ -25,6 +39,12 @@
 }
 
 .tableWrapper {
+    // Deve essere flex-CONTAINER (non solo flex-item): il `.autoSizeProbe` del
+    // DataTable, con flex:1 1 auto, si stira solo dentro un flex-col bounded.
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
 }
 
@@ -66,6 +86,7 @@
 }
 
 .footer {
+    flex: 0 0 auto;
     display: flex;
     justify-content: flex-end;
     padding-top: 6px;

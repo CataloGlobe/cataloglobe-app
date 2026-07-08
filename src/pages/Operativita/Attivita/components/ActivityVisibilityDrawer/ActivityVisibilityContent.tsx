@@ -28,11 +28,18 @@ export type VisibilityContentMeta = {
 type ActivityVisibilityContentProps = {
     activityId: string;
     onMetaChange?: (meta: VisibilityContentMeta) => void;
+    /**
+     * Posizione del conteggio "N prodotti totali · N nascosti". Default
+     * `"bottom"` (footer sotto la tabella — usato dal drawer, invariato). La
+     * tab Disponibilità passa `"top"` per averlo vicino ai filtri.
+     */
+    countPlacement?: "top" | "bottom";
 };
 
 export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps> = ({
     activityId,
-    onMetaChange
+    onMetaChange,
+    countPlacement = "bottom"
 }) => {
     const tenantId = useTenantId();
     const { showToast } = useToast();
@@ -214,6 +221,13 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         );
     }
 
+    const countText = (
+        <Text variant="caption" colorVariant="muted">
+            {catalog.products.length} prodotti totali · {hiddenCount} nascost
+            {hiddenCount === 1 ? "o" : "i"}
+        </Text>
+    );
+
     return (
         <div className={styles.container}>
             <div className={styles.toolbar}>
@@ -235,6 +249,10 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                 </div>
             </div>
 
+            {countPlacement === "top" && (
+                <div className={styles.countTop}>{countText}</div>
+            )}
+
             {filtered.length === 0 ? (
                 <div className={styles.emptyFilter}>
                     <Text variant="body-sm" colorVariant="muted">
@@ -252,12 +270,9 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                 </div>
             )}
 
-            <div className={styles.footer}>
-                <Text variant="caption" colorVariant="muted">
-                    {catalog.products.length} prodotti totali · {hiddenCount} nascost
-                    {hiddenCount === 1 ? "o" : "i"}
-                </Text>
-            </div>
+            {countPlacement === "bottom" && (
+                <div className={styles.footer}>{countText}</div>
+            )}
         </div>
     );
 };

@@ -11,6 +11,21 @@
   margin: 0 auto;
 }
 
+// Bounded scoped SOLO per la tab Disponibilità: la tabella deve riempire e
+// scrollare internamente. Le altre tab (Profilo/Tavoli/Impostazioni) sono form
+// lunghi page-scroll → restano invariate (nessun match del data-attribute).
+.container[data-active-tab="availability"] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.container[data-active-tab="availability"] .contentWrapper {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
 .grid12 {
   display: grid;
   grid-template-columns: repeat(12, 1fr);

@@ -155,7 +155,7 @@ const ActivityDetailPage: React.FC = () => {
     }
 
     return (
-        <div className={styles.container}>
+        <div className={styles.container} data-active-tab={activeTab}>
             <div className={styles.contentWrapper}>
                 {activeTab === "profile" && (
                     <ActivityProfileTab

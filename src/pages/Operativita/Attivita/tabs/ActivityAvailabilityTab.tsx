@@ -82,6 +82,7 @@ export const ActivityAvailabilityTab: React.FC<ActivityAvailabilityTabProps> = (
             <ActivityVisibilityContent
                 activityId={activity.id}
                 onMetaChange={handleMeta}
+                countPlacement="top"
             />
         </div>
     );
