@@ -35,6 +35,8 @@ import {
   CircleCheck,
   X,
   Store,
+  Sparkles,
+  ShieldCheck,
 } from "lucide-react";
 import { DEMOS } from "./landingData";
 import { TextInput } from "@components/ui/Input/TextInput";
@@ -455,7 +457,7 @@ const CHAIN_SEDI: {
   {
     zona: "Duomo",
     menu: "Turistico",
-    orario: "multilingua · 12–22",
+    orario: "12–22",
     evidenza: "Menu fisso pranzo",
     stile: "Chiaro",
   },
@@ -481,6 +483,136 @@ const CHAIN_SEDI: {
     stile: "Caldo",
   },
 ];
+
+const AI_IMPORT_ITEMS: { name: string; category: string; price: string }[] = [
+  { name: "Insalata di mare", category: "Antipasti", price: "€16" },
+  { name: "Trofie al pesto", category: "Primi", price: "€12" },
+  { name: "Branzino al sale", category: "Secondi", price: "€22" },
+  { name: "Tiramisù", category: "Dolci", price: "€6" },
+  { name: "Acqua naturale 0,75L", category: "Bevande", price: "€3" },
+];
+
+/* ── Sezione import menù con AI — ultimo spintarello prima del prezzo.
+   Visual dimostrativo (statico): riproduce lo step 3 "Revisione" del wizard
+   reale, il risultato già estratto — più convincente del caricamento vuoto.
+   NB: non è funzionante, nessun upload reale. */
+function AiImportSection() {
+  return (
+    <section
+      className={`${s.section} ${s.sectionAlt}`}
+      id="import-ai"
+      aria-labelledby="ai-h2"
+    >
+      <div className={s.container}>
+        <div className={s.aiGrid}>
+          <Reveal className={s.aiVoice}>
+            <p className={s.sectionKicker}>Iniziare è facile</p>
+            <h2 className={s.aiH2} id="ai-h2">
+              Il tuo menu è già pronto. <em>Devi solo fotografarlo.</em>
+            </h2>
+            <p className={s.aiSub}>
+              Carichi le foto o il PDF del menu che hai già. L&apos;AI legge
+              tutto — piatti, prezzi, categorie — e costruisce il menu
+              digitale al posto tuo. Tu dai un&apos;occhiata e confermi.
+            </p>
+
+            <ol className={s.aiSteps}>
+              <li className={s.aiStep}>
+                <span className={s.aiStepNum}>1</span>
+                <span className={s.aiStepText}>
+                  <span className={s.aiStepTitle}>
+                    Carichi il menu che hai
+                  </span>
+                  <span className={s.aiStepBody}>
+                    Foto o PDF, anche più file insieme. Quello che già usi in
+                    sala, così com&apos;è.
+                  </span>
+                </span>
+              </li>
+              <li className={s.aiStep}>
+                <span className={s.aiStepNum}>2</span>
+                <span className={s.aiStepText}>
+                  <span className={s.aiStepTitle}>
+                    L&apos;AI lo legge e lo organizza
+                  </span>
+                  <span className={s.aiStepBody}>
+                    Riconosce piatti, prezzi, descrizioni e li sistema in
+                    categorie, da solo.
+                  </span>
+                </span>
+              </li>
+              <li className={s.aiStep}>
+                <span className={s.aiStepNum}>3</span>
+                <span className={s.aiStepText}>
+                  <span className={s.aiStepTitle}>Rivedi e confermi</span>
+                  <span className={s.aiStepBody}>
+                    Controlli che sia tutto giusto, aggiusti se serve, e il
+                    menu è online.
+                  </span>
+                </span>
+              </li>
+            </ol>
+
+            <div className={s.aiReassure}>
+              <span className={s.aiReassureIcon} aria-hidden="true">
+                <ShieldCheck size={16} strokeWidth={2.2} />
+              </span>
+              <p className={s.aiReassureText}>
+                L&apos;ultima parola è sempre tua: niente va online prima che
+                tu l&apos;abbia rivisto. E puoi aggiungere altri piatti con
+                l&apos;AI anche dopo.
+              </p>
+            </div>
+          </Reveal>
+
+          <Reveal className={s.aiVisual}>
+            <div
+              className={s.aiWizard}
+              role="img"
+              aria-label="Anteprima del wizard di importazione menù con AI, step Revisione: piatti estratti automaticamente, ciascuno con categoria e prezzo"
+            >
+              <div className={s.aiWizardBar}>
+                <Sparkles size={16} strokeWidth={2.2} aria-hidden="true" />
+                Importa menù con AI
+              </div>
+
+              <div className={s.aiWizardSteps} aria-hidden="true">
+                <span className={`${s.aiWizardStep} ${s.aiWizardStepDone}`}>
+                  <CircleCheck size={13} strokeWidth={2.4} />
+                  Caricamento
+                </span>
+                <span className={s.aiWizardStepLine} />
+                <span className={`${s.aiWizardStep} ${s.aiWizardStepDone}`}>
+                  <CircleCheck size={13} strokeWidth={2.4} />
+                  Analisi
+                </span>
+                <span className={s.aiWizardStepLine} />
+                <span className={`${s.aiWizardStep} ${s.aiWizardStepActive}`}>
+                  Revisione
+                </span>
+              </div>
+
+              <ul className={s.aiWizardList}>
+                {AI_IMPORT_ITEMS.map((item) => (
+                  <li className={s.aiWizardItem} key={item.name}>
+                    <span className={s.aiWizardCheckbox} aria-hidden="true">
+                      <Check className={s.aiWizardCheckIcon} />
+                    </span>
+                    <span className={s.aiWizardItemName}>{item.name}</span>
+                    <span className={s.aiWizardItemCat}>{item.category}</span>
+                    <span className={s.aiWizardItemPrice}>{item.price}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <p className={s.aiWizardCaption}>Anteprima</p>
+            </div>
+          </Reveal>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function styleClass(stile: "Chiaro" | "Sera" | "Caldo") {
   if (stile === "Sera") return s.chainStyleEve;
@@ -735,7 +867,7 @@ export default function LandingRedesign() {
                     <i className={s.dot} />
                   </span>
                   <span className={s.deviceUrl}>
-                    cataloglobe.app/<b>{HERO_PLACEHOLDER_SLUG}</b>
+                    cataloglobe.com/<b>{HERO_PLACEHOLDER_SLUG}</b>
                   </span>
                 </div>
 
@@ -1022,6 +1154,9 @@ export default function LandingRedesign() {
         {/* ============ MULTI-SEDE — voce + cruscotto catena (mostra, non dice) ============ */}
         <ChainSection />
 
+        {/* ============ IMPORT MENÙ CON AI — spintarello prima del prezzo ============ */}
+        <AiImportSection />
+
         {/* ============ PREZZI (dati reali) ============ */}
         <section className={s.section} id="prezzi" aria-labelledby="prezzi-h2">
           <div className={s.container}>
@@ -1092,6 +1227,7 @@ export default function LandingRedesign() {
         {/* ============ FAQ (dati reali) ============ */}
         <section
           className={`${s.section} ${s.sectionAlt}`}
+          id="faq"
           aria-labelledby="faq-h2"
         >
           <div className={s.container}>
@@ -1281,7 +1417,7 @@ function RedesignFooter() {
     {
       title: "Contatti",
       links: [
-        { label: "Informazioni", href: `mailto:${COMPANY.contact.info}` },
+        { label: "Scrivici", href: `mailto:${COMPANY.contact.info}` },
         { label: "Supporto", href: `mailto:${COMPANY.contact.support}` },
       ],
     },
@@ -1291,12 +1427,13 @@ function RedesignFooter() {
     <footer className={s.footer}>
       <div className={s.footerTop}>
         <div className={s.footerBrand}>
-          <div className={s.footerLogo}>
-            Catalo<span className={s.footerGlobe}>Globe</span>
-          </div>
+          <img
+            src={logoHorizontal}
+            alt="CataloGlobe"
+            className={s.footerLogoImg}
+          />
           <p className={s.footerDesc}>
-            Menu digitali dinamici per ristoranti, bar, hotel e attività
-            commerciali.
+            Menu digitali dinamici per ristoranti, bar, hotel e locali.
           </p>
         </div>
         <div className={s.footerCols}>
