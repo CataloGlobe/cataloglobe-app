@@ -134,6 +134,47 @@ export async function deleteStory(id: string, tenantId: string): Promise<void> {
     void revalidatePublicCatalogForTenant(tenantId);
 }
 
+export type PublicStoryCard = {
+    id: string;
+    eyebrow: string | null;
+    title: string;
+    cover_media: string | null;
+    excerpt: string | null;
+    product: { id: string; name: string } | null;
+};
+
+export type PublicStoryCappello = {
+    cover: string | null;
+    title: string | null;
+    intro: string | null;
+    website: string | null;
+};
+
+export type PublicStoryListResult = {
+    cappello: PublicStoryCappello | null;
+    stories: PublicStoryCard[];
+};
+
+export type PublicStoryDetail = Omit<Story, "tenant_id"> & {
+    product: { id: string; name: string } | null;
+};
+
+export async function fetchPublicStories(slug: string): Promise<PublicStoryListResult> {
+    const { data, error } = await supabase.functions.invoke("resolve-public-story", {
+        body: { slug }
+    });
+    if (error) throw error;
+    return data as PublicStoryListResult;
+}
+
+export async function fetchPublicStory(slug: string, storyId: string): Promise<PublicStoryDetail> {
+    const { data, error } = await supabase.functions.invoke("resolve-public-story", {
+        body: { slug, story_id: storyId }
+    });
+    if (error) throw error;
+    return (data as { story: PublicStoryDetail }).story;
+}
+
 export async function reorderStories(
     tenantId: string,
     rows: { id: string; sort_order: number }[]

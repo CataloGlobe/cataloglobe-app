@@ -346,10 +346,17 @@ serve(async (req: Request) => {
 
         // Feature gate: override display flags fail-closed based on plan.
         // Errors or null from the RPC are treated as false (feature unavailable).
-        const [orderingRpc, reservationRpc] = await Promise.allSettled([
+        const [orderingRpc, reservationRpc, hasStoryRes] = await Promise.allSettled([
             supabase.rpc("activity_has_feature", { p_activity_id: activity.id, p_feature_id: "table_ordering" }),
-            supabase.rpc("activity_has_feature", { p_activity_id: activity.id, p_feature_id: "table_reservation" })
+            supabase.rpc("activity_has_feature", { p_activity_id: activity.id, p_feature_id: "table_reservation" }),
+            supabase
+                .from("stories")
+                .select("id", { count: "exact", head: true })
+                .eq("tenant_id", activity.tenant_id)
+                .eq("status", "published")
+                .or(`activity_id.is.null,activity_id.eq.${activity.id}`)
         ]);
+        const hasStory = hasStoryRes.status === "fulfilled" && (hasStoryRes.value.count ?? 0) > 0;
         const hasOrdering    = orderingRpc.status    === "fulfilled" && orderingRpc.value.data    === true;
         const hasReservation = reservationRpc.status === "fulfilled" && reservationRpc.value.data === true;
         const orderingEnabledResolved     = Boolean(activity.ordering_enabled)    && hasOrdering;
@@ -400,6 +407,7 @@ serve(async (req: Request) => {
                     resolved: {
                         featured: { hero: [], before_catalog: [], after_catalog: [] }
                     },
+                    has_story: hasStory,
                     canonical_slug: isAliasMatch ? activity.slug : null
                 }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": cacheControl } }
@@ -646,6 +654,7 @@ serve(async (req: Request) => {
                     resolved: {
                         featured: { hero: [], before_catalog: [], after_catalog: [] }
                     },
+                    has_story: hasStory,
                     canonical_slug: isAliasMatch ? activity.slug : null
                 }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": cacheControl } }
@@ -695,6 +704,7 @@ serve(async (req: Request) => {
                 tenantLogoUrl,
                 resolved,
                 vertical_type,
+                has_story: hasStory,
                 canonical_slug: isAliasMatch ? activity.slug : null,
                 effective_language: effectiveLang,
                 base_language_code: baseLanguage,

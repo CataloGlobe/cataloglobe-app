@@ -81,4 +81,5 @@ export type ResolvedPayloadShape = {
     opening_hours?: OpeningHoursEntry[];
     upcoming_closures?: UpcomingClosure[];
     vertical_type?: VerticalType | null;
+    has_story?: boolean;
 };
