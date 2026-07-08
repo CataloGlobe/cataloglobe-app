@@ -24,6 +24,7 @@ export const ActivityVisibilityDrawer: React.FC<Props> = ({
     return (
         <SystemDrawer open={open} onClose={onClose} width={600}>
             <DrawerLayout
+                bodyLayout="flex"
                 header={
                     <div className={styles.header}>
                         <Text variant="title-sm" weight={700}>
@@ -45,6 +46,7 @@ export const ActivityVisibilityDrawer: React.FC<Props> = ({
                     <ActivityVisibilityContent
                         activityId={activityId}
                         onMetaChange={meta => setCatalogName(meta.catalogName)}
+                        countPlacement="top"
                     />
                 )}
             </DrawerLayout>
