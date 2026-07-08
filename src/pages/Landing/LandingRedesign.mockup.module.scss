@@ -194,7 +194,7 @@
    non un fondo super-saturo. La scheda resta l'ancora bianca. */
 .sceneMattino   { background: linear-gradient(180deg, #cdd9ec 0%, #e3d6db 52%, #f1d3c6 100%); }  /* alba: freddo in alto → rosa/pesca all'orizzonte */
 .scenePranzo    { background: linear-gradient(180deg, #cfe4f5 0%, #e6f0f7 55%, #f3f4f0 100%); }  /* mezzogiorno: azzurro chiaro, cielo pieno */
-.sceneAperitivo { background: linear-gradient(180deg, #edc2a4 0%, #e2906a 55%, #d3624f 100%); }  /* tramonto: pesca → arancio → rosso */
+.sceneAperitivo { background: linear-gradient(180deg, #e7cfba 0%, #d9ab8b 55%, #c58c6c 100%); }  /* tramonto: terracotta/pesca desaturato — il viola del CTA ci respira sopra */
 .sceneCena      { background: linear-gradient(180deg, #1b2444 0%, #151d38 55%, #0e1526 100%); }  /* notte — invariata */
 
 /* ── Trattamento elegante minimal (no oggetti): luce ambientale soffusa
@@ -450,7 +450,7 @@
 .ruleDone       { background: #f1f3f7; color: var(--muted); }
 
 .menu {
-  padding: 6px 22px 10px;
+  padding: 6px 22px 22px;
   list-style: none;
   margin: 0;
 }
@@ -487,26 +487,6 @@
   flex-shrink: 0;
 }
 
-.deviceFoot {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 20px;
-  border-top: 1px solid var(--border);
-  background: var(--slate);
-}
-.qrFrame {
-  flex-shrink: 0;
-  padding: 7px;
-  background: #fff;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  line-height: 0;
-}
-.footCopy { display: flex; flex-direction: column; min-width: 0; }
-.footTitle { font-family: var(--sans); font-size: 13px; font-weight: 600; color: var(--ink); }
-.footSub { font-family: var(--sans); font-size: 12px; color: var(--muted); margin-top: 2px; line-height: 1.45; }
-
 /* — Tablist fasce del giorno — */
 .dayparts {
   display: flex;
@@ -521,14 +501,15 @@
   margin-right: auto;
 }
 .daypartTab {
+  position: relative;
   flex: 1;
-  min-height: 44px;
+  min-height: 50px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 1px;
-  padding: 6px 4px;
+  gap: 3px;
+  padding: 7px 4px 11px;
   border: none;
   border-radius: 10px;
   background: transparent;
@@ -549,19 +530,32 @@
 .daypartTime { font-size: 11px; font-weight: 500; color: var(--muted); font-variant-numeric: tabular-nums; }
 .daypartActive .daypartTime { color: var(--indigo-deep); }
 
-/* progress della giornata (auto-advance) */
-.dayTrack {
-  height: 2px;
+/* Avanzamento della fascia corrente — filo dentro il pill attivo stesso
+   (non una barra esterna al gruppo tab). Si ferma insieme all'autoplay:
+   sparisce non appena l'utente tocca un tab. */
+.daypartFill {
+  position: absolute;
+  left: 10px;
+  right: 10px;
+  bottom: 4px;
+  height: 2.5px;
   border-radius: 2px;
-  background: color-mix(in srgb, var(--scene-ink) 14%, transparent);
-  max-width: 440px;
-  margin: 10px auto 0;
+  background: var(--indigo-soft);
   overflow: hidden;
 }
-.dayTrackFill {
+.daypartFillBar {
+  display: block;
   height: 100%;
-  background: var(--indigo);
+  width: 0%;
+  background: var(--indigo-deep);
   border-radius: 2px;
+  animation-name: daypartFillGrow;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}
+@keyframes daypartFillGrow {
+  from { width: 0%; }
+  to { width: 100%; }
 }
 
 /* ================================================================
@@ -1942,5 +1936,4 @@
   .contactSubmit { transition: none; &:hover:not(:disabled) { transform: none; } }
   .demoItem, .demoGo, .demoQr, .qrClose, .qrModalLink { transition: none; }
   .demoDevice { transition: none; &:hover { transform: none; } }
-  .dayTrackFill { display: none; }
 }

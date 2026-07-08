@@ -155,8 +155,8 @@ const DAYPARTS: Daypart[] = [
         menu: [
             { name: "Trofie al pesto", price: "€12" },
             { name: "Insalata di mare", price: "€16" },
-            { name: "Acciughe di Monterosso", price: "€11" },
-            { name: "Acqua Panna 0,75L", price: "€3" },
+            { name: "Focaccia al formaggio", price: "€9" },
+            { name: "Acqua naturale 0,75L", price: "€3" },
         ],
     },
     {
@@ -165,10 +165,10 @@ const DAYPARTS: Daypart[] = [
         label: "Aperitivo",
         tabName: "Aperitivo",
         menu: [
-            { name: "Spritz del Molo", price: "€8" },
-            { name: "Tagliere ligure", price: "€14" },
-            { name: "Focaccia di Recco", price: "€7" },
-            { name: "Olive taggiasche", price: "€5" },
+            { name: "Spritz della casa", price: "€8" },
+            { name: "Tagliere misto", price: "€14" },
+            { name: "Focaccia farcita", price: "€7" },
+            { name: "Olive e taralli", price: "€5" },
         ],
     },
     {
@@ -177,10 +177,10 @@ const DAYPARTS: Daypart[] = [
         label: "Cena",
         tabName: "Cena",
         menu: [
-            { name: "Catalana di gamberi", price: "€24" },
             { name: "Branzino al sale", price: "€22" },
-            { name: "Trofie al pesto", price: "€13" },
-            { name: "Sciacchetrà", price: "€9" },
+            { name: "Risotto ai frutti di mare", price: "€20" },
+            { name: "Tagliere di formaggi", price: "€12" },
+            { name: "Calice di vino rosso", price: "€6" },
         ],
     },
 ];
@@ -192,12 +192,11 @@ const SCENE_CLASS: Record<DaypartKey, string> = {
     cena: s.sceneCena,
 };
 
-const AUTO_MS = 4200;
-const HERO_DEMO = DEMOS[0]; // Il Molo 34
-const HUB_URL =
-    typeof window !== "undefined"
-        ? `${window.location.origin}/${HERO_DEMO.slug}`
-        : `https://cataloglobe.app/${HERO_DEMO.slug}`;
+const AUTO_MS = 2800;
+/* Nome/URL dell'hero sono illustrativi, non il tenant reale (quello resta
+   solo nella sezione demo sotto). */
+const HERO_PLACEHOLDER_NAME = "Il tuo locale";
+const HERO_PLACEHOLDER_SLUG = "il-tuo-locale";
 
 /* ── Ruolo del badge in base alla posizione nella giornata ─────────── */
 function ruleFor(index: number, active: number): { label: string; cls: string } {
@@ -586,18 +585,21 @@ function RedesignHeader({ daypart }: { daypart: DaypartKey }) {
 
 export default function LandingRedesign() {
     const reduce = useReducedMotion();
-    const [active, setActive] = useState<number>(2); // default: aperitivo (oro, invitante)
-    const [paused, setPaused] = useState(false);
+    // Reduced-motion → nessun loop, fascia statica di default (Pranzo).
+    // Altrimenti si parte da Mattino e si scorre in loop da soli.
+    const [active, setActive] = useState<number>(() => (reduce ? 1 : 0));
+    const [autoPlay, setAutoPlay] = useState(true);
     const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
-    // Unico movimento atmosferico: la giornata avanza da sola.
+    // La giornata avanza da sola in loop finché l'utente non tocca un tab:
+    // al primo click/tap il controllo passa a lui, per sempre.
     useEffect(() => {
-        if (reduce || paused) return;
+        if (reduce || !autoPlay) return;
         const id = window.setInterval(() => {
             setActive((i) => (i + 1) % DAYPARTS.length);
         }, AUTO_MS);
         return () => window.clearInterval(id);
-    }, [reduce, paused]);
+    }, [reduce, autoPlay]);
 
     // Scroll fluido sugli anchor interni. Applicato sull'elemento che scrolla
     // davvero (la root <html>), solo mentre il redesign è montato (revert
@@ -624,6 +626,7 @@ export default function LandingRedesign() {
                     e.key === "ArrowRight"
                         ? (i + 1) % DAYPARTS.length
                         : (i - 1 + DAYPARTS.length) % DAYPARTS.length;
+                setAutoPlay(false);
                 setActive(next);
                 tabsRef.current[next]?.focus();
             }
@@ -636,14 +639,7 @@ export default function LandingRedesign() {
             <RedesignHeader daypart={dp.key} />
 
             {/* ============ HERO — la giornata che scorre ============ */}
-            <header
-                className={s.hero}
-                data-daypart={dp.key}
-                onMouseEnter={() => setPaused(true)}
-                onMouseLeave={() => setPaused(false)}
-                onFocusCapture={() => setPaused(true)}
-                onBlurCapture={() => setPaused(false)}
-            >
+            <header className={s.hero} data-daypart={dp.key}>
                 {/* Sfondo "giornata": cielo che vira (crossfade) + sole che arca +
                     orizzonte di Portofino costante con lucine serali */}
                 <div className={s.scene} aria-hidden="true">
@@ -688,7 +684,11 @@ export default function LandingRedesign() {
 
                         {/* Demo prodotto — superficie bianca costante, sempre leggibile */}
                         <div className={s.stage}>
-                            <div className={s.device}>
+                            <div
+                                className={s.device}
+                                role="img"
+                                aria-label={`Anteprima del menu di ${HERO_PLACEHOLDER_NAME}`}
+                            >
                                 <div className={s.deviceChrome}>
                                     <span className={s.dots}>
                                         <i className={s.dot} />
@@ -696,7 +696,7 @@ export default function LandingRedesign() {
                                         <i className={s.dot} />
                                     </span>
                                     <span className={s.deviceUrl}>
-                                        cataloglobe.app/<b>{HERO_DEMO.slug}</b>
+                                        cataloglobe.app/<b>{HERO_PLACEHOLDER_SLUG}</b>
                                     </span>
                                 </div>
 
@@ -740,23 +740,6 @@ export default function LandingRedesign() {
                                         ))}
                                     </motion.ul>
                                 </AnimatePresence>
-
-                                <div className={s.deviceFoot}>
-                                    <span className={s.qrFrame}>
-                                        <QRCodeSVG
-                                            value={HUB_URL}
-                                            size={58}
-                                            level="M"
-                                            aria-label={`QR code del menu di ${HERO_DEMO.name}`}
-                                        />
-                                    </span>
-                                    <span className={s.footCopy}>
-                                        <span className={s.footTitle}>Un solo QR sul tavolo</span>
-                                        <span className={s.footSub}>
-                                            Il cliente inquadra: trova sempre il menu dell'ora giusta.
-                                        </span>
-                                    </span>
-                                </div>
                             </div>
 
                             {/* Tablist fasce del giorno */}
@@ -777,29 +760,29 @@ export default function LandingRedesign() {
                                         className={`${s.daypartTab} ${
                                             i === active ? s.daypartActive : ""
                                         }`}
-                                        onClick={() => setActive(i)}
+                                        onClick={() => {
+                                            setAutoPlay(false);
+                                            setActive(i);
+                                        }}
                                         onKeyDown={(e) => onTabKey(e, i)}
                                     >
                                         <span className={s.daypartName}>{d.tabName}</span>
                                         <span className={s.daypartTime}>{d.time}</span>
+
+                                        {/* Avanzamento della fascia corrente — filo dentro
+                                            il pill attivo, non una barra esterna. */}
+                                        {i === active && !reduce && autoPlay && (
+                                            <span className={s.daypartFill} aria-hidden="true">
+                                                <span
+                                                    key={active}
+                                                    className={s.daypartFillBar}
+                                                    style={{ animationDuration: `${AUTO_MS}ms` }}
+                                                />
+                                            </span>
+                                        )}
                                     </button>
                                 ))}
                             </div>
-
-                            {!reduce && (
-                                <div className={s.dayTrack} aria-hidden="true">
-                                    <motion.div
-                                        key={`${active}-${paused}`}
-                                        className={s.dayTrackFill}
-                                        initial={{ width: "0%" }}
-                                        animate={{ width: paused ? "0%" : "100%" }}
-                                        transition={{
-                                            duration: paused ? 0 : AUTO_MS / 1000,
-                                            ease: "linear",
-                                        }}
-                                    />
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
