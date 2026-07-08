@@ -9,10 +9,10 @@
    ================================================================ */
 
 .page {
-  /* brand token (DESIGN.md) */
-  --indigo: #6366f1;
-  --indigo-deep: #4648c6; /* white-on-this = 5.9:1, per testo/bottoni */
-  --indigo-soft: #eef0fe;
+  /* brand token — allineati al sistema (_theme.scss), non duplicati a mano */
+  --indigo: var(--brand-primary);
+  --indigo-deep: var(--brand-primary-hover); /* white-on-this = 5.9:1, per testo/bottoni */
+  --indigo-soft: var(--brand-primary-soft);
 
   /* neutrali chrome (slate family) */
   --ink: #14161f; /* ~15:1 su bianco */
@@ -140,7 +140,7 @@
     transform 0.18s ease;
 
   &:hover {
-    background: #393bb0;
+    background: color-mix(in srgb, var(--indigo-deep) 85%, black);
     transform: translateY(-1px);
   }
   &:focus-visible {
@@ -440,7 +440,7 @@
     transform 0.2s ease;
 
   &:hover {
-    background: #393bb0;
+    background: color-mix(in srgb, var(--indigo-deep) 85%, black);
     transform: translateY(-1px);
   }
   &:focus-visible {
@@ -1881,7 +1881,7 @@
   color: #fff;
   border: none;
   &:hover {
-    background: #393bb0;
+    background: color-mix(in srgb, var(--indigo-deep) 85%, black);
   }
 }
 .planCtaGhost {
@@ -2044,7 +2044,7 @@
     transform 0.18s ease;
 
   &:hover:not(:disabled) {
-    background: #393bb0;
+    background: color-mix(in srgb, var(--indigo-deep) 85%, black);
     transform: translateY(-1px);
   }
   &:disabled {
@@ -2100,14 +2100,11 @@
     grid-template-columns: 1.3fr 2fr;
   }
 }
-.footerLogo {
-  font-family: var(--serif);
-  font-size: 22px;
-  font-weight: 600;
-  color: #fff;
-}
-.footerGlobe {
-  color: #b9c0ff;
+.footerLogoImg {
+  height: 32px;
+  width: auto;
+  display: block;
+  filter: brightness(0) invert(1);
 }
 .footerDesc {
   font-family: var(--sans);
