@@ -407,33 +407,40 @@ function ProductRowInner({
                 {optionGroups && optionGroups.length > 0 && (
                     <span className={styles.customizableHint}>{t("product.badge_customizable")}</span>
                 )}
-                {hasCardCharacteristics && (
-                    <div className={styles.characteristicEmojis}>
-                        {visibleCharacteristics.map(c => (
-                            <span key={c.id} className={styles.characteristicEmoji}>
-                                <CharacteristicIcon
-                                    icon={c.icon}
-                                    size={20}
-                                    label={c.label}
-                                />
-                            </span>
-                        ))}
-                        {hiddenCharacteristicCount > 0 && (
-                            <span className={styles.characteristicMore}>
-                                +{hiddenCharacteristicCount}
-                            </span>
+                {(hasAllergens || hasCardCharacteristics) && (
+                    <div className={styles.emojiRow}>
+                        {hasAllergens && (
+                            <div className={styles.allergenEmojis}>
+                                {visibleAllergens.map(a => (
+                                    <span key={a.id} className={styles.allergenEmoji}>
+                                        <AllergenIcon code={a.code} size={20} label={a.label} />
+                                    </span>
+                                ))}
+                                {hiddenCount > 0 && (
+                                    <span className={styles.allergenMore}>+{hiddenCount}</span>
+                                )}
+                            </div>
                         )}
-                    </div>
-                )}
-                {hasAllergens && (
-                    <div className={styles.allergenEmojis}>
-                        {visibleAllergens.map(a => (
-                            <span key={a.id} className={styles.allergenEmoji}>
-                                <AllergenIcon code={a.code} size={20} label={a.label} />
-                            </span>
-                        ))}
-                        {hiddenCount > 0 && (
-                            <span className={styles.allergenMore}>+{hiddenCount}</span>
+                        {hasAllergens && hasCardCharacteristics && (
+                            <span className={styles.emojiDivider} aria-hidden="true" />
+                        )}
+                        {hasCardCharacteristics && (
+                            <div className={styles.characteristicEmojis}>
+                                {visibleCharacteristics.map(c => (
+                                    <span key={c.id} className={styles.characteristicEmoji}>
+                                        <CharacteristicIcon
+                                            icon={c.icon}
+                                            size={20}
+                                            label={c.label}
+                                        />
+                                    </span>
+                                ))}
+                                {hiddenCharacteristicCount > 0 && (
+                                    <span className={styles.characteristicMore}>
+                                        +{hiddenCharacteristicCount}
+                                    </span>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}
@@ -556,33 +563,40 @@ function ProductCompactRowInner({
                         )}
                     </span>
                 )}
-                {hasCardCharacteristics && (
-                    <div className={styles.compactCharacteristics}>
-                        {visibleCharacteristics.map(c => (
-                            <span key={c.id} className={styles.characteristicEmoji}>
-                                <CharacteristicIcon
-                                    icon={c.icon}
-                                    size={16}
-                                    label={c.label}
-                                />
-                            </span>
-                        ))}
-                        {hiddenCharacteristicCount > 0 && (
-                            <span className={styles.characteristicMore}>
-                                +{hiddenCharacteristicCount}
-                            </span>
+                {(hasAllergens || hasCardCharacteristics) && (
+                    <div className={styles.compactEmojiRow}>
+                        {hasAllergens && (
+                            <div className={styles.compactAllergens}>
+                                {visibleAllergens.map(a => (
+                                    <span key={a.id} className={styles.allergenEmoji}>
+                                        <AllergenIcon code={a.code} size={16} label={a.label} />
+                                    </span>
+                                ))}
+                                {hiddenCount > 0 && (
+                                    <span className={styles.allergenMore}>+{hiddenCount}</span>
+                                )}
+                            </div>
                         )}
-                    </div>
-                )}
-                {hasAllergens && (
-                    <div className={styles.compactAllergens}>
-                        {visibleAllergens.map(a => (
-                            <span key={a.id} className={styles.allergenEmoji}>
-                                <AllergenIcon code={a.code} size={16} label={a.label} />
-                            </span>
-                        ))}
-                        {hiddenCount > 0 && (
-                            <span className={styles.allergenMore}>+{hiddenCount}</span>
+                        {hasAllergens && hasCardCharacteristics && (
+                            <span className={styles.compactEmojiDivider} aria-hidden="true" />
+                        )}
+                        {hasCardCharacteristics && (
+                            <div className={styles.compactCharacteristics}>
+                                {visibleCharacteristics.map(c => (
+                                    <span key={c.id} className={styles.characteristicEmoji}>
+                                        <CharacteristicIcon
+                                            icon={c.icon}
+                                            size={16}
+                                            label={c.label}
+                                        />
+                                    </span>
+                                ))}
+                                {hiddenCharacteristicCount > 0 && (
+                                    <span className={styles.characteristicMore}>
+                                        +{hiddenCharacteristicCount}
+                                    </span>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}

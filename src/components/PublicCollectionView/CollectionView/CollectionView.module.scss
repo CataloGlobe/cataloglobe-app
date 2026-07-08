@@ -349,22 +349,32 @@
   overflow: hidden;
 }
 
-/* Compact allergens — smaller icons to match the lighter style */
+/* Compact allergen/characteristic row — allergens first, then a divider, then characteristics */
+.compactEmojiRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 5px;
+}
+
+.compactEmojiDivider {
+  align-self: stretch;
+  width: 1px;
+  background: color-mix(in srgb, var(--pub-bg-text) 20%, transparent);
+}
+
 .compactAllergens {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 3px;
-  margin-top: 5px;
 }
 
-/* Compact characteristics — same density as compactAllergens, sits above */
 .compactCharacteristics {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 3px;
-  margin-top: 5px;
 }
 
 /* ----------------------------------------------------
@@ -846,12 +856,25 @@
   color: var(--pub-bg-text-secondary);
 }
 
+/* Allergen/characteristic row — allergens first, then a divider, then characteristics */
+.emojiRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.emojiDivider {
+  align-self: stretch;
+  width: 1px;
+  background: var(--pub-surface-border);
+}
+
 .allergenEmojis {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 4px;
 }
 
 .allergenEmoji {
@@ -873,13 +896,11 @@
   line-height: 1;
 }
 
-/* Characteristics row — claim icons rendered above allergens */
 .characteristicEmojis {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
   gap: 4px;
-  margin-top: 4px;
 }
 
 .characteristicEmoji {
