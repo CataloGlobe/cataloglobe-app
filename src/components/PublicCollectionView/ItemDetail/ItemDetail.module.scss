@@ -192,6 +192,77 @@
     gap: 8px;
 }
 
+/* Rimando storia — reverse-link (sub-fase 6). Card simmetrica del "Dal menu"
+   nel lettore storia (StoryReader.module.scss .productLink), stessa treatment
+   di PairingDetailCard (background --pub-surface + border color-mix). */
+.storyLinkCard {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: var(--pub-radius, 12px);
+    border: 1px solid color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface));
+    background: var(--pub-surface);
+    cursor: pointer;
+    text-align: left;
+    font: inherit;
+    transition: box-shadow 0.15s ease, transform 0.15s ease;
+
+    &:hover {
+        box-shadow: var(--pub-card-shadow-hover);
+        transform: translateY(-1px);
+    }
+}
+
+.storyLinkThumb {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--pub-btn-radius, 8px);
+    object-fit: cover;
+    flex-shrink: 0;
+}
+
+.storyLinkThumbPlaceholder {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--pub-btn-radius, 8px);
+    background: var(--pub-primary-soft, rgba(99, 102, 241, 0.1));
+    color: var(--pub-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.storyLinkBody {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.storyLinkLabel {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--pub-accent);
+}
+
+.storyLinkTitle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.storyLinkArrow {
+    flex-shrink: 0;
+    color: var(--pub-surface-text-muted);
+}
+
 .characteristicSectionLabel {
     color: var(--pub-text);
 }

@@ -276,6 +276,7 @@ export default function Catalogs() {
 
         return catalogs.filter(catalog => catalog.name.toLowerCase().includes(normalizedSearch));
     }, [catalogs, searchQuery]);
+    const allCatalogIds = useMemo(() => catalogs.map(c => c.id), [catalogs]);
 
     const columns: ColumnDefinition<V2Catalog>[] = [
         {
@@ -406,6 +407,7 @@ export default function Catalogs() {
                 ) : (
                     <DataTable<V2Catalog>
                         data={filteredCatalogs}
+                        allRowIds={allCatalogIds}
                         columns={columns}
                         selectable={canWriteCatalog}
                         onBulkDelete={canWriteCatalog ? handleBulkDelete : undefined}

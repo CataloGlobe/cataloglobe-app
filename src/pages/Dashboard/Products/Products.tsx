@@ -198,6 +198,19 @@ export default function Products() {
         return rows;
     }, [filteredProducts, expandedRows]);
 
+    // Id completi (pre-ricerca) per la prune-selection: stessa logica di
+    // espansione varianti, ma su allProducts invece del set filtrato.
+    const allTableRowIds = useMemo(() => {
+        const ids: string[] = [];
+        allProducts.forEach(product => {
+            ids.push(product.id);
+            if (expandedRows.has(product.id)) {
+                (product.variants || []).forEach(variant => ids.push(variant.id));
+            }
+        });
+        return ids;
+    }, [allProducts, expandedRows]);
+
     // Handlers
     const handleCreateBase = useCallback(() => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
@@ -527,6 +540,7 @@ export default function Products() {
                         ) : viewMode === "list" ? (
                             <DataTable<ProductTableRow>
                                 data={tableRows}
+                                allRowIds={allTableRowIds}
                                 columns={columns}
                                 selectable={canWriteProduct}
                                 onBulkDelete={canWriteProduct ? handleBulkDelete : undefined}

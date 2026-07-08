@@ -1,6 +1,12 @@
 // Wrapper di pagina: nessun padding/margin verticale aggiuntivo —
 // il ritmo navbar→banda→contenuto deriva da `MainLayout .content` (24px).
 .page {
+  // Catena flex vincolata (template Cataloghi): propaga l'altezza bounded di
+  // `MainLayout .content` fino al `.autoSizeProbe` del DataTable. Entrambe le
+  // tab (Membri / Inviti) rendono una tabella come bare flex-child qui, quindi
+  // il vincolo vale per tutte senza scoping per-tab.
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 2rem;

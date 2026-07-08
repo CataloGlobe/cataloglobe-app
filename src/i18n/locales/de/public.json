@@ -16,7 +16,8 @@
     "hub": {
         "menu": "Menü",
         "events": "Veranstaltungen & Promo",
-        "reviews": "Erzählen Sie uns Ihre"
+        "reviews": "Erzählen Sie uns Ihre",
+        "storia": "Geschichte"
     },
     "header": {
         "info_aria": "Informationen zum Veranstaltungsort",
@@ -315,6 +316,20 @@
             "currency": "€{{value}}",
             "years": "{{value}} Jahre"
         }
+    },
+    "story": {
+        "loading": "Wird geladen...",
+        "error": "Ladefehler.",
+        "empty": "Derzeit keine Geschichten verfügbar.",
+        "section_title": "Einblicke",
+        "read_cta": "Lesen",
+        "website_cta": "Website besuchen",
+        "list_aria": "Geschichten des Standorts",
+        "back_to_list": "Zurück zu den Geschichten",
+        "product_link": "Aus der Speisekarte → {{name}}",
+        "video_unavailable": "Video nicht verfügbar",
+        "video_aria": "Video der Geschichte",
+        "discover_label": "Geschichte entdecken"
     },
     "reviews": {
         "rating_labels": {

@@ -225,6 +225,47 @@ export async function updateTenantName(tenantId: string, name: string): Promise<
 }
 
 /**
+ * Brand-level "cappello" story fields (public-facing, hence the
+ * revalidatePublicCatalogForTenant call — same shape as updateTenantName).
+ */
+export interface TenantStorySettings {
+    story_cover: string | null;
+    story_title: string | null;
+    story_intro: string | null;
+    website: string | null;
+}
+
+export async function getTenantStorySettings(tenantId: string): Promise<TenantStorySettings> {
+    const { data, error } = await supabase
+        .from("tenants")
+        .select("story_cover, story_title, story_intro, website")
+        .eq("id", tenantId)
+        .single();
+    if (error) throw error;
+    return data as TenantStorySettings;
+}
+
+/**
+ * Gated on stories.write via SECURITY DEFINER RPC, NOT on tenants RLS
+ * (owner-only, would silently 0-row admin/manager). Lets manager reach the
+ * cappello too — tenant.manage doesn't cover manager, stories.write does.
+ */
+export async function updateTenantStorySettings(
+    tenantId: string,
+    settings: TenantStorySettings
+): Promise<void> {
+    const { error } = await supabase.rpc("update_tenant_story_settings", {
+        p_tenant_id: tenantId,
+        p_story_cover: settings.story_cover,
+        p_story_title: settings.story_title,
+        p_story_intro: settings.story_intro,
+        p_website: settings.website
+    });
+    if (error) throw error;
+    void revalidatePublicCatalogForTenant(tenantId);
+}
+
+/**
  * Billing identity (intestatario fattura) persisted on the tenant row.
  * All identity fields are nullable; only `country` is always set.
  */

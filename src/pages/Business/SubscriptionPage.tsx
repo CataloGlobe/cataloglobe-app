@@ -15,7 +15,12 @@ import {
     previewScheduledChange,
     updateScheduledChange
 } from "@/services/supabase/billing";
-import type { SubscriptionChangePreview, SubscriptionState } from "@/services/supabase/billing";
+import type {
+    ConsumedDiscountThisPeriod,
+    SubscriptionChangePreview,
+    SubscriptionDiscount,
+    SubscriptionState
+} from "@/services/supabase/billing";
 import { getPlanByCode, listPublicPlans } from "@/services/supabase/plans";
 import { getActivityCount } from "@/services/supabase/activities";
 import { calculateGraduatedFromPlan } from "@/utils/pricing";
@@ -29,7 +34,19 @@ import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
-import { ExternalLink, CreditCard, Shield, Lock, Info, Mail, Pencil, AlertTriangle, XCircle, RotateCcw } from "lucide-react";
+import {
+    ExternalLink,
+    CreditCard,
+    Shield,
+    Lock,
+    Info,
+    Mail,
+    Pencil,
+    AlertTriangle,
+    XCircle,
+    RotateCcw,
+    BadgePercent
+} from "lucide-react";
 import type { Plan, PlanCode } from "@/types/plan";
 import styles from "./SubscriptionPage.module.scss";
 
@@ -50,6 +67,51 @@ function formatEuro(value: number): string {
 
 function formatCents(cents: number): string {
     return formatEuro(cents / 100);
+}
+
+/** Riga testuale sconto: unico pattern per percent_off/amount_off × forever/scadenza. */
+function formatDiscountLine(discount: SubscriptionDiscount): string {
+    const amountText =
+        discount.percentOff != null
+            ? `-${discount.percentOff}%`
+            : discount.amountOff != null
+            ? `-${formatCents(discount.amountOff)}`
+            : "";
+    const untilText =
+        discount.duration === "repeating"
+            ? `fino al ${formatDate(discount.end)}`
+            : discount.duration === "once"
+            ? "applicato al prossimo rinnovo, poi prezzo pieno"
+            : "per sempre";
+    return `Sconto ${amountText} ${untilText}`;
+}
+
+/**
+ * Nota informativa per sconto già consumato sul periodo corrente (coupon `once`
+ * rimosso da Stripe a fattura finalizzata). Tono passato ("è costato"), non
+ * promozionale: nessun prezzo barrato, il prezzo pieno vale già dal prossimo
+ * rinnovo. L'importo pagato viene dal totale reale della fattura Stripe.
+ */
+function formatConsumedDiscountNote(discount: ConsumedDiscountThisPeriod, fullPrice: number): string {
+    const amountText =
+        discount.percentOff != null
+            ? `-${discount.percentOff}%`
+            : discount.amountOff != null
+            ? `-${formatCents(discount.amountOff)}`
+            : "";
+    const paidText = formatCents(discount.invoiceTotal);
+    const base =
+        discount.invoiceTotal === 0
+            ? `Il periodo corrente è costato ${paidText}`
+            : `Il periodo corrente è costato ${paidText} invece di ${formatEuro(fullPrice)}`;
+    return amountText ? `${base} (sconto ${amountText} applicato)` : base;
+}
+
+/** Prezzo pieno → prezzo scontato applicando il coupon Stripe (percent_off o amount_off). */
+function applyDiscount(fullPrice: number, discount: SubscriptionDiscount): number {
+    if (discount.percentOff != null) return fullPrice * (1 - discount.percentOff / 100);
+    if (discount.amountOff != null) return Math.max(0, fullPrice - discount.amountOff / 100);
+    return fullPrice;
 }
 
 /** Traduce i codici d'errore dell'edge di cambio abbonamento in messaggi UI. */
@@ -216,6 +278,14 @@ export default function SubscriptionPage() {
     const displayMonthly = optimisticMonthlyCents != null
         ? optimisticMonthlyCents / 100
         : currentPricing.subtotal;
+
+    // Coupon Stripe attivo (letto live dall'edge "state"). Il prezzo scontato
+    // resta puramente informativo: l'addebito reale lo calcola Stripe.
+    const activeDiscount = subState?.discount ?? null;
+    const discountedMonthly = activeDiscount ? applyDiscount(displayMonthly, activeDiscount) : null;
+    // Sconto `once` già consumato ma relativo al periodo corrente: nota
+    // informativa, niente prezzo barrato (il pieno vale già dal prossimo rinnovo).
+    const consumedDiscount = activeDiscount ? null : subState?.consumedDiscountThisPeriod ?? null;
 
     const renewalDateText = (() => {
         if (status === "trialing") {
@@ -598,15 +668,40 @@ export default function SubscriptionPage() {
                         <Text variant="caption" colorVariant="muted">
                             Prezzo attuale
                         </Text>
-                        <Text variant="title-sm" weight={700}>
-                            {formatEuro(displayMonthly)}/mese
-                        </Text>
+                        {activeDiscount && discountedMonthly != null ? (
+                            <span className={styles.priceRow}>
+                                <Text variant="body" weight={500} colorVariant="muted" className={styles.priceStrikethrough}>
+                                    {formatEuro(displayMonthly)}
+                                </Text>
+                                <Text variant="title-sm" weight={700}>
+                                    {formatEuro(discountedMonthly)}/mese
+                                </Text>
+                            </span>
+                        ) : (
+                            <Text variant="title-sm" weight={700}>
+                                {formatEuro(displayMonthly)}/mese
+                            </Text>
+                        )}
+                        {activeDiscount && (
+                            <Text variant="body-sm" colorVariant="success" weight={500}>
+                                {formatDiscountLine(activeDiscount)}
+                            </Text>
+                        )}
                     </div>
                 </div>
 
                 <Text variant="body-sm" colorVariant="muted">
                     {displaySeats} {displaySeats === 1 ? "sede attiva" : "sedi attive"} sul piano {displayPlanName}
                 </Text>
+
+                {consumedDiscount && (
+                    <div className={styles.consumedNote}>
+                        <BadgePercent size={16} />
+                        <Text variant="body-sm" weight={500}>
+                            {formatConsumedDiscountNote(consumedDiscount, displayMonthly)}
+                        </Text>
+                    </div>
+                )}
 
                 {cancelAtPeriodEnd ? (
                     <div className={styles.cancelNote}>

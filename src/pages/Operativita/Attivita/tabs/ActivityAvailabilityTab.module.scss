@@ -1,10 +1,15 @@
 .layout {
+    // Tab-local (montata solo su availability): anello della catena bounded.
+    // Banner fisso sopra, ActivityVisibilityContent cresce e scrolla interno.
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 18px;
 }
 
 .banner {
+    flex: 0 0 auto;
     display: flex;
     gap: 14px;
     padding: 16px 20px;

@@ -2,4 +2,9 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   gap: 1.5rem;
+  // Vista grid (tab Sedi) dentro `.businesses` ora bounded: scroll interno
+  // quando le card eccedono lo spazio, senza flex-grow (card ad altezza
+  // naturale, non stirate). Pattern Highlights/Stili.
+  min-height: 0;
+  overflow-y: auto;
 }

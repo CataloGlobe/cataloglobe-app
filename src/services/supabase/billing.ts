@@ -235,6 +235,27 @@ export type SubscriptionPendingChange = {
     effectiveDate: string | null;
 };
 
+/** Coupon Stripe attivo sulla subscription (`discounts[0].coupon`), o null. */
+export type SubscriptionDiscount = {
+    /** Percentuale di sconto (es. 100 per "100% off"), null se il coupon è amount_off. */
+    percentOff: number | null;
+    /** Sconto fisso in centesimi, null se il coupon è percent_off. */
+    amountOff: number | null;
+    /** ISO 4217 lowercase, presente solo per coupon amount_off. */
+    currency: string | null;
+    /** ISO di scadenza del coupon (duration `repeating`), null se `once`/`forever`. */
+    end: string | null;
+    name: string | null;
+    /** `once` = si applica solo al prossimo rinnovo, poi prezzo pieno. `forever` = sempre. `repeating` = fino a `end`. */
+    duration: "forever" | "once" | "repeating";
+};
+
+/** Sconto già consumato sul periodo corrente + totale effettivo della fattura scontata. */
+export type ConsumedDiscountThisPeriod = SubscriptionDiscount & {
+    /** Totale effettivamente addebitato dalla fattura scontata, in centesimi (stessa unità di `amountOff`). */
+    invoiceTotal: number;
+};
+
 export type SubscriptionState = {
     /** ISO del fine periodo corrente. */
     currentPeriodEnd: string | null;
@@ -242,6 +263,16 @@ export type SubscriptionState = {
     cancelAtPeriodEnd: boolean;
     /** Cambio piano/sedi programmato al rinnovo, o null. */
     pendingChange: SubscriptionPendingChange | null;
+    /** Coupon attivo, o null. Popolato solo dall'action "state". */
+    discount?: SubscriptionDiscount | null;
+    /**
+     * Sconto già consumato ma relativo al periodo corrente, o null. Copre il
+     * caso coupon `once` rimosso da Stripe alla finalizzazione della fattura:
+     * non è uno sconto attivo sul futuro (niente prezzo barrato), solo nota
+     * informativa sul perché il periodo in corso è costato meno. Mutuamente
+     * esclusivo con `discount`. Popolato solo dall'action "state".
+     */
+    consumedDiscountThisPeriod?: ConsumedDiscountThisPeriod | null;
 };
 
 async function invokeBillingAction<T>(

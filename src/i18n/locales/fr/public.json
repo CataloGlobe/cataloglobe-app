@@ -16,7 +16,8 @@
   "hub": {
     "menu": "Menu",
     "events": "Événements et promotions",
-    "reviews": "Dites-nous ce qu'il en est"
+    "reviews": "Dites-nous ce qu'il en est",
+    "storia": "Histoire"
   },
   "header": {
     "info_aria": "Informations sur le lieu",
@@ -315,6 +316,20 @@
       "currency": "€{{value}}",
       "years": "{{value}} années"
     }
+  },
+  "story": {
+    "loading": "Chargement...",
+    "error": "Erreur de chargement.",
+    "empty": "Aucune histoire disponible pour le moment.",
+    "section_title": "En savoir plus",
+    "read_cta": "Lire",
+    "website_cta": "Visiter le site",
+    "list_aria": "Histoires de l'établissement",
+    "back_to_list": "Retour aux histoires",
+    "product_link": "Depuis le menu → {{name}}",
+    "video_unavailable": "Vidéo non disponible",
+    "video_aria": "Vidéo de l'histoire",
+    "discover_label": "Découvrir l'histoire"
   },
   "reviews": {
     "rating_labels": {

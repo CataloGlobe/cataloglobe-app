@@ -38,6 +38,7 @@ const SearchOverlay = lazy(importSearchOverlay);
 const ItemDetail = lazy(() => import("../ItemDetail/ItemDetail"));
 const OrderingSheet = lazy(() => import("../OrderingSheet/OrderingSheet"));
 const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
+const StoryView = lazy(() => import("../StoryView/StoryView"));
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import AllergensSheet from "../AllergensSheet/AllergensSheet";
 import MoreSheet from "../MoreSheet/MoreSheet";
@@ -153,6 +154,9 @@ export type CollectionViewSectionItem = {
         price: number | null;
         note: string | null;
     }[];
+    /** Reverse-link storia → prodotto (sub-fase 6). Passthrough diretto dal
+     *  payload risolto (già { id, title, cover }, nessuna hydration extra). */
+    story_ref?: { id: string; title: string; cover: string | null };
 };
 
 export type CollectionViewSection = {
@@ -403,33 +407,40 @@ function ProductRowInner({
                 {optionGroups && optionGroups.length > 0 && (
                     <span className={styles.customizableHint}>{t("product.badge_customizable")}</span>
                 )}
-                {hasCardCharacteristics && (
-                    <div className={styles.characteristicEmojis}>
-                        {visibleCharacteristics.map(c => (
-                            <span key={c.id} className={styles.characteristicEmoji}>
-                                <CharacteristicIcon
-                                    icon={c.icon}
-                                    size={20}
-                                    label={c.label}
-                                />
-                            </span>
-                        ))}
-                        {hiddenCharacteristicCount > 0 && (
-                            <span className={styles.characteristicMore}>
-                                +{hiddenCharacteristicCount}
-                            </span>
+                {(hasAllergens || hasCardCharacteristics) && (
+                    <div className={styles.emojiRow}>
+                        {hasAllergens && (
+                            <div className={styles.allergenEmojis}>
+                                {visibleAllergens.map(a => (
+                                    <span key={a.id} className={styles.allergenEmoji}>
+                                        <AllergenIcon code={a.code} size={20} label={a.label} />
+                                    </span>
+                                ))}
+                                {hiddenCount > 0 && (
+                                    <span className={styles.allergenMore}>+{hiddenCount}</span>
+                                )}
+                            </div>
                         )}
-                    </div>
-                )}
-                {hasAllergens && (
-                    <div className={styles.allergenEmojis}>
-                        {visibleAllergens.map(a => (
-                            <span key={a.id} className={styles.allergenEmoji}>
-                                <AllergenIcon code={a.code} size={20} label={a.label} />
-                            </span>
-                        ))}
-                        {hiddenCount > 0 && (
-                            <span className={styles.allergenMore}>+{hiddenCount}</span>
+                        {hasAllergens && hasCardCharacteristics && (
+                            <span className={styles.emojiDivider} aria-hidden="true" />
+                        )}
+                        {hasCardCharacteristics && (
+                            <div className={styles.characteristicEmojis}>
+                                {visibleCharacteristics.map(c => (
+                                    <span key={c.id} className={styles.characteristicEmoji}>
+                                        <CharacteristicIcon
+                                            icon={c.icon}
+                                            size={20}
+                                            label={c.label}
+                                        />
+                                    </span>
+                                ))}
+                                {hiddenCharacteristicCount > 0 && (
+                                    <span className={styles.characteristicMore}>
+                                        +{hiddenCharacteristicCount}
+                                    </span>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}
@@ -552,33 +563,40 @@ function ProductCompactRowInner({
                         )}
                     </span>
                 )}
-                {hasCardCharacteristics && (
-                    <div className={styles.compactCharacteristics}>
-                        {visibleCharacteristics.map(c => (
-                            <span key={c.id} className={styles.characteristicEmoji}>
-                                <CharacteristicIcon
-                                    icon={c.icon}
-                                    size={16}
-                                    label={c.label}
-                                />
-                            </span>
-                        ))}
-                        {hiddenCharacteristicCount > 0 && (
-                            <span className={styles.characteristicMore}>
-                                +{hiddenCharacteristicCount}
-                            </span>
+                {(hasAllergens || hasCardCharacteristics) && (
+                    <div className={styles.compactEmojiRow}>
+                        {hasAllergens && (
+                            <div className={styles.compactAllergens}>
+                                {visibleAllergens.map(a => (
+                                    <span key={a.id} className={styles.allergenEmoji}>
+                                        <AllergenIcon code={a.code} size={16} label={a.label} />
+                                    </span>
+                                ))}
+                                {hiddenCount > 0 && (
+                                    <span className={styles.allergenMore}>+{hiddenCount}</span>
+                                )}
+                            </div>
                         )}
-                    </div>
-                )}
-                {hasAllergens && (
-                    <div className={styles.compactAllergens}>
-                        {visibleAllergens.map(a => (
-                            <span key={a.id} className={styles.allergenEmoji}>
-                                <AllergenIcon code={a.code} size={16} label={a.label} />
-                            </span>
-                        ))}
-                        {hiddenCount > 0 && (
-                            <span className={styles.allergenMore}>+{hiddenCount}</span>
+                        {hasAllergens && hasCardCharacteristics && (
+                            <span className={styles.compactEmojiDivider} aria-hidden="true" />
+                        )}
+                        {hasCardCharacteristics && (
+                            <div className={styles.compactCharacteristics}>
+                                {visibleCharacteristics.map(c => (
+                                    <span key={c.id} className={styles.characteristicEmoji}>
+                                        <CharacteristicIcon
+                                            icon={c.icon}
+                                            size={16}
+                                            label={c.label}
+                                        />
+                                    </span>
+                                ))}
+                                {hiddenCharacteristicCount > 0 && (
+                                    <span className={styles.characteristicMore}>
+                                        +{hiddenCharacteristicCount}
+                                    </span>
+                                )}
+                            </div>
                         )}
                     </div>
                 )}
@@ -660,6 +678,11 @@ type Props = {
     onTabChange?: (tab: HubTab) => void;
     /** Tutti i featured contents (before_catalog + after_catalog) per la vista eventi. */
     featuredContents?: V2FeaturedContent[];
+    /** True se il catalogo ha almeno una storia pubblicata risolvibile per la sede
+     *  (flag `has_story` da resolve-public-catalog). Gate del tab "storia": nessun
+     *  tab vuoto per locali senza storie. Assente nei mock StylePreview → tab
+     *  nascosto in preview (comportamento voluto, sub-fase 7 lo introdurrà). */
+    hasStory?: boolean;
     /** Props per il tab ReviewsView (solo public). */
     reviewsProps?: ReviewsViewProps;
     /** ID della sede — usato come chiave sessionStorage per la selezione prodotti. */
@@ -742,6 +765,7 @@ export default function CollectionView({
     activeTab = "menu",
     onTabChange,
     featuredContents = [],
+    hasStory = false,
     reviewsProps,
     activityId,
     paymentMethods,
@@ -831,6 +855,8 @@ export default function CollectionView({
     const pendingScrollTargetIdRef = useRef<string | null>(null);
     const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [selectedItem, setSelectedItem] = useState<CollectionViewSectionItem | null>(null);
+    // Vedi effect "Chiudi il dettaglio prodotto al cambio di tab" più sotto.
+    const skipNextTabCloseRef = useRef(false);
     // openSeq: incrementato ad ogni openItemDetail. Forza re-render anche quando
     // l'utente riapre lo STESSO item (React altrimenti bailoutta il setState con
     // identica reference). Propagato in contentKey verso PublicSheet → l'abort
@@ -910,6 +936,9 @@ export default function CollectionView({
 
     // ── More sheet ──────────────────────────────────────────────────────────
     const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
+
+    // ── Tab Storia: predisposizione lettore (sub-fase 5 renderizza il contenuto) ──
+    const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
 
     // ── Allergen filter (customer-side, sessionStorage per-activity) ────────
     // Hydration-safe: default vuoto in render (= server), lettura sessionStorage
@@ -1064,6 +1093,9 @@ export default function CollectionView({
     // before/after, gia filtrata post-scheduling a monte). In preview SEMPRE
     // visibile: superficie di design, mostra tutte le tab anche senza contenuti.
     const showEventsTab = mode === "preview" ? true : featuredContents.length > 0;
+    // Nessuna surface preview per "storia": has_story assente nei mock StylePreview
+    // (sub-fase 7 introdurrà l'anteprima) → tab semplicemente nascosto in preview.
+    const showStoryTab = hasStory === true;
 
     // Array piatto di tutte le sezioni (L1+L2+L3) — usato da SearchOverlay
     const sections = useMemo(
@@ -1384,6 +1416,31 @@ export default function CollectionView({
         return null;
     }, [sectionGroups]);
 
+    // Rimando prodotto dal lettore storia (sub-fase 5): chiude il lettore,
+    // torna al tab Menu e apre l'ItemDetail dello stesso meccanismo del
+    // catalogo. onTabChange diretto (non handleHubTabTap, definito più sotto)
+    // — nessun re-tap possibile da qui, il tab di partenza è sempre "storia".
+    const openProductFromStory = useCallback((productId: string) => {
+        const p = findProductById(productId);
+        if (!p) return;
+        skipNextTabCloseRef.current = true;
+        setSelectedStoryId(null);
+        onTabChange?.("menu");
+        openItemDetail(p);
+    }, [findProductById, onTabChange, openItemDetail]);
+
+    // Reverse-link storia dal prodotto (sub-fase 6): chiude l'ItemDetail,
+    // passa al tab Storia e apre il lettore sulla storia collegata. Direzione
+    // opposta di openProductFromStory — qui NON serve skipNextTabCloseRef:
+    // nessun effect resetta selectedStoryId al cambio tab (StoryView si
+    // smonta/rimonta ma selectedStoryId vive in CollectionView ed è già
+    // valorizzato al mount, quindi il lettore si apre subito).
+    const openStoryFromProduct = useCallback((storyId: string) => {
+        setSelectedItem(null);
+        onTabChange?.("storia");
+        setSelectedStoryId(storyId);
+    }, [onTabChange]);
+
     // Aggiunge un abbinato per id (upsell D3). Add DIRETTO: non passa dal
     // detail né riapre l'upsell → un solo livello, nessuna ricorsione.
     const addPairingToSelection = useCallback((pairedProductId: string) => {
@@ -1695,7 +1752,16 @@ export default function CollectionView({
     }, [activeSectionId, sectionGroups]);
 
     // ── Chiudi il dettaglio prodotto al cambio di tab ────────────────────────
+    // skipNextTabCloseRef: quando il cambio tab è CAUSATO dall'apertura di un
+    // prodotto (rimando storia → "Dal menu"), il tab passa a "menu" nello
+    // stesso evento in cui selectedItem viene valorizzato — questo effect
+    // girerebbe comunque sul nuovo activeTab e cancellerebbe subito il
+    // selectedItem appena aperto. Il flag salta UNA sola chiusura.
     useEffect(() => {
+        if (skipNextTabCloseRef.current) {
+            skipNextTabCloseRef.current = false;
+            return;
+        }
         setSelectedItem(null);
     }, [activeTab]);
 
@@ -2205,6 +2271,7 @@ export default function CollectionView({
                     // nasconde ≤640px quando la bottom-bar è attiva (public).
                     showHubTabs
                     showEventsTab={showEventsTab}
+                    showStoryTab={showStoryTab}
                     allergensCount={allergenFilterIds.length}
                     onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
                     selectionCount={selectionCount}
@@ -2515,6 +2582,7 @@ export default function CollectionView({
                                             mode={mode}
                                             showImage={style.productStyle !== "compact" && style.cardTemplate !== "no-image"}
                                             orderingDisabled={itemDetailOrderingDisabled}
+                                            onOpenStory={openStoryFromProduct}
                                             onAddToSelection={
                                                 mode === "public" &&
                                                 activeTab === "menu" &&
@@ -2604,6 +2672,20 @@ export default function CollectionView({
                 </Suspense>
             )}
 
+            {activeTab === "storia" && slug && (
+                <Suspense fallback={null}>
+                    {/* Stesso meccanismo di Eventi/Recensioni: superficie a pattern che taglia l'hero. */}
+                    <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
+                        <StoryView
+                            slug={slug}
+                            selectedStoryId={selectedStoryId}
+                            onSelectStory={setSelectedStoryId}
+                            onOpenProduct={openProductFromStory}
+                        />
+                    </div>
+                </Suspense>
+            )}
+
             {/* ── BOTTOM NAV BAR pubblica — public + mobile. Sostituisce tab header + azioni desktop ≤640px. ── */}
             {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}
             {/* Preview mobile: barra montata SOLO per fedeltà di layout, completamente
@@ -2613,6 +2695,7 @@ export default function CollectionView({
                     activeTab={mode === "preview" ? "menu" : activeTab}
                     onTabChange={mode === "preview" ? () => {} : handleHubTabTap}
                     showEventsTab={showEventsTab}
+                    showStoryTab={showStoryTab}
                     selectionCount={selectionCount}
                     cartVisible={mode === "preview" ? orderingActive && !shouldHideOrderingEntry : !shouldHideOrderingEntry}
                     onOpenCart={mode === "preview" ? () => {} : openOrdering}

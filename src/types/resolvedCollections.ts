@@ -150,6 +150,9 @@ export type ResolvedProduct = {
      *  immagine dell'abbinato NON viaggiano qui: li risolve il frontend con
      *  lookup by-id nel catalogo risolto. */
     pairings?: { paired_product_id: string; note: string | null; sort_order: number }[];
+    /** Reverse-link storia → prodotto (sub-fase 6). Presente solo se una storia
+     *  pubblicata e risolvibile per la sede punta a questo prodotto. */
+    story_ref?: { id: string; title: string; cover: string | null };
 };
 
 export type ResolvedCategory = {

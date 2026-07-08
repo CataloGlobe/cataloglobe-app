@@ -72,6 +72,11 @@ interface DataTableProps<T> {
     selectedRowIds?: string[];
     onSelectedRowsChange?: (ids: string[]) => void;
     onBulkDelete?: (ids: string[]) => void;
+    /** Id dell'intero dataset PRIMA di eventuale filtro di ricerca client-side.
+     *  Se passato, la selezione viene podata contro questo set (distingue
+     *  "riga cancellata" da "riga filtrata dalla ricerca") invece che contro
+     *  `data` (già filtrato). Se omesso, comportamento invariato. */
+    allRowIds?: string[];
     /** Label custom per il pulsante azione nella BulkBar. */
     bulkActionLabel?: string;
     showSelectionBar?: boolean;
@@ -225,7 +230,8 @@ export function DataTable<T>({
     highlightedRowIds,
     disabledRowIds,
     getRowId = defaultGetRowId,
-    rowWrapper
+    rowWrapper,
+    allRowIds
 }: DataTableProps<T>) {
     const maxHeight = maxHeightProp ?? DEFAULT_MAX_HEIGHT;
     const maxHeightIsExplicit = maxHeightProp !== undefined;
@@ -256,15 +262,47 @@ export function DataTable<T>({
         [selected, isSelectionControlled, onSelectedRowsChange]
     );
 
-    // id-aware reset: drop ids that no longer exist in data
+    // id-aware reset: drop ids that no longer exist in the dataset.
+    // Se `allRowIds` è fornito (parent con ricerca client-side), la poda usa
+    // il set NON filtrato → distingue "cancellata" (assente da allRowIds) da
+    // "filtrata" (presente in allRowIds, assente da data corrente → NON poda).
+    // Se assente, comportamento identico a prima: poda contro `data` corrente.
     const allCurrentIds = useMemo(
         () => data.map((row, i) => getRowId(row, i)),
         [data, getRowId]
     );
+    const pruneAgainstIds = allRowIds ?? allCurrentIds;
+
+    // ─── Loaded-latch: gate contro race di mount ───────────────────────────
+    // Il prune sotto non deve svuotare una selezione pre-popolata dal parent
+    // mentre `data`/`allRowIds` sono ancora "[]" per un fetch in corso. Parte
+    // SEMPRE false (mai un default ottimistico su `isLoading` al primo render:
+    // molti call-site inizializzano `loading` a `false` e lo alzano solo
+    // dentro un proprio effect, che gira DOPO quello del DataTable nello
+    // stesso commit — un default `!isLoading` al mount arriverebbe quindi
+    // troppo tardi). Scatta UNA VOLTA (mai più false) al primo tra:
+    // `pruneAgainstIds` si popola (>0) — copre sia i call-site che montano
+    // già con dati pronti (il flip avviene nello stesso giro di effect del
+    // prune, nessun ritardo) sia il caso di fetch completato — oppure
+    // `isLoading` transita true→false (copre il caso dataset genuinamente
+    // vuoto con `isLoading` gestito correttamente dal call-site).
+    const hasLoadedRef = useRef(false);
+    const prevIsLoadingRef = useRef(isLoading);
 
     useEffect(() => {
+        if (!hasLoadedRef.current) {
+            if (pruneAgainstIds.length > 0 || (prevIsLoadingRef.current && !isLoading)) {
+                hasLoadedRef.current = true;
+            }
+        }
+        prevIsLoadingRef.current = isLoading;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoading, pruneAgainstIds.join("|")]);
+
+    useEffect(() => {
+        if (!hasLoadedRef.current) return;
         if (selected.length === 0) return;
-        const existing = new Set(allCurrentIds);
+        const existing = new Set(pruneAgainstIds);
         const filtered = selected.filter(id => existing.has(id));
         if (filtered.length !== selected.length) {
             if (!isSelectionControlled) {
@@ -273,7 +311,7 @@ export function DataTable<T>({
             onSelectedRowsChange?.(filtered);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [allCurrentIds.join("|")]);
+    }, [pruneAgainstIds.join("|"), isLoading]);
 
     // ─── Grid template ──────────────────────────────────────────────────────
     const gridStyle = useMemo<CSSProperties>(() => {

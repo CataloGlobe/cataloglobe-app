@@ -52,7 +52,20 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
 
     // ── Mobile: motion value drives BOTH drag and programmatic animation ────
     // Drag e animazione scrivono sullo stesso valore → nessun conflitto di posizione.
-    const vh = typeof window !== "undefined" ? window.innerHeight : 800;
+    // vh in state (non costante one-shot): su rotazione/resize l'altezza viewport
+    // cambia, e backdropOpacity sotto deve ricalcolare il range su quella nuova
+    // altezza — altrimenti il backdrop può restare a opacity≈0 (invisibile) pur
+    // essendo montato e cliccabile, bloccando l'input silenziosamente.
+    const [vh, setVh] = useState(() => (typeof window !== "undefined" ? window.innerHeight : 800));
+    useEffect(() => {
+        const updateVh = () => setVh(window.innerHeight);
+        window.addEventListener("resize", updateVh);
+        window.addEventListener("orientationchange", updateVh);
+        return () => {
+            window.removeEventListener("resize", updateVh);
+            window.removeEventListener("orientationchange", updateVh);
+        };
+    }, []);
     const y = useMotionValue(vh);
     // L'opacity dell'overlay segue la posizione y della sheet in tempo reale
     const backdropOpacity = useTransform(y, [0, vh * 0.6], [1, 0]);
@@ -323,6 +336,19 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             isClosingRef.current = false;
         })();
     }, [isOpen, isMobile, shouldRender, animateOutMobile]);
+
+    // ── Resync shouldRender su cambio breakpoint ────────────────────────────
+    // Il ramo mobile monta/smonta in base a `shouldRender`, azzerato SOLO dal
+    // path di chiusura mobile (animateOutMobile). Il path desktop chiude via
+    // onClose+AnimatePresence senza mai toccare `shouldRender` — se il
+    // breakpoint viene attraversato due volte (mobile→desktop→mobile) con una
+    // chiusura in mezzo fatta dal ramo desktop, `shouldRender` resta stale
+    // `true` e al rientro su mobile rimonta backdrop+panel anche a isOpen=false,
+    // bloccando l'input silenziosamente. Risincronizza ad ogni cambio ramo.
+    useEffect(() => {
+        setShouldRender(isOpen);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isMobile]);
 
     // ── Escape key ───────────────────────────────────────────────────────────
     useEffect(() => {

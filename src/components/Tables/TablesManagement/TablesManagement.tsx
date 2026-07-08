@@ -161,6 +161,7 @@ export function TablesManagement({
         }
         return result;
     }, [items, searchQuery]);
+    const allItemIds = useMemo(() => items.map(t => t.id), [items]);
 
     // ── Handlers ──
     function openCreate() {
@@ -543,6 +544,7 @@ export function TablesManagement({
                 ) : (
                     <DataTable<V2TableWithState>
                         data={filteredItems}
+                        allRowIds={allItemIds}
                         columns={columns}
                         isLoading={isLoading}
                         selectable={canManage}

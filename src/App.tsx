@@ -70,6 +70,8 @@ const Products = lazy(() => import("./pages/Dashboard/Products/Products"));
 const ProductPage = lazy(() => import("./pages/Dashboard/Products/ProductPage"));
 const Highlights = lazy(() => import("./pages/Dashboard/Highlights/Highlights"));
 const FeaturedContentDetailPage = lazy(() => import("./pages/Dashboard/Highlights/FeaturedContentDetailPage"));
+const Stories = lazy(() => import("./pages/Dashboard/Stories/Stories"));
+const StoryDetailPage = lazy(() => import("./pages/Dashboard/Stories/StoryDetailPage"));
 const Styles = lazy(() => import("./pages/Dashboard/Styles/Styles"));
 const StyleEditorPage = lazy(() => import("./pages/Dashboard/Styles/StyleEditorPage"));
 const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/ActivityDetailPage"));
@@ -225,6 +227,11 @@ export default function App() {
                 <Route path="featured">
                     <Route index element={<Highlights />} />
                     <Route path=":featuredId" element={<FeaturedContentDetailPage />} />
+                </Route>
+
+                <Route path="stories">
+                    <Route index element={<Stories />} />
+                    <Route path=":storyId" element={<StoryDetailPage />} />
                 </Route>
 
                 <Route path="styles">

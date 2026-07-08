@@ -94,6 +94,10 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
         () => filteredAttributes.filter(a => a.tenant_id !== null),
         [filteredAttributes]
     );
+    const allTenantAttrIds = useMemo(
+        () => allAttributes.filter(a => a.tenant_id !== null).map(a => a.id),
+        [allAttributes]
+    );
 
     const handleCreate = () => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
@@ -254,6 +258,7 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                 )}
                 <DataTable<V2ProductAttributeDefinition>
                     data={tenantAttrs}
+                    allRowIds={allTenantAttrIds}
                     columns={tenantColumns}
                     isLoading={isLoading}
                     selectable

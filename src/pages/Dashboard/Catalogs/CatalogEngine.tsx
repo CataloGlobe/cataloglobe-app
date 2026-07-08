@@ -1619,61 +1619,7 @@ export default function CatalogEngine() {
     );
 
     const assignColumns = useMemo<ColumnDefinition<V2Product>[]>(() => {
-        const selectableIds = assignableProducts
-            .filter(p => !inheritedProductIds.has(p.id))
-            .map(p => p.id);
-        const allSelected =
-            selectableIds.length > 0 && selectableIds.every(id => assignSelectedIds.includes(id));
-        const someSelected =
-            !allSelected && selectableIds.some(id => assignSelectedIds.includes(id));
-
         return [
-            {
-                id: "select",
-                header: (
-                    <input
-                        type="checkbox"
-                        checked={allSelected}
-                        ref={(el: HTMLInputElement | null) => {
-                            if (el) el.indeterminate = someSelected;
-                        }}
-                        onChange={e => {
-                            if (e.target.checked) {
-                                setAssignSelectedIds(prev => {
-                                    const next = new Set(prev);
-                                    selectableIds.forEach(id => next.add(id));
-                                    return Array.from(next);
-                                });
-                            } else {
-                                setAssignSelectedIds(prev =>
-                                    prev.filter(id => !selectableIds.includes(id))
-                                );
-                            }
-                        }}
-                        aria-label="Seleziona tutti"
-                    />
-                ),
-                width: "48px",
-                cell: (_value, row) => {
-                    const isInherited = inheritedProductIds.has(row.id);
-                    const isSelected = isInherited || assignSelectedIds.includes(row.id);
-                    return (
-                        <input
-                            type="checkbox"
-                            checked={isSelected}
-                            disabled={isInherited}
-                            onChange={e => {
-                                setAssignSelectedIds(prev =>
-                                    e.target.checked
-                                        ? prev.includes(row.id) ? prev : [...prev, row.id]
-                                        : prev.filter(id => id !== row.id)
-                                );
-                            }}
-                            aria-label="Seleziona"
-                        />
-                    );
-                }
-            },
             {
                 id: "name",
                 header: "Prodotto",
@@ -1753,13 +1699,16 @@ export default function CatalogEngine() {
             }
         ];
     }, [
-        assignableProducts,
         inheritedProductIds,
-        assignSelectedIds,
         currentTenantId,
         formatPriceByProductId,
         formatsCountByProductId
     ]);
+
+    const assignMergedSelectedIds = useMemo(
+        () => Array.from(new Set([...assignSelectedIds, ...inheritedProductIds])),
+        [assignSelectedIds, inheritedProductIds]
+    );
 
     const renderRightPane = () => {
         if (!selectedCategory) {
@@ -2263,6 +2212,15 @@ export default function CatalogEngine() {
                                 <DataTable<V2Product>
                                     data={assignableProducts}
                                     columns={assignColumns}
+                                    selectable
+                                    selectedRowIds={assignMergedSelectedIds}
+                                    onSelectedRowsChange={next =>
+                                        setAssignSelectedIds(
+                                            next.filter(id => !inheritedProductIds.has(id))
+                                        )
+                                    }
+                                    isRowSelectable={row => !inheritedProductIds.has(row.id)}
+                                    allRowIds={allProducts.map(p => p.id)}
                                     emptyState={{
                                         title: "Nessun prodotto disponibile da associare."
                                     }}

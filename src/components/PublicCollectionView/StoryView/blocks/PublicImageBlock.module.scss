@@ -1,0 +1,16 @@
+.figure {
+  margin: 0;
+}
+
+.image {
+  width: 100%;
+  border-radius: var(--pub-radius, 12px);
+  display: block;
+}
+
+.caption {
+  margin-top: 6px;
+  font-size: 12px;
+  font-style: italic;
+  color: var(--pub-text-secondary);
+}

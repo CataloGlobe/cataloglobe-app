@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Package, Sparkles, X } from "lucide-react";
+import { ChevronRight, Package, ScrollText, Sparkles, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
@@ -43,6 +43,10 @@ type Props = {
      * "Ordinazioni sospese". Il dettaglio prodotto resta leggibile.
      */
     orderingDisabled?: boolean;
+    /** Reverse-link storia (sub-fase 6): apre il lettore sulla storia collegata
+     *  (chiude questo detail + switch tab Storia, gestito dal parent). Assente
+     *  → nessuna card rimando anche se item.story_ref è presente. */
+    onOpenStory?: (storyId: string) => void;
 };
 
 export default function ItemDetail({
@@ -56,7 +60,8 @@ export default function ItemDetail({
     initialAddons,
     submitLabel,
     showImage = true,
-    orderingDisabled = false
+    orderingDisabled = false,
+    onOpenStory
 }: Props) {
     const { t } = useTranslation("public");
     const submitLabelResolved = submitLabel ?? t("item_detail.submit_default");
@@ -331,6 +336,43 @@ export default function ItemDetail({
                             </div>
                         )}
 
+                        {/* RIMANDO STORIA — reverse-link (sub-fase 6), card simmetrica del
+                            "Dal menu → prodotto" nel lettore storia. Assente se il prodotto
+                            non ha una storia collegata (o onOpenStory non fornito, es. preview). */}
+                        {displayItem.story_ref && onOpenStory && (
+                            <button
+                                type="button"
+                                className={styles.storyLinkCard}
+                                onClick={() => onOpenStory(displayItem.story_ref!.id)}
+                            >
+                                {displayItem.story_ref.cover ? (
+                                    <img
+                                        src={displayItem.story_ref.cover}
+                                        alt=""
+                                        className={styles.storyLinkThumb}
+                                    />
+                                ) : (
+                                    <div className={styles.storyLinkThumbPlaceholder}>
+                                        <ScrollText size={18} strokeWidth={1.5} />
+                                    </div>
+                                )}
+                                <div className={styles.storyLinkBody}>
+                                    <span className={styles.storyLinkLabel}>
+                                        {t("story.discover_label")}
+                                    </span>
+                                    <Text
+                                        variant="body-sm"
+                                        weight={700}
+                                        className={styles.storyLinkTitle}
+                                        color="var(--pub-surface-text)"
+                                    >
+                                        {displayItem.story_ref.title}
+                                    </Text>
+                                </div>
+                                <ChevronRight size={18} className={styles.storyLinkArrow} />
+                            </button>
+                        )}
+
                         {/* ADD-ON (non-PRIMARY_PRICE) */}
                         {nonPrimaryGroups.length > 0 && (
                             onAddToSelection ? (
@@ -445,23 +487,6 @@ export default function ItemDetail({
                             )
                         )}
 
-                        {/* CARATTERISTICHE — flat layout, sort_order from server */}
-                        {displayItem.characteristics && displayItem.characteristics.length > 0 && (
-                            <div className={styles.characteristicSection}>
-                                <Text variant="body-sm" weight={700} className={styles.characteristicSectionLabel} color="var(--pub-surface-text)">
-                                    {t("characteristics.title")}
-                                </Text>
-                                <div className={styles.characteristicBadges}>
-                                    {displayItem.characteristics.map(c => (
-                                        <span key={c.id} className={styles.characteristicBadge}>
-                                            <CharacteristicIcon icon={c.icon} size={14} variant="bare" />
-                                            {c.label}
-                                        </span>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         {/* ALLERGENI */}
                         {displayItem.allergens && displayItem.allergens.length > 0 && (
                             <div className={styles.allergenSection}>
@@ -473,6 +498,23 @@ export default function ItemDetail({
                                         <span key={a.id} className={styles.allergenBadge}>
                                             <AllergenIcon code={a.code} size={14} variant="bare" />
                                             {a.label}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* CARATTERISTICHE — flat layout, sort_order from server */}
+                        {displayItem.characteristics && displayItem.characteristics.length > 0 && (
+                            <div className={styles.characteristicSection}>
+                                <Text variant="body-sm" weight={700} className={styles.characteristicSectionLabel} color="var(--pub-surface-text)">
+                                    {t("characteristics.title")}
+                                </Text>
+                                <div className={styles.characteristicBadges}>
+                                    {displayItem.characteristics.map(c => (
+                                        <span key={c.id} className={styles.characteristicBadge}>
+                                            <CharacteristicIcon icon={c.icon} size={14} variant="bare" />
+                                            {c.label}
                                         </span>
                                     ))}
                                 </div>

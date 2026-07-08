@@ -5,6 +5,12 @@
    ROOT WRAPPER
 ---------------------------------------------------- */
 .businesses {
+  // Catena flex vincolata (template Cataloghi/Team): propaga l'altezza bounded
+  // di `MainLayout .content` fino al `.autoSizeProbe` del DataTable. Contenitore
+  // page-local condiviso dai 2 tab (Sedi = BusinessList / Gruppi =
+  // ActivityGroupsSection): entrambi rendono la tabella come flex-child qui.
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 1rem;

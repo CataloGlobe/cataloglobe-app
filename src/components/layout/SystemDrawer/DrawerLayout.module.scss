@@ -22,6 +22,15 @@
   -webkit-overflow-scrolling: touch;
 }
 
+// Opt-in (prop `bodyLayout="flex"`): rende il body un flex-container così che
+// un figlio con `flex:1 1 auto` (es. il wrapper di un DataTable auto-size)
+// riceva l'altezza bounded. Default `"block"` non attiva nulla → nessuna
+// regressione sugli altri drawer.
+.body[data-body-layout="flex"] {
+  display: flex;
+  flex-direction: column;
+}
+
 .footer {
   flex: 0 0 auto;
   padding: 1rem 1.5rem;

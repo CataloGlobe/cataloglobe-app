@@ -1,4 +1,4 @@
-export type HubTab = "menu" | "events" | "reviews";
+export type HubTab = "menu" | "events" | "reviews" | "storia";
 
 export type CardTemplate = "left" | "right" | "no-image";
 export type SectionNavStyle = "filled" | "outline" | "tabs" | "minimal" | "tinted";

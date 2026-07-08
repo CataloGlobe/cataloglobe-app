@@ -193,6 +193,7 @@ function mapProductToItem(
         ...(p.ingredients && p.ingredients.length > 0 ? { ingredients: p.ingredients } : {}),
         ...(p.notes && p.notes.length > 0 ? { notes: p.notes } : {}),
         ...(pairings && pairings.length > 0 ? { pairings } : {}),
+        ...(p.story_ref ? { story_ref: p.story_ref } : {}),
         is_disabled: p.is_disabled ?? false
     };
 }
@@ -331,7 +332,8 @@ export default function PublicCatalogReady({
         allergens,
         effectiveLanguage,
         baseLanguage,
-        availableLanguages
+        availableLanguages,
+        hasStory
     } = data;
 
     // NOTA SSR (stage 4): randomUUID a render-time diverge server↔client.
@@ -446,6 +448,7 @@ export default function PublicCatalogReady({
                 activeTab={activeTab}
                 onTabChange={onTabChange}
                 featuredContents={allFeaturedContents}
+                hasStory={hasStory}
                 featuredBeforeCatalogSlot={
                     resolved.featured?.before_catalog &&
                     resolved.featured.before_catalog.length > 0 ? (

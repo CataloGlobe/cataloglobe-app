@@ -15,6 +15,17 @@
   }
 }
 
+// Catena flex vincolata per la tab Storico (template Prodotti/Cataloghi):
+// propaga l'altezza bounded di `MainLayout .content` fino al `.autoSizeProbe`
+// del DataTable, così l'auto-pagesize misura lo spazio reale invece del
+// fallback. A TUTTE le larghezze (tabella normale, scroll interno anche su
+// mobile). Scoped su [data-active-tab="storico"] per non vincolare
+// Comande (kanban) e Tavoli (card), che restano ad altezza auto → page-scroll.
+.container[data-active-tab="storico"] {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
 
 .headerActions {
   display: flex;
@@ -75,6 +86,11 @@
 }
 
 .historySection {
+  // Anello intermedio della catena flex Storico: toolbar (auto) + DataTable
+  // (flex:1 interno). min-height:0 rompe il default min-height:auto così il
+  // probe del DataTable misura l'altezza bounded ereditata da .container.
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: 16px;

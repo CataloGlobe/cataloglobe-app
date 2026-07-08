@@ -1,0 +1,13 @@
+.row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+
+  > *:first-child {
+    flex: 0 0 160px;
+  }
+
+  > *:last-child {
+    flex: 1;
+  }
+}

@@ -208,6 +208,7 @@ export function ProductGroupsEditDrawer({
 
                         <DataTable<ProductGroup>
                             data={filteredGroups}
+                            allRowIds={allGroups.map(g => g.id)}
                             columns={columns}
                             selectable
                             showSelectionBar={false}

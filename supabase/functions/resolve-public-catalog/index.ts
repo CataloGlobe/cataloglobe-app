@@ -346,10 +346,17 @@ serve(async (req: Request) => {
 
         // Feature gate: override display flags fail-closed based on plan.
         // Errors or null from the RPC are treated as false (feature unavailable).
-        const [orderingRpc, reservationRpc] = await Promise.allSettled([
+        const [orderingRpc, reservationRpc, hasStoryRes] = await Promise.allSettled([
             supabase.rpc("activity_has_feature", { p_activity_id: activity.id, p_feature_id: "table_ordering" }),
-            supabase.rpc("activity_has_feature", { p_activity_id: activity.id, p_feature_id: "table_reservation" })
+            supabase.rpc("activity_has_feature", { p_activity_id: activity.id, p_feature_id: "table_reservation" }),
+            supabase
+                .from("stories")
+                .select("id", { count: "exact", head: true })
+                .eq("tenant_id", activity.tenant_id)
+                .eq("status", "published")
+                .or(`activity_id.is.null,activity_id.eq.${activity.id}`)
         ]);
+        const hasStory = hasStoryRes.status === "fulfilled" && (hasStoryRes.value.count ?? 0) > 0;
         const hasOrdering    = orderingRpc.status    === "fulfilled" && orderingRpc.value.data    === true;
         const hasReservation = reservationRpc.status === "fulfilled" && reservationRpc.value.data === true;
         const orderingEnabledResolved     = Boolean(activity.ordering_enabled)    && hasOrdering;
@@ -400,6 +407,7 @@ serve(async (req: Request) => {
                     resolved: {
                         featured: { hero: [], before_catalog: [], after_catalog: [] }
                     },
+                    has_story: hasStory,
                     canonical_slug: isAliasMatch ? activity.slug : null
                 }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": cacheControl } }
@@ -512,6 +520,50 @@ serve(async (req: Request) => {
                     }
                 }
             }
+
+            // 3d. Reverse-link storia → prodotto (sub-fase 6). Query piccola e
+            // sparsa: solo storie pubblicate/risolvibili per questa sede con
+            // product_id valorizzato, stesso clamp del feed storie (tenant +
+            // status='published' + activity_id NULL o = sede). Se più storie
+            // puntano allo stesso prodotto vince la prima per sort_order poi
+            // created_at (stesso ordinamento del feed) — deterministico.
+            if (activeIds.length > 0) {
+                const { data: storyData, error: storyErr } = await supabase
+                    .from("stories")
+                    .select("id, title, cover_media, product_id")
+                    .eq("tenant_id", activity.tenant_id)
+                    .eq("status", "published")
+                    .or(`activity_id.is.null,activity_id.eq.${activity.id}`)
+                    .not("product_id", "is", null)
+                    .in("product_id", activeIds)
+                    .order("sort_order", { ascending: true })
+                    .order("created_at", { ascending: true });
+
+                if (storyErr) {
+                    console.error("[resolver] stories reverse-link fetch failed:", storyErr);
+                } else {
+                    type RawStoryRow = {
+                        id: string;
+                        title: string;
+                        cover_media: string | null;
+                        product_id: string;
+                    };
+                    const rows = (storyData ?? []) as RawStoryRow[];
+                    const storyByProductId = new Map<string, RawStoryRow>();
+                    for (const row of rows) {
+                        // Già ordinate per sort_order/created_at: prima occorrenza vince.
+                        if (!storyByProductId.has(row.product_id)) {
+                            storyByProductId.set(row.product_id, row);
+                        }
+                    }
+                    for (const [productId, story] of storyByProductId) {
+                        const product = productsById.get(productId);
+                        if (product) {
+                            product.story_ref = { id: story.id, title: story.title, cover: story.cover_media };
+                        }
+                    }
+                }
+            }
         }
 
         const opening_hours = hoursResult.data ?? undefined;
@@ -602,6 +654,7 @@ serve(async (req: Request) => {
                     resolved: {
                         featured: { hero: [], before_catalog: [], after_catalog: [] }
                     },
+                    has_story: hasStory,
                     canonical_slug: isAliasMatch ? activity.slug : null
                 }),
                 { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json", "Cache-Control": cacheControl } }
@@ -651,6 +704,7 @@ serve(async (req: Request) => {
                 tenantLogoUrl,
                 resolved,
                 vertical_type,
+                has_story: hasStory,
                 canonical_slug: isAliasMatch ? activity.slug : null,
                 effective_language: effectiveLang,
                 base_language_code: baseLanguage,

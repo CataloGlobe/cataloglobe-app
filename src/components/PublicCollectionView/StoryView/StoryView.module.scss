@@ -1,0 +1,214 @@
+@use "@styles/mixins" as *;
+
+/* View-swap del lettore: overlay assoluto che scorre da destra sopra il feed
+   (transform, NON PublicSheet — vedi StoryReader). overflow-x:hidden clippa
+   il pannello durante la transizione; overflow-y esplicito a visible evita
+   che il computed value auto-converta creando un secondo scroll container
+   (regola CSS: overflow-x non-visible + overflow-y:visible → overflow-y:auto). */
+.viewport {
+  position: relative;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.readerOverlay {
+  position: absolute;
+  inset: 0;
+  min-height: 100%;
+  background: var(--pub-bg);
+  z-index: 1;
+}
+
+.stateBlock {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 12px;
+  padding: 4rem 2rem;
+  min-height: 40vh;
+}
+
+.emptyIcon {
+  color: var(--pub-bg-text-muted);
+}
+
+.root {
+  width: 100%;
+}
+
+/* ── Cappello ─────────────────────────────────────────────────────────── */
+
+.cappello {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 1.5rem 0 1rem;
+  text-align: center;
+}
+
+.cappelloCover {
+  width: 100%;
+  max-width: 480px;
+  aspect-ratio: 16 / 9;
+  margin: 0 auto 12px;
+  border-radius: var(--pub-radius, 12px);
+  overflow: hidden;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.cappelloTitle {
+  margin: 0;
+  font-family: var(--pub-font-family);
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--pub-text);
+}
+
+.cappelloIntro {
+  margin: 0 auto;
+  max-width: 60ch;
+  font-size: 14px;
+  line-height: 1.6;
+  color: var(--pub-text-secondary);
+}
+
+.cappelloWebsite {
+  align-self: center;
+  margin-top: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--pub-primary);
+  text-decoration: none;
+
+  @include hover {
+    text-decoration: underline;
+  }
+}
+
+/* ── Feed "Approfondimenti" ───────────────────────────────────────────── */
+
+.sectionTitle {
+  margin: 1.5rem 0 1rem;
+  font-family: var(--pub-font-family);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--pub-text);
+}
+
+/* Nessun container-type proprio: la griglia vive dentro il context `collection`
+   già dichiarato dall'ancestor CollectionView (stesso pattern di FeaturedBlock). */
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: 20px;
+  padding: 0 0 1.5rem;
+
+  @container collection (min-width: 700px) {
+    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
+    gap: 24px;
+  }
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--pub-radius, 12px);
+  overflow: hidden;
+  cursor: pointer;
+  border: 1px solid var(--pub-surface-border);
+  background: var(--pub-surface);
+  box-shadow: var(--pub-card-shadow);
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  padding: 0;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+
+  @include hover {
+    box-shadow: var(--pub-card-shadow-hover);
+    transform: translateY(-1px);
+  }
+}
+
+.cardCover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--pub-radius) var(--pub-radius) 0 0;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+}
+
+.cardCoverPlaceholder {
+  width: 100%;
+  height: 100%;
+  background: var(--pub-primary-soft, rgba(99, 102, 241, 0.1));
+}
+
+.cardBody {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px 16px;
+}
+
+.cardEyebrow {
+  display: inline-block;
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: var(--pub-btn-radius, 4px);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--pub-primary);
+  background: var(--pub-primary-soft, rgba(99, 102, 241, 0.1));
+  margin-bottom: 4px;
+}
+
+.cardTitle {
+  font-family: var(--pub-font-family);
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--pub-text);
+}
+
+.cardExcerpt {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--pub-text-secondary);
+}
+
+.cardProduct {
+  display: inline-block;
+  align-self: flex-start;
+  margin-top: 4px;
+  padding: 3px 10px;
+  border-radius: var(--pub-btn-radius, 999px);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--pub-text-secondary);
+  border: 1px solid var(--pub-surface-border);
+}
+
+.cardCta {
+  margin-top: 8px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--pub-primary);
+}

@@ -276,6 +276,7 @@ export function ProductGroupCreateEditDrawer({
 
                         <DataTable<ProductPickerItem>
                             data={filteredProducts}
+                            allRowIds={allProducts.map(p => p.id)}
                             columns={pickerColumns}
                             isLoading={isLoadingProducts}
                             selectable

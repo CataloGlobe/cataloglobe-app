@@ -22,7 +22,6 @@ import styles from "./Highlights.module.scss";
 
 import { useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
-import { useTenant } from "@/context/useTenant";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnAnyActivity } from "@/lib/permissions";
@@ -31,7 +30,6 @@ import { PageGate } from "@/components/PageGate/PageGate";
 export default function Highlights() {
     const { showToast } = useToast();
     const tenantId = useTenantId();
-    const { selectedTenant } = useTenant();
     const { canEdit } = useSubscriptionGuard();
     const { permissions } = usePermissions();
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "featured.write") : false;
@@ -187,6 +185,7 @@ export default function Highlights() {
             item.internal_name.toLowerCase().includes(q)
         );
     }, [contents, searchQuery]);
+    const allContentIds = useMemo(() => contents.map(c => c.id), [contents]);
 
     const columns: ColumnDefinition<FeaturedContentWithProducts>[] = [
         {
@@ -279,6 +278,7 @@ export default function Highlights() {
                     ) : viewMode === "list" ? (
                         <DataTable<FeaturedContentWithProducts>
                             data={filteredContents}
+                            allRowIds={allContentIds}
                             columns={columns}
                             selectable={canWrite}
                             onBulkDelete={canWrite ? handleBulkDelete : undefined}

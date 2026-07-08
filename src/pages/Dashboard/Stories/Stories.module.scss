@@ -1,0 +1,87 @@
+// Mirrors Highlights.module.scss — same page-wrapper rhythm.
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
+.loadingState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+  gap: 8px;
+}
+
+.titleCell {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.subtitle {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dragHandle {
+  cursor: grab;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.pickerField {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.warningBox {
+  display: flex;
+  gap: 16px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-warning-50);
+  border: 1px solid var(--color-warning-200);
+}
+
+.brandPanel {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.brandCoverPreview {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+}
+
+.brandPanelFooter {
+  display: flex;
+  justify-content: flex-end;
+}

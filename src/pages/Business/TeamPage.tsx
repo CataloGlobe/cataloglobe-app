@@ -86,7 +86,7 @@ function ActivitiesCell({ member }: { member: TenantMemberRow }) {
 }
 
 export default function TeamPage() {
-    const { selectedTenant, selectedTenantId } = useTenant();
+    const { selectedTenantId } = useTenant();
     const { showToast } = useToast();
 
     const [members, setMembers] = useState<TenantMemberRow[]>([]);
@@ -132,6 +132,20 @@ export default function TeamPage() {
         }
         return result;
     }, [members, search]);
+
+    // Id completi (pre-ricerca) per tab, cosi la prune-selection distingue
+    // "membro rimosso" da "membro filtrato dalla ricerca".
+    const allActiveMemberIds = useMemo(
+        () =>
+            members
+                .filter(m => m.status === "active" || m.effective_role === "owner")
+                .map(m => m.membership_id),
+        [members]
+    );
+    const allPendingInviteIds = useMemo(
+        () => members.filter(m => m.status === "pending").map(m => m.membership_id),
+        [members]
+    );
 
     const pendingCount = useMemo(
         () => members.filter(m => m.status === "pending").length,
@@ -567,6 +581,7 @@ export default function TeamPage() {
                         emptyState={membersEmptyState}
                         loadingState={membersLoadingState}
                         getRowId={row => row.membership_id}
+                        allRowIds={allActiveMemberIds}
                         selectable={canRemoveAny}
                         isRowSelectable={row =>
                             permissions
@@ -594,6 +609,7 @@ export default function TeamPage() {
                         emptyState={invitesEmptyState}
                         loadingState={membersLoadingState}
                         getRowId={row => row.membership_id}
+                        allRowIds={allPendingInviteIds}
                         selectable={canRemoveAny}
                         isRowSelectable={row =>
                             permissions

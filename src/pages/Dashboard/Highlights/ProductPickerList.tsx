@@ -167,13 +167,13 @@ export default function ProductPickerList({
             <div className={styles.tableWrap}>
                 <DataTable<ProductRow>
                     data={filteredProducts}
+                    allRowIds={products.map(p => p.id)}
                     columns={columns}
                     isLoading={loading}
                     loadingState={{ message: "Caricamento prodotti disponibili..." }}
                     emptyState={{ title: "Nessun prodotto trovato con i filtri attuali." }}
                     pageSize={25}
                     pageSizeOptions={[25, 50, 100, "all"]}
-                    maxHeight="calc(100dvh - 320px)"
                     selectable
                     selectedRowIds={selectedProductIds}
                     onSelectedRowsChange={onSelectionChange}

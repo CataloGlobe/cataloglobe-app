@@ -11,6 +11,7 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { listIngredients, deleteIngredient, V2Ingredient } from "@/services/supabase/ingredients";
 import { IngredientsCreateEditDrawer } from "./IngredientsCreateEditDrawer";
 import { IngredientsDeleteDrawer } from "./IngredientsDeleteDrawer";
+import styles from "./Ingredients.module.scss";
 
 type IngredientsProps = {
     createTrigger?: number;
@@ -71,6 +72,7 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
             ),
         [ingredients, searchQuery]
     );
+    const allIngredientIds = useMemo(() => ingredients.map(i => i.id), [ingredients]);
 
     const handleCreate = () => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
@@ -161,12 +163,12 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
     ];
 
     return (
-        <>
-            <Text variant="body-sm" colorVariant="muted" style={{ marginBottom: 20 }}>
+        <div className={styles.root}>
+            <Text variant="body-sm" colorVariant="muted" className={styles.intro}>
                 Gli ingredienti vengono associati ai prodotti per descriverne la composizione.
             </Text>
 
-            <div style={{ marginBottom: 16 }}>
+            <div className={styles.filterRow}>
                 <FilterBar
                     search={{
                         value: searchQuery,
@@ -178,6 +180,7 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
 
             <DataTable<V2Ingredient>
                 data={filteredIngredients}
+                allRowIds={allIngredientIds}
                 columns={columns}
                 isLoading={isLoading}
                 selectable
@@ -226,6 +229,6 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
                     />
                 </>
             )}
-        </>
+        </div>
     );
 }

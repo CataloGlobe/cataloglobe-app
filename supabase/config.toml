@@ -95,6 +95,12 @@ verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/resolve-public-catalog/index.ts"
 
+[functions.resolve-public-story]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/resolve-public-story/index.ts"
+
 [functions.stripe-checkout]
 enabled = true
 verify_jwt = false
