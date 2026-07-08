@@ -16,7 +16,8 @@
     "hub": {
         "menu": "Menú",
         "events": "Eventos y promociones",
-        "reviews": "Cuéntenos la suya"
+        "reviews": "Cuéntenos la suya",
+        "storia": "Historia"
     },
     "header": {
         "info_aria": "Información sobre el lugar",
@@ -315,6 +316,15 @@
             "currency": "€{{value}}",
             "years": "{{value}} años"
         }
+    },
+    "story": {
+        "loading": "Cargando...",
+        "error": "Error de carga.",
+        "empty": "Ninguna historia disponible por el momento.",
+        "section_title": "Novedades",
+        "read_cta": "Leer",
+        "website_cta": "Visitar el sitio web",
+        "list_aria": "Historias del local"
     },
     "reviews": {
         "rating_labels": {

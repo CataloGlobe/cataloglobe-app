@@ -38,6 +38,7 @@ const SearchOverlay = lazy(importSearchOverlay);
 const ItemDetail = lazy(() => import("../ItemDetail/ItemDetail"));
 const OrderingSheet = lazy(() => import("../OrderingSheet/OrderingSheet"));
 const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
+const StoryView = lazy(() => import("../StoryView/StoryView"));
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import AllergensSheet from "../AllergensSheet/AllergensSheet";
 import MoreSheet from "../MoreSheet/MoreSheet";
@@ -660,6 +661,11 @@ type Props = {
     onTabChange?: (tab: HubTab) => void;
     /** Tutti i featured contents (before_catalog + after_catalog) per la vista eventi. */
     featuredContents?: V2FeaturedContent[];
+    /** True se il catalogo ha almeno una storia pubblicata risolvibile per la sede
+     *  (flag `has_story` da resolve-public-catalog). Gate del tab "storia": nessun
+     *  tab vuoto per locali senza storie. Assente nei mock StylePreview → tab
+     *  nascosto in preview (comportamento voluto, sub-fase 7 lo introdurrà). */
+    hasStory?: boolean;
     /** Props per il tab ReviewsView (solo public). */
     reviewsProps?: ReviewsViewProps;
     /** ID della sede — usato come chiave sessionStorage per la selezione prodotti. */
@@ -742,6 +748,7 @@ export default function CollectionView({
     activeTab = "menu",
     onTabChange,
     featuredContents = [],
+    hasStory = false,
     reviewsProps,
     activityId,
     paymentMethods,
@@ -911,6 +918,9 @@ export default function CollectionView({
     // ── More sheet ──────────────────────────────────────────────────────────
     const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
 
+    // ── Tab Storia: predisposizione lettore (sub-fase 5 renderizza il contenuto) ──
+    const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
+
     // ── Allergen filter (customer-side, sessionStorage per-activity) ────────
     // Hydration-safe: default vuoto in render (= server), lettura sessionStorage
     // spostata in effect post-mount (client-only) → niente mismatch #418/#425.
@@ -1064,6 +1074,9 @@ export default function CollectionView({
     // before/after, gia filtrata post-scheduling a monte). In preview SEMPRE
     // visibile: superficie di design, mostra tutte le tab anche senza contenuti.
     const showEventsTab = mode === "preview" ? true : featuredContents.length > 0;
+    // Nessuna surface preview per "storia": has_story assente nei mock StylePreview
+    // (sub-fase 7 introdurrà l'anteprima) → tab semplicemente nascosto in preview.
+    const showStoryTab = hasStory === true;
 
     // Array piatto di tutte le sezioni (L1+L2+L3) — usato da SearchOverlay
     const sections = useMemo(
@@ -2205,6 +2218,7 @@ export default function CollectionView({
                     // nasconde ≤640px quando la bottom-bar è attiva (public).
                     showHubTabs
                     showEventsTab={showEventsTab}
+                    showStoryTab={showStoryTab}
                     allergensCount={allergenFilterIds.length}
                     onOpenMore={mode === "public" ? () => setIsMoreSheetOpen(true) : undefined}
                     selectionCount={selectionCount}
@@ -2604,6 +2618,19 @@ export default function CollectionView({
                 </Suspense>
             )}
 
+            {activeTab === "storia" && slug && (
+                <Suspense fallback={null}>
+                    {/* Stesso meccanismo di Eventi/Recensioni: superficie a pattern che taglia l'hero. */}
+                    <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
+                        <StoryView
+                            slug={slug}
+                            selectedStoryId={selectedStoryId}
+                            onSelectStory={setSelectedStoryId}
+                        />
+                    </div>
+                </Suspense>
+            )}
+
             {/* ── BOTTOM NAV BAR pubblica — public + mobile. Sostituisce tab header + azioni desktop ≤640px. ── */}
             {/* reviewDot riusa `valutaVisible` (stessa eligibilità 4h + scroll≥70% + no review <24h). */}
             {/* Preview mobile: barra montata SOLO per fedeltà di layout, completamente
@@ -2613,6 +2640,7 @@ export default function CollectionView({
                     activeTab={mode === "preview" ? "menu" : activeTab}
                     onTabChange={mode === "preview" ? () => {} : handleHubTabTap}
                     showEventsTab={showEventsTab}
+                    showStoryTab={showStoryTab}
                     selectionCount={selectionCount}
                     cartVisible={mode === "preview" ? orderingActive && !shouldHideOrderingEntry : !shouldHideOrderingEntry}
                     onOpenCart={mode === "preview" ? () => {} : openOrdering}

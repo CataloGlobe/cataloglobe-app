@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ImageIcon, MessageCircle, MoreHorizontal, Search, ShoppingBag, Sparkles, Utensils } from "lucide-react";
+import { ImageIcon, MessageCircle, MoreHorizontal, ScrollText, Search, ShoppingBag, Sparkles, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { buildCoverImageSet } from "@/utils/imageTransform";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
@@ -11,6 +11,7 @@ const HUB_TABS: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
     { id: "menu", icon: <Utensils size={14} />, labelKey: "hub.menu" },
     { id: "events", icon: <Sparkles size={14} />, labelKey: "hub.events" },
     { id: "reviews", icon: <MessageCircle size={14} />, labelKey: "hub.reviews" },
+    { id: "storia", icon: <ScrollText size={14} />, labelKey: "hub.storia" },
 ];
 
 // ── Prototype constants (authoritative — do not change) ─────────────────────
@@ -72,6 +73,9 @@ export type PublicCollectionHeaderProps = {
     /** Mostra la tab "events". Default true (retrocompatibile). Filtrata via stessa
      *  logica di PublicBottomBar quando non ci sono featured da mostrare. */
     showEventsTab?: boolean;
+    /** Mostra la tab "storia". Default false (gated su has_story dal catalogo).
+     *  Filtrata via stessa logica di PublicBottomBar. */
+    showStoryTab?: boolean;
     /** Mostra il LanguageSelector. Default true (comportamento storico). */
     showLanguageSelector?: boolean;
     /** Slot opzionale a destra del titolo (es. link "Menu" per pagine non-catalogo). */
@@ -115,6 +119,7 @@ export default function PublicCollectionHeader({
     onOpenMore,
     showHubTabs = true,
     showEventsTab = true,
+    showStoryTab = false,
     showLanguageSelector = true,
     actionSlot,
     selectionCount = 0,
@@ -434,7 +439,10 @@ export default function PublicCollectionHeader({
                                 .filter(Boolean)
                                 .join(" ")}
                         >
-                            {HUB_TABS.filter(tab => tab.id !== "events" || showEventsTab).map(tab => (
+                            {HUB_TABS.filter(tab =>
+                                (tab.id !== "events" || showEventsTab) &&
+                                (tab.id !== "storia" || showStoryTab)
+                            ).map(tab => (
                                 <button
                                     key={tab.id}
                                     type="button"

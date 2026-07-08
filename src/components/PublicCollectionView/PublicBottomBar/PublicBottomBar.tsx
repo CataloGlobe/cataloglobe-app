@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { MessageCircle, ShoppingBag, Sparkles, Utensils } from "lucide-react";
+import { MessageCircle, ScrollText, ShoppingBag, Sparkles, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { useScrollCollapse } from "../hooks/useScrollCollapse";
 import styles from "./PublicBottomBar.module.scss";
@@ -20,11 +20,12 @@ import styles from "./PublicBottomBar.module.scss";
 
 type TabDef = { id: HubTab; icon: ReactNode; labelKey: string };
 
-// ⚠️ Visibilità tab "events" sincronizzata con PublicCollectionHeader.tsx (stesso filtro)
+// ⚠️ Visibilità tab "events"/"storia" sincronizzata con PublicCollectionHeader.tsx (stesso filtro)
 const TABS: TabDef[] = [
     { id: "menu", icon: <Utensils size={19} strokeWidth={1.9} />, labelKey: "hub.menu" },
     { id: "events", icon: <Sparkles size={19} strokeWidth={1.9} />, labelKey: "hub.events" },
     { id: "reviews", icon: <MessageCircle size={19} strokeWidth={1.9} />, labelKey: "hub.reviews" },
+    { id: "storia", icon: <ScrollText size={19} strokeWidth={1.9} />, labelKey: "hub.storia" },
 ];
 
 type Props = {
@@ -32,6 +33,8 @@ type Props = {
     onTabChange: (tab: HubTab) => void;
     /** Mostra la tab "events". Default true (retrocompatibile). Sincronizzato con PublicCollectionHeader. */
     showEventsTab?: boolean;
+    /** Mostra la tab "storia". Default false (gated su has_story dal catalogo). Sincronizzato con PublicCollectionHeader. */
+    showStoryTab?: boolean;
     selectionCount: number;
     /** Mostra lo slot carrello. Allineato a `!shouldHideOrderingEntry` del parent. */
     cartVisible: boolean;
@@ -55,6 +58,7 @@ export default function PublicBottomBar({
     activeTab,
     onTabChange,
     showEventsTab = true,
+    showStoryTab = false,
     selectionCount,
     cartVisible,
     onOpenCart,
@@ -88,6 +92,7 @@ export default function PublicBottomBar({
         menu: null,
         events: null,
         reviews: null,
+        storia: null,
     });
     const [indicator, setIndicator] = useState<{ left: number; width: number }>({
         left: 0,
@@ -167,7 +172,10 @@ export default function PublicBottomBar({
                     style={{ left: indicator.left, width: indicator.width }}
                     aria-hidden="true"
                 />
-                {TABS.filter(tab => tab.id !== "events" || showEventsTab).map(tab => (
+                {TABS.filter(tab =>
+                    (tab.id !== "events" || showEventsTab) &&
+                    (tab.id !== "storia" || showStoryTab)
+                ).map(tab => (
                     <button
                         key={tab.id}
                         ref={el => {

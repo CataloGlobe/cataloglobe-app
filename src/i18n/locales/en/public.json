@@ -16,7 +16,8 @@
     "hub": {
         "menu": "Menu",
         "events": "Events & Promo",
-        "reviews": "Tell us"
+        "reviews": "Tell us",
+        "storia": "Story"
     },
     "header": {
         "info_aria": "Venue information",
@@ -315,6 +316,15 @@
             "currency": "€{{value}}",
             "years": "{{value}} years"
         }
+    },
+    "story": {
+        "loading": "Loading...",
+        "error": "Loading error.",
+        "empty": "No stories available at the moment.",
+        "section_title": "Insights",
+        "read_cta": "Read",
+        "website_cta": "Visit website",
+        "list_aria": "Venue stories"
     },
     "reviews": {
         "rating_labels": {

@@ -16,7 +16,8 @@
     "hub": {
         "menu": "Menu",
         "events": "Eventi & Promo",
-        "reviews": "Dicci la tua"
+        "reviews": "Dicci la tua",
+        "storia": "Storia"
     },
     "header": {
         "info_aria": "Informazioni sede",
@@ -315,6 +316,15 @@
             "currency": "€{{value}}",
             "years": "{{value}} anni"
         }
+    },
+    "story": {
+        "loading": "Caricamento...",
+        "error": "Errore di caricamento.",
+        "empty": "Nessuna storia disponibile al momento.",
+        "section_title": "Approfondimenti",
+        "read_cta": "Leggi",
+        "website_cta": "Visita il sito",
+        "list_aria": "Storie del locale"
     },
     "reviews": {
         "rating_labels": {

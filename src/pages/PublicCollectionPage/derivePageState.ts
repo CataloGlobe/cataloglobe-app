@@ -38,6 +38,8 @@ export type PageState =
           effectiveLanguage: string;
           baseLanguage: string;
           availableLanguages: AvailableLanguage[];
+          /** Gate del tab "storia" (has_story dal catalogo). */
+          hasStory: boolean;
           isRefetching?: boolean;
           /** True quando il payload corrente è "stale":
               - proviene dalla cache localStorage (fallback offline), OPPURE
@@ -115,7 +117,8 @@ export function derivePageState(
         effective_language,
         available_languages,
         opening_hours,
-        upcoming_closures
+        upcoming_closures,
+        has_story
     } = payload;
 
     if (subscription_inactive) {
@@ -162,6 +165,7 @@ export function derivePageState(
         allergens,
         effectiveLanguage: effectiveLang,
         baseLanguage: baseLang,
-        availableLanguages: availLangs
+        availableLanguages: availLangs,
+        hasStory: has_story === true
     };
 }
