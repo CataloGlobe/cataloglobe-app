@@ -864,7 +864,11 @@ function StoryFlipCard() {
    nuovo accento di brand. Generico, nessun tenant reale. */
 function StoriesSection() {
   return (
-    <section className={s.section} id="storie" aria-labelledby="storie-h2">
+    <section
+      className={`${s.section} ${s.sectionAlt}`}
+      id="storie"
+      aria-labelledby="storie-h2"
+    >
       <div className={s.container}>
         <div className={s.storiesGrid}>
           <Reveal className={s.storiesVoice}>
@@ -1359,14 +1363,17 @@ export default function LandingRedesign() {
         {/* ============ PROVALO DAL VIVO — demo reali (device + selettore, serale) ============ */}
         <DemoSection />
 
+        {/* ============ IMPORT MENÙ CON AI — spintarello prima del prezzo ============ */}
+        <AiImportSection />
+
+        {/* ============ DISPONIBILITÀ — complemento: crei col AI, poi lo tieni aggiornato ============ */}
+        <AvailabilitySection />
+
         {/* ============ STORIE — zona esperienza cliente ============ */}
         <StoriesSection />
 
         {/* ============ TERZO CERCHIO — gestisci e cresci ============ */}
-        <section
-          className={`${s.section} ${s.sectionAlt}`}
-          aria-labelledby="cresci-h2"
-        >
+        <section className={s.section} aria-labelledby="cresci-h2">
           <div className={s.container}>
             <Reveal className={s.sectionLead}>
               <h2 className={s.sectionH2} id="cresci-h2">
@@ -1446,18 +1453,8 @@ export default function LandingRedesign() {
         {/* ============ MULTI-SEDE — voce + cruscotto catena (mostra, non dice) ============ */}
         <ChainSection />
 
-        {/* ============ IMPORT MENÙ CON AI — spintarello prima del prezzo ============ */}
-        <AiImportSection />
-
-        {/* ============ DISPONIBILITÀ — complemento: crei col AI, poi lo tieni aggiornato ============ */}
-        <AvailabilitySection />
-
         {/* ============ PREZZI (dati reali) ============ */}
-        <section
-          className={`${s.section} ${s.sectionAlt}`}
-          id="prezzi"
-          aria-labelledby="prezzi-h2"
-        >
+        <section className={s.section} id="prezzi" aria-labelledby="prezzi-h2">
           <div className={s.container}>
             <Reveal className={s.sectionLead}>
               <h2 className={s.sectionH2} id="prezzi-h2">
@@ -1525,7 +1522,7 @@ export default function LandingRedesign() {
 
         {/* ============ FAQ (dati reali) ============ */}
         <section
-          className={s.section}
+          className={`${s.section} ${s.sectionAlt}`}
           id="faq"
           aria-labelledby="faq-h2"
         >
