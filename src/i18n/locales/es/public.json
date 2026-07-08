@@ -324,7 +324,11 @@
         "section_title": "Novedades",
         "read_cta": "Leer",
         "website_cta": "Visitar el sitio web",
-        "list_aria": "Historias del local"
+        "list_aria": "Historias del local",
+        "back_to_list": "Volver a las historias",
+        "product_link": "Del menú → {{name}}",
+        "video_unavailable": "Vídeo no disponible",
+        "video_aria": "Vídeo de la historia"
     },
     "reviews": {
         "rating_labels": {

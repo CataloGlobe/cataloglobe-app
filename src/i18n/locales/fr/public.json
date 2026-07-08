@@ -324,7 +324,11 @@
     "section_title": "En savoir plus",
     "read_cta": "Lire",
     "website_cta": "Visiter le site",
-    "list_aria": "Histoires de l'établissement"
+    "list_aria": "Histoires de l'établissement",
+    "back_to_list": "Retour aux histoires",
+    "product_link": "Depuis le menu → {{name}}",
+    "video_unavailable": "Vidéo non disponible",
+    "video_aria": "Vidéo de l'histoire"
   },
   "reviews": {
     "rating_labels": {

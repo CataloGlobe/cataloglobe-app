@@ -1,5 +1,25 @@
 @use "@styles/mixins" as *;
 
+/* View-swap del lettore: overlay assoluto che scorre da destra sopra il feed
+   (transform, NON PublicSheet — vedi StoryReader). overflow-x:hidden clippa
+   il pannello durante la transizione; overflow-y esplicito a visible evita
+   che il computed value auto-converta creando un secondo scroll container
+   (regola CSS: overflow-x non-visible + overflow-y:visible → overflow-y:auto). */
+.viewport {
+  position: relative;
+  width: 100%;
+  overflow-x: hidden;
+  overflow-y: visible;
+}
+
+.readerOverlay {
+  position: absolute;
+  inset: 0;
+  min-height: 100%;
+  background: var(--pub-bg);
+  z-index: 1;
+}
+
 .stateBlock {
   display: flex;
   flex-direction: column;

@@ -324,7 +324,11 @@
         "section_title": "Insights",
         "read_cta": "Read",
         "website_cta": "Visit website",
-        "list_aria": "Venue stories"
+        "list_aria": "Venue stories",
+        "back_to_list": "Back to stories",
+        "product_link": "From the menu → {{name}}",
+        "video_unavailable": "Video unavailable",
+        "video_aria": "Story video"
     },
     "reviews": {
         "rating_labels": {

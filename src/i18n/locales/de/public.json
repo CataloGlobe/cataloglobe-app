@@ -324,7 +324,11 @@
         "section_title": "Einblicke",
         "read_cta": "Lesen",
         "website_cta": "Website besuchen",
-        "list_aria": "Geschichten des Standorts"
+        "list_aria": "Geschichten des Standorts",
+        "back_to_list": "Zurück zu den Geschichten",
+        "product_link": "Aus der Speisekarte → {{name}}",
+        "video_unavailable": "Video nicht verfügbar",
+        "video_aria": "Video der Geschichte"
     },
     "reviews": {
         "rating_labels": {

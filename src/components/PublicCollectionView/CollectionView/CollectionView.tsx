@@ -838,6 +838,8 @@ export default function CollectionView({
     const pendingScrollTargetIdRef = useRef<string | null>(null);
     const safetyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const [selectedItem, setSelectedItem] = useState<CollectionViewSectionItem | null>(null);
+    // Vedi effect "Chiudi il dettaglio prodotto al cambio di tab" più sotto.
+    const skipNextTabCloseRef = useRef(false);
     // openSeq: incrementato ad ogni openItemDetail. Forza re-render anche quando
     // l'utente riapre lo STESSO item (React altrimenti bailoutta il setState con
     // identica reference). Propagato in contentKey verso PublicSheet → l'abort
@@ -1397,6 +1399,19 @@ export default function CollectionView({
         return null;
     }, [sectionGroups]);
 
+    // Rimando prodotto dal lettore storia (sub-fase 5): chiude il lettore,
+    // torna al tab Menu e apre l'ItemDetail dello stesso meccanismo del
+    // catalogo. onTabChange diretto (non handleHubTabTap, definito più sotto)
+    // — nessun re-tap possibile da qui, il tab di partenza è sempre "storia".
+    const openProductFromStory = useCallback((productId: string) => {
+        const p = findProductById(productId);
+        if (!p) return;
+        skipNextTabCloseRef.current = true;
+        setSelectedStoryId(null);
+        onTabChange?.("menu");
+        openItemDetail(p);
+    }, [findProductById, onTabChange, openItemDetail]);
+
     // Aggiunge un abbinato per id (upsell D3). Add DIRETTO: non passa dal
     // detail né riapre l'upsell → un solo livello, nessuna ricorsione.
     const addPairingToSelection = useCallback((pairedProductId: string) => {
@@ -1708,7 +1723,16 @@ export default function CollectionView({
     }, [activeSectionId, sectionGroups]);
 
     // ── Chiudi il dettaglio prodotto al cambio di tab ────────────────────────
+    // skipNextTabCloseRef: quando il cambio tab è CAUSATO dall'apertura di un
+    // prodotto (rimando storia → "Dal menu"), il tab passa a "menu" nello
+    // stesso evento in cui selectedItem viene valorizzato — questo effect
+    // girerebbe comunque sul nuovo activeTab e cancellerebbe subito il
+    // selectedItem appena aperto. Il flag salta UNA sola chiusura.
     useEffect(() => {
+        if (skipNextTabCloseRef.current) {
+            skipNextTabCloseRef.current = false;
+            return;
+        }
         setSelectedItem(null);
     }, [activeTab]);
 
@@ -2626,6 +2650,7 @@ export default function CollectionView({
                             slug={slug}
                             selectedStoryId={selectedStoryId}
                             onSelectStory={setSelectedStoryId}
+                            onOpenProduct={openProductFromStory}
                         />
                     </div>
                 </Suspense>

@@ -324,7 +324,11 @@
         "section_title": "Approfondimenti",
         "read_cta": "Leggi",
         "website_cta": "Visita il sito",
-        "list_aria": "Storie del locale"
+        "list_aria": "Storie del locale",
+        "back_to_list": "Torna alle storie",
+        "product_link": "Dal menu → {{name}}",
+        "video_unavailable": "Video non disponibile",
+        "video_aria": "Video della storia"
     },
     "reviews": {
         "rating_labels": {
