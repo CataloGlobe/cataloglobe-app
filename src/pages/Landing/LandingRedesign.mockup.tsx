@@ -37,6 +37,8 @@ import {
   Store,
   Sparkles,
   ShieldCheck,
+  CircleOff,
+  EyeOff,
 } from "lucide-react";
 import { DEMOS } from "./landingData";
 import { TextInput } from "@components/ui/Input/TextInput";
@@ -614,6 +616,133 @@ function AiImportSection() {
   );
 }
 
+type AvailState = "normal" | "esaurito" | "nascosto";
+const AVAIL_ITEMS: { name: string; price: string; state: AvailState }[] = [
+  { name: "Spaghetti al pomodoro", price: "€10", state: "normal" },
+  { name: "Branzino al sale", price: "€22", state: "esaurito" },
+  { name: "Tagliere misto", price: "€14", state: "normal" },
+  { name: "Tiramisù", price: "€6", state: "nascosto" },
+];
+
+/* ── Sezione "Disponibilità in tempo reale" — complemento compatto delle 3
+   leve: quelle dicono "succede da solo", questa dice "il controllo resta a
+   te". Visual dimostrativo (statico) lato GESTIONE: stessa card mostra i tre
+   stati insieme (normale/esaurito/nascosto) per far vedere la differenza.
+   NB: non è funzionante, nessun toggle reale. */
+function AvailabilitySection() {
+  return (
+    <section
+      className={`${s.section} ${s.sectionCompact}`}
+      id="disponibilita"
+      aria-labelledby="avail-h2"
+    >
+      <div className={s.container}>
+        <div className={s.availGrid}>
+          <Reveal className={s.availVoice}>
+            <p className={s.sectionKicker}>Il controllo resta a te</p>
+            <h2 className={s.availH2} id="avail-h2">
+              Finito un piatto? <em>Lo togli in un attimo.</em>
+            </h2>
+            <p className={s.availSub}>
+              Dal telefono, mentre sei in sala. Nascondi un prodotto dal menu,
+              o lascialo visibile segnandolo esaurito. Il cliente vede sempre
+              la verità, senza che tu debba ristampare niente.
+            </p>
+
+            <div className={s.availModes}>
+              <div className={s.availMode}>
+                <span
+                  className={`${s.availModeIcon} ${s.availModeIconWarn}`}
+                  aria-hidden="true"
+                >
+                  <CircleOff size={16} strokeWidth={2.2} />
+                </span>
+                <span className={s.availModeText}>
+                  <span className={s.availModeName}>Segnalo esaurito</span>
+                  <span className={s.availModeDesc}>
+                    resta nel menu, ma il cliente sa che oggi non c&apos;è.
+                  </span>
+                </span>
+              </div>
+              <div className={s.availMode}>
+                <span
+                  className={`${s.availModeIcon} ${s.availModeIconNeutral}`}
+                  aria-hidden="true"
+                >
+                  <EyeOff size={16} strokeWidth={2.2} />
+                </span>
+                <span className={s.availModeText}>
+                  <span className={s.availModeName}>Nascondilo</span>
+                  <span className={s.availModeDesc}>
+                    sparisce dal menu, lo rimetti quando vuoi.
+                  </span>
+                </span>
+              </div>
+            </div>
+          </Reveal>
+
+          <Reveal className={s.availVisual}>
+            <div
+              className={s.availCard}
+              role="img"
+              aria-label="Anteprima della gestione del menu: quattro prodotti, uno segnato esaurito e uno nascosto, gli altri normali"
+            >
+              <div className={s.availCardHead}>
+                <span className={s.availCardBrand}>Menu · Il tuo locale</span>
+                <span className={s.availCardStatus}>
+                  <span className={s.availCardStatusDot} aria-hidden="true" />
+                  Aggiornato ora
+                </span>
+              </div>
+
+              <ul className={s.availRows} aria-hidden="true">
+                {AVAIL_ITEMS.map((item) => (
+                  <li
+                    className={`${s.availRow} ${
+                      item.state === "nascosto" ? s.availRowFaded : ""
+                    }`}
+                    key={item.name}
+                  >
+                    <span
+                      className={`${s.availToggle} ${
+                        item.state !== "nascosto" ? s.availToggleOn : ""
+                      }`}
+                    >
+                      <span className={s.availToggleKnob} />
+                    </span>
+                    <span className={s.availRowText}>
+                      <span className={s.availRowName}>{item.name}</span>
+                      {item.state === "esaurito" && (
+                        <span
+                          className={`${s.availBadge} ${s.availBadgeWarn}`}
+                        >
+                          Esaurito
+                        </span>
+                      )}
+                      {item.state === "nascosto" && (
+                        <span
+                          className={`${s.availBadge} ${s.availBadgeNeutral}`}
+                        >
+                          Nascosto
+                        </span>
+                      )}
+                    </span>
+                    <span className={s.availRowPrice}>{item.price}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <p className={s.availCaption}>
+                Anteprima · nascondi o segna esaurito con un tocco
+              </p>
+            </div>
+          </Reveal>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function styleClass(stile: "Chiaro" | "Sera" | "Caldo") {
   if (stile === "Sera") return s.chainStyleEve;
   if (stile === "Caldo") return s.chainStyleWarm;
@@ -1157,8 +1286,15 @@ export default function LandingRedesign() {
         {/* ============ IMPORT MENÙ CON AI — spintarello prima del prezzo ============ */}
         <AiImportSection />
 
+        {/* ============ DISPONIBILITÀ — complemento: crei col AI, poi lo tieni aggiornato ============ */}
+        <AvailabilitySection />
+
         {/* ============ PREZZI (dati reali) ============ */}
-        <section className={s.section} id="prezzi" aria-labelledby="prezzi-h2">
+        <section
+          className={`${s.section} ${s.sectionAlt}`}
+          id="prezzi"
+          aria-labelledby="prezzi-h2"
+        >
           <div className={s.container}>
             <Reveal className={s.sectionLead}>
               <h2 className={s.sectionH2} id="prezzi-h2">
@@ -1226,7 +1362,7 @@ export default function LandingRedesign() {
 
         {/* ============ FAQ (dati reali) ============ */}
         <section
-          className={`${s.section} ${s.sectionAlt}`}
+          className={s.section}
           id="faq"
           aria-labelledby="faq-h2"
         >

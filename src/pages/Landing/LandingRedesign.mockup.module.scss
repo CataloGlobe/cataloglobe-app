@@ -23,6 +23,11 @@
   --border: #e4e7ef;
   --border-strong: #d3d8e6;
 
+  /* stato-avviso — stesso ramp ambra del sistema admin (bozze scheduling ecc.) */
+  --amber: #f59e0b;
+  --amber-soft: #fffbeb;
+  --amber-deep: #b45309;
+
   --serif: "Newsreader", Georgia, "Times New Roman", serif;
   --sans: "Sora", system-ui, -apple-system, sans-serif;
 
@@ -1976,6 +1981,252 @@
   text-align: center;
   margin: 0;
   padding: 0 22px 18px;
+  opacity: 0.85;
+}
+
+/* ================================================================
+   DISPONIBILITÀ IN TEMPO REALE — complemento compatto delle 3 leve.
+   Sezione volutamente corta: padding ridotto via .sectionCompact.
+   ================================================================ */
+.sectionCompact {
+  padding: clamp(48px, 6vw, 84px) 0;
+}
+
+.availGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: clamp(28px, 5vw, 56px);
+  align-items: center;
+
+  @media (min-width: 900px) {
+    grid-template-columns: 1fr minmax(320px, 380px);
+  }
+}
+.availVoice {
+  max-width: 32rem;
+}
+.availH2 {
+  font-family: var(--serif);
+  font-weight: 500;
+  font-size: clamp(1.7rem, 3.1vw, 2.4rem);
+  line-height: 1.16;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  margin: 0;
+  text-wrap: balance;
+
+  em {
+    font-style: italic;
+    font-weight: 400;
+  }
+}
+.availSub {
+  font-family: var(--sans);
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--body);
+  margin: 14px 0 0;
+  max-width: 42ch;
+}
+
+.availModes {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 26px 0 0;
+}
+.availMode {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.availModeIcon {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.availModeIconWarn {
+  background: var(--amber-soft);
+  color: var(--amber-deep);
+}
+.availModeIconNeutral {
+  background: var(--slate);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.availModeText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-top: 3px;
+}
+.availModeName {
+  font-family: var(--sans);
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.availModeDesc {
+  font-family: var(--sans);
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--muted);
+  max-width: 40ch;
+}
+
+/* — Card dimostrativa, lato gestione — */
+.availVisual {
+  display: flex;
+  justify-content: center;
+}
+.availCard {
+  width: 100%;
+  max-width: 380px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  box-shadow: 0 20px 50px -30px rgba(20, 22, 31, 0.45);
+  overflow: hidden;
+}
+.availCardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+  background: var(--slate);
+}
+.availCardBrand {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.availCardStatus {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--indigo-deep);
+  white-space: nowrap;
+}
+.availCardStatusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--indigo-deep);
+  flex-shrink: 0;
+}
+
+.availRows {
+  list-style: none;
+  margin: 0;
+  padding: 6px 18px 4px;
+  display: flex;
+  flex-direction: column;
+}
+.availRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  transition: opacity 0.2s ease;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+.availRowFaded {
+  opacity: 0.5;
+}
+.availRowFaded .availRowName {
+  text-decoration: line-through;
+  text-decoration-color: var(--border-strong);
+}
+
+/* Toggle decorativo — non funzionante, solo dimostrativo */
+.availToggle {
+  flex-shrink: 0;
+  width: 30px;
+  height: 18px;
+  border-radius: 999px;
+  background: var(--border-strong);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+}
+.availToggleOn {
+  background: var(--indigo-deep);
+  justify-content: flex-end;
+}
+.availToggleKnob {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(20, 22, 31, 0.3);
+}
+
+.availRowText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.availRowName {
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.availBadge {
+  flex-shrink: 0;
+  font-family: var(--sans);
+  font-size: 10.5px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+.availBadgeWarn {
+  background: var(--amber-soft);
+  color: var(--amber-deep);
+}
+.availBadgeNeutral {
+  background: var(--slate);
+  color: var(--muted);
+  border: 1px solid var(--border);
+}
+.availRowPrice {
+  flex-shrink: 0;
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--body);
+  font-variant-numeric: tabular-nums;
+  min-width: 30px;
+  text-align: right;
+}
+
+.availCaption {
+  font-family: var(--sans);
+  font-size: 11.5px;
+  color: var(--muted);
+  text-align: center;
+  margin: 0;
+  padding: 10px 18px 16px;
   opacity: 0.85;
 }
 
