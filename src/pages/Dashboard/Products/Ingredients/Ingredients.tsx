@@ -72,6 +72,7 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
             ),
         [ingredients, searchQuery]
     );
+    const allIngredientIds = useMemo(() => ingredients.map(i => i.id), [ingredients]);
 
     const handleCreate = () => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
@@ -179,6 +180,7 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
 
             <DataTable<V2Ingredient>
                 data={filteredIngredients}
+                allRowIds={allIngredientIds}
                 columns={columns}
                 isLoading={isLoading}
                 selectable

@@ -147,6 +147,7 @@ export default function Styles() {
                 return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
             });
     }, [allStyles, searchQuery]);
+    const allStyleIds = useMemo(() => allStyles.map(s => s.id), [allStyles]);
 
     const handleCreateClick = useCallback(() => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
@@ -357,6 +358,7 @@ export default function Styles() {
                     <div className={styles.tableCard}>
                         <DataTable<V2Style>
                             data={filteredStyles}
+                            allRowIds={allStyleIds}
                             columns={columns}
                             selectable={canWrite}
                             onBulkDelete={canWrite ? handleBulkDelete : undefined}

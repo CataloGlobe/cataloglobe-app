@@ -66,6 +66,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
         if (!externalSearchQuery) return groups;
         return groups.filter(g => g.name.toLowerCase().includes(externalSearchQuery.toLowerCase()));
     }, [groups, externalSearchQuery]);
+    const allGroupIds = useMemo(() => groups.map(g => g.id), [groups]);
 
     const handleCreate = () => {
         openDrawer({
@@ -242,6 +243,7 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                 <>
                     <DataTable
                         data={filteredGroups}
+                        allRowIds={allGroupIds}
                         columns={columns}
                         selectable={canWrite}
                         onBulkDelete={canWrite ? handleBulkDelete : undefined}

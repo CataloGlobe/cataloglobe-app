@@ -126,6 +126,7 @@ export default function ProductGroupsTab({
         }
         return buildFlatTree(allGroups);
     }, [allGroups, searchQuery, groupNameById]);
+    const allGroupIds = useMemo(() => allGroups.map(g => g.id), [allGroups]);
 
     const handleEdit = (group: ProductGroupWithCount) => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
@@ -254,6 +255,7 @@ export default function ProductGroupsTab({
 
             <DataTable<FlatGroup>
                 data={flatTree}
+                allRowIds={allGroupIds}
                 columns={columns}
                 isLoading={isLoading}
                 selectable
