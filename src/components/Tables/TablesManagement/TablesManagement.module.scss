@@ -1,17 +1,25 @@
 .container {
+    // Catena flex vincolata (tab Tavoli, bounded via data-active-tab su
+    // ActivityDetailPage): propaga l'altezza fino al probe del DataTable.
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 16px;
 }
 
 .content {
+    flex: 1 1 auto;
+    min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 12px;
 }
 
 // Toolbar di sezione: filtro SX, cluster azioni DX (search · refresh · altro · CTA).
+// Fissa: non deve comprimersi né rubare spazio flessibile alla tabella.
 .toolbar {
+    flex: 0 0 auto;
     display: flex;
     align-items: center;
     gap: 12px;
