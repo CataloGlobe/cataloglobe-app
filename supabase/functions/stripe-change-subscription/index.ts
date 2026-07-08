@@ -102,6 +102,95 @@ function toIso(seconds: number | null | undefined): string | null {
     return seconds ? new Date(seconds * 1000).toISOString() : null;
 }
 
+type SubscriptionDiscount = {
+    percentOff: number | null;
+    amountOff: number | null;
+    currency: string | null;
+    /** `end` è valorizzato SOLO per duration "repeating" — mai per "once"/"forever". */
+    end: string | null;
+    name: string | null;
+    /** Stripe: "forever" | "once" | "repeating". Guida il messaggio in UI. */
+    duration: "forever" | "once" | "repeating";
+};
+
+/**
+ * Coupon attivo sulla subscription (API basil: `discounts[]`, non più il
+ * singolare `discount`). Richiede `expand: ["discounts.coupon"]` sulla
+ * retrieve — senza expand gli elementi restano ID stringa e il coupon non è
+ * leggibile. Ritorna null sia se non c'è alcun discount sia se l'expand non
+ * ha risolto l'oggetto (degrada silenziosamente, non rompe la action "state").
+ */
+function extractDiscount(sub: Stripe.Subscription): SubscriptionDiscount | null {
+    return discountFromRaw((sub as unknown as { discounts?: Array<string | Stripe.Discount> }).discounts?.[0]);
+}
+
+/** Mapping Discount espanso → SubscriptionDiscount, condiviso tra subscription e invoice. */
+function discountFromRaw(raw: string | Stripe.Discount | null | undefined): SubscriptionDiscount | null {
+    if (!raw || typeof raw === "string") return null;
+    const coupon = typeof raw.coupon === "string" ? null : raw.coupon;
+    if (!coupon || (coupon.percent_off == null && coupon.amount_off == null)) return null;
+    return {
+        percentOff: coupon.percent_off ?? null,
+        amountOff: coupon.amount_off ?? null,
+        currency: coupon.currency ?? null,
+        end: toIso(raw.end),
+        name: coupon.name ?? null,
+        duration: coupon.duration
+    };
+}
+
+/** Sconto consumato + totale effettivo (centesimi, come `amountOff`) della fattura scontata. */
+type ConsumedDiscount = SubscriptionDiscount & { invoiceTotal: number };
+
+/**
+ * Fallback per coupon `once` già consumato: Stripe lo rimuove da
+ * `subscription.discounts` alla finalizzazione della fattura che lo ha
+ * applicato, quindi con uno sconto "primo mese" la lettura live della sub non
+ * lo vede più anche se il periodo corrente è stato scontato. Qui si guarda la
+ * fattura più recente della subscription: se copre il periodo corrente e ha un
+ * discount, lo si espone come sconto consumato (stato distinto da `discount`).
+ *
+ * Il periodo coperto si legge dai line item (`lines.data[].period`):
+ * `invoice.period_start/period_end` NON sono il periodo di servizio ma la
+ * finestra di aggiunta degli item (per il billing anticipato = periodo
+ * precedente). Degrada a null su qualsiasi errore o mismatch.
+ */
+async function extractConsumedDiscountThisPeriod(
+    stripe: Stripe,
+    subscriptionId: string,
+    currentPeriodEndSec: number | null
+): Promise<ConsumedDiscount | null> {
+    if (!currentPeriodEndSec) return null;
+    try {
+        // limit 10, non 1: lo stesso periodo può avere più fatture (es. one-off
+        // di upgrade immediato dopo la creazione) e la più recente può essere
+        // senza sconto anche se il periodo è stato scontato da una precedente.
+        const invoices = await stripe.invoices.list({
+            subscription: subscriptionId,
+            limit: 10,
+            expand: ["data.discounts.coupon"]
+        });
+        for (const invoice of invoices.data ?? []) {
+            // Draft: coupon non ancora consumato (sarebbe ancora su sub.discounts).
+            // Void: fattura annullata, il periodo non è stato davvero scontato.
+            if (!invoice || invoice.status === "draft" || invoice.status === "void") continue;
+            const coversCurrentPeriod = invoice.lines?.data?.some(
+                (line) => line?.period?.end === currentPeriodEndSec
+            );
+            if (!coversCurrentPeriod) continue;
+            // Prima fattura del periodo con discount risolto e valorizzato —
+            // al più una per periodo, l'ordine di scansione non conta.
+            const discount = discountFromRaw(invoice.discounts?.[0]);
+            if (discount) return { ...discount, invoiceTotal: invoice.total ?? 0 };
+        }
+        return null;
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`stripe-change-subscription: consumed-discount lookup failed: ${message}`);
+        return null;
+    }
+}
+
 /** Periodo di fatturazione corrente, item-level con fallback top-level (API basil). */
 function periodEndSeconds(sub: Stripe.Subscription): number | null {
     return sub.items?.data?.[0]?.current_period_end ?? sub.current_period_end ?? null;
@@ -279,7 +368,9 @@ serve(async req => {
 
         let sub: Stripe.Subscription;
         try {
-            sub = await stripe.subscriptions.retrieve(tenant.stripe_subscription_id);
+            sub = await stripe.subscriptions.retrieve(tenant.stripe_subscription_id, {
+                expand: ["discounts.coupon"]
+            });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
             console.error(`stripe-change-subscription: subscription retrieve failed: ${message}`);
@@ -328,10 +419,22 @@ serve(async req => {
                     console.warn(`stripe-change-subscription: schedule retrieve for state failed: ${message}`);
                 }
             }
+            const discount = extractDiscount(sub);
+            // Chiamata extra a Stripe SOLO se non c'è uno sconto attivo (fallback
+            // per coupon `once` già consumato — vedi extractConsumedDiscountThisPeriod).
+            const consumedDiscountThisPeriod = discount
+                ? null
+                : await extractConsumedDiscountThisPeriod(
+                      stripe,
+                      tenant.stripe_subscription_id,
+                      currentPeriodEndSec
+                  );
             return {
                 currentPeriodEnd: periodEndIso,
                 cancelAtPeriodEnd: !!sub.cancel_at_period_end,
-                pendingChange
+                pendingChange,
+                discount,
+                consumedDiscountThisPeriod
             };
         }
 

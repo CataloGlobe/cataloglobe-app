@@ -34,6 +34,18 @@
     gap: 4px;
 }
 
+// "Prezzo attuale" con coupon attivo: pieno barrato + scontato in evidenza
+.priceRow {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.priceStrikethrough {
+    text-decoration: line-through;
+}
+
 .statusRow {
     display: flex;
     align-items: center;
@@ -213,6 +225,24 @@
     display: flex;
     align-items: center;
     gap: 8px;
+}
+
+// Nota "periodo corrente già scontato" (coupon once consumato): informativa
+// al passato, stesso vocabolario visivo di .scheduledNote — nessuna azione.
+.consumedNote {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 10px 14px;
+    border-radius: 10px;
+    background: var(--info-bg, #eff6ff);
+    border: 1px solid var(--info-border, #bfdbfe);
+    color: var(--info-text, #1e40af);
+
+    svg {
+        flex-shrink: 0;
+    }
 }
 
 // Banner disdetta a fine periodo (+ CTA Riattiva)
