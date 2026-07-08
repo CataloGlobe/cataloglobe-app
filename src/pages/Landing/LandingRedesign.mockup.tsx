@@ -74,6 +74,10 @@ const REDESIGN_FAQ_ITEMS: { q: string; a: string }[] = [
     a: "Ogni tua sede ha la sua pagina con un indirizzo unico. Il QR lo trovi pronto sulla piattaforma: lo stampi e lo metti sui tavoli. Il cliente lo inquadra e trova sempre il menu giusto per quell'ora.",
   },
   {
+    q: "Posso avere il menu anche stampato?",
+    a: "Sì. Quando ti serve una copia cartacea — per chi la chiede al banco o da tenere a portata di mano — esporti il menu in PDF con un clic, sempre aggiornato con le ultime modifiche.",
+  },
+  {
     q: "I miei dati sono al sicuro?",
     a: "Sì. I dati del tuo locale sono protetti e tenuti separati da quelli di ogni altro cliente. Nessuno può accedere ai tuoi contenuti al posto tuo.",
   },
