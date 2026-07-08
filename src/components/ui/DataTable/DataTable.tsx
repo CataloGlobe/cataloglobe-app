@@ -273,7 +273,34 @@ export function DataTable<T>({
     );
     const pruneAgainstIds = allRowIds ?? allCurrentIds;
 
+    // ─── Loaded-latch: gate contro race di mount ───────────────────────────
+    // Il prune sotto non deve svuotare una selezione pre-popolata dal parent
+    // mentre `data`/`allRowIds` sono ancora "[]" per un fetch in corso. Parte
+    // SEMPRE false (mai un default ottimistico su `isLoading` al primo render:
+    // molti call-site inizializzano `loading` a `false` e lo alzano solo
+    // dentro un proprio effect, che gira DOPO quello del DataTable nello
+    // stesso commit — un default `!isLoading` al mount arriverebbe quindi
+    // troppo tardi). Scatta UNA VOLTA (mai più false) al primo tra:
+    // `pruneAgainstIds` si popola (>0) — copre sia i call-site che montano
+    // già con dati pronti (il flip avviene nello stesso giro di effect del
+    // prune, nessun ritardo) sia il caso di fetch completato — oppure
+    // `isLoading` transita true→false (copre il caso dataset genuinamente
+    // vuoto con `isLoading` gestito correttamente dal call-site).
+    const hasLoadedRef = useRef(false);
+    const prevIsLoadingRef = useRef(isLoading);
+
     useEffect(() => {
+        if (!hasLoadedRef.current) {
+            if (pruneAgainstIds.length > 0 || (prevIsLoadingRef.current && !isLoading)) {
+                hasLoadedRef.current = true;
+            }
+        }
+        prevIsLoadingRef.current = isLoading;
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isLoading, pruneAgainstIds.join("|")]);
+
+    useEffect(() => {
+        if (!hasLoadedRef.current) return;
         if (selected.length === 0) return;
         const existing = new Set(pruneAgainstIds);
         const filtered = selected.filter(id => existing.has(id));
@@ -284,7 +311,7 @@ export function DataTable<T>({
             onSelectedRowsChange?.(filtered);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [pruneAgainstIds.join("|")]);
+    }, [pruneAgainstIds.join("|"), isLoading]);
 
     // ─── Grid template ──────────────────────────────────────────────────────
     const gridStyle = useMemo<CSSProperties>(() => {
