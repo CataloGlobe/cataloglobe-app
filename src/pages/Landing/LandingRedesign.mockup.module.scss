@@ -945,10 +945,16 @@
   gap: 8px;
 }
 .swatch {
+  appearance: none;
+  -webkit-appearance: none;
   flex: 1;
   min-height: 44px;
   border-radius: 10px;
   border: 2px solid transparent;
+  background-clip: padding-box;
+  -webkit-background-clip: padding-box;
+  outline: none;
+  box-shadow: none;
   cursor: pointer;
   font-family: var(--sans);
   font-size: 11px;
