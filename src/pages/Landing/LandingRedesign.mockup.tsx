@@ -30,6 +30,8 @@ import {
     Store,
 } from "lucide-react";
 import { DEMOS } from "./landingData";
+import { TextInput } from "@components/ui/Input/TextInput";
+import { Select } from "@components/ui/Select/Select";
 
 /* FAQ del mockup — locale al redesign, NON condivisa con landingData.ts
    (quella resta di uso esclusivo della landing vera). */
@@ -766,20 +768,36 @@ export default function LandingRedesign() {
                                         }}
                                         onKeyDown={(e) => onTabKey(e, i)}
                                     >
-                                        <span className={s.daypartName}>{d.tabName}</span>
-                                        <span className={s.daypartTime}>{d.time}</span>
+                                        {/* Sfondo del tab attivo — layoutId condiviso: invece
+                                            di comparire/sparire di colpo, scivola da un tab
+                                            all'altro (stesso pattern dei segmented control). */}
+                                        {i === active && (
+                                            <motion.span
+                                                layoutId="daypartHighlight"
+                                                className={s.daypartHighlight}
+                                                transition={{
+                                                    duration: reduce ? 0 : undefined,
+                                                    type: reduce ? "tween" : "spring",
+                                                    stiffness: 380,
+                                                    damping: 32,
+                                                }}
+                                            />
+                                        )}
 
-                                        {/* Avanzamento della fascia corrente — filo dentro
-                                            il pill attivo, non una barra esterna. */}
+                                        {/* Avanzamento della fascia corrente — riempie il
+                                            pill attivo stesso, dietro al testo. */}
                                         {i === active && !reduce && autoPlay && (
                                             <span className={s.daypartFill} aria-hidden="true">
                                                 <span
                                                     key={active}
-                                                    className={s.daypartFillBar}
+                                                    className={s.daypartFillWash}
                                                     style={{ animationDuration: `${AUTO_MS}ms` }}
                                                 />
                                             </span>
                                         )}
+
+                                        <span className={s.daypartName}>{d.tabName}</span>
+                                        <span className={s.daypartTime}>{d.time}</span>
                                     </button>
                                 ))}
                             </div>
@@ -1080,10 +1098,15 @@ function ContactForm() {
     const [name, setName] = useState("");
     const [activityType, setActivityType] = useState("");
     const [status, setStatus] = useState<ContactStatus>("idle");
+    const [emailError, setEmailError] = useState<string | null>(null);
 
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
-        if (!isValidContactEmail(email.trim())) return;
+        if (!isValidContactEmail(email.trim())) {
+            setEmailError("Controlla l'indirizzo email");
+            return;
+        }
+        setEmailError(null);
 
         setStatus("submitting");
         try {
@@ -1117,36 +1140,48 @@ function ContactForm() {
 
     return (
         <form className={s.contactForm} onSubmit={handleSubmit} noValidate>
-            <input
-                className={s.contactInput}
+            <TextInput
+                inputClassName={s.contactFieldControl}
                 type="email"
+                name="email"
                 placeholder="La tua email"
                 aria-label="La tua email"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => {
+                    setEmail(e.target.value);
+                    if (emailError) setEmailError(null);
+                }}
+                aria-invalid={emailError ? true : undefined}
+                aria-describedby={emailError ? "contact-email-error" : undefined}
                 required
             />
-            <input
-                className={s.contactInput}
+            {emailError && (
+                <p className={s.contactError} id="contact-email-error">
+                    {emailError}
+                </p>
+            )}
+            <TextInput
+                inputClassName={s.contactFieldControl}
                 type="text"
+                name="name"
                 placeholder="Il tuo nome"
                 aria-label="Il tuo nome"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
             />
-            <select
-                className={`${s.contactSelect} ${activityType === "" ? s.contactSelectEmpty : ""}`}
+            <Select
+                selectClassName={`${s.contactFieldControl} ${
+                    activityType === "" ? s.contactSelectEmpty : ""
+                }`}
+                name="activity_type"
                 aria-label="Tipo di attività (opzionale)"
                 value={activityType}
                 onChange={(e) => setActivityType(e.target.value)}
-            >
-                <option value="">Tipo di attività (opzionale)</option>
-                {CONTACT_ACTIVITY_TYPES.map((t) => (
-                    <option key={t.value} value={t.value}>
-                        {t.label}
-                    </option>
-                ))}
-            </select>
+                options={[
+                    { value: "", label: "Tipo di attività (opzionale)" },
+                    ...CONTACT_ACTIVITY_TYPES,
+                ]}
+            />
             <button
                 className={s.contactSubmit}
                 type="submit"
