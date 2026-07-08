@@ -4,7 +4,7 @@ import { FileInput } from "@/components/ui/Input/FileInput";
 import { Select } from "@/components/ui/Select/Select";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import { updateStory, StoryStatus, StoryWithProduct } from "@/services/supabase/stories";
+import { updateStory, StoryBlock, StoryStatus, StoryWithProduct } from "@/services/supabase/stories";
 import { uploadStoryImage } from "@/services/supabase/upload";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { StoryProductPicker } from "./StoryProductPicker";
@@ -14,6 +14,9 @@ export interface StoryFormProps {
     storyData: StoryWithProduct;
     tenantId: string;
     canWrite: boolean;
+    /** Blocks state is owned by the parent (StoryDetailPage) so the single
+     *  Salva button here persists meta + body_blocks together in one call. */
+    blocks: StoryBlock[];
     onSuccess: () => void | Promise<void>;
     onSavingChange?: (isSaving: boolean) => void;
     formId: string;
@@ -28,6 +31,7 @@ export function StoryForm({
     storyData,
     tenantId,
     canWrite,
+    blocks,
     onSuccess,
     onSavingChange,
     formId
@@ -40,6 +44,7 @@ export function StoryForm({
     const [status, setStatus] = useState<StoryStatus>("draft");
     const [productId, setProductId] = useState<string | null>(null);
     const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
+    const [coverPreview, setCoverPreview] = useState<string | null>(null);
 
     useEffect(() => {
         onSavingChange?.(isSaving);
@@ -48,11 +53,17 @@ export function StoryForm({
     useEffect(() => {
         setIsSaving(false);
         setPendingCoverFile(null);
+        setCoverPreview(null);
         setEyebrow(storyData.eyebrow ?? "");
         setTitle(storyData.title);
         setStatus(storyData.status);
         setProductId(storyData.product_id);
     }, [storyData]);
+
+    const handleCoverFileChange = (file: File | null) => {
+        setPendingCoverFile(file);
+        setCoverPreview(file ? URL.createObjectURL(file) : null);
+    };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -79,7 +90,8 @@ export function StoryForm({
                 title: trimmedTitle,
                 product_id: productId,
                 status,
-                cover_media: coverMedia
+                cover_media: coverMedia,
+                body_blocks: blocks
             });
             setPendingCoverFile(null);
             showToast({ message: "Storia aggiornata.", type: "success" });
@@ -111,13 +123,19 @@ export function StoryForm({
                     placeholder="Es: La storia della nostra pasta fresca"
                     disabled={!canWrite}
                 />
+                {(coverPreview ?? storyData.cover_media) && (
+                    <img
+                        src={coverPreview ?? storyData.cover_media ?? ""}
+                        alt="Copertina storia"
+                        className={styles.brandCoverPreview}
+                    />
+                )}
                 <FileInput
-                    label="Copertina"
+                    label={storyData.cover_media || pendingCoverFile ? "Sostituisci copertina" : "Copertina"}
                     accept="image/*"
                     maxSizeMb={5}
-                    preview="auto"
-                    value={pendingCoverFile}
-                    onChange={setPendingCoverFile}
+                    preview="none"
+                    onChange={handleCoverFileChange}
                     disabled={!canWrite}
                 />
                 <Select

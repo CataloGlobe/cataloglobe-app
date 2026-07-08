@@ -4,6 +4,19 @@ import { deleteStoryImageBestEffort } from "./upload";
 
 export type StoryStatus = "draft" | "published";
 
+export type StoryVideoProvider = "youtube" | "vimeo";
+
+/**
+ * Discriminated union for `body_blocks` (JSONB). Plain text (no rich text in
+ * v1), image (uploaded), video (embed-only — `ref` is saved as-is, URL/ID
+ * normalization for the embed player is the public reader's job, future
+ * sub-fase). `id` is client-generated and stable, used for React key + dnd.
+ */
+export type StoryTextBlock = { id: string; type: "text"; content: string };
+export type StoryImageBlock = { id: string; type: "image"; url: string; caption?: string };
+export type StoryVideoBlock = { id: string; type: "video"; provider: StoryVideoProvider; ref: string };
+export type StoryBlock = StoryTextBlock | StoryImageBlock | StoryVideoBlock;
+
 export interface Story {
     id: string;
     tenant_id: string;
@@ -11,7 +24,7 @@ export interface Story {
     eyebrow: string | null;
     title: string;
     cover_media: string | null;
-    body_blocks: unknown[];
+    body_blocks: StoryBlock[];
     product_id: string | null;
     sort_order: number;
     status: StoryStatus;
@@ -66,10 +79,12 @@ export async function createStory(
     return created as Story;
 }
 
+export type StoryUpdateInput = Partial<StoryMetadataInput> & { body_blocks?: StoryBlock[] };
+
 export async function updateStory(
     id: string,
     tenantId: string,
-    data: Partial<StoryMetadataInput>
+    data: StoryUpdateInput
 ): Promise<Story> {
     const { data: updated, error } = await supabase
         .from("stories")
@@ -87,7 +102,7 @@ export async function updateStory(
 export async function deleteStory(id: string, tenantId: string): Promise<void> {
     const { data: existing } = await supabase
         .from("stories")
-        .select("cover_media")
+        .select("cover_media, body_blocks")
         .eq("id", id)
         .eq("tenant_id", tenantId)
         .maybeSingle();
@@ -104,6 +119,16 @@ export async function deleteStory(id: string, tenantId: string): Promise<void> {
         await deleteStoryImageBestEffort(tenantId, id, existing?.cover_media ?? null);
     } catch (err) {
         console.warn("[storage] story cover cleanup failed:", err);
+    }
+
+    const blocks = (existing?.body_blocks ?? []) as unknown as StoryBlock[];
+    for (const block of blocks) {
+        if (block.type !== "image") continue;
+        try {
+            await deleteStoryImageBestEffort(tenantId, `${id}/${block.id}`, block.url);
+        } catch (err) {
+            console.warn("[storage] story block image cleanup failed:", err);
+        }
     }
 
     void revalidatePublicCatalogForTenant(tenantId);

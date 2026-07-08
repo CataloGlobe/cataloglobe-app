@@ -1,16 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { useToast } from "@/context/Toast/ToastContext";
-import { getStory, StoryWithProduct } from "@/services/supabase/stories";
+import { getStory, StoryBlock, StoryWithProduct } from "@/services/supabase/stories";
 import { useTenantId } from "@/context/useTenantId";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { StoryForm } from "./components/StoryForm";
+import { StoryBlockEditor } from "./components/StoryBlockEditor";
 import StoryDeleteDrawer from "./StoryDeleteDrawer";
 import styles from "./Stories.module.scss";
 
@@ -25,6 +26,7 @@ export default function StoryDetailPage() {
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "stories.write") : false;
 
     const [story, setStory] = useState<StoryWithProduct | null>(null);
+    const [blocks, setBlocks] = useState<StoryBlock[]>([]);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -34,6 +36,7 @@ export default function StoryDetailPage() {
         try {
             const data = await getStory(storyId, tenantId);
             setStory(data);
+            setBlocks(data.body_blocks);
         } catch (error) {
             console.error(error);
             showToast({ type: "error", message: "Errore durante il caricamento della storia." });
@@ -46,17 +49,24 @@ export default function StoryDetailPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tenantId, storyId]);
 
-    const breadcrumbItems = [
-        { label: "Storie", to: `/business/${tenantId}/stories` },
-        { label: loading ? "Caricamento..." : story?.title || "Dettaglio" }
-    ];
+    const breadcrumbItems = useMemo(
+        () => [
+            { label: "Storie", to: `/business/${tenantId}/stories` },
+            { label: loading ? "Caricamento..." : story?.title || "Dettaglio" }
+        ],
+        [tenantId, loading, story?.title]
+    );
     useBreadcrumbItems(breadcrumbItems);
 
-    const actions = canWrite ? (
-        <Button variant="danger" onClick={() => setIsDeleteOpen(true)}>
-            Elimina
-        </Button>
-    ) : undefined;
+    const actions = useMemo(
+        () =>
+            canWrite ? (
+                <Button variant="danger" onClick={() => setIsDeleteOpen(true)}>
+                    Elimina
+                </Button>
+            ) : undefined,
+        [canWrite]
+    );
 
     usePageHeader({ actions, sticky: true });
 
@@ -96,6 +106,7 @@ export default function StoryDetailPage() {
                                 storyData={story}
                                 tenantId={tenantId ?? ""}
                                 canWrite={canWrite}
+                                blocks={blocks}
                                 onSuccess={refreshStory}
                                 onSavingChange={setIsSaving}
                             />
@@ -113,9 +124,13 @@ export default function StoryDetailPage() {
                             <Text variant="title-sm" weight={600}>
                                 Contenuto
                             </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                L'editor a blocchi (testo, foto, video) arriva in una prossima fase.
-                            </Text>
+                            <StoryBlockEditor
+                                tenantId={tenantId ?? ""}
+                                storyId={story.id}
+                                value={blocks}
+                                onChange={setBlocks}
+                                disabled={!canWrite}
+                            />
                         </div>
                     </div>
 
