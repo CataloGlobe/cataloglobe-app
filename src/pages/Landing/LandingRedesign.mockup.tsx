@@ -51,7 +51,7 @@ import { Select } from "@components/ui/Select/Select";
 const REDESIGN_FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: "Quanto costa?",
-    a: "Due piani per sede: Base €39/mese, Pro €59/mese (IVA inclusa). Dal secondo locale ogni sede costa il 10% in meno. Per attivare, ci lasci i tuoi contatti e ti seguiamo noi nella configurazione. Ai primi locali inviamo anche un codice per provare il primo mese gratuitamente.",
+    a: "Due piani per sede: Base €39/mese, Pro €59/mese (IVA inclusa). Dalla seconda sede in poi, ogni sede costa il 10% in meno. Per attivare, ci lasci i tuoi contatti e ti seguiamo noi nella configurazione. Ai primi clienti inviamo anche un codice per provare il primo mese gratuitamente.",
   },
   {
     q: "Posso disdire quando voglio?",
@@ -59,7 +59,7 @@ const REDESIGN_FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "Funziona anche con una sola sede?",
-    a: "Certo. Il menu che si aggiorna da solo, i contenuti in evidenza e la gestione delle recensioni funzionano anche con un locale singolo — non serve avere una catena.",
+    a: "Certo. Il menu che si aggiorna da solo, i contenuti in evidenza e la gestione delle recensioni funzionano anche con una sola sede — non serve avere una catena.",
   },
   {
     q: "Il menu si aggiorna davvero da solo?",
@@ -110,7 +110,7 @@ const MOCKUP_PRICING_PLANS: MockupPricingPlan[] = [
     key: "base",
     name: "Base",
     priceLabel: "€39/sede/mese",
-    discountNote: "dal 2° locale −10% · €35,10/sede · IVA inclusa",
+    discountNote: "dalla 2ª sede −10% · €35,10/sede · IVA inclusa",
     framing: "Il tuo locale online, che si aggiorna da solo.",
     features: [
       "Menu con scheduling automatico",
@@ -126,7 +126,7 @@ const MOCKUP_PRICING_PLANS: MockupPricingPlan[] = [
     key: "pro",
     name: "Pro",
     priceLabel: "€59/sede/mese",
-    discountNote: "dal 2° locale −10% · €53,10/sede · IVA inclusa",
+    discountNote: "dalla 2ª sede −10% · €53,10/sede · IVA inclusa",
     framing: "Tutto il piano Base — e in più i clienti fanno da soli:",
     additions: [
       {
@@ -1461,7 +1461,8 @@ export default function LandingRedesign() {
                 Un prezzo per sede. <em>Chiaro.</em>
               </h2>
               <p className={s.sectionH2Sub}>
-                IVA inclusa. Dal secondo locale ogni sede costa il 10% in meno.
+                IVA inclusa. Dalla seconda sede in poi, ogni sede costa il 10%
+                in meno.
               </p>
             </Reveal>
 
