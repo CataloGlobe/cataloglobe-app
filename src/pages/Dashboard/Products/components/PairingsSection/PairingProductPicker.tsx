@@ -164,6 +164,7 @@ export function PairingProductPicker({
                 <div className={styles.pickerTableWrap}>
                     <DataTable<ProductPickerItem>
                         data={filtered}
+                        allRowIds={products.map(p => p.id)}
                         columns={columns}
                         isLoading={loading}
                         loadingState={{ message: "Caricamento prodotti..." }}

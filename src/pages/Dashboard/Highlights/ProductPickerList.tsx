@@ -167,6 +167,7 @@ export default function ProductPickerList({
             <div className={styles.tableWrap}>
                 <DataTable<ProductRow>
                     data={filteredProducts}
+                    allRowIds={products.map(p => p.id)}
                     columns={columns}
                     isLoading={loading}
                     loadingState={{ message: "Caricamento prodotti disponibili..." }}
