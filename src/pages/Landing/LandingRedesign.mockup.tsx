@@ -39,6 +39,8 @@ import {
   ShieldCheck,
   CircleOff,
   EyeOff,
+  Link2,
+  Play,
 } from "lucide-react";
 import { DEMOS } from "./landingData";
 import { TextInput } from "@components/ui/Input/TextInput";
@@ -743,6 +745,160 @@ function AvailabilitySection() {
   );
 }
 
+/* ── Card "dal piatto alla storia" — un solo elemento a footprint fisso che
+   anima in loop lento tra due stati: scheda piatto (neutra, con rimando
+   caldo) → pagina storia collegata (calda). Stessa disciplina dell'hero:
+   loop automatico, primo click/tap ferma tutto sullo stato piatto,
+   reduced-motion → solo lo stato piatto, statico. Dimostrativa, non
+   funzionante: nessun link reale. */
+function StoryFlipCard() {
+  const reduce = useReducedMotion();
+  const [state, setState] = useState<"piatto" | "storia">("piatto");
+
+  useEffect(() => {
+    if (reduce) return;
+    const id = window.setInterval(() => {
+      setState((prev) => (prev === "piatto" ? "storia" : "piatto"));
+    }, 4000);
+    return () => window.clearInterval(id);
+  }, [reduce]);
+
+  const dishContent = (
+    <>
+      <p className={s.storyDishHeader}>Dettaglio piatto</p>
+      <div className={s.storyDishTop}>
+        <span className={s.storyDishName}>Trofie al pesto</span>
+        <span className={s.storyDishPrice}>€12</span>
+      </div>
+      <p className={s.storyDishDesc}>
+        Pasta fresca con pesto di basilico, pinoli e pecorino.
+      </p>
+      <div className={s.storyDishLink}>
+        <span className={s.storyDishLinkTag}>Dietro le quinte</span>
+        <span className={s.storyDishLinkRow}>
+          <span className={s.storyDishLinkTitle}>
+            La storia di questo piatto
+          </span>
+          <span className={s.storyDishLinkArrow}>›</span>
+        </span>
+      </div>
+    </>
+  );
+
+  const storyContent = (
+    <>
+      <div className={s.storyStoryTop}>
+        <span className={s.storyStoryTag}>
+          Dietro le quinte · Trofie al pesto
+        </span>
+        <span className={s.storyStoryEyebrow}>Il tuo locale</span>
+      </div>
+      <p className={s.storyStoryTitle}>Dove tutto comincia</p>
+      <p className={s.storyStoryDesc}>
+        La mattina in cui la cucina si accende, molto prima di aprire. Il
+        pesto si fa a mano, come una volta.
+      </p>
+      <div className={s.storyStoryMedia}>
+        <span className={s.storyStoryPlay}>
+          <Play size={14} strokeWidth={0} fill="currentColor" />
+        </span>
+        <span className={s.storyStoryDuration}>0:48</span>
+      </div>
+    </>
+  );
+
+  return (
+    <div
+      className={s.storyCard}
+      role="img"
+      aria-label="Anteprima animata: la scheda del piatto Trofie al pesto con un rimando «La storia di questo piatto», che si trasforma nella pagina storia collegata «Dove tutto comincia», il dietro le quinte di quel piatto"
+    >
+      <div className={s.storyStateWrap}>
+        {reduce ? (
+          <div className={s.storyStateDish} aria-hidden="true">
+            {dishContent}
+          </div>
+        ) : (
+          <AnimatePresence mode="wait" initial={false}>
+            {state === "piatto" ? (
+              <motion.div
+                key="piatto"
+                className={s.storyStateDish}
+                aria-hidden="true"
+                initial={{ opacity: 0, y: 6, scale: 0.99 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.99 }}
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {dishContent}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="storia"
+                className={s.storyStateStory}
+                aria-hidden="true"
+                initial={{ opacity: 0, y: 6, scale: 0.99 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -6, scale: 0.99 }}
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+              >
+                {storyContent}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        )}
+      </div>
+      <p className={s.storyCaption}>Anteprima · il rimando porta alla storia</p>
+    </div>
+  );
+}
+
+/* ── Sezione "Storie" — zona esperienza cliente, tra la demo e il capitolo
+   gestione. L'icona del callout resta indigo di sistema; la card a destra
+   usa toni caldi/editoriali (--sk-* già usati per lo skin "Caldo" della leva
+   stile) solo nel rimando e nello stato storia — tono del CONTENUTO, non un
+   nuovo accento di brand. Generico, nessun tenant reale. */
+function StoriesSection() {
+  return (
+    <section className={s.section} id="storie" aria-labelledby="storie-h2">
+      <div className={s.container}>
+        <div className={s.storiesGrid}>
+          <Reveal className={s.storiesVoice}>
+            <p className={s.sectionKicker}>Non solo un menu</p>
+            <h2 className={s.storiesH2} id="storie-h2">
+              Il tuo locale ha una storia. <em>Falla leggere.</em>
+            </h2>
+            <p className={s.storiesSub}>
+              Racconta chi sei — con foto, testi e video. E colleghi i
+              racconti ai piatti: il cliente scopre il &quot;dietro le
+              quinte&quot; proprio mentre guarda cosa ordinare.
+            </p>
+
+            <div className={s.storiesHook}>
+              <span className={s.storiesHookIcon} aria-hidden="true">
+                <Link2 size={16} strokeWidth={2.2} />
+              </span>
+              <span className={s.storiesHookText}>
+                <span className={s.storiesHookTitle}>
+                  Una pagina che racconta il locale
+                </span>
+                <span className={s.storiesHookBody}>
+                  Oltre ai singoli piatti, una sezione dedicata dove il
+                  cliente scopre storia, territorio e persone.
+                </span>
+              </span>
+            </div>
+          </Reveal>
+
+          <Reveal className={s.storiesVisual}>
+            <StoryFlipCard />
+          </Reveal>
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function styleClass(stile: "Chiaro" | "Sera" | "Caldo") {
   if (stile === "Sera") return s.chainStyleEve;
   if (stile === "Caldo") return s.chainStyleWarm;
@@ -1198,6 +1354,9 @@ export default function LandingRedesign() {
 
         {/* ============ PROVALO DAL VIVO — demo reali (device + selettore, serale) ============ */}
         <DemoSection />
+
+        {/* ============ STORIE — zona esperienza cliente ============ */}
+        <StoriesSection />
 
         {/* ============ TERZO CERCHIO — gestisci e cresci ============ */}
         <section
