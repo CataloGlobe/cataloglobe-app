@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/checkOrderingState.ts";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -19,13 +20,6 @@ function deriveExcerpt(bodyBlocks: StoryBlock[] | null | undefined): string | nu
     if (content.length <= 160) return content;
     return `${content.slice(0, 160).trimEnd()}…`;
 }
-
-// Fail-closed allowlist: pubblica solo se abbonamento attivo/trial. Qualsiasi
-// altro valore (canceled, suspended, past_due, unpaid, incomplete, null,
-// stringa sconosciuta/futura) blocca — a differenza di una blocklist a due
-// valori, che di default lascia passare tutto ciò che non è esplicitamente
-// elencato.
-const PUBLIC_SUBSCRIPTION_ALLOWLIST = new Set(["active", "trialing"]);
 
 const CARD_SELECT = "id, eyebrow, title, cover_media, body_blocks, product:product_id (id, name)";
 const DETAIL_SELECT = "id, tenant_id, activity_id, eyebrow, title, cover_media, body_blocks, sort_order, status, created_at, updated_at, product:product_id (id, name)";
@@ -108,7 +102,9 @@ serve(async (req: Request) => {
 
         if (tenantInfoError) throw tenantInfoError;
 
-        if (!PUBLIC_SUBSCRIPTION_ALLOWLIST.has(tenantInfo.subscription_status)) {
+        // Stesso set servibile del menu/ordini, incluso past_due — fonte di
+        // verità condivisa (_shared/checkOrderingState.ts).
+        if (!VALID_SUBSCRIPTION_STATUSES.has(tenantInfo.subscription_status)) {
             return new Response(
                 JSON.stringify(story_id ? { error: "Storia non trovata" } : { cappello: null, stories: [] }),
                 { status: story_id ? 404 : 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
