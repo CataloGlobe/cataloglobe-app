@@ -353,7 +353,7 @@
 .compactEmojiRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-top: 5px;
 }
 
@@ -367,14 +367,14 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 5px;
 }
 
 .compactCharacteristics {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 5px;
 }
 
 /* ----------------------------------------------------
@@ -860,7 +860,7 @@
 .emojiRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin-top: 4px;
 }
 
@@ -874,7 +874,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
 .allergenEmoji {
@@ -900,7 +900,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
 .characteristicEmoji {
