@@ -413,7 +413,7 @@ function ProductRowInner({
                             <div className={styles.allergenEmojis}>
                                 {visibleAllergens.map(a => (
                                     <span key={a.id} className={styles.allergenEmoji}>
-                                        <AllergenIcon code={a.code} size={20} label={a.label} />
+                                        <AllergenIcon code={a.code} size={18} label={a.label} />
                                     </span>
                                 ))}
                                 {hiddenCount > 0 && (
@@ -430,7 +430,7 @@ function ProductRowInner({
                                     <span key={c.id} className={styles.characteristicEmoji}>
                                         <CharacteristicIcon
                                             icon={c.icon}
-                                            size={20}
+                                            size={18}
                                             label={c.label}
                                         />
                                     </span>

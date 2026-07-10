@@ -195,11 +195,11 @@ export default function CharacteristicIcon({
 }: CharacteristicIconProps) {
     const { prefix, name } = parseIcon(icon);
     const wrapperClassName = `${styles.wrapper}${chip ? ` ${styles.chip}` : ""}`;
-    // Mirror AllergenIcon: the default (wrapped) variant renders the SVG
-    // 8px larger than the nominal size so the two icon families end up the
-    // same visual size on screen when placed side by side (e.g. product
-    // card icon row). `bare` stays at the nominal size, same as AllergenIcon.
-    const iconSize = variant === "bare" ? size : size + 8;
+    // Both variants render the SVG at the nominal size — same as AllergenIcon.
+    // The legacy +8 offset (compensation for the removed circled badge) is
+    // gone; if a badge background is ever re-exposed via Style Editor, size
+    // it explicitly there rather than as an implicit offset here.
+    const iconSize = size;
 
     let renderable: ReactElement | null = null;
 

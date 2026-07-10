@@ -16,7 +16,7 @@ export default function AllergenIcon({ code, size = 20, className, label, varian
         return (
             <span
                 className={`${variant === "bare" ? styles.fallbackBare : styles.fallback}${label ? ` ${styles.hasTooltip}` : ""}${className ? ` ${className}` : ""}`}
-                style={variant === "bare" ? undefined : { width: size + 8, height: size + 8 }}
+                style={variant === "bare" ? undefined : { width: size, height: size }}
                 aria-hidden="true"
             >
                 {code.charAt(0).toUpperCase()}
@@ -40,7 +40,7 @@ export default function AllergenIcon({ code, size = 20, className, label, varian
             aria-hidden="true"
         >
             <IconComponent
-                size={size + 8}
+                size={size}
                 className={styles.icon}
             />
             {label && <span className={styles.tooltip}>{label}</span>}
