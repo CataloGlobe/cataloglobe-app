@@ -47,10 +47,23 @@
   gap: 24px;
 }
 
+.fieldStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .pickerField {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+// Stato "sola lettura" per utenti senza permesso di scrittura: la
+// SegmentedControl non espone `disabled`, quindi la neutralizziamo qui.
+.readonlyControl {
+  pointer-events: none;
+  opacity: 0.6;
 }
 
 .warningBox {

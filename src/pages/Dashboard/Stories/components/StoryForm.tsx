@@ -1,25 +1,34 @@
-import { useEffect, useState } from "react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { FileInput } from "@/components/ui/Input/FileInput";
-import { Select } from "@/components/ui/Select/Select";
+import { InputBase } from "@/components/ui/Input/InputBase";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import Text from "@/components/ui/Text/Text";
-import { useToast } from "@/context/Toast/ToastContext";
-import { updateStory, StoryBlock, StoryStatus, StoryWithProduct } from "@/services/supabase/stories";
-import { uploadStoryImage } from "@/services/supabase/upload";
-import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
+import { StoryStatus } from "@/services/supabase/stories";
 import { StoryProductPicker } from "./StoryProductPicker";
 import styles from "../Stories.module.scss";
 
+/**
+ * Form metadati storia — completamente controllato dal parent (StoryDetailPage).
+ * Nessuno state interno, nessun salvataggio: il parent possiede `draft`+`saved`,
+ * deriva `isDirty` e persiste meta + blocchi in un unico Salva (header). Segue
+ * il pattern draft-inline già in produzione (SchedaTab, ActivitySettingsTab).
+ */
 export interface StoryFormProps {
-    storyData: StoryWithProduct;
+    eyebrow: string;
+    onEyebrowChange: (value: string) => void;
+    title: string;
+    onTitleChange: (value: string) => void;
+    status: StoryStatus;
+    onStatusChange: (value: StoryStatus) => void;
+    productId: string | null;
+    onProductIdChange: (value: string | null) => void;
+    /** Copertina già salvata (URL) — mostrata finché non c'è un file pendente. */
+    savedCover: string | null;
+    /** objectURL del file copertina pendente (posseduto dal parent). */
+    coverPreview: string | null;
+    onCoverFileChange: (file: File | null) => void;
     tenantId: string;
     canWrite: boolean;
-    /** Blocks state is owned by the parent (StoryDetailPage) so the single
-     *  Salva button here persists meta + body_blocks together in one call. */
-    blocks: StoryBlock[];
-    onSuccess: () => void | Promise<void>;
-    onSavingChange?: (isSaving: boolean) => void;
-    formId: string;
 }
 
 const STATUS_OPTIONS: { value: StoryStatus; label: string }[] = [
@@ -28,90 +37,30 @@ const STATUS_OPTIONS: { value: StoryStatus; label: string }[] = [
 ];
 
 export function StoryForm({
-    storyData,
+    eyebrow,
+    onEyebrowChange,
+    title,
+    onTitleChange,
+    status,
+    onStatusChange,
+    productId,
+    onProductIdChange,
+    savedCover,
+    coverPreview,
+    onCoverFileChange,
     tenantId,
-    canWrite,
-    blocks,
-    onSuccess,
-    onSavingChange,
-    formId
+    canWrite
 }: StoryFormProps) {
-    const { showToast } = useToast();
-
-    const [isSaving, setIsSaving] = useState(false);
-    const [eyebrow, setEyebrow] = useState("");
-    const [title, setTitle] = useState("");
-    const [status, setStatus] = useState<StoryStatus>("draft");
-    const [productId, setProductId] = useState<string | null>(null);
-    const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
-    const [coverPreview, setCoverPreview] = useState<string | null>(null);
-
-    useEffect(() => {
-        onSavingChange?.(isSaving);
-    }, [isSaving, onSavingChange]);
-
-    useEffect(() => {
-        setIsSaving(false);
-        setPendingCoverFile(null);
-        setCoverPreview(null);
-        setEyebrow(storyData.eyebrow ?? "");
-        setTitle(storyData.title);
-        setStatus(storyData.status);
-        setProductId(storyData.product_id);
-    }, [storyData]);
-
-    const handleCoverFileChange = (file: File | null) => {
-        setPendingCoverFile(file);
-        setCoverPreview(file ? URL.createObjectURL(file) : null);
-    };
-
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (isSaving) return;
-
-        const trimmedTitle = title.trim();
-        if (!trimmedTitle) {
-            showToast({ message: "Il titolo della storia è obbligatorio.", type: "error" });
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            let coverMedia = storyData.cover_media;
-            if (pendingCoverFile) {
-                coverMedia = await uploadStoryImage(
-                    tenantId,
-                    storyData.id,
-                    await compressImage(pendingCoverFile, COMPRESS_PROFILES.cover)
-                );
-            }
-            await updateStory(storyData.id, tenantId, {
-                eyebrow: eyebrow.trim() || null,
-                title: trimmedTitle,
-                product_id: productId,
-                status,
-                cover_media: coverMedia,
-                body_blocks: blocks
-            });
-            setPendingCoverFile(null);
-            showToast({ message: "Storia aggiornata.", type: "success" });
-            await Promise.resolve(onSuccess());
-        } catch (error) {
-            console.error("Errore salvataggio storia:", error);
-            const message = error instanceof Error && error.message ? error.message : "Impossibile salvare la storia.";
-            showToast({ message, type: "error" });
-        } finally {
-            setIsSaving(false);
-        }
-    };
+    const previewSrc = coverPreview ?? savedCover;
+    const hasCover = Boolean(coverPreview ?? savedCover);
 
     return (
-        <form id={formId} className={styles.form} onSubmit={handleSubmit}>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className={styles.form}>
+            <div className={styles.fieldStack}>
                 <TextInput
                     label="Occhiello"
                     value={eyebrow}
-                    onChange={e => setEyebrow(e.target.value)}
+                    onChange={e => onEyebrowChange(e.target.value)}
                     placeholder="Es: Dietro le quinte"
                     disabled={!canWrite}
                 />
@@ -119,32 +68,32 @@ export function StoryForm({
                     label="Titolo"
                     required
                     value={title}
-                    onChange={e => setTitle(e.target.value)}
+                    onChange={e => onTitleChange(e.target.value)}
                     placeholder="Es: La storia della nostra pasta fresca"
                     disabled={!canWrite}
                 />
-                {(coverPreview ?? storyData.cover_media) && (
-                    <img
-                        src={coverPreview ?? storyData.cover_media ?? ""}
-                        alt="Copertina storia"
-                        className={styles.brandCoverPreview}
-                    />
+                {previewSrc && (
+                    <img src={previewSrc} alt="Copertina storia" className={styles.brandCoverPreview} />
                 )}
                 <FileInput
-                    label={storyData.cover_media || pendingCoverFile ? "Sostituisci copertina" : "Copertina"}
+                    label={hasCover ? "Sostituisci copertina" : "Copertina"}
                     accept="image/*"
                     maxSizeMb={5}
                     preview="none"
-                    onChange={handleCoverFileChange}
+                    onChange={onCoverFileChange}
                     disabled={!canWrite}
                 />
-                <Select
-                    label="Stato"
-                    value={status}
-                    onChange={e => setStatus(e.target.value as StoryStatus)}
-                    options={STATUS_OPTIONS}
-                    disabled={!canWrite}
-                />
+                <InputBase label="Stato">
+                    {() => (
+                        <div className={!canWrite ? styles.readonlyControl : undefined}>
+                            <SegmentedControl<StoryStatus>
+                                value={status}
+                                onChange={onStatusChange}
+                                options={STATUS_OPTIONS}
+                            />
+                        </div>
+                    )}
+                </InputBase>
             </div>
 
             <div className={styles.pickerField}>
@@ -154,10 +103,10 @@ export function StoryForm({
                 <StoryProductPicker
                     tenantId={tenantId}
                     value={productId}
-                    onChange={setProductId}
+                    onChange={onProductIdChange}
                     disabled={!canWrite}
                 />
             </div>
-        </form>
+        </div>
     );
 }
