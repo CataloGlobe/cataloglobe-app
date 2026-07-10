@@ -7,7 +7,7 @@ const WineIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="621.333 197.333 838.667 1572"
+        viewBox="249.105 196.126 1574.585 1574.585"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

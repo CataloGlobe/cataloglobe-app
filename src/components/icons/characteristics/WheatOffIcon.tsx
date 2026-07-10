@@ -7,7 +7,7 @@ const WheatOffIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="458.667 348 1060 1306.667"
+        viewBox="331.336 347.545 1307.862 1307.862"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

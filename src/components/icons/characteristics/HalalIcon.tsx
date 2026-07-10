@@ -7,7 +7,7 @@ const HalalIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="398.667 186.667 1273.333 1701.333"
+        viewBox="187.474 187.122 1701.090 1701.090"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

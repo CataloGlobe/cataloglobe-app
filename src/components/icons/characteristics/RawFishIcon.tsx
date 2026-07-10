@@ -7,7 +7,7 @@ const RawFishIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="142.667 464 1760 1086.667"
+        viewBox="138.187 114.391 1781.616 1781.616"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

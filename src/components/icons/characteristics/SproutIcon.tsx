@@ -7,7 +7,7 @@ const SproutIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="456 637.333 1130.667 850.667"
+        viewBox="455.145 497.122 1135.801 1135.801"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

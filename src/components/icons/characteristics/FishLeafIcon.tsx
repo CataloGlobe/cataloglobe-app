@@ -7,7 +7,7 @@ const FishLeafIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="142.667 500 1776 1024"
+        viewBox="135.150 113.232 1798.336 1798.336"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

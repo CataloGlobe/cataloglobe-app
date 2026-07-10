@@ -7,7 +7,7 @@ const AwardIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="426.667 169.333 1196 1730.667"
+        viewBox="168.793 168.155 1733.403 1733.403"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

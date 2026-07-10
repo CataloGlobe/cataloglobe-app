@@ -7,7 +7,7 @@ const AdultsOnlyIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="317.333 593.333 1466.667 780"
+        viewBox="316.150 248.124 1470.817 1470.817"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

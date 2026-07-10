@@ -7,7 +7,7 @@ const RollingPinIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="442.667 126.667 1186.667 1744"
+        viewBox="161.798 124.014 1748.781 1748.781"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

@@ -7,7 +7,7 @@ const OrganicLeafIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="406.667 121.333 1230.667 1729.333"
+        viewBox="90.028 120.341 1730.663 1730.663"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

@@ -7,7 +7,7 @@ const MapPinIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="292.844 231.75 932.167 1182.354"
+        viewBox="170.444 225.024 1191.700 1191.700"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

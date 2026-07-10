@@ -7,7 +7,7 @@ const Pepper2Icon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="368 398.667 1313.333 1154.667"
+        viewBox="365.057 315.667 1335.635 1335.635"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

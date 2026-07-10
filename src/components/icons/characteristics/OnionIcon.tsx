@@ -7,7 +7,7 @@ const OnionIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="416 122.667 1244 1761.333"
+        viewBox="117.970 119.106 1775.636 1775.636"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

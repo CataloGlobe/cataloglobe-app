@@ -7,7 +7,7 @@ const CoravinDropIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="461.333 158.667 1122.667 1632"
+        viewBox="199.163 158.957 1632.320 1632.320"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

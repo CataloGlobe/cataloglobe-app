@@ -7,7 +7,7 @@ const LeafIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="661.333 476 848 1070.667"
+        viewBox="540.199 475.398 1078.308 1078.308"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"

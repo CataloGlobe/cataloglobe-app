@@ -7,7 +7,7 @@ const SlowFoodIcon = ({ size = 24, className }: CharacteristicSvgProps) => (
     <svg
         width={size}
         height={size}
-        viewBox="176 322.667 1662.667 1401.333"
+        viewBox="151.406 178.996 1691.015 1691.015"
         xmlns="http://www.w3.org/2000/svg"
         className={className}
         fill="currentColor"
