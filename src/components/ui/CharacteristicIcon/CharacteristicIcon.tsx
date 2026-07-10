@@ -21,6 +21,7 @@ import {
     WheatOff,
     Wine
 } from "lucide-react";
+import { CUSTOM_CHARACTERISTIC_ICON_MAP } from "@components/icons/characteristics";
 import styles from "./CharacteristicIcon.module.scss";
 
 /**
@@ -192,19 +193,24 @@ export default function CharacteristicIcon({
         const Component = LUCIDE_ICON_MAP[name] ?? NEUTRAL_FALLBACK;
         renderable = <Component size={size} className={styles.icon} />;
     } else if (prefix === "custom") {
-        const fallback = CUSTOM_FALLBACK_MAP[name];
-        if (fallback) {
-            warnCustomMissing(name, fallback.component.displayName ?? "Tag");
-            const Component = fallback.component;
-            renderable = (
-                <Component
-                    size={size}
-                    className={styles.icon}
-                    style={fallback.color ? { color: fallback.color } : undefined}
-                />
-            );
+        const CustomComponent = CUSTOM_CHARACTERISTIC_ICON_MAP[name];
+        if (CustomComponent) {
+            renderable = <CustomComponent size={size} className={styles.icon} />;
         } else {
-            renderable = <NEUTRAL_FALLBACK size={size} className={styles.icon} />;
+            const fallback = CUSTOM_FALLBACK_MAP[name];
+            if (fallback) {
+                warnCustomMissing(name, fallback.component.displayName ?? "Tag");
+                const Component = fallback.component;
+                renderable = (
+                    <Component
+                        size={size}
+                        className={styles.icon}
+                        style={fallback.color ? { color: fallback.color } : undefined}
+                    />
+                );
+            } else {
+                renderable = <NEUTRAL_FALLBACK size={size} className={styles.icon} />;
+            }
         }
     } else if (prefix === "badge") {
         // Badge visible text is always derived from the icon key
