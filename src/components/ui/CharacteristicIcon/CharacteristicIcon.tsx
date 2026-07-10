@@ -195,16 +195,21 @@ export default function CharacteristicIcon({
 }: CharacteristicIconProps) {
     const { prefix, name } = parseIcon(icon);
     const wrapperClassName = `${styles.wrapper}${chip ? ` ${styles.chip}` : ""}`;
+    // Mirror AllergenIcon: the default (wrapped) variant renders the SVG
+    // 8px larger than the nominal size so the two icon families end up the
+    // same visual size on screen when placed side by side (e.g. product
+    // card icon row). `bare` stays at the nominal size, same as AllergenIcon.
+    const iconSize = variant === "bare" ? size : size + 8;
 
     let renderable: ReactElement | null = null;
 
     if (prefix === "lucide") {
         const Component = LUCIDE_ICON_MAP[name] ?? NEUTRAL_FALLBACK;
-        renderable = <Component size={size} className={styles.icon} />;
+        renderable = <Component size={iconSize} className={styles.icon} />;
     } else if (prefix === "custom") {
         const CustomComponent = CUSTOM_CHARACTERISTIC_ICON_MAP[name];
         if (CustomComponent) {
-            renderable = <CustomComponent size={size} className={styles.icon} />;
+            renderable = <CustomComponent size={iconSize} className={styles.icon} />;
         } else {
             const fallback = CUSTOM_FALLBACK_MAP[name];
             if (fallback) {
@@ -212,13 +217,13 @@ export default function CharacteristicIcon({
                 const Component = fallback.component;
                 renderable = (
                     <Component
-                        size={size}
+                        size={iconSize}
                         className={styles.icon}
                         style={fallback.color ? { color: fallback.color } : undefined}
                     />
                 );
             } else {
-                renderable = <NEUTRAL_FALLBACK size={size} className={styles.icon} />;
+                renderable = <NEUTRAL_FALLBACK size={iconSize} className={styles.icon} />;
             }
         }
     } else if (prefix === "badge") {
@@ -245,7 +250,7 @@ export default function CharacteristicIcon({
             </span>
         );
     } else {
-        renderable = <NEUTRAL_FALLBACK size={size} className={styles.icon} />;
+        renderable = <NEUTRAL_FALLBACK size={iconSize} className={styles.icon} />;
     }
 
     if (variant === "bare") {
