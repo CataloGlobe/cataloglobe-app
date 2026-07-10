@@ -7,14 +7,19 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    // Chip-style mirror of AllergenIcon: theme-aware soft-tinted round
-    // chip with primary-color icon. Pepper color overrides (inline
-    // style on the SVG) win over this color via CSS specificity.
+    // Plain by default, mirrors AllergenIcon: theme-aware primary-color icon,
+    // no background. Pepper color overrides (inline style on the SVG) win
+    // over this color via CSS specificity.
     color: var(--pub-primary, var(--color-gray-700));
+    flex-shrink: 0;
+}
+
+// Opt-in round tinted chip (former default look). Not applied unless the
+// `chip` prop is set — reserved for a future Style Editor toggle.
+.chip {
     background-color: var(--pub-primary-soft, #F1F3F5);
     border-radius: 50%;
     padding: 4px;
-    flex-shrink: 0;
 }
 
 // Lucide SVG inherits color from the wrapper. The inline `style.color` set by

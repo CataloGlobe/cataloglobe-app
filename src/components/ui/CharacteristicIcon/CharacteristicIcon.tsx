@@ -60,6 +60,13 @@ interface CharacteristicIconProps {
     className?: string;
     label?: string;
     variant?: IconVariant;
+    /**
+     * Opt-in round tinted chip background (former default look). Defaults to
+     * `false` so characteristic icons match AllergenIcon's plain style.
+     * Reserved for a future Style Editor toggle — do not remove the
+     * underlying `.chip` class, just leave this off by default.
+     */
+    chip?: boolean;
 }
 
 const LUCIDE_ICON_MAP: Record<string, LucideComponent> = {
@@ -183,9 +190,11 @@ export default function CharacteristicIcon({
     size = 20,
     className,
     label,
-    variant = "default"
+    variant = "default",
+    chip = false
 }: CharacteristicIconProps) {
     const { prefix, name } = parseIcon(icon);
+    const wrapperClassName = `${styles.wrapper}${chip ? ` ${styles.chip}` : ""}`;
 
     let renderable: ReactElement | null = null;
 
@@ -227,7 +236,7 @@ export default function CharacteristicIcon({
         }
         return (
             <span
-                className={`${styles.wrapper} ${label ? styles.hasTooltip : ""} ${className ?? ""}`.trim()}
+                className={`${wrapperClassName} ${label ? styles.hasTooltip : ""} ${className ?? ""}`.trim()}
                 aria-label={label}
                 role={label ? "img" : undefined}
             >
@@ -248,7 +257,7 @@ export default function CharacteristicIcon({
 
     return (
         <span
-            className={`${styles.wrapper} ${label ? styles.hasTooltip : ""} ${className ?? ""}`.trim()}
+            className={`${wrapperClassName} ${label ? styles.hasTooltip : ""} ${className ?? ""}`.trim()}
             aria-label={label}
             role={label ? "img" : undefined}
         >
