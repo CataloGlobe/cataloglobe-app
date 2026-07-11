@@ -15,7 +15,7 @@ import {
     IconStyle
 } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
-import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview, IconStylePreview } from "./StyleMiniPreviews";
+import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
 import { StyleColorPicker } from "./StyleColorPicker";
 import { IconRefresh } from "@tabler/icons-react";
 import { usePaletteWarnings } from "./usePaletteWarnings";
@@ -264,38 +264,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                         <div
                                             className={styles.radiusRect}
                                             style={{ borderRadius: RADIUS_CSS[option.value] }}
-                                        />
-                                    </div>
-                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
-
-                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
-                    <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Stile icone<InfoTooltip content="Mostra le icone di allergeni e caratteristiche senza sfondo oppure con uno sfondo colorato, la cui forma segue l'impostazione Arrotondamento qui sopra." />
-                    </Text>
-                    <div className={styles.miniPreviewGrid} role="radiogroup">
-                        {iconStyleOptions.map(option => {
-                            const isActive = (model.appearance.iconStyle ?? "plain") === option.value;
-                            return (
-                                <button
-                                    key={option.value}
-                                    type="button"
-                                    role="radio"
-                                    aria-checked={isActive}
-                                    className={`${styles.miniPreviewCard} ${
-                                        isActive ? styles.miniPreviewCardActive : ""
-                                    }`}
-                                    onClick={() => updateIconStyle(option.value)}
-                                >
-                                    <div className={styles.radiusSwatch} aria-hidden="true">
-                                        <IconStylePreview
-                                            variant={option.value}
-                                            primaryColor={model.colors.primary}
-                                            borderRadius={model.appearance.borderRadius}
                                         />
                                     </div>
                                     <span className={styles.miniPreviewLabel}>{option.label}</span>
@@ -729,6 +697,33 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     )}
                 </div>
                 )}
+
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Stile icone<InfoTooltip content="Mostra le icone di allergeni e caratteristiche senza sfondo oppure con uno sfondo colorato, la cui forma segue l'impostazione Arrotondamento." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {iconStyleOptions.map(option => {
+                            const isActive = (model.appearance.iconStyle ?? "plain") === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isActive}
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateIconStyle(option.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {option.label}
+                                    </Text>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </section>
 
             {/* TIPOGRAFIA */}

@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { NavigationStyle, BorderRadius, ProductStyle, FeaturedStyle, CardLayout, IconStyle } from "./StyleTokenModel";
+import type { NavigationStyle, BorderRadius, ProductStyle, FeaturedStyle, CardLayout } from "./StyleTokenModel";
 import s from "./StyleSettingsControls.module.scss";
 
 export const RADIUS_CSS: Record<BorderRadius, string> = {
@@ -176,62 +176,6 @@ export function CardLayoutPreview({ variant }: { variant: CardLayout }) {
                 </div>
             </div>
         </div>
-    );
-}
-
-/* ── Icon style preview (senza sfondo / con sfondo) ──────── */
-
-export function IconStylePreview({
-    variant,
-    primaryColor,
-    borderRadius
-}: {
-    variant: IconStyle;
-    primaryColor: string;
-    borderRadius: BorderRadius;
-}) {
-    const iconSize = 15;
-    const box = iconSize + 8; // icona + padding 4px per lato
-    // Chip radius segue "Arrotondamento", clampato al cerchio (metà del lato).
-    const radiusPx = Math.min(parseFloat(RADIUS_CSS[borderRadius]), box / 2);
-    // Mima --pub-primary-soft (primary 20% su superficie chiara) del pubblico.
-    const soft = `color-mix(in srgb, ${primaryColor} 20%, #ffffff)`;
-    const isPill = variant === "pill";
-    // Foglia (allergene-ish), stessa famiglia Lucide usata sul pubblico.
-    const icon = (
-        <svg
-            width={iconSize}
-            height={iconSize}
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={primaryColor}
-            strokeWidth={2}
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            style={{ display: "block" }}
-            aria-hidden="true"
-        >
-            <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z" />
-            <path d="M2 21c0-3 1.85-5.36 5.08-6" />
-        </svg>
-    );
-    return (
-        <span
-            aria-hidden="true"
-            style={{
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                width: box,
-                height: box,
-                padding: 4,
-                boxSizing: "border-box",
-                background: isPill ? soft : "transparent",
-                borderRadius: isPill ? radiusPx : 0
-            }}
-        >
-            {icon}
-        </span>
     );
 }
 
