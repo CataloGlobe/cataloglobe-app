@@ -162,16 +162,12 @@ const MOCK_SECTION_GROUPS: CollectionViewSectionGroup[] = [
                     price: 12.0,
                     image: null,
                     parentSelected: true,
-                    // Allergeni + caratteristiche mock: rendono immediatamente visibile
+                    // Due sole icone mock (glutine + crostacei) per rendere visibile
                     // l'effetto del toggle "Stile icone" nella preview live.
+                    // label vuota di proposito: niente tooltip in hover nell'anteprima.
                     allergens: [
-                        { id: 1, code: "gluten", label: "Glutine" },
-                        { id: 2, code: "milk", label: "Latte" },
-                        { id: 3, code: "fish", label: "Pesce" }
-                    ],
-                    characteristics: [
-                        { id: "c1", code: "vegetarian", category: "diet", label: "Vegetariano", icon: "lucide:leaf", sort_order: 0, mutex_group: null, dietary_claim: true },
-                        { id: "c2", code: "spicy", category: "spicy", label: "Piccante", icon: "custom:pepper-2", sort_order: 1, mutex_group: null, dietary_claim: false }
+                        { id: 1, code: "gluten", label: "" },
+                        { id: 2, code: "crustaceans", label: "" }
                     ],
                     pairings: [
                         {
@@ -243,14 +239,7 @@ const MOCK_SECTION_GROUPS: CollectionViewSectionGroup[] = [
                     original_price: 22.0,
                     effective_price: 15.0,
                     image: null,
-                    parentSelected: true,
-                    allergens: [
-                        { id: 4, code: "eggs", label: "Uova" },
-                        { id: 5, code: "nuts", label: "Frutta a guscio" }
-                    ],
-                    characteristics: [
-                        { id: "c3", code: "spicy_hot", category: "spicy", label: "Molto piccante", icon: "custom:pepper-3", sort_order: 0, mutex_group: null, dietary_claim: false }
-                    ]
+                    parentSelected: true
                 },
                 {
                     id: "i5",
