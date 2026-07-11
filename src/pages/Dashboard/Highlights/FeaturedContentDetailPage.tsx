@@ -470,6 +470,7 @@ export default function FeaturedContentDetailPage() {
             <SystemDrawer open={isProductPickerOpen} onClose={closeProductPicker} width={640}>
                 <DrawerLayout
                     bodyLayout={addProductMode === "existing" ? "flex" : "block"}
+                    headerFlush
                     header={
                         <div className={styles.pickerDrawerHeader}>
                             <Text variant="title-sm" weight={700}>
