@@ -12,9 +12,13 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { useToast } from "@/context/Toast/ToastContext";
 import { listStories, reorderStories, type StoryWithProduct } from "@/services/supabase/stories";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/UnsavedChangesDialog";
 import StoryCreateDrawer from "./StoryCreateDrawer";
 import StoryDeleteDrawer from "./StoryDeleteDrawer";
 import { StoryBrandPanel } from "./components/StoryBrandPanel";
+import { HeaderSaveAction } from "./components/HeaderSaveAction";
+import { useBrandStoryDraft } from "./hooks/useBrandStoryDraft";
+import { useBeforeUnloadWarning } from "./hooks/useBeforeUnloadWarning";
 import styles from "./Stories.module.scss";
 
 import { useTenantId } from "@/context/useTenantId";
@@ -53,6 +57,30 @@ export default function Stories() {
     const [stories, setStories] = useState<StoryWithProduct[]>([]);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<StoryWithProduct | null>(null);
+    // Tab richiesto mentre il brand è dirty: apre il dialog 3 opzioni.
+    const [pendingTab, setPendingTab] = useState<StoriesTab | null>(null);
+
+    // Draft "Storia del brand" — sollevato qui: serve a header (Salva) e
+    // tab-guard. Fetch lazy alla prima apertura del tab.
+    const brand = useBrandStoryDraft(tenantId ?? null, activeTab === "brand");
+
+    // Protezione refresh/chiusura tab quando il brand è dirty. La nav SPA
+    // interna resta non protetta (useBlocker richiede data router — task
+    // separato); il cambio tab è coperto dal guard sotto.
+    useBeforeUnloadWarning(brand.isDirty);
+
+    // Guard cambio tab: se il brand è dirty, intercetta e chiedi (3 opzioni).
+    const handleTabChange = useCallback(
+        (tab: StoriesTab) => {
+            if (tab === activeTab) return;
+            if (activeTab === "brand" && brand.isDirty) {
+                setPendingTab(tab);
+                return;
+            }
+            setActiveTab(tab);
+        },
+        [activeTab, brand.isDirty]
+    );
 
     const loadData = useCallback(async () => {
         if (!tenantId) return;
@@ -85,25 +113,27 @@ export default function Stories() {
 
     const leading = useMemo(
         () => (
-            <Tabs<StoriesTab> value={activeTab} onChange={setActiveTab} variant="line">
+            <Tabs<StoriesTab> value={activeTab} onChange={handleTabChange} variant="line">
                 <Tabs.List>
                     <Tabs.Tab value="stories">Storie</Tabs.Tab>
                     <Tabs.Tab value="brand">Storia del brand</Tabs.Tab>
                 </Tabs.List>
             </Tabs>
         ),
-        [activeTab]
+        [activeTab, handleTabChange]
     );
 
-    const actions = useMemo(
-        () =>
-            activeTab === "stories" && canWrite ? (
-                <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
-                    Crea storia
-                </Button>
-            ) : undefined,
-        [activeTab, handleCreate, canEdit, canWrite]
-    );
+    const actions = useMemo(() => {
+        if (!canWrite) return undefined;
+        if (activeTab === "brand") {
+            return <HeaderSaveAction isDirty={brand.isDirty} isSaving={brand.isSaving} onSave={brand.save} />;
+        }
+        return (
+            <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
+                Crea storia
+            </Button>
+        );
+    }, [activeTab, handleCreate, canEdit, canWrite, brand.isDirty, brand.isSaving, brand.save]);
 
     usePageHeader({ leading, actions, sticky: true });
 
@@ -228,7 +258,25 @@ export default function Stories() {
                 <>
                     <div className={styles.wrapper}>
                         {activeTab === "brand" ? (
-                            tenantId && <StoryBrandPanel tenantId={tenantId} canWrite={canWrite} />
+                            brand.loaded ? (
+                                <StoryBrandPanel
+                                    title={brand.title}
+                                    onTitleChange={brand.onTitleChange}
+                                    intro={brand.intro}
+                                    onIntroChange={brand.onIntroChange}
+                                    website={brand.website}
+                                    onWebsiteChange={brand.onWebsiteChange}
+                                    coverUrl={brand.coverUrl}
+                                    pendingCoverFile={brand.pendingCoverFile}
+                                    onCoverFileChange={brand.onCoverFileChange}
+                                    onCoverRemove={brand.onCoverRemove}
+                                    canWrite={canWrite}
+                                />
+                            ) : (
+                                <div className={styles.loadingState}>
+                                    <Text colorVariant="muted">Caricamento in corso...</Text>
+                                </div>
+                            )
                         ) : loading ? (
                             <div className={styles.loadingState}>
                                 <Text colorVariant="muted">Caricamento in corso...</Text>
@@ -282,6 +330,24 @@ export default function Stories() {
                         onClose={() => setDeleteTarget(null)}
                         storyData={deleteTarget}
                         onSuccess={loadData}
+                    />
+
+                    <UnsavedChangesDialog
+                        isOpen={pendingTab !== null}
+                        onCancel={() => setPendingTab(null)}
+                        onDiscard={() => {
+                            brand.discard();
+                            if (pendingTab) setActiveTab(pendingTab);
+                            setPendingTab(null);
+                        }}
+                        onSaveAndExit={async () => {
+                            const ok = await brand.save();
+                            if (ok) {
+                                if (pendingTab) setActiveTab(pendingTab);
+                                setPendingTab(null);
+                            }
+                            return ok;
+                        }}
                     />
                 </>
             )}
