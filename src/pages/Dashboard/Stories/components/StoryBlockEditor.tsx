@@ -19,17 +19,17 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
 import { StoryBlock } from "@/services/supabase/stories";
-import { deleteStoryImageBestEffort } from "@/services/supabase/upload";
 import { TextBlock } from "./blocks/TextBlock";
 import { ImageBlock } from "./blocks/ImageBlock";
 import { VideoBlock } from "./blocks/VideoBlock";
 import styles from "./StoryBlockEditor.module.scss";
 
 interface StoryBlockEditorProps {
-    tenantId: string;
-    storyId: string;
     value: StoryBlock[];
     onChange: (next: StoryBlock[]) => void;
+    /** File pendenti per blocco immagine, keyed by block.id (posseduti dal parent). */
+    pendingImages: Record<string, File>;
+    onPendingImageChange: (blockId: string, file: File | null) => void;
     disabled?: boolean;
 }
 
@@ -39,8 +39,8 @@ function makeBlockId() {
 
 interface BlockRowProps {
     block: StoryBlock;
-    tenantId: string;
-    storyId: string;
+    pendingImage: File | null;
+    onPendingImageChange: (file: File | null) => void;
     disabled?: boolean;
     onUpdate: (next: StoryBlock) => void;
     onRemove: () => void;
@@ -48,7 +48,15 @@ interface BlockRowProps {
     dragHandleProps?: unknown;
 }
 
-function BlockRow({ block, tenantId, storyId, disabled, onUpdate, onRemove, dragHandleProps }: BlockRowProps) {
+function BlockRow({
+    block,
+    pendingImage,
+    onPendingImageChange,
+    disabled,
+    onUpdate,
+    onRemove,
+    dragHandleProps
+}: BlockRowProps) {
     return (
         <div className={styles.block}>
             <button
@@ -65,8 +73,8 @@ function BlockRow({ block, tenantId, storyId, disabled, onUpdate, onRemove, drag
                 {block.type === "image" && (
                     <ImageBlock
                         block={block}
-                        tenantId={tenantId}
-                        storyId={storyId}
+                        pendingFile={pendingImage}
+                        onPendingFileChange={onPendingImageChange}
                         onChange={onUpdate}
                         disabled={disabled}
                     />
@@ -83,7 +91,13 @@ function BlockRow({ block, tenantId, storyId, disabled, onUpdate, onRemove, drag
     );
 }
 
-export function StoryBlockEditor({ tenantId, storyId, value, onChange, disabled }: StoryBlockEditorProps) {
+export function StoryBlockEditor({
+    value,
+    onChange,
+    pendingImages,
+    onPendingImageChange,
+    disabled
+}: StoryBlockEditorProps) {
     const sensors = useSensors(
         useSensor(PointerSensor),
         useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
@@ -102,15 +116,12 @@ export function StoryBlockEditor({ tenantId, storyId, value, onChange, disabled 
         onChange(value.map(b => (b.id === id ? next : b)));
     };
 
-    const removeBlock = async (block: StoryBlock) => {
+    const removeBlock = (block: StoryBlock) => {
+        // Rimozione PENDENTE: nessuna delete storage qui. L'immagine del blocco
+        // viene pulita al Salva (cleanup orfani in saveStory) — così "esci senza
+        // salvare" non perde nulla.
         onChange(value.filter(b => b.id !== block.id));
-        if (block.type === "image" && block.url) {
-            try {
-                await deleteStoryImageBestEffort(tenantId, `${storyId}/${block.id}`, block.url);
-            } catch (err) {
-                console.warn("[storage] block image removal cleanup failed:", err);
-            }
-        }
+        if (block.type === "image") onPendingImageChange(block.id, null);
     };
 
     const addTextBlock = () => {
@@ -141,8 +152,8 @@ export function StoryBlockEditor({ tenantId, storyId, value, onChange, disabled 
                                 <SortableDataTableRow key={block.id} id={block.id} draggingOpacity={0.55}>
                                     <BlockRow
                                         block={block}
-                                        tenantId={tenantId}
-                                        storyId={storyId}
+                                        pendingImage={pendingImages[block.id] ?? null}
+                                        onPendingImageChange={file => onPendingImageChange(block.id, file)}
                                         disabled={disabled}
                                         onUpdate={next => updateBlock(block.id, next)}
                                         onRemove={() => removeBlock(block)}

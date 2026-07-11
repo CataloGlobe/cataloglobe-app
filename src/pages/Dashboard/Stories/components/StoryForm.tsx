@@ -1,6 +1,6 @@
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { FileInput } from "@/components/ui/Input/FileInput";
 import { InputBase } from "@/components/ui/Input/InputBase";
+import { ImageUploadField } from "@/components/ui/ImageUploadField/ImageUploadField";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import Text from "@/components/ui/Text/Text";
 import { StoryStatus } from "@/services/supabase/stories";
@@ -22,11 +22,16 @@ export interface StoryFormProps {
     onStatusChange: (value: StoryStatus) => void;
     productId: string | null;
     onProductIdChange: (value: string | null) => void;
-    /** Copertina già salvata (URL) — mostrata finché non c'è un file pendente. */
-    savedCover: string | null;
-    /** objectURL del file copertina pendente (posseduto dal parent). */
-    coverPreview: string | null;
-    onCoverFileChange: (file: File | null) => void;
+    /**
+     * URL copertina da mostrare (objectURL pendente o URL salvato), già
+     * risolto dal parent tenendo conto della rimozione pendente. null = vuota.
+     */
+    coverUrl: string | null;
+    /** File copertina pendente (posseduto dal parent) — per nome + size. */
+    pendingCoverFile: File | null;
+    onCoverFileChange: (file: File) => void;
+    /** Marca la rimozione della copertina come modifica pendente nel draft. */
+    onCoverRemove: () => void;
     tenantId: string;
     canWrite: boolean;
 }
@@ -45,15 +50,13 @@ export function StoryForm({
     onStatusChange,
     productId,
     onProductIdChange,
-    savedCover,
-    coverPreview,
+    coverUrl,
+    pendingCoverFile,
     onCoverFileChange,
+    onCoverRemove,
     tenantId,
     canWrite
 }: StoryFormProps) {
-    const previewSrc = coverPreview ?? savedCover;
-    const hasCover = Boolean(coverPreview ?? savedCover);
-
     return (
         <div className={styles.form}>
             <div className={styles.fieldStack}>
@@ -72,15 +75,15 @@ export function StoryForm({
                     placeholder="Es: La storia della nostra pasta fresca"
                     disabled={!canWrite}
                 />
-                {previewSrc && (
-                    <img src={previewSrc} alt="Copertina storia" className={styles.brandCoverPreview} />
-                )}
-                <FileInput
-                    label={hasCover ? "Sostituisci copertina" : "Copertina"}
+                <ImageUploadField
+                    label="Copertina"
+                    imageUrl={coverUrl}
+                    pendingFile={pendingCoverFile}
+                    onFileChange={onCoverFileChange}
+                    onRemove={onCoverRemove}
+                    thumbShape="wide"
                     accept="image/*"
                     maxSizeMb={5}
-                    preview="none"
-                    onChange={onCoverFileChange}
                     disabled={!canWrite}
                 />
                 <InputBase label="Stato">

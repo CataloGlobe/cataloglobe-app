@@ -1,0 +1,97 @@
+@use "@styles/variables" as *;
+
+.hiddenInput {
+  display: none;
+}
+
+/* ===============================
+   STATO VUOTO — dropzone compatto
+=============================== */
+
+.dropzone {
+  width: 100%;
+  min-height: 64px;
+  padding: 0.6rem 1rem;
+
+  border-radius: 10px;
+  border: 1.5px dashed var(--border, #cbd5e1);
+  background: var(--card-bg, #ffffff);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+  &:hover {
+    border-color: var(--brand-primary, #6366f1);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+  }
+
+  [data-theme="dark"] & {
+    background: #1e293b;
+    border-color: #334155;
+  }
+}
+
+/* ===============================
+   STATO IMMAGINE PRESENTE
+=============================== */
+
+.filledRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+}
+
+.thumb {
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 1px solid var(--border, #cbd5e1);
+  background: var(--card-bg, #ffffff);
+}
+
+.thumbWide {
+  width: 96px;
+  height: 64px;
+}
+
+.thumbSquare {
+  width: 64px;
+  height: 64px;
+}
+
+.meta {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fileName {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}

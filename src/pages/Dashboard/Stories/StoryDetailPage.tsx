@@ -12,7 +12,11 @@ import {
     StoryStatus,
     StoryWithProduct
 } from "@/services/supabase/stories";
-import { uploadStoryImage } from "@/services/supabase/upload";
+import {
+    uploadStoryImage,
+    deleteStoryImageBestEffort,
+    extractStoragePath
+} from "@/services/supabase/upload";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { useTenantId } from "@/context/useTenantId";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -47,6 +51,12 @@ export default function StoryDetailPage() {
     const [blocks, setBlocks] = useState<StoryBlock[]>([]);
     const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null);
     const [coverPreview, setCoverPreview] = useState<string | null>(null);
+    // Rimozione copertina PENDENTE: true solo se esisteva una copertina salvata.
+    // La delete reale (DB null + storage) avviene in saveStory, mai prima.
+    const [coverRemoved, setCoverRemoved] = useState(false);
+    // File pendenti per i blocchi immagine, keyed by block.id. Upload differito
+    // al Salva (niente eager upload: "esci senza salvare" non tocca lo storage).
+    const [pendingBlockImages, setPendingBlockImages] = useState<Record<string, File>>({});
 
     const refreshStory = useCallback(async () => {
         if (!tenantId || !storyId) return;
@@ -75,30 +85,58 @@ export default function StoryDetailPage() {
         setProductId(story.product_id);
         setBlocks(story.body_blocks);
         setPendingCoverFile(null);
+        setCoverRemoved(false);
+        setPendingBlockImages({});
         setCoverPreview(prev => {
             if (prev) URL.revokeObjectURL(prev);
             return null;
         });
     }, [story]);
 
-    const handleCoverFileChange = useCallback((file: File | null) => {
+    const handleCoverFileChange = useCallback((file: File) => {
         setPendingCoverFile(file);
+        setCoverRemoved(false);
         setCoverPreview(prev => {
             if (prev) URL.revokeObjectURL(prev);
-            return file ? URL.createObjectURL(file) : null;
+            return URL.createObjectURL(file);
+        });
+    }, []);
+
+    const handleCoverRemove = useCallback(() => {
+        setPendingCoverFile(null);
+        setCoverPreview(prev => {
+            if (prev) URL.revokeObjectURL(prev);
+            return null;
+        });
+        // Pendente solo se c'era una copertina salvata; se stavamo solo
+        // annullando un file pendente, non c'è nulla da rimuovere al Salva.
+        setCoverRemoved(Boolean(story?.cover_media));
+    }, [story?.cover_media]);
+
+    const handleBlockImageChange = useCallback((blockId: string, file: File | null) => {
+        setPendingBlockImages(prev => {
+            if (file) return { ...prev, [blockId]: file };
+            if (!(blockId in prev)) return prev;
+            const next = { ...prev };
+            delete next[blockId];
+            return next;
         });
     }, []);
 
     const isDirty = useMemo(() => {
         if (!story) return false;
         if (pendingCoverFile) return true;
+        if (coverRemoved) return true;
+        // File pendenti su blocchi immagine ancora presenti nel draft.
+        if (Object.keys(pendingBlockImages).some(id => blocks.some(b => b.id === id && b.type === "image")))
+            return true;
         if (eyebrow !== (story.eyebrow ?? "")) return true;
         if (title !== story.title) return true;
         if (status !== story.status) return true;
         if (productId !== story.product_id) return true;
         if (JSON.stringify(blocks) !== JSON.stringify(story.body_blocks)) return true;
         return false;
-    }, [story, eyebrow, title, status, productId, pendingCoverFile, blocks]);
+    }, [story, eyebrow, title, status, productId, pendingCoverFile, coverRemoved, pendingBlockImages, blocks]);
 
     const saveStory = useCallback(async (): Promise<boolean> => {
         if (!story || !tenantId || isSaving) return false;
@@ -118,15 +156,56 @@ export default function StoryDetailPage() {
                     story.id,
                     await compressImage(pendingCoverFile, COMPRESS_PROFILES.cover)
                 );
+            } else if (coverRemoved) {
+                coverMedia = null;
             }
+
+            // Upload differito dei file pendenti dei blocchi immagine.
+            let nextBlocks = blocks;
+            for (const [blockId, file] of Object.entries(pendingBlockImages)) {
+                if (!nextBlocks.some(b => b.id === blockId && b.type === "image")) continue;
+                const url = await uploadStoryImage(
+                    tenantId,
+                    `${story.id}/${blockId}`,
+                    await compressImage(file, COMPRESS_PROFILES.cover)
+                );
+                nextBlocks = nextBlocks.map(b => (b.id === blockId ? { ...b, url } : b));
+            }
+
             await updateStory(story.id, tenantId, {
                 eyebrow: eyebrow.trim() || null,
                 title: trimmedTitle,
                 product_id: productId,
                 status,
                 cover_media: coverMedia,
-                body_blocks: blocks
+                body_blocks: nextBlocks
             });
+
+            // Cleanup storage best-effort DOPO il persist DB riuscito: file non
+            // più referenziati (copertina rimossa/sostituita con estensione
+            // diversa, immagini blocco rimosse/sostituite, blocchi eliminati).
+            // Confronto per storage path (l'URL ha il cache buster).
+            const toPath = (url: string) => extractStoragePath(url, "stories") ?? url;
+            const liveUrls = [
+                ...(coverMedia ? [coverMedia] : []),
+                ...nextBlocks.flatMap(b => (b.type === "image" && b.url ? [b.url] : []))
+            ];
+            const livePaths = new Set(liveUrls.map(toPath));
+            const savedRefs = [
+                ...(story.cover_media ? [{ id: story.id, url: story.cover_media }] : []),
+                ...story.body_blocks.flatMap(b =>
+                    b.type === "image" && b.url ? [{ id: `${story.id}/${b.id}`, url: b.url }] : []
+                )
+            ];
+            for (const ref of savedRefs) {
+                if (livePaths.has(toPath(ref.url))) continue;
+                try {
+                    await deleteStoryImageBestEffort(tenantId, ref.id, ref.url);
+                } catch (err) {
+                    console.warn("[storage] story image cleanup failed:", err);
+                }
+            }
+
             showToast({ message: "Storia aggiornata.", type: "success" });
             await refreshStory();
             return true;
@@ -139,7 +218,7 @@ export default function StoryDetailPage() {
         } finally {
             setIsSaving(false);
         }
-    }, [story, tenantId, isSaving, title, eyebrow, productId, status, pendingCoverFile, blocks, refreshStory, showToast]);
+    }, [story, tenantId, isSaving, title, eyebrow, productId, status, pendingCoverFile, coverRemoved, pendingBlockImages, blocks, refreshStory, showToast]);
 
     // Protezione refresh / chiusura tab (prompt nativo). Il guard di navigazione
     // SPA con dialog a 3 opzioni richiede un data router — vedi report.
@@ -202,9 +281,10 @@ export default function StoryDetailPage() {
                             onStatusChange={setStatus}
                             productId={productId}
                             onProductIdChange={setProductId}
-                            savedCover={story.cover_media}
-                            coverPreview={coverPreview}
+                            coverUrl={coverPreview ?? (coverRemoved ? null : story.cover_media)}
+                            pendingCoverFile={pendingCoverFile}
                             onCoverFileChange={handleCoverFileChange}
+                            onCoverRemove={handleCoverRemove}
                             tenantId={tenantId ?? ""}
                             canWrite={canWrite}
                         />
@@ -215,10 +295,10 @@ export default function StoryDetailPage() {
                             Contenuto
                         </Text>
                         <StoryBlockEditor
-                            tenantId={tenantId ?? ""}
-                            storyId={story.id}
                             value={blocks}
                             onChange={setBlocks}
+                            pendingImages={pendingBlockImages}
+                            onPendingImageChange={handleBlockImageChange}
                             disabled={!canWrite}
                         />
                     </div>
