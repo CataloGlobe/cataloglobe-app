@@ -1838,6 +1838,7 @@ export default function CatalogEngine() {
                 ) : (
                     <div className={styles.translationsWrap}>
                         <TranslationsTab
+                            flush
                             entityType="category"
                             entityId={selectedCategory.id}
                             tenantId={currentTenantId ?? ""}
