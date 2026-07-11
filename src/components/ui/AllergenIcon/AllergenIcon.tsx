@@ -43,7 +43,7 @@ export default function AllergenIcon({ code, size = 20, className, label, varian
 
     return (
         <span
-            className={`${styles.wrapper}${label ? ` ${styles.hasTooltip}` : ""}${className ? ` ${className}` : ""}`}
+            className={`${styles.wrapper}${applyChip ? ` ${styles.chip}` : ""}${label ? ` ${styles.hasTooltip}` : ""}${className ? ` ${className}` : ""}`}
             aria-hidden="true"
         >
             <IconComponent
