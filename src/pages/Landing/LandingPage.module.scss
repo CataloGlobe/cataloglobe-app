@@ -138,15 +138,15 @@
   font-weight: 600;
   white-space: nowrap;
   color: #fff;
-  background: var(--indigo-deep);
+  background: var(--indigo);
   text-decoration: none;
   transition:
     background 0.18s ease,
     transform 0.18s ease;
 
   &:hover {
-    background: color-mix(in srgb, var(--indigo-deep) 85%, black);
-    transform: translateY(-1px);
+    background: var(--indigo-deep);
+    text-decoration: none;
   }
   &:focus-visible {
     outline: 3px solid color-mix(in srgb, var(--indigo) 55%, transparent);
@@ -433,7 +433,7 @@
   padding: 0 26px;
   border-radius: 12px;
   border: none;
-  background: var(--indigo-deep);
+  background: var(--indigo);
   color: #fff;
   font-family: var(--sans);
   font-size: 15px;
@@ -445,8 +445,8 @@
     transform 0.2s ease;
 
   &:hover {
-    background: color-mix(in srgb, var(--indigo-deep) 85%, black);
-    transform: translateY(-1px);
+    background: var(--indigo-deep);
+    text-decoration: none;
   }
   &:focus-visible {
     outline: 3px solid color-mix(in srgb, var(--indigo) 55%, transparent);
@@ -476,7 +476,7 @@
 
   &:hover {
     border-color: var(--scene-ink);
-    transform: translateY(-1px);
+    text-decoration: none;
   }
   &:focus-visible {
     outline: 3px solid color-mix(in srgb, var(--indigo) 55%, transparent);
@@ -589,7 +589,7 @@
 }
 .ruleActive {
   background: var(--indigo-soft);
-  color: var(--indigo-deep);
+  color: var(--indigo);
 }
 .ruleScheduled {
   background: var(--slate);
@@ -711,7 +711,7 @@
   font-variant-numeric: tabular-nums;
 }
 .daypartActive .daypartTime {
-  color: var(--indigo-deep);
+  color: var(--indigo);
 }
 
 /* Avanzamento della fascia corrente — riempie il pill attivo stesso da
@@ -770,7 +770,7 @@
   font-family: var(--sans);
   font-size: 13px;
   font-weight: 600;
-  color: var(--indigo-deep);
+  color: var(--indigo);
   margin: 0 0 12px;
 }
 .sectionH2 {
@@ -901,7 +901,7 @@
   width: 46px;
   height: 46px;
   border-radius: 10px;
-  background: var(--indigo-deep);
+  background: var(--indigo);
   color: #fff;
   display: flex;
   flex-direction: column;
@@ -929,7 +929,7 @@
 .promoMeta {
   font-family: var(--sans);
   font-size: 12.5px;
-  color: var(--indigo-deep);
+  color: var(--indigo);
   margin-top: 2px;
   font-weight: 500;
 }
@@ -1026,7 +1026,7 @@
   }
 }
 .langOptActive {
-  background: var(--indigo-deep);
+  background: var(--indigo);
   color: #fff;
 }
 /* riga fissa: nome (IT, invariato in ogni lingua) + prezzo, poi descrizione
@@ -1119,8 +1119,8 @@
   }
 }
 .dayBtnActive {
-  background: var(--indigo-deep);
-  border-color: var(--indigo-deep);
+  background: var(--indigo);
+  border-color: var(--indigo);
   color: #fff;
 }
 .dayDot {
@@ -1130,7 +1130,7 @@
   background: transparent;
 }
 .dayDotOn {
-  background: var(--indigo-deep);
+  background: var(--indigo);
 }
 .dayBtnActive .dayDotOn {
   background: #fff;
@@ -1192,7 +1192,7 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--indigo-deep);
+  color: var(--indigo);
 }
 .miniFeaturedTitle {
   font-family: var(--serif);
@@ -1204,7 +1204,7 @@
   font-family: var(--sans);
   font-size: 12px;
   font-weight: 500;
-  color: var(--indigo-deep);
+  color: var(--indigo);
 }
 
 /* varianti colore per tipo di promo — a colpo d'occhio, contenuti diversi */
@@ -1461,7 +1461,7 @@
   color: var(--ink);
 }
 .growIcon {
-  color: var(--indigo-deep);
+  color: var(--indigo);
   display: inline-flex;
   flex-shrink: 0;
   transform: translateY(1px);
@@ -1480,7 +1480,7 @@
   padding: 1px 6px;
   border-radius: 4px;
   background: var(--indigo-soft);
-  color: var(--indigo-deep);
+  color: var(--indigo);
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -1563,7 +1563,7 @@
   border-radius: 10px;
   display: grid;
   place-items: center;
-  background: var(--indigo-deep);
+  background: var(--indigo);
   color: #fff;
 }
 .chainBrand {
@@ -1676,10 +1676,10 @@
 }
 .chainStyleEve {
   background: var(--indigo-soft);
-  color: var(--indigo-deep);
+  color: var(--indigo);
 }
 .chainStyleEve .chainStyleDot {
-  background: var(--indigo-deep);
+  background: var(--indigo);
 }
 .chainStyleWarm {
   background: #f7ecd9;
@@ -1796,7 +1796,7 @@
   align-items: center;
   justify-content: center;
   background: var(--indigo-soft);
-  color: var(--indigo-deep);
+  color: var(--indigo);
   font-family: var(--sans);
   font-size: 13px;
   font-weight: 700;
@@ -1840,7 +1840,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--indigo-deep);
+  background: var(--indigo);
   color: #fff;
 }
 .aiReassureText {
@@ -1877,7 +1877,7 @@
   font-family: var(--sans);
   font-size: 14px;
   font-weight: 600;
-  color: var(--indigo-deep);
+  color: var(--indigo);
 }
 .aiWizardSteps {
   display: flex;
@@ -1896,7 +1896,7 @@
   white-space: nowrap;
 }
 .aiWizardStepDone {
-  color: var(--indigo-deep);
+  color: var(--indigo);
 }
 .aiWizardStepActive {
   color: var(--ink);
@@ -1906,7 +1906,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--indigo-deep);
+    background: var(--indigo);
     flex-shrink: 0;
   }
 }
@@ -1941,7 +1941,7 @@
   width: 20px;
   height: 20px;
   border-radius: 5px;
-  background: var(--indigo-deep);
+  background: var(--indigo);
   color: #fff;
   display: flex;
   align-items: center;
@@ -2123,14 +2123,14 @@
   font-family: var(--sans);
   font-size: 11.5px;
   font-weight: 600;
-  color: var(--indigo-deep);
+  color: var(--indigo);
   white-space: nowrap;
 }
 .availCardStatusDot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: var(--indigo-deep);
+  background: var(--indigo);
   flex-shrink: 0;
 }
 
@@ -2173,7 +2173,7 @@
   align-items: center;
 }
 .availToggleOn {
-  background: var(--indigo-deep);
+  background: var(--indigo);
   justify-content: flex-end;
 }
 .availToggleKnob {
@@ -2297,7 +2297,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--indigo-deep);
+  background: var(--indigo);
   color: #fff;
 }
 .storiesHookText {
@@ -2568,7 +2568,7 @@
   left: 28px;
   padding: 3px 12px;
   border-radius: 999px;
-  background: var(--indigo-deep);
+  background: var(--indigo);
   color: #fff;
   font-family: var(--sans);
   font-size: 11.5px;
@@ -2627,7 +2627,7 @@
   color: var(--body);
 }
 .checkIcon {
-  color: var(--indigo-deep);
+  color: var(--indigo);
   flex-shrink: 0;
   margin-top: 1px;
 }
@@ -2673,13 +2673,17 @@
   transition:
     background 0.2s ease,
     border-color 0.2s ease;
+
+  &:hover {
+    text-decoration: none;
+  }
 }
 .planCtaPrimary {
-  background: var(--indigo-deep);
+  background: var(--indigo);
   color: #fff;
   border: none;
   &:hover {
-    background: color-mix(in srgb, var(--indigo-deep) 85%, black);
+    background: var(--indigo-deep);
   }
 }
 .planCtaGhost {
@@ -2736,7 +2740,7 @@
 }
 .faqIconOpen {
   transform: rotate(45deg);
-  color: var(--indigo-deep);
+  color: var(--indigo);
 }
 .faqA {
   overflow: hidden;
@@ -2831,7 +2835,7 @@
   margin-top: 4px;
   border: none;
   border-radius: 12px;
-  background: var(--indigo-deep);
+  background: var(--indigo);
   color: #fff;
   font-family: var(--sans);
   font-size: 15px;
@@ -2842,8 +2846,7 @@
     transform 0.18s ease;
 
   &:hover:not(:disabled) {
-    background: color-mix(in srgb, var(--indigo-deep) 85%, black);
-    transform: translateY(-1px);
+    background: var(--indigo-deep);
   }
   &:disabled {
     opacity: 0.65;
@@ -2874,7 +2877,7 @@
   color: var(--ink);
 
   svg {
-    color: var(--indigo-deep);
+    color: var(--indigo);
     flex-shrink: 0;
   }
 }
@@ -3328,7 +3331,7 @@
   padding: 0 20px;
   border-radius: 12px;
   background: #fff;
-  color: var(--indigo-deep);
+  color: var(--indigo);
   font-family: var(--sans);
   font-size: 14.5px;
   font-weight: 600;
@@ -3337,6 +3340,7 @@
 
   &:hover {
     background: #eef0fe;
+    text-decoration: none;
   }
   &:focus-visible {
     outline: 3px solid rgba(255, 255, 255, 0.7);
