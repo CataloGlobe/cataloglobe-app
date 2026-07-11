@@ -11,7 +11,8 @@ import {
     PatternIntensity,
     FeaturedStyle,
     CardTreatment,
-    OutlinedBorderColor
+    OutlinedBorderColor,
+    IconStyle
 } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
@@ -100,6 +101,11 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "highlight", label: "Highlight" }
     ];
 
+    const iconStyleOptions: Array<{ value: IconStyle; label: string }> = [
+        { value: "plain", label: "Nuda" },
+        { value: "pill", label: "Cerchio" }
+    ];
+
     const updateColor = (key: keyof StyleTokenModel["colors"], value: string | undefined) => {
         onChange({
             ...model,
@@ -119,6 +125,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const updateBorderRadius = (borderRadius: BorderRadius) => {
         onChange({ ...model, appearance: { ...model.appearance, borderRadius } });
+    };
+
+    const updateIconStyle = (iconStyle: IconStyle) => {
+        onChange({ ...model, appearance: { ...model.appearance, iconStyle } });
     };
 
     const updateCardTreatment = (cardTreatment: CardTreatment) => {
@@ -257,6 +267,31 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                         />
                                     </div>
                                     <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Stile icone<InfoTooltip content="Mostra le icone di allergeni e caratteristiche nude oppure dentro un cerchio colorato." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {iconStyleOptions.map(option => {
+                            const isActive = (model.appearance.iconStyle ?? "plain") === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateIconStyle(option.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {option.label}
+                                    </Text>
                                 </button>
                             );
                         })}

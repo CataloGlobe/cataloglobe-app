@@ -5,6 +5,7 @@ export type SectionNavStyle = "filled" | "outline" | "tabs" | "minimal" | "tinte
 export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type CardTreatment = "raised" | "bordered" | "glass";
+export type IconStyle = "plain" | "pill";
 
 export type CollectionStyle = {
     /* =========================
@@ -53,6 +54,8 @@ export type CollectionStyle = {
     cardTreatment?: CardTreatment;
     /** Visual style of featured content cards: card (image top + text below) or highlight (image as background, text overlaid) */
     featuredStyle?: "card" | "highlight";
+    /** Icon style for allergens + characteristics in product cards: plain (bare) or pill (colored circle) */
+    iconStyle?: IconStyle;
 };
 
 /* =========================
@@ -82,5 +85,6 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
     cardLayout: "list",
     productStyle: "card",
     cardTreatment: "raised",
-    featuredStyle: "card"
+    featuredStyle: "card",
+    iconStyle: "plain"
 };

@@ -365,6 +365,7 @@ export default function PublicCatalogReady({
         showAddress: tokens.header.showAddress,
         featuredStyle: tokens.appearance.featuredStyle,
         cardTreatment: tokens.appearance.cardTreatment,
+        iconStyle: tokens.appearance.iconStyle ?? "plain",
         appearanceRadius: borderRadiusToPx(tokens.appearance.borderRadius)
     } as const;
 

@@ -7,15 +7,22 @@ type Props = {
     className?: string;
     label?: string;
     variant?: "default" | "bare";
+    /**
+     * Opt-in round tinted chip background (same look as CharacteristicIcon's
+     * chip). Defaults to `false` (plain, bare icon). Driven by the Style Editor
+     * `iconStyle` token. Never applied to `variant="bare"`.
+     */
+    chip?: boolean;
 };
 
-export default function AllergenIcon({ code, size = 20, className, label, variant = "default" }: Props) {
+export default function AllergenIcon({ code, size = 20, className, label, variant = "default", chip = false }: Props) {
     const IconComponent = ALLERGEN_ICON_MAP[code];
+    const applyChip = chip && variant !== "bare";
 
     if (!IconComponent) {
         return (
             <span
-                className={`${variant === "bare" ? styles.fallbackBare : styles.fallback}${label ? ` ${styles.hasTooltip}` : ""}${className ? ` ${className}` : ""}`}
+                className={`${variant === "bare" ? styles.fallbackBare : styles.fallback}${applyChip ? ` ${styles.chip}` : ""}${label ? ` ${styles.hasTooltip}` : ""}${className ? ` ${className}` : ""}`}
                 style={variant === "bare" ? undefined : { width: size, height: size }}
                 aria-hidden="true"
             >

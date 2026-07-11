@@ -375,6 +375,7 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
         showAddress: model.header.showAddress,
         featuredStyle: model.appearance.featuredStyle,
         cardTreatment: model.appearance.cardTreatment,
+        iconStyle: model.appearance.iconStyle ?? "plain",
         appearanceRadius: borderRadiusToPx(model.appearance.borderRadius)
     };
 

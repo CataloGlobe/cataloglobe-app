@@ -253,6 +253,7 @@ type ProductRowProps = {
     onAdd: (item: CollectionViewSectionItem) => void;
     orderingEnabled: boolean;
     selectionQty?: number;
+    iconChip?: boolean;
 };
 
 function ProductRowInner({
@@ -264,7 +265,8 @@ function ProductRowInner({
     onClick,
     onAdd,
     orderingEnabled,
-    selectionQty = 0
+    selectionQty = 0,
+    iconChip = false
 }: ProductRowProps) {
     const {
         name,
@@ -413,7 +415,7 @@ function ProductRowInner({
                             <div className={styles.allergenEmojis}>
                                 {visibleAllergens.map(a => (
                                     <span key={a.id} className={styles.allergenEmoji}>
-                                        <AllergenIcon code={a.code} size={18} label={a.label} />
+                                        <AllergenIcon code={a.code} size={18} label={a.label} chip={iconChip} />
                                     </span>
                                 ))}
                                 {hiddenCount > 0 && (
@@ -432,6 +434,7 @@ function ProductRowInner({
                                             icon={c.icon}
                                             size={18}
                                             label={c.label}
+                                            chip={iconChip}
                                         />
                                     </span>
                                 ))}
@@ -474,6 +477,7 @@ type ProductCompactRowProps = {
     onAdd: (item: CollectionViewSectionItem) => void;
     orderingEnabled: boolean;
     selectionQty?: number;
+    iconChip?: boolean;
 };
 
 function ProductCompactRowInner({
@@ -481,7 +485,8 @@ function ProductCompactRowInner({
     onClick,
     onAdd,
     orderingEnabled,
-    selectionQty = 0
+    selectionQty = 0,
+    iconChip = false
 }: ProductCompactRowProps) {
     const {
         name,
@@ -569,7 +574,7 @@ function ProductCompactRowInner({
                             <div className={styles.compactAllergens}>
                                 {visibleAllergens.map(a => (
                                     <span key={a.id} className={styles.allergenEmoji}>
-                                        <AllergenIcon code={a.code} size={16} label={a.label} />
+                                        <AllergenIcon code={a.code} size={16} label={a.label} chip={iconChip} />
                                     </span>
                                 ))}
                                 {hiddenCount > 0 && (
@@ -588,6 +593,7 @@ function ProductCompactRowInner({
                                             icon={c.icon}
                                             size={16}
                                             label={c.label}
+                                            chip={iconChip}
                                         />
                                     </span>
                                 ))}
@@ -2157,6 +2163,7 @@ export default function CollectionView({
                                         onAdd={handleRowAdd}
                                         orderingEnabled={orderingEnabled}
                                         selectionQty={selectionMap[item.id]}
+                                        iconChip={style.iconStyle === "pill"}
                                     />
                                 ) : (
                                     <ProductRow
@@ -2169,6 +2176,7 @@ export default function CollectionView({
                                         onAdd={handleRowAdd}
                                         orderingEnabled={orderingEnabled}
                                         selectionQty={selectionMap[item.id]}
+                                        iconChip={style.iconStyle === "pill"}
                                     />
                                 ))}
 
@@ -2194,6 +2202,7 @@ export default function CollectionView({
                                                 onAdd={handleRowAdd}
                                                 orderingEnabled={orderingEnabled}
                                                 selectionQty={selectionMap[v.id]}
+                                                iconChip={style.iconStyle === "pill"}
                                             />
                                         ) : (
                                             <ProductRow
@@ -2207,6 +2216,7 @@ export default function CollectionView({
                                                 onAdd={handleRowAdd}
                                                 orderingEnabled={orderingEnabled}
                                                 selectionQty={selectionMap[v.id]}
+                                                iconChip={style.iconStyle === "pill"}
                                             />
                                         );
                                     })}
