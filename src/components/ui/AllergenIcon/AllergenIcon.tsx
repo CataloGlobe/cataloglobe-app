@@ -1,4 +1,5 @@
 import { ALLERGEN_ICON_MAP } from "@components/icons/allergens";
+import { getChipScale } from "@components/icons/chipScale";
 import styles from "./AllergenIcon.module.scss";
 
 type Props = {
@@ -41,15 +42,23 @@ export default function AllergenIcon({ code, size = 20, className, label, varian
         );
     }
 
+    // Chip-only optical balance: scale up sparse-ink icons inside the circle.
+    // No-op (scale 1) in plain mode and for already-balanced icons.
+    const chipScale = applyChip ? getChipScale(code) : 1;
+    const iconEl = <IconComponent size={size} className={styles.icon} />;
+
     return (
         <span
             className={`${styles.wrapper}${applyChip ? ` ${styles.chip}` : ""}${label ? ` ${styles.hasTooltip}` : ""}${className ? ` ${className}` : ""}`}
             aria-hidden="true"
         >
-            <IconComponent
-                size={size}
-                className={styles.icon}
-            />
+            {chipScale !== 1 ? (
+                <span className={styles.scaleWrap} style={{ transform: `scale(${chipScale})` }}>
+                    {iconEl}
+                </span>
+            ) : (
+                iconEl
+            )}
             {label && <span className={styles.tooltip}>{label}</span>}
         </span>
     );

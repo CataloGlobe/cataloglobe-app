@@ -22,6 +22,7 @@ import {
     Wine
 } from "lucide-react";
 import { CUSTOM_CHARACTERISTIC_ICON_MAP } from "@components/icons/characteristics";
+import { getChipScale } from "@components/icons/chipScale";
 import styles from "./CharacteristicIcon.module.scss";
 
 /**
@@ -258,6 +259,17 @@ export default function CharacteristicIcon({
         // no wrapper span, no aria-label, label prop ignored. Consumers
         // pass label_it as adjacent text in detail/sheet surfaces.
         return renderable;
+    }
+
+    // Chip-only optical balance: scale up sparse-ink icons inside the circle.
+    // No-op (scale 1) in plain mode and for already-balanced icons.
+    const chipScale = chip ? getChipScale(icon) : 1;
+    if (chipScale !== 1) {
+        renderable = (
+            <span className={styles.scaleWrap} style={{ transform: `scale(${chipScale})` }}>
+                {renderable}
+            </span>
+        );
     }
 
     return (

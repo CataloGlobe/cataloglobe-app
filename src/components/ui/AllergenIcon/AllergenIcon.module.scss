@@ -11,6 +11,15 @@
     display: block;
 }
 
+// Wraps the icon only in chip mode when a per-icon scale is applied. Transform
+// scales around the center so the icon grows symmetrically inside the chip.
+.scaleWrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transform-origin: center;
+}
+
 .iconBare {
     display: block;
     flex-shrink: 0;
