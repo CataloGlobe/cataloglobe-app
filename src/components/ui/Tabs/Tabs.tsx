@@ -93,8 +93,18 @@ interface TabsListProps {
 function TabsList({ children }: TabsListProps) {
     const { value, variant, itemRefs } = useTabsContext();
     const listRef = useRef<HTMLDivElement>(null);
-    const [indicator, setIndicator] = useState<{ width: number; left: number } | null>(null);
-    const [animate, setAnimate] = useState(false);
+    const [indicator, setIndicator] = useState<{ width: number; left: number; animate: boolean } | null>(null);
+
+    // Firma del set di tab dell'ultima misura. Distingue un cambio-tab/resize
+    // nella STESSA pagina (deve animare) da un cambio pagina: questa <Tabs> vive
+    // nel PageHeaderSlot persistente di MainLayout, quindi navigando tra pagine
+    // React RIUSA l'istanza (stesso tipo, stessa posizione) invece di rimontarla.
+    // Senza questo gate l'indicatore scivolerebbe dalla posizione della pagina
+    // precedente a quella nuova (bug). NB: si gatta sul SET di tab, non sul
+    // `value`, perché al passaggio active la tab si fa bold → reflow → il
+    // ResizeObserver rimisura, e un gate sul value spegnerebbe l'animazione appena
+    // partita.
+    const prevSig = useRef<string | null>(null);
 
     // Underline dinamico solo per le varianti con indicatore (`line` + default).
     // `primary`/`secondary` usano background pill, nessun trattino.
@@ -105,23 +115,35 @@ function TabsList({ children }: TabsListProps) {
         const activeEl = itemRefs.current.get(value);
         if (!listEl || !activeEl) {
             setIndicator(null);
+            prevSig.current = null;
             return;
         }
+        // Set corrente di tab (chiavi registrate). Diverso set = pagina diversa.
+        const sig = Array.from(itemRefs.current.keys()).sort().join("|");
+        // Anima solo se il set è lo STESSO della misura precedente (cambio-tab o
+        // resize in-page). Primo mount (prevSig null) o cambio pagina (set diverso,
+        // istanza riusata dal PageHeaderSlot) → snap istantaneo.
+        const animate = prevSig.current !== null && prevSig.current === sig;
+
         const listBox = listEl.getBoundingClientRect();
         const box = activeEl.getBoundingClientRect();
-        setIndicator({ width: box.width, left: box.left - listBox.left });
+        setIndicator({ width: box.width, left: box.left - listBox.left, animate });
+
+        prevSig.current = sig;
     }, [value, itemRefs]);
 
     // Posiziona prima del paint per evitare il flash iniziale da width 0.
     useLayoutEffect(() => {
         if (!showIndicator) {
             setIndicator(null);
+            prevSig.current = null;
             return;
         }
         measure();
     }, [measure, showIndicator]);
 
     // Ricalcolo su resize/reflow (finestra, cambio testo, load font, badge).
+    // value invariato → `animate` resta false → resize snappa senza slide.
     useEffect(() => {
         if (!showIndicator) return;
         const listEl = listRef.current;
@@ -131,19 +153,19 @@ function TabsList({ children }: TabsListProps) {
         return () => observer.disconnect();
     }, [measure, showIndicator]);
 
-    // Abilita la transizione solo dopo il primo posizionamento (no slide da 0).
-    useEffect(() => {
-        const id = requestAnimationFrame(() => setAnimate(true));
-        return () => cancelAnimationFrame(id);
-    }, []);
-
     return (
         <div className={styles.list} role="tablist" ref={listRef}>
             {children}
             {showIndicator && indicator && (
                 <span
-                    className={`${styles.indicator} ${animate ? styles.animate : ""}`}
-                    style={{ width: indicator.width, transform: `translateX(${indicator.left}px)` }}
+                    className={styles.indicator}
+                    style={{
+                        width: indicator.width,
+                        transform: `translateX(${indicator.left}px)`,
+                        // Snap istantaneo su mount/cambio pagina; slide solo sul
+                        // cambio-tab in-page. La transition base vive nel CSS.
+                        transition: indicator.animate ? undefined : "none"
+                    }}
                     aria-hidden="true"
                 />
             )}

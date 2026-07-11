@@ -44,12 +44,11 @@ $line-text-disabled: #aab0bb;
   background: var(--brand-primary);
   border-radius: 2px;
   pointer-events: none;
-}
 
-// Slide/resize fluido; attivo solo dopo il primo posizionamento (no flash).
-// Il `width` è animato di proposito (indicatore 2px, footprint minimo — stesso
-// pattern già in uso in SegmentedControl).
-.animate {
+  // Slide/resize fluido sul cambio-tab in-page. Su mount o cambio pagina il
+  // componente sovrascrive inline con `transition: none` (snap, no flash/slide).
+  // Il `width` è animato di proposito (indicatore 2px, footprint minimo — stesso
+  // pattern già in uso in SegmentedControl).
   transition:
     transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
     width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
