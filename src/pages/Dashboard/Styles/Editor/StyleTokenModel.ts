@@ -9,6 +9,8 @@ export type FeaturedStyle = "card" | "highlight";
 export type CardTreatment = "raised" | "bordered" | "glass";
 export type OutlinedBorderColor = "auto" | "primary";
 export type IconStyle = "plain" | "pill";
+export type CompactLayoutStyle = "editorial" | "modern";
+export type ContentDensity = "minimal" | "standard" | "full";
 
 export interface StyleTokenModel {
     colors: {
@@ -46,6 +48,10 @@ export interface StyleTokenModel {
     card: {
         layout: CardLayout;
         productStyle: ProductStyle;
+        /** Variante strutturale del Compatto: "editorial" (leader a puntini tra nome e prezzo) o "modern" (senza). Assente = "modern" (comportamento storico). Nessun effetto sulla Card. */
+        compactLayoutStyle?: CompactLayoutStyle;
+        /** Densità contenuti riga prodotto (Card + Compatto): "minimal" (nome+prezzo), "standard" (+descrizione), "full" (+abbinamenti e allergeni). Assente = "full" (comportamento storico). */
+        contentDensity?: ContentDensity;
         image: {
             mode: "show" | "hide";
             position: "left" | "right";
@@ -232,6 +238,12 @@ export function parseTokens(rawJson: any): StyleTokenModel {
                 : ["card", "compact"].includes(rawCard.productStyle)
                     ? (rawCard.productStyle as ProductStyle)
                     : DEFAULT_STYLE_TOKENS.card.productStyle,
+            // compactLayoutStyle: assente = "modern" (comportamento storico). Serializzato solo se "editorial".
+            compactLayoutStyle: rawCard.compactLayoutStyle === "editorial" ? "editorial" : undefined,
+            // contentDensity: assente = "full" (mostra tutto, comportamento storico). Serializzato solo se non-default.
+            contentDensity: rawCard.contentDensity === "minimal" || rawCard.contentDensity === "standard"
+                ? (rawCard.contentDensity as ContentDensity)
+                : undefined,
             image: {
                 mode: ["show", "hide"].includes(rawCardImage.mode)
                     ? rawCardImage.mode
@@ -269,6 +281,21 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
     // iconStyle serializzato solo se "pill" (plain = default, chiave omessa, stesso pattern di outlinedBorderColor)
     if (model.appearance.iconStyle === "pill") appearance.iconStyle = "pill";
 
+    const card: Record<string, unknown> = {
+        layout: model.card.layout,
+        productStyle: model.card.productStyle,
+        image: {
+            mode: model.card.image.mode,
+            position: model.card.image.position
+        }
+    };
+    // compactLayoutStyle serializzato solo se "editorial" (modern = default, chiave omessa)
+    if (model.card.compactLayoutStyle === "editorial") card.compactLayoutStyle = "editorial";
+    // contentDensity serializzato solo se non-default (full = default, chiave omessa)
+    if (model.card.contentDensity === "minimal" || model.card.contentDensity === "standard") {
+        card.contentDensity = model.card.contentDensity;
+    }
+
     return {
         colors,
         typography: {
@@ -285,13 +312,6 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
         navigation: {
             style: model.navigation.style
         },
-        card: {
-            layout: model.card.layout,
-            productStyle: model.card.productStyle,
-            image: {
-                mode: model.card.image.mode,
-                position: model.card.image.position
-            }
-        }
+        card
     };
 }

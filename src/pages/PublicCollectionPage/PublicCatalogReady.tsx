@@ -358,6 +358,8 @@ export default function PublicCatalogReady({
         cardTemplate,
         cardLayout: tokens.card.layout,
         productStyle: tokens.card.productStyle,
+        compactLayoutStyle: tokens.card.compactLayoutStyle ?? "modern",
+        contentDensity: tokens.card.contentDensity ?? "full",
         showLogo: tokens.header.showLogo,
         showCoverImage: tokens.header.showCoverImage,
         showActivityName: tokens.header.showActivityName,

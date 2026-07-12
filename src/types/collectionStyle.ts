@@ -6,6 +6,8 @@ export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type CardTreatment = "raised" | "bordered" | "glass";
 export type IconStyle = "plain" | "pill";
+export type CompactLayoutStyle = "editorial" | "modern";
+export type ContentDensity = "minimal" | "standard" | "full";
 
 export type CollectionStyle = {
     /* =========================
@@ -56,6 +58,10 @@ export type CollectionStyle = {
     featuredStyle?: "card" | "highlight";
     /** Icon style for allergens + characteristics in product cards: plain (bare) or pill (colored circle) */
     iconStyle?: IconStyle;
+    /** Structural variant of the compact product row: editorial (dotted leader between name and price) or modern (none). No effect on card style. */
+    compactLayoutStyle?: CompactLayoutStyle;
+    /** Content density of product rows (card + compact): minimal (name+price only), standard (+description), full (+pairings and allergens) */
+    contentDensity?: ContentDensity;
 };
 
 /* =========================
@@ -86,5 +92,7 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
     productStyle: "card",
     cardTreatment: "raised",
     featuredStyle: "card",
-    iconStyle: "plain"
+    iconStyle: "plain",
+    compactLayoutStyle: "modern",
+    contentDensity: "full"
 };

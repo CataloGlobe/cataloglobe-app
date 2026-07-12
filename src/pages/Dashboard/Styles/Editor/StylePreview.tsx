@@ -375,6 +375,8 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
         cardTemplate,
         cardLayout: model.card.layout,
         productStyle: model.card.productStyle,
+        compactLayoutStyle: model.card.compactLayoutStyle ?? "modern",
+        contentDensity: model.card.contentDensity ?? "full",
         showLogo: model.header.showLogo,
         showCoverImage: model.header.showCoverImage,
         showActivityName: model.header.showActivityName,

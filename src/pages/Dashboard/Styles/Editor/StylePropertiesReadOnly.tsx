@@ -261,9 +261,10 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         }
                     />
                 )}
+                {model.card.productStyle === "card" && (
                 <div className={sharedStyles.controlField}>
                     <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
-                        Layout lista prodotti<InfoTooltip content="Grid mostra più prodotti affiancati su schermi ampi (desktop/tablet). Su mobile, entrambi i layout mostrano un prodotto per riga." />
+                        Layout lista prodotti<InfoTooltip content="Grid mostra i prodotti affiancati su più colonne: due su mobile, tre su schermi ampi. List mostra sempre un prodotto per riga." />
                     </Text>
                     <div className={`${sharedStyles.miniPreviewGrid} ${sharedStyles.miniPreviewGridTwoCols}`}>
                         {(
@@ -287,6 +288,25 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         })}
                     </div>
                 </div>
+                )}
+                {model.card.productStyle === "compact" && (
+                    <ValueReadRow
+                        label="Variante Compatto"
+                        tooltip="Editoriale collega nome e prezzo con una linea di puntini, come un menù classico. Moderno li lascia separati."
+                        value={(model.card.compactLayoutStyle ?? "modern") === "editorial" ? "Editoriale" : "Moderno"}
+                    />
+                )}
+                <ValueReadRow
+                    label="Densità contenuti"
+                    tooltip="Minimo mostra solo nome e prezzo. Con descrizione aggiunge la descrizione. Completo mostra anche abbinamenti e allergeni."
+                    value={
+                        (model.card.contentDensity ?? "full") === "minimal"
+                            ? "Minimo"
+                            : (model.card.contentDensity ?? "full") === "standard"
+                                ? "Con descrizione"
+                                : "Completo"
+                    }
+                />
                 {model.card.productStyle !== "compact" && (
                     <div className={sharedStyles.controlField}>
                         <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>

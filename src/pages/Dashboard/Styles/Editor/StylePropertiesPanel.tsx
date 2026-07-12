@@ -12,7 +12,9 @@ import {
     FeaturedStyle,
     CardTreatment,
     OutlinedBorderColor,
-    IconStyle
+    IconStyle,
+    CompactLayoutStyle,
+    ContentDensity
 } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
@@ -106,6 +108,17 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "pill", label: "Con sfondo" }
     ];
 
+    const compactLayoutStyleOptions: Array<{ value: CompactLayoutStyle; label: string }> = [
+        { value: "editorial", label: "Editoriale" },
+        { value: "modern", label: "Moderno" }
+    ];
+
+    const contentDensityOptions: Array<{ value: ContentDensity; label: string }> = [
+        { value: "minimal", label: "Minimo" },
+        { value: "standard", label: "Con descrizione" },
+        { value: "full", label: "Completo" }
+    ];
+
     const updateColor = (key: keyof StyleTokenModel["colors"], value: string | undefined) => {
         onChange({
             ...model,
@@ -178,6 +191,14 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
             ...model,
             card: { ...model.card, layout }
         });
+    };
+
+    const updateCompactLayoutStyle = (compactLayoutStyle: CompactLayoutStyle) => {
+        onChange({ ...model, card: { ...model.card, compactLayoutStyle } });
+    };
+
+    const updateContentDensity = (contentDensity: ContentDensity) => {
+        onChange({ ...model, card: { ...model.card, contentDensity } });
     };
 
     const updateCardImage = (mode: "show" | "hide", position: "left" | "right") => {
@@ -592,6 +613,9 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     </div>
                 )}
 
+                {/* Layout List/Grid — solo per stile Card: il Compatto usa un grid
+                    auto-fit sempre attivo guidato dalla densità contenuti */}
+                {model.card.productStyle === "card" && (
                 <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
                         Layout lista prodotti<InfoTooltip content="Grid mostra i prodotti affiancati su più colonne: due su mobile, tre su schermi ampi. Sugli schermi stretti i contenuti si adattano restringendosi, mantenendo prezzo e bottone sempre leggibili. List mostra sempre un prodotto per riga." />
@@ -612,6 +636,63 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                 >
                                     <CardLayoutPreview variant={option.value} />
                                     <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+                )}
+
+                {model.card.productStyle === "compact" && (
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Variante Compatto<InfoTooltip content="Editoriale collega nome e prezzo con una linea di puntini, come un menù classico. Moderno li lascia separati." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {compactLayoutStyleOptions.map(option => {
+                            const isActive = (model.card.compactLayoutStyle ?? "modern") === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isActive}
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateCompactLayoutStyle(option.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {option.label}
+                                    </Text>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+                )}
+
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Densità contenuti<InfoTooltip content="Minimo mostra solo nome e prezzo. Con descrizione aggiunge la descrizione. Completo mostra anche abbinamenti e allergeni. Prezzo, sconto e bottone ordina restano sempre visibili." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {contentDensityOptions.map(option => {
+                            const isActive = (model.card.contentDensity ?? "full") === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isActive}
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateContentDensity(option.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {option.label}
+                                    </Text>
                                 </button>
                             );
                         })}
