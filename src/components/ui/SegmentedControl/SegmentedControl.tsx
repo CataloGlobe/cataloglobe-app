@@ -13,13 +13,16 @@ interface SegmentedControlProps<T extends string | number> {
     onChange: (value: T) => void;
     options: SegmentedOption<T>[];
     iconsOnly?: boolean;
+    /** `sm` = variante compatta per contesti densi (es. header di pagina). Default `md`. */
+    size?: "md" | "sm";
 }
 
 export function SegmentedControl<T extends string | number>({
     value,
     onChange,
     options,
-    iconsOnly
+    iconsOnly,
+    size = "md"
 }: SegmentedControlProps<T>) {
     const containerRef = useRef<HTMLDivElement>(null);
     const itemRefs = useRef<Record<T, HTMLButtonElement | null>>(
@@ -45,7 +48,11 @@ export function SegmentedControl<T extends string | number>({
     }, [value, options]);
 
     return (
-        <div ref={containerRef} className={styles.wrapper} role="radiogroup">
+        <div
+            ref={containerRef}
+            className={`${styles.wrapper} ${size === "sm" ? styles.wrapperSm : ""}`}
+            role="radiogroup"
+        >
             <div
                 className={`${styles.indicator} ${hasInteracted ? styles.animate : ""}`}
                 style={{
@@ -71,7 +78,7 @@ export function SegmentedControl<T extends string | number>({
                         // Il `title` fornisce anche tooltip nativo on-hover.
                         aria-label={iconsOnly ? opt.label : undefined}
                         title={iconsOnly ? opt.label : undefined}
-                        className={styles.item}
+                        className={`${styles.item} ${size === "sm" ? styles.itemSm : ""}`}
                         onClick={() => {
                             setHasInteracted(true);
                             onChange(opt.value);

@@ -22,11 +22,21 @@ import { useTenantId } from "@/context/useTenantId";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
+import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import { StoryForm } from "./components/StoryForm";
 import { StoryBlockEditor } from "./components/StoryBlockEditor";
+import { createBlock } from "./components/createBlock";
 import { HeaderSaveAction } from "./components/HeaderSaveAction";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { StoryProductPicker } from "./components/StoryProductPicker";
+import { AddBlockMenu } from "./components/AddBlockMenu";
 import { useBeforeUnloadWarning } from "./hooks/useBeforeUnloadWarning";
 import styles from "./Stories.module.scss";
+
+const STATUS_OPTIONS: { value: StoryStatus; label: string }[] = [
+    { value: "draft", label: "Bozza" },
+    { value: "published", label: "Pubblicata" }
+];
 
 export default function StoryDetailPage() {
     const { storyId } = useParams<{ storyId: string }>();
@@ -233,12 +243,38 @@ export default function StoryDetailPage() {
     );
     useBreadcrumbItems(breadcrumbItems);
 
+    // Id del blocco appena aggiunto: consumato one-shot da StoryBlockEditor
+    // per scroll+focus dopo il render (vedi handleAddBlock).
+    const [focusBlockId, setFocusBlockId] = useState<string | null>(null);
+
+    const handleAddBlock = useCallback((type: StoryBlock["type"]) => {
+        const block = createBlock(type);
+        setBlocks(prev => [...prev, block]);
+        setFocusBlockId(block.id);
+    }, []);
+
+    const handleFocusHandled = useCallback(() => setFocusBlockId(null), []);
+
     const actions = useMemo(
-        () =>
-            canWrite ? (
-                <HeaderSaveAction isDirty={isDirty} isSaving={isSaving} onSave={saveStory} />
-            ) : undefined,
-        [canWrite, isDirty, isSaving, saveStory]
+        () => (
+            <div className={styles.headerActions}>
+                <div className={!canWrite ? styles.readonlyControl : undefined}>
+                    <SegmentedControl<StoryStatus>
+                        value={status}
+                        onChange={setStatus}
+                        options={STATUS_OPTIONS}
+                        size="sm"
+                    />
+                </div>
+                {canWrite && (
+                    <>
+                        <span className={styles.headerSeparator} aria-hidden="true" />
+                        <HeaderSaveAction isDirty={isDirty} isSaving={isSaving} onSave={saveStory} />
+                    </>
+                )}
+            </div>
+        ),
+        [status, canWrite, isDirty, isSaving, saveStory]
     );
     usePageHeader({ actions, sticky: true });
 
@@ -267,41 +303,50 @@ export default function StoryDetailPage() {
         <PageGate readPermission="stories.read">
             {() => (
                 <div className={styles.wrapper}>
-                    <div className={styles.brandPanel}>
-                        <Text variant="title-sm" weight={600}>
-                            Informazioni
-                        </Text>
-
+                    <SectionCard
+                        title="Informazioni"
+                        subtitle="Titolo e copertina compaiono nell'elenco storie del catalogo"
+                    >
                         <StoryForm
                             eyebrow={eyebrow}
                             onEyebrowChange={setEyebrow}
                             title={title}
                             onTitleChange={setTitle}
-                            status={status}
-                            onStatusChange={setStatus}
-                            productId={productId}
-                            onProductIdChange={setProductId}
                             coverUrl={coverPreview ?? (coverRemoved ? null : story.cover_media)}
                             pendingCoverFile={pendingCoverFile}
                             onCoverFileChange={handleCoverFileChange}
                             onCoverRemove={handleCoverRemove}
-                            tenantId={tenantId ?? ""}
                             canWrite={canWrite}
                         />
-                    </div>
+                    </SectionCard>
 
-                    <div className={styles.brandPanel}>
-                        <Text variant="title-sm" weight={600}>
-                            Contenuto
-                        </Text>
+                    <SectionCard
+                        title="Prodotto collegato"
+                        subtitle="La storia comparirà nella scheda di questo prodotto, nel menu pubblico"
+                    >
+                        <StoryProductPicker
+                            tenantId={tenantId}
+                            value={productId}
+                            onChange={setProductId}
+                            disabled={!canWrite}
+                        />
+                    </SectionCard>
+
+                    <SectionCard
+                        title="Contenuto"
+                        subtitle="Blocchi di testo, immagini e video nell'ordine in cui verranno letti"
+                        actions={canWrite ? <AddBlockMenu onAdd={handleAddBlock} /> : undefined}
+                    >
                         <StoryBlockEditor
                             value={blocks}
                             onChange={setBlocks}
                             pendingImages={pendingBlockImages}
                             onPendingImageChange={handleBlockImageChange}
                             disabled={!canWrite}
+                            focusBlockId={focusBlockId}
+                            onFocusHandled={handleFocusHandled}
                         />
-                    </div>
+                    </SectionCard>
                 </div>
             )}
         </PageGate>

@@ -732,6 +732,7 @@ export type ProductPickerItem = {
     id: string;
     name: string;
     image_url: string | null;
+    base_price: number | null;
 };
 
 /**
@@ -741,7 +742,7 @@ export type ProductPickerItem = {
 export async function listBaseProductsForPicker(tenantId: string): Promise<ProductPickerItem[]> {
     const { data, error } = await supabase
         .from("products")
-        .select("id, name, image_url")
+        .select("id, name, image_url, base_price")
         .eq("tenant_id", tenantId)
         .is("parent_product_id", null)
         .order("name", { ascending: true });

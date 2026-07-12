@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Package, X } from "lucide-react";
+import { Package } from "lucide-react";
+import { Button } from "@/components/ui/Button/Button";
 import { listBaseProductsForPicker, ProductPickerItem } from "@/services/supabase/products";
 import styles from "./StoryProductPicker.module.scss";
 
@@ -14,6 +15,9 @@ export function StoryProductPicker({ tenantId, value, onChange, disabled }: Stor
     const [products, setProducts] = useState<ProductPickerItem[]>([]);
     const [query, setQuery] = useState("");
     const [showDropdown, setShowDropdown] = useState(false);
+    // true quando l'utente ha premuto "Cambia": mostra la ricerca pur avendo
+    // già un prodotto collegato (che resta finché non se ne sceglie un altro).
+    const [isChanging, setIsChanging] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -27,6 +31,7 @@ export function StoryProductPicker({ tenantId, value, onChange, disabled }: Stor
         function handleClick(e: MouseEvent) {
             if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
                 setShowDropdown(false);
+                setIsChanging(false);
             }
         }
         document.addEventListener("mousedown", handleClick);
@@ -41,20 +46,41 @@ export function StoryProductPicker({ tenantId, value, onChange, disabled }: Stor
         return products.filter(p => p.name.toLowerCase().includes(q));
     }, [products, query]);
 
-    if (selected) {
+    if (selected && !isChanging) {
         return (
-            <div className={styles.selectedPill} role="status" aria-label="Prodotto collegato">
-                <Package size={15} strokeWidth={2} className={styles.pillIcon} aria-hidden="true" />
-                <span className={styles.pillText}>{selected.name}</span>
+            <div className={styles.selectedRow} role="status" aria-label="Prodotto collegato">
+                {selected.image_url ? (
+                    <img src={selected.image_url} alt="" className={styles.thumb} />
+                ) : (
+                    <div className={styles.thumbPlaceholder}>
+                        <Package size={16} strokeWidth={2} aria-hidden="true" />
+                    </div>
+                )}
+                <div className={styles.meta}>
+                    <span className={styles.name}>{selected.name}</span>
+                    {selected.base_price != null && (
+                        <span className={styles.price}>{selected.base_price.toFixed(2)} €</span>
+                    )}
+                </div>
                 {!disabled && (
-                    <button
-                        type="button"
-                        className={styles.pillClearBtn}
-                        onClick={() => onChange(null)}
-                        aria-label="Rimuovi prodotto collegato"
-                    >
-                        <X size={14} strokeWidth={2} />
-                    </button>
+                    <div className={styles.rowActions}>
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setIsChanging(true)}
+                        >
+                            Cambia
+                        </Button>
+                        <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => onChange(null)}
+                        >
+                            Rimuovi
+                        </Button>
+                    </div>
                 )}
             </div>
         );
@@ -97,6 +123,7 @@ export function StoryProductPicker({ tenantId, value, onChange, disabled }: Stor
                                 onChange(product.id);
                                 setQuery("");
                                 setShowDropdown(false);
+                                setIsChanging(false);
                             }}
                         >
                             <span className={styles.dropdownItemName}>{product.name}</span>
