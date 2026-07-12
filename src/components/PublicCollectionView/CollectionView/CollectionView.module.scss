@@ -310,6 +310,25 @@
   gap: 0.5rem;
 }
 
+/* Variante Editoriale: leader a puntini tra nome e prezzo (menù classico).
+   Il nome passa a shrink-to-fit così il leader riempie lo spazio residuo. */
+.compactNameRowEditorial {
+  justify-content: flex-start;
+
+  .compactName {
+    flex: 0 1 auto;
+  }
+}
+
+.compactLeader {
+  flex: 1 1 auto;
+  min-width: 16px;
+  border-bottom: 2px dotted color-mix(in srgb, var(--pub-bg-text) 30%, transparent);
+  /* Il box è alto 0 (solo bordo): centrato dall'align-items del row,
+     abbassato leggermente verso la baseline del testo. */
+  transform: translateY(0.25em);
+}
+
 .compactName {
   flex: 1;
   min-width: 0;
@@ -556,12 +575,8 @@
 
 .productRowImageRight {
   flex-direction: row-reverse;
-
-  /* In row-reverse il DOM è [image, rowBody, addBtn]: order:-1 fa sì che
-     addBtn venga posizionato al main-start (destra) → sempre a destra. */
-  .addBtn {
-    order: -1;
-  }
+  /* Il bottone "+" vive dentro .titleRow (rowBody) → non è più un flex item
+     diretto di .productRow, nessun order necessario in row-reverse. */
 }
 
 /* ----------------------------------------------------
@@ -607,12 +622,12 @@
     min-width: 0; /* evita overflow testo in grid */
   }
 
-  /* Card·Grid SENZA immagine: distribuisci body + "+" come flex column.
+  /* Card·Grid SENZA immagine: distribuisci il body come flex column.
      `.card` outer è flex column dentro CSS Grid (.grid) con default
      align-items:stretch → tutte le card di una stessa riga grid hanno
      stessa altezza. Con `height:100%` qui, `.productRow` riempie la card,
-     `.rowBody { flex:1 }` espande il testo, `.addBtn` resta pinned
-     bottom-right → click sul vuoto in fondo apre ItemDetail.
+     `.rowBody { flex:1 }` espande il testo. Il bottone "+" vive ora dentro
+     .titleRow (in alto a destra) → nessun pinning bottom-right necessario.
 
      Scope ristretto a no-image perché:
      - Card·Grid CON immagine ha già `addBtnOverlay` glassmorphism
@@ -628,11 +643,6 @@
     .rowBody {
       flex: 1;
       padding: 0.75rem 1rem;
-    }
-
-    .addBtn {
-      align-self: flex-end;
-      margin: 0 1rem 1rem 0;
     }
   }
 }

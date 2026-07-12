@@ -23,7 +23,7 @@ import PublicCollectionHeader from "../PublicCollectionHeader/PublicCollectionHe
 import PublicFooter from "../PublicFooter/PublicFooter";
 import { PublicFeeRows } from "../PublicFooter/PublicFees";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
-import type { CollectionStyle } from "@/types/collectionStyle";
+import type { CollectionStyle, CompactLayoutStyle, ContentDensity } from "@/types/collectionStyle";
 import { contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
@@ -254,6 +254,7 @@ type ProductRowProps = {
     orderingEnabled: boolean;
     selectionQty?: number;
     iconChip?: boolean;
+    contentDensity?: ContentDensity;
 };
 
 function ProductRowInner({
@@ -266,7 +267,8 @@ function ProductRowInner({
     onAdd,
     orderingEnabled,
     selectionQty = 0,
-    iconChip = false
+    iconChip = false,
+    contentDensity = "full"
 }: ProductRowProps) {
     const {
         name,
@@ -359,7 +361,21 @@ function ProductRowInner({
                             <span className={styles.promoBadge}>{t("product.badge_promo")}</span>
                         )}
                     </div>
-
+                    {(cardLayout !== "grid" || !showImage) && orderingEnabled && (
+                        <button
+                            type="button"
+                            className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
+                                .filter(Boolean)
+                                .join(" ")}
+                            onClick={handleAddBtnClick}
+                            aria-label={t("selection.add_aria")}
+                        >
+                            <Plus size={16} strokeWidth={2.5} />
+                            {selectionQty > 0 && (
+                                <span className={`${styles.addBtnBadge} ${styles.addBtnBadgeOnSurface}`}>{selectionQty}</span>
+                            )}
+                        </button>
+                    )}
                 </div>
 
                 {dp.type === "from" ? (
@@ -390,12 +406,12 @@ function ProductRowInner({
                     </Text>
                 ) : null}
 
-                {description && (
+                {contentDensity !== "minimal" && description && (
                     <Text variant="caption" className={styles.description} color="var(--pub-surface-text-muted)">
                         {description}
                     </Text>
                 )}
-                {item.pairings && item.pairings.length > 0 && (
+                {contentDensity === "full" && item.pairings && item.pairings.length > 0 && (
                     <span className={`${styles.pairingChip} ${styles.pairingChipSurface}`}>
                         <Sparkles size={13} className={styles.pairingChipIcon} />
                         <span className={styles.pairingChipText}>
@@ -409,7 +425,7 @@ function ProductRowInner({
                 {optionGroups && optionGroups.length > 0 && (
                     <span className={styles.customizableHint}>{t("product.badge_customizable")}</span>
                 )}
-                {(hasAllergens || hasCardCharacteristics) && (
+                {contentDensity === "full" && (hasAllergens || hasCardCharacteristics) && (
                     <div className={styles.emojiRow}>
                         {hasAllergens && (
                             <div className={styles.allergenEmojis}>
@@ -448,21 +464,6 @@ function ProductRowInner({
                     </div>
                 )}
             </div>
-            {(cardLayout !== "grid" || !showImage) && orderingEnabled && (
-                <button
-                    type="button"
-                    className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
-                        .filter(Boolean)
-                        .join(" ")}
-                    onClick={handleAddBtnClick}
-                    aria-label={t("selection.add_aria")}
-                >
-                    <Plus size={16} strokeWidth={2.5} />
-                    {selectionQty > 0 && (
-                        <span className={`${styles.addBtnBadge} ${styles.addBtnBadgeOnSurface}`}>{selectionQty}</span>
-                    )}
-                </button>
-            )}
         </div>
     );
 }
@@ -478,6 +479,8 @@ type ProductCompactRowProps = {
     orderingEnabled: boolean;
     selectionQty?: number;
     iconChip?: boolean;
+    compactLayoutStyle?: CompactLayoutStyle;
+    contentDensity?: ContentDensity;
 };
 
 function ProductCompactRowInner({
@@ -486,7 +489,9 @@ function ProductCompactRowInner({
     onAdd,
     orderingEnabled,
     selectionQty = 0,
-    iconChip = false
+    iconChip = false,
+    compactLayoutStyle = "modern",
+    contentDensity = "full"
 }: ProductCompactRowProps) {
     const {
         name,
@@ -522,8 +527,15 @@ function ProductCompactRowInner({
     return (
         <div className={styles.compactRow} onClick={handleRootClick}>
             <div className={styles.compactRowBody}>
-                <div className={styles.compactNameRow}>
+                <div
+                    className={`${styles.compactNameRow}${
+                        compactLayoutStyle === "editorial" ? ` ${styles.compactNameRowEditorial}` : ""
+                    }`}
+                >
                     <span className={styles.compactName}>{name}</span>
+                    {compactLayoutStyle === "editorial" && (
+                        <span className={styles.compactLeader} aria-hidden="true" />
+                    )}
                     {dp.type !== "none" && (
                         <span className={styles.compactPrice}>
                             {dp.originalPrice != null && (
@@ -556,8 +568,10 @@ function ProductCompactRowInner({
                         </button>
                     )}
                 </div>
-                {description && <span className={styles.compactDescription}>{description}</span>}
-                {item.pairings && item.pairings.length > 0 && (
+                {contentDensity !== "minimal" && description && (
+                    <span className={styles.compactDescription}>{description}</span>
+                )}
+                {contentDensity === "full" && item.pairings && item.pairings.length > 0 && (
                     <span className={`${styles.pairingChip} ${styles.pairingChipBg}`}>
                         <Sparkles size={12} className={styles.pairingChipIcon} />
                         <span className={styles.pairingChipText}>
@@ -568,7 +582,7 @@ function ProductCompactRowInner({
                         )}
                     </span>
                 )}
-                {(hasAllergens || hasCardCharacteristics) && (
+                {contentDensity === "full" && (hasAllergens || hasCardCharacteristics) && (
                     <div className={styles.compactEmojiRow}>
                         {hasAllergens && (
                             <div className={styles.compactAllergens}>
@@ -2164,6 +2178,8 @@ export default function CollectionView({
                                         orderingEnabled={orderingEnabled}
                                         selectionQty={selectionMap[item.id]}
                                         iconChip={style.iconStyle === "pill"}
+                                        compactLayoutStyle={style.compactLayoutStyle}
+                                        contentDensity={style.contentDensity}
                                     />
                                 ) : (
                                     <ProductRow
@@ -2177,6 +2193,7 @@ export default function CollectionView({
                                         orderingEnabled={orderingEnabled}
                                         selectionQty={selectionMap[item.id]}
                                         iconChip={style.iconStyle === "pill"}
+                                        contentDensity={style.contentDensity}
                                     />
                                 ))}
 
@@ -2203,6 +2220,8 @@ export default function CollectionView({
                                                 orderingEnabled={orderingEnabled}
                                                 selectionQty={selectionMap[v.id]}
                                                 iconChip={style.iconStyle === "pill"}
+                                                compactLayoutStyle={style.compactLayoutStyle}
+                                                contentDensity={style.contentDensity}
                                             />
                                         ) : (
                                             <ProductRow
@@ -2217,6 +2236,7 @@ export default function CollectionView({
                                                 orderingEnabled={orderingEnabled}
                                                 selectionQty={selectionMap[v.id]}
                                                 iconChip={style.iconStyle === "pill"}
+                                                contentDensity={style.contentDensity}
                                             />
                                         );
                                     })}
@@ -2490,6 +2510,7 @@ export default function CollectionView({
                                     className={styles.container}
                                     data-card-layout={style.cardLayout ?? "list"}
                                     data-product-style={style.productStyle ?? "card"}
+                                    data-content-density={style.contentDensity ?? "full"}
                                 >
                                     {featuredBeforeCatalogSlot}
                                     {allFiltered && (
