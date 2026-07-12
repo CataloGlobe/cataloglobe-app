@@ -329,8 +329,11 @@
         "list_aria": "Venue stories",
         "back_to_list": "Back to stories",
         "product_link": "From the menu → {{name}}",
+        "product_link_label": "From the menu",
         "video_unavailable": "Video unavailable",
         "video_aria": "Story video",
+        "video_play": "Watch the video",
+        "video_play_aria": "Play the story video",
         "discover_label": "Discover the story"
     },
     "reviews": {

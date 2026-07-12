@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, ScrollText } from "lucide-react";
 import { fetchPublicStory } from "@/services/supabase/stories";
 import type { PublicStoryDetail, StoryBlock } from "@/services/supabase/stories";
 import Text from "@/components/ui/Text/Text";
@@ -99,15 +99,17 @@ export default function StoryReader({ slug, storyId, onClose, onOpenProduct }: S
                             className={styles.productLink}
                             onClick={() => onOpenProduct?.(state.story.product!.id)}
                             disabled={!onOpenProduct}
+                            aria-label={t("story.product_link", { name: state.story.product.name })}
                         >
-                            {t("story.product_link", { name: state.story.product.name })}
+                            <span className={styles.productLinkIcon}>
+                                <ScrollText size={18} strokeWidth={1.5} />
+                            </span>
+                            <span className={styles.productLinkBody}>
+                                <span className={styles.productLinkLabel}>{t("story.product_link_label")}</span>
+                                <span className={styles.productLinkName}>{state.story.product.name}</span>
+                            </span>
                         </button>
                     )}
-
-                    <button type="button" className={styles.backButtonBottom} onClick={onClose}>
-                        <ChevronLeft size={16} strokeWidth={2} />
-                        {t("story.back_to_list")}
-                    </button>
                 </article>
             )}
         </div>

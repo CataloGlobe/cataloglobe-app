@@ -329,8 +329,11 @@
         "list_aria": "Geschichten des Standorts",
         "back_to_list": "Zurück zu den Geschichten",
         "product_link": "Aus der Speisekarte → {{name}}",
+        "product_link_label": "Aus der Speisekarte",
         "video_unavailable": "Video nicht verfügbar",
         "video_aria": "Video der Geschichte",
+        "video_play": "Video ansehen",
+        "video_play_aria": "Story-Video abspielen",
         "discover_label": "Geschichte entdecken"
     },
     "reviews": {

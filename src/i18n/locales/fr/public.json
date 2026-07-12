@@ -329,8 +329,11 @@
     "list_aria": "Histoires de l'établissement",
     "back_to_list": "Retour aux histoires",
     "product_link": "Depuis le menu → {{name}}",
+    "product_link_label": "Depuis le menu",
     "video_unavailable": "Vidéo non disponible",
     "video_aria": "Vidéo de l'histoire",
+    "video_play": "Regarder la vidéo",
+    "video_play_aria": "Lire la vidéo de l'histoire",
     "discover_label": "Découvrir l'histoire"
   },
   "reviews": {

@@ -1,18 +1,19 @@
 .root {
   width: 100%;
-  // Cap di lettura (640px, più stretto del menu per leggibilità — valore
-  // scelto in fase di design, non toccare qui) spostato dal singolo `.article`
-  // a QUESTO livello: così back-link top, stateBlock e `.article` condividono
-  // la stessa colonna centrata invece di avere il back-link al bordo.
-  max-width: 640px;
+  // Cap di lettura tokenizzato (--pub-reading-max, default 640px — più stretto
+  // del menu per leggibilità) spostato dal singolo `.article` a QUESTO livello:
+  // così back-link top, stateBlock e `.article` condividono la stessa colonna
+  // centrata invece di avere il back-link al bordo.
+  max-width: var(--pub-reading-max, 640px);
   margin: 0 auto;
   // Clearance per la bottom bar pubblica fluttuante — pattern del progetto
   // `max(<base>, env(safe-area-inset-bottom))`, stessa base (2rem) già in uso.
-  padding: 1rem 0 max(2rem, env(safe-area-inset-bottom));
+  padding: var(--pub-space-4) 0 max(2rem, env(safe-area-inset-bottom));
 }
 
-.backButton,
-.backButtonBottom {
+// Un solo back-link (in cima). Il duplicato in fondo è stato rimosso: con
+// blocchi lunghi la card "Dal menu" chiude già il loop come next-action.
+.backButton {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -24,14 +25,7 @@
   font-size: 13px;
   font-weight: 600;
   color: var(--pub-primary);
-}
-
-.backButton {
-  margin-bottom: 1rem;
-}
-
-.backButtonBottom {
-  margin-top: 2rem;
+  margin-bottom: var(--pub-space-4);
 }
 
 .stateBlock {
@@ -85,19 +79,20 @@
   gap: 16px;
 }
 
+// Ponte verso il menu — non un residuo secondario: peso da CTA primaria,
+// piena su --pub-primary (il colore del tenant), mai un colore fisso.
 .productLink {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--pub-space-3);
   width: 100%;
-  margin-top: 24px;
-  padding: 14px 16px;
+  margin-top: var(--pub-space-6);
+  padding: var(--pub-space-4);
   border-radius: var(--pub-radius, 12px);
-  border: 1px solid var(--pub-surface-border);
-  background: var(--pub-surface);
+  border: none;
+  background: var(--pub-primary);
+  color: var(--pub-primary-contrast, #fff);
   box-shadow: var(--pub-card-shadow);
-  font-family: var(--pub-font-family);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--pub-text);
   text-align: left;
   cursor: pointer;
   transition: box-shadow 0.15s ease, transform 0.15s ease;
@@ -111,4 +106,37 @@
     cursor: default;
     opacity: 0.7;
   }
+}
+
+.productLinkIcon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.productLinkBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.productLinkLabel {
+  font-family: var(--pub-font-family);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.productLinkName {
+  font-family: var(--pub-font-family);
+  font-size: 15px;
+  font-weight: 700;
 }

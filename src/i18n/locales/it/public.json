@@ -329,8 +329,11 @@
         "list_aria": "Storie del locale",
         "back_to_list": "Torna alle storie",
         "product_link": "Dal menu → {{name}}",
+        "product_link_label": "Dal menu",
         "video_unavailable": "Video non disponibile",
         "video_aria": "Video della storia",
+        "video_play": "Guarda il video",
+        "video_play_aria": "Riproduci il video della storia",
         "discover_label": "Scopri la storia"
     },
     "reviews": {

@@ -62,18 +62,27 @@
 .cappello {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 1.5rem 0 1rem;
+  align-items: center;
+  gap: var(--pub-space-3);
+  // Mobile: titolo subito, niente vuoto sotto header. Desktop ha respiro verticale
+  // da vendere — bump via @container (non @media: la preview Style Editor misura
+  // il device frame, stesso pattern di `.grid`/`.card` sotto).
+  padding: var(--pub-space-3) 0 var(--pub-space-6);
   text-align: center;
+
+  @container collection (min-width: 700px) {
+    padding-top: var(--pub-space-7);
+  }
 }
 
 .cappelloCover {
   width: 100%;
   max-width: 480px;
   aspect-ratio: 16 / 9;
-  margin: 0 auto 12px;
+  margin: 0 auto var(--pub-space-3);
   border-radius: var(--pub-radius, 12px);
   overflow: hidden;
+  box-shadow: var(--pub-card-shadow);
 
   img {
     width: 100%;
@@ -86,58 +95,88 @@
 .cappelloTitle {
   margin: 0;
   font-family: var(--pub-font-family);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
+  line-height: 1.2;
   color: var(--pub-text);
+
+  @media (max-width: 480px) {
+    font-size: 22px;
+  }
 }
 
 .cappelloIntro {
   margin: 0 auto;
-  max-width: 60ch;
-  font-size: 14px;
-  line-height: 1.6;
+  max-width: 56ch;
+  font-size: 15px;
+  line-height: 1.65;
   color: var(--pub-text-secondary);
 }
 
 .cappelloWebsite {
   align-self: center;
-  margin-top: 4px;
+  margin-top: var(--pub-space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--pub-primary);
+  color: #fff;
+  font-family: var(--pub-font-family);
   font-size: 13px;
   font-weight: 600;
-  color: var(--pub-primary);
   text-decoration: none;
+  box-shadow: var(--pub-card-shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   @include hover {
-    text-decoration: underline;
+    box-shadow: var(--pub-card-shadow-hover);
+    transform: translateY(-1px);
   }
+}
+
+.cappelloWebsiteIcon {
+  flex: none;
+}
+
+.cappelloDivider {
+  border: none;
+  border-top: 1px solid var(--pub-surface-border);
+  margin: 0 0 var(--pub-space-2);
 }
 
 /* ── Feed "Approfondimenti" ───────────────────────────────────────────── */
 
 .sectionTitle {
-  margin: 1.5rem 0 1rem;
+  margin: var(--pub-space-6) 0 var(--pub-space-4);
   font-family: var(--pub-font-family);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--pub-text);
 }
 
-/* Contesto `collection` dichiarato su `.viewport` (sopra), non qui. */
+/* Card a misura propria (~380px), NON stirata: flex-wrap con basis fisso invece
+   di grid auto-fit (che stira sempre le colonne a riempire la riga). Regge sia
+   1 sola storia (resta a sinistra) sia molte (righe multiple, ultima incompleta
+   senza stiramento). Contesto `collection` dichiarato su `.viewport` (sopra). */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
-  gap: 20px;
-  padding: 0 0 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pub-space-4);
+  padding: 0 0 var(--pub-space-6);
 
   @container collection (min-width: 700px) {
-    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
-    gap: 24px;
+    gap: var(--pub-space-5);
   }
 }
 
 .card {
   display: flex;
   flex-direction: column;
+  flex: 0 1 380px;
+  min-width: 280px;
+  max-width: 420px;
   border-radius: var(--pub-radius, 12px);
   overflow: hidden;
   cursor: pointer;
@@ -154,6 +193,12 @@
     box-shadow: var(--pub-card-shadow-hover);
     transform: translateY(-1px);
   }
+
+  // Mobile: una colonna, piena larghezza (comportamento esistente preservato).
+  @container collection (max-width: 479px) {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
 }
 
 .cardCover {
@@ -168,7 +213,12 @@
     height: 100%;
     object-fit: cover;
     display: block;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   }
+}
+
+.card:hover .cardCover img {
+  transform: scale(1.04);
 }
 
 .cardCoverPlaceholder {
@@ -180,42 +230,49 @@
 .cardBody {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 14px 16px 16px;
+  gap: var(--pub-space-1);
+  padding: var(--pub-space-4);
 }
 
 .cardEyebrow {
   display: inline-block;
   align-self: flex-start;
-  padding: 2px 8px;
-  border-radius: var(--pub-btn-radius, 4px);
+  padding: 3px 9px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--pub-primary);
   background: var(--pub-primary-soft, rgba(99, 102, 241, 0.1));
-  margin-bottom: 4px;
+  margin-bottom: var(--pub-space-1);
 }
 
 .cardTitle {
   font-family: var(--pub-font-family);
   font-size: 16px;
   font-weight: 700;
+  line-height: 1.35;
   color: var(--pub-text);
 }
 
 .cardExcerpt {
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--pub-text-secondary);
+  // Clamp a 2 righe fisse: tiene le card della stessa altezza a prescindere
+  // dalla lunghezza dell'estratto.
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .cardProduct {
   display: inline-block;
   align-self: flex-start;
-  margin-top: 4px;
-  padding: 3px 10px;
+  margin-top: var(--pub-space-2);
+  padding: 4px 10px;
   border-radius: var(--pub-btn-radius, 999px);
   font-size: 11px;
   font-weight: 600;
@@ -224,7 +281,7 @@
 }
 
 .cardCta {
-  margin-top: 8px;
+  margin-top: var(--pub-space-2);
   font-size: 12px;
   font-weight: 700;
   color: var(--pub-primary);

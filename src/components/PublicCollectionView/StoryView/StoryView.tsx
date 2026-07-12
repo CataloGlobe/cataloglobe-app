@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ScrollText } from "lucide-react";
+import { ScrollText, ArrowRight } from "lucide-react";
 import { fetchPublicStories } from "@/services/supabase/stories";
 import type { PublicStoryListResult } from "@/services/supabase/stories";
 import Text from "@/components/ui/Text/Text";
@@ -81,25 +81,29 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
             feedContent = (
                 <div className={styles.root}>
                     {hasCappello && cappello && (
-                        <div className={styles.cappello}>
-                            {cappello.cover && (
-                                <div className={styles.cappelloCover}>
-                                    <img src={cappello.cover} alt="" />
-                                </div>
-                            )}
-                            {cappello.title && <h2 className={styles.cappelloTitle}>{cappello.title}</h2>}
-                            {cappello.intro && <p className={styles.cappelloIntro}>{cappello.intro}</p>}
-                            {cappello.website && (
-                                <a
-                                    href={cappello.website}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={styles.cappelloWebsite}
-                                >
-                                    {t("story.website_cta")}
-                                </a>
-                            )}
-                        </div>
+                        <>
+                            <div className={styles.cappello}>
+                                {cappello.cover && (
+                                    <div className={styles.cappelloCover}>
+                                        <img src={cappello.cover} alt="" />
+                                    </div>
+                                )}
+                                {cappello.title && <h2 className={styles.cappelloTitle}>{cappello.title}</h2>}
+                                {cappello.intro && <p className={styles.cappelloIntro}>{cappello.intro}</p>}
+                                {cappello.website && (
+                                    <a
+                                        href={cappello.website}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={styles.cappelloWebsite}
+                                    >
+                                        {t("story.website_cta")}
+                                        <ArrowRight size={14} strokeWidth={2.5} className={styles.cappelloWebsiteIcon} />
+                                    </a>
+                                )}
+                            </div>
+                            {stories.length > 0 && <hr className={styles.cappelloDivider} />}
+                        </>
                     )}
 
                     {stories.length > 0 && (
