@@ -74,19 +74,17 @@
   box-shadow: none;
 }
 
-/* Vetro: il pannello modale diventa semitrasparente + blur. raised/bordered/glass
-   sono mutuamente esclusivi → un solo aspetto attivo per volta. Hairline per forma
-   come bordered. */
+/* Vetro: raised/bordered/glass sono mutuamente esclusivi → un solo aspetto
+   attivo per volta. Hairline per forma come bordered.
+   MOBILE: NIENTE backdrop-filter. Il bottom-sheet è full-width e il panel
+   TRASLA per tutta l'animazione: su WebKit il blur viene ricalcolato ad ogni
+   frame e impedisce la promozione a layer compositato economico (jank iOS).
+   Su uno sheet a tutta larghezza il vetro non produce effetto visivo
+   apprezzabile → surface opaca (stesso target del fallback @supports).
+   Il vetro vero resta solo sul dialog desktop centrato (@media sotto). */
 :global([data-card-treatment="glass"]) .panel {
-  background: var(--pub-surface-glass);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  backdrop-filter: blur(16px) saturate(1.6);
+  background: var(--pub-surface, #fff);
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-}
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :global([data-card-treatment="glass"]) .panel {
-    background: var(--pub-surface, #fff);
-  }
 }
 
 /* ── Drag handle ─────────────────────────────────────────────────────────── */
@@ -144,7 +142,20 @@
   :global([data-card-treatment="bordered"]) .panel {
     border: 1px solid var(--pub-surface-border);
   }
+  /* Vetro SOLO desktop: il dialog centrato non copre lo schermo (l'effetto si
+     vede) e non è sul percorso critico dell'uscita mobile compositor-driven. */
   :global([data-card-treatment="glass"]) .panel {
     border: 1px solid rgba(255, 255, 255, 0.1);
+    background: var(--pub-surface-glass);
+    -webkit-backdrop-filter: blur(16px) saturate(1.6);
+    backdrop-filter: blur(16px) saturate(1.6);
+  }
+}
+
+/* Fallback browser senza backdrop-filter (riguarda ormai solo il desktop):
+   surface opaca. Dopo il @media per vincere in cascata a pari specificità. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :global([data-card-treatment="glass"]) .panel {
+    background: var(--pub-surface, #fff);
   }
 }
