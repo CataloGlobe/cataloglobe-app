@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { ImageIcon, MessageCircle, MoreHorizontal, ScrollText, Search, ShoppingBag, Sparkles, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
+import { hasOpenSheet } from "../hooks/useScrollCollapse";
 import { buildCoverImageSet } from "@/utils/imageTransform";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
@@ -95,6 +96,12 @@ export type PublicCollectionHeaderProps = {
      *  attributo data-preview-device sul .root → pilota lo split CSS in anteprima
      *  (hub tab nascosti in mobile-preview). Undefined in runtime. */
     previewDevice?: "mobile" | "desktop";
+    /** Congela il tracking scroll (lerp header) mentre una sheet è aperta: gli
+     *  scroll event indotti dal body-lock/unlock di PublicSheet vengono ignorati
+     *  esplicitamente invece di affidarsi solo al defensive read di body.style.top
+     *  (che resta come rete di sicurezza). Stesso pattern dual-source del freeze
+     *  in useScrollCollapse: prop dal parent + contatore modulo hasOpenSheet(). */
+    frozen?: boolean;
 };
 
 export default function PublicCollectionHeader({
@@ -127,8 +134,14 @@ export default function PublicCollectionHeader({
     onOpenOrder,
     reviewDot = false,
     previewDevice,
+    frozen = false,
 }: PublicCollectionHeaderProps) {
     const { t } = useTranslation("public");
+    // Aggiornato sincronicamente ad ogni render (stesso pattern di freezeRef in
+    // useScrollCollapse): già true prima degli scroll event post-apertura sheet,
+    // senza ri-attaccare il listener.
+    const frozenRef = useRef(frozen);
+    frozenRef.current = frozen;
     // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
     const headerRef = useRef<HTMLElement | null>(null);
     // Ghost input: focalizzato in-gesto al tap per innescare la tastiera iOS; il
@@ -196,6 +209,11 @@ export default function PublicCollectionHeader({
     useEffect(() => {
         const target = scrollContainerEl ?? window;
         const readScroll = () => {
+            // Freeze in OR (prop esplicita + contatore sheet aperte): esce subito
+            // sugli scroll event sintetici del body-lock/unlock di PublicSheet.
+            // Il defensive read su body.style.top sotto RESTA come rete di
+            // sicurezza (e per la preview, dove le sheet non si aprono).
+            if (frozenRef.current || hasOpenSheet()) return;
             let y: number;
             if (scrollContainerEl) {
                 // Preview: container interno, non affetto dal body lock

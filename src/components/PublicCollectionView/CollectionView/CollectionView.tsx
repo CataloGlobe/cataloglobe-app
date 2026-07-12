@@ -29,6 +29,7 @@ import { contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
+import { hasOpenSheet } from "../hooks/useScrollCollapse";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 
@@ -1924,10 +1925,15 @@ export default function CollectionView({
         }
 
         function handleScroll() {
+            // Sheet aperta: il body-lock/unlock di PublicSheet induce scroll
+            // event sintetici (scrollY → 0 e ritorno) nei frame critici delle
+            // animazioni — niente section-tracking in quella finestra.
+            if (hasOpenSheet()) return;
             computeActiveSection();
         }
 
         function handleScrollEnd() {
+            if (hasOpenSheet()) return;
             if (isProgrammaticScrollRef.current) {
                 isProgrammaticScrollRef.current = false;
                 if (programmaticScrollTimeoutRef.current !== null) {
@@ -2283,6 +2289,7 @@ export default function CollectionView({
                     showCoverImage={style.showCoverImage}
                     showLogo={style.showLogo}
                     mode={mode}
+                    frozen={mode === "preview" ? false : (!!selectedItem || isOrderingOpen)}
                     onSearchOpen={mode !== "preview" ? handleOpenSearch : undefined}
                     onSearchPointerDown={mode !== "preview" ? handleSearchPrefetch : undefined}
                     scrollContainerEl={scrollContainerEl}

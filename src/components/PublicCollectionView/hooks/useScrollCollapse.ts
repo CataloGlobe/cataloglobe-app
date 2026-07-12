@@ -22,6 +22,17 @@ export function popSheetOpen(): void {
 }
 
 /**
+ * True se almeno una PublicSheet è aperta. Da usare negli scroll handler su
+ * window per ignorare gli scroll event SINTETICI indotti dal body-lock/unlock
+ * di PublicSheet (position:fixed azzera window.scrollY; il window.scrollTo del
+ * rilascio ne genera un altro) — cadono nei frame critici delle animazioni.
+ * Stessa fonte del freeze di useScrollCollapse: nessun meccanismo parallelo.
+ */
+export function hasOpenSheet(): boolean {
+    return openSheetCount > 0;
+}
+
+/**
  * Tolleranza direzionale (px): quantità di movimento SOSTENUTO nella stessa
  * direzione necessaria prima di ribaltare lo stato. Implementata come
  * accumulatore con isteresi (non soglia per-evento), così assorbe i piccoli
