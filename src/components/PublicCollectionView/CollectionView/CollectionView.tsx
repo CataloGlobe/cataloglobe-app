@@ -2711,14 +2711,18 @@ export default function CollectionView({
 
             {activeTab === "storia" && slug && (
                 <Suspense fallback={null}>
-                    {/* Stesso meccanismo di Eventi/Recensioni: superficie a pattern che taglia l'hero. */}
+                    {/* Stesso meccanismo di Eventi: superficie a pattern che taglia l'hero + .frame
+                        per il cap desktop (1280px). A differenza di Recensioni, Storie ha bisogno del
+                        cap perché il feed/lettore non hanno un contenitore proprio con max-width. */}
                     <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
-                        <StoryView
-                            slug={slug}
-                            selectedStoryId={selectedStoryId}
-                            onSelectStory={setSelectedStoryId}
-                            onOpenProduct={openProductFromStory}
-                        />
+                        <div className={styles.frame}>
+                            <StoryView
+                                slug={slug}
+                                selectedStoryId={selectedStoryId}
+                                onSelectStory={setSelectedStoryId}
+                                onOpenProduct={openProductFromStory}
+                            />
+                        </div>
                     </div>
                 </Suspense>
             )}

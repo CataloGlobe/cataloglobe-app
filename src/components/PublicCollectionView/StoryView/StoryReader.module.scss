@@ -1,6 +1,14 @@
 .root {
   width: 100%;
-  padding: 1rem 0 2rem;
+  // Cap di lettura (640px, più stretto del menu per leggibilità — valore
+  // scelto in fase di design, non toccare qui) spostato dal singolo `.article`
+  // a QUESTO livello: così back-link top, stateBlock e `.article` condividono
+  // la stessa colonna centrata invece di avere il back-link al bordo.
+  max-width: 640px;
+  margin: 0 auto;
+  // Clearance per la bottom bar pubblica fluttuante — pattern del progetto
+  // `max(<base>, env(safe-area-inset-bottom))`, stessa base (2rem) già in uso.
+  padding: 1rem 0 max(2rem, env(safe-area-inset-bottom));
 }
 
 .backButton,
@@ -32,11 +40,6 @@
   justify-content: center;
   padding: 4rem 2rem;
   min-height: 30vh;
-}
-
-.article {
-  max-width: 640px;
-  margin: 0 auto;
 }
 
 .cover {

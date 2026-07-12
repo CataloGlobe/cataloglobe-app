@@ -10,6 +10,20 @@
   width: 100%;
   overflow-x: hidden;
   overflow-y: visible;
+  // Inset laterale: unica fonte di padding orizzontale per feed + lettore. Su
+  // mobile viene azzerato da `.tabPatternSurface > .frame > *` in
+  // CollectionView.module.scss (l'inset arriva già da lì); su desktop (dove
+  // tabPatternSurface non monta) resta l'unico inset dentro `.frame`, stesso
+  // valore (1rem) per continuità visiva. `.viewport` è il diretto figlio di
+  // `.frame` (vedi CollectionView.tsx, tab "storia") — stesso ruolo di
+  // EventsView `.root`.
+  padding: 0 1rem;
+  // Contesto container per `.grid` sotto — prima non dichiarato da nessun
+  // antenato reale (Storie non è mai annidata dentro `.container` del Menu,
+  // che dichiara "collection" solo per la propria tab): la query restava
+  // inerte. Dichiarato qui localmente, stesso nome già referenziato.
+  container-type: inline-size;
+  container-name: collection;
 }
 
 .readerOverlay {
@@ -37,6 +51,10 @@
 
 .root {
   width: 100%;
+  // Clearance per la bottom bar pubblica fluttuante — pattern del progetto
+  // `max(<base>, env(safe-area-inset-bottom))`. Sul `.root`, non su `.grid`,
+  // così vale anche quando c'è solo il cappello senza lista storie.
+  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
 }
 
 /* ── Cappello ─────────────────────────────────────────────────────────── */
@@ -104,8 +122,7 @@
   color: var(--pub-text);
 }
 
-/* Nessun container-type proprio: la griglia vive dentro il context `collection`
-   già dichiarato dall'ancestor CollectionView (stesso pattern di FeaturedBlock). */
+/* Contesto `collection` dichiarato su `.viewport` (sopra), non qui. */
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
