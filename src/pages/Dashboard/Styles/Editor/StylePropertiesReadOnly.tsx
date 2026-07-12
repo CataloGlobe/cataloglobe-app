@@ -2,7 +2,7 @@ import Text from "@/components/ui/Text/Text";
 import { InfoTooltip } from "@components/ui/Tooltip/InfoTooltip";
 import type { StyleTokenModel, BackgroundPattern, BorderRadius, NavigationStyle, ProductStyle, FeaturedStyle, PatternIntensity } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
-import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
+import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview } from "./StyleMiniPreviews";
 import sharedStyles from "./StyleSettingsControls.module.scss";
 import roStyles from "./StylePropertiesReadOnly.module.scss";
 
@@ -261,34 +261,7 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         }
                     />
                 )}
-                {model.card.productStyle === "card" && (
-                <div className={sharedStyles.controlField}>
-                    <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
-                        Layout lista prodotti<InfoTooltip content="Grid mostra i prodotti affiancati su più colonne: due su mobile, tre su schermi ampi. List mostra sempre un prodotto per riga." />
-                    </Text>
-                    <div className={`${sharedStyles.miniPreviewGrid} ${sharedStyles.miniPreviewGridTwoCols}`}>
-                        {(
-                            [
-                                { value: "grid" as const, label: "Grid" },
-                                { value: "list" as const, label: "List" }
-                            ]
-                        ).map(opt => {
-                            const isActive = model.card.layout === opt.value;
-                            return (
-                                <div
-                                    key={opt.value}
-                                    className={`${sharedStyles.miniPreviewCard} ${sharedStyles.miniPreviewCardReadonly} ${
-                                        isActive ? sharedStyles.miniPreviewCardActive : ""
-                                    }`}
-                                >
-                                    <CardLayoutPreview variant={opt.value} />
-                                    <span className={sharedStyles.miniPreviewLabel}>{opt.label}</span>
-                                </div>
-                            );
-                        })}
-                    </div>
-                </div>
-                )}
+                {/* Layout List/Grid rimosso: orientamento Card automatico via container query */}
                 {model.card.productStyle === "compact" && (
                     <ValueReadRow
                         label="Variante Compatto"
@@ -310,14 +283,9 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                 {model.card.productStyle !== "compact" && (
                     <div className={sharedStyles.controlField}>
                         <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
-                            Immagini prodotti<InfoTooltip content="Posizione dell'immagine nella card prodotto. Visibile solo nello stile Card." />
+                            Immagini prodotti<InfoTooltip content="Posizione dell'immagine nella card prodotto quando la lista è a una colonna; su schermi ampi, con più colonne, l'immagine va automaticamente sopra. Visibile solo nello stile Card." />
                         </Text>
-                        {model.card.layout === "grid" ? (
-                            <span className={roStyles.readValue}>
-                                {model.card.image.mode === "show" ? "Mostra" : "Nascondi"}
-                            </span>
-                        ) : (
-                            <div className={sharedStyles.miniPreviewGrid}>
+                        <div className={sharedStyles.miniPreviewGrid}>
                                 {(
                                     [
                                         { value: "left" as const, label: "Sinistra" },
@@ -342,8 +310,7 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                                         </div>
                                     );
                                 })}
-                            </div>
-                        )}
+                        </div>
                     </div>
                 )}
                 <div className={sharedStyles.controlField}>

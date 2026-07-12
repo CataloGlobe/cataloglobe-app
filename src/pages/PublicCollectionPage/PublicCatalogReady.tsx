@@ -356,7 +356,8 @@ export default function PublicCatalogReady({
         ...DEFAULT_COLLECTION_STYLE,
         sectionNavStyle: navStyle,
         cardTemplate,
-        cardLayout: tokens.card.layout,
+        // cardLayout non più mappato: orientamento Card automatico via container
+        // query; il token card.layout resta tollerato nel parse ma ignorato.
         productStyle: tokens.card.productStyle,
         compactLayoutStyle: tokens.card.compactLayoutStyle ?? "modern",
         contentDensity: tokens.card.contentDensity ?? "full",

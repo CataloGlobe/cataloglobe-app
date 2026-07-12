@@ -373,7 +373,8 @@ export const StylePreview = ({ model, viewMode, isTransitioning = false }: Style
         ...DEFAULT_COLLECTION_STYLE,
         sectionNavStyle: model.navigation.style,
         cardTemplate,
-        cardLayout: model.card.layout,
+        // cardLayout non più mappato: orientamento Card automatico via container
+        // query (il default "list" dallo spread resta solo per il tipo).
         productStyle: model.card.productStyle,
         compactLayoutStyle: model.card.compactLayoutStyle ?? "modern",
         contentDensity: model.card.contentDensity ?? "full",
