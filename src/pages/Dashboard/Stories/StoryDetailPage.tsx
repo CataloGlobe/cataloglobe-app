@@ -85,15 +85,16 @@ export default function StoryDetailPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [tenantId, storyId]);
 
-    // Sync draft ← baseline ad ogni (ri)caricamento del `story` (load iniziale
-    // e dopo un Salva riuscito). Revoca l'eventuale objectURL pendente.
-    useEffect(() => {
-        if (!story) return;
-        setEyebrow(story.eyebrow ?? "");
-        setTitle(story.title);
-        setStatus(story.status);
-        setProductId(story.product_id);
-        setBlocks(story.body_blocks);
+    // Sync draft ← baseline. Usata al load iniziale, dopo un Salva riuscito, e
+    // da `discardStory` (Annulla in header) per riallineare l'intero draft —
+    // campi, blocchi, copertina (anche una rimozione pendente) e immagini
+    // blocco pendenti. Revoca l'eventuale objectURL pendente.
+    const syncFromStory = useCallback((data: StoryWithProduct) => {
+        setEyebrow(data.eyebrow ?? "");
+        setTitle(data.title);
+        setStatus(data.status);
+        setProductId(data.product_id);
+        setBlocks(data.body_blocks);
         setPendingCoverFile(null);
         setCoverRemoved(false);
         setPendingBlockImages({});
@@ -101,7 +102,16 @@ export default function StoryDetailPage() {
             if (prev) URL.revokeObjectURL(prev);
             return null;
         });
-    }, [story]);
+    }, []);
+
+    useEffect(() => {
+        if (!story) return;
+        syncFromStory(story);
+    }, [story, syncFromStory]);
+
+    const discardStory = useCallback(() => {
+        if (story) syncFromStory(story);
+    }, [story, syncFromStory]);
 
     const handleCoverFileChange = useCallback((file: File) => {
         setPendingCoverFile(file);
@@ -269,12 +279,17 @@ export default function StoryDetailPage() {
                 {canWrite && (
                     <>
                         <span className={styles.headerSeparator} aria-hidden="true" />
-                        <HeaderSaveAction isDirty={isDirty} isSaving={isSaving} onSave={saveStory} />
+                        <HeaderSaveAction
+                            isDirty={isDirty}
+                            isSaving={isSaving}
+                            onSave={saveStory}
+                            onDiscard={discardStory}
+                        />
                     </>
                 )}
             </div>
         ),
-        [status, canWrite, isDirty, isSaving, saveStory]
+        [status, canWrite, isDirty, isSaving, saveStory, discardStory]
     );
     usePageHeader({ actions, sticky: true });
 

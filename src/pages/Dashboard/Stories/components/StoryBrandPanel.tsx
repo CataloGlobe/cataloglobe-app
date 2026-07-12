@@ -1,8 +1,7 @@
-import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { ImageUploadField } from "@/components/ui/ImageUploadField/ImageUploadField";
-import styles from "../Stories.module.scss";
+import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 
 /**
  * Pannello "Storia del brand" — presentazionale/controllato dal parent
@@ -40,50 +39,45 @@ export function StoryBrandPanel({
     canWrite
 }: StoryBrandPanelProps) {
     return (
-        <div className={styles.brandPanel}>
-            <Text variant="title-sm" weight={600}>
-                Informazioni brand
-            </Text>
+        <SectionCard
+            title="Informazioni brand"
+            subtitle="Visibili in cima alla sezione storie del catalogo pubblico"
+        >
+            <ImageUploadField
+                label="Copertina"
+                imageUrl={coverUrl}
+                pendingFile={pendingCoverFile}
+                onFileChange={onCoverFileChange}
+                onRemove={onCoverRemove}
+                thumbShape="wide"
+                accept="image/png,image/jpeg,image/webp"
+                maxSizeMb={5}
+                disabled={!canWrite}
+            />
 
-            <div className={styles.form}>
-                <div className={styles.fieldStack}>
-                    <ImageUploadField
-                        label="Copertina"
-                        imageUrl={coverUrl}
-                        pendingFile={pendingCoverFile}
-                        onFileChange={onCoverFileChange}
-                        onRemove={onCoverRemove}
-                        thumbShape="wide"
-                        accept="image/png,image/jpeg,image/webp"
-                        maxSizeMb={5}
-                        disabled={!canWrite}
-                    />
+            <TextInput
+                label="Titolo"
+                value={title}
+                onChange={e => onTitleChange(e.target.value)}
+                disabled={!canWrite}
+            />
 
-                    <TextInput
-                        label="Titolo"
-                        value={title}
-                        onChange={e => onTitleChange(e.target.value)}
-                        disabled={!canWrite}
-                    />
+            <Textarea
+                label="Intro"
+                value={intro}
+                onChange={e => onIntroChange(e.target.value)}
+                rows={4}
+                disabled={!canWrite}
+            />
 
-                    <Textarea
-                        label="Intro"
-                        value={intro}
-                        onChange={e => onIntroChange(e.target.value)}
-                        rows={4}
-                        disabled={!canWrite}
-                    />
-
-                    <TextInput
-                        label="Sito web"
-                        type="url"
-                        value={website}
-                        onChange={e => onWebsiteChange(e.target.value)}
-                        placeholder="https://..."
-                        disabled={!canWrite}
-                    />
-                </div>
-            </div>
-        </div>
+            <TextInput
+                label="Sito web"
+                type="url"
+                value={website}
+                onChange={e => onWebsiteChange(e.target.value)}
+                placeholder="https://..."
+                disabled={!canWrite}
+            />
+        </SectionCard>
     );
 }

@@ -751,6 +751,45 @@ export async function listBaseProductsForPicker(tenantId: string): Promise<Produ
     return data ?? [];
 }
 
+export type ProductPickerItemWithCategory = ProductPickerItem & {
+    /** Prima categoria trovata per il prodotto (un prodotto può stare in più categorie/cataloghi). */
+    category_name: string | null;
+};
+
+/**
+ * Variante di `listBaseProductsForPicker` con nome categoria — per picker che
+ * la mostrano in tabella (es. drawer "Collega un prodotto" delle Storie).
+ * Query extra dedicata: non appesantisce gli altri call site del picker base.
+ */
+export async function listBaseProductsForPickerWithCategory(
+    tenantId: string
+): Promise<ProductPickerItemWithCategory[]> {
+    const products = await listBaseProductsForPicker(tenantId);
+    if (products.length === 0) return [];
+
+    const { data: catRows, error: catError } = await supabase
+        .from("catalog_category_products")
+        .select("product_id, category:catalog_categories(name)")
+        .eq("tenant_id", tenantId)
+        .in(
+            "product_id",
+            products.map(p => p.id)
+        );
+    if (catError) throw catError;
+
+    // PostgREST risolve l'embed come oggetto singolo (category_id è FK many-to-one
+    // verso catalog_categories) — il tipo inferito da supabase-js lo tratta come
+    // array per mancanza di Database generics, ma a runtime è un oggetto.
+    const categoryByProductId = new Map<string, string>();
+    for (const row of (catRows ?? []) as unknown as { product_id: string; category: { name: string } | null }[]) {
+        if (!categoryByProductId.has(row.product_id) && row.category?.name) {
+            categoryByProductId.set(row.product_id, row.category.name);
+        }
+    }
+
+    return products.map(p => ({ ...p, category_name: categoryByProductId.get(p.id) ?? null }));
+}
+
 /**
  * Generate an Italian product description via the stateless `product-ai-enrich`
  * edge function. Pure read path: it does NOT write the product — the caller

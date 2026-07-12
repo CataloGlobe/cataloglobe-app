@@ -1,5 +1,7 @@
+import { useState } from "react";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import styles from "./HeaderSaveAction.module.scss";
 
 interface HeaderSaveActionProps {
@@ -7,15 +9,26 @@ interface HeaderSaveActionProps {
     isDirty: boolean;
     isSaving: boolean;
     onSave: () => void;
+    /**
+     * Riallinea il draft al baseline salvato (stessa funzione usata da
+     * `UnsavedChangesDialog` per "Esci senza salvare"). Se passato, mostra il
+     * bottone "Annulla" (solo quando `isDirty`) con conferma — resta sulla
+     * pagina, non è una navigazione. Omesso → nessun bottone Annulla.
+     */
+    onDiscard?: () => void;
 }
 
 /**
- * Azione Salva iniettata nell'header di pagina via `usePageHeader`.
- * Stato "quiet" (Salvato ✓) quando tutto è allineato; stato attivo
- * (pill "Non salvato" + bottone Salva) quando ci sono modifiche pendenti.
- * Presentazionale — nessuna logica di salvataggio, delega a `onSave`.
+ * Azione Salva (+ Annulla opzionale) iniettata nell'header di pagina via
+ * `usePageHeader`. Stato "quiet" (Salvato ✓) quando tutto è allineato; stato
+ * attivo (Annulla + Salva, nessun badge) quando ci sono modifiche pendenti —
+ * la comparsa stessa dei bottoni è il segnale, il badge "Non salvato" sarebbe
+ * ridondante. Il dialog di conferma per Annulla vive qui: unico punto,
+ * garantisce lo stesso comportamento su tutte le pagine che passano `onDiscard`.
  */
-export function HeaderSaveAction({ isDirty, isSaving, onSave }: HeaderSaveActionProps) {
+export function HeaderSaveAction({ isDirty, isSaving, onSave, onDiscard }: HeaderSaveActionProps) {
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
+
     if (!isDirty && !isSaving) {
         return (
             <span className={styles.savedPill} role="status">
@@ -27,13 +40,34 @@ export function HeaderSaveAction({ isDirty, isSaving, onSave }: HeaderSaveAction
 
     return (
         <div className={styles.dirtyGroup}>
-            <span className={styles.unsaved} role="status">
-                <span className={styles.dot} aria-hidden="true" />
-                Non salvato
-            </span>
+            {onDiscard && (
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    disabled={isSaving}
+                    onClick={() => setConfirmDiscardOpen(true)}
+                >
+                    Annulla
+                </Button>
+            )}
             <Button variant="primary" size="sm" loading={isSaving} onClick={onSave}>
                 Salva
             </Button>
+
+            {onDiscard && (
+                <ConfirmDialog
+                    isOpen={confirmDiscardOpen}
+                    onClose={() => setConfirmDiscardOpen(false)}
+                    onConfirm={async () => {
+                        onDiscard();
+                        return true;
+                    }}
+                    title="Scartare le modifiche non salvate?"
+                    message="Le modifiche non salvate andranno perse. Resti sulla pagina."
+                    confirmLabel="Scarta"
+                    confirmVariant="danger"
+                />
+            )}
         </div>
     );
 }

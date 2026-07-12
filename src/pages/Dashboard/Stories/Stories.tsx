@@ -126,14 +126,21 @@ export default function Stories() {
     const actions = useMemo(() => {
         if (!canWrite) return undefined;
         if (activeTab === "brand") {
-            return <HeaderSaveAction isDirty={brand.isDirty} isSaving={brand.isSaving} onSave={brand.save} />;
+            return (
+                <HeaderSaveAction
+                    isDirty={brand.isDirty}
+                    isSaving={brand.isSaving}
+                    onSave={brand.save}
+                    onDiscard={brand.discard}
+                />
+            );
         }
         return (
             <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
                 Crea storia
             </Button>
         );
-    }, [activeTab, handleCreate, canEdit, canWrite, brand.isDirty, brand.isSaving, brand.save]);
+    }, [activeTab, handleCreate, canEdit, canWrite, brand.isDirty, brand.isSaving, brand.save, brand.discard]);
 
     usePageHeader({ leading, actions, sticky: true });
 
