@@ -193,21 +193,24 @@
 }
 
 /* Rimando storia — reverse-link (sub-fase 6). Card simmetrica del "Dal menu"
-   nel lettore storia (StoryReader.module.scss .productLink), stessa treatment
-   di PairingDetailCard (background --pub-surface + border color-mix). */
+   nel lettore storia (StoryReader.module.scss .productLink) — stesso ponte
+   di valore, stesso peso: piena su --pub-primary invece della treatment
+   pallida "surface + border" (residuo, non un invito). */
 .storyLinkCard {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--pub-space-3, 10px);
     width: 100%;
-    margin-top: 12px;
-    padding: 10px 12px;
+    margin-top: var(--pub-space-3, 12px);
+    padding: var(--pub-space-3, 10px) var(--pub-space-4, 14px);
     border-radius: var(--pub-radius, 12px);
-    border: 1px solid color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface));
-    background: var(--pub-surface);
+    border: none;
+    background: var(--pub-primary);
+    color: var(--pub-primary-contrast, #fff);
     cursor: pointer;
     text-align: left;
     font: inherit;
+    box-shadow: var(--pub-card-shadow);
     transition: box-shadow 0.15s ease, transform 0.15s ease;
 
     &:hover {
@@ -228,8 +231,8 @@
     width: 44px;
     height: 44px;
     border-radius: var(--pub-btn-radius, 8px);
-    background: var(--pub-primary-soft, rgba(99, 102, 241, 0.1));
-    color: var(--pub-accent);
+    background: rgba(255, 255, 255, 0.18);
+    color: inherit;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -249,7 +252,7 @@
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--pub-accent);
+    opacity: 0.85;
 }
 
 .storyLinkTitle {
@@ -260,7 +263,7 @@
 
 .storyLinkArrow {
     flex-shrink: 0;
-    color: var(--pub-surface-text-muted);
+    opacity: 0.85;
 }
 
 .characteristicSectionLabel {

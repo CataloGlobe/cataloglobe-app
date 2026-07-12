@@ -37,6 +37,21 @@
   // and TS PublicCollectionHeader via getComputedStyle for the rail margin calc.
   --pub-frame-max-desktop: 1280px;
 
+  // Reading measure for long-form content (StoryReader). Was a hardcoded
+  // 640px magic number — tokenized so it's reusable and documented.
+  --pub-reading-max: 640px;
+
+  // Spacing scale — 4px base. Introduced for Storie (StoryView/StoryReader);
+  // rest of the public page still uses literal spacing, migrates later.
+  --pub-space-1: 4px;
+  --pub-space-2: 8px;
+  --pub-space-3: 12px;
+  --pub-space-4: 16px;
+  --pub-space-5: 24px;
+  --pub-space-6: 32px;
+  --pub-space-7: 48px;
+  --pub-space-8: 64px;
+
   --pub-font-family: "Inter", sans-serif;
 
   // Card shadows
