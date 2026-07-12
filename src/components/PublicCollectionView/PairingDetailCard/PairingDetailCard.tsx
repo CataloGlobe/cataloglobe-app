@@ -44,7 +44,15 @@ export default function PairingDetailCard({
     return (
         <div className={styles.card}>
             {showThumbnail && pairing.imageUrl && (
-                <img src={pairing.imageUrl} alt="" className={styles.thumb} />
+                <img
+                    src={pairing.imageUrl}
+                    alt=""
+                    className={styles.thumb}
+                    loading="lazy"
+                    decoding="async"
+                    width={52}
+                    height={52}
+                />
             )}
 
             <div className={styles.body}>

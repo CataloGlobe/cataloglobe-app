@@ -100,6 +100,27 @@ export default function ItemDetail({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [item]);
 
+    // ── Warm della cache immagini al mount/cambio item ───────────────────────
+    // Il fetch parte subito, in parallelo all'animazione d'entrata: anticipa il
+    // lazy-loading nativo (thumb storia/pairing sotto il fold del body scrollabile
+    // partirebbero solo allo scroll) — niente pop-in su rete lenta (4G in sala).
+    // Prefetch limitato a ciò che verrà davvero renderizzato (stesse condizioni
+    // dei rispettivi blocchi JSX): niente banda sprecata.
+    useEffect(() => {
+        if (!item) return;
+        const urls = [
+            showImage && mode === "public" ? item.image : null,
+            onOpenStory ? item.story_ref?.cover : null,
+            ...(showImage ? (item.pairings ?? []).map(p => p.imageUrl) : []),
+        ];
+        for (const url of urls) {
+            if (!url) continue;
+            const img = new Image();
+            img.decoding = "async";
+            img.src = url;
+        }
+    }, [item, showImage, mode, onOpenStory]);
+
     const primaryPriceGroup = displayItem?.optionGroups?.find(
         g => g.group_kind?.toUpperCase() === "PRIMARY_PRICE"
     );
@@ -197,6 +218,9 @@ export default function ItemDetail({
                                 alt={displayItem.name}
                                 className={styles.image}
                                 loading="lazy"
+                                decoding="async"
+                                width={1600}
+                                height={900}
                             />
                         ) : (
                             <div className={styles.placeholderImage} aria-hidden="true">
@@ -350,6 +374,10 @@ export default function ItemDetail({
                                         src={displayItem.story_ref.cover}
                                         alt=""
                                         className={styles.storyLinkThumb}
+                                        loading="lazy"
+                                        decoding="async"
+                                        width={44}
+                                        height={44}
                                     />
                                 ) : (
                                     <div className={styles.storyLinkThumbPlaceholder}>
