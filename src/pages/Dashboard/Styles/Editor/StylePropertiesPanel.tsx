@@ -594,7 +594,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
                 <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Layout lista prodotti<InfoTooltip content="Grid mostra più prodotti affiancati su schermi ampi (desktop/tablet). Su mobile, entrambi i layout mostrano un prodotto per riga." />
+                        Layout lista prodotti<InfoTooltip content="Grid mostra i prodotti affiancati su più colonne: due su mobile, tre su schermi ampi. Sugli schermi stretti i contenuti si adattano restringendosi, mantenendo prezzo e bottone sempre leggibili. List mostra sempre un prodotto per riga." />
                     </Text>
                     <div className={`${styles.miniPreviewGrid} ${styles.miniPreviewGridTwoCols}`} role="radiogroup">
                         {cardLayoutOptions.map(option => {

@@ -232,7 +232,10 @@
 .grid {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(2, 1fr);
+  /* minmax(0, 1fr) e non 1fr: 1fr = minmax(auto, 1fr), la traccia non può
+     scendere sotto il min-content dell'item (prezzo nowrap + bottone "+"
+     shrink-0 nel Compatto) → overflow orizzontale su container stretti. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 /* Tablet: gap più ampio */
@@ -245,7 +248,7 @@
 /* Desktop: 3 colonne */
 @container collection (min-width: 1024px) {
   .grid {
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
@@ -260,6 +263,7 @@
 
 .compactItem {
   position: relative; /* ancora il velo ::after dell'evidenziazione ricerca */
+  min-width: 0; /* consente ai figli flex (nome line-clamp) di restringersi nella traccia grid */
   border-bottom: 1px solid color-mix(in srgb, var(--pub-surface-border) 60%, transparent);
 
   &:last-child {
