@@ -232,10 +232,11 @@
 .grid {
   display: grid;
   gap: 8px;
-  /* minmax(0, 1fr) e non 1fr: 1fr = minmax(auto, 1fr), la traccia non può
-     scendere sotto il min-content dell'item (prezzo nowrap + bottone "+"
-     shrink-0 nel Compatto) → overflow orizzontale su container stretti. */
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Base: 1 colonna. La Card va multi-colonna solo da 1024px in su (stessa
+     query che riorienta la card in colonna, vedi blocco CARD sotto); il
+     Compatto ha il suo auto-fit guidato dalla densità. minmax(0, 1fr) e non
+     1fr: la traccia può scendere sotto il min-content (prezzo nowrap ecc.). */
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* Tablet: gap più ampio */
@@ -245,18 +246,13 @@
   }
 }
 
-/* Desktop: 3 colonne */
+/* Desktop: Card multi-colonna (il Compatto è escluso: usa auto-fit).
+   Stessa soglia del riorientamento card → colonne e orientamento cambiano
+   in sincrono, mai card in riga dentro un grid multi-colonna. */
 @container collection (min-width: 1024px) {
-  .grid {
+  .container:not([data-product-style="compact"]) .grid {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
-}
-
-/* Lista: forza sempre 1 colonna indipendentemente dal container size.
-   Scoped alla sola Card: il Compatto ignora data-card-layout (grid auto-fit
-   sempre attivo, guidato dalla densità — vedi blocco sotto). */
-.container[data-card-layout="list"]:not([data-product-style="compact"]) .grid {
-  grid-template-columns: 1fr !important;
 }
 
 /* Compatto: grid auto-fit sempre attivo, indipendente da data-card-layout.
@@ -604,75 +600,68 @@
 }
 
 /* ----------------------------------------------------
-   GRID layout — Card verticale (immagine 4:3 + testo sotto)
-   Usa CSS Grid invece di flex-column: permette di affiancare
-   il bottone "+" al corpo testo quando non c'è immagine
-   (Card·Grid senza immagine → bottone nella stessa riga del prezzo).
-
-   Colonne: [1fr corpo testo] [auto bottone]
-   - Con immagine:    rowImageWrapper span 1/-1 (intera riga),
-                      rowBody in col 1, addBtn NON renderizzato → col 2 vuota.
-   - Senza immagine:  rowBody in col 1, addBtn in col 2, stessa riga. ✓
+   CARD — orientamento automatico via container query.
+   Collection stretta (<1024px): 1 colonna, card in riga
+   (immagine 96px a sinistra/destra secondo imageRight — regole base).
+   Collection larga (≥1024px): 3 colonne, card in colonna
+   (immagine 4:3 sopra, imageRight neutralizzata).
+   Nessun container annidato: la larghezza della singola card NON è un
+   segnale affidabile (una card full-width tablet è più larga di una card
+   di un grid a 3 colonne, ma vuole l'orientamento opposto) — il segnale
+   giusto è la larghezza della collection, già container `collection`.
 ---------------------------------------------------- */
 
-.container[data-card-layout="grid"] {
-  .productRow {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    padding: 0;
-    gap: 0;
-  }
+@container collection (min-width: 1024px) {
+  .container:not([data-product-style="compact"]) {
+    .productRow {
+      flex-direction: column;
+      padding: 0;
+      gap: 0;
+    }
 
-  /* ignora imageRight in griglia: l'immagine è sempre sopra */
-  .productRowImageRight {
-    flex-direction: column;
-  }
+    /* imageRight ha senso solo in riga: in colonna l'immagine è sempre sopra
+       (stesso pattern di neutralizzazione del vecchio Card·Grid). */
+    .productRowImageRight {
+      flex-direction: column;
+    }
 
-  .rowImageWrapper {
-    grid-column: 1 / -1; /* l'immagine occupa entrambe le colonne */
-  }
+    .rowImageWrapper {
+      width: 100%;
+    }
 
-  .rowImage,
-  .rowPlaceholder {
-    width: 100%;
-    height: auto;
-    aspect-ratio: 4 / 3;
-    border-radius: 0;
-    flex-shrink: unset;
-  }
-
-  .rowBody {
-    padding: 0.75rem 1rem 0.5rem;
-    min-width: 0; /* evita overflow testo in grid */
-  }
-
-  /* Card·Grid SENZA immagine: distribuisci il body come flex column.
-     `.card` outer è flex column dentro CSS Grid (.grid) con default
-     align-items:stretch → tutte le card di una stessa riga grid hanno
-     stessa altezza. Con `height:100%` qui, `.productRow` riempie la card,
-     `.rowBody { flex:1 }` espande il testo. Il bottone "+" vive ora dentro
-     .titleRow (in alto a destra) → nessun pinning bottom-right necessario.
-
-     Scope ristretto a no-image perché:
-     - Card·Grid CON immagine ha già `addBtnOverlay` glassmorphism
-       sull'immagine (non vogliamo toccarlo).
-     - Default `.productRow` (Card·List) può contenere parent + N varianti
-       come siblings dentro `.card` → `height:100%` sul default romperebbe
-       il layout multi-row. Per quello scope qui, non sul selector default. */
-  .productRow:not(:has(.rowImageWrapper)) {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
+    .rowImage,
+    .rowPlaceholder {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 4 / 3;
+      border-radius: 0;
+      flex-shrink: unset;
+    }
 
     .rowBody {
-      flex: 1;
       padding: 0.75rem 1rem;
+      min-width: 0; /* evita overflow testo in colonna */
+    }
+
+    /* Equalizzazione altezze: `.card` è flex column dentro CSS Grid
+       (align-items: stretch) → i box delle card di una stessa riga sono già
+       pari. Qui il productRow riempie la card così il vuoto in fondo resta
+       cliccabile (apre ItemDetail) e il contenuto si distribuisce.
+       Scope :only-child: le card con varianti hanno più productRow siblings
+       dentro `.card` — height:100% su ciascuno romperebbe il multi-row
+       (stesso vincolo documentato nel vecchio blocco Card·Grid). */
+    .productRow:only-child {
+      height: 100%;
+
+      .rowBody {
+        flex: 1;
+      }
     }
   }
 }
 
-/* Wrapper attorno a .rowImage / .rowPlaceholder — consente position:absolute
-   al bottone overlay in Card·Grid senza alterare il layout in Card·List */
+/* Wrapper attorno a .rowImage / .rowPlaceholder — punto di aggancio per il
+   full-width dell'immagine nell'orientamento colonna (≥1024px). */
 .rowImageWrapper {
   position: relative;
   flex-shrink: 0; /* non si restringe come flex item in list mode */
@@ -1112,55 +1101,6 @@
   background: var(--pub-accent);
   color: var(--pub-cta-text);
   border-color: transparent;
-
-  @include hover {
-    background: color-mix(in srgb, var(--pub-accent) 85%, transparent);
-  }
-}
-
-/* Overlay variant — solid white pill in Card·Grid, layered over product image.
-   Contrast at rest is mandatory: touch devices have no hover, and light product
-   photos would otherwise erase the button. */
-.addBtnOverlay {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--pub-btn-radius);
-  background: var(--pub-surface, #fff);
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--pub-surface-text);
-  padding: 0;
-  z-index: 2;
-  transition: box-shadow 0.18s ease, transform 0.18s ease;
-  outline: none;
-  -webkit-tap-highlight-color: transparent;
-
-  @include hover {
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
-    transform: scale(1.05);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--pub-primary, #333);
-    outline-offset: 2px;
-  }
-
-  &:active {
-    transform: scale(var(--pub-press-scale, 0.96));
-    transition: transform 0.05s ease-out;
-  }
-}
-
-.addBtnOverlayActive {
-  background: var(--pub-accent);
-  color: var(--pub-cta-text);
 
   @include hover {
     background: color-mix(in srgb, var(--pub-accent) 85%, transparent);

@@ -248,7 +248,6 @@ type ProductRowProps = {
     item: CollectionViewSectionItem;
     showImage: boolean;
     imageRight?: boolean;
-    cardLayout?: "list" | "grid";
     mode: "public" | "preview";
     onClick: (item: CollectionViewSectionItem) => void;
     onAdd: (item: CollectionViewSectionItem) => void;
@@ -262,7 +261,6 @@ function ProductRowInner({
     item,
     showImage,
     imageRight = false,
-    cardLayout = "list",
     mode,
     onClick,
     onAdd,
@@ -335,21 +333,6 @@ function ProductRowInner({
                             onLoad={() => setImgLoaded(true)}
                         />
                     )}
-                    {cardLayout === "grid" && orderingEnabled && (
-                        <button
-                            type="button"
-                            className={[styles.addBtnOverlay, selectionQty > 0 ? styles.addBtnOverlayActive : ""]
-                                .filter(Boolean)
-                                .join(" ")}
-                            onClick={handleAddBtnClick}
-                            aria-label={t("selection.add_aria")}
-                        >
-                            <Plus size={16} strokeWidth={2.5} />
-                            {selectionQty > 0 && (
-                                <span className={`${styles.addBtnBadge} ${styles.addBtnBadgeOnSurface}`}>{selectionQty}</span>
-                            )}
-                        </button>
-                    )}
                 </div>
             )}
             <div className={styles.rowBody}>
@@ -362,7 +345,7 @@ function ProductRowInner({
                             <span className={styles.promoBadge}>{t("product.badge_promo")}</span>
                         )}
                     </div>
-                    {(cardLayout !== "grid" || !showImage) && orderingEnabled && (
+                    {orderingEnabled && (
                         <button
                             type="button"
                             className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
@@ -2185,7 +2168,6 @@ export default function CollectionView({
                                         item={item}
                                         showImage={style.cardTemplate !== "no-image"}
                                         imageRight={style.cardTemplate === "right"}
-                                        cardLayout={style.cardLayout ?? "list"}
                                         mode={mode}
                                         onClick={handleRowClick}
                                         onAdd={handleRowAdd}
@@ -2228,7 +2210,6 @@ export default function CollectionView({
                                                 item={variantItem}
                                                 showImage={style.cardTemplate !== "no-image"}
                                                 imageRight={style.cardTemplate === "right"}
-                                                cardLayout={style.cardLayout ?? "list"}
                                                 mode={mode}
                                                 onClick={handleRowClick}
                                                 onAdd={handleRowAdd}
@@ -2507,7 +2488,12 @@ export default function CollectionView({
                                 <div
                                     id={contentId}
                                     className={styles.container}
-                                    data-card-layout={style.cardLayout ?? "list"}
+                                    // data-card-layout: solo per il Compatto (che comunque non lo
+                                    // consulta più dalla 2b) — la Card ha orientamento automatico
+                                    // via container query, il token layout non viene più letto.
+                                    data-card-layout={
+                                        style.productStyle === "compact" ? style.cardLayout ?? "list" : undefined
+                                    }
                                     data-product-style={style.productStyle ?? "card"}
                                     data-content-density={style.contentDensity ?? "full"}
                                 >
