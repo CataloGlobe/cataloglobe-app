@@ -36,10 +36,23 @@ import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 // Factory estratta per consentire il preload idle e onPointerDown.
 const importSearchOverlay = () => import("../SearchOverlay/SearchOverlay");
 const SearchOverlay = lazy(importSearchOverlay);
-const ItemDetail = lazy(() => import("../ItemDetail/ItemDetail"));
-const OrderingSheet = lazy(() => import("../OrderingSheet/OrderingSheet"));
+const importItemDetail = () => import("../ItemDetail/ItemDetail");
+const ItemDetail = lazy(importItemDetail);
+const importOrderingSheet = () => import("../OrderingSheet/OrderingSheet");
+const OrderingSheet = lazy(importOrderingSheet);
 const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
 const StoryView = lazy(() => import("../StoryView/StoryView"));
+
+// Preload idle di TUTTI i chunk sheet aperti da interazione: senza, la PRIMA
+// apertura paga il fetch di rete del chunk dentro il ciclo di apertura
+// (Suspense fallback={null} → sheet che "non parte") — è la causa del
+// non-determinismo percepito su iOS. Stesso pattern del prefetch SearchOverlay.
+const preloadSheetChunks = () => {
+    void importSearchOverlay();
+    void importItemDetail();
+    void importOrderingSheet();
+    void importOrderConfirmationSheet();
+};
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import AllergensSheet from "../AllergensSheet/AllergensSheet";
 import MoreSheet from "../MoreSheet/MoreSheet";
@@ -60,7 +73,8 @@ import { useOptionalCustomerSession } from "@/context/CustomerSession/CustomerSe
 import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AlertCircle } from "lucide-react";
-const OrderConfirmationSheet = lazy(() => import("../OrderConfirmationSheet/OrderConfirmationSheet"));
+const importOrderConfirmationSheet = () => import("../OrderConfirmationSheet/OrderConfirmationSheet");
+const OrderConfirmationSheet = lazy(importOrderConfirmationSheet);
 
 // ─── Selection helpers ────────────────────────────────────────────────────────
 
@@ -879,7 +893,7 @@ export default function CollectionView({
         void importSearchOverlay();
     }, []);
 
-    // Preload idle del chunk SearchOverlay (solo public). requestIdleCallback
+    // Preload idle dei chunk sheet lazy (solo public). requestIdleCallback
     // non disponibile su Safari iOS < 17.4 → fallback setTimeout 200ms.
     useEffect(() => {
         if (mode === "preview") return;
@@ -891,10 +905,10 @@ export default function CollectionView({
             cancelIdleCallback?: (id: number) => void;
         }).cancelIdleCallback;
         if (typeof ric === "function") {
-            const id = ric(() => { void importSearchOverlay(); }, { timeout: 1500 });
+            const id = ric(() => { preloadSheetChunks(); }, { timeout: 1500 });
             return () => { cic?.(id); };
         }
-        const id = window.setTimeout(() => { void importSearchOverlay(); }, 200);
+        const id = window.setTimeout(() => { preloadSheetChunks(); }, 200);
         return () => window.clearTimeout(id);
     }, [mode]);
 
