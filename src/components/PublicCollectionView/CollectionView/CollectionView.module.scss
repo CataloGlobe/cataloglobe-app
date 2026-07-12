@@ -265,7 +265,7 @@
 .container[data-product-style="compact"] .grid {
   --compact-min-col: 380px; /* full (default) */
   grid-template-columns: repeat(auto-fit, minmax(min(var(--compact-min-col), 100%), 1fr));
-  row-gap: 0; /* il border-bottom di .compactItem fa da separatore, niente doppio stacco */
+  row-gap: 0; /* la separazione è il padding verticale di .compactRow, niente doppio stacco */
   column-gap: 1.5rem;
 }
 
@@ -284,11 +284,6 @@
 .compactItem {
   position: relative; /* ancora il velo ::after dell'evidenziazione ricerca */
   min-width: 0; /* consente ai figli flex (nome line-clamp) di restringersi nella traccia grid */
-  border-bottom: 1px solid color-mix(in srgb, var(--pub-surface-border) 60%, transparent);
-
-  &:last-child {
-    border-bottom: none;
-  }
 
   &.disabledCard {
     opacity: 0.6;
@@ -300,7 +295,10 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  padding: 0.875rem 0;
+  /* Nessun divisore tra prodotti: la separazione è SOLO questa spaziatura
+     verticale (16px + 16px = 32px tra prodotti), unica per Editoriale/Moderno
+     e per tutte le densità. Padding (non gap sul grid) → resta area tap. */
+  padding: 1rem 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: opacity 0.12s ease;
@@ -1151,15 +1149,6 @@
   background: var(--pub-accent);
   color: var(--pub-cta-text);
   border-color: transparent;
-}
-
-/* Compatto · densità Minimo: righe solo nome+prezzo → padding verticale ridotto.
-   (Le vecchie regole Compact·Grid legate a data-card-layout sono state rimosse:
-   il Compatto usa sempre il grid auto-fit guidato dalla densità. La soppressione
-   del border-bottom sull'ultima riga visiva non è replicabile con auto-fit —
-   numero colonne non noto a priori — resta solo :last-child senza bordo.) */
-.container[data-product-style="compact"][data-content-density="minimal"] .compactRow {
-  padding: 0.625rem 0;
 }
 
 .addBtnBadge {
