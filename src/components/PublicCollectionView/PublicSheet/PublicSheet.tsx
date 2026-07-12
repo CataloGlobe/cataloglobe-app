@@ -5,6 +5,17 @@ import { popSheetOpen, pushSheetOpen } from "../hooks/useScrollCollapse";
 import { PublicPortalContext } from "@/features/public/components/PublicPortalContext";
 import styles from "./PublicSheet.module.scss";
 
+// ── Uscita mobile: WAAPI sul compositor ─────────────────────────────────────
+// La spring framer su motion value gira in rAF sul MAIN thread: il reflow
+// full-page del rilascio body-lock (sincrono a INIZIO uscita — vincolo di
+// interattività, non spostare) la stalla al primo frame. element.animate()
+// su transform/opacity è compositor-accelerated su WebKit → immune al reflow.
+// La velocity del drag viene convertita in durata (flick veloce = uscita più
+// rapida); l'easing decelerante è la curva standard degli sheet iOS.
+const EXIT_DURATION_MS = 280;
+const EXIT_MIN_DURATION_MS = 140;
+const EXIT_EASING = "cubic-bezier(0.32, 0.72, 0, 1)";
+
 function useIsMobile(breakpoint = 640) {
     const [isMobile, setIsMobile] = useState(
         () => typeof window !== "undefined" && window.innerWidth < breakpoint
@@ -96,6 +107,32 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
     const backdropRef = useRef<HTMLDivElement>(null);
     const overlayRef = useRef<HTMLDivElement>(null);
     const panelRef = useRef<HTMLDivElement>(null);
+
+    // ── Animazioni WAAPI di uscita in volo (panel + backdrop) ───────────────
+    // fill:"forwards" tiene la posizione finale finché non si smonta o cancella:
+    // vanno SEMPRE cancellate prima di ridare il controllo al motion value y
+    // (close-interruption, riapertura), altrimenti l'effetto WAAPI sovrasta il
+    // transform inline scritto da framer.
+    const exitAnimationsRef = useRef<Animation[]>([]);
+
+    const cancelExitAnimations = useCallback(() => {
+        for (const anim of exitAnimationsRef.current) anim.cancel();
+        exitAnimationsRef.current = [];
+    }, []);
+
+    // Riversa la translateY corrente del panel (matrice computata: include
+    // l'effetto WAAPI in corso) nel motion value + inline style, così il frame
+    // dopo il cancel riparte esattamente dalla posizione visibile — niente
+    // salto a zero né flash alla posizione pre-uscita.
+    const syncYFromComputedTransform = useCallback(() => {
+        const panel = panelRef.current;
+        if (!panel) return;
+        const computed = getComputedStyle(panel).transform;
+        if (!computed || computed === "none") return;
+        const currentY = new DOMMatrixReadOnly(computed).m42;
+        y.set(currentY);
+        panel.style.transform = `translateY(${currentY}px)`;
+    }, [y]);
 
     // ── Body lock state in refs — accessibili sia da useLayoutEffect che da triggerClose ──
     // Salviamo i valori originali qui invece che nella closure del useLayoutEffect,
@@ -202,10 +239,17 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         if (backdropRef.current) backdropRef.current.style.pointerEvents = "";
         if (panelRef.current) panelRef.current.style.pointerEvents = "";
         if (isMobile && shouldRender) {
+            // Uscita WAAPI in volo: leggi la posizione corrente e riversala nel
+            // motion value PRIMA del cancel, così la spring di rientro riparte
+            // da dov'è il panel (non da zero né dalla posizione pre-uscita).
+            if (exitAnimationsRef.current.length > 0) {
+                syncYFromComputedTransform();
+                cancelExitAnimations();
+            }
             lockBody();
             animate(y, 0, { type: "spring", damping: 32, stiffness: 320 });
         }
-    }, [contentKey, isMobile, shouldRender, lockBody, y]);
+    }, [contentKey, isMobile, shouldRender, lockBody, y, syncYFromComputedTransform, cancelExitAnimations]);
 
     // ── Reset chiusura stale — ogni commit dove isOpen=true ──────────────────
     // useLayoutEffect senza dipendenze: garantisce che isClosingRef e pointer-events
@@ -228,6 +272,10 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
         if (!isOpen) return;
 
         if (isMobile) {
+            // Riapertura durante un'uscita WAAPI in volo (external close →
+            // reopen): senza cancel, fill:"forwards" terrebbe il panel fuori
+            // schermo sovrastando il transform inline del motion value.
+            cancelExitAnimations();
             if (prefersReducedMotion) {
                 // Reduced motion: apertura istantanea, niente spring → nessun hint.
                 y.set(0);
@@ -249,26 +297,112 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
             setPanelWillChange("transform");
             setShouldRender(true);
         }
-    }, [isOpen, isMobile, y, prefersReducedMotion]);
+    }, [isOpen, isMobile, y, prefersReducedMotion, cancelExitAnimations]);
 
     // ── Animate-out mobile — estratto per riuso (triggerClose + external close) ─
-    // Esegue SOLO la sequenza pointer-events off → body lock release → spring
-    // animate y, SENZA chiamare onClose né setShouldRender. Idempotente sul
+    // Esegue SOLO la sequenza pointer-events off → body lock release → animazione
+    // di uscita, SENZA chiamare onClose né setShouldRender. Idempotente sul
     // body lock (releaseBodyLock usa bodyLockReleasedRef come guard).
+    // Uscita su WAAPI (compositor): il rilascio del lock qui sopra innesca un
+    // reflow full-page sincrono che stallerebbe una spring JS al primo frame.
+    // Il DRAG resta su motion value (deve seguire il dito): solo il release
+    // passa al compositor. Fallback spring framer se WAAPI assente.
     const animateOutMobile = useCallback(
         async (velocityY = 0) => {
             if (backdropRef.current) backdropRef.current.style.pointerEvents = "none";
             if (panelRef.current) panelRef.current.style.pointerEvents = "none";
             releaseBodyLock();
-            await animate(y, window.innerHeight * 1.1, {
-                type: "spring",
-                damping: 28,
-                stiffness: 260,
-                velocity: velocityY,
-                restDelta: 1,
-            });
+
+            // Ferma QUALSIASI animazione in corso sul motion value (spring di
+            // snap-back, residui di drag): da qui in poi il transform ha un solo
+            // proprietario per volta. Senza stop, un'animazione ancora attiva su
+            // y continuerebbe a riscrivere l'inline style sotto la WAAPI e al
+            // cancel l'elemento ricadrebbe su una posizione stale del drag.
+            y.stop();
+
+            const panel = panelRef.current;
+            const targetY = window.innerHeight * 1.1;
+
+            if (!panel || typeof panel.animate !== "function") {
+                await animate(y, targetY, {
+                    type: "spring",
+                    damping: 28,
+                    stiffness: 260,
+                    velocity: velocityY,
+                    restDelta: 1,
+                });
+                return;
+            }
+
+            const startY = y.get();
+            const distance = targetY - startY;
+            if (distance <= 0) {
+                y.set(targetY);
+                return;
+            }
+            // velocity (px/s, >0 = verso il basso) → durata: un flick chiude in
+            // proporzione alla velocità del gesto, un tap usa la durata base.
+            const duration =
+                velocityY > 0
+                    ? Math.min(
+                          EXIT_DURATION_MS,
+                          Math.max(EXIT_MIN_DURATION_MS, (distance / velocityY) * 1000)
+                      )
+                    : EXIT_DURATION_MS;
+
+            // Opacity di partenza del backdrop letta PRIMA di spostare y (sotto):
+            // dopo y.set(targetY) la derivata backdropOpacity varrebbe già 0.
+            const startBackdropOpacity = backdropOpacity.get();
+
+            // Single-owner del transform durante l'uscita: il motion value (e
+            // quindi l'inline style su cui l'elemento ricade quando la WAAPI
+            // finisce o viene cancellata) va SUBITO alla posizione finale. La
+            // WAAPI dipinge l'interpolazione sopra; qualunque cancel/finish fa
+            // atterrare l'elemento su translateY(targetY) — mai sulla posizione
+            // stale in cui il dito ha lasciato il panel (glitch drag-close).
+            y.set(targetY);
+
+            // will-change SOLO per la durata dell'uscita (l'entrata usa lo state
+            // panelWillChange): scrittura DOM diretta, nessun re-render in mezzo.
+            panel.style.willChange = "transform";
+
+            const animations: Animation[] = [
+                panel.animate(
+                    [
+                        { transform: `translateY(${startY}px)` },
+                        { transform: `translateY(${targetY}px)` },
+                    ],
+                    { duration, easing: EXIT_EASING, fill: "forwards" }
+                ),
+            ];
+            const backdrop = backdropRef.current;
+            if (backdrop && typeof backdrop.animate === "function") {
+                // y è già a targetY → backdropOpacity (derivata) è già 0 inline:
+                // il fade visivo lo dipinge la WAAPI dal valore registrato sopra.
+                animations.push(
+                    backdrop.animate(
+                        [{ opacity: startBackdropOpacity }, { opacity: 0 }],
+                        { duration, easing: EXIT_EASING, fill: "forwards" }
+                    )
+                );
+            }
+            exitAnimationsRef.current = animations;
+
+            try {
+                await Promise.all(animations.map(anim => anim.finished));
+                // Cancella subito: niente fill:"forwards" residuo che sovrasterebbe
+                // l'inline style se una close-interruption arriva tra fine uscita e
+                // unmount. L'inline è già a targetY (y.set sopra) → nessun salto.
+                for (const anim of animations) anim.cancel();
+            } catch {
+                // cancel() da close-interruption o riapertura: la posizione è già
+                // stata risincronizzata dal chiamante che ha cancellato.
+            } finally {
+                exitAnimationsRef.current = [];
+                if (panel.isConnected) panel.style.willChange = "";
+            }
         },
-        [releaseBodyLock, y]
+        [releaseBodyLock, y, backdropOpacity]
     );
 
     // ── Close con animazione (trigger interni: drag, button, overlay, Escape) ─
@@ -431,6 +565,12 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                 dragListener={false}
                 dragConstraints={{ top: 0 }}
                 dragElastic={{ top: 0, bottom: 0.35 }}
+                // Niente inerzia post-rilascio: al release il transform passa a un
+                // solo proprietario (WAAPI in uscita, oppure spring di snap-back).
+                // Col momentum attivo framer continuerebbe a scrivere y/inline
+                // style SOTTO la WAAPI → al cancel il panel ricadrebbe su una
+                // posizione stale (glitch drag-close).
+                dragMomentum={false}
                 onDragEnd={(_, info) => {
                     if (info.offset.y > 100 || info.velocity.y > 400) {
                         triggerClose(info.velocity.y);
