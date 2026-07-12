@@ -130,6 +130,8 @@
     "product": {
         "price_from": "from {{price}}",
         "pairing_prefix": "Perfect with",
+        "pairing_suggestions_one": "{{count}} suggested pairing",
+        "pairing_suggestions_other": "{{count}} suggested pairings",
         "pairing_added": "Added",
         "pairing_view_options": "View options",
         "pairing_upsell_aria": "Recommended pairings",

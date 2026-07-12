@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LanguageContext } from "@/context/Language/LanguageContext";
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Phone, Plus, Sparkles } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Phone, Plus } from "lucide-react";
+import { IconLink } from "@tabler/icons-react";
 import type {
     ResolvedAllergen,
     ResolvedCharacteristic,
@@ -413,13 +414,12 @@ function ProductRowInner({
                 )}
                 {contentDensity === "full" && item.pairings && item.pairings.length > 0 && (
                     <span className={`${styles.pairingChip} ${styles.pairingChipSurface}`}>
-                        <Sparkles size={13} className={styles.pairingChipIcon} />
+                        <IconLink size={13} className={styles.pairingChipIcon} />
                         <span className={styles.pairingChipText}>
-                            {t("product.pairing_prefix")} · {item.pairings[0].name}
+                            {item.pairings.length === 1
+                                ? item.pairings[0].name
+                                : t("product.pairing_suggestions", { count: item.pairings.length })}
                         </span>
-                        {item.pairings.length > 1 && (
-                            <span className={styles.pairingChipMore}>+{item.pairings.length - 1}</span>
-                        )}
                     </span>
                 )}
                 {optionGroups && optionGroups.length > 0 && (
@@ -573,13 +573,12 @@ function ProductCompactRowInner({
                 )}
                 {contentDensity === "full" && item.pairings && item.pairings.length > 0 && (
                     <span className={`${styles.pairingChip} ${styles.pairingChipBg}`}>
-                        <Sparkles size={12} className={styles.pairingChipIcon} />
+                        <IconLink size={12} className={styles.pairingChipIcon} />
                         <span className={styles.pairingChipText}>
-                            {t("product.pairing_prefix")} · {item.pairings[0].name}
+                            {item.pairings.length === 1
+                                ? item.pairings[0].name
+                                : t("product.pairing_suggestions", { count: item.pairings.length })}
                         </span>
-                        {item.pairings.length > 1 && (
-                            <span className={styles.pairingChipMore}>+{item.pairings.length - 1}</span>
-                        )}
                     </span>
                 )}
                 {contentDensity === "full" && (hasAllergens || hasCardCharacteristics) && (
