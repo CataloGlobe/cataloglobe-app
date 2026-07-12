@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Sora:wght@400;500;600;700&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@600;700&family=Fredoka:wght@500;600&family=Mulish:wght@400;500;600;700&display=swap");
 
 /* ================================================================
    LandingPage — register BRAND
@@ -28,8 +28,13 @@
   --amber-soft: #fffbeb;
   --amber-deep: #b45309;
 
-  --serif: "Newsreader", Georgia, "Times New Roman", serif;
-  --sans: "Sora", system-ui, -apple-system, sans-serif;
+  --serif: "Bricolage Grotesque", system-ui, -apple-system, sans-serif;
+  --sans: "Mulish", system-ui, -apple-system, sans-serif;
+  --label: "Fredoka", system-ui, -apple-system, sans-serif;
+
+  /* accento "momenti firma" — tratto a mano, 3 punti soli (hero/storia/chiusura) */
+  --accent-main: var(--brand-primary);
+  --accent-on-dark: #989af6; /* tint 34% verso bianco di --brand-primary, ricalcolato dal nuovo #6366f1 (era calibrato su #4F46E5) — 7.1:1 su sfondo scuro */
 
   --maxw: 1140px;
   --pad: clamp(20px, 5vw, 56px);
@@ -49,6 +54,50 @@
   margin: 0 auto;
   padding-left: var(--pad);
   padding-right: var(--pad);
+}
+
+/* ================================================================
+   ACCENTO "momenti firma" — tratto SVG a mano sotto la frase-chiave.
+   SOLO 3 usi: hero ("da solo?"), Storia ("Falla leggere."),
+   chiusura ("Partiamo?"). Nessun altro corsivo della pagina lo usa.
+   Path stretched via preserveAspectRatio="none": si adatta da solo
+   alla larghezza reale del testo (varia per frase e per breakpoint),
+   niente JS/misure. Colore via currentColor — dark-context override
+   sotto (hero scena "cena" + sezione chiusura, sfondi scuri).
+   ================================================================ */
+.signature {
+  position: relative;
+  display: inline-block;
+  white-space: nowrap;
+  color: var(--accent-main);
+}
+.signatureStroke {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -0.24em;
+  width: 100%;
+  height: 0.32em;
+  overflow: visible;
+  pointer-events: none;
+
+  path {
+    stroke: currentColor;
+    stroke-width: 4;
+    stroke-linecap: round;
+    fill: none;
+  }
+}
+/* sfondo scuro chiusura → variante più chiara, resta leggibile */
+.close .signature {
+  color: var(--accent-on-dark);
+}
+/* hero scene scure (cena + aperitivo dusk) → variante chiara: su Aperitivo
+   l'accent-main (brand) condivide la hue dello sfondo (1.78:1, illeggibile),
+   accent-on-dark risale a ~3.2:1 sul dusk. Stroke segue via currentColor. */
+.hero[data-daypart="cena"] .signature,
+.hero[data-daypart="aperitivo"] .signature {
+  color: var(--accent-on-dark);
 }
 
 /* ================================================================
@@ -110,7 +159,7 @@
   min-height: 44px;
   padding: 0 14px;
   border-radius: 10px;
-  font-family: var(--sans);
+  font-family: var(--label);
   font-size: 14.5px;
   font-weight: 600;
   color: var(--ink);
@@ -133,7 +182,7 @@
   min-height: 44px;
   padding: 0 16px;
   border-radius: 10px;
-  font-family: var(--sans);
+  font-family: var(--label);
   font-size: 14.5px;
   font-weight: 600;
   white-space: nowrap;
@@ -163,8 +212,9 @@
   box-shadow: 0 6px 20px -16px rgba(20, 22, 31, 0.5);
 }
 
-/* In cima su hero "cena" (scura): testo chiaro + logo in silhouette bianca */
-.appbar[data-scrolled="false"][data-daypart="cena"] {
+/* In cima su hero scure (cena/aperitivo): testo chiaro + logo silhouette bianca */
+.appbar[data-scrolled="false"][data-daypart="cena"],
+.appbar[data-scrolled="false"][data-daypart="aperitivo"] {
   .appbarLogin {
     color: #fff;
     &:hover {
@@ -222,9 +272,16 @@
   --scene-sub: #3f4756;
 } /* mezzogiorno chiaro */
 .hero[data-daypart="aperitivo"] {
-  --scene-ink: #341c12;
-  --scene-sub: #3a1a0e;
-} /* tramonto rosso (sub extra-scuro per AA sul caldo) */
+  --scene-ink: oklch(0.965 0.012 320);
+  --scene-sub: oklch(0.93 0.02 320);
+} /* dusk viola: testo chiaro (bg scuro) */
+/* CTA brand e sfondo Aperitivo condividono la hue 277 → contrasto di sola
+   luminosità (~2.2:1): un'ombra marcata stacca il bottone dallo sfondo. */
+.hero[data-daypart="aperitivo"] .ctaPrimary {
+  box-shadow:
+    0 10px 24px -8px rgba(12, 6, 30, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.14);
+}
 .hero[data-daypart="cena"] {
   --scene-ink: #eaeef8;
   --scene-sub: #bcc3d8;
@@ -246,11 +303,26 @@
   background: linear-gradient(180deg, #cdd9ec 0%, #e3d6db 52%, #f1d3c6 100%);
 } /* alba: freddo in alto → rosa/pesca all'orizzonte */
 .scenePranzo {
-  background: linear-gradient(180deg, #cfe4f5 0%, #e6f0f7 55%, #f3f4f0 100%);
-} /* mezzogiorno: azzurro chiaro, cielo pieno */
+  /* diurno: tinte quasi-bianche della hue brand (277) — L 0.93→0.99 */
+  background: linear-gradient(
+    180deg,
+    oklch(0.93 0.045 277) 0%,
+    oklch(0.965 0.02 277) 55%,
+    oklch(0.992 0.006 277) 100%
+  );
+} /* mezzogiorno: violetto chiarissimo, quasi bianco */
 .sceneAperitivo {
-  background: linear-gradient(180deg, #e7cfba 0%, #d9ab8b 55%, #c58c6c 100%);
-} /* tramonto: terracotta/pesca desaturato — il viola del CTA ci respira sopra */
+  /* deep-dusk stessa hue brand (277): solo L varia (scala di luminosità),
+     C/H fissi come Pranzo/Cena. L abbassata a ~0.46 (vs mid-tone di rif.
+     0.52-0.69) perché sul mid-tone né testo chiaro né scuro passavano AA
+     (2.3:1) e il bottone brand spariva (1.03:1). Qui testo chiaro ~7.6:1. */
+  background: linear-gradient(
+    180deg,
+    oklch(0.46 0.15 277) 0%,
+    oklch(0.41 0.15 277) 55%,
+    oklch(0.36 0.15 277) 100%
+  );
+} /* tramonto: viola-magenta caldo, dentro la famiglia viola */
 .sceneCena {
   background: linear-gradient(180deg, #1b2444 0%, #151d38 55%, #0e1526 100%);
 } /* notte — invariata */
@@ -435,7 +507,7 @@
   border: none;
   background: var(--indigo);
   color: #fff;
-  font-family: var(--sans);
+  font-family: var(--label);
   font-size: 15px;
   font-weight: 600;
   text-decoration: none;
@@ -464,7 +536,7 @@
   background: transparent;
   color: var(--scene-ink);
   border: 1.5px solid color-mix(in srgb, var(--scene-ink) 28%, transparent);
-  font-family: var(--sans);
+  font-family: var(--label);
   font-size: 15px;
   font-weight: 500;
   text-decoration: none;
@@ -563,7 +635,7 @@
   letter-spacing: -0.01em;
 }
 .clockLabel {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-style: italic;
   font-size: 16px;
   color: var(--body);
@@ -575,7 +647,7 @@
   gap: 6px;
   padding: 5px 11px;
   border-radius: 999px;
-  font-family: var(--sans);
+  font-family: var(--label);
   font-size: 12px;
   font-weight: 600;
   letter-spacing: 0.01em;
@@ -767,7 +839,7 @@
   margin: 0 0 clamp(40px, 6vw, 64px);
 }
 .sectionKicker {
-  font-family: var(--sans);
+  font-family: var(--label);
   font-size: 13px;
   font-weight: 600;
   color: var(--indigo);
@@ -840,7 +912,7 @@
   font-variant-numeric: tabular-nums;
 }
 .leverH3 {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-weight: 500;
   font-size: clamp(1.4rem, 2.4vw, 1.9rem);
   line-height: 1.2;
@@ -1152,7 +1224,7 @@
   border-bottom: 1px solid var(--border);
 }
 .miniHomeName {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 16px;
   font-weight: 500;
   color: var(--ink);
@@ -1195,7 +1267,7 @@
   color: var(--indigo);
 }
 .miniFeaturedTitle {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 15px;
   font-weight: 500;
   color: var(--ink);
@@ -1318,7 +1390,7 @@
   align-items: center;
   min-height: 24px;
   padding: 2px 12px;
-  font-family: var(--sans);
+  font-family: var(--label);
   font-size: 10.5px;
   font-weight: 600;
   letter-spacing: var(--sk-tag-tracking);
@@ -1381,7 +1453,7 @@
   --sk-price: #5a4326;
   --sk-accent: #a8542a;
   --sk-border: #e4cba9;
-  --sk-title-font: var(--serif);
+  --sk-title-font: var(--sans);
   --sk-title-weight: 500;
   --sk-title-tracking: 0;
   --sk-radius: 18px;
@@ -1398,7 +1470,7 @@
   --sk-price: #d3d8ec;
   --sk-accent: #e8b45f;
   --sk-border: #2c3149;
-  --sk-title-font: var(--serif);
+  --sk-title-font: var(--sans);
   --sk-title-weight: 500;
   --sk-title-tracking: 0;
   --sk-radius: 12px;
@@ -1481,6 +1553,7 @@
   border-radius: 4px;
   background: var(--indigo-soft);
   color: var(--indigo);
+  font-family: var(--label);
   font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -1572,7 +1645,7 @@
   margin-right: auto;
 }
 .chainBrandName {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 1.2rem;
   font-weight: 500;
   color: var(--ink);
@@ -1616,7 +1689,7 @@
   line-height: 1.2;
 }
 .chainSedeZona {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 1.08rem;
   font-weight: 500;
   color: var(--ink);
@@ -2365,7 +2438,7 @@
   gap: 12px;
 }
 .storyDishName {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-weight: 500;
   font-size: 19px;
   color: var(--ink);
@@ -2413,7 +2486,7 @@
   gap: 10px;
 }
 .storyDishLinkTitle {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-weight: 500;
   font-size: 14.5px;
   color: #33240f;
@@ -2455,7 +2528,7 @@
   color: #a8542a;
 }
 .storyStoryTitle {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-weight: 500;
   font-size: 21px;
   color: #33240f;
@@ -2570,13 +2643,13 @@
   border-radius: 999px;
   background: var(--indigo);
   color: #fff;
-  font-family: var(--sans);
+  font-family: var(--label);
   font-size: 11.5px;
   font-weight: 600;
   letter-spacing: 0.02em;
 }
 .planName {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 22px;
   font-weight: 500;
   color: var(--ink);
@@ -2665,7 +2738,7 @@
   align-items: center;
   justify-content: center;
   border-radius: 12px;
-  font-family: var(--sans);
+  font-family: var(--label);
   font-size: 15px;
   font-weight: 600;
   text-decoration: none;
@@ -2837,7 +2910,7 @@
   border-radius: 12px;
   background: var(--indigo);
   color: #fff;
-  font-family: var(--sans);
+  font-family: var(--label);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
@@ -3137,7 +3210,7 @@
 }
 .demoItemName {
   display: block;
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 1.12rem;
   font-weight: 500;
   color: #fff;
@@ -3157,7 +3230,7 @@
   gap: 5px;
   margin-left: auto;
   flex: 0 0 auto;
-  font-family: var(--sans);
+  font-family: var(--label);
   font-size: 13px;
   font-weight: 600;
   color: #b9c0ff;
@@ -3241,7 +3314,7 @@
   flex-direction: column;
 }
 .demoQrName {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 1.1rem;
   font-weight: 500;
   color: #fff;
@@ -3311,7 +3384,7 @@
   display: inline-flex;
 }
 .qrModalName {
-  font-family: var(--serif);
+  font-family: var(--sans);
   font-size: 1.35rem;
   font-weight: 500;
   color: #fff;

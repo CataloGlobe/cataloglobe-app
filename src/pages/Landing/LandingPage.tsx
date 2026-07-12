@@ -147,11 +147,12 @@ const MOCKUP_PRICING_PLANS: MockupPricingPlan[] = [
 ];
 
 /* ── Fasce del giorno (staged su "Il Molo 34", Portofino) ──────────── */
-type DaypartKey = "mattino" | "pranzo" | "aperitivo" | "cena";
+type DaypartKey = "pranzo" | "aperitivo" | "cena";
 
 interface Daypart {
   key: DaypartKey;
   time: string;
+  range: string;
   label: string;
   tabName: string;
   menu: { name: string; price: string }[];
@@ -159,20 +160,9 @@ interface Daypart {
 
 const DAYPARTS: Daypart[] = [
   {
-    key: "mattino",
-    time: "08:00",
-    label: "Colazioni",
-    tabName: "Mattino",
-    menu: [
-      { name: "Cappuccino", price: "€1,60" },
-      { name: "Cornetto integrale", price: "€1,40" },
-      { name: "Spremuta d'arancia", price: "€3,50" },
-      { name: "Focaccia e latte", price: "€2,80" },
-    ],
-  },
-  {
     key: "pranzo",
     time: "13:00",
+    range: "12:00–15:00",
     label: "Pranzo",
     tabName: "Pranzo",
     menu: [
@@ -185,6 +175,7 @@ const DAYPARTS: Daypart[] = [
   {
     key: "aperitivo",
     time: "18:30",
+    range: "18:00–20:00",
     label: "Aperitivo",
     tabName: "Aperitivo",
     menu: [
@@ -197,6 +188,7 @@ const DAYPARTS: Daypart[] = [
   {
     key: "cena",
     time: "21:00",
+    range: "20:00–23:00",
     label: "Cena",
     tabName: "Cena",
     menu: [
@@ -209,13 +201,12 @@ const DAYPARTS: Daypart[] = [
 ];
 
 const SCENE_CLASS: Record<DaypartKey, string> = {
-  mattino: s.sceneMattino,
   pranzo: s.scenePranzo,
   aperitivo: s.sceneAperitivo,
   cena: s.sceneCena,
 };
 
-const AUTO_MS = 2800;
+const AUTO_MS = 3800;
 /* Nome/URL dell'hero sono illustrativi, non il tenant reale (quello resta
    solo nella sezione demo sotto). */
 const HERO_PLACEHOLDER_NAME = "Il tuo locale";
@@ -226,32 +217,127 @@ function ruleFor(
   index: number,
   active: number,
 ): { label: string; cls: string } {
-  if (index === active) return { label: "Attiva ora", cls: s.ruleActive };
+  if (index === active) return { label: "In corso ora", cls: s.ruleActive };
   if (index < active) return { label: "Conclusa", cls: s.ruleDone };
   return { label: "Programmata", cls: s.ruleScheduled };
 }
 
+/* ── SignatureStroke — tratto SVG a mano sotto un "momento firma".
+   SOLO 2 usi nella pagina (hero "da solo?", CTA finale "Partiamo?").
+   Path stretched via preserveAspectRatio="none": si adatta da solo alla
+   larghezza reale del testo che ha sopra, niente misure JS. Colore
+   ereditato (currentColor) dall'<em> genitore — vedi .signature /
+   .signatureStroke nello scss.
+   Si disegna una sola volta: hero è già in viewport al load, quindi parte
+   da mount (piccolo delay, dà tempo al resto del contenuto di renderizzare)
+   invece di aspettare uno scroll che potrebbe non arrivare mai. CTA finale
+   è in fondo pagina, quindi usa il trigger a viewport standard (once). */
+function SignatureStroke({ trigger = "viewport" }: { trigger?: "mount" | "viewport" }) {
+  const reduce = useReducedMotion();
+  const drawn = { pathLength: 1 };
+  const undrawn = { pathLength: 0 };
+  const transition = { duration: 1, ease: [0.4, 0, 0.2, 1] as const };
+
+  return (
+    <svg
+      className={s.signatureStroke}
+      viewBox="0 0 200 20"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      {trigger === "mount" ? (
+        <motion.path
+          d="M2,13 C15,6 28,17 42,11 C56,5 68,16 82,10 C96,4 110,15 124,9 C138,4 150,14 164,9 C178,5 188,13 198,8"
+          initial={reduce ? false : undrawn}
+          animate={drawn}
+          transition={reduce ? { duration: 0 } : { ...transition, delay: 0.35 }}
+        />
+      ) : (
+        <motion.path
+          d="M2,13 C15,6 28,17 42,11 C56,5 68,16 82,10 C96,4 110,15 124,9 C138,4 150,14 164,9 C178,5 188,13 198,8"
+          initial={reduce ? false : undrawn}
+          whileInView={drawn}
+          viewport={{ once: true, amount: 0.4 }}
+          transition={reduce ? { duration: 0 } : transition}
+        />
+      )}
+    </svg>
+  );
+}
+
 /* ── Reveal — micro-motion condiviso: fade-up on-scroll, once, reduced-motion safe.
-   Rende un solo <motion.div className>: sostituisce un <div> esistente senza
-   alterare albero/CSS (:last-child, grid, gap restano validi). */
+   Rende un solo <motion.[as] className>: sostituisce un elemento esistente
+   senza alterare albero/CSS (:last-child, grid, gap restano validi).
+   Default invariati (y:18, duration:0.5, amount:0.2, delay:0, trigger via
+   scroll) — i call-site esistenti (card, liste, chip demo) non cambiano.
+   Props opzionali usate per il fade+risalita di titolo/paragrafo (step 3b):
+   y più corto, durata più lunga, delay per lo stagger titolo→paragrafo,
+   trigger="mount" per l'hero (unica sezione already-in-view al load, stesso
+   pattern di SignatureStroke in step 3a). */
 function Reveal({
   children,
   className,
+  id,
   as = "div",
+  trigger = "viewport",
+  y = 18,
+  duration = 0.5,
+  amount = 0.2,
+  delay = 0,
+  ease = [0.22, 1, 0.36, 1],
+  margin,
 }: {
   children: ReactNode;
   className?: string;
-  as?: "div" | "p" | "li";
+  id?: string;
+  as?: "div" | "p" | "li" | "h1" | "h2";
+  trigger?: "mount" | "viewport";
+  y?: number;
+  duration?: number;
+  amount?: number;
+  delay?: number;
+  ease?: [number, number, number, number] | "easeOut";
+  /* viewport root-margin: bottom negativo alza la linea di trigger, così
+     una sezione incollata sotto un hero 100vh non scatta al bordo inferiore. */
+  margin?: string;
 }) {
   const reduce = useReducedMotion();
-  const M = as === "p" ? motion.p : as === "li" ? motion.li : motion.div;
+  const M =
+    as === "p"
+      ? motion.p
+      : as === "li"
+        ? motion.li
+        : as === "h1"
+          ? motion.h1
+          : as === "h2"
+            ? motion.h2
+            : motion.div;
+  const hidden = { opacity: 0, y };
+  const shown = { opacity: 1, y: 0 };
+  const transition = reduce ? { duration: 0 } : { duration, ease, delay };
+
+  if (trigger === "mount") {
+    return (
+      <M
+        className={className}
+        id={id}
+        initial={reduce ? false : hidden}
+        animate={shown}
+        transition={transition}
+      >
+        {children}
+      </M>
+    );
+  }
+
   return (
     <M
       className={className}
-      initial={reduce ? false : { opacity: 0, y: 18 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true, amount: 0.2 }}
-      transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+      id={id}
+      initial={reduce ? false : hidden}
+      whileInView={shown}
+      viewport={{ once: true, amount, margin }}
+      transition={transition}
     >
       {children}
     </M>
@@ -515,16 +601,18 @@ function AiImportSection() {
     >
       <div className={s.container}>
         <div className={s.aiGrid}>
-          <Reveal className={s.aiVoice}>
-            <p className={s.sectionKicker}>Iniziare è facile</p>
-            <h2 className={s.aiH2} id="ai-h2">
-              Il tuo menu è già pronto. <em>Devi solo fotografarlo.</em>
-            </h2>
-            <p className={s.aiSub}>
+          <div className={s.aiVoice}>
+            <Reveal as="div" y={16} duration={0.7} amount={0.3} ease="easeOut">
+              <p className={s.sectionKicker}>Iniziare è facile</p>
+              <h2 className={s.aiH2} id="ai-h2">
+                Il tuo menu è già pronto. <em>Devi solo fotografarlo.</em>
+              </h2>
+            </Reveal>
+            <Reveal as="p" className={s.aiSub} y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
               Carichi le foto o il PDF del menu che hai già. L&apos;AI legge
               tutto — piatti, prezzi, categorie — e costruisce il menu
               digitale al posto tuo. Tu dai un&apos;occhiata e confermi.
-            </p>
+            </Reveal>
 
             <ol className={s.aiSteps}>
               <li className={s.aiStep}>
@@ -573,7 +661,7 @@ function AiImportSection() {
                 l&apos;AI anche dopo.
               </p>
             </div>
-          </Reveal>
+          </div>
 
           <Reveal className={s.aiVisual}>
             <div
@@ -646,16 +734,18 @@ function AvailabilitySection() {
     >
       <div className={s.container}>
         <div className={s.availGrid}>
-          <Reveal className={s.availVoice}>
-            <p className={s.sectionKicker}>Il controllo resta a te</p>
-            <h2 className={s.availH2} id="avail-h2">
-              Finito un piatto? <em>Lo togli in un attimo.</em>
-            </h2>
-            <p className={s.availSub}>
+          <div className={s.availVoice}>
+            <Reveal as="div" y={16} duration={0.7} amount={0.3} ease="easeOut">
+              <p className={s.sectionKicker}>Il controllo resta a te</p>
+              <h2 className={s.availH2} id="avail-h2">
+                Finito un piatto? <em>Lo togli in un attimo.</em>
+              </h2>
+            </Reveal>
+            <Reveal as="p" className={s.availSub} y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
               Dal telefono, mentre sei in sala. Nascondi un prodotto dal menu,
               o lascialo visibile segnandolo esaurito. Il cliente vede sempre
               la verità, senza che tu debba ristampare niente.
-            </p>
+            </Reveal>
 
             <div className={s.availModes}>
               <div className={s.availMode}>
@@ -687,7 +777,7 @@ function AvailabilitySection() {
                 </span>
               </div>
             </div>
-          </Reveal>
+          </div>
 
           <Reveal className={s.availVisual}>
             <div
@@ -873,16 +963,18 @@ function StoriesSection() {
     >
       <div className={s.container}>
         <div className={s.storiesGrid}>
-          <Reveal className={s.storiesVoice}>
-            <p className={s.sectionKicker}>Non solo un menu</p>
-            <h2 className={s.storiesH2} id="storie-h2">
-              Il tuo locale ha una storia. <em>Falla leggere.</em>
-            </h2>
-            <p className={s.storiesSub}>
+          <div className={s.storiesVoice}>
+            <Reveal as="div" y={16} duration={0.7} amount={0.3} ease="easeOut">
+              <p className={s.sectionKicker}>Non solo un menu</p>
+              <h2 className={s.storiesH2} id="storie-h2">
+                Il tuo locale ha una storia. <em>Falla leggere.</em>
+              </h2>
+            </Reveal>
+            <Reveal as="p" className={s.storiesSub} y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
               Racconta chi sei — con foto, testi e video. E colleghi i
               racconti ai piatti: il cliente scopre il &quot;dietro le
               quinte&quot; proprio mentre guarda cosa ordinare.
-            </p>
+            </Reveal>
 
             <div className={s.storiesHook}>
               <span className={s.storiesHookIcon} aria-hidden="true">
@@ -898,7 +990,7 @@ function StoriesSection() {
                 </span>
               </span>
             </div>
-          </Reveal>
+          </div>
 
           <Reveal className={s.storiesVisual}>
             <StoryFlipCard />
@@ -920,20 +1012,22 @@ function ChainSection() {
     <section className={s.chain} aria-labelledby="chain-h2">
       <div className={s.container}>
         <div className={s.chainGrid}>
-          <Reveal className={s.chainVoice}>
-            <h2 className={s.chainH2} id="chain-h2">
+          <div className={s.chainVoice}>
+            <Reveal as="h2" className={s.chainH2} id="chain-h2" y={16} duration={0.7} amount={0.3} ease="easeOut">
               Un locale o cento. <em>Li gestisci da qui.</em>
-            </h2>
-            <p className={s.chainSub}>
-              Ogni tua sede con il suo menu, i suoi contenuti in evidenza, il
-              suo stile. Li decidi tu — da un posto solo, senza aprire venti
-              pannelli diversi.
-            </p>
-            <p className={s.chainSubNote}>
-              Il Duomo con il menu turistico, i Navigli con l'aperitivo. Sedi
-              diverse, gestione unica.
-            </p>
-          </Reveal>
+            </Reveal>
+            <Reveal as="div" y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
+              <p className={s.chainSub}>
+                Ogni tua sede con il suo menu, i suoi contenuti in evidenza, il
+                suo stile. Li decidi tu — da un posto solo, senza aprire venti
+                pannelli diversi.
+              </p>
+              <p className={s.chainSubNote}>
+                Il Duomo con il menu turistico, i Navigli con l'aperitivo. Sedi
+                diverse, gestione unica.
+              </p>
+            </Reveal>
+          </div>
 
           <Reveal className={s.chainPanel}>
             <div className={s.chainHead}>
@@ -1055,8 +1149,8 @@ function RedesignHeader({ daypart }: { daypart: DaypartKey }) {
 export default function LandingPage() {
   const reduce = useReducedMotion();
   // Reduced-motion → nessun loop, fascia statica di default (Pranzo).
-  // Altrimenti si parte da Mattino e si scorre in loop da soli.
-  const [active, setActive] = useState<number>(() => (reduce ? 1 : 0));
+  // Altrimenti si parte da Pranzo e si scorre in loop da soli.
+  const [active, setActive] = useState<number>(() => 0);
   const [autoPlay, setAutoPlay] = useState(true);
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
@@ -1094,7 +1188,6 @@ export default function LandingPage() {
         e.key === "ArrowRight"
           ? (i + 1) % DAYPARTS.length
           : (i - 1 + DAYPARTS.length) % DAYPARTS.length;
-      setAutoPlay(false);
       setActive(next);
       tabsRef.current[next]?.focus();
     }
@@ -1131,11 +1224,18 @@ export default function LandingPage() {
           <div className={s.heroInner}>
             {/* Voce umana (serif) */}
             <div className={s.voice}>
+              {/* Hero sopra la piega: titolo/sub statici (nessun fade-in al
+                  load, come bottoni e card). Unico elemento animato = il tratto
+                  SignatureStroke, firma deliberata, non un reveal-on-load. */}
               <h1 className={s.heroH1}>
-                E se il menu si aggiornasse <em>da solo</em>?
+                E se il menu si aggiornasse{" "}
+                <em className={s.signature}>
+                  da solo?
+                  <SignatureStroke trigger="mount" />
+                </em>
               </h1>
               <p className={s.heroSub}>
-                Non solo il menu: prezzi, promozioni e lingue si aggiornano
+                Non solo il menu: prezzi, promozioni e stile si aggiornano
                 quando serve — mentre tu pensi al locale.
               </p>
               <div className={s.heroCtas}>
@@ -1149,7 +1249,11 @@ export default function LandingPage() {
             </div>
 
             {/* Demo prodotto — superficie bianca costante, sempre leggibile */}
-            <div className={s.stage}>
+            <div
+              className={s.stage}
+              onMouseEnter={() => setAutoPlay(false)}
+              onMouseLeave={() => setAutoPlay(true)}
+            >
               <div
                 className={s.device}
                 role="img"
@@ -1170,17 +1274,16 @@ export default function LandingPage() {
                   <span className={s.clock}>
                     <AnimatePresence mode="popLayout" initial={false}>
                       <motion.span
-                        key={dp.time}
+                        key={dp.key}
                         className={s.clockTime}
                         initial={{ opacity: 0, y: reduce ? 0 : 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: reduce ? 0 : -6 }}
                         transition={{ duration: 0.28 }}
                       >
-                        {dp.time}
+                        Menu {dp.label}
                       </motion.span>
                     </AnimatePresence>
-                    <span className={s.clockLabel}>{dp.label}</span>
                   </span>
                   <span className={`${s.ruleBadge} ${rule.cls}`}>
                     <span className={s.ruleDot} />
@@ -1226,10 +1329,7 @@ export default function LandingPage() {
                     className={`${s.daypartTab} ${
                       i === active ? s.daypartActive : ""
                     }`}
-                    onClick={() => {
-                      setAutoPlay(false);
-                      setActive(i);
-                    }}
+                    onClick={() => setActive(i)}
                     onKeyDown={(e) => onTabKey(e, i)}
                   >
                     {/* Sfondo del tab attivo — layoutId condiviso: invece
@@ -1261,7 +1361,7 @@ export default function LandingPage() {
                     )}
 
                     <span className={s.daypartName}>{d.tabName}</span>
-                    <span className={s.daypartTime}>{d.time}</span>
+                    <span className={s.daypartTime}>{d.range}</span>
                   </button>
                 ))}
               </div>
@@ -1274,15 +1374,15 @@ export default function LandingPage() {
         {/* ============ SECONDO CERCHIO — le leve del motore ============ */}
         <section className={s.section} id="giornata" aria-labelledby="leve-h2">
           <div className={s.container}>
-            <Reveal className={s.sectionLead}>
-              <h2 className={s.sectionH2} id="leve-h2">
+            <div className={s.sectionLead}>
+              <Reveal as="h2" className={s.sectionH2} id="leve-h2" y={16} duration={0.7} amount={0.3} ease="easeOut" margin="0px 0px -25% 0px">
                 Ogni cosa al momento giusto.
-              </h2>
-              <p className={s.sectionH2Sub}>
+              </Reveal>
+              <Reveal as="p" className={s.sectionH2Sub} y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut" margin="0px 0px -25% 0px">
                 La promo giusta all'ora giusta, lo stile che veste il locale, il
                 menu nella lingua di chi legge — succede senza che tu ci pensi.
-              </p>
-            </Reveal>
+              </Reveal>
+            </div>
 
             <div className={s.levers}>
               {/* Leva 1 — programmazione / in evidenza (selettore giorni) */}
@@ -1377,15 +1477,15 @@ export default function LandingPage() {
         {/* ============ TERZO CERCHIO — gestisci e cresci ============ */}
         <section className={s.section} aria-labelledby="cresci-h2">
           <div className={s.container}>
-            <Reveal className={s.sectionLead}>
-              <h2 className={s.sectionH2} id="cresci-h2">
+            <div className={s.sectionLead}>
+              <Reveal as="h2" className={s.sectionH2} id="cresci-h2" y={16} duration={0.7} amount={0.3} ease="easeOut">
                 E quando vuoi <em>capire e crescere</em>.
-              </h2>
-              <p className={s.sectionH2Sub}>
+              </Reveal>
+              <Reveal as="p" className={s.sectionH2Sub} y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
                 Gli strumenti per gestire il locale, non una vetrina di
                 funzioni. Ci sono quando ti servono.
-              </p>
-            </Reveal>
+              </Reveal>
+            </div>
 
             <div className={s.growPanel}>
               <Reveal className={s.growRow}>
@@ -1458,15 +1558,15 @@ export default function LandingPage() {
         {/* ============ PREZZI (dati reali) ============ */}
         <section className={s.section} id="prezzi" aria-labelledby="prezzi-h2">
           <div className={s.container}>
-            <Reveal className={s.sectionLead}>
-              <h2 className={s.sectionH2} id="prezzi-h2">
+            <div className={s.sectionLead}>
+              <Reveal as="h2" className={s.sectionH2} id="prezzi-h2" y={16} duration={0.7} amount={0.3} ease="easeOut">
                 Un prezzo per sede. <em>Chiaro.</em>
-              </h2>
-              <p className={s.sectionH2Sub}>
+              </Reveal>
+              <Reveal as="p" className={s.sectionH2Sub} y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
                 IVA inclusa. Dalla seconda sede in poi, ogni sede costa il 10%
                 in meno.
-              </p>
-            </Reveal>
+              </Reveal>
+            </div>
 
             <div className={s.plans}>
               {MOCKUP_PRICING_PLANS.map((plan) => {
@@ -1530,11 +1630,11 @@ export default function LandingPage() {
           aria-labelledby="faq-h2"
         >
           <div className={s.container}>
-            <Reveal className={s.sectionLead}>
-              <h2 className={s.sectionH2} id="faq-h2">
+            <div className={s.sectionLead}>
+              <Reveal as="h2" className={s.sectionH2} id="faq-h2" y={16} duration={0.7} amount={0.3} ease="easeOut">
                 Domande, in breve.
-              </h2>
-            </Reveal>
+              </Reveal>
+            </div>
             <FaqList />
           </div>
         </section>
@@ -1544,16 +1644,22 @@ export default function LandingPage() {
       <section className={s.close} id="waitlist" aria-labelledby="close-h2">
         <div className={s.closeInner}>
           <div className={s.closeLead}>
-            <h2 className={s.closeTitle} id="close-h2">
-              Il tuo menu, sempre al passo. <em>Partiamo?</em>
-            </h2>
-            <p className={s.closeOffer}>
-              Il primo mese è gratuito, provi con calma e decidi.
-            </p>
-            <p className={s.closeSub}>
-              Lasciaci i tuoi dati: ti ricontattiamo noi e seguiamo insieme
-              l'attivazione.
-            </p>
+            <Reveal as="h2" className={s.closeTitle} id="close-h2" y={16} duration={0.7} amount={0.3} ease="easeOut">
+              Il tuo menu, sempre al passo.{" "}
+              <em className={s.signature}>
+                Partiamo?
+                <SignatureStroke />
+              </em>
+            </Reveal>
+            <Reveal as="div" y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
+              <p className={s.closeOffer}>
+                Il primo mese è gratuito, provi con calma e decidi.
+              </p>
+              <p className={s.closeSub}>
+                Lasciaci i tuoi dati: ti ricontattiamo noi e seguiamo insieme
+                l'attivazione.
+              </p>
+            </Reveal>
           </div>
           <ContactForm />
         </div>
