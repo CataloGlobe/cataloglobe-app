@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ImageIcon, MessageCircle, MoreHorizontal, ScrollText, Search, ShoppingBag, Sparkles, Utensils } from "lucide-react";
+import { BookOpenText, CalendarDays, ImageIcon, MessageCircle, MoreHorizontal, ReceiptText, Search, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { hasOpenSheet } from "../hooks/useScrollCollapse";
 import { buildCoverImageSet } from "@/utils/imageTransform";
@@ -10,9 +10,9 @@ import styles from "./PublicCollectionHeader.module.scss";
 // ⚠️ Visibilità tab "events" sincronizzata con PublicBottomBar.tsx (stesso filtro)
 const HUB_TABS: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
     { id: "menu", icon: <Utensils size={14} />, labelKey: "hub.menu" },
-    { id: "events", icon: <Sparkles size={14} />, labelKey: "hub.events" },
+    { id: "events", icon: <CalendarDays size={14} />, labelKey: "hub.events" },
     { id: "reviews", icon: <MessageCircle size={14} />, labelKey: "hub.reviews" },
-    { id: "storia", icon: <ScrollText size={14} />, labelKey: "hub.storia" },
+    { id: "storia", icon: <BookOpenText size={14} />, labelKey: "hub.storia" },
 ];
 
 // ── Prototype constants (authoritative — do not change) ─────────────────────
@@ -437,7 +437,7 @@ export default function PublicCollectionHeader({
                                     }
                                     tabIndex={mode === "preview" ? -1 : undefined}
                                 >
-                                    <ShoppingBag size={15} strokeWidth={2} />
+                                    <ReceiptText size={15} strokeWidth={2} />
                                     {selectionCount > 0 && (
                                         <span className={styles.iconBtnBadge} aria-hidden>
                                             {selectionCount}

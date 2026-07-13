@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { MessageCircle, ScrollText, ShoppingBag, Sparkles, Utensils } from "lucide-react";
+import { BookOpenText, CalendarDays, MessageCircle, ReceiptText, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { useScrollCollapse } from "../hooks/useScrollCollapse";
 import styles from "./PublicBottomBar.module.scss";
@@ -23,9 +23,9 @@ type TabDef = { id: HubTab; icon: ReactNode; labelKey: string };
 // ⚠️ Visibilità tab "events"/"storia" sincronizzata con PublicCollectionHeader.tsx (stesso filtro)
 const TABS: TabDef[] = [
     { id: "menu", icon: <Utensils size={19} strokeWidth={1.9} />, labelKey: "hub.menu" },
-    { id: "events", icon: <Sparkles size={19} strokeWidth={1.9} />, labelKey: "hub.events" },
+    { id: "events", icon: <CalendarDays size={19} strokeWidth={1.9} />, labelKey: "hub.events" },
     { id: "reviews", icon: <MessageCircle size={19} strokeWidth={1.9} />, labelKey: "hub.reviews" },
-    { id: "storia", icon: <ScrollText size={19} strokeWidth={1.9} />, labelKey: "hub.storia" },
+    { id: "storia", icon: <BookOpenText size={19} strokeWidth={1.9} />, labelKey: "hub.storia" },
 ];
 
 type Props = {
@@ -217,7 +217,7 @@ export default function PublicBottomBar({
                     <span className={styles.cartIcon} data-bump={bump ? "true" : "false"}>
                         {/* Sempre a contorno: il fill bianco riduce la leggibilità ed è
                             ridondante col badge numerico che già segnala la selezione. */}
-                        <ShoppingBag size={19} strokeWidth={1.9} fill="none" />
+                        <ReceiptText size={19} strokeWidth={1.9} fill="none" />
                     </span>
                     {/* Badge numerico: conteggio selezione, stessa fonte dati del badge desktop
                         equivalente (PublicCollectionHeader). */}

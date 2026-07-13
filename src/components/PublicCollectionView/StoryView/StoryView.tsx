@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ScrollText, ArrowRight } from "lucide-react";
+import { BookOpenText, ArrowRight } from "lucide-react";
 import { fetchPublicStories } from "@/services/supabase/stories";
 import type { PublicStoryListResult } from "@/services/supabase/stories";
 import Text from "@/components/ui/Text/Text";
@@ -71,7 +71,7 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
         if (stories.length === 0 && !hasCappello) {
             feedContent = (
                 <div className={styles.stateBlock}>
-                    <ScrollText size={48} strokeWidth={1.5} className={styles.emptyIcon} />
+                    <BookOpenText size={48} strokeWidth={1.5} className={styles.emptyIcon} />
                     <Text variant="body" color="var(--pub-bg-text-muted)">
                         {t("story.empty")}
                     </Text>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ScrollText } from "lucide-react";
+import { ChevronLeft, BookOpenText } from "lucide-react";
 import { fetchPublicStory } from "@/services/supabase/stories";
 import type { PublicStoryDetail, StoryBlock } from "@/services/supabase/stories";
 import Text from "@/components/ui/Text/Text";
@@ -102,7 +102,7 @@ export default function StoryReader({ slug, storyId, onClose, onOpenProduct }: S
                             aria-label={t("story.product_link", { name: state.story.product.name })}
                         >
                             <span className={styles.productLinkIcon}>
-                                <ScrollText size={18} strokeWidth={1.5} />
+                                <BookOpenText size={18} strokeWidth={1.5} />
                             </span>
                             <span className={styles.productLinkBody}>
                                 <span className={styles.productLinkLabel}>{t("story.product_link_label")}</span>
