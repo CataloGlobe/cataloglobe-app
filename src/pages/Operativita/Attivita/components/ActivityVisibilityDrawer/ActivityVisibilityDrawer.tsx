@@ -21,8 +21,11 @@ export const ActivityVisibilityDrawer: React.FC<Props> = ({
 }) => {
     const [catalogName, setCatalogName] = useState<string | null>(null);
 
+    // 720px: con la 4ª tab "Non disponibili" il SegmentedControl + ToolbarSearch
+    // (280px fissa) non stanno più in una riga a 600px. 720 = area utile ~672px
+    // (dopo 48px di padding DrawerLayout) → tab + ricerca su una riga senza wrap.
     return (
-        <SystemDrawer open={open} onClose={onClose} width={600}>
+        <SystemDrawer open={open} onClose={onClose} width={720}>
             <DrawerLayout
                 bodyLayout="flex"
                 header={
