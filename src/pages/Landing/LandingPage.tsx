@@ -234,9 +234,17 @@ function ruleFor(
    è in fondo pagina, quindi usa il trigger a viewport standard (once). */
 function SignatureStroke({ trigger = "viewport" }: { trigger?: "mount" | "viewport" }) {
   const reduce = useReducedMotion();
-  const drawn = { pathLength: 1 };
-  const undrawn = { pathLength: 0 };
-  const transition = { duration: 1, ease: [0.4, 0, 0.2, 1] as const };
+  // Path stretch: primo e ultimo punto condividono Y=13 (stessa base-line) —
+  // le curve intermedie ondulano sopra/sotto, ma inizio/fine restano allineati.
+  const d =
+    "M2,13 C15,6 28,17 42,11 C56,5 68,16 82,10 C96,4 110,15 124,9 C138,4 150,14 164,9 C178,5 188,13 198,13";
+  const drawn = { pathLength: 1, opacity: 1 };
+  const undrawn = { pathLength: 0, opacity: 0 };
+  const drawTransition = { duration: 1, ease: [0.4, 0, 0.2, 1] as const };
+  // opacity scatta a 1 nello stesso istante in cui parte il disegno — senza
+  // questo, stroke-linecap:round a pathLength 0 renderizza due puntini agli
+  // estremi del path (dash a lunghezza nulla con cap arrotondato).
+  const opacityTransition = { duration: 0.01 };
 
   return (
     <svg
@@ -247,18 +255,29 @@ function SignatureStroke({ trigger = "viewport" }: { trigger?: "mount" | "viewpo
     >
       {trigger === "mount" ? (
         <motion.path
-          d="M2,13 C15,6 28,17 42,11 C56,5 68,16 82,10 C96,4 110,15 124,9 C138,4 150,14 164,9 C178,5 188,13 198,8"
+          d={d}
           initial={reduce ? false : undrawn}
           animate={drawn}
-          transition={reduce ? { duration: 0 } : { ...transition, delay: 0.35 }}
+          transition={
+            reduce
+              ? { duration: 0 }
+              : {
+                  pathLength: { ...drawTransition, delay: 0.35 },
+                  opacity: { ...opacityTransition, delay: 0.35 },
+                }
+          }
         />
       ) : (
         <motion.path
-          d="M2,13 C15,6 28,17 42,11 C56,5 68,16 82,10 C96,4 110,15 124,9 C138,4 150,14 164,9 C178,5 188,13 198,8"
+          d={d}
           initial={reduce ? false : undrawn}
           whileInView={drawn}
           viewport={{ once: true, amount: 0.4 }}
-          transition={reduce ? { duration: 0 } : transition}
+          transition={
+            reduce
+              ? { duration: 0 }
+              : { pathLength: drawTransition, opacity: opacityTransition }
+          }
         />
       )}
     </svg>
@@ -1412,10 +1431,11 @@ export default function LandingPage() {
                     Cambi veste al locale in un gesto.
                   </h3>
                   <p className={s.leverBody}>
-                    Tocca uno stile e la pagina cambia colori, tono, atmosfera.
-                    I piatti e i prezzi restano identici — cambia l'aspetto, non
-                    il contenuto. Questi sono solo esempi: il tuo stile lo
-                    componi tu — colori, caratteri, forme, ogni dettaglio.
+                    Il tuo menu ha l'aspetto che decidi tu — colori, caratteri,
+                    forme, ogni dettaglio è tuo da comporre. Piatti e prezzi
+                    restano sempre gli stessi: cambia solo la veste, mai il
+                    contenuto. Tocca uno stile qui a fianco e guarda l'anteprima
+                    cambiare.
                   </p>
                 </div>
                 <div className={s.leverDemo}>
@@ -1437,10 +1457,11 @@ export default function LandingPage() {
                     Il turista legge il menu nella sua lingua.
                   </h3>
                   <p className={s.leverBody}>
-                    Cambia lingua qui a fianco: le descrizioni si traducono da
-                    sole, i prezzi restano. Il nome del piatto resta in italiano
-                    — l'autenticità che il turista cerca — ma la descrizione la
-                    legge nella sua lingua, così sa sempre cosa ordina.
+                    Ogni prodotto lo traduci in più lingue, così il cliente
+                    straniero legge la descrizione nella sua — il nome del
+                    piatto resta in italiano, l'autenticità che cerca, ma
+                    capisce sempre cosa sta ordinando. Tocca una lingua qui a
+                    fianco e guarda la traduzione cambiare.
                   </p>
                 </div>
                 <div className={s.leverDemo}>
