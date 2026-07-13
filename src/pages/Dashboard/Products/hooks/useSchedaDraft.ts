@@ -24,9 +24,11 @@ import {
     createIngredient
 } from "@/services/supabase/ingredients";
 import {
+    listCharacteristics,
     getProductCharacteristics,
     setProductCharacteristics
 } from "@/services/supabase/productCharacteristics";
+import type { ProductCharacteristic } from "@/types/productCharacteristic";
 import {
     listPairings,
     savePairings
@@ -53,7 +55,8 @@ export function useSchedaDraft(
     product: V2Product | null,
     productId: string,
     tenantId: string,
-    onProductUpdated: (updated: V2Product) => void
+    onProductUpdated: (updated: V2Product) => void,
+    vertical?: string
 ) {
     const { showToast } = useToast();
     const { t } = useTranslation("admin");
@@ -355,6 +358,7 @@ export function useSchedaDraft(
     }, [tenantId, productId, draftIngredientIds]);
 
     // ── Caratteristiche ──────────────────────────────────────────────────
+    const [characteristicsAvailable, setCharacteristicsAvailable] = useState<ProductCharacteristic[]>([]);
     const [draftCharacteristicIds, setDraftCharacteristicIds] = useState<string[]>([]);
     const [savedCharacteristicIds, setSavedCharacteristicIds] = useState<string[]>([]);
     const [characteristicsLoading, setCharacteristicsLoading] = useState(true);
@@ -369,7 +373,11 @@ export function useSchedaDraft(
         if (!showCharacteristics || !productId || !tenantId) return;
         try {
             setCharacteristicsLoading(true);
-            const ids = await getProductCharacteristics(productId, tenantId);
+            const [available, ids] = await Promise.all([
+                listCharacteristics(vertical),
+                getProductCharacteristics(productId, tenantId)
+            ]);
+            setCharacteristicsAvailable(available);
             setDraftCharacteristicIds(ids);
             setSavedCharacteristicIds(ids);
         } catch {
@@ -377,7 +385,7 @@ export function useSchedaDraft(
         } finally {
             setCharacteristicsLoading(false);
         }
-    }, [productId, tenantId, showCharacteristics, showToast]);
+    }, [productId, tenantId, showCharacteristics, vertical, showToast]);
 
     useEffect(() => {
         loadCharacteristics();
@@ -647,6 +655,7 @@ export function useSchedaDraft(
         allergens: {
             available: allergens,
             draftIds: draftAllergenIds,
+            setDraftIds: setDraftAllergenIds,
             loading: allergensLoading,
             isSaving: isSavingAllergens,
             isDirty: isAllergensDirty,
@@ -666,6 +675,7 @@ export function useSchedaDraft(
             handleSave: handleSaveIngredients
         },
         characteristics: {
+            available: characteristicsAvailable,
             draftIds: draftCharacteristicIds,
             setDraftIds: setDraftCharacteristicIds,
             loading: characteristicsLoading,

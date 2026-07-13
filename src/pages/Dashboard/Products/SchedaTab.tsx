@@ -4,7 +4,10 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { Pill } from "@/components/ui/Pill/Pill";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TranslationStatusBadge } from "@/components/ui/TranslationStatusBadge/TranslationStatusBadge";
+import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
+import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
@@ -19,9 +22,14 @@ import {
 } from "@/services/supabase/productGroups";
 import { ProductGroupsEditDrawer } from "./ProductGroupsEditDrawer";
 import { IngredientCombobox } from "./components/IngredientCombobox";
-import CharacteristicsSection from "./components/CharacteristicsSection/CharacteristicsSection";
+import {
+    CATEGORY_ORDER,
+    CATEGORY_LABELS
+} from "./components/CharacteristicsSection/CharacteristicsSection";
 import ProductNotesSection from "./components/ProductNotesSection/ProductNotesSection";
 import PairingsSection from "./components/PairingsSection/PairingsSection";
+import { ProductAllergensDrawer } from "./ProductAllergensDrawer";
+import { ProductCharacteristicsDrawer } from "./ProductCharacteristicsDrawer";
 import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import styles from "./SchedaTab.module.scss";
 
@@ -71,6 +79,8 @@ export function SchedaTab({
     const [assignedGroupIds, setAssignedGroupIds] = useState<Set<string>>(new Set());
     const [groupsLoading, setGroupsLoading] = useState(true);
     const [isGroupsDrawerOpen, setIsGroupsDrawerOpen] = useState(false);
+    const [isAllergensDrawerOpen, setIsAllergensDrawerOpen] = useState(false);
+    const [isCharacteristicsDrawerOpen, setIsCharacteristicsDrawerOpen] = useState(false);
 
     const loadGroups = useCallback(async () => {
         try {
@@ -292,47 +302,155 @@ export function SchedaTab({
             <div className={styles.col}>
                 {/* Card Allergeni */}
                 {draft.showAllergens && (
-                    <SectionCard title={verticalConfig.copy.productSections.allergens}>
+                    <SectionCard
+                        title={verticalConfig.copy.productSections.allergens}
+                        actions={
+                            !allergens.loading && allergens.draftIds.length > 0 ? (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setIsAllergensDrawerOpen(true)}
+                                >
+                                    Modifica
+                                </Button>
+                            ) : undefined
+                        }
+                    >
                         {allergens.loading ? (
                             <Text variant="body-sm" colorVariant="muted">
                                 Caricamento allergeni...
                             </Text>
+                        ) : allergens.draftIds.length === 0 ? (
+                            <EmptyState
+                                variant="inline"
+                                icon={null}
+                                title="Nessun allergene dichiarato"
+                                action={
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => setIsAllergensDrawerOpen(true)}
+                                    >
+                                        Aggiungi
+                                    </Button>
+                                }
+                            />
                         ) : (
                             <div className={styles.allergenGrid}>
-                                {allergens.available.map(a => (
-                                    <Pill
-                                        key={a.id}
-                                        label={a.label_it}
-                                        active={allergens.draftIds.includes(a.id)}
-                                        onClick={() => allergens.toggle(a.id)}
-                                        disabled={allergens.isSaving}
-                                    />
-                                ))}
+                                {allergens.available
+                                    .filter(a => allergens.draftIds.includes(a.id))
+                                    .map(a => (
+                                        <Pill
+                                            key={a.id}
+                                            label={a.label_it}
+                                            icon={<AllergenIcon code={a.code} size={16} variant="bare" />}
+                                            active
+                                        />
+                                    ))}
                             </div>
                         )}
-
                     </SectionCard>
                 )}
 
                 {/* Card Caratteristiche */}
                 {draft.showCharacteristics && (
-                    <SectionCard title="Caratteristiche">
+                    <SectionCard
+                        title="Caratteristiche"
+                        actions={
+                            !characteristics.loading && characteristics.draftIds.length > 0 ? (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => setIsCharacteristicsDrawerOpen(true)}
+                                >
+                                    Modifica
+                                </Button>
+                            ) : undefined
+                        }
+                    >
                         {characteristics.loading ? (
                             <Text variant="body-sm" colorVariant="muted">
                                 Caricamento caratteristiche...
                             </Text>
-                        ) : (
-                            <CharacteristicsSection
-                                vertical={vertical}
-                                value={characteristics.draftIds}
-                                onChange={characteristics.setDraftIds}
-                                disabled={characteristics.isSaving}
+                        ) : characteristics.draftIds.length === 0 ? (
+                            <EmptyState
+                                variant="inline"
+                                icon={null}
+                                title="Nessuna caratteristica"
+                                action={
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => setIsCharacteristicsDrawerOpen(true)}
+                                    >
+                                        Aggiungi
+                                    </Button>
+                                }
                             />
+                        ) : (
+                            <div className={styles.characteristicsCompact}>
+                                {CATEGORY_ORDER.map(category => {
+                                    const items = characteristics.available.filter(
+                                        c =>
+                                            c.category === category &&
+                                            characteristics.draftIds.includes(c.id)
+                                    );
+                                    if (items.length === 0) return null;
+                                    const sorted = [...items].sort(
+                                        (a, b) => a.sort_order - b.sort_order
+                                    );
+                                    return (
+                                        <div key={category} className={styles.compactGroup}>
+                                            <Text
+                                                variant="caption"
+                                                weight={700}
+                                                colorVariant="muted"
+                                                className={styles.compactGroupLabel}
+                                            >
+                                                {CATEGORY_LABELS[category]}
+                                            </Text>
+                                            <div className={styles.groupChips}>
+                                                {sorted.map(item => (
+                                                    <Pill
+                                                        key={item.id}
+                                                        label={item.label_it}
+                                                        icon={
+                                                            <CharacteristicIcon
+                                                                icon={item.icon}
+                                                                size={16}
+                                                                variant="bare"
+                                                            />
+                                                        }
+                                                        active
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
                         )}
-
                     </SectionCard>
                 )}
             </div>
+
+            <ProductAllergensDrawer
+                open={isAllergensDrawerOpen}
+                onClose={() => setIsAllergensDrawerOpen(false)}
+                title={verticalConfig.copy.productSections.allergens}
+                available={allergens.available}
+                loading={allergens.loading}
+                value={allergens.draftIds}
+                onConfirm={allergens.setDraftIds}
+            />
+
+            <ProductCharacteristicsDrawer
+                open={isCharacteristicsDrawerOpen}
+                onClose={() => setIsCharacteristicsDrawerOpen(false)}
+                vertical={vertical}
+                value={characteristics.draftIds}
+                onConfirm={characteristics.setDraftIds}
+            />
 
             <ProductGroupsEditDrawer
                 open={isGroupsDrawerOpen}

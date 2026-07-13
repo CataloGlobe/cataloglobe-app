@@ -119,7 +119,8 @@ export default function ProductPage() {
         product,
         productId!,
         tenantId!,
-        handleProductUpdated
+        handleProductUpdated,
+        selectedTenant?.vertical_type
     );
 
     // Guardia abbandono pagina — stesso hook di StoryDetailPage, riflette

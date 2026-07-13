@@ -101,3 +101,21 @@
     gap: 6px;
 }
 
+// ── Caratteristiche — vista compatta raggruppata per famiglia ───────
+.characteristicsCompact {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.compactGroup {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.compactGroupLabel {
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+

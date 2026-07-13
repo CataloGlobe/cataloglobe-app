@@ -34,47 +34,6 @@
     gap: 8px;
 }
 
-// Allineato a src/components/ui/Pill/Pill.module.scss (Pill shared) —
-// stessi token per garantire coerenza visiva tra Allergeni (Pill) e
-// Caratteristiche (markup ad-hoc con icona inline).
-.chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 8px 14px;
-    background: #ffffff;
-    border: 1px solid rgba(0, 0, 0, 0.12);
-    border-radius: 999px;
-    font-weight: 600;
-    text-align: center;
-    white-space: nowrap;
-    cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease;
-
-    &:hover:not(:disabled) {
-        background: rgba(0, 0, 0, 0.04);
-    }
-
-    &:focus-visible {
-        outline: 2px solid var(--brand-primary);
-        outline-offset: 2px;
-    }
-
-    &:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-}
-
-.chipActive {
-    border-color: var(--brand-primary);
-    background: rgba(99, 102, 241, 0.12);
-}
-
-.chipLabel {
-    user-select: none;
-}
-
 // ── Loading skeleton ─────────────────────────────────────────────────────────
 
 .skeletonGrid {
