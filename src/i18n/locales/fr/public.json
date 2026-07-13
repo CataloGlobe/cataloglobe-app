@@ -267,6 +267,13 @@
     "close_aria": "Fermer",
     "close_label": "Fermer"
   },
+  "categories": {
+    "sheet_title": "Catégories",
+    "close_aria": "Fermer",
+    "close_label": "Fermer",
+    "back_to_top": "Retour en haut",
+    "toggle_aria": "Développer/réduire la catégorie"
+  },
   "brand": {
     "logo_alt_default": "Logo",
     "logo_alt_named": "Logo {{name}}"

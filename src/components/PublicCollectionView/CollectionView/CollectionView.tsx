@@ -32,6 +32,7 @@ import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import { hasOpenSheet } from "../hooks/useScrollCollapse";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
+import CategoriesSheet from "../CategoriesSheet/CategoriesSheet";
 
 // Lazy-loaded: si aprono solo su interazione utente.
 // Factory estratta per consentire il preload idle e onPointerDown.
@@ -975,6 +976,11 @@ export default function CollectionView({
         setIsReviewsSheetOpen(true);
     }, [mode, activityId, activeTab]);
     const closeReviewsSheet = useCallback(() => setIsReviewsSheetOpen(false), []);
+
+    // ── Indice categorie (sheet): trigger = retap sul tab "Menu" già attivo,
+    // sostituisce lo scroll-to-top diretto (vedi handleHubTabTap più sotto).
+    const [isCategoriesSheetOpen, setIsCategoriesSheetOpen] = useState(false);
+    const closeCategoriesSheet = useCallback(() => setIsCategoriesSheetOpen(false), []);
 
     // ── Tab Storia: predisposizione lettore (sub-fase 5 renderizza il contenuto) ──
     const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
@@ -2068,16 +2074,23 @@ export default function CollectionView({
         }
     }, []);
 
-    // ── Intercetta il tap hub tab: re-tap sulla tab attiva = scroll-to-top ──
+    // ── Intercetta il tap hub tab: re-tap su "menu" = apre l'indice categorie
+    // (sostituisce lo scroll-to-top diretto, che resta la prima voce della
+    // sheet stessa — "Torna in cima" — così il comportamento non si perde).
+    // Re-tap sulle altre tab (storia/eventi/recensioni): invariato, scroll-to-top. ──
     const handleHubTabTap = useCallback(
         (tab: HubTab) => {
             if (tab === activeTab) {
+                if (tab === "menu" && displaySectionGroups.length > 0) {
+                    setIsCategoriesSheetOpen(true);
+                    return;
+                }
                 scrollContainerToTop();
                 return; // re-tap: niente cambio stato, niente analytics (già gated su prevTab !== tab)
             }
             onTabChange?.(tab);
         },
-        [activeTab, onTabChange, scrollContainerToTop]
+        [activeTab, onTabChange, scrollContainerToTop, displaySectionGroups]
     );
 
     // ── Subsection margin — distanza dipende dal contesto (child precedente) ──
@@ -2174,6 +2187,47 @@ export default function CollectionView({
         },
         [sectionGroups, recomputeStickyOffset]
     );
+
+    // ── Scroll differito alla chiusura della sheet Categorie ────────────────
+    // La sheet blocca lo scroll body (iOS lock, position:fixed) finché aperta:
+    // scrollToSection/scrollToSubSection/scrollContainerToTop scritti mentre il
+    // body è lockato non si vedono (il container reale è pinnato via top offset).
+    // closeCategoriesSheet() sblocca il lock in un useLayoutEffect DENTRO
+    // PublicSheet, che React garantisce eseguito prima di questo useEffect
+    // (stesso commit: tutti i layout effect prima di tutti i passive effect) →
+    // qui il lock è già rilasciato, lo scroll è sicuro.
+    const pendingCategoryScrollRef = useRef<
+        { type: "top" } | { type: "section" | "subsection"; id: string } | null
+    >(null);
+
+    useEffect(() => {
+        if (isCategoriesSheetOpen) return;
+        const pending = pendingCategoryScrollRef.current;
+        if (!pending) return;
+        pendingCategoryScrollRef.current = null;
+        if (pending.type === "top") scrollContainerToTop();
+        else if (pending.type === "section") scrollToSection(pending.id);
+        else scrollToSubSection(pending.id);
+        // scrollToSection non è memoizzata (ridefinita ad ogni render, come già
+        // per CollectionSectionNav onSelect) → omessa dalle dep, l'effect deve
+        // reagire solo all'apertura/chiusura della sheet.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isCategoriesSheetOpen, scrollContainerToTop, scrollToSubSection]);
+
+    const handleSelectCategorySection = useCallback((sectionId: string) => {
+        pendingCategoryScrollRef.current = { type: "section", id: sectionId };
+        closeCategoriesSheet();
+    }, [closeCategoriesSheet]);
+
+    const handleSelectCategorySubSection = useCallback((childId: string) => {
+        pendingCategoryScrollRef.current = { type: "subsection", id: childId };
+        closeCategoriesSheet();
+    }, [closeCategoriesSheet]);
+
+    const handleCategoriesBackToTop = useCallback(() => {
+        pendingCategoryScrollRef.current = { type: "top" };
+        closeCategoriesSheet();
+    }, [closeCategoriesSheet]);
 
     // ── Derived values for render ───────────────────────────────────────────
     const hasHeader =
@@ -2758,6 +2812,20 @@ export default function CollectionView({
                         </div>
                     </Suspense>
                 </PublicSheet>
+            )}
+
+            {/* ── CATEGORIES SHEET ── Trigger: retap sul tab "Menu" già attivo
+                (vedi handleHubTabTap). Dati: stessa fonte di navItems/CollectionSectionNav
+                (displaySectionGroups), nessun nuovo fetch/calcolo. */}
+            {displaySectionGroups.length > 0 && (
+                <CategoriesSheet
+                    isOpen={isCategoriesSheetOpen}
+                    onClose={closeCategoriesSheet}
+                    groups={displaySectionGroups}
+                    onSelectSection={handleSelectCategorySection}
+                    onSelectSubSection={handleSelectCategorySubSection}
+                    onBackToTop={handleCategoriesBackToTop}
+                />
             )}
 
             {activeTab === "storia" && slug && (
