@@ -26,7 +26,7 @@ export function SortableDataTableRow({
     };
 
     return (
-        <div ref={setNodeRef} style={style} {...attributes}>
+        <div ref={setNodeRef} style={style} data-dragging={isDragging || undefined} {...attributes}>
             {React.Children.map(children, child => {
                 if (React.isValidElement(child)) {
                     return React.cloneElement(

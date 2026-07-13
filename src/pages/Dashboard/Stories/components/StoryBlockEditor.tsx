@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { GripVertical, Trash2 } from "lucide-react";
+import { GripVertical, Rows3, Trash2 } from "lucide-react";
 import {
     DndContext,
     closestCenter,
@@ -15,9 +15,10 @@ import {
     sortableKeyboardCoordinates,
     verticalListSortingStrategy
 } from "@dnd-kit/sortable";
-import Text from "@/components/ui/Text/Text";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
 import { StoryBlock } from "@/services/supabase/stories";
+import { AddBlockMenu } from "./AddBlockMenu";
 import { TextBlock } from "./blocks/TextBlock";
 import { ImageBlock } from "./blocks/ImageBlock";
 import { VideoBlock } from "./blocks/VideoBlock";
@@ -34,6 +35,8 @@ interface StoryBlockEditorProps {
     focusBlockId?: string | null;
     /** Consumato lo scroll+focus, il parent azzera focusBlockId. */
     onFocusHandled?: () => void;
+    /** Stesso handler passato ad `AddBlockMenu` in header — CTA dello stato vuoto. */
+    onAddBlock?: (type: StoryBlock["type"]) => void;
 }
 
 interface BlockRowProps {
@@ -99,7 +102,8 @@ export function StoryBlockEditor({
     onPendingImageChange,
     disabled,
     focusBlockId,
-    onFocusHandled
+    onFocusHandled,
+    onAddBlock
 }: StoryBlockEditorProps) {
     const sensors = useSensors(
         useSensor(PointerSensor),
@@ -154,9 +158,12 @@ export function StoryBlockEditor({
     return (
         <div className={styles.root}>
             {value.length === 0 && (
-                <Text variant="body-sm" colorVariant="muted">
-                    Nessun blocco. Aggiungine uno per iniziare a scrivere.
-                </Text>
+                <EmptyState
+                    icon={<Rows3 size={24} strokeWidth={1.8} />}
+                    title="Nessun blocco ancora"
+                    description="Aggiungi testo, immagini o video per raccontare la tua storia."
+                    action={!disabled && onAddBlock ? <AddBlockMenu onAdd={onAddBlock} /> : undefined}
+                />
             )}
 
             {value.length > 0 && (
@@ -164,7 +171,7 @@ export function StoryBlockEditor({
                     <SortableContext items={value.map(b => b.id)} strategy={verticalListSortingStrategy}>
                         <div className={styles.list}>
                             {value.map(block => (
-                                <SortableDataTableRow key={block.id} id={block.id} draggingOpacity={0.55}>
+                                <SortableDataTableRow key={block.id} id={block.id} draggingOpacity={1}>
                                     <BlockRow
                                         block={block}
                                         pendingImage={pendingImages[block.id] ?? null}

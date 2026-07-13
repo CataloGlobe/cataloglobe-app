@@ -360,6 +360,7 @@ export default function StoryDetailPage() {
                             disabled={!canWrite}
                             focusBlockId={focusBlockId}
                             onFocusHandled={handleFocusHandled}
+                            onAddBlock={handleAddBlock}
                         />
                     </SectionCard>
                 </div>

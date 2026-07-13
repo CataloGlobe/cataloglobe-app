@@ -3,7 +3,7 @@ import styles from "./SectionCard.module.scss";
 
 /**
  * Box-sezione unificato del gestionale (variante A compatta, spec approvata).
- * Anatomia: titolo (14px semibold, sentence case — mai maiuscoletto) +
+ * Anatomia: titolo (16px bold, sentence case — mai maiuscoletto) +
  * sottotitolo opzionale (spiega la sezione a un utente non tecnico) +
  * divisore hairline sempre presente + 0–2 azioni sm in header (1 → secondary,
  * 2 → ghost + secondary; mai due bottoni pieni: il primary della pagina è il

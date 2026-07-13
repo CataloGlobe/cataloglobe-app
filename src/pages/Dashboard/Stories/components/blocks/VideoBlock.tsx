@@ -1,3 +1,4 @@
+import { Video } from "lucide-react";
 import { Select } from "@/components/ui/Select/Select";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { StoryVideoBlock, StoryVideoProvider } from "@/services/supabase/stories";
@@ -16,21 +17,27 @@ interface VideoBlockProps {
 
 export function VideoBlock({ block, onChange, disabled }: VideoBlockProps) {
     return (
-        <div className={styles.row}>
-            <Select
-                label="Provider"
-                value={block.provider}
-                onChange={e => onChange({ ...block, provider: e.target.value as StoryVideoProvider })}
-                options={PROVIDER_OPTIONS}
-                disabled={disabled}
-            />
-            <TextInput
-                label="URL o ID video"
-                value={block.ref}
-                onChange={e => onChange({ ...block, ref: e.target.value })}
-                placeholder="Es: https://youtube.com/watch?v=..."
-                disabled={disabled}
-            />
+        <div className={styles.wrapper}>
+            {/* Unica eccezione alla regola "niente kind-label": select+URL da soli
+                non sono autoevidenti come una textarea (testo) o una miniatura
+                (immagine), quindi qui l'icona resta — mai testo. */}
+            <Video className={styles.kindIcon} size={16} aria-hidden="true" />
+            <div className={styles.row}>
+                <Select
+                    label="Provider"
+                    value={block.provider}
+                    onChange={e => onChange({ ...block, provider: e.target.value as StoryVideoProvider })}
+                    options={PROVIDER_OPTIONS}
+                    disabled={disabled}
+                />
+                <TextInput
+                    label="URL o ID video"
+                    value={block.ref}
+                    onChange={e => onChange({ ...block, ref: e.target.value })}
+                    placeholder="Es: https://youtube.com/watch?v=..."
+                    disabled={disabled}
+                />
+            </div>
         </div>
     );
 }
