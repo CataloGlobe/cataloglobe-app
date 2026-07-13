@@ -194,8 +194,9 @@
 
 /* Rimando storia — reverse-link (sub-fase 6). Card simmetrica del "Dal menu"
    nel lettore storia (StoryReader.module.scss .productLink) — stesso ponte
-   di valore, stesso peso: piena su --pub-primary invece della treatment
-   pallida "surface + border" (residuo, non un invito). */
+   di valore, stesso peso: piena su --pub-cta-bg (è un'azione, apre la
+   storia) invece della treatment pallida "surface + border" (residuo, non
+   un invito). */
 .storyLinkCard {
     display: flex;
     align-items: center;
@@ -205,8 +206,8 @@
     padding: var(--pub-space-3, 10px) var(--pub-space-4, 14px);
     border-radius: var(--pub-radius, 12px);
     border: none;
-    background: var(--pub-primary);
-    color: var(--pub-primary-contrast, #fff);
+    background: var(--pub-cta-bg);
+    color: var(--pub-cta-text);
     cursor: pointer;
     text-align: left;
     font: inherit;

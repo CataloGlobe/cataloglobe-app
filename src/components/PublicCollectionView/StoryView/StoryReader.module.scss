@@ -36,7 +36,7 @@
   font-family: var(--pub-font-family);
   font-size: 13px;
   font-weight: 600;
-  color: var(--pub-primary);
+  color: var(--pub-accent);
   margin-bottom: var(--pub-space-4);
 }
 
@@ -91,8 +91,9 @@
   gap: 16px;
 }
 
-// Ponte verso il menu — non un residuo secondario: peso da CTA primaria,
-// piena su --pub-primary (il colore del tenant), mai un colore fisso.
+// Ponte verso il menu — non un residuo secondario: peso da CTA vera. È
+// un'azione (apre il prodotto) → --pub-cta-bg/--pub-cta-text (accent), non
+// --pub-primary (identità).
 .productLink {
   display: flex;
   align-items: center;
@@ -102,8 +103,8 @@
   padding: var(--pub-space-4);
   border-radius: var(--pub-radius, 12px);
   border: none;
-  background: var(--pub-primary);
-  color: var(--pub-primary-contrast, #fff);
+  background: var(--pub-cta-bg);
+  color: var(--pub-cta-text);
   box-shadow: var(--pub-card-shadow);
   text-align: left;
   cursor: pointer;

@@ -121,8 +121,8 @@
   gap: 6px;
   padding: 10px 20px;
   border-radius: 999px;
-  background: var(--pub-primary);
-  color: #fff;
+  background: var(--pub-cta-bg);
+  color: var(--pub-cta-text);
   font-family: var(--pub-font-family);
   font-size: 13px;
   font-weight: 600;
@@ -284,5 +284,5 @@
   margin-top: var(--pub-space-2);
   font-size: 12px;
   font-weight: 700;
-  color: var(--pub-primary);
+  color: var(--pub-accent);
 }
