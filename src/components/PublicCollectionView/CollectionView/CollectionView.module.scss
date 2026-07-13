@@ -399,9 +399,10 @@
 }
 
 .compactEmojiDivider {
-  align-self: stretch;
+  align-self: center;
   width: 1px;
-  background: color-mix(in srgb, var(--pub-bg-text) 20%, transparent);
+  height: 12px;
+  background: color-mix(in srgb, var(--pub-primary, #4b5563) 35%, transparent);
 }
 
 .compactAllergens {
@@ -885,9 +886,10 @@
 }
 
 .emojiDivider {
-  align-self: stretch;
+  align-self: center;
   width: 1px;
-  background: var(--pub-surface-border);
+  height: 14px;
+  background: color-mix(in srgb, var(--pub-primary, #4b5563) 35%, transparent);
 }
 
 .allergenEmojis {
@@ -1324,6 +1326,18 @@
   color: var(--pub-text);
   font-family: var(--pub-font-family, sans-serif);
   margin: 0 0 1.25rem 0;
+}
+
+/* Header sheet eventi — stessi valori di ItemDetail.module.scss .header
+   (peso titolo + divisore), passato via PublicSheet headerContent così
+   resta fisso sopra il contenuto scrollabile invece di scrollare con la
+   lista (coerenza di comportamento, non solo visiva). Scoped alla sola
+   sheet eventi: .infoSheetTitle (Info sheet) resta invariato. */
+.eventsSheetHeader {
+  padding: 16px 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+  background: var(--pub-surface, #fff);
+  flex-shrink: 0;
 }
 
 .infoSection {
