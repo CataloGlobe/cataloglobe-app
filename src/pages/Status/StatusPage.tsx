@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import logoMark from "@/assets/brand/logo-mark.png";
+import { Logo } from "@/components/ui/Logo/Logo";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import {
     deriveOverallStatus,
@@ -289,7 +289,7 @@ export default function StatusPage() {
                         title="CataloGlobe — Home"
                         aria-label="CataloGlobe — Home"
                     >
-                        <img src={logoMark} alt="" height={24} className={styles.logoImage} />
+                        <Logo variant="icon" color="auto" size={24} alt="" className={styles.logoImage} />
                     </Link>
                     <span className={styles.separator} aria-hidden="true">
                         /
