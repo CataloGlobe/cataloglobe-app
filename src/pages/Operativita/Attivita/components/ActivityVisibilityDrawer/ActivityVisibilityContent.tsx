@@ -153,7 +153,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                                 <Text weight={600} variant="body-sm">
                                     {product.name}
                                 </Text>
-                                {isOverridden && <Badge variant="primary">Override</Badge>}
+                                {isOverridden && <Badge variant="primary">Modificato</Badge>}
                             </div>
                             {product.category_name && (
                                 <Text variant="caption" colorVariant="muted">
