@@ -53,6 +53,7 @@ import ProductNotesSection from "./components/ProductNotesSection/ProductNotesSe
 import PairingsSection, {
     type PairingDraftItem
 } from "./components/PairingsSection/PairingsSection";
+import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import styles from "./SchedaTab.module.scss";
 
 interface SchedaTabProps {
@@ -576,10 +577,7 @@ export function SchedaTab({
             {/* ─────────────── COLONNA SINISTRA ─────────────── */}
             <div className={styles.col}>
                 {/* Card Immagine */}
-                <section className={styles.card} data-section="image">
-                    <header className={styles.cardHeader}>
-                        <span className={styles.cardLabel}>Immagine</span>
-                    </header>
+                <SectionCard title="Immagine">
 
                     {visibleImageUrl && (
                         <img
@@ -629,14 +627,10 @@ export function SchedaTab({
                             onSave={handleSaveImage}
                         />
                     )}
-                </section>
+                </SectionCard>
 
                 {/* Card Informazioni */}
-                <section className={styles.card} data-section="information">
-                    <header className={styles.cardHeader}>
-                        <span className={styles.cardLabel}>Informazioni</span>
-                    </header>
-
+                <SectionCard title="Informazioni">
                     <div className={styles.fieldGrid}>
                         <TextInput
                             label="Nome"
@@ -731,17 +725,11 @@ export function SchedaTab({
                             onSave={handleSaveInformation}
                         />
                     )}
-                </section>
+                </SectionCard>
 
                 {/* Card Ingredienti */}
                 {showIngredients && (
-                    <section className={styles.card} data-section="ingredients">
-                        <header className={styles.cardHeader}>
-                            <span className={styles.cardLabel}>
-                                {verticalConfig.copy.productSections.ingredients}
-                            </span>
-                        </header>
-
+                    <SectionCard title={verticalConfig.copy.productSections.ingredients}>
                         {ingredientsLoading ? (
                             <Text variant="body-sm" colorVariant="muted">
                                 Caricamento ingredienti...
@@ -763,16 +751,12 @@ export function SchedaTab({
                                 onSave={handleSaveIngredients}
                             />
                         )}
-                    </section>
+                    </SectionCard>
                 )}
 
                 {/* Card Note prodotto */}
                 {showNotes && (
-                    <section className={styles.card} data-section="notes">
-                        <header className={styles.cardHeader}>
-                            <span className={styles.cardLabel}>Note prodotto</span>
-                        </header>
-
+                    <SectionCard title="Note prodotto">
                         <ProductNotesSection
                             value={draftNotes}
                             onChange={setDraftNotes}
@@ -786,16 +770,12 @@ export function SchedaTab({
                                 onSave={handleSaveNotes}
                             />
                         )}
-                    </section>
+                    </SectionCard>
                 )}
 
                 {/* Card Abbinamenti */}
                 {showPairings && (
-                    <section className={styles.card} data-section="pairings">
-                        <header className={styles.cardHeader}>
-                            <span className={styles.cardLabel}>Abbinamenti</span>
-                        </header>
-
+                    <SectionCard title="Abbinamenti">
                         {pairingsLoading ? (
                             <Text variant="body-sm" colorVariant="muted">
                                 Caricamento abbinamenti...
@@ -817,7 +797,7 @@ export function SchedaTab({
                                 onSave={handleSavePairings}
                             />
                         )}
-                    </section>
+                    </SectionCard>
                 )}
             </div>
 
@@ -825,13 +805,7 @@ export function SchedaTab({
             <div className={styles.col}>
                 {/* Card Allergeni */}
                 {showAllergens && (
-                    <section className={styles.card} data-section="allergens">
-                        <header className={styles.cardHeader}>
-                            <span className={styles.cardLabel}>
-                                {verticalConfig.copy.productSections.allergens}
-                            </span>
-                        </header>
-
+                    <SectionCard title={verticalConfig.copy.productSections.allergens}>
                         {allergensLoading ? (
                             <Text variant="body-sm" colorVariant="muted">
                                 Caricamento allergeni...
@@ -857,16 +831,12 @@ export function SchedaTab({
                                 onSave={handleSaveAllergens}
                             />
                         )}
-                    </section>
+                    </SectionCard>
                 )}
 
                 {/* Card Caratteristiche */}
                 {showCharacteristics && (
-                    <section className={styles.card} data-section="characteristics">
-                        <header className={styles.cardHeader}>
-                            <span className={styles.cardLabel}>Caratteristiche</span>
-                        </header>
-
+                    <SectionCard title="Caratteristiche">
                         {characteristicsLoading ? (
                             <Text variant="body-sm" colorVariant="muted">
                                 Caricamento caratteristiche...
@@ -887,7 +857,7 @@ export function SchedaTab({
                                 onSave={handleSaveCharacteristics}
                             />
                         )}
-                    </section>
+                    </SectionCard>
                 )}
             </div>
 

@@ -13,6 +13,8 @@ import styles from "./SectionCard.module.scss";
  */
 export interface SectionCardProps {
     title: string;
+    /** Badge/conteggio inline subito dopo il titolo (es. numero varianti). */
+    badge?: ReactNode;
     /** Una riga che previene errori (es. "Visibili nella pagina pubblica"). */
     subtitle?: string;
     /** 0–2 bottoni `sm` allineati al titolo. */
@@ -28,6 +30,7 @@ export interface SectionCardProps {
 
 export function SectionCard({
     title,
+    badge,
     subtitle,
     actions,
     variant = "default",
@@ -39,7 +42,14 @@ export function SectionCard({
         <section className={`${styles.card} ${variant === "danger" ? styles.danger : ""}`}>
             <header className={styles.header}>
                 <div className={styles.headerText}>
-                    <span className={styles.title}>{title}</span>
+                    {badge ? (
+                        <span className={styles.titleRow}>
+                            <span className={styles.title}>{title}</span>
+                            <span className={styles.badge}>{badge}</span>
+                        </span>
+                    ) : (
+                        <span className={styles.title}>{title}</span>
+                    )}
                     {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
                 </div>
                 {actions && <div className={styles.actions}>{actions}</div>}

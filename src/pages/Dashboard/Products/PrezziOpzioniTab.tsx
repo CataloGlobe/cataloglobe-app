@@ -11,6 +11,7 @@ import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -768,14 +769,10 @@ export default function PrezziOpzioniTab({
     return (
         <div className={styles.grid}>
             {/* ──────────────── Card 1 — Prezzo ──────────────── */}
-            <section className={styles.card} data-section="prezzo">
-                <header className={styles.cardHeader}>
-                    <span className={styles.cardLabel}>Prezzo</span>
-                </header>
-                <div className={styles.cardHelp}>
-                    Come vuoi indicare il prezzo per questo prodotto
-                </div>
-
+            <SectionCard
+                title="Prezzo"
+                subtitle="Come vuoi indicare il prezzo per questo prodotto"
+            >
                 <div className={styles.modeRow}>
                     <SegmentedControl<PriceMode>
                         value={priceMode}
@@ -1004,19 +1001,15 @@ export default function PrezziOpzioniTab({
                         )}
                     </div>
                 )}
-            </section>
+            </SectionCard>
 
             {/* ──────────────── Card 2 — Varianti ──────────────── */}
             {!isVariant && (
-                <section className={styles.card} data-section="varianti">
-                    <header className={styles.cardHeader}>
-                        <div className={styles.cardHeaderContent}>
-                            <span className={styles.cardLabel}>Varianti</span>
-                            {variants.length > 0 && (
-                                <Badge variant="secondary">{variants.length}</Badge>
-                            )}
-                        </div>
-                        {variants.length > 0 && (
+                <SectionCard
+                    title="Varianti"
+                    badge={variants.length > 0 ? <Badge variant="secondary">{variants.length}</Badge> : undefined}
+                    actions={
+                        variants.length > 0 ? (
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -1025,9 +1018,9 @@ export default function PrezziOpzioniTab({
                             >
                                 + Aggiungi
                             </Button>
-                        )}
-                    </header>
-
+                        ) : undefined
+                    }
+                >
                     {variants.length === 0 ? (
                         <EmptyState
                             icon={<LayoutGrid size={24} strokeWidth={1.8} />}
@@ -1054,16 +1047,15 @@ export default function PrezziOpzioniTab({
                             }
                         />
                     )}
-                </section>
+                </SectionCard>
             )}
 
             {/* ──────────────── Card 3 — Opzioni extra ──────────────── */}
-            <section className={styles.card} data-section="opzioni">
-                <header className={styles.cardHeader}>
-                    <div className={styles.cardHeaderContent}>
-                        <span className={styles.cardLabel}>Opzioni extra</span>
-                    </div>
-                    {addonGroups.length > 0 && !isCreatingGroup && (
+            <SectionCard
+                title="Opzioni extra"
+                subtitle="Configurazioni selezionabili dal cliente (es. cottura, aggiunte)"
+                actions={
+                    addonGroups.length > 0 && !isCreatingGroup ? (
                         <Button
                             type="button"
                             variant="ghost"
@@ -1072,12 +1064,9 @@ export default function PrezziOpzioniTab({
                         >
                             + Crea gruppo
                         </Button>
-                    )}
-                </header>
-                <div className={styles.cardHelp}>
-                    Configurazioni selezionabili dal cliente (es. cottura, aggiunte)
-                </div>
-
+                    ) : undefined
+                }
+            >
                 {/* Inline create group form */}
                 {isCreatingGroup && (
                     <div className={styles.createGroupForm}>
@@ -1286,7 +1275,7 @@ export default function PrezziOpzioniTab({
                         confirmLabel="Elimina"
                     />
                 )}
-            </section>
+            </SectionCard>
         </div>
     );
 }

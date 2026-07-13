@@ -56,3 +56,22 @@
 .action {
     margin-top: 8px;
 }
+
+.inline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    min-height: 56px;
+    padding: 0 16px;
+}
+
+.inlineText {
+    margin: 0;
+    font-size: 14px;
+    color: var(--color-muted);
+}
+
+.inlineAction {
+    flex-shrink: 0;
+}
