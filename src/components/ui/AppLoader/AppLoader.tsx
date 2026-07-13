@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from "framer-motion";
-import loaderGif from "@/assets/loader/cataloglobe_loader_primary_motion_512.gif";
+import { CataloglobeLoader } from "@components/ui/CataloglobeLoader/CataloglobeLoader";
 import styles from "./AppLoader.module.scss";
 
 export type AppLoaderIntent = "dashboard" | "auth" | "otp" | "sync" | "public" | "generic";
@@ -57,5 +57,5 @@ type AppLoaderSpinnerProps = {
 };
 
 export function AppLoaderSpinner({ size = 96 }: AppLoaderSpinnerProps) {
-    return <img src={loaderGif} alt="" width={size} height={size} className={styles.spinnerGif} />;
+    return <CataloglobeLoader size={size} variant="chase" className={styles.spinnerGif} />;
 }
