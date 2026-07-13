@@ -201,8 +201,7 @@ export default function ItemDetail({
                         {displayItem.name}
                     </Text>
                     <button type="button" className={styles.closeBtn} onClick={onClose} aria-label={t("item_detail.close_aria")}>
-                        <X size={16} strokeWidth={2} />
-                        <span>{t("selection.close_label")}</span>
+                        {t("selection.close_label")}
                     </button>
                 </div>
             }

@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import { FeaturedContentDetail } from "./FeaturedContentDetail";
@@ -38,8 +37,7 @@ export function FeaturedPreviewModal({ block, isOpen, onClose }: Props) {
                         onClick={onClose}
                         aria-label={t("featured.preview_close_aria")}
                     >
-                        <X size={16} strokeWidth={2} />
-                        <span>{t("featured.preview_close_aria")}</span>
+                        {t("featured.preview_close_aria")}
                     </button>
                 </div>
             }
