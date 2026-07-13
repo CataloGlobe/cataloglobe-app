@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import logoPng from "@/assets/brand/logo-horizontal.png";
+import { Logo } from "@/components/ui/Logo/Logo";
 import styles from "./AuthLayout.module.scss";
 
 interface AuthLayoutProps {
@@ -11,7 +11,7 @@ export function AuthLayout({ children }: AuthLayoutProps) {
     <div className={styles.wrapper}>
       <header className={styles.header}>
         <Link to="/" className={styles.logoLink} aria-label="CataloGlobe home">
-          <img src={logoPng} alt="CataloGlobe" className={styles.logoImg} />
+          <Logo variant="lockup-horizontal" color="auto" size={32} className={styles.logoImg} />
         </Link>
       </header>
 

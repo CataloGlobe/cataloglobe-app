@@ -1,6 +1,6 @@
 import { type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
-import logoHorizontal from '@/assets/brand/logo-horizontal.png';
+import { Logo } from '@/components/ui/Logo/Logo';
 import styles from './LegalLayout.module.scss';
 
 type LegalLayoutProps = {
@@ -20,11 +20,7 @@ export default function LegalLayout({ children, otherLegalLink }: LegalLayoutPro
                     ← Indietro
                 </button>
                 <div className={styles.logoRow}>
-                    <img
-                        src={logoHorizontal}
-                        alt="CataloGlobe"
-                        className={styles.logoImg}
-                    />
+                    <Logo variant="lockup-horizontal" color="auto" size={28} className={styles.logoImg} />
                 </div>
             </header>
 
