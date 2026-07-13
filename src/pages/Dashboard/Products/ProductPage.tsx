@@ -16,6 +16,7 @@ import {
 import { getProduct, V2Product } from "@/services/supabase/products";
 import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
 import { getProductUsage, ProductUsageData } from "@/services/supabase/productUsage";
+import { useSchedaDraft } from "./hooks/useSchedaDraft";
 import SchedaTab from "./SchedaTab";
 import PrezziOpzioniTab from "./PrezziOpzioniTab";
 import { UsageTab } from "./UsageTab";
@@ -101,6 +102,15 @@ export default function ProductPage() {
     const [usageData, setUsageData] = useState<ProductUsageData | null>(null);
 
     const { showToast } = useToast();
+
+    // Draft Scheda sollevato qui: sopravvive allo smontaggio di `SchedaTab`
+    // al cambio tab (mount condizionale sotto).
+    const schedaDraft = useSchedaDraft(
+        product,
+        productId!,
+        tenantId!,
+        updated => setProduct(updated)
+    );
 
     const loadOptions = useCallback(async () => {
         if (!productId) return;
@@ -219,10 +229,10 @@ export default function ProductPage() {
                     productId={productId!}
                     tenantId={tenantId!}
                     vertical={selectedTenant?.vertical_type}
-                    onProductUpdated={updated => setProduct(updated)}
                     onNavigateToTab={tab =>
                         handleTabChange(tab as ProductPageTab)
                     }
+                    draft={schedaDraft}
                 />
             )}
             {activeTab === "prezzi-opzioni" && (
