@@ -848,7 +848,7 @@
   margin-top: 4px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--pub-accent) 12%, transparent);
+  background: color-mix(in srgb, var(--pub-primary) 12%, transparent);
   font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
@@ -856,7 +856,7 @@
 
 .pairingChipIcon {
   flex-shrink: 0;
-  color: var(--pub-accent);
+  color: var(--pub-primary);
 }
 
 .pairingChipText {
