@@ -352,7 +352,7 @@ type PriceOverrideRow = {
     option_value_id: string | null;
 };
 
-type VisibilityOverrideRow = {
+export type VisibilityOverrideRow = {
     product_id: string;
     visible?: boolean;
     mode?: VisibilityMode | null;
@@ -1013,7 +1013,7 @@ async function selectVisibilityOverridesWithModeFallback(
     }));
 }
 
-function applyVisibilityOverridesToCatalog(
+export function applyVisibilityOverridesToCatalog(
     catalog: ResolvedCatalog | undefined,
     overridesByProductId: Record<string, VisibilityOverrideRow>,
     fallbackVisibilityMode: VisibilityMode
@@ -1035,7 +1035,12 @@ function applyVisibilityOverridesToCatalog(
         ...catalog,
         ...(catalog.categories
             ? {
-                  categories: catalog.categories
+                  // NB: filterEmptyCategories DEVE ricevere le categorie MAPPATE (con gli
+                  // override di scheduling applicati), non `catalog.categories` originali.
+                  // Stesso fix double-key di applyActivityVisibilityOverridesToCatalog (Model A):
+                  // la seconda chiave `categories` scartava il mapping → override inerti.
+                  categories: filterEmptyCategories(
+                      catalog.categories
                       .map(category => ({
                           ...category,
                           products: category.products
@@ -1089,10 +1094,8 @@ function applyVisibilityOverridesToCatalog(
                                   (!item.parentSelected ? (item.variants ?? []).length > 0 : true)
                               )
                       }))
+                  )
               }
-            : {}),
-        ...(catalog.categories
-            ? { categories: filterEmptyCategories(catalog.categories) }
             : {})
     };
 }

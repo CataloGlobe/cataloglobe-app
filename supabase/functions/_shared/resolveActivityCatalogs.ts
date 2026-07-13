@@ -990,7 +990,12 @@ function applyVisibilityOverridesToCatalog(
         ...catalog,
         ...(catalog.categories
             ? {
-                  categories: catalog.categories
+                  // NB: filterEmptyCategories DEVE ricevere le categorie MAPPATE (con gli
+                  // override di scheduling applicati), non `catalog.categories` originali.
+                  // Stesso fix double-key di applyActivityVisibilityOverridesToCatalog (Model A):
+                  // la seconda chiave `categories` scartava il mapping → override inerti.
+                  categories: filterEmptyCategories(
+                      catalog.categories
                       .map(category => ({
                           ...category,
                           products: category.products
@@ -1035,10 +1040,8 @@ function applyVisibilityOverridesToCatalog(
                                   (!item.parentSelected ? (item.variants ?? []).length > 0 : true)
                               )
                       }))
+                  )
               }
-            : {}),
-        ...(catalog.categories
-            ? { categories: filterEmptyCategories(catalog.categories) }
             : {})
     };
 }
