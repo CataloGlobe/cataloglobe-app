@@ -835,8 +835,9 @@
 }
 
 /* Chip abbinamento — segnale "Perfetto con · <nome>" sotto la descrizione.
-   Pill tint accento tenue, testo troncato con ellipsis. Visivo: nessun
-   handler proprio (eredita il tap della card). */
+   Pill tint primary tenue (stessa var dei chip allergeni/caratteristiche,
+   niente mix locale duplicato), testo troncato con ellipsis. Visivo:
+   nessun handler proprio (eredita il tap della card). */
 .pairingChip {
   display: inline-flex;
   align-items: center;
@@ -848,7 +849,7 @@
   margin-top: 4px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--pub-primary) 12%, transparent);
+  background: var(--pub-primary-soft);
   font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
