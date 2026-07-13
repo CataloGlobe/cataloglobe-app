@@ -60,6 +60,16 @@
     gap: 8px;
 }
 
+// Marker override accanto al nome: piccola icona accent (sostituisce il badge
+// testuale "Modificato"). Trigger di un Tooltip che specifica lo stato esatto.
+.overrideMarker {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    color: var(--brand-primary);
+    cursor: help;
+}
+
 // Cella colonna "Visibilità": ospita il SegmentedControl tri-state (icons-only),
 // allineato a destra come il resto della colonna.
 .visibilityCell {

@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { IconEye, IconEyeOff, IconClockExclamation } from "@tabler/icons-react";
+import {
+    IconEye,
+    IconEyeOff,
+    IconClockExclamation,
+    IconAlertCircle
+} from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
-import { Badge } from "@/components/ui/Badge/Badge";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
@@ -31,6 +36,19 @@ const VISIBILITY_OPTIONS: {
     { value: "hidden", label: "Nascosto", icon: <IconEyeOff size={16} /> },
     { value: "unavailable", label: "Non disponibile", icon: <IconClockExclamation size={16} /> }
 ];
+
+// Testo del marker override accanto al nome prodotto (tooltip): specifica lo stato
+// esatto invece del generico "Modificato", evitando l'ambiguità "modificato cosa?".
+function overrideMarkerLabel(state: ProductVisibilityState): string {
+    switch (state) {
+        case "hidden":
+            return "Nascosto manualmente";
+        case "unavailable":
+            return "Segnato come non disponibile";
+        default:
+            return "Reso visibile manualmente";
+    }
+}
 
 export type VisibilityContentMeta = {
     catalogId: string | null;
@@ -153,7 +171,16 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                                 <Text weight={600} variant="body-sm">
                                     {product.name}
                                 </Text>
-                                {isOverridden && <Badge variant="primary">Modificato</Badge>}
+                                {isOverridden && (
+                                    <Tooltip content={overrideMarkerLabel(product.visibility_state)}>
+                                        <span
+                                            className={styles.overrideMarker}
+                                            aria-label={overrideMarkerLabel(product.visibility_state)}
+                                        >
+                                            <IconAlertCircle size={15} />
+                                        </span>
+                                    </Tooltip>
+                                )}
                             </div>
                             {product.category_name && (
                                 <Text variant="caption" colorVariant="muted">
