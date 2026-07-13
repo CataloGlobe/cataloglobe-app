@@ -5,7 +5,6 @@ import { FileInput } from "@/components/ui/Input/FileInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { Pill } from "@/components/ui/Pill/Pill";
 import { TranslationStatusBadge } from "@/components/ui/TranslationStatusBadge/TranslationStatusBadge";
-import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
@@ -143,13 +142,6 @@ export function SchedaTab({
                         </Text>
                     )}
 
-                    {image.isDirty && (
-                        <UnsavedChangesBar
-                            isSaving={image.isSaving}
-                            onCancel={image.handleCancel}
-                            onSave={image.handleSave}
-                        />
-                    )}
                 </SectionCard>
 
                 {/* Card Informazioni */}
@@ -241,13 +233,6 @@ export function SchedaTab({
                         )}
                     </div>
 
-                    {information.isDirty && (
-                        <UnsavedChangesBar
-                            isSaving={information.isSaving}
-                            onCancel={information.handleCancel}
-                            onSave={information.handleSave}
-                        />
-                    )}
                 </SectionCard>
 
                 {/* Card Ingredienti */}
@@ -267,13 +252,6 @@ export function SchedaTab({
                             />
                         )}
 
-                        {ingredients.isDirty && (
-                            <UnsavedChangesBar
-                                isSaving={ingredients.isSaving}
-                                onCancel={ingredients.handleCancel}
-                                onSave={ingredients.handleSave}
-                            />
-                        )}
                     </SectionCard>
                 )}
 
@@ -286,13 +264,6 @@ export function SchedaTab({
                             disabled={notes.isSaving}
                         />
 
-                        {notes.isDirty && (
-                            <UnsavedChangesBar
-                                isSaving={notes.isSaving}
-                                onCancel={notes.handleCancel}
-                                onSave={notes.handleSave}
-                            />
-                        )}
                     </SectionCard>
                 )}
 
@@ -313,13 +284,6 @@ export function SchedaTab({
                             />
                         )}
 
-                        {pairings.isDirty && (
-                            <UnsavedChangesBar
-                                isSaving={pairings.isSaving}
-                                onCancel={pairings.handleCancel}
-                                onSave={pairings.handleSave}
-                            />
-                        )}
                     </SectionCard>
                 )}
             </div>
@@ -347,13 +311,6 @@ export function SchedaTab({
                             </div>
                         )}
 
-                        {allergens.isDirty && (
-                            <UnsavedChangesBar
-                                isSaving={allergens.isSaving}
-                                onCancel={allergens.handleCancel}
-                                onSave={allergens.handleSave}
-                            />
-                        )}
                     </SectionCard>
                 )}
 
@@ -373,13 +330,6 @@ export function SchedaTab({
                             />
                         )}
 
-                        {characteristics.isDirty && (
-                            <UnsavedChangesBar
-                                isSaving={characteristics.isSaving}
-                                onCancel={characteristics.handleCancel}
-                                onSave={characteristics.handleSave}
-                            />
-                        )}
                     </SectionCard>
                 )}
             </div>

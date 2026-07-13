@@ -157,12 +157,9 @@ export function useSchedaDraft(
             setSavedImageUrl(nextUrl);
             setPendingImageFile(null);
             setRemoveImage(false);
-            showToast({ message: "Immagine salvata", type: "success" });
-        } catch (err) {
-            showToast({
-                message: err instanceof Error ? err.message : "Errore nel salvataggio",
-                type: "error"
-            });
+            return true;
+        } catch {
+            return false;
         } finally {
             setIsSavingImage(false);
         }
@@ -172,8 +169,7 @@ export function useSchedaDraft(
         removeImage,
         productId,
         tenantId,
-        onProductUpdated,
-        showToast
+        onProductUpdated
     ]);
 
     // ── Informazioni (nome + descrizione) ───────────────────────────────
@@ -208,8 +204,7 @@ export function useSchedaDraft(
     const handleSaveInformation = useCallback(async () => {
         const trimmedName = draftName.trim();
         if (!trimmedName) {
-            showToast({ message: "Il nome è obbligatorio", type: "error" });
-            return;
+            return false;
         }
         try {
             setIsSavingInformation(true);
@@ -218,7 +213,8 @@ export function useSchedaDraft(
                 description: draftDescription.trim() || null
             });
             onProductUpdated(updated);
-            showToast({ message: "Informazioni salvate", type: "success" });
+            // Notifica orthogonal (coda traduzioni), non un esito di
+            // salvataggio: resta anche sotto orchestrazione aggregata.
             if (updated.queuedLanguages >= 1) {
                 showToast({
                     message: t("translations_tab.toast_updating", { count: updated.queuedLanguages }),
@@ -226,11 +222,9 @@ export function useSchedaDraft(
                 });
                 wakeTranslations?.();
             }
-        } catch (err) {
-            showToast({
-                message: err instanceof Error ? err.message : "Errore nel salvataggio",
-                type: "error"
-            });
+            return true;
+        } catch {
+            return false;
         } finally {
             setIsSavingInformation(false);
         }
@@ -285,16 +279,13 @@ export function useSchedaDraft(
             setIsSavingAllergens(true);
             await setProductAllergens(tenantId, productId, draftAllergenIds);
             setSavedAllergenIds(draftAllergenIds);
-            showToast({ message: "Allergeni salvati", type: "success" });
-        } catch (err) {
-            showToast({
-                message: err instanceof Error ? err.message : "Errore nel salvataggio",
-                type: "error"
-            });
+            return true;
+        } catch {
+            return false;
         } finally {
             setIsSavingAllergens(false);
         }
-    }, [tenantId, productId, draftAllergenIds, showToast]);
+    }, [tenantId, productId, draftAllergenIds]);
 
     // ── Ingredienti ──────────────────────────────────────────────────────
     const [allIngredients, setAllIngredients] = useState<V2Ingredient[]>([]);
@@ -355,16 +346,13 @@ export function useSchedaDraft(
             setIsSavingIngredients(true);
             await setProductIngredients(tenantId, productId, draftIngredientIds);
             setSavedIngredientIds(draftIngredientIds);
-            showToast({ message: "Ingredienti salvati", type: "success" });
-        } catch (err) {
-            showToast({
-                message: err instanceof Error ? err.message : "Errore nel salvataggio",
-                type: "error"
-            });
+            return true;
+        } catch {
+            return false;
         } finally {
             setIsSavingIngredients(false);
         }
-    }, [tenantId, productId, draftIngredientIds, showToast]);
+    }, [tenantId, productId, draftIngredientIds]);
 
     // ── Caratteristiche ──────────────────────────────────────────────────
     const [draftCharacteristicIds, setDraftCharacteristicIds] = useState<string[]>([]);
@@ -404,16 +392,13 @@ export function useSchedaDraft(
             setIsSavingCharacteristics(true);
             await setProductCharacteristics(tenantId, productId, draftCharacteristicIds);
             setSavedCharacteristicIds(draftCharacteristicIds);
-            showToast({ message: "Caratteristiche salvate", type: "success" });
-        } catch (err) {
-            showToast({
-                message: err instanceof Error ? err.message : "Errore nel salvataggio",
-                type: "error"
-            });
+            return true;
+        } catch {
+            return false;
         } finally {
             setIsSavingCharacteristics(false);
         }
-    }, [tenantId, productId, draftCharacteristicIds, showToast]);
+    }, [tenantId, productId, draftCharacteristicIds]);
 
     // ── Abbinamenti ──────────────────────────────────────────────────────
     const [draftPairings, setDraftPairings] = useState<PairingDraftItem[]>([]);
@@ -470,16 +455,13 @@ export function useSchedaDraft(
             const normalized = draftPairings.map(p => ({ ...p, note: p.note.trim() }));
             setDraftPairings(normalized);
             setSavedPairings(normalized);
-            showToast({ message: "Abbinamenti salvati", type: "success" });
-        } catch (err) {
-            showToast({
-                message: err instanceof Error ? err.message : "Errore nel salvataggio",
-                type: "error"
-            });
+            return true;
+        } catch {
+            return false;
         } finally {
             setIsSavingPairings(false);
         }
-    }, [tenantId, productId, draftPairings, showToast]);
+    }, [tenantId, productId, draftPairings]);
 
     // ── Note prodotto ────────────────────────────────────────────────────
     const [draftNotes, setDraftNotes] = useState<ProductNote[]>(product?.notes ?? []);
@@ -515,16 +497,130 @@ export function useSchedaDraft(
             setDraftNotes(updated.notes);
             setSavedNotes(updated.notes);
             onProductUpdated(updated);
-            showToast({ message: "Note salvate", type: "success" });
-        } catch (err) {
-            showToast({
-                message: err instanceof Error ? err.message : "Errore nel salvataggio",
-                type: "error"
-            });
+            return true;
+        } catch {
+            return false;
         } finally {
             setIsSavingNotes(false);
         }
-    }, [productId, tenantId, draftNotes, onProductUpdated, showToast]);
+    }, [productId, tenantId, draftNotes, onProductUpdated]);
+
+    // ── Dirty aggregato + salvataggio/annulla unico ────────────────────
+    // Etichette per il toast di fallimento parziale (B3) — nomi visibili
+    // all'utente, non chiavi tecniche.
+    const SECTION_LABELS = {
+        image: "Immagine",
+        information: "Informazioni",
+        allergens: "Allergeni",
+        ingredients: "Ingredienti",
+        characteristics: "Caratteristiche",
+        pairings: "Abbinamenti",
+        notes: "Note prodotto"
+    } as const;
+
+    const dirty = useMemo(
+        () => ({
+            image: isImageDirty,
+            information: isInformationDirty,
+            allergens: isAllergensDirty,
+            ingredients: isIngredientsDirty,
+            characteristics: isCharacteristicsDirty,
+            pairings: isPairingsDirty,
+            notes: isNotesDirty
+        }),
+        [
+            isImageDirty,
+            isInformationDirty,
+            isAllergensDirty,
+            isIngredientsDirty,
+            isCharacteristicsDirty,
+            isPairingsDirty,
+            isNotesDirty
+        ]
+    );
+
+    const isDirty = useMemo(() => Object.values(dirty).some(Boolean), [dirty]);
+
+    const [isSavingAll, setIsSavingAll] = useState(false);
+
+    // Chiama SOLO gli handler delle sezioni dirty, in parallelo. Ogni handler
+    // esistente inghiotte già il proprio errore (mostra il suo toast, ritorna
+    // false) — mai reject, quindi `Promise.all` basta: non serve `allSettled`.
+    // Sezioni Prezzo/Varianti/Opzioni extra restano CRUD immediato, fuori da
+    // questo draft (Task 3.2, fuori scope PrezziOpzioniTab).
+    // Immagine/Informazioni/Note NON sono accorpate in una singola
+    // `updateProduct`: la logica di upload immagine (compress+upload prima
+    // di poter comporre il payload) rende la fusione rischiosa per un
+    // beneficio che i criteri di accettazione non richiedono (testano
+    // sezioni su tabelle diverse, non piu' campi-prodotto insieme) — vedi
+    // segnalazione esplicita nel report del task.
+    const handleSaveAll = useCallback(async () => {
+        if (isSavingAll) return;
+        const tasks: Array<{ key: keyof typeof SECTION_LABELS; run: () => Promise<boolean> }> = [];
+        if (isImageDirty) tasks.push({ key: "image", run: handleSaveImage });
+        if (isInformationDirty) tasks.push({ key: "information", run: handleSaveInformation });
+        if (isAllergensDirty) tasks.push({ key: "allergens", run: handleSaveAllergens });
+        if (isIngredientsDirty) tasks.push({ key: "ingredients", run: handleSaveIngredients });
+        if (isCharacteristicsDirty) tasks.push({ key: "characteristics", run: handleSaveCharacteristics });
+        if (isPairingsDirty) tasks.push({ key: "pairings", run: handleSavePairings });
+        if (isNotesDirty) tasks.push({ key: "notes", run: handleSaveNotes });
+
+        if (tasks.length === 0) return;
+
+        setIsSavingAll(true);
+        try {
+            const results = await Promise.all(tasks.map(task => task.run()));
+            const failedLabels = tasks
+                .filter((_, idx) => !results[idx])
+                .map(task => SECTION_LABELS[task.key]);
+
+            if (failedLabels.length > 0) {
+                showToast({
+                    message: `Non è stato possibile salvare: ${failedLabels.join(", ")}`,
+                    type: "error"
+                });
+            } else {
+                showToast({ message: "Modifiche salvate", type: "success" });
+            }
+        } finally {
+            setIsSavingAll(false);
+        }
+    }, [
+        isSavingAll,
+        isImageDirty,
+        isInformationDirty,
+        isAllergensDirty,
+        isIngredientsDirty,
+        isCharacteristicsDirty,
+        isPairingsDirty,
+        isNotesDirty,
+        handleSaveImage,
+        handleSaveInformation,
+        handleSaveAllergens,
+        handleSaveIngredients,
+        handleSaveCharacteristics,
+        handleSavePairings,
+        handleSaveNotes,
+        showToast
+    ]);
+
+    const handleDiscardAll = useCallback(() => {
+        handleCancelImage();
+        handleCancelInformation();
+        handleCancelAllergens();
+        handleCancelIngredients();
+        handleCancelCharacteristics();
+        handleCancelPairings();
+        handleCancelNotes();
+    }, [
+        handleCancelImage,
+        handleCancelInformation,
+        handleCancelAllergens,
+        handleCancelIngredients,
+        handleCancelCharacteristics,
+        handleCancelPairings,
+        handleCancelNotes
+    ]);
 
     return {
         image: {
@@ -599,7 +695,12 @@ export function useSchedaDraft(
         showIngredients,
         showCharacteristics,
         showNotes,
-        showPairings
+        showPairings,
+        dirty,
+        isDirty,
+        isSavingAll,
+        handleSaveAll,
+        handleDiscardAll
     };
 }
 
