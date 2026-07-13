@@ -252,7 +252,9 @@
     "events": {
         "list_aria": "Events and promotions",
         "empty": "No events or promotions active right now.",
-        "back": "← Back to list"
+        "back": "← Back to list",
+        "close_aria": "Close",
+        "close_label": "Close"
     },
     "hero": {
         "aria": "Catalog header"

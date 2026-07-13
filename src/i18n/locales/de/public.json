@@ -252,7 +252,9 @@
     "events": {
         "list_aria": "Veranstaltungen und Promotionen",
         "empty": "Zurzeit keine aktiven Veranstaltungen oder Aktionen.",
-        "back": "← Zurück zur Liste"
+        "back": "← Zurück zur Liste",
+        "close_aria": "Schließen",
+        "close_label": "Schließen"
     },
     "hero": {
         "aria": "Kopfzeile des Katalogs"

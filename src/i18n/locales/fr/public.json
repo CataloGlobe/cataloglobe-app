@@ -252,7 +252,9 @@
   "events": {
     "list_aria": "Événements et promotions",
     "empty": "Il n'y a pas d'événements ou de promotions en cours pour le moment.",
-    "back": "← Retour à la liste"
+    "back": "← Retour à la liste",
+    "close_aria": "Fermer",
+    "close_label": "Fermer"
   },
   "hero": {
     "aria": "En-tête de catalogue"

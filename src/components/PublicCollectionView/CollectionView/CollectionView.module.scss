@@ -1339,10 +1339,43 @@
    lista (coerenza di comportamento, non solo visiva). Scoped alla sola
    sheet eventi: .infoSheetTitle (Info sheet) resta invariato. */
 .eventsSheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   padding: 16px 20px;
   border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
   background: var(--pub-surface, #fff);
   flex-shrink: 0;
+}
+
+/* Bottone chiudi testuale, stesso pattern di CategoriesSheet/AllergensSheet
+   .closeBtn: nascosto <640px (chiusura via swipe/tap-fuori su mobile),
+   visibile da desktop in su dove l'unica via era il click sul backdrop. */
+.eventsCloseBtn {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--pub-btn-radius, 6px);
+  border: none;
+  background: color-mix(in srgb, var(--pub-text, #000) 8%, transparent);
+  color: var(--pub-text, #333);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-text, #000) 14%, transparent);
+  }
+
+  @media (min-width: 640px) {
+    display: inline-flex;
+  }
 }
 
 /* Lista eventi: .infoSheetContent porta top 1rem (Info sheet) — qui bumped a

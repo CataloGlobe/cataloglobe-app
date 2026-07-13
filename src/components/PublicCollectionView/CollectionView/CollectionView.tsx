@@ -2778,6 +2778,14 @@ export default function CollectionView({
                             <Text as="h2" variant="title-md" weight={700} color="var(--pub-surface-text)">
                                 {t("hub.events")}
                             </Text>
+                            <button
+                                type="button"
+                                className={styles.eventsCloseBtn}
+                                onClick={closeEventsSheet}
+                                aria-label={t("events.close_aria")}
+                            >
+                                {t("events.close_label")}
+                            </button>
                         </div>
                     }
                 >

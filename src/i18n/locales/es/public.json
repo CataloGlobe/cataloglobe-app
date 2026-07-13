@@ -252,7 +252,9 @@
     "events": {
         "list_aria": "Eventos y promociones",
         "empty": "No hay eventos ni promociones activos en este momento.",
-        "back": "← Volver a la lista"
+        "back": "← Volver a la lista",
+        "close_aria": "Cerrar",
+        "close_label": "Cerrar"
     },
     "hero": {
         "aria": "Cabecera del catálogo"
