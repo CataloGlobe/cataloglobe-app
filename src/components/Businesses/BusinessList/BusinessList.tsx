@@ -6,7 +6,7 @@ import type { BusinessListProps, BusinessWithCapabilities } from "@/types/Busine
 import styles from "./BusinessList.module.scss";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { ExternalLink, Link, FileText, Edit, Trash2, Calendar, MapPin } from "lucide-react";
+import { ExternalLink, Link, FileText, Edit, Trash2, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useNavigate, useParams } from "react-router-dom";
@@ -68,11 +68,33 @@ export const BusinessList: React.FC<BusinessListProps> = ({
             },
             {
                 id: "catalog",
-                header: "Catalogo attivo",
+                header: "Menu attivo ora",
                 width: "1.5fr",
                 cell: (_, business) => {
                     const activeCatalog = activeCatalogsMap?.[business.id];
                     return <Text variant="body-sm">{activeCatalog?.catalogName ?? "—"}</Text>;
+                }
+            },
+            {
+                id: "manage",
+                header: "",
+                width: "110px",
+                align: "right",
+                cell: (_, business) => {
+                    const activeCatalog = activeCatalogsMap?.[business.id];
+                    if (!activeCatalog) return null;
+                    return (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={e => {
+                                e.stopPropagation();
+                                onManageAvailability?.(business.id, business.name);
+                            }}
+                        >
+                            Gestisci
+                        </Button>
+                    );
                 }
             },
             {
@@ -81,7 +103,6 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 width: "56px",
                 align: "right",
                 cell: (_, business) => {
-                    const activeCatalog = activeCatalogsMap?.[business.id];
                     const publicUrl = `${window.location.origin}/${business.slug}`;
 
                     return (
@@ -103,13 +124,6 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                                     label: "Copia link",
                                     icon: Link,
                                     onClick: () => navigator.clipboard.writeText(publicUrl)
-                                },
-                                {
-                                    label: "Gestisci disponibilità",
-                                    icon: Calendar,
-                                    onClick: () =>
-                                        onManageAvailability?.(business.id, business.name),
-                                    hidden: !activeCatalog
                                 },
                                 {
                                     label: "Modifica",
