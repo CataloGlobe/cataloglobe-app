@@ -1340,6 +1340,15 @@
   flex-shrink: 0;
 }
 
+/* Lista eventi: .infoSheetContent porta top 1rem (Info sheet) — qui bumped a
+   1.5rem per allinearsi ai lati (1.5rem, invariati). EventsView.grid non
+   aggiunge più padding verticale proprio (rimosso, era residuo del vecchio
+   contesto tab/.tabPatternSurface pre-sheet, ora doppiava lo spazio verticale
+   rispetto ai lati). Scoped alla sola sheet eventi: Info resta invariata. */
+.eventsListContent.infoSheetContent {
+  padding-top: 1.5rem;
+}
+
 .infoSection {
   margin-bottom: 1.5rem;
 

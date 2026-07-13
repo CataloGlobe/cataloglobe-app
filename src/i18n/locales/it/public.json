@@ -251,7 +251,8 @@
     },
     "events": {
         "list_aria": "Eventi e promozioni",
-        "empty": "Nessun evento o promozione attiva al momento."
+        "empty": "Nessun evento o promozione attiva al momento.",
+        "back": "← Torna alla lista"
     },
     "hero": {
         "aria": "Intestazione del catalogo"

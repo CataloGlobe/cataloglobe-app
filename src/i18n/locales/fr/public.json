@@ -251,7 +251,8 @@
   },
   "events": {
     "list_aria": "Événements et promotions",
-    "empty": "Il n'y a pas d'événements ou de promotions en cours pour le moment."
+    "empty": "Il n'y a pas d'événements ou de promotions en cours pour le moment.",
+    "back": "← Retour à la liste"
   },
   "hero": {
     "aria": "En-tête de catalogue"

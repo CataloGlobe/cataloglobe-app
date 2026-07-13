@@ -251,7 +251,8 @@
     },
     "events": {
         "list_aria": "Eventos y promociones",
-        "empty": "No hay eventos ni promociones activos en este momento."
+        "empty": "No hay eventos ni promociones activos en este momento.",
+        "back": "← Volver a la lista"
     },
     "hero": {
         "aria": "Cabecera del catálogo"

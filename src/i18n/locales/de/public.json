@@ -251,7 +251,8 @@
     },
     "events": {
         "list_aria": "Veranstaltungen und Promotionen",
-        "empty": "Zurzeit keine aktiven Veranstaltungen oder Aktionen."
+        "empty": "Zurzeit keine aktiven Veranstaltungen oder Aktionen.",
+        "back": "← Zurück zur Liste"
     },
     "hero": {
         "aria": "Kopfzeile des Katalogs"

@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 .emptyState {
   display: flex;
   flex-direction: column;
@@ -30,20 +32,11 @@
      viewport < 340px). Niente justify-content:center (creava i buchi laterali). */
   grid-template-columns: repeat(auto-fit, minmax(min(340px, 100%), 1fr));
   gap: 24px;
-  /* Su viewport strette niente padding orizzontale sulla griglia: in tab
-     Eventi il gutter laterale è già dato da .tabPatternSurface (16px), quindi
-     un ulteriore 1rem qui raddoppiava l'inset (32px) sprecando larghezza. I
-     breakpoint @container ripristinano il padding orizzontale dove serve. */
-  padding: 1.5rem 0;
-
-  /* @container solo per il padding (le colonne le gestisce auto-fit). */
-  @container events (min-width: 640px) {
-    padding: 2rem 1.5rem;
-  }
-
-  @container events (min-width: 1000px) {
-    padding: 2.5rem 1rem;
-  }
+  /* Nessun padding proprio: lo spazio verticale/orizzontale attorno alla
+     griglia è responsabilità unica di .infoSheetContent/.eventsListContent
+     (CollectionView.module.scss) — un padding qui in aggiunta doppiava lo
+     spazio verticale rispetto ai lati (residuo del vecchio contesto tab
+     .tabPatternSurface, non più montato da quando eventi è una PublicSheet). */
 }
 
 .cardFull {
@@ -56,4 +49,45 @@
 .cardFull:only-child {
   justify-self: center;
   max-width: 560px;
+}
+
+/* Vista dettaglio in-place (click su una card dentro "Eventi & Promo"):
+   niente seconda PublicSheet — stesso spazio della lista, back link +
+   FeaturedContentDetail. .backLink stessi valori di ReviewsView.module.scss. */
+.detailView {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Annulla SOLO lati/basso del padding del wrapper .infoSheetContent
+   (CollectionView.module.scss) ereditato dal parent: FeaturedContentDetail
+   porta già il proprio padding (16px 20px 32px, vedi
+   FeaturedPreviewModal.module.scss .content) — identico al caso standalone
+   (FeaturedPreviewModal), che non ha alcun wrapper extra e quindi paga solo
+   quel padding. Margin-top volutamente 0 (NON negativo): .detailContent è
+   preceduto da .backLink nello stesso flex column con gap — un margin-top
+   negativo abbastanza da annullare il padding del container lo fa risalire
+   sopra .backLink, sovrapponendosi e bloccandone il click (bug riscontrato
+   con Playwright). Il gap naturale sotto backLink resta, non è "doppio
+   padding" nello stesso senso offensivo dei lati/basso. */
+.detailContent {
+  margin: 0 -1.5rem calc(-1 * max(2rem, env(safe-area-inset-bottom)));
+}
+
+.backLink {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: var(--pub-bg-text-muted);
+  padding: 0;
+  align-self: flex-start;
+  transition: color 0.12s ease;
+
+  @include hover {
+    color: var(--pub-bg-text);
+  }
 }

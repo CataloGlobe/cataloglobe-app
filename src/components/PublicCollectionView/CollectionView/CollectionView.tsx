@@ -2720,9 +2720,15 @@ export default function CollectionView({
                     isOpen={isEventsSheetOpen}
                     onClose={closeEventsSheet}
                     ariaLabel={t("hub.events")}
+                    headerContent={
+                        <div className={styles.eventsSheetHeader}>
+                            <Text as="h2" variant="title-md" weight={700} color="var(--pub-surface-text)">
+                                {t("hub.events")}
+                            </Text>
+                        </div>
+                    }
                 >
-                    <div className={styles.infoSheetContent}>
-                        <h2 className={styles.infoSheetTitle}>{t("hub.events")}</h2>
+                    <div className={`${styles.infoSheetContent} ${styles.eventsListContent}`}>
                         <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} />
                     </div>
                 </PublicSheet>
