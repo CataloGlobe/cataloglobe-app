@@ -10,28 +10,29 @@ import styles from "./PublicBottomBar.module.scss";
  * Bottom nav bar icon-only del sito pubblico — SOLO mobile (≤640px), montata in
  * public via split CSS-driven. Sostituisce i tab header (HUB_TABS) + le azioni desktop.
  *
- * - 3 tab (menu/eventi/recensioni) con pill attiva che scorre (offsetLeft/width misurati).
+ * - 2 tab (menu/storia) con pill attiva che scorre (offsetLeft/width misurati).
+ * - Eventi/recensioni NON sono più tab: sono trigger icona che aprono le
+ *   PublicSheet dedicate (stato locale in CollectionView), stesso slot visivo
+ *   dei tab ma senza indicatore/attivazione.
  * - Slot carrello separato da divider (non è un tab attivo).
  * - Shrink-on-scroll: riusa `useScrollCollapse` (segnale già usato dai FAB pubblici),
  *   nessun nuovo scroll listener su window è scritto qui dentro. Tap su un'icona riespande.
- * - Dot recensione sull'icona recensioni guidato dalla stessa condizione del valutaFab
+ * - Dot recensione sul trigger recensioni guidato dalla stessa condizione del valutaFab
  *   (prop `reviewDot`, derivata da `valutaVisible` nel parent).
  */
 
 type TabDef = { id: HubTab; icon: ReactNode; labelKey: string };
 
-// ⚠️ Visibilità tab "events"/"storia" sincronizzata con PublicCollectionHeader.tsx (stesso filtro)
+// ⚠️ Visibilità tab "storia" sincronizzata con PublicCollectionHeader.tsx (stesso filtro)
 const TABS: TabDef[] = [
     { id: "menu", icon: <Utensils size={19} strokeWidth={1.9} />, labelKey: "hub.menu" },
-    { id: "events", icon: <CalendarDays size={19} strokeWidth={1.9} />, labelKey: "hub.events" },
-    { id: "reviews", icon: <MessageCircle size={19} strokeWidth={1.9} />, labelKey: "hub.reviews" },
     { id: "storia", icon: <BookOpenText size={19} strokeWidth={1.9} />, labelKey: "hub.storia" },
 ];
 
 type Props = {
     activeTab: HubTab;
     onTabChange: (tab: HubTab) => void;
-    /** Mostra la tab "events". Default true (retrocompatibile). Sincronizzato con PublicCollectionHeader. */
+    /** Mostra il trigger "eventi". Default true (retrocompatibile). Sincronizzato con PublicCollectionHeader. */
     showEventsTab?: boolean;
     /** Mostra la tab "storia". Default false (gated su has_story dal catalogo). Sincronizzato con PublicCollectionHeader. */
     showStoryTab?: boolean;
@@ -39,9 +40,15 @@ type Props = {
     /** Mostra lo slot carrello. Allineato a `!shouldHideOrderingEntry` del parent. */
     cartVisible: boolean;
     onOpenCart: () => void;
-    /** Pallino sull'icona recensioni — stessa condizione del valutaFab (`valutaVisible`). */
+    /** Apre la sheet "eventi". Undefined ⇒ trigger non renderizzato. */
+    onOpenEvents?: () => void;
+    /** Badge indicatore contenuti attivi sul trigger eventi (allFeaturedContents.length > 0). */
+    eventsBadge?: boolean;
+    /** Apre la sheet "recensioni". Undefined ⇒ trigger non renderizzato. */
+    onOpenReviews?: () => void;
+    /** Pallino sul trigger recensioni — stessa condizione del valutaFab (`valutaVisible`). */
     reviewDot: boolean;
-    /** Dismiss del dot per la sessione, al tap sulla tab recensioni. */
+    /** Dismiss del dot per la sessione, al tap sul trigger recensioni. */
     onReviewDotDismiss?: () => void;
     /** True quando una sheet (dettaglio prodotto o ordine) è aperta: congela lo shrink
      *  per evitare il flicker dovuto al body scroll-lock che azzera window.scrollY. */
@@ -62,6 +69,9 @@ export default function PublicBottomBar({
     selectionCount,
     cartVisible,
     onOpenCart,
+    onOpenEvents,
+    eventsBadge = false,
+    onOpenReviews,
     reviewDot,
     onReviewDotDismiss,
     isSheetOpen = false,
@@ -88,10 +98,8 @@ export default function PublicBottomBar({
     }, [preview]);
 
     const groupRef = useRef<HTMLDivElement | null>(null);
-    const tabRefs = useRef<Record<HubTab, HTMLButtonElement | null>>({
+    const tabRefs = useRef<Partial<Record<HubTab, HTMLButtonElement | null>>>({
         menu: null,
-        events: null,
-        reviews: null,
         storia: null,
     });
     const [indicator, setIndicator] = useState<{ left: number; width: number }>({
@@ -133,12 +141,16 @@ export default function PublicBottomBar({
     const shrink = useScrollCollapse(50, isSheetOpen, preview ? false : isMobileActive);
 
     const handleTab = (tab: HubTab) => {
-        if (tab === "reviews" && reviewDot) onReviewDotDismiss?.();
         onTabChange(tab);
     };
 
     const handleCart = () => {
         onOpenCart();
+    };
+
+    const handleOpenReviews = () => {
+        if (reviewDot) onReviewDotDismiss?.();
+        onOpenReviews?.();
     };
 
     // Bump dell'icona carrello quando selectionCount AUMENTA (aggiunta piatto).
@@ -173,8 +185,7 @@ export default function PublicBottomBar({
                     aria-hidden="true"
                 />
                 {TABS.filter(tab =>
-                    (tab.id !== "events" || showEventsTab) &&
-                    (tab.id !== "storia" || showStoryTab)
+                    tab.id !== "storia" || showStoryTab
                 ).map(tab => (
                     <button
                         key={tab.id}
@@ -190,11 +201,33 @@ export default function PublicBottomBar({
                         onClick={() => handleTab(tab.id)}
                     >
                         {tab.icon}
-                        {tab.id === "reviews" && reviewDot && (
-                            <span className={styles.dot} aria-hidden="true" />
-                        )}
                     </button>
                 ))}
+
+                {/* Trigger eventi/recensioni: aprono le sheet dedicate, non sono tab
+                    (nessun indicatore/pill, stessa dimensione visiva di .tab). */}
+                {onOpenEvents && showEventsTab && (
+                    <button
+                        type="button"
+                        className={styles.tab}
+                        aria-label={t("hub.events")}
+                        onClick={onOpenEvents}
+                    >
+                        <CalendarDays size={19} strokeWidth={1.9} />
+                        {eventsBadge && <span className={styles.dot} aria-hidden="true" />}
+                    </button>
+                )}
+                {onOpenReviews && (
+                    <button
+                        type="button"
+                        className={styles.tab}
+                        aria-label={t("hub.reviews")}
+                        onClick={handleOpenReviews}
+                    >
+                        <MessageCircle size={19} strokeWidth={1.9} />
+                        {reviewDot && <span className={styles.dot} aria-hidden="true" />}
+                    </button>
+                )}
             </div>
 
             {/* Divisore tra il gruppo nav e l'azione carrello. */}

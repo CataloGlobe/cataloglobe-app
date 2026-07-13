@@ -954,6 +954,28 @@ export default function CollectionView({
     // ── More sheet ──────────────────────────────────────────────────────────
     const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
 
+    // ── Eventi/Recensioni: modali (PublicSheet), non più tab a pagina intera ──
+    // "menu" resta l'unica vista primaria di activeTab; eventi/recensioni si
+    // aprono/chiudono in stato locale, indipendente dal tab attivo.
+    const [isEventsSheetOpen, setIsEventsSheetOpen] = useState(false);
+    const [isReviewsSheetOpen, setIsReviewsSheetOpen] = useState(false);
+
+    const openEventsSheet = useCallback(() => {
+        if (mode === "public" && activityId) {
+            trackEvent(activityId, "tab_switch", { from_tab: activeTab, to_tab: "events" });
+        }
+        setIsEventsSheetOpen(true);
+    }, [mode, activityId, activeTab]);
+    const closeEventsSheet = useCallback(() => setIsEventsSheetOpen(false), []);
+
+    const openReviewsSheet = useCallback(() => {
+        if (mode === "public" && activityId) {
+            trackEvent(activityId, "tab_switch", { from_tab: activeTab, to_tab: "reviews" });
+        }
+        setIsReviewsSheetOpen(true);
+    }, [mode, activityId, activeTab]);
+    const closeReviewsSheet = useCallback(() => setIsReviewsSheetOpen(false), []);
+
     // ── Tab Storia: predisposizione lettore (sub-fase 5 renderizza il contenuto) ──
     const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
 
@@ -1761,6 +1783,16 @@ export default function CollectionView({
     // true = visitatore di ritorno entro 4h, senza review recente → FAB idoneo
     const valutaEligibleRef = useRef(false);
 
+    // Dismiss del promemoria recensione al tap sul trigger, stessa condizione
+    // del vecchio onReviewDotDismiss della bottom-bar (tab "reviews").
+    const handleOpenReviewsFromTrigger = useCallback(() => {
+        if (valutaVisible) {
+            setValutaVisible(false);
+            valutaEligibleRef.current = false;
+        }
+        openReviewsSheet();
+    }, [valutaVisible, openReviewsSheet]);
+
     // ── Keep first section active when sections load asynchronously ─────────
     useEffect(() => {
         if (!activeSectionId && sectionGroups.length > 0) {
@@ -2308,6 +2340,9 @@ export default function CollectionView({
                     selectionCount={selectionCount}
                     orderVisible={showHeaderActions && !shouldHideOrderingEntry}
                     onOpenOrder={showHeaderActions ? (mode === "preview" ? () => {} : openOrdering) : undefined}
+                    onOpenEvents={mode === "public" ? openEventsSheet : undefined}
+                    eventsBadge={mode === "public" && featuredContents.length > 0}
+                    onOpenReviews={mode === "public" && reviewsProps ? handleOpenReviewsFromTrigger : undefined}
                     reviewDot={showHeaderActions ? valutaVisible : false}
                 />
             )}
@@ -2677,36 +2712,47 @@ export default function CollectionView({
                 </>
             )}
 
-            {activeTab === "events" && (
-                // Bottom-bar mode: niente CollectionSectionNav qui. Il contenuto sta sulla STESSA
-                // superficie a pattern del Menu (.tabPatternSurface, full-bleed + z-index) che taglia
-                // l'hero al bordo basso dell'header. Padding-top piccolo, niente fascia crema piatta.
-                <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
-                    <div className={styles.frame}>
+            {/* ── EVENTS SHEET ── Modale (non più tab a pagina intera). Gated su
+                showEventsTab: stessa condizione che prima decideva se il tab era
+                raggiungibile (public: featuredContents non vuoto; preview: sempre). */}
+            {showEventsTab && (
+                <PublicSheet
+                    isOpen={isEventsSheetOpen}
+                    onClose={closeEventsSheet}
+                    ariaLabel={t("hub.events")}
+                >
+                    <div className={styles.infoSheetContent}>
+                        <h2 className={styles.infoSheetTitle}>{t("hub.events")}</h2>
                         <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} />
                     </div>
-                </div>
+                </PublicSheet>
             )}
 
-            {activeTab === "reviews" && reviewsProps && (
-                <Suspense fallback={null}>
-                    {/* Stesso meccanismo di Eventi: superficie a pattern che taglia l'hero. */}
-                    <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
-                        <ReviewsView
-                            {...reviewsProps}
-                            onReviewSubmitted={() => {
-                                // Nascondi FAB e salva timestamp per sopprimerlo per 24h
-                                setValutaVisible(false);
-                                valutaEligibleRef.current = false;
-                                if (activityId) {
-                                    try {
-                                        localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
-                                    } catch { /* Safari private mode */ }
-                                }
-                            }}
-                        />
-                    </div>
-                </Suspense>
+            {/* ── REVIEWS SHEET ── Modale (non più tab a pagina intera). */}
+            {reviewsProps && (
+                <PublicSheet
+                    isOpen={isReviewsSheetOpen}
+                    onClose={closeReviewsSheet}
+                    ariaLabel={t("hub.reviews")}
+                >
+                    <Suspense fallback={null}>
+                        <div className={`${styles.infoSheetContent} ${styles.reviewsSheetContent}`}>
+                            <ReviewsView
+                                {...reviewsProps}
+                                onReviewSubmitted={() => {
+                                    // Nascondi FAB e salva timestamp per sopprimerlo per 24h
+                                    setValutaVisible(false);
+                                    valutaEligibleRef.current = false;
+                                    if (activityId) {
+                                        try {
+                                            localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
+                                        } catch { /* Safari private mode */ }
+                                    }
+                                }}
+                            />
+                        </div>
+                    </Suspense>
+                </PublicSheet>
             )}
 
             {activeTab === "storia" && slug && (
@@ -2740,6 +2786,9 @@ export default function CollectionView({
                     selectionCount={selectionCount}
                     cartVisible={mode === "preview" ? orderingActive && !shouldHideOrderingEntry : !shouldHideOrderingEntry}
                     onOpenCart={mode === "preview" ? () => {} : openOrdering}
+                    onOpenEvents={mode === "preview" ? () => {} : openEventsSheet}
+                    eventsBadge={mode !== "preview" && featuredContents.length > 0}
+                    onOpenReviews={mode === "preview" ? () => {} : (reviewsProps ? openReviewsSheet : undefined)}
                     reviewDot={mode === "preview" ? false : valutaVisible}
                     onReviewDotDismiss={mode === "preview" ? () => {} : () => {
                         setValutaVisible(false);

@@ -409,19 +409,38 @@
   }
 }
 
-/* Dot promemoria recensione sulla tab "Dicci la tua". Accent con bordo del
-   colore header così si stacca pulito. Nascosto quando la tab è attiva (gate
-   nel .tsx) per non sovrapporsi allo sfondo accent. */
-.chipDot {
+/* Gruppo trigger eventi/recensioni (aprono le sheet dedicate): stesso split
+   CSS-driven di .headerActions — SSR-safe, nascosto ≤640px dove la bottom-bar
+   mobile porta gli stessi trigger. */
+.hubTriggers {
+  display: contents;
+}
+
+.root[data-bottombar] {
+  @media (max-width: 640px) {
+    .hubTriggers {
+      display: none;
+    }
+  }
+}
+
+.root[data-preview-device="mobile"] {
+  .hubTriggers {
+    display: none;
+  }
+}
+
+/* Dot promemoria su un trigger icona (eventi/recensioni). Stessa geometria del
+   badge numerico .iconBtnBadge ma senza contenuto testuale. */
+.iconBtnDot {
   position: absolute;
-  top: 3px;
-  right: 5px;
-  width: 6px;
-  height: 6px;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
   border-radius: 999px;
   background: var(--pub-accent, #f59e0b);
-  border: 1.5px solid rgba(20, 20, 20, 0.92);
-  box-sizing: content-box;
+  border: 2px solid rgba(20, 20, 20, 0.92);
   pointer-events: none;
 }
 

@@ -7,11 +7,12 @@ import { buildCoverImageSet } from "@/utils/imageTransform";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
 
-// ⚠️ Visibilità tab "events" sincronizzata con PublicBottomBar.tsx (stesso filtro)
+// Eventi/Recensioni non sono più tab (vedi trigger icona onOpenEvents/onOpenReviews
+// più sotto, PublicSheet dedicate in CollectionView) — "menu" resta l'unica vista
+// primaria, "storia" resta un tab (contenuto full-page, non un modale).
+// ⚠️ Visibilità tab "storia" sincronizzata con PublicBottomBar.tsx (stesso filtro)
 const HUB_TABS: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
     { id: "menu", icon: <Utensils size={14} />, labelKey: "hub.menu" },
-    { id: "events", icon: <CalendarDays size={14} />, labelKey: "hub.events" },
-    { id: "reviews", icon: <MessageCircle size={14} />, labelKey: "hub.reviews" },
     { id: "storia", icon: <BookOpenText size={14} />, labelKey: "hub.storia" },
 ];
 
@@ -69,10 +70,10 @@ export type PublicCollectionHeaderProps = {
     allergensCount?: number;
     /** Apre il MoreSheet (allergeni + info). Undefined in preview. */
     onOpenMore?: () => void;
-    /** Mostra le hub tabs (menu/eventi/recensioni). Default true (comportamento storico). */
+    /** Mostra le hub tabs (menu/storia). Default true (comportamento storico). */
     showHubTabs?: boolean;
-    /** Mostra la tab "events". Default true (retrocompatibile). Filtrata via stessa
-     *  logica di PublicBottomBar quando non ci sono featured da mostrare. */
+    /** Mostra il trigger "eventi" (apre la sheet). Default true (retrocompatibile).
+     *  Stessa logica di PublicBottomBar: false quando non ci sono featured da mostrare. */
     showEventsTab?: boolean;
     /** Mostra la tab "storia". Default false (gated su has_story dal catalogo).
      *  Filtrata via stessa logica di PublicBottomBar. */
@@ -90,7 +91,13 @@ export type PublicCollectionHeaderProps = {
     orderVisible?: boolean;
     /** Apre il drawer ordine. Undefined ⇒ bottone non renderizzato. */
     onOpenOrder?: () => void;
-    /** Dot promemoria recensione sulla tab "Dicci la tua" (riusa valutaVisible). */
+    /** Apre la sheet "eventi". Undefined ⇒ bottone non renderizzato (fuori preview). */
+    onOpenEvents?: () => void;
+    /** Badge indicatore contenuti attivi sul trigger eventi (allFeaturedContents.length > 0). */
+    eventsBadge?: boolean;
+    /** Apre la sheet "recensioni". Undefined ⇒ bottone non renderizzato (fuori preview). */
+    onOpenReviews?: () => void;
+    /** Dot promemoria recensione sul trigger "Dicci la tua" (riusa valutaVisible). */
     reviewDot?: boolean;
     /** Solo preview: device emulato dal toggle Mobile/Desktop. Settato come
      *  attributo data-preview-device sul .root → pilota lo split CSS in anteprima
@@ -132,6 +139,9 @@ export default function PublicCollectionHeader({
     selectionCount = 0,
     orderVisible = false,
     onOpenOrder,
+    onOpenEvents,
+    eventsBadge = false,
+    onOpenReviews,
     reviewDot = false,
     previewDevice,
     frozen = false,
@@ -415,6 +425,42 @@ export default function PublicCollectionHeader({
                             </button>
                         )}
 
+                        {/* Trigger eventi/recensioni: aprono le sheet dedicate (non più tab).
+                            Nascosti ≤640px via @media (stesso split di .headerActions/.chips):
+                            la bottom-bar mobile porta gli stessi trigger. */}
+                        {((onOpenEvents && showEventsTab) || onOpenReviews || mode === "preview") && (
+                            <div className={styles.hubTriggers}>
+                                {((onOpenEvents && showEventsTab) || mode === "preview") && (
+                                    <button
+                                        type="button"
+                                        className={styles.iconBtn}
+                                        onClick={onOpenEvents}
+                                        aria-label={t("hub.events")}
+                                        tabIndex={mode === "preview" ? -1 : undefined}
+                                    >
+                                        <CalendarDays size={15} strokeWidth={2} />
+                                        {eventsBadge && (
+                                            <span className={styles.iconBtnDot} aria-hidden="true" />
+                                        )}
+                                    </button>
+                                )}
+                                {(onOpenReviews || mode === "preview") && (
+                                    <button
+                                        type="button"
+                                        className={styles.iconBtn}
+                                        onClick={onOpenReviews}
+                                        aria-label={t("hub.reviews")}
+                                        tabIndex={mode === "preview" ? -1 : undefined}
+                                    >
+                                        <MessageCircle size={15} strokeWidth={2} />
+                                        {reviewDot && (
+                                            <span className={styles.iconBtnDot} aria-hidden="true" />
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
                         {/* Gruppo azioni desktop (Ordine). Sotto flag bottom-bar è montato
                             sempre ma nascosto ≤640px via @media (la bottom-bar mobile porta
                             la stessa azione). */}
@@ -458,8 +504,7 @@ export default function PublicCollectionHeader({
                                 .join(" ")}
                         >
                             {HUB_TABS.filter(tab =>
-                                (tab.id !== "events" || showEventsTab) &&
-                                (tab.id !== "storia" || showStoryTab)
+                                tab.id !== "storia" || showStoryTab
                             ).map(tab => (
                                 <button
                                     key={tab.id}
@@ -473,9 +518,6 @@ export default function PublicCollectionHeader({
                                     onClick={() => onTabChange?.(tab.id)}
                                 >
                                     {tab.icon} {t(tab.labelKey)}
-                                    {tab.id === "reviews" && reviewDot && activeTab !== "reviews" && (
-                                        <span className={styles.chipDot} aria-hidden="true" />
-                                    )}
                                 </button>
                             ))}
                         </div>

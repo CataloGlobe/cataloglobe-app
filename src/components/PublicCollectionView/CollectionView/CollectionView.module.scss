@@ -1309,6 +1309,15 @@
   padding-bottom: max(2rem, env(safe-area-inset-bottom));
 }
 
+/* Reviews sheet: ReviewsView.root porta già il proprio padding verticale
+   (pensato per il flow a step, non per essere annidato in un wrapper già
+   paddato) — senza questo override si sommava a .infoSheetContent, doppiando
+   il padding e sbilanciandolo ulteriormente in basso. Scoped alla sola sheet
+   recensioni: Info/Eventi restano su .infoSheetContent invariato. */
+.reviewsSheetContent.infoSheetContent {
+  padding: 0;
+}
+
 .infoSheetTitle {
   font-size: 1rem;
   font-weight: 600;
