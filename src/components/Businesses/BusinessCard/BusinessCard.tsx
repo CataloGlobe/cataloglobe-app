@@ -1,7 +1,7 @@
 import React from "react";
 import Text from "@components/ui/Text/Text";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { MoreVertical, Building2 } from "lucide-react";
+import { MoreVertical, Building2, Clock } from "lucide-react";
 import type { BusinessCardProps } from "@/types/Businesses";
 import styles from "./BusinessCard.module.scss";
 import { Button } from "@/components/ui";
@@ -153,31 +153,43 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
 
                 <div className={styles.divider} />
 
-                <div className={styles.catalogInfo}>
-                    {catalogsLoading ? (
-                        <div className={styles.catalogLabel}>
-                            <Text variant="caption" colorVariant="muted">
-                                Menu attivo ora
-                            </Text>
-                            <Text variant="caption" colorVariant="muted">
-                                Caricamento...
-                            </Text>
+                {catalogsLoading ? (
+                    <div className={styles.catalogFooter}>
+                        <div className={styles.catalogFooterLeft}>
+                            <span className={styles.catalogIcon}>
+                                <Clock size={14} strokeWidth={2} />
+                            </span>
+                            <div className={styles.catalogText}>
+                                <Text variant="caption" className={styles.catalogFooterLabel}>
+                                    Menu attivo ora
+                                </Text>
+                                <Text variant="caption" colorVariant="muted">
+                                    Caricamento...
+                                </Text>
+                            </div>
                         </div>
-                    ) : activeCatalog?.hasActiveCatalog ? (
-                        <div className={styles.catalogLabel}>
-                            <Text variant="caption" colorVariant="muted">
-                                Menu attivo ora
-                            </Text>
-                            <Text variant="caption" weight={600}>
-                                {activeCatalog.catalogName}
-                            </Text>
+                    </div>
+                ) : activeCatalog?.hasActiveCatalog ? (
+                    <div className={styles.catalogFooter}>
+                        <div className={styles.catalogFooterLeft}>
+                            <span className={styles.catalogIcon}>
+                                <Clock size={14} strokeWidth={2} />
+                            </span>
+                            <div className={styles.catalogText}>
+                                <Text variant="caption" className={styles.catalogFooterLabel}>
+                                    Menu attivo ora
+                                </Text>
+                                <Text
+                                    variant="caption"
+                                    weight={600}
+                                    className={styles.catalogName}
+                                >
+                                    {activeCatalog.catalogName}
+                                </Text>
+                            </div>
                         </div>
-                    ) : (
-                        <span className={styles.noCatalog}>Nessun catalogo attivo</span>
-                    )}
-                    {!catalogsLoading && activeCatalog?.hasActiveCatalog && (
                         <Button
-                            variant="secondary"
+                            variant="primary"
                             size="sm"
                             onClick={e => {
                                 e.stopPropagation();
@@ -186,8 +198,12 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                         >
                             Gestisci
                         </Button>
-                    )}
-                </div>
+                    </div>
+                ) : (
+                    <div className={styles.catalogInfo}>
+                        <span className={styles.noCatalog}>Nessun catalogo attivo</span>
+                    </div>
+                )}
             </div>
         </article>
     );
