@@ -2,7 +2,8 @@ import { supabase } from "@/services/supabase/client";
 import {
     resolveActivityCatalogs,
     findLayoutCatalogId,
-    loadCatalogById
+    normalizeCatalog,
+    type RawCatalogRow
 } from "./resolveActivityCatalogs";
 import { getNowInRome } from "@/services/supabase/schedulingNow";
 import type { VisibilityMode } from "@/services/supabase/scheduleResolver";
@@ -117,6 +118,88 @@ export async function getActiveCatalogForActivities(
 }
 
 /**
+ * Variante "leggera" di `loadCatalogById` per il drawer/tab Gestisci visibilità:
+ * stessa struttura (categorie → prodotti → varianti → option_groups), ma SENZA
+ * attributes/allergens/characteristics/ingredients/notes/image_url/assignment —
+ * campi non renderizzati dalla tabella di visibilità. Riusa `normalizeCatalog`
+ * (stessa logica di calcolo prezzo/from_price di `loadCatalogById`, nessuna
+ * duplicazione) per evitare divergenze tra le due query.
+ */
+async function loadCatalogForVisibilityDrawer(
+    catalogId: string,
+    tenantId: string
+) {
+    const { data, error } = await supabase
+        .from("catalogs")
+        .select(
+            `
+            id,
+            name,
+            categories:catalog_categories(
+              id,
+              name,
+              level,
+              sort_order,
+              parent_category_id,
+              products:catalog_category_products(
+                id,
+                sort_order,
+                product_id,
+                variant_product_id,
+                product:products!catalog_category_products_product_id_fkey(
+                  id,
+                  name,
+                  base_price,
+                  parent_product_id,
+                  product_type,
+                  option_groups:product_option_groups(
+                    id,
+                    name,
+                    group_kind,
+                    pricing_mode,
+                    is_required,
+                    max_selectable,
+                    values:product_option_values(
+                      id,
+                      name,
+                      absolute_price,
+                      price_modifier
+                    )
+                  ),
+                  variants:products!parent_product_id(
+                    id,
+                    name,
+                    base_price,
+                    option_groups:product_option_groups(
+                      id,
+                      name,
+                      group_kind,
+                      pricing_mode,
+                      is_required,
+                      max_selectable,
+                      values:product_option_values(
+                        id,
+                        name,
+                        absolute_price,
+                        price_modifier
+                      )
+                    )
+                  )
+                )
+              )
+            )
+        `
+        )
+        .eq("tenant_id", tenantId)
+        .eq("id", catalogId)
+        .maybeSingle();
+
+    if (error) throw error;
+
+    return normalizeCatalog((data as unknown as RawCatalogRow | null) ?? null);
+}
+
+/**
  * Returns a simplified, flattened list of products as rendered by the V2 resolver.
  * This reflects the final deterministic state (Schedule + Activity Overrides).
  */
@@ -132,7 +215,7 @@ export async function getRenderableCatalogForActivity(
     }
 
     const [catalog, overrides] = await Promise.all([
-        loadCatalogById(catalogId, tenantId),
+        loadCatalogForVisibilityDrawer(catalogId, tenantId),
         getActivityProductOverrides(activityId)
     ]);
 

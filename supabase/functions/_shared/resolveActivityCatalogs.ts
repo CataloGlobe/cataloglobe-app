@@ -340,7 +340,7 @@ type RawCategoryRow = {
     products: RawCategoryProductRow[] | RawCategoryProductRow | null;
 };
 
-type RawCatalogRow = {
+export type RawCatalogRow = {
     id: string;
     name: string;
     categories: RawCategoryRow[] | RawCategoryRow | null;
@@ -401,7 +401,7 @@ function isMissingColumnError(error: unknown, column: string): boolean {
 
 // ── Catalog normalizer ───────────────────────────────────────────────────────
 
-function normalizeCatalog(
+export function normalizeCatalog(
     raw: RawCatalogRow | RawCatalogRow[] | null
 ): ResolvedCatalog | undefined {
     const catalog = normalizeOne(raw);

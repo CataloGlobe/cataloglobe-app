@@ -339,7 +339,7 @@ type RawOptionGroupRow = {
     values: RawOptionValueRow[] | RawOptionValueRow | null;
 };
 
-type RawCatalogRow = {
+export type RawCatalogRow = {
     id: string;
     name: string;
     categories: RawCategoryRow[] | RawCategoryRow | null;
@@ -393,7 +393,7 @@ function isMissingColumnError(error: unknown, column: string): boolean {
     );
 }
 
-function normalizeCatalog(
+export function normalizeCatalog(
     raw: RawCatalogRow | RawCatalogRow[] | null
 ): ResolvedCatalog | undefined {
     const catalog = normalizeOne(raw);
