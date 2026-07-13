@@ -157,7 +157,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                     {catalogsLoading ? (
                         <div className={styles.catalogLabel}>
                             <Text variant="caption" colorVariant="muted">
-                                Catalogo attivo
+                                Menu attivo ora
                             </Text>
                             <Text variant="caption" colorVariant="muted">
                                 Caricamento...
@@ -166,7 +166,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                     ) : activeCatalog?.hasActiveCatalog ? (
                         <div className={styles.catalogLabel}>
                             <Text variant="caption" colorVariant="muted">
-                                Catalogo attivo ora
+                                Menu attivo ora
                             </Text>
                             <Text variant="caption" weight={600}>
                                 {activeCatalog.catalogName}
