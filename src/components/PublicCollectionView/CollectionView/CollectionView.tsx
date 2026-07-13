@@ -2341,7 +2341,6 @@ export default function CollectionView({
                     orderVisible={showHeaderActions && !shouldHideOrderingEntry}
                     onOpenOrder={showHeaderActions ? (mode === "preview" ? () => {} : openOrdering) : undefined}
                     onOpenEvents={mode === "public" ? openEventsSheet : undefined}
-                    eventsBadge={mode === "public" && featuredContents.length > 0}
                     onOpenReviews={mode === "public" && reviewsProps ? handleOpenReviewsFromTrigger : undefined}
                     reviewDot={showHeaderActions ? valutaVisible : false}
                 />
@@ -2793,7 +2792,6 @@ export default function CollectionView({
                     cartVisible={mode === "preview" ? orderingActive && !shouldHideOrderingEntry : !shouldHideOrderingEntry}
                     onOpenCart={mode === "preview" ? () => {} : openOrdering}
                     onOpenEvents={mode === "preview" ? () => {} : openEventsSheet}
-                    eventsBadge={mode !== "preview" && featuredContents.length > 0}
                     onOpenReviews={mode === "preview" ? () => {} : (reviewsProps ? openReviewsSheet : undefined)}
                     reviewDot={mode === "preview" ? false : valutaVisible}
                     onReviewDotDismiss={mode === "preview" ? () => {} : () => {

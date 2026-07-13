@@ -262,7 +262,10 @@
     },
     "language_selector": {
         "trigger_aria": "Sprache auswählen",
-        "list_aria": "Verfügbare Sprachen"
+        "list_aria": "Verfügbare Sprachen",
+        "sheet_title": "Sprache",
+        "close_aria": "Schließen",
+        "close_label": "Schließen"
     },
     "brand": {
         "logo_alt_default": "Logo",

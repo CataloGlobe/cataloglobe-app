@@ -22,6 +22,7 @@ export default function LanguageSelector({ scrollContainerEl }: LanguageSelector
             currentLang={currentLang}
             onSelect={setLang}
             scrollContainerEl={scrollContainerEl}
+            renderAs="sheet"
         />
     );
 }

@@ -42,8 +42,6 @@ type Props = {
     onOpenCart: () => void;
     /** Apre la sheet "eventi". Undefined ⇒ trigger non renderizzato. */
     onOpenEvents?: () => void;
-    /** Badge indicatore contenuti attivi sul trigger eventi (allFeaturedContents.length > 0). */
-    eventsBadge?: boolean;
     /** Apre la sheet "recensioni". Undefined ⇒ trigger non renderizzato. */
     onOpenReviews?: () => void;
     /** Pallino sul trigger recensioni — stessa condizione del valutaFab (`valutaVisible`). */
@@ -70,7 +68,6 @@ export default function PublicBottomBar({
     cartVisible,
     onOpenCart,
     onOpenEvents,
-    eventsBadge = false,
     onOpenReviews,
     reviewDot,
     onReviewDotDismiss,
@@ -214,7 +211,6 @@ export default function PublicBottomBar({
                         onClick={onOpenEvents}
                     >
                         <CalendarDays size={19} strokeWidth={1.9} />
-                        {eventsBadge && <span className={styles.dot} aria-hidden="true" />}
                     </button>
                 )}
                 {onOpenReviews && (

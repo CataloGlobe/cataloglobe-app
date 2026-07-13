@@ -123,6 +123,16 @@
   user-select: none;
 }
 
+/* ── Footer zone (azioni consumer, es. Reset/Applica) ───────────────────────
+   Sibling di children FUORI dall'area scrollabile che il consumer mette nei
+   children: .panel è flex-column + overflow:hidden, quindi footerZone resta
+   ancorato in basso indipendentemente dallo scroll interno del contenuto
+   sopra. Nessuno stile visivo qui (bordo/bg/padding): il consumer definisce
+   il proprio treatment, stesso pattern di dragZone/header per-consumer. */
+.footerZone {
+  flex-shrink: 0;
+}
+
 /* ── Desktop: panel shape override ──────────────────────────────────────── */
 
 @media (min-width: 640px) {

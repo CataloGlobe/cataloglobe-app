@@ -82,6 +82,28 @@ export default function AllergensSheet(props: Props) {
                     </button>
                 </div>
             }
+            footerContent={
+                isFilter && props.allergens.length > 0 ? (
+                    <div className={styles.filterActions}>
+                        <button
+                            type="button"
+                            onClick={() => setDraft([])}
+                            disabled={draft.length === 0}
+                            className={styles.resetBtn}
+                        >
+                            {t("allergens.filter_reset")}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={handleApply}
+                            className={styles.applyBtn}
+                        >
+                            {t("allergens.filter_apply")}
+                            {draft.length > 0 && ` · ${draft.length}`}
+                        </button>
+                    </div>
+                ) : undefined
+            }
         >
             <div className={styles.body}>
                 {isFilter && (
@@ -143,27 +165,6 @@ export default function AllergensSheet(props: Props) {
                         <Text variant="caption-xs" color="var(--pub-surface-text-muted)">
                             {t("allergens.filter_disclaimer")}
                         </Text>
-                    </div>
-                )}
-
-                {isFilter && props.allergens.length > 0 && (
-                    <div className={styles.filterActions}>
-                        <button
-                            type="button"
-                            onClick={() => setDraft([])}
-                            disabled={draft.length === 0}
-                            className={styles.resetBtn}
-                        >
-                            {t("allergens.filter_reset")}
-                        </button>
-                        <button
-                            type="button"
-                            onClick={handleApply}
-                            className={styles.applyBtn}
-                        >
-                            {t("allergens.filter_apply")}
-                            {draft.length > 0 && ` · ${draft.length}`}
-                        </button>
                     </div>
                 )}
 

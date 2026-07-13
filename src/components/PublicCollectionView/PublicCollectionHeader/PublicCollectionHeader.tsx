@@ -93,8 +93,6 @@ export type PublicCollectionHeaderProps = {
     onOpenOrder?: () => void;
     /** Apre la sheet "eventi". Undefined ⇒ bottone non renderizzato (fuori preview). */
     onOpenEvents?: () => void;
-    /** Badge indicatore contenuti attivi sul trigger eventi (allFeaturedContents.length > 0). */
-    eventsBadge?: boolean;
     /** Apre la sheet "recensioni". Undefined ⇒ bottone non renderizzato (fuori preview). */
     onOpenReviews?: () => void;
     /** Dot promemoria recensione sul trigger "Dicci la tua" (riusa valutaVisible). */
@@ -140,7 +138,6 @@ export default function PublicCollectionHeader({
     orderVisible = false,
     onOpenOrder,
     onOpenEvents,
-    eventsBadge = false,
     onOpenReviews,
     reviewDot = false,
     previewDevice,
@@ -439,9 +436,6 @@ export default function PublicCollectionHeader({
                                         tabIndex={mode === "preview" ? -1 : undefined}
                                     >
                                         <CalendarDays size={15} strokeWidth={2} />
-                                        {eventsBadge && (
-                                            <span className={styles.iconBtnDot} aria-hidden="true" />
-                                        )}
                                     </button>
                                 )}
                                 {(onOpenReviews || mode === "preview") && (

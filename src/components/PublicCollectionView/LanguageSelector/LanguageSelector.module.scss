@@ -15,7 +15,9 @@
   cursor: pointer;
   flex-shrink: 0;
   font-family: var(--pub-font-family, sans-serif);
-  transition: background 0.15s ease, border-color 0.15s ease;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
 }
 
 /* Hero variant — glass, allineato a .iconBtn dell'header (44×44 square) */
@@ -134,4 +136,118 @@
 .itemCheck {
   flex-shrink: 0;
   color: var(--pub-primary);
+}
+
+/* ── SHEET (renderAs="sheet") ───────────────────────────────
+   Stesso pattern header di CharacteristicsSheet/AllergensSheet:
+   titolo a sx + closeBtn a dx (nascosto <640px, chiusura via swipe). */
+.sheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+  flex-shrink: 0;
+  background: var(--pub-surface, #fff);
+}
+
+:global([data-card-treatment="glass"]) .sheetHeader {
+  background: transparent;
+}
+
+.sheetHeaderTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+.sheetCloseBtn {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--pub-btn-radius, 6px);
+  border: none;
+  background: color-mix(in srgb, var(--pub-text, #000) 8%, transparent);
+  color: var(--pub-text, #333);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+
+  @include hover {
+    background: color-mix(in srgb, var(--pub-text, #000) 14%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-primary, #333);
+    outline-offset: 2px;
+  }
+
+  @media (min-width: 640px) {
+    display: inline-flex;
+  }
+}
+
+.sheetBody {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  scrollbar-width: none;
+}
+
+/* Riga lista verticale (no griglia): card individuale, stesso pattern di
+   AllergensSheet .filterRow — bordi arrotondati + gap tra righe, nessun
+   divisore orizzontale (il gap sostituisce il bordo). */
+.sheetItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--pub-surface-border);
+  border-radius: var(--pub-radius);
+  background: transparent;
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 0.9rem;
+  color: var(--pub-surface-text);
+  cursor: pointer;
+  text-align: left;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+
+  @include hover {
+    background: color-mix(in srgb, var(--pub-surface-text) 4%, transparent);
+  }
+}
+
+.sheetItem.itemActive {
+  background: color-mix(in srgb, var(--pub-primary) 10%, transparent);
+  border-color: color-mix(in srgb, var(--pub-primary) 40%, transparent);
+
+  @include hover {
+    background: color-mix(in srgb, var(--pub-primary) 14%, transparent);
+  }
+}
+
+.sheetItem.itemActive .itemLabel {
+  color: var(--pub-primary);
+  font-weight: 600;
 }

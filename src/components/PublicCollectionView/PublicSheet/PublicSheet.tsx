@@ -42,6 +42,14 @@ type Props = {
      */
     headerContent?: React.ReactNode;
     /**
+     * Opzionale: contenuto footer della sheet (es. azioni Reset/Applica di un
+     * filtro multi-selezione). Renderizzato SOTTO i children ma fuori dall'area
+     * scrollabile del panel (`.panel` è flex-column + overflow:hidden; solo il
+     * contenitore scrollabile che il consumer mette nei children scrolla) →
+     * resta sempre visibile indipendentemente dallo scroll del contenuto sopra.
+     */
+    footerContent?: React.ReactNode;
+    /**
      * Opzionale: identificatore del contenuto corrente (es. item.id).
      * Se passato, abilita "close interruption": quando contentKey cambia mentre
      * la sheet sta animando in uscita (es. user tap su un altro prodotto durante
@@ -52,7 +60,7 @@ type Props = {
     contentKey?: string;
 };
 
-export default function PublicSheet({ isOpen, onClose, children, ariaLabel, headerContent, contentKey }: Props) {
+export default function PublicSheet({ isOpen, onClose, children, ariaLabel, headerContent, footerContent, contentKey }: Props) {
     const isMobile = useIsMobile();
     const dragControls = useDragControls();
     const prefersReducedMotion = useReducedMotion();
@@ -531,6 +539,11 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                                 </div>
                             )}
                             {children}
+                            {footerContent && (
+                                <div className={styles.footerZone}>
+                                    {footerContent}
+                                </div>
+                            )}
                         </motion.div>
                     </motion.div>
                 )}
@@ -599,6 +612,11 @@ export default function PublicSheet({ isOpen, onClose, children, ariaLabel, head
                     </div>
                 )}
                 {children}
+                {footerContent && (
+                    <div className={styles.footerZone}>
+                        {footerContent}
+                    </div>
+                )}
             </motion.div>
         </div>
     );
