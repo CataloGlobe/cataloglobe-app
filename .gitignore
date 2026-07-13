@@ -52,6 +52,9 @@ skills-lock.json
 # SSR spike scratch (harness + probes — kept on disk, not tracked)
 spike-ssr/
 
+# Session scratchpad (audit/piano/check script temporanei — kept on disk, not tracked)
+scratchpad/
+
 # Internal planning docs
 docs/superpowers/
 FASE_*.md
