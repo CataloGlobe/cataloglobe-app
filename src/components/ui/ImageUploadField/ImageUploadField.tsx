@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { ImagePlus } from "lucide-react";
+import { ImagePlus, RefreshCw } from "lucide-react";
 import { InputBase } from "@components/ui/Input/InputBase";
 import { Button } from "@components/ui/Button/Button";
 import Text from "@components/ui/Text/Text";
@@ -43,11 +43,15 @@ function formatFileSize(bytes: number): string {
 
 /**
  * Controllo upload immagine compatto — variante controlled/presentazionale.
- * Stato vuoto: dropzone compatto. Stato pieno: miniatura + "Sostituisci"
- * (azione primaria sempre visibile) + "Rimuovi" (secondaria, sottotono).
- * Nessun overlay-hover: touch-friendly. Non esegue upload né delete: il
+ * Stato vuoto: dropzone compatto. Stato pieno: miniatura, con meta (nome +
+ * dimensione) SOLO per un file pendente appena scelto — un'immagine già
+ * salvata ha per nome l'UUID di storage, rumore illeggibile per l'utente:
+ * nessuna riga meta in quel caso, la miniatura basta a confermare. Azioni
+ * RAGGRUPPATE sotto — "Sostituisci" (bottone secondary, bersaglio frequente)
+ * + "Rimuovi" (testo defilato, distruttivo/raro). Nessun overlay-hover,
+ * nessuna icona-only: touch-friendly. Non esegue upload né delete: il
  * parent possiede il draft e persiste al Salva (pattern draft-inline).
- * Compone InputBase (stesso primitive di FileInput) — FileInput invariato.
+ * Compone InputBase (stesso primitive di FileInput).
  */
 export function ImageUploadField({
     label,
@@ -103,25 +107,25 @@ export function ImageUploadField({
                     />
 
                     {imageUrl ? (
-                        <div className={`${styles.filledRow} ${isDisabled ? styles.disabled : ""}`}>
-                            <img
-                                src={imageUrl}
-                                alt="Anteprima immagine"
-                                className={`${styles.thumb} ${
-                                    thumbShape === "square" ? styles.thumbSquare : styles.thumbWide
-                                }`}
-                            />
+                        <div className={`${styles.filled} ${isDisabled ? styles.disabled : ""}`}>
+                            <div className={styles.filledRow}>
+                                <img
+                                    src={imageUrl}
+                                    alt="Anteprima immagine"
+                                    className={`${styles.thumb} ${
+                                        thumbShape === "square" ? styles.thumbSquare : styles.thumbWide
+                                    }`}
+                                />
 
-                            <div className={styles.meta}>
                                 {pendingFile && (
-                                    <>
+                                    <div className={styles.meta}>
                                         <Text as="span" variant="body-sm" className={styles.fileName}>
                                             {pendingFile.name}
                                         </Text>
                                         <Text as="span" variant="body-sm" colorVariant="muted">
                                             {formatFileSize(pendingFile.size)} · non salvato
                                         </Text>
-                                    </>
+                                    </div>
                                 )}
                             </div>
 
@@ -130,21 +134,22 @@ export function ImageUploadField({
                                     type="button"
                                     variant="secondary"
                                     size="sm"
+                                    leftIcon={<RefreshCw size={14} />}
+                                    className={styles.replaceBtn}
                                     onClick={openDialog}
                                     disabled={isDisabled}
                                 >
                                     Sostituisci
                                 </Button>
                                 {onRemove && (
-                                    <Button
+                                    <button
                                         type="button"
-                                        variant="ghost"
-                                        size="sm"
+                                        className={styles.removeBtn}
                                         onClick={onRemove}
                                         disabled={isDisabled}
                                     >
                                         Rimuovi
-                                    </Button>
+                                    </button>
                                 )}
                             </div>
                         </div>

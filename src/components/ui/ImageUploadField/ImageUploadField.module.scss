@@ -45,12 +45,21 @@
    STATO IMMAGINE PRESENTE
 =============================== */
 
+// Blocco compatto: riga miniatura+meta, poi azioni raggruppate sotto —
+// mai stirato a tutta larghezza, mai a mezz'aria accanto alla miniatura.
+.filled {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  min-width: 0;
+}
+
 .filledRow {
   display: flex;
   align-items: center;
   gap: 12px;
-  width: fit-content;
-  max-width: 100%;
   min-width: 0;
 }
 
@@ -86,10 +95,38 @@
 }
 
 .actions {
-  flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 12px;
+}
+
+// Bottone reale, ma con hit-area comoda al pollice anche se il size "sm"
+// resta visivamente compatto (~40px di altezza cliccabile).
+.replaceBtn {
+  min-height: 40px;
+}
+
+// Azione distruttiva e rara: testo defilato, mai il rilievo di "Sostituisci".
+.removeBtn {
+  min-height: 40px;
+  padding: 0 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    color: var(--text);
+    text-decoration: underline;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 }
 
 .disabled {

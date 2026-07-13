@@ -54,18 +54,18 @@ export function StoryProductPicker({ tenantId, value, onChange, disabled }: Stor
                                 type="button"
                                 variant="secondary"
                                 size="sm"
+                                className={styles.changeBtn}
                                 onClick={() => setDrawerOpen(true)}
                             >
                                 Cambia
                             </Button>
-                            <Button
+                            <button
                                 type="button"
-                                variant="ghost"
-                                size="sm"
+                                className={styles.removeBtn}
                                 onClick={() => onChange(null)}
                             >
                                 Rimuovi
-                            </Button>
+                            </button>
                         </div>
                     )}
                 </div>

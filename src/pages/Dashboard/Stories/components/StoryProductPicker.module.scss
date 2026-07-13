@@ -3,8 +3,7 @@
   align-items: center;
   gap: 12px;
   min-width: 0;
-  width: fit-content;
-  max-width: 100%;
+  width: 100%;
 }
 
 .thumb {
@@ -31,6 +30,7 @@
 }
 
 .meta {
+  flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
@@ -55,5 +55,34 @@
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 12px;
+}
+
+// Bottone reale, hit-area comoda al pollice anche se il size "sm" resta
+// visivamente compatto (~40px di altezza cliccabile).
+.changeBtn {
+  min-height: 40px;
+}
+
+// Azione distruttiva e rara: testo defilato, mai il rilievo di "Cambia".
+.removeBtn {
+  min-height: 40px;
+  padding: 0 4px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s ease;
+
+  &:hover:not(:disabled) {
+    color: var(--text);
+    text-decoration: underline;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
 }
