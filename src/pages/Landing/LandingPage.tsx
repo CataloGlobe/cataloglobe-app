@@ -85,7 +85,7 @@ const REDESIGN_FAQ_ITEMS: { q: string; a: string }[] = [
   },
 ];
 import { COMPANY } from "@/config/company";
-import logoHorizontal from "@/assets/brand/logo-horizontal.png";
+import { Logo } from "@/components/ui/Logo/Logo";
 import s from "./LandingPage.module.scss";
 
 /* ── Prezzi (dati locali a questo file — landingData.ts resta per DEMOS) ─── */
@@ -1125,11 +1125,7 @@ function RedesignHeader({ daypart }: { daypart: DaypartKey }) {
           onClick={toTop}
           aria-label="CataloGlobe — torna in cima"
         >
-          <img
-            src={logoHorizontal}
-            alt="CataloGlobe"
-            className={s.appbarLogoImg}
-          />
+          <Logo variant="lockup-horizontal" color="flat" className={s.appbarLogoImg} />
         </a>
         <nav className={s.appbarActions} aria-label="Accesso">
           <a href="/login" className={s.appbarLogin}>
@@ -1832,11 +1828,7 @@ function RedesignFooter() {
     <footer className={s.footer}>
       <div className={s.footerTop}>
         <div className={s.footerBrand}>
-          <img
-            src={logoHorizontal}
-            alt="CataloGlobe"
-            className={s.footerLogoImg}
-          />
+          <Logo variant="lockup-horizontal" color="flat" className={s.footerLogoImg} />
           <p className={s.footerDesc}>
             Menu digitali dinamici per ristoranti, bar, hotel e locali.
           </p>
