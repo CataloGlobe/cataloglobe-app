@@ -60,6 +60,13 @@
     gap: 8px;
 }
 
+// Cella colonna "Visibilità": ospita il SegmentedControl tri-state (icons-only),
+// allineato a destra come il resto della colonna.
+.visibilityCell {
+    display: flex;
+    justify-content: flex-end;
+}
+
 .loading {
     display: flex;
     flex-direction: column;

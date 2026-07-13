@@ -431,11 +431,16 @@
 .unavailableBadge {
   display: inline-block;
   font-size: 0.7rem;
-  color: var(--color-error, #dc2626);
-  background: color-mix(in srgb, var(--color-error, #dc2626) 10%, transparent);
+  // Sfondo alert SOLIDO + testo chiaro: theme-adaptive (segue `--pub-alert`
+  // sovrascritto dallo style) e leggibile su qualsiasi `--pub-surface` chiara o
+  // scura, perché lo sfondo del badge è opaco e non dipende dal contrasto con la
+  // card. Prima usava `--color-error` (token inesistente → fallback #dc2626 fisso,
+  // non adattivo): in dark mode risultava rosso-su-rosso-scuro illeggibile.
+  color: #ffffff;
+  background: var(--pub-alert, #ef4444);
   padding: 0.15rem 0.4rem;
   border-radius: var(--pub-btn-radius, 4px);
-  font-weight: 500;
+  font-weight: 600;
   margin: 0.5rem 0.75rem 0;
 }
 

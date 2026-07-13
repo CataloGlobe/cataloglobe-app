@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { IconEye, IconEyeOff, IconClockExclamation } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
-import { Switch } from "@/components/ui/Switch/Switch";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
@@ -11,6 +11,8 @@ import {
     getActivityProductOverrides,
     getRenderableCatalogForActivity,
     updateActivityProductVisibility,
+    type ActivityProductOverride,
+    type ProductVisibilityState,
     type RenderableCatalog,
     type RenderableProduct
 } from "@/services/supabase/activeCatalog";
@@ -18,7 +20,17 @@ import { getDisplayPrice } from "@/utils/priceDisplay";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./ActivityVisibilityContent.module.scss";
 
-type FilterValue = "all" | "visible" | "hidden";
+type FilterValue = "all" | "visible" | "hidden" | "unavailable";
+
+const VISIBILITY_OPTIONS: {
+    value: ProductVisibilityState;
+    label: string;
+    icon: React.ReactNode;
+}[] = [
+    { value: "visible", label: "Visibile", icon: <IconEye size={16} /> },
+    { value: "hidden", label: "Nascosto", icon: <IconEyeOff size={16} /> },
+    { value: "unavailable", label: "Non disponibile", icon: <IconClockExclamation size={16} /> }
+];
 
 export type VisibilityContentMeta = {
     catalogId: string | null;
@@ -46,9 +58,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
 
     const [isLoading, setIsLoading] = useState(true);
     const [catalog, setCatalog] = useState<RenderableCatalog | null>(null);
-    const [overrides, setOverrides] = useState<
-        Record<string, { visible_override: boolean | null }>
-    >({});
+    const [overrides, setOverrides] = useState<Record<string, ActivityProductOverride>>({});
     const [savingId, setSavingId] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState<FilterValue>("all");
@@ -84,11 +94,11 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         loadData();
     }, [loadData]);
 
-    const handleToggle = async (productId: string, currentVisible: boolean) => {
+    const handleSetState = async (productId: string, state: ProductVisibilityState) => {
         if (!tenantId) return;
         setSavingId(productId);
         try {
-            await updateActivityProductVisibility(activityId, productId, !currentVisible);
+            await updateActivityProductVisibility(activityId, productId, state);
             const [cat, ovs] = await Promise.all([
                 getRenderableCatalogForActivity(activityId, tenantId),
                 getActivityProductOverrides(activityId)
@@ -107,8 +117,10 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         const products = catalog?.products ?? [];
         const term = search.trim().toLowerCase();
         return products.filter(p => {
-            if (filter === "visible" && !p.is_visible) return false;
-            if (filter === "hidden" && p.is_visible) return false;
+            // Tab mutuamente esclusive via visibility_state (unavailable NON è "visibile").
+            if (filter === "visible" && p.visibility_state !== "visible") return false;
+            if (filter === "hidden" && p.visibility_state !== "hidden") return false;
+            if (filter === "unavailable" && p.visibility_state !== "unavailable") return false;
             if (!term) return true;
             const inName = p.name.toLowerCase().includes(term);
             const inCategory = p.category_name?.toLowerCase().includes(term) ?? false;
@@ -117,7 +129,12 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
     }, [catalog, search, filter]);
 
     const hiddenCount = useMemo(
-        () => (catalog?.products ?? []).filter(p => !p.is_visible).length,
+        () => (catalog?.products ?? []).filter(p => p.visibility_state === "hidden").length,
+        [catalog]
+    );
+
+    const unavailableCount = useMemo(
+        () => (catalog?.products ?? []).filter(p => p.visibility_state === "unavailable").length,
         [catalog]
     );
 
@@ -165,23 +182,26 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
             },
             {
                 id: "visibility",
-                header: "Visibile",
-                width: "100px",
+                header: "Visibilità",
+                width: "156px",
                 align: "right",
                 cell: (_, product) => (
-                    <div onClick={e => e.stopPropagation()}>
-                        <Switch
-                            checked={product.is_visible}
-                            onChange={() =>
-                                handleToggle(product.product_id, product.is_visible)
-                            }
-                            disabled={savingId === product.product_id}
+                    <div
+                        className={styles.visibilityCell}
+                        onClick={e => e.stopPropagation()}
+                    >
+                        <SegmentedControl<ProductVisibilityState>
+                            value={product.visibility_state}
+                            onChange={next => handleSetState(product.product_id, next)}
+                            size="sm"
+                            iconsOnly
+                            options={VISIBILITY_OPTIONS}
                         />
                     </div>
                 )
             }
         ],
-        [overrides, savingId]
+        [overrides]
     );
 
     if (isLoading) {
@@ -225,6 +245,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         <Text variant="caption" colorVariant="muted">
             {catalog.products.length} prodotti totali · {hiddenCount} nascost
             {hiddenCount === 1 ? "o" : "i"}
+            {unavailableCount > 0 && ` · ${unavailableCount} non disponibil${unavailableCount === 1 ? "e" : "i"}`}
         </Text>
     );
 
@@ -237,7 +258,8 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
                     options={[
                         { value: "all", label: "Tutti" },
                         { value: "visible", label: "Visibili" },
-                        { value: "hidden", label: "Nascosti" }
+                        { value: "hidden", label: "Nascosti" },
+                        { value: "unavailable", label: "Non disponibili" }
                     ]}
                 />
                 <div className={styles.searchSlot}>

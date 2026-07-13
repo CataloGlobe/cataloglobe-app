@@ -5,6 +5,7 @@ import {
     loadCatalogById
 } from "./resolveActivityCatalogs";
 import { getNowInRome } from "@/services/supabase/schedulingNow";
+import type { VisibilityMode } from "@/services/supabase/scheduleResolver";
 
 // ==========================================
 // TYPES
@@ -17,6 +18,14 @@ export type ActiveCatalogMeta = {
     hasActiveCatalog: boolean;
 };
 
+/**
+ * Tri-state visibility for the realtime "Gestisci visibilità" control.
+ * - `visible`     → nessun override (segue la programmazione)
+ * - `hidden`      → rimosso dalla pagina pubblica (visible_override=false, mode='hide')
+ * - `unavailable` → mostrato come "Non disponibile" (visible_override=false, mode='disable')
+ */
+export type ProductVisibilityState = "visible" | "hidden" | "unavailable";
+
 export type RenderableProduct = {
     product_id: string;
     name: string;
@@ -25,6 +34,9 @@ export type RenderableProduct = {
     final_price: number | null;
     /** Minimum format price. Set when the product has PRIMARY_PRICE option groups. */
     from_price: number | null;
+    /** Tri-state realtime override. `hidden` = rimosso; `unavailable` = mostrato disabilitato. */
+    visibility_state: ProductVisibilityState;
+    /** true quando lo stato non è `hidden` (retrocompat filtro/count). */
     is_visible: boolean; // post-scheduling + post-activity-override
 };
 
@@ -145,13 +157,15 @@ export async function getRenderableCatalogForActivity(
     for (const category of catalog.categories || []) {
         for (const p of category.products || []) {
             const override = overrides[p.id];
+            const state = deriveVisibilityState(override?.visible_override, override?.mode);
             products.push({
                 product_id: p.id,
                 name: p.name,
                 category_name: category.name,
                 final_price: p.price ?? null,
                 from_price: p.from_price ?? null,
-                is_visible: override?.visible_override ?? true
+                visibility_state: state,
+                is_visible: state !== "hidden"
             });
         }
     }
@@ -165,62 +179,69 @@ export async function getRenderableCatalogForActivity(
 }
 
 /**
- * Updates or deletes a visibility override for a specific product in an activity.
+ * Sets the realtime visibility override for a product in an activity (tri-state).
  *
- * Implements "Smart Toggle" (Step 3 - Case 3):
- * If the user toggles a state that effectively returns to the default schedule state,
- * the override is removed (DELETE). Otherwise, it's UPSERTed.
+ * - `"visible"`     → rimuove l'override di visibilità (torna alla programmazione).
+ *                     La riga viene cancellata solo se non esiste un price_override,
+ *                     altrimenti si azzerano visible_override + mode preservando il prezzo.
+ * - `"hidden"`      → visible_override=false, mode='hide' (rimosso dalla pagina pubblica).
+ * - `"unavailable"` → visible_override=false, mode='disable' (mostrato come "Non disponibile").
+ *
+ * NB: il realtime (Modello A) vince sempre sulla programmazione (Modello B) — invariato.
  */
 export async function updateActivityProductVisibility(
     activityId: string,
     productId: string,
-    targetVisible: boolean
+    state: ProductVisibilityState
 ): Promise<void> {
-    // 1. Get existing record to check current state
     const { data: existing } = await supabase
         .from("activity_product_overrides")
-        .select("id, visible_override, price_override")
+        .select("id, visible_override, price_override, mode")
         .eq("activity_id", activityId)
         .eq("product_id", productId)
         .maybeSingle();
 
-    const currentOverride = existing?.visible_override;
-
-    let nextVisibleOverride: boolean | null = targetVisible;
-
-    // Case 3 logic: if we are toggling AWAY from an explicit override,
-    // we return to null (schedule default).
-    if (currentOverride !== null && currentOverride !== undefined) {
-        // We are currently forced. Toggling means we want the "other" state.
-        // If the other state is the one we would have without this override,
-        // we just delete the override.
-        nextVisibleOverride = null;
-    }
-
-    if (nextVisibleOverride === null && (!existing || existing.price_override === null)) {
-        if (existing) {
+    // "visible" = nessun override di visibilità.
+    if (state === "visible") {
+        if (!existing) return;
+        if (existing.price_override === null) {
+            // Nessun altro override da preservare → elimina la riga.
             await supabase.from("activity_product_overrides").delete().eq("id", existing.id);
+            return;
         }
+        // Preserva price_override, azzera solo la visibilità.
+        const { error } = await supabase
+            .from("activity_product_overrides")
+            .update({
+                visible_override: null,
+                mode: null,
+                updated_at: new Date().toISOString()
+            })
+            .eq("id", existing.id);
+        if (error) throw error;
         return;
     }
 
-    const upsertData: any = {
+    // "hidden" | "unavailable" → visible_override=false + mode dedicato.
+    const mode: VisibilityMode = state === "unavailable" ? "disable" : "hide";
+    const payload = {
         activity_id: activityId,
         product_id: productId,
-        visible_override: nextVisibleOverride,
+        visible_override: false,
+        mode,
         updated_at: new Date().toISOString()
     };
 
     if (existing) {
         const { error } = await supabase
             .from("activity_product_overrides")
-            .update(upsertData)
+            .update(payload)
             .eq("id", existing.id);
         if (error) throw error;
     } else {
         const { error } = await supabase
             .from("activity_product_overrides")
-            .insert([{ ...upsertData, id: crypto.randomUUID() }]);
+            .insert([{ ...payload, id: crypto.randomUUID() }]);
         if (error) throw error;
     }
 }
@@ -228,23 +249,43 @@ export async function updateActivityProductVisibility(
 /**
  * Fetches all product overrides for a specific activity.
  */
+export type ActivityProductOverride = {
+    visible_override: boolean | null;
+    price_override: number | null;
+    mode: VisibilityMode | null;
+};
+
 export async function getActivityProductOverrides(
     activityId: string
-): Promise<Record<string, { visible_override: boolean | null; price_override: number | null }>> {
+): Promise<Record<string, ActivityProductOverride>> {
     const { data, error } = await supabase
         .from("activity_product_overrides")
-        .select("product_id, visible_override, price_override")
+        .select("product_id, visible_override, price_override, mode")
         .eq("activity_id", activityId);
 
     if (error) throw error;
 
-    const map: Record<string, { visible_override: boolean | null; price_override: number | null }> =
-        {};
+    const map: Record<string, ActivityProductOverride> = {};
     for (const row of data || []) {
         map[row.product_id] = {
             visible_override: row.visible_override,
-            price_override: row.price_override
+            price_override: row.price_override,
+            mode: (row.mode as VisibilityMode | null) ?? null
         };
     }
     return map;
+}
+
+/**
+ * Deriva lo stato tri-state dalla coppia (visible_override, mode).
+ * Fallback allineato al resolver: `visible_override=false` + mode assente/`hide` = hidden.
+ */
+export function deriveVisibilityState(
+    visibleOverride: boolean | null | undefined,
+    mode: VisibilityMode | null | undefined
+): ProductVisibilityState {
+    if (visibleOverride === false) {
+        return mode === "disable" ? "unavailable" : "hidden";
+    }
+    return "visible";
 }

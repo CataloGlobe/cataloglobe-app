@@ -361,6 +361,9 @@ type VisibilityOverrideRow = {
 export type ActivityProductOverrideRow = {
     product_id: string;
     visible_override: boolean | null;
+    // Meaningful only when visible_override === false: 'disable' keeps the product
+    // as "Non disponibile" (is_disabled), 'hide'/null removes it (legacy default).
+    mode?: VisibilityMode | null;
 };
 
 function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
@@ -1350,8 +1353,13 @@ export function applyActivityVisibilityOverridesToCatalog(
         ...catalog,
         ...(catalog.categories
             ? {
-                  categories: catalog.categories
-                      .map(category => {
+                  // NB: filterEmptyCategories DEVE ricevere le categorie MAPPATE (con i
+                  // product-override applicati), non `catalog.categories` originali. In
+                  // precedenza una seconda chiave `categories` sovrascriveva la map con
+                  // `filterEmptyCategories(catalog.categories)`, scartando i risultati →
+                  // gli override realtime (visible_override/mode) erano inerti.
+                  categories: filterEmptyCategories(
+                      catalog.categories.map(category => {
                           const currentProductIds = new Set(category.products.map(p => p.id));
 
                           // Start with current (post-schedule-visibility) products
@@ -1386,7 +1394,15 @@ export function applyActivityVisibilityOverridesToCatalog(
                               .map(item => {
                                   const override = overridesByProductId[item.id];
                                   if (!override || override.visible_override === null) return item;
-                                  if (override.visible_override === false) return null;
+                                  if (override.visible_override === false) {
+                                      // Realtime "Non disponibile": keep the product, mark it
+                                      // disabled (same treatment as schedule mode 'disable').
+                                      // Any other mode (hide/null) removes it — legacy behavior.
+                                      if (normalizeVisibilityMode(override.mode ?? null) === "disable") {
+                                          return { ...item, is_visible: true, is_disabled: true };
+                                      }
+                                      return null;
+                                  }
                                   return {
                                       ...item,
                                       is_visible: true,
@@ -1397,10 +1413,8 @@ export function applyActivityVisibilityOverridesToCatalog(
 
                           return { ...category, products: finalProducts };
                       })
+                  )
               }
-            : {}),
-        ...(catalog.categories
-            ? { categories: filterEmptyCategories(catalog.categories) }
             : {})
     };
 }
@@ -1809,7 +1823,7 @@ export async function resolveActivityCatalogs(
             if (allBaseProductIds.length === 0) return [] as ActivityProductOverrideRow[];
             const { data, error } = await supabase
                 .from("activity_product_overrides")
-                .select("product_id, visible_override")
+                .select("product_id, visible_override, mode")
                 .eq("activity_id", activityId)
                 .in("product_id", allBaseProductIds);
             if (error) throw error;
