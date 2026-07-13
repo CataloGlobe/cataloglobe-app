@@ -2,6 +2,8 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { ImageUploadField } from "@/components/ui/ImageUploadField/ImageUploadField";
 import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
+import Text from "@/components/ui/Text/Text";
+import styles from "./StoryBrandPanel.module.scss";
 
 /**
  * Pannello "Storia del brand" — presentazionale/controllato dal parent
@@ -43,17 +45,24 @@ export function StoryBrandPanel({
             title="Informazioni brand"
             subtitle="Visibili in cima alla sezione storie del catalogo pubblico"
         >
-            <ImageUploadField
-                label="Copertina"
-                imageUrl={coverUrl}
-                pendingFile={pendingCoverFile}
-                onFileChange={onCoverFileChange}
-                onRemove={onCoverRemove}
-                thumbShape="wide"
-                accept="image/png,image/jpeg,image/webp"
-                maxSizeMb={5}
-                disabled={!canWrite}
-            />
+            <div className={styles.photoField}>
+                <Text as="span" variant="caption" weight={600}>
+                    Foto
+                </Text>
+                <Text as="span" variant="caption" colorVariant="muted">
+                    Non la stessa della copertina sede: la squadra, la cucina, un dettaglio.
+                </Text>
+                <ImageUploadField
+                    imageUrl={coverUrl}
+                    pendingFile={pendingCoverFile}
+                    onFileChange={onCoverFileChange}
+                    onRemove={onCoverRemove}
+                    thumbShape="wide"
+                    accept="image/png,image/jpeg,image/webp"
+                    maxSizeMb={5}
+                    disabled={!canWrite}
+                />
+            </div>
 
             <TextInput
                 label="Titolo"
