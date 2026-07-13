@@ -6,9 +6,21 @@
   // centrata invece di avere il back-link al bordo.
   max-width: var(--pub-reading-max, 640px);
   margin: 0 auto;
-  // Clearance per la bottom bar pubblica fluttuante — pattern del progetto
-  // `max(<base>, env(safe-area-inset-bottom))`, stessa base (2rem) già in uso.
-  padding: var(--pub-space-4) 0 max(2rem, env(safe-area-inset-bottom));
+  // padding-top: mobile stretto (subito sotto l'header, come il cappello del
+  // feed), desktop generoso via @container — il back-link è un target
+  // cliccabile appiccicato alla barra cliccabile dell'header, serve respiro
+  // vero non solo estetico. Stesso breakpoint di `.cappello` in
+  // StoryView.module.scss (@container collection, mai @media viewport: la
+  // preview Style Editor misura il device frame).
+  // padding-bottom: ingombro REALE della bottom bar flottante (token
+  // `--pub-bottombar-clearance`, PublicBottomBar.module.scss), non un valore
+  // a occhio — protegge davvero la coda del contenuto (didascalia ultima
+  // immagine, card "Dal menu") ora che il lettore vive IN FLUSSO.
+  padding: var(--pub-space-4) 0 max(var(--pub-bottombar-clearance), env(safe-area-inset-bottom));
+
+  @container collection (min-width: 700px) {
+    padding-top: var(--pub-space-7);
+  }
 }
 
 // Un solo back-link (in cima). Il duplicato in fondo è stato rimosso: con

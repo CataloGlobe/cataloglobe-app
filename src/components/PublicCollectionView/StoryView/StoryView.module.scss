@@ -1,15 +1,16 @@
 @use "@styles/mixins" as *;
 
-/* View-swap del lettore: overlay assoluto che scorre da destra sopra il feed
-   (transform, NON PublicSheet — vedi StoryReader). overflow-x:hidden clippa
-   il pannello durante la transizione; overflow-y esplicito a visible evita
-   che il computed value auto-converta creando un secondo scroll container
-   (regola CSS: overflow-x non-visible + overflow-y:visible → overflow-y:auto). */
+/* View-swap feed ⇄ lettore: UNA vista alla volta, IN FLUSSO (mode="wait" in
+   StoryView.tsx — l'uscita finisce prima che l'entrata monti). Niente overlay
+   assoluto: il lettore viveva prima in un pannello `position:absolute` con
+   sfondo proprio, alto quanto il feed (non il proprio contenuto) — causa dei
+   3 difetti: pannello sopra lo sfondo pagina, contenuto che si infila sotto
+   l'header, clearance bottom-bar che non proteggeva la coda reale. In flusso
+   ogni vista eredita naturalmente altezza/posizione/scroll della pagina.
+   overflow-x:hidden clippa lo scorrimento orizzontale durante la transizione. */
 .viewport {
-  position: relative;
   width: 100%;
   overflow-x: hidden;
-  overflow-y: visible;
   // Inset laterale: unica fonte di padding orizzontale per feed + lettore. Su
   // mobile viene azzerato da `.tabPatternSurface > .frame > *` in
   // CollectionView.module.scss (l'inset arriva già da lì); su desktop (dove
@@ -26,12 +27,10 @@
   container-name: collection;
 }
 
-.readerOverlay {
-  position: absolute;
-  inset: 0;
-  min-height: 100%;
-  background: var(--pub-bg);
-  z-index: 1;
+// Wrapper neutro della vista attiva (feed o lettore) — solo per l'animazione
+// di scorrimento di AnimatePresence, nessuno stile visivo proprio.
+.view {
+  width: 100%;
 }
 
 .stateBlock {
@@ -51,10 +50,11 @@
 
 .root {
   width: 100%;
-  // Clearance per la bottom bar pubblica fluttuante — pattern del progetto
-  // `max(<base>, env(safe-area-inset-bottom))`. Sul `.root`, non su `.grid`,
-  // così vale anche quando c'è solo il cappello senza lista storie.
-  padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  // Clearance per la bottom bar pubblica fluttuante — ingombro REALE (token
+  // `--pub-bottombar-clearance`, PublicBottomBar.module.scss), non un valore
+  // a occhio. Sul `.root`, non su `.grid`, così vale anche quando c'è solo il
+  // cappello senza lista storie.
+  padding-bottom: max(var(--pub-bottombar-clearance), env(safe-area-inset-bottom));
 }
 
 /* ── Cappello ─────────────────────────────────────────────────────────── */

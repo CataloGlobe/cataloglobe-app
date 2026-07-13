@@ -4,6 +4,16 @@
 // z-index 150: sopra contenuto/section-nav (10/20) e FAB (55/60),
 // SOTTO toast/SearchOverlay (200) e sheet (900). Sheet e ricerca la coprono.
 
+// Ingombro reale della barra (per il padding-bottom dei contenitori scrollabili
+// pubblici, pattern `max(<token>, env(safe-area-inset-bottom))` — la safe-area
+// resta a parte, gestita da chi consuma il token). 16px = offset `.barWrap`
+// dal fondo; 58px = altezza pill (stesso valore già in uso per
+// `.submitFeedbackAboveBar` in CollectionView.module.scss); 12px = respiro
+// tra contenuto e barra. Fonte unica: se la pill cambia altezza, aggiorna qui.
+:global(:root) {
+  --pub-bottombar-clearance: 86px;
+}
+
 // Wrapper: posizionamento fisso + centratura (senza transform) + entry.
 // La centratura usa left/right + margin auto così il `transform` resta libero
 // per l'animazione di entrata, senza collidere con lo scale del `.bar` interno.

@@ -146,12 +146,11 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
 
     return (
         <div className={styles.viewport}>
-            {feedContent}
-            <AnimatePresence>
-                {selectedStoryId && (
+            <AnimatePresence mode="wait" initial={false}>
+                {selectedStoryId ? (
                     <motion.div
                         key="reader"
-                        className={styles.readerOverlay}
+                        className={styles.view}
                         initial={prefersReducedMotion ? { opacity: 0 } : { x: "100%" }}
                         animate={prefersReducedMotion ? { opacity: 1 } : { x: 0 }}
                         exit={prefersReducedMotion ? { opacity: 0 } : { x: "100%" }}
@@ -163,6 +162,17 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
                             onClose={() => onSelectStory(null)}
                             onOpenProduct={onOpenProduct}
                         />
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="feed"
+                        className={styles.view}
+                        initial={prefersReducedMotion ? { opacity: 0 } : { x: "-100%" }}
+                        animate={prefersReducedMotion ? { opacity: 1 } : { x: 0 }}
+                        exit={prefersReducedMotion ? { opacity: 0 } : { x: "-100%" }}
+                        transition={SLIDE_TRANSITION}
+                    >
+                        {feedContent}
                     </motion.div>
                 )}
             </AnimatePresence>
