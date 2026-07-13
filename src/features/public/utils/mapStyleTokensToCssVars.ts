@@ -249,7 +249,7 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         "--pub-text": surfaceText,
         "--pub-text-secondary": surfaceTextSecondary,
         "--pub-text-muted": surfaceTextMuted,
-        "--pub-primary-soft": `color-mix(in srgb, ${tokens.colors.primary} 20%, ${surface})`,
+        "--pub-primary-soft": `color-mix(in srgb, ${tokens.colors.primary} 30%, ${surface})`,
         "--pub-border": borderOnBg,
         "--pub-surface-border": borderOnSurface,
 
