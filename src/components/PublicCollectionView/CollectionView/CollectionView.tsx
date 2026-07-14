@@ -271,6 +271,7 @@ type ProductRowProps = {
     selectionQty?: number;
     iconChip?: boolean;
     contentDensity?: ContentDensity;
+    isDisabled?: boolean;
 };
 
 function ProductRowInner({
@@ -283,7 +284,8 @@ function ProductRowInner({
     orderingEnabled,
     selectionQty = 0,
     iconChip = false,
-    contentDensity = "full"
+    contentDensity = "full",
+    isDisabled = false
 }: ProductRowProps) {
     const {
         name,
@@ -329,6 +331,11 @@ function ProductRowInner({
         >
             {showImage && (
                 <div className={styles.rowImageWrapper}>
+                    {isDisabled && (
+                        <span className={styles.unavailableBadgeOverlay}>
+                            {t("product.badge_unavailable")}
+                        </span>
+                    )}
                     {mode === "preview" || !image ? (
                         <div className={styles.rowPlaceholder} aria-hidden="true">
                             <Package
@@ -480,6 +487,7 @@ type ProductCompactRowProps = {
     iconChip?: boolean;
     compactLayoutStyle?: CompactLayoutStyle;
     contentDensity?: ContentDensity;
+    isDisabled?: boolean;
 };
 
 function ProductCompactRowInner({
@@ -490,7 +498,8 @@ function ProductCompactRowInner({
     selectionQty = 0,
     iconChip = false,
     compactLayoutStyle = "modern",
-    contentDensity = "full"
+    contentDensity = "full",
+    isDisabled = false
 }: ProductCompactRowProps) {
     const {
         name,
@@ -526,6 +535,11 @@ function ProductCompactRowInner({
     return (
         <div className={styles.compactRow} onClick={handleRootClick}>
             <div className={styles.compactRowBody}>
+                {isDisabled && (
+                    <span className={styles.unavailableBadgeCompact}>
+                        {t("product.badge_unavailable")}
+                    </span>
+                )}
                 <div
                     className={`${styles.compactNameRow}${
                         compactLayoutStyle === "editorial" ? ` ${styles.compactNameRowEditorial}` : ""
@@ -2323,11 +2337,6 @@ export default function CollectionView({
                                     : `${styles.card}${isDisabled ? ` ${styles.disabledCard}` : ""}`
                             }
                         >
-                            {isDisabled && (
-                                <span className={styles.unavailableBadge}>
-                                    {t("product.badge_unavailable")}
-                                </span>
-                            )}
                             {/* Case A/B: parent row — only if parentSelected */}
                             {item.parentSelected &&
                                 (style.productStyle === "compact" ? (
@@ -2340,6 +2349,7 @@ export default function CollectionView({
                                         iconChip={style.iconStyle === "pill"}
                                         compactLayoutStyle={style.compactLayoutStyle}
                                         contentDensity={style.contentDensity}
+                                        isDisabled={isDisabled}
                                     />
                                 ) : (
                                     <ProductRow
@@ -2353,6 +2363,7 @@ export default function CollectionView({
                                         selectionQty={selectionMap[item.id]}
                                         iconChip={style.iconStyle === "pill"}
                                         contentDensity={style.contentDensity}
+                                        isDisabled={isDisabled}
                                     />
                                 ))}
 

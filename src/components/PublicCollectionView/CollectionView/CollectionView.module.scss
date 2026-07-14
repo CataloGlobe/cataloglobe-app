@@ -285,13 +285,6 @@
   position: relative; /* ancora il velo ::after dell'evidenziazione ricerca */
   min-width: 0; /* consente ai figli flex (nome line-clamp) di restringersi nella traccia grid */
 
-  /* .unavailableBadge nasce con margin tarato sul padding della card (0.75rem
-     laterale); qui non c'è card né padding, solo lo stacking verticale di
-     .compactRow — margine solo verticale, nessun laterale. */
-  > .unavailableBadge {
-    margin: 0.5rem 0 0;
-  }
-
   &.disabledCard {
     opacity: 0.6;
     pointer-events: none;
@@ -435,8 +428,15 @@
   pointer-events: none;
 }
 
-.unavailableBadge {
-  display: inline-block;
+/* Overlay Card: ancorato in absolute sopra l'angolo di .rowImageWrapper
+   (position: relative) invece di occupare riga propria nel flusso — l'area
+   immagine mantiene altezza fissa (aspect-ratio) a prescindere dal badge,
+   niente disallineamento tra le card di una stessa riga di griglia. */
+.unavailableBadgeOverlay {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 1;
   font-size: 0.7rem;
   // Sfondo alert SOLIDO + testo chiaro: theme-adaptive (segue `--pub-alert`
   // sovrascritto dallo style) e leggibile su qualsiasi `--pub-surface` chiara o
@@ -448,7 +448,22 @@
   padding: 0.15rem 0.4rem;
   border-radius: var(--pub-btn-radius, 4px);
   font-weight: 600;
-  margin: 0.5rem 0.75rem 0;
+}
+
+/* Compatto: nessuna area immagine su cui fare overlay — il badge vive DENTRO
+   lo stack verticale di .compactRowBody (name-row → desc → pairing → emoji),
+   come primo elemento, così è inequivocabilmente sopra il nome del prodotto
+   disabilitato invece che sibling esterno prima della riga (ambiguità: su
+   mobile, senza bordi tra prodotti, sembrava riferirsi al prodotto sopra). */
+.unavailableBadgeCompact {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.7rem;
+  color: #ffffff;
+  background: var(--pub-alert, #ef4444);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--pub-btn-radius, 4px);
+  font-weight: 600;
 }
 
 .card {
