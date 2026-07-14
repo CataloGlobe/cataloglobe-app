@@ -1,4 +1,5 @@
-import { Check, Sparkles, X } from "lucide-react";
+import { Check, X } from "lucide-react";
+import { IconLink } from "@tabler/icons-react";
 import { useTranslation } from "react-i18next";
 import Text from "@/components/ui/Text/Text";
 import PublicSheet from "../PublicSheet/PublicSheet";
@@ -50,7 +51,7 @@ export default function PairingUpsellSheet({
             headerContent={
                 <div className={styles.header}>
                     <div className={styles.headerTitle}>
-                        <Sparkles size={18} className={styles.headerIcon} />
+                        <IconLink size={18} className={styles.headerIcon} />
                         <Text as="h2" variant="title-md" weight={700} color="var(--pub-surface-text)">
                             {t("product.pairing_prefix")}
                         </Text>
