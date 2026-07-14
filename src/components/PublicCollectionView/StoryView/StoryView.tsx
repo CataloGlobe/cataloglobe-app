@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ScrollText } from "lucide-react";
+import { BookOpenText, ArrowRight } from "lucide-react";
 import { fetchPublicStories } from "@/services/supabase/stories";
 import type { PublicStoryListResult } from "@/services/supabase/stories";
 import Text from "@/components/ui/Text/Text";
@@ -71,7 +71,7 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
         if (stories.length === 0 && !hasCappello) {
             feedContent = (
                 <div className={styles.stateBlock}>
-                    <ScrollText size={48} strokeWidth={1.5} className={styles.emptyIcon} />
+                    <BookOpenText size={48} strokeWidth={1.5} className={styles.emptyIcon} />
                     <Text variant="body" color="var(--pub-bg-text-muted)">
                         {t("story.empty")}
                     </Text>
@@ -81,25 +81,29 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
             feedContent = (
                 <div className={styles.root}>
                     {hasCappello && cappello && (
-                        <div className={styles.cappello}>
-                            {cappello.cover && (
-                                <div className={styles.cappelloCover}>
-                                    <img src={cappello.cover} alt="" />
-                                </div>
-                            )}
-                            {cappello.title && <h2 className={styles.cappelloTitle}>{cappello.title}</h2>}
-                            {cappello.intro && <p className={styles.cappelloIntro}>{cappello.intro}</p>}
-                            {cappello.website && (
-                                <a
-                                    href={cappello.website}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className={styles.cappelloWebsite}
-                                >
-                                    {t("story.website_cta")}
-                                </a>
-                            )}
-                        </div>
+                        <>
+                            <div className={styles.cappello}>
+                                {cappello.cover && (
+                                    <div className={styles.cappelloCover}>
+                                        <img src={cappello.cover} alt="" />
+                                    </div>
+                                )}
+                                {cappello.title && <h2 className={styles.cappelloTitle}>{cappello.title}</h2>}
+                                {cappello.intro && <p className={styles.cappelloIntro}>{cappello.intro}</p>}
+                                {cappello.website && (
+                                    <a
+                                        href={cappello.website}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className={styles.cappelloWebsite}
+                                    >
+                                        {t("story.website_cta")}
+                                        <ArrowRight size={14} strokeWidth={2.5} className={styles.cappelloWebsiteIcon} />
+                                    </a>
+                                )}
+                            </div>
+                            {stories.length > 0 && <hr className={styles.cappelloDivider} />}
+                        </>
                     )}
 
                     {stories.length > 0 && (
@@ -122,7 +126,18 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
                                             )}
                                         </div>
                                         <div className={styles.cardBody}>
-                                            {story.eyebrow && <span className={styles.cardEyebrow}>{story.eyebrow}</span>}
+                                            {/* Occhiello: spazio SEMPRE riservato (chip invisibile se assente)
+                                                così i titoli delle card in griglia condividono la baseline. */}
+                                            {story.eyebrow ? (
+                                                <span className={styles.cardEyebrow}>{story.eyebrow}</span>
+                                            ) : (
+                                                <span
+                                                    className={`${styles.cardEyebrow} ${styles.cardEyebrowEmpty}`}
+                                                    aria-hidden="true"
+                                                >
+                                                    &nbsp;
+                                                </span>
+                                            )}
                                             <span className={styles.cardTitle}>{story.title}</span>
                                             {story.excerpt && <span className={styles.cardExcerpt}>{story.excerpt}</span>}
                                             {story.product && (
@@ -142,12 +157,11 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
 
     return (
         <div className={styles.viewport}>
-            {feedContent}
-            <AnimatePresence>
-                {selectedStoryId && (
+            <AnimatePresence mode="wait" initial={false}>
+                {selectedStoryId ? (
                     <motion.div
                         key="reader"
-                        className={styles.readerOverlay}
+                        className={styles.view}
                         initial={prefersReducedMotion ? { opacity: 0 } : { x: "100%" }}
                         animate={prefersReducedMotion ? { opacity: 1 } : { x: 0 }}
                         exit={prefersReducedMotion ? { opacity: 0 } : { x: "100%" }}
@@ -159,6 +173,17 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
                             onClose={() => onSelectStory(null)}
                             onOpenProduct={onOpenProduct}
                         />
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="feed"
+                        className={styles.view}
+                        initial={prefersReducedMotion ? { opacity: 0 } : { x: "-100%" }}
+                        animate={prefersReducedMotion ? { opacity: 1 } : { x: 0 }}
+                        exit={prefersReducedMotion ? { opacity: 0 } : { x: "-100%" }}
+                        transition={SLIDE_TRANSITION}
+                    >
+                        {feedContent}
                     </motion.div>
                 )}
             </AnimatePresence>

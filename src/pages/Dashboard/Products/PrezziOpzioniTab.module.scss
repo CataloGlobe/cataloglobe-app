@@ -5,32 +5,6 @@
     gap: 16px;
 }
 
-// Card pattern duplicato da SchedaTab.module.scss — convenzione progetto.
-.card {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    padding: 20px;
-    background: var(--card-bg, #fff);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-}
-
-.cardHeader {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-}
-
-.cardLabel {
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    color: var(--text-muted, #94a3b8);
-}
-
 .placeholder {
     padding: 32px 20px;
     text-align: center;
@@ -41,17 +15,7 @@
     font-style: italic;
 }
 
-.cardHelp {
-    font-size: 13px;
-    color: var(--text-muted, #64748b);
-    margin-top: -8px;
-}
-
-.modeRow {
-    display: flex;
-}
-
-// ── Single mode ─────────────────────────────────────────────────────
+// ── Prezzo — campo semplice ─────────────────────────────────────────
 .singleMode {
     display: flex;
     flex-direction: column;
@@ -63,6 +27,7 @@
     display: flex;
     align-items: center;
     gap: 12px;
+    flex-wrap: wrap;
 }
 
 .priceValue {
@@ -83,65 +48,18 @@
     flex-wrap: wrap;
 }
 
-// ── Formats mode ────────────────────────────────────────────────────
-.formatsMode {
+// ── Prezzo — definito da un gruppo Opzioni ──────────────────────────
+.priceFromGroup {
     display: flex;
     flex-direction: column;
-    gap: 8px;
-    padding-top: 4px;
-}
-
-.formatRow {
-    display: grid;
-    grid-template-columns: 1fr 120px auto;
-    gap: 8px;
-    align-items: center;
-    padding: 10px 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-}
-
-.formatEditRow {
-    display: grid;
-    grid-template-columns: 1fr 120px auto;
-    gap: 8px;
-    align-items: center;
-    padding: 10px 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-}
-
-.formatRowError {
-    grid-column: 1 / -1;
-    margin-top: 4px;
-}
-
-.formatActions {
-    display: inline-flex;
-    align-items: center;
     gap: 4px;
-    justify-content: flex-end;
-}
-
-.addFormatRow {
-    display: grid;
-    grid-template-columns: 1fr 120px auto;
-    gap: 8px;
-    align-items: stretch;
     padding: 12px;
     background: var(--bg);
-    border: 1px dashed var(--border);
+    border: 1px solid var(--border);
     border-radius: 8px;
-    margin-top: 8px;
-
-    & > * {
-        min-height: 40px;
-    }
 }
 
-// ── Inherit mode ────────────────────────────────────────────────────
+// ── Prezzo — variante che eredita dal padre ──────────────────────────
 .inheritMode {
     padding: 12px;
     background: var(--bg);
@@ -153,22 +71,7 @@
     margin-top: 4px;
 }
 
-// ── Variants card ───────────────────────────────────────────────────
-.cardHeaderContent {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.emptyActions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: center;
-}
-
-// ── Opzioni extra ───────────────────────────────────────────────────
+// ── Opzioni ──────────────────────────────────────────────────────────
 .optionGroupsList {
     display: flex;
     flex-direction: column;
@@ -215,20 +118,101 @@
     gap: 8px;
 }
 
-.addValueRow {
-    display: grid;
-    grid-template-columns: 1fr 140px auto;
-    gap: 8px;
-    align-items: stretch;
-    padding-top: 8px;
+// Riga azioni Salva/Annulla e Crea/Annulla nei form (gruppo, valore inline).
+.formatActions {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    justify-content: flex-end;
+}
 
-    & > * {
-        min-height: 40px;
+// Blocco etichetta + controllo dentro i form gruppo (es. "Come funziona il
+// prezzo?" + KindChooser, "Quante scelte..." + QuantityChooser).
+.formSection {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+// ── KindChooser — "Come funziona il prezzo?" ────────────────────────
+.kindChooser {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.kindCard {
+    flex: 1 1 200px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
+    padding: 10px 12px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+
+    &:disabled {
+        cursor: not-allowed;
+        opacity: 0.6;
     }
 }
 
-.cellStack {
+.kindCardActive {
+    @extend .kindCard;
+    border-color: var(--brand-primary, #6366f1);
+    box-shadow: 0 0 0 1px var(--brand-primary, #6366f1);
+}
+
+// ── QuantityChooser — "Quante scelte può fare il cliente?" ──────────
+.quantityChooser {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 8px;
 }
+
+.quantityToggle {
+    display: inline-flex;
+    gap: 8px;
+}
+
+.quantityOption {
+    padding: 6px 12px;
+    font-size: 13px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--text, #0f172a);
+}
+
+.quantityOptionActive {
+    @extend .quantityOption;
+    border-color: var(--brand-primary, #6366f1);
+    color: var(--brand-primary, #6366f1);
+    font-weight: 600;
+}
+
+.quantityN {
+    max-width: 140px;
+}
+
+// ── Proprietà legate all'ordinazione — "Se il cliente ordina dal menu" ──
+// Raggruppa visivamente "Quante scelte" + "Il cliente deve scegliere":
+// entrambe inerti senza sessione di ordinazione attiva (vedi InfoTooltip).
+.orderingSection {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.orderingSectionHeader {
+    display: flex;
+    align-items: center;
+}
+

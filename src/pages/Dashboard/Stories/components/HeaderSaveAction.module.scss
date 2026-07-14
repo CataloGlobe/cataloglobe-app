@@ -1,0 +1,19 @@
+.dirtyGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.savedPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+
+  svg {
+    color: var(--color-green-500);
+  }
+}

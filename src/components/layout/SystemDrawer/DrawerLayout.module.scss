@@ -13,6 +13,23 @@
   z-index: 10;
 }
 
+// Opt-in (prop `headerFlush`): header che termina con un gruppo <Tabs>.
+// Azzera il padding-bottom così l'indicatore della tab attiva (bottom:-1px)
+// appoggia esattamente sul border-bottom dell'header, senza gap. Il tab-button
+// mantiene il suo padding verticale interno → il testo resta arioso.
+.header[data-header-flush] {
+  padding-bottom: 0;
+
+  // Il tab-button (Tabs variant default) ha 14px di padding-sx interno che
+  // indenta il testo della prima tab rispetto al titolo e al corpo del drawer.
+  // Tiro solo il gruppo tab (il tablist) di -14px per allinearlo a filo; il
+  // titolo resta al suo posto. Area cliccabile del button invariata (shift
+  // solo visivo). Scoped a [data-header-flush] → nessun altro header impattato.
+  [role="tablist"] {
+    margin-left: -14px;
+  }
+}
+
 .body {
   flex: 1 1 auto;
   min-height: 0;

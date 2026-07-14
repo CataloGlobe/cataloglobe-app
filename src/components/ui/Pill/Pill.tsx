@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, type ReactNode } from "react";
 import clsx from "clsx";
 import styles from "./Pill.module.scss";
 import Text from "../Text/Text";
@@ -7,6 +7,8 @@ export type PillShape = "pill" | "rounded" | "square" | "circle";
 
 export interface PillProps {
     label: string;
+    /** Icona a sinistra del label (eredita currentColor, es. lucide-react). */
+    icon?: ReactNode;
     active?: boolean;
     disabled?: boolean;
     shape?: PillShape;
@@ -17,6 +19,7 @@ export interface PillProps {
 
 export const Pill = memo(function Pill({
     label,
+    icon,
     active = false,
     disabled = false,
     shape = "pill",
@@ -33,6 +36,11 @@ export const Pill = memo(function Pill({
             disabled={disabled}
             onClick={onClick}
         >
+            {icon && (
+                <span className={styles.icon} aria-hidden>
+                    {icon}
+                </span>
+            )}
             <Text variant="caption" weight={600}>
                 {label}
             </Text>

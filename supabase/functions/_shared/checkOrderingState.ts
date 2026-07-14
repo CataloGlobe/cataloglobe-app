@@ -42,7 +42,7 @@ export type OrderingStateResult =
 // weeks before cancellation): the public menu stays visible during it, so
 // ordering must too. Only `canceled`/`suspended` (anything outside this set)
 // blocks the diner-facing surface.
-const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
+export const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
 
 export interface CheckOrderingStateParams {
     tenantId: string;

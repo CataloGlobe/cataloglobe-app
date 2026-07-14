@@ -489,6 +489,22 @@
   gap: var(--spacing-2, 8px);
 }
 
+// Hairline di appoggio sotto il gruppo Tabs (Prodotti/Traduzioni): l'indicatore
+// del componente (bottom:-1px) si sovrappone al bordo → chiusura visiva a filo,
+// come nel PageHeaderSlot. Scoped a questa card, non al componente Tabs.
+.categoryTabsBar {
+  border-bottom: 1px solid var(--color-gray-200, #e2e8f0);
+
+  // Il tab-button (Tabs variant default) ha 14px di padding-sx interno, che
+  // indenta il testo "Prodotti" rispetto a search bar / header tabella sotto.
+  // Tiro solo il gruppo tab (figlio = Tabs.root) di -14px per allinearlo a filo
+  // bordo sinistro; la hairline resta full-width perché il margin è sul figlio,
+  // non sul wrapper. Area cliccabile del button invariata (solo shift visivo).
+  > :first-child {
+    margin-left: -14px;
+  }
+}
+
 .productsTitleRow {
   display: flex;
   align-items: center;

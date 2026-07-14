@@ -130,6 +130,8 @@
     "product": {
         "price_from": "desde {{price}}",
         "pairing_prefix": "Perfecto con",
+        "pairing_suggestions_one": "{{count}} maridaje sugerido",
+        "pairing_suggestions_other": "{{count}} maridajes sugeridos",
         "pairing_added": "Añadido",
         "pairing_view_options": "Ver opciones",
         "pairing_upsell_aria": "Maridajes recomendados",
@@ -148,7 +150,8 @@
     "item_detail": {
         "submit_default": "Añadir a la selección",
         "close_aria": "Cerrar",
-        "format_required": "Elija un formato para continuar"
+        "format_required": "Elija un formato para continuar",
+        "pairing_back": "Volver a {{name}}"
     },
     "order_confirmation": {
         "aria": "Pedido enviado",
@@ -249,7 +252,10 @@
     },
     "events": {
         "list_aria": "Eventos y promociones",
-        "empty": "No hay eventos ni promociones activos en este momento."
+        "empty": "No hay eventos ni promociones activos en este momento.",
+        "back": "← Volver a la lista",
+        "close_aria": "Cerrar",
+        "close_label": "Cerrar"
     },
     "hero": {
         "aria": "Cabecera del catálogo"
@@ -259,7 +265,17 @@
     },
     "language_selector": {
         "trigger_aria": "Seleccionar idioma",
-        "list_aria": "Idiomas disponibles"
+        "list_aria": "Idiomas disponibles",
+        "sheet_title": "Idioma",
+        "close_aria": "Cerrar",
+        "close_label": "Cerrar"
+    },
+    "categories": {
+        "sheet_title": "Categorías",
+        "close_aria": "Cerrar",
+        "close_label": "Cerrar",
+        "back_to_top": "Volver arriba",
+        "toggle_aria": "Expandir/colapsar categoría"
     },
     "brand": {
         "logo_alt_default": "Logotipo",
@@ -327,8 +343,11 @@
         "list_aria": "Historias del local",
         "back_to_list": "Volver a las historias",
         "product_link": "Del menú → {{name}}",
+        "product_link_label": "Del menú",
         "video_unavailable": "Vídeo no disponible",
         "video_aria": "Vídeo de la historia",
+        "video_play": "Ver el vídeo",
+        "video_play_aria": "Reproducir el vídeo de la historia",
         "discover_label": "Descubre la historia"
     },
     "reviews": {

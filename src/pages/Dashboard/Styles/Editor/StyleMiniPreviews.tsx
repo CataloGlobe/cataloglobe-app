@@ -1,5 +1,5 @@
 import type { CSSProperties } from "react";
-import type { NavigationStyle, BorderRadius, ProductStyle, FeaturedStyle, CardLayout } from "./StyleTokenModel";
+import type { NavigationStyle, BorderRadius, ProductStyle, FeaturedStyle } from "./StyleTokenModel";
 import s from "./StyleSettingsControls.module.scss";
 
 export const RADIUS_CSS: Record<BorderRadius, string> = {
@@ -126,53 +126,6 @@ export function FeaturedStylePreview({ variant }: { variant: FeaturedStyle }) {
                 <div className={s.featuredSwatchOverlay}>
                     <span className={s.previewBarWhite} style={{ width: "55%" }} />
                     <span className={s.previewBarWhite} style={{ width: "35%" }} />
-                </div>
-            </div>
-        </div>
-    );
-}
-
-/* ── Card layout preview ─────────────────────────────────── */
-
-export function CardLayoutPreview({ variant }: { variant: CardLayout }) {
-    if (variant === "grid") {
-        return (
-            <div className={s.layoutSwatch} aria-hidden="true">
-                <div className={s.layoutGrid}>
-                    <div className={s.layoutGridItem}>
-                        <div className={s.layoutGridItemImg} />
-                        <div className={s.layoutGridItemLines}>
-                            <span className={s.previewBarBold} style={{ width: "70%" }} />
-                            <span className={s.previewBarThin} style={{ width: "50%" }} />
-                        </div>
-                    </div>
-                    <div className={s.layoutGridItem}>
-                        <div className={s.layoutGridItemImg} />
-                        <div className={s.layoutGridItemLines}>
-                            <span className={s.previewBarBold} style={{ width: "60%" }} />
-                            <span className={s.previewBarThin} style={{ width: "45%" }} />
-                        </div>
-                    </div>
-                </div>
-            </div>
-        );
-    }
-    return (
-        <div className={s.layoutSwatch} aria-hidden="true">
-            <div className={s.layoutList}>
-                <div className={s.layoutListItem}>
-                    <div className={s.layoutListItemImg} />
-                    <div className={s.layoutListItemLines}>
-                        <span className={s.previewBarBold} style={{ width: "60%" }} />
-                        <span className={s.previewBarThin} style={{ width: "80%" }} />
-                    </div>
-                </div>
-                <div className={s.layoutListItem}>
-                    <div className={s.layoutListItemImg} />
-                    <div className={s.layoutListItemLines}>
-                        <span className={s.previewBarBold} style={{ width: "50%" }} />
-                        <span className={s.previewBarThin} style={{ width: "70%" }} />
-                    </div>
                 </div>
             </div>
         </div>

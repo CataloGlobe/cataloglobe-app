@@ -128,6 +128,24 @@ export async function deleteIngredient(id: string, tenantId: string): Promise<vo
 // PRODUCT ASSIGNMENTS
 // =========================================
 
+/**
+ * Tutte le coppie prodotto↔ingrediente del tenant in una sola query piatta
+ * (2 UUID per riga). Usata dalla vista "Ingredienti" del drawer Gestisci
+ * disponibilità per derivare client-side stato aggregato e conteggi — mai una
+ * query per ingrediente.
+ */
+export async function listProductIngredientPairs(
+    tenantId: string
+): Promise<Array<Pick<V2ProductIngredient, "product_id" | "ingredient_id">>> {
+    const { data, error } = await supabase
+        .from("product_ingredients")
+        .select("product_id, ingredient_id")
+        .eq("tenant_id", tenantId);
+
+    if (error) throw error;
+    return data || [];
+}
+
 export async function getProductIngredients(productId: string): Promise<V2ProductIngredient[]> {
     const { data, error } = await supabase
         .from("product_ingredients")

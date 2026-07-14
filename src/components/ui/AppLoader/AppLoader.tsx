@@ -1,5 +1,5 @@
-import { HashLoader } from "react-spinners";
 import { motion, AnimatePresence } from "framer-motion";
+import { CataloglobeLoader } from "@components/ui/CataloglobeLoader/CataloglobeLoader";
 import styles from "./AppLoader.module.scss";
 
 export type AppLoaderIntent = "dashboard" | "auth" | "otp" | "sync" | "public" | "generic";
@@ -56,8 +56,6 @@ type AppLoaderSpinnerProps = {
     size?: number;
 };
 
-const SPINNER_COLOR = "#6366f1";
-
-export function AppLoaderSpinner({ size = 64 }: AppLoaderSpinnerProps) {
-    return <HashLoader size={size} color={SPINNER_COLOR} />;
+export function AppLoaderSpinner({ size = 96 }: AppLoaderSpinnerProps) {
+    return <CataloglobeLoader size={size} variant="chase" className={styles.spinnerGif} />;
 }

@@ -5,6 +5,10 @@
   background: #ffffff;
   cursor: pointer;
 
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
   font-weight: 600;
   text-align: center;
   white-space: nowrap;
@@ -53,6 +57,21 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* ===== Icon ===== */
+
+.icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+
+  svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+  }
 }
 
 /* ===== Disabled ===== */

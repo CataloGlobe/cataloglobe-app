@@ -21,6 +21,8 @@ import {
     WheatOff,
     Wine
 } from "lucide-react";
+import { CUSTOM_CHARACTERISTIC_ICON_MAP } from "@components/icons/characteristics";
+import { getChipScale } from "@components/icons/chipScale";
 import styles from "./CharacteristicIcon.module.scss";
 
 /**
@@ -59,6 +61,13 @@ interface CharacteristicIconProps {
     className?: string;
     label?: string;
     variant?: IconVariant;
+    /**
+     * Opt-in round tinted chip background (former default look). Defaults to
+     * `false` so characteristic icons match AllergenIcon's plain style.
+     * Reserved for a future Style Editor toggle — do not remove the
+     * underlying `.chip` class, just leave this off by default.
+     */
+    chip?: boolean;
 }
 
 const LUCIDE_ICON_MAP: Record<string, LucideComponent> = {
@@ -182,29 +191,41 @@ export default function CharacteristicIcon({
     size = 20,
     className,
     label,
-    variant = "default"
+    variant = "default",
+    chip = false
 }: CharacteristicIconProps) {
     const { prefix, name } = parseIcon(icon);
+    const wrapperClassName = `${styles.wrapper}${chip ? ` ${styles.chip}` : ""}`;
+    // Both variants render the SVG at the nominal size — same as AllergenIcon.
+    // The legacy +8 offset (compensation for the removed circled badge) is
+    // gone; if a badge background is ever re-exposed via Style Editor, size
+    // it explicitly there rather than as an implicit offset here.
+    const iconSize = size;
 
     let renderable: ReactElement | null = null;
 
     if (prefix === "lucide") {
         const Component = LUCIDE_ICON_MAP[name] ?? NEUTRAL_FALLBACK;
-        renderable = <Component size={size} className={styles.icon} />;
+        renderable = <Component size={iconSize} className={styles.icon} />;
     } else if (prefix === "custom") {
-        const fallback = CUSTOM_FALLBACK_MAP[name];
-        if (fallback) {
-            warnCustomMissing(name, fallback.component.displayName ?? "Tag");
-            const Component = fallback.component;
-            renderable = (
-                <Component
-                    size={size}
-                    className={styles.icon}
-                    style={fallback.color ? { color: fallback.color } : undefined}
-                />
-            );
+        const CustomComponent = CUSTOM_CHARACTERISTIC_ICON_MAP[name];
+        if (CustomComponent) {
+            renderable = <CustomComponent size={iconSize} className={styles.icon} />;
         } else {
-            renderable = <NEUTRAL_FALLBACK size={size} className={styles.icon} />;
+            const fallback = CUSTOM_FALLBACK_MAP[name];
+            if (fallback) {
+                warnCustomMissing(name, fallback.component.displayName ?? "Tag");
+                const Component = fallback.component;
+                renderable = (
+                    <Component
+                        size={iconSize}
+                        className={styles.icon}
+                        style={fallback.color ? { color: fallback.color } : undefined}
+                    />
+                );
+            } else {
+                renderable = <NEUTRAL_FALLBACK size={iconSize} className={styles.icon} />;
+            }
         }
     } else if (prefix === "badge") {
         // Badge visible text is always derived from the icon key
@@ -221,7 +242,7 @@ export default function CharacteristicIcon({
         }
         return (
             <span
-                className={`${styles.wrapper} ${label ? styles.hasTooltip : ""} ${className ?? ""}`.trim()}
+                className={`${wrapperClassName} ${label ? styles.hasTooltip : ""} ${className ?? ""}`.trim()}
                 aria-label={label}
                 role={label ? "img" : undefined}
             >
@@ -230,7 +251,7 @@ export default function CharacteristicIcon({
             </span>
         );
     } else {
-        renderable = <NEUTRAL_FALLBACK size={size} className={styles.icon} />;
+        renderable = <NEUTRAL_FALLBACK size={iconSize} className={styles.icon} />;
     }
 
     if (variant === "bare") {
@@ -240,9 +261,20 @@ export default function CharacteristicIcon({
         return renderable;
     }
 
+    // Chip-only optical balance: scale up sparse-ink icons inside the circle.
+    // No-op (scale 1) in plain mode and for already-balanced icons.
+    const chipScale = chip ? getChipScale(icon) : 1;
+    if (chipScale !== 1) {
+        renderable = (
+            <span className={styles.scaleWrap} style={{ transform: `scale(${chipScale})` }}>
+                {renderable}
+            </span>
+        );
+    }
+
     return (
         <span
-            className={`${styles.wrapper} ${label ? styles.hasTooltip : ""} ${className ?? ""}`.trim()}
+            className={`${wrapperClassName} ${label ? styles.hasTooltip : ""} ${className ?? ""}`.trim()}
             aria-label={label}
             role={label ? "img" : undefined}
         >

@@ -130,6 +130,8 @@
   "product": {
     "price_from": "à partir de {{price}}",
     "pairing_prefix": "Parfait avec",
+    "pairing_suggestions_one": "{{count}} accord suggéré",
+    "pairing_suggestions_other": "{{count}} accords suggérés",
     "pairing_added": "Ajouté",
     "pairing_view_options": "Voir les options",
     "pairing_upsell_aria": "Accords recommandés",
@@ -148,7 +150,8 @@
   "item_detail": {
     "submit_default": "Ajouter à la sélection",
     "close_aria": "Fermer",
-    "format_required": "Choisissez un format pour continuer"
+    "format_required": "Choisissez un format pour continuer",
+    "pairing_back": "Retour à {{name}}"
   },
   "order_confirmation": {
     "aria": "Commande envoyée",
@@ -249,7 +252,10 @@
   },
   "events": {
     "list_aria": "Événements et promotions",
-    "empty": "Il n'y a pas d'événements ou de promotions en cours pour le moment."
+    "empty": "Il n'y a pas d'événements ou de promotions en cours pour le moment.",
+    "back": "← Retour à la liste",
+    "close_aria": "Fermer",
+    "close_label": "Fermer"
   },
   "hero": {
     "aria": "En-tête de catalogue"
@@ -259,7 +265,17 @@
   },
   "language_selector": {
     "trigger_aria": "Sélection de la langue",
-    "list_aria": "Langues disponibles"
+    "list_aria": "Langues disponibles",
+    "sheet_title": "Langue",
+    "close_aria": "Fermer",
+    "close_label": "Fermer"
+  },
+  "categories": {
+    "sheet_title": "Catégories",
+    "close_aria": "Fermer",
+    "close_label": "Fermer",
+    "back_to_top": "Retour en haut",
+    "toggle_aria": "Développer/réduire la catégorie"
   },
   "brand": {
     "logo_alt_default": "Logo",
@@ -327,8 +343,11 @@
     "list_aria": "Histoires de l'établissement",
     "back_to_list": "Retour aux histoires",
     "product_link": "Depuis le menu → {{name}}",
+    "product_link_label": "Depuis le menu",
     "video_unavailable": "Vidéo non disponible",
     "video_aria": "Vidéo de l'histoire",
+    "video_play": "Regarder la vidéo",
+    "video_play_aria": "Lire la vidéo de l'histoire",
     "discover_label": "Découvrir l'histoire"
   },
   "reviews": {

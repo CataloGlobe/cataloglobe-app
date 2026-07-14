@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Check } from "lucide-react";
 import type { AvailableLanguage } from "@context/Language/LanguageContext";
+import PublicSheet from "../PublicSheet/PublicSheet";
+import Text from "@components/ui/Text/Text";
 import styles from "./LanguageSelector.module.scss";
 
 type LanguageSelectorViewProps = {
@@ -14,12 +16,16 @@ type LanguageSelectorViewProps = {
      *  (menu) o `navigate` per segmento URL (prenotazione, provider-free). */
     onSelect: (code: string) => void;
     /** Contenitore scrollabile (preview = device frame). Fallback window a runtime.
-     *  Qualsiasi scroll chiude il dropdown. */
+     *  Qualsiasi scroll chiude il dropdown. Usato solo da `renderAs="dropdown"`. */
     scrollContainerEl?: HTMLElement | null;
     /** Trattamento visivo del trigger. `glass` (default) = pill 44×44 semi-
      *  trasparente del menu catalogo. `solid` = gemello del pulsante "Menu"
      *  in prenotazione (pill 36px + blur, più visibile su cover chiara). */
     variant?: "glass" | "solid";
+    /** `dropdown` (default) = portale ancorato al trigger, usato da `ReservationPage`
+     *  (provider-free). `sheet` = `PublicSheet` (bottom sheet mobile / dialog
+     *  desktop), usato dal menu catalogo pubblico in vista di >5 lingue. */
+    renderAs?: "dropdown" | "sheet";
 };
 
 /**
@@ -36,12 +42,14 @@ export default function LanguageSelectorView({
     onSelect,
     scrollContainerEl,
     variant = "glass",
+    renderAs = "dropdown",
 }: LanguageSelectorViewProps) {
     const { t } = useTranslation("public");
     const [open, setOpen] = useState(false);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const [dropdownPos, setDropdownPos] = useState({ top: 0, right: 0 });
+    const isDropdown = renderAs === "dropdown";
 
     const updatePosition = useCallback(() => {
         if (!triggerRef.current) return;
@@ -53,12 +61,12 @@ export default function LanguageSelectorView({
     }, []);
 
     useEffect(() => {
-        if (!open) return;
+        if (!isDropdown || !open) return;
         updatePosition();
-    }, [open, updatePosition]);
+    }, [isDropdown, open, updatePosition]);
 
     useEffect(() => {
-        if (!open) return;
+        if (!isDropdown || !open) return;
 
         const handleClick = (e: MouseEvent) => {
             const target = e.target as Node;
@@ -81,7 +89,7 @@ export default function LanguageSelectorView({
             document.removeEventListener("mousedown", handleClick, true);
             scrollTarget.removeEventListener("scroll", handleScroll);
         };
-    }, [open, scrollContainerEl]);
+    }, [isDropdown, open, scrollContainerEl]);
 
     const handleSelect = (code: string) => {
         if (code !== currentLang) {
@@ -110,6 +118,31 @@ export default function LanguageSelectorView({
 
     const triggerClass = `${styles.trigger} ${styles.triggerHero}`;
 
+    const renderOption = (lang: AvailableLanguage, itemClassName: string) => {
+        const isActive = lang.code === currentLang;
+        const itemClass = [itemClassName, isActive ? styles.itemActive : ""]
+            .filter(Boolean).join(" ");
+
+        return (
+            <button
+                key={lang.code}
+                type="button"
+                role="option"
+                aria-selected={isActive}
+                className={itemClass}
+                onClick={() => handleSelect(lang.code)}
+            >
+                {lang.flag_emoji && (
+                    <span className={styles.itemFlag}>{lang.flag_emoji}</span>
+                )}
+                <span className={styles.itemLabel}>{lang.name_native}</span>
+                {isActive && (
+                    <Check size={14} strokeWidth={2.5} className={styles.itemCheck} />
+                )}
+            </button>
+        );
+    };
+
     return (
         <>
             <button
@@ -126,7 +159,7 @@ export default function LanguageSelectorView({
                 </span>
             </button>
 
-            {open && createPortal(
+            {isDropdown && open && createPortal(
                 <div
                     ref={dropdownRef}
                     className={styles.dropdown}
@@ -134,34 +167,45 @@ export default function LanguageSelectorView({
                     role="listbox"
                     aria-label={t("language_selector.list_aria")}
                 >
-                    {languages.map(lang => {
-                        const isActive = lang.code === currentLang;
-                        const itemClass = [
-                            styles.item,
-                            isActive ? styles.itemActive : "",
-                        ].filter(Boolean).join(" ");
-
-                        return (
-                            <button
-                                key={lang.code}
-                                type="button"
-                                role="option"
-                                aria-selected={isActive}
-                                className={itemClass}
-                                onClick={() => handleSelect(lang.code)}
-                            >
-                                {lang.flag_emoji && (
-                                    <span className={styles.itemFlag}>{lang.flag_emoji}</span>
-                                )}
-                                <span className={styles.itemLabel}>{lang.name_native}</span>
-                                {isActive && (
-                                    <Check size={14} strokeWidth={2.5} className={styles.itemCheck} />
-                                )}
-                            </button>
-                        );
-                    })}
+                    {languages.map(lang => renderOption(lang, styles.item))}
                 </div>,
                 document.body
+            )}
+
+            {!isDropdown && (
+                <PublicSheet
+                    isOpen={open}
+                    onClose={() => setOpen(false)}
+                    ariaLabel={t("language_selector.sheet_title")}
+                    headerContent={
+                        <div className={styles.sheetHeader}>
+                            <Text
+                                variant="body"
+                                weight={700}
+                                className={styles.sheetHeaderTitle}
+                                color="var(--pub-surface-text)"
+                            >
+                                {t("language_selector.sheet_title")}
+                            </Text>
+                            <button
+                                type="button"
+                                className={styles.sheetCloseBtn}
+                                onClick={() => setOpen(false)}
+                                aria-label={t("language_selector.close_aria")}
+                            >
+                                {t("language_selector.close_label")}
+                            </button>
+                        </div>
+                    }
+                >
+                    <div
+                        className={styles.sheetBody}
+                        role="listbox"
+                        aria-label={t("language_selector.list_aria")}
+                    >
+                        {languages.map(lang => renderOption(lang, styles.sheetItem))}
+                    </div>
+                </PublicSheet>
             )}
         </>
     );

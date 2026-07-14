@@ -1,0 +1,74 @@
+// Lista compatta valori gruppo opzioni — sostituisce la DataTable generica.
+// Righe a flex-wrap: su larghezze ridotte i campi vanno a capo invece di
+// sovrapporsi (bug chiuso: azioni Salva/Annulla in una colonna a width fissa
+// 80px pensata per un solo icon-button, non per due bottoni testuali).
+.list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+.row .nameField {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.row .priceField {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.editRow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+
+// Su TextInput/NumberInput il className passato via `containerClassName` va
+// sull'elemento wrapper: qui gli diamo un flex-basis, non una width fissa —
+// si comprime o va a capo, non sfonda mai sulla colonna accanto. Il campo
+// prezzo è largo abbastanza da mostrare per intero placeholder come "Costo
+// aggiuntivo" (Task B — prima si troncava: "Delta € (e...").
+.nameField {
+    flex: 1 1 200px;
+    min-width: 140px;
+}
+
+.priceField {
+    flex: 1 1 180px;
+    min-width: 150px;
+}
+
+// Area azioni: MAI a width fissa (causa del bug DataTable). `auto` si
+// dimensiona sul contenuto (1 icon-button in lettura, 2 bottoni testuali in
+// edit) e va a capo con `flex-wrap` del genitore se lo spazio non basta.
+.rowActions {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+}
+
+.rowError {
+    flex-basis: 100%;
+    margin-top: 2px;
+}

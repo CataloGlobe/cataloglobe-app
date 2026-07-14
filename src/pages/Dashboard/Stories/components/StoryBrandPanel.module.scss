@@ -1,0 +1,8 @@
+// Label + helper del campo "Foto" spostati SOPRA il controllo (ImageUploadField
+// non ha label/helperText qui): stesso pattern label→helper→control di InputBase,
+// ma con l'helper visibile PRIMA che l'utente agisca su Sostituisci/Rimuovi.
+.photoField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}

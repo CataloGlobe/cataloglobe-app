@@ -1774,15 +1774,17 @@ export default function CatalogEngine() {
                         </div>
                     </div>
 
-                    <Tabs
-                        value={rightPaneTab}
-                        onChange={v => setRightPaneTab(v as "products" | "translations")}
-                    >
-                        <Tabs.List>
-                            <Tabs.Tab value="products">Prodotti</Tabs.Tab>
-                            <Tabs.Tab value="translations">Traduzioni</Tabs.Tab>
-                        </Tabs.List>
-                    </Tabs>
+                    <div className={styles.categoryTabsBar}>
+                        <Tabs
+                            value={rightPaneTab}
+                            onChange={v => setRightPaneTab(v as "products" | "translations")}
+                        >
+                            <Tabs.List>
+                                <Tabs.Tab value="products">Prodotti</Tabs.Tab>
+                                <Tabs.Tab value="translations">Traduzioni</Tabs.Tab>
+                            </Tabs.List>
+                        </Tabs>
+                    </div>
 
                     {rightPaneTab === "products" && (
                         <div className={styles.productsTools}>
@@ -1838,6 +1840,7 @@ export default function CatalogEngine() {
                 ) : (
                     <div className={styles.translationsWrap}>
                         <TranslationsTab
+                            flush
                             entityType="category"
                             entityId={selectedCategory.id}
                             tenantId={currentTenantId ?? ""}
@@ -2045,6 +2048,7 @@ export default function CatalogEngine() {
                 width={520}
             >
                 <DrawerLayout
+                    headerFlush={!editingProduct}
                     header={
                         editingProduct ? (
                             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

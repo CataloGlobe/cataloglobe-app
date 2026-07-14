@@ -30,7 +30,6 @@ import PublicErrorBoundary from "./components/PublicErrorBoundary/PublicErrorBou
 import TableEntryPage from "./pages/TableEntryPage/TableEntryPage";
 import ReservationPage from "./pages/ReservationPage/ReservationPage";
 import Home from "./pages/Home/Home";
-import LandingRedesign from "./pages/Landing/LandingRedesign.mockup"; // MOCKUP temporaneo — rimuovere dopo valutazione
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
 import PrivacyPolicyPage from "./pages/Legal/PrivacyPolicyPage";
@@ -104,7 +103,6 @@ export default function App() {
         <Routes>
             {/* Public routes */}
             <Route path="/" element={<Home />} />
-            <Route path="/landing-redesign" element={<LandingRedesign />} /> {/* MOCKUP temporaneo */}
 
             {/* Auth routes */}
             <Route

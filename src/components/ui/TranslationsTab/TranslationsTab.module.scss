@@ -11,38 +11,6 @@
   padding: 0;
 }
 
-// Card pattern duplicato da SchedaTab.module.scss — convenzione progetto.
-.card {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 20px;
-  background: var(--card-bg, #fff);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-}
-
-.cardHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.cardLabel {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.5px;
-  text-transform: uppercase;
-  color: var(--text-muted, #94a3b8);
-}
-
-.cardHelp {
-  font-size: 13px;
-  color: var(--text-muted, #64748b);
-  margin-top: -8px;
-}
-
 // ── Segmented Descrizione / Note ────────────────────────────────────
 .segmentRow {
   display: flex;

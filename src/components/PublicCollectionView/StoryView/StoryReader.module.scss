@@ -1,10 +1,37 @@
 .root {
+  // Larga quanto il .frame (gabbia della pagina): la copertina full-bleed vive
+  // qui, mentre il testo è incassato in `.column` (colonna di lettura ~640px).
+  // Pattern editoriale "wrapper largo + colonna stretta", zero margini negativi.
   width: 100%;
-  padding: 1rem 0 2rem;
+  // padding-top: mobile stretto (subito sotto l'header, come il cappello del
+  // feed), desktop generoso via @container — il back-link è un target
+  // cliccabile appiccicato alla barra cliccabile dell'header, serve respiro
+  // vero non solo estetico. Stesso breakpoint di `.cappello` in
+  // StoryView.module.scss (@container collection, mai @media viewport: la
+  // preview Style Editor misura il device frame).
+  // padding-bottom: ingombro REALE della bottom bar flottante (token
+  // `--pub-bottombar-clearance`, PublicBottomBar.module.scss), non un valore
+  // a occhio — protegge davvero la coda del contenuto (didascalia ultima
+  // immagine, card "Dal menu") ora che il lettore vive IN FLUSSO.
+  padding: var(--pub-space-4) 0 max(var(--pub-bottombar-clearance), env(safe-area-inset-bottom));
+
+  @container collection (min-width: 700px) {
+    padding-top: var(--pub-space-7);
+  }
 }
 
-.backButton,
-.backButtonBottom {
+// Colonna di lettura (~640px, tokenizzata) centrata dentro `.root`. Contiene
+// back-link, occhiello, titolo e blocchi; SOLO la copertina la scavalca per
+// riempire il .frame. Un unico gutter, mai doppio.
+.column {
+  width: 100%;
+  max-width: var(--pub-reading-max, 640px);
+  margin: 0 auto;
+}
+
+// Un solo back-link (in cima). Il duplicato in fondo è stato rimosso: con
+// blocchi lunghi la card "Dal menu" chiude già il loop come next-action.
+.backButton {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -15,15 +42,8 @@
   font-family: var(--pub-font-family);
   font-size: 13px;
   font-weight: 600;
-  color: var(--pub-primary);
-}
-
-.backButton {
-  margin-bottom: 1rem;
-}
-
-.backButtonBottom {
-  margin-top: 2rem;
+  color: var(--pub-accent);
+  margin-bottom: var(--pub-space-4);
 }
 
 .stateBlock {
@@ -34,17 +54,20 @@
   min-height: 30vh;
 }
 
-.article {
-  max-width: 640px;
-  margin: 0 auto;
-}
-
+// Larga quanto il .frame ma col radius morbido della pagina (come immagini/card):
+// gli spigoli vivi stonavano perché la copertina galleggia DENTRO il frame, non
+// tocca lo schermo. max-height 420px (desktop): 16:9 a piena larghezza sarebbe
+// ~720px e mangerebbe la prima schermata; capato, il titolo entra subito. Il crop
+// (object-fit:cover, centrato) va bene: è una copertina, non un blocco immagine.
+// aspect-ratio riserva comunque l'altezza (min(aspect, max-height)) → nessun CLS.
+// Mobile (~219px a questa larghezza) resta sotto il cap → 16:9 pieno, invariato.
 .cover {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: var(--pub-radius, 12px);
+  max-height: 420px;
   overflow: hidden;
-  margin-bottom: 16px;
+  border-radius: var(--pub-radius, 12px);
+  margin-bottom: var(--pub-space-6);
 
   img {
     width: 100%;
@@ -67,13 +90,20 @@
   margin-bottom: 8px;
 }
 
+// Titolo storia: il pezzo più grande della pagina, SENZA confronto (h1 34px vs
+// blocchi Titolo h2 20px). Nessun token font-size esiste nel sistema pubblico →
+// literal px, come .cappelloTitle qui accanto (scala su mobile via @media).
 .title {
-  margin: 0 0 16px;
+  margin: 0 0 var(--pub-space-4);
   font-family: var(--pub-font-family);
-  font-size: 26px;
+  font-size: 34px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
   color: var(--pub-text);
+
+  @media (max-width: 480px) {
+    font-size: 27px;
+  }
 }
 
 .blocks {
@@ -82,19 +112,21 @@
   gap: 16px;
 }
 
+// Ponte verso il menu — non un residuo secondario: peso da CTA vera. È
+// un'azione (apre il prodotto) → --pub-cta-bg/--pub-cta-text (accent), non
+// --pub-primary (identità).
 .productLink {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: var(--pub-space-3);
   width: 100%;
-  margin-top: 24px;
-  padding: 14px 16px;
+  margin-top: var(--pub-space-6);
+  padding: var(--pub-space-4);
   border-radius: var(--pub-radius, 12px);
-  border: 1px solid var(--pub-surface-border);
-  background: var(--pub-surface);
+  border: none;
+  background: var(--pub-cta-bg);
+  color: var(--pub-cta-text);
   box-shadow: var(--pub-card-shadow);
-  font-family: var(--pub-font-family);
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--pub-text);
   text-align: left;
   cursor: pointer;
   transition: box-shadow 0.15s ease, transform 0.15s ease;
@@ -108,4 +140,37 @@
     cursor: default;
     opacity: 0.7;
   }
+}
+
+.productLinkIcon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.18);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.productLinkBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.productLinkLabel {
+  font-family: var(--pub-font-family);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.productLinkName {
+  font-family: var(--pub-font-family);
+  font-size: 15px;
+  font-weight: 700;
 }

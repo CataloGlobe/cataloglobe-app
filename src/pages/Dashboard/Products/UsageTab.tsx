@@ -5,6 +5,8 @@ import {
     type ProductCategoryAssignment,
     getProductCategoryAssignments
 } from "@/services/supabase/productUsage";
+import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import styles from "./UsageTab.module.scss";
 
 interface UsageItem {
@@ -70,11 +72,10 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
     return (
         <div className={styles.grid}>
             {/* ──────────────── Card 1 — Riepilogo utilizzo ──────────────── */}
-            <section className={styles.card} data-section="riepilogo">
-                <span className={styles.cardLabel}>Riepilogo utilizzo</span>
-                <span className={styles.cardHelp}>
-                    Visualizza dove questo prodotto è utilizzato nella piattaforma.
-                </span>
+            <SectionCard
+                title="Riepilogo utilizzo"
+                subtitle="Visualizza dove questo prodotto è utilizzato nella piattaforma."
+            >
                 <div className={styles.summaryStats}>
                     <span className={styles.summaryBadge}>
                         <span className={styles.summaryBadgeNumber}>{counts.activities}</span>
@@ -95,15 +96,16 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                     modificare le regole di programmazione vai a{" "}
                     <Link to={`/business/${businessId}/scheduling`}>Programmazione</Link>.
                 </div>
-            </section>
+            </SectionCard>
 
             {/* ──────────────── Card 2 — Cataloghi (con breadcrumb categoria) ──────────────── */}
-            <section className={styles.card} data-section="cataloghi">
-                <span className={styles.cardLabel}>Cataloghi</span>
+            <SectionCard title="Cataloghi">
                 {categoryAssignments.length === 0 ? (
-                    <div className={styles.empty}>
-                        Questo prodotto non è incluso in nessun catalogo.
-                    </div>
+                    <EmptyState
+                        variant="inline"
+                        icon={null}
+                        title="Questo prodotto non è incluso in nessun catalogo."
+                    />
                 ) : (
                     <ul className={styles.list}>
                         {categoryAssignments.map(a => (
@@ -130,15 +132,16 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         ))}
                     </ul>
                 )}
-            </section>
+            </SectionCard>
 
             {/* ──────────────── Card 3 — Programmazione ──────────────── */}
-            <section className={styles.card} data-section="programmazione">
-                <span className={styles.cardLabel}>Programmazione</span>
+            <SectionCard title="Programmazione">
                 {data.schedules.length === 0 ? (
-                    <div className={styles.empty}>
-                        Nessuna regola di programmazione coinvolge questo prodotto.
-                    </div>
+                    <EmptyState
+                        variant="inline"
+                        icon={null}
+                        title="Nessuna regola di programmazione coinvolge questo prodotto."
+                    />
                 ) : (
                     <ul className={styles.list}>
                         {data.schedules.map(schedule => (
@@ -157,15 +160,16 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         ))}
                     </ul>
                 )}
-            </section>
+            </SectionCard>
 
             {/* ──────────────── Card 4 — Attività coinvolte ──────────────── */}
-            <section className={styles.card} data-section="attivita">
-                <span className={styles.cardLabel}>Attività coinvolte</span>
+            <SectionCard title="Attività coinvolte">
                 {data.activities.length === 0 ? (
-                    <div className={styles.empty}>
-                        Questo prodotto non è attualmente visibile in nessuna attività.
-                    </div>
+                    <EmptyState
+                        variant="inline"
+                        icon={null}
+                        title="Questo prodotto non è attualmente visibile in nessuna attività."
+                    />
                 ) : (
                     <ul className={styles.list}>
                         {data.activities.map(activity => (
@@ -184,7 +188,7 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                         ))}
                     </ul>
                 )}
-            </section>
+            </SectionCard>
         </div>
     );
 }

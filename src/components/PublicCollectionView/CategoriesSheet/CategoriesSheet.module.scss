@@ -1,0 +1,267 @@
+@use "@styles/mixins" as *;
+
+/* ── Header — stesso pattern di AllergensSheet/CharacteristicsSheet:
+   titolo a sx + closeBtn testuale a dx (nascosto <640px, chiusura via swipe). */
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+  flex-shrink: 0;
+  background: var(--pub-surface, #fff);
+}
+
+:global([data-card-treatment="glass"]) .header {
+  background: transparent;
+}
+
+.headerTitle {
+  flex: 1;
+  min-width: 0;
+}
+
+.closeBtn {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--pub-btn-radius, 6px);
+  border: none;
+  background: color-mix(in srgb, var(--pub-text, #000) 8%, transparent);
+  color: var(--pub-text, #333);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+
+  @include hover {
+    background: color-mix(in srgb, var(--pub-text, #000) 14%, transparent);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--pub-primary, #333);
+    outline-offset: 2px;
+  }
+
+  @media (min-width: 640px) {
+    display: inline-flex;
+  }
+}
+
+/* ── Body ─────────────────────────────────────────────────────────────── */
+
+.body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  padding: 12px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
+  scrollbar-width: none;
+}
+
+/* ── "Torna in cima" — riga distinta, sopra le sezioni ──────────────────── */
+.backToTop {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--pub-surface-border);
+  border-radius: var(--pub-radius);
+  background: color-mix(in srgb, var(--pub-surface-text) 4%, transparent);
+  color: var(--pub-surface-text);
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+
+  @include hover {
+    background: color-mix(in srgb, var(--pub-surface-text) 8%, transparent);
+  }
+}
+
+/* ── Lista L1 ─────────────────────────────────────────────────────────── */
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Riga: card arrotondata, stesso pattern validato per Allergeni/Lingua —
+   bordo + gap tra righe, nessun divisore piatto. Contiene 2 target tap
+   distinti (chevron + rowMain) quando ha figli. */
+/* .treeRow è sia <div> (nodo con figli, wrapper di chevBtn+rowMain) sia
+   <button> (nodo foglia, l'intera riga è il target tap) — reset espliciti
+   perché lo stile non dipenda dal tag. */
+.treeRow {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  width: 100%;
+  border: 1px solid var(--pub-surface-border);
+  border-radius: var(--pub-radius);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;
+  transition: border-color 0.12s ease;
+}
+
+.chevBtn {
+  flex-shrink: 0;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--pub-surface-text-muted);
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.18s ease;
+
+  @include hover {
+    background: color-mix(in srgb, var(--pub-surface-text) 4%, transparent);
+  }
+}
+
+.treeRow[data-expanded="true"] .chevBtn {
+  transform: rotate(90deg);
+}
+
+.chevBtnSmall {
+  width: 26px;
+}
+
+.chevSpacer {
+  flex-shrink: 0;
+  width: 14px;
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px 12px 8px;
+  border: none;
+  background: transparent;
+  color: var(--pub-surface-text);
+  font-family: var(--pub-font-family, sans-serif);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.12s ease;
+
+  @include hover {
+    background: color-mix(in srgb, var(--pub-surface-text) 4%, transparent);
+  }
+}
+
+.name {
+  flex: 1;
+  min-width: 0;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: inherit;
+}
+
+.count {
+  flex-shrink: 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--pub-surface-text-muted);
+  background: color-mix(in srgb, var(--pub-surface-text) 6%, transparent);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Discendenti (profondità arbitraria, ricostruita da parentCategoryId
+   localmente in CategoriesSheet — non tocca displaySectionGroups) — rientro
+   marcato + peso/dimensione ridotti + trattino (variante B). Ogni nodo con
+   figli propri ottiene lo stesso trattamento chevron di L1, solo più
+   compatto (.chevBtnSmall) — la profondità si legge dall'indentazione
+   crescente (.childListNested), non da uno stile piatto uguale per tutti. */
+.childList {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-left: 40px;
+}
+
+/* Indentazione dei livelli oltre il primo (L3+): più stretta di quella
+   L1→L2 per non consumare troppa larghezza sullo sheet mobile. */
+.childListNested {
+  margin-left: 26px;
+}
+
+.treeRow.child {
+  border-color: color-mix(in srgb, var(--pub-surface-text) 7%, transparent);
+  font-family: var(--pub-font-family, sans-serif);
+
+  @include hover {
+    background: color-mix(in srgb, var(--pub-surface-text) 4%, transparent);
+  }
+}
+
+/* Nodo foglia (bottone singolo, l'intera riga è il target tap): padding
+   proprio, non eredita quello di .rowMain (che qui non esiste come figlio). */
+.treeRow.child.rowMainChild {
+  padding: 9px 12px;
+  gap: 8px;
+  align-items: center;
+}
+
+/* Nodo con figli (div wrapper): il padding vive su .rowMainChild interno
+   (bottone select), non sul wrapper — stesso pattern di L1 (.rowMain). */
+.rowMainChild {
+  padding: 9px 12px 9px 4px;
+  gap: 8px;
+}
+
+.tick {
+  flex-shrink: 0;
+  width: 10px;
+  height: 1.5px;
+  background: var(--pub-surface-text-muted);
+  border-radius: 1px;
+}
+
+.treeRow.child .name {
+  font-weight: 450;
+  /* ~0.9x del genitore (.name L1 = 0.9rem) — rinforzo aggiuntivo alla
+     gerarchia, il peso/colore già la comunicano. */
+  font-size: 0.81rem;
+  color: color-mix(in srgb, var(--pub-surface-text) 78%, transparent);
+}
+
+.treeRow.child .count {
+  font-size: 0.6875rem;
+  font-weight: 500;
+  padding: 2px 7px;
+}

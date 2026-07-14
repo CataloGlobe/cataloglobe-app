@@ -13,12 +13,30 @@ export interface DrawerLayoutProps {
      * column`. Opt-in per non alterare gli altri drawer.
      */
     bodyLayout?: "block" | "flex";
+    /**
+     * Opt-in: azzera il `padding-bottom` dell'header così che dei `<Tabs>` come
+     * ultimo elemento dell'header appoggino l'indicatore esattamente sul divider
+     * (border-bottom dell'header), senza gap. Default `false` → header invariato,
+     * nessuna regressione sugli altri drawer. Usare SOLO quando l'header termina
+     * con un gruppo Tabs.
+     */
+    headerFlush?: boolean;
 }
 
-export const DrawerLayout = ({ header, footer, children, bodyLayout = "block" }: DrawerLayoutProps) => {
+export const DrawerLayout = ({
+    header,
+    footer,
+    children,
+    bodyLayout = "block",
+    headerFlush = false
+}: DrawerLayoutProps) => {
     return (
         <div className={styles.container}>
-            {header && <div className={styles.header}>{header}</div>}
+            {header && (
+                <div className={styles.header} data-header-flush={headerFlush || undefined}>
+                    {header}
+                </div>
+            )}
             <div className={styles.body} data-body-layout={bodyLayout}>{children}</div>
             {footer && <div className={styles.footer}>{footer}</div>}
         </div>

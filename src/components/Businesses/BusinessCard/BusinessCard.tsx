@@ -1,12 +1,13 @@
 import React from "react";
 import Text from "@components/ui/Text/Text";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { MoreVertical, Building2 } from "lucide-react";
+import { MoreVertical, Building2, Clock, AlertTriangle } from "lucide-react";
 import type { BusinessCardProps } from "@/types/Businesses";
 import styles from "./BusinessCard.module.scss";
 import { Button } from "@/components/ui";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { formatInactiveReason } from "@/utils/activityStatus";
+import { formatOverrideSummary } from "@/services/supabase/activeCatalog";
 import { useNavigate, useParams } from "react-router-dom";
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
@@ -153,41 +154,80 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
 
                 <div className={styles.divider} />
 
-                <div className={styles.catalogInfo}>
-                    {catalogsLoading ? (
-                        <div className={styles.catalogLabel}>
-                            <Text variant="caption" colorVariant="muted">
-                                Catalogo attivo
-                            </Text>
-                            <Text variant="caption" colorVariant="muted">
-                                Caricamento...
-                            </Text>
+                {catalogsLoading ? (
+                    <div className={styles.catalogFooter}>
+                        <div className={styles.catalogFooterMain}>
+                            <div className={styles.catalogFooterLeft}>
+                                <span className={styles.catalogIcon}>
+                                    <Clock size={14} strokeWidth={2} />
+                                </span>
+                                <div className={styles.catalogText}>
+                                    <Text variant="caption" className={styles.catalogFooterLabel}>
+                                        Menu attivo ora
+                                    </Text>
+                                    <Text variant="caption" colorVariant="muted">
+                                        Caricamento...
+                                    </Text>
+                                </div>
+                            </div>
                         </div>
-                    ) : activeCatalog?.hasActiveCatalog ? (
-                        <div className={styles.catalogLabel}>
-                            <Text variant="caption" colorVariant="muted">
-                                Catalogo attivo ora
-                            </Text>
-                            <Text variant="caption" weight={600}>
-                                {activeCatalog.catalogName}
-                            </Text>
+                    </div>
+                ) : activeCatalog?.hasActiveCatalog ? (
+                    <div className={styles.catalogFooter}>
+                        <div className={styles.catalogFooterMain}>
+                            <div className={styles.catalogFooterLeft}>
+                                <span className={styles.catalogIcon}>
+                                    <Clock size={14} strokeWidth={2} />
+                                </span>
+                                <div className={styles.catalogText}>
+                                    <Text variant="caption" className={styles.catalogFooterLabel}>
+                                        Menu attivo ora
+                                    </Text>
+                                    <Text
+                                        variant="caption"
+                                        weight={600}
+                                        className={styles.catalogName}
+                                    >
+                                        {activeCatalog.catalogName}
+                                    </Text>
+                                </div>
+                            </div>
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={e => {
+                                    e.stopPropagation();
+                                    onManageAvailability?.(business.id, business.name);
+                                }}
+                            >
+                                Gestisci
+                            </Button>
                         </div>
-                    ) : (
+                        {(() => {
+                            const overrideSummary = formatOverrideSummary(
+                                activeCatalog.hiddenCount,
+                                activeCatalog.unavailableCount
+                            );
+                            if (!overrideSummary) return null;
+                            return (
+                                <div className={styles.catalogWarningRow}>
+                                    <AlertTriangle
+                                        size={12}
+                                        strokeWidth={2}
+                                        className={styles.catalogWarningIcon}
+                                    />
+                                    <Text variant="caption" colorVariant="muted">
+                                        {overrideSummary}
+                                    </Text>
+                                </div>
+                            );
+                        })()}
+                    </div>
+                ) : (
+                    <div className={styles.catalogInfo}>
                         <span className={styles.noCatalog}>Nessun catalogo attivo</span>
-                    )}
-                    {!catalogsLoading && activeCatalog?.hasActiveCatalog && (
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={e => {
-                                e.stopPropagation();
-                                onManageAvailability?.(business.id, business.name);
-                            }}
-                        >
-                            Gestisci
-                        </Button>
-                    )}
-                </div>
+                    </div>
+                )}
             </div>
         </article>
     );

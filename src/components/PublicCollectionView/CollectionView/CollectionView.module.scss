@@ -232,7 +232,11 @@
 .grid {
   display: grid;
   gap: 8px;
-  grid-template-columns: repeat(2, 1fr);
+  /* Base: 1 colonna. La Card va multi-colonna solo da 1024px in su (stessa
+     query che riorienta la card in colonna, vedi blocco CARD sotto); il
+     Compatto ha il suo auto-fit guidato dalla densità. minmax(0, 1fr) e non
+     1fr: la traccia può scendere sotto il min-content (prezzo nowrap ecc.). */
+  grid-template-columns: minmax(0, 1fr);
 }
 
 /* Tablet: gap più ampio */
@@ -242,16 +246,35 @@
   }
 }
 
-/* Desktop: 3 colonne */
+/* Desktop: Card multi-colonna (il Compatto è escluso: usa auto-fit).
+   Stessa soglia del riorientamento card → colonne e orientamento cambiano
+   in sincrono, mai card in riga dentro un grid multi-colonna. */
 @container collection (min-width: 1024px) {
-  .grid {
-    grid-template-columns: repeat(3, 1fr);
+  .container:not([data-product-style="compact"]) .grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 
-/* Lista: forza sempre 1 colonna indipendentemente dal container size */
-.container[data-card-layout="list"] .grid {
-  grid-template-columns: 1fr !important;
+/* Compatto: grid auto-fit sempre attivo, indipendente da data-card-layout.
+   La larghezza minima di colonna cresce con la densità contenuti: più
+   contenuto per riga → colonne più larghe → meno colonne. min(…, 100%)
+   protegge i container più stretti della soglia (nessun overflow). */
+/* Soglie tarate perché a container ≤ ~480px (smartphone, anche large) il
+   risultato sia SEMPRE 1 colonna con qualunque densità; il multi-colonna
+   parte da ~700px (tablet) e scala con la densità. */
+.container[data-product-style="compact"] .grid {
+  --compact-min-col: 380px; /* full (default) */
+  grid-template-columns: repeat(auto-fit, minmax(min(var(--compact-min-col), 100%), 1fr));
+  row-gap: 0; /* la separazione è il padding verticale di .compactRow, niente doppio stacco */
+  column-gap: 1.5rem;
+}
+
+.container[data-product-style="compact"][data-content-density="minimal"] .grid {
+  --compact-min-col: 230px;
+}
+
+.container[data-product-style="compact"][data-content-density="standard"] .grid {
+  --compact-min-col: 300px;
 }
 
 /* ----------------------------------------------------
@@ -260,11 +283,7 @@
 
 .compactItem {
   position: relative; /* ancora il velo ::after dell'evidenziazione ricerca */
-  border-bottom: 1px solid color-mix(in srgb, var(--pub-surface-border) 60%, transparent);
-
-  &:last-child {
-    border-bottom: none;
-  }
+  min-width: 0; /* consente ai figli flex (nome line-clamp) di restringersi nella traccia grid */
 
   &.disabledCard {
     opacity: 0.6;
@@ -276,7 +295,10 @@
   display: flex;
   align-items: flex-start;
   gap: 0.5rem;
-  padding: 0.875rem 0;
+  /* Nessun divisore tra prodotti: la separazione è SOLO questa spaziatura
+     verticale (16px + 16px = 32px tra prodotti), unica per Editoriale/Moderno
+     e per tutte le densità. Padding (non gap sul grid) → resta area tap. */
+  padding: 1rem 0;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
   transition: opacity 0.12s ease;
@@ -304,6 +326,25 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
+}
+
+/* Variante Editoriale: leader a puntini tra nome e prezzo (menù classico).
+   Il nome passa a shrink-to-fit così il leader riempie lo spazio residuo. */
+.compactNameRowEditorial {
+  justify-content: flex-start;
+
+  .compactName {
+    flex: 0 1 auto;
+  }
+}
+
+.compactLeader {
+  flex: 1 1 auto;
+  min-width: 16px;
+  border-bottom: 2px dotted color-mix(in srgb, var(--pub-bg-text) 30%, transparent);
+  /* Il box è alto 0 (solo bordo): centrato dall'align-items del row,
+     abbassato leggermente verso la baseline del testo. */
+  transform: translateY(0.25em);
 }
 
 .compactName {
@@ -353,28 +394,29 @@
 .compactEmojiRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   margin-top: 5px;
 }
 
 .compactEmojiDivider {
-  align-self: stretch;
+  align-self: center;
   width: 1px;
-  background: color-mix(in srgb, var(--pub-bg-text) 20%, transparent);
+  height: 12px;
+  background: color-mix(in srgb, var(--pub-primary, #4b5563) 35%, transparent);
 }
 
 .compactAllergens {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 5px;
 }
 
 .compactCharacteristics {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 3px;
+  gap: 5px;
 }
 
 /* ----------------------------------------------------
@@ -386,15 +428,42 @@
   pointer-events: none;
 }
 
-.unavailableBadge {
-  display: inline-block;
+/* Overlay Card: ancorato in absolute sopra l'angolo di .rowImageWrapper
+   (position: relative) invece di occupare riga propria nel flusso — l'area
+   immagine mantiene altezza fissa (aspect-ratio) a prescindere dal badge,
+   niente disallineamento tra le card di una stessa riga di griglia. */
+.unavailableBadgeOverlay {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 1;
   font-size: 0.7rem;
-  color: var(--color-error, #dc2626);
-  background: color-mix(in srgb, var(--color-error, #dc2626) 10%, transparent);
+  // Sfondo alert SOLIDO + testo chiaro: theme-adaptive (segue `--pub-alert`
+  // sovrascritto dallo style) e leggibile su qualsiasi `--pub-surface` chiara o
+  // scura, perché lo sfondo del badge è opaco e non dipende dal contrasto con la
+  // card. Prima usava `--color-error` (token inesistente → fallback #dc2626 fisso,
+  // non adattivo): in dark mode risultava rosso-su-rosso-scuro illeggibile.
+  color: #ffffff;
+  background: var(--pub-alert, #ef4444);
   padding: 0.15rem 0.4rem;
   border-radius: var(--pub-btn-radius, 4px);
-  font-weight: 500;
-  margin: 0.5rem 0.75rem 0;
+  font-weight: 600;
+}
+
+/* Compatto: nessuna area immagine su cui fare overlay — il badge vive DENTRO
+   lo stack verticale di .compactRowBody (name-row → desc → pairing → emoji),
+   come primo elemento, così è inequivocabilmente sopra il nome del prodotto
+   disabilitato invece che sibling esterno prima della riga (ambiguità: su
+   mobile, senza bordi tra prodotti, sembrava riferirsi al prodotto sopra). */
+.unavailableBadgeCompact {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 0.7rem;
+  color: #ffffff;
+  background: var(--pub-alert, #ef4444);
+  padding: 0.15rem 0.4rem;
+  border-radius: var(--pub-btn-radius, 4px);
+  font-weight: 600;
 }
 
 .card {
@@ -552,89 +621,73 @@
 
 .productRowImageRight {
   flex-direction: row-reverse;
-
-  /* In row-reverse il DOM è [image, rowBody, addBtn]: order:-1 fa sì che
-     addBtn venga posizionato al main-start (destra) → sempre a destra. */
-  .addBtn {
-    order: -1;
-  }
+  /* Il bottone "+" vive dentro .titleRow (rowBody) → non è più un flex item
+     diretto di .productRow, nessun order necessario in row-reverse. */
 }
 
 /* ----------------------------------------------------
-   GRID layout — Card verticale (immagine 4:3 + testo sotto)
-   Usa CSS Grid invece di flex-column: permette di affiancare
-   il bottone "+" al corpo testo quando non c'è immagine
-   (Card·Grid senza immagine → bottone nella stessa riga del prezzo).
-
-   Colonne: [1fr corpo testo] [auto bottone]
-   - Con immagine:    rowImageWrapper span 1/-1 (intera riga),
-                      rowBody in col 1, addBtn NON renderizzato → col 2 vuota.
-   - Senza immagine:  rowBody in col 1, addBtn in col 2, stessa riga. ✓
+   CARD — orientamento automatico via container query.
+   Collection stretta (<1024px): 1 colonna, card in riga
+   (immagine 96px a sinistra/destra secondo imageRight — regole base).
+   Collection larga (≥1024px): 3 colonne, card in colonna
+   (immagine 4:3 sopra, imageRight neutralizzata).
+   Nessun container annidato: la larghezza della singola card NON è un
+   segnale affidabile (una card full-width tablet è più larga di una card
+   di un grid a 3 colonne, ma vuole l'orientamento opposto) — il segnale
+   giusto è la larghezza della collection, già container `collection`.
 ---------------------------------------------------- */
 
-.container[data-card-layout="grid"] {
-  .productRow {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    padding: 0;
-    gap: 0;
-  }
-
-  /* ignora imageRight in griglia: l'immagine è sempre sopra */
-  .productRowImageRight {
-    flex-direction: column;
-  }
-
-  .rowImageWrapper {
-    grid-column: 1 / -1; /* l'immagine occupa entrambe le colonne */
-  }
-
-  .rowImage,
-  .rowPlaceholder {
-    width: 100%;
-    height: auto;
-    aspect-ratio: 4 / 3;
-    border-radius: 0;
-    flex-shrink: unset;
-  }
-
-  .rowBody {
-    padding: 0.75rem 1rem 0.5rem;
-    min-width: 0; /* evita overflow testo in grid */
-  }
-
-  /* Card·Grid SENZA immagine: distribuisci body + "+" come flex column.
-     `.card` outer è flex column dentro CSS Grid (.grid) con default
-     align-items:stretch → tutte le card di una stessa riga grid hanno
-     stessa altezza. Con `height:100%` qui, `.productRow` riempie la card,
-     `.rowBody { flex:1 }` espande il testo, `.addBtn` resta pinned
-     bottom-right → click sul vuoto in fondo apre ItemDetail.
-
-     Scope ristretto a no-image perché:
-     - Card·Grid CON immagine ha già `addBtnOverlay` glassmorphism
-       sull'immagine (non vogliamo toccarlo).
-     - Default `.productRow` (Card·List) può contenere parent + N varianti
-       come siblings dentro `.card` → `height:100%` sul default romperebbe
-       il layout multi-row. Per quello scope qui, non sul selector default. */
-  .productRow:not(:has(.rowImageWrapper)) {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-
-    .rowBody {
-      flex: 1;
-      padding: 0.75rem 1rem;
+@container collection (min-width: 1024px) {
+  .container:not([data-product-style="compact"]) {
+    .productRow {
+      flex-direction: column;
+      padding: 0;
+      gap: 0;
     }
 
-    .addBtn {
-      align-self: flex-end;
-      margin: 0 1rem 1rem 0;
+    /* imageRight ha senso solo in riga: in colonna l'immagine è sempre sopra
+       (stesso pattern di neutralizzazione del vecchio Card·Grid). */
+    .productRowImageRight {
+      flex-direction: column;
+    }
+
+    .rowImageWrapper {
+      width: 100%;
+    }
+
+    .rowImage,
+    .rowPlaceholder {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 4 / 3;
+      border-radius: 0;
+      flex-shrink: unset;
+    }
+
+    .rowBody {
+      padding: 0.75rem 1rem;
+      min-width: 0; /* evita overflow testo in colonna */
+    }
+
+    /* Equalizzazione altezze: `.card` è flex column dentro CSS Grid
+       (align-items: stretch) → i box delle card di una stessa riga sono già
+       pari. Qui il productRow riempie la card così il vuoto in fondo resta
+       cliccabile (apre ItemDetail) e il contenuto si distribuisce.
+       Scope :only-child: le card con varianti hanno più productRow siblings
+       dentro `.card` — height:100% su ciascuno romperebbe il multi-row
+       (stesso vincolo documentato nel vecchio blocco Card·Grid). */
+    .productRow:only-child {
+      height: 100%;
+
+      .rowBody {
+        flex: 1;
+      }
     }
   }
 }
 
-/* Wrapper attorno a .rowImage / .rowPlaceholder — consente position:absolute
-   al bottone overlay in Card·Grid senza alterare il layout in Card·List */
+/* Wrapper attorno a .rowImage / .rowPlaceholder — punto di aggancio per il
+   full-width dell'immagine nell'orientamento colonna (≥1024px). */
 .rowImageWrapper {
   position: relative;
   flex-shrink: 0; /* non si restringe come flex item in list mode */
@@ -810,8 +863,9 @@
 }
 
 /* Chip abbinamento — segnale "Perfetto con · <nome>" sotto la descrizione.
-   Pill tint accento tenue, testo troncato con ellipsis. Visivo: nessun
-   handler proprio (eredita il tap della card). */
+   Pill tint primary tenue (stessa var dei chip allergeni/caratteristiche,
+   niente mix locale duplicato), testo troncato con ellipsis. Visivo:
+   nessun handler proprio (eredita il tap della card). */
 .pairingChip {
   display: inline-flex;
   align-items: center;
@@ -823,7 +877,7 @@
   margin-top: 4px;
   padding: 2px 8px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--pub-accent) 12%, transparent);
+  background: var(--pub-primary-soft);
   font-size: 11px;
   font-weight: 500;
   line-height: 1.4;
@@ -831,13 +885,7 @@
 
 .pairingChipIcon {
   flex-shrink: 0;
-  color: var(--pub-accent);
-}
-
-.pairingChipMore {
-  flex-shrink: 0;
-  font-weight: 700;
-  color: var(--pub-accent);
+  color: var(--pub-primary);
 }
 
 .pairingChipText {
@@ -860,21 +908,22 @@
 .emojiRow {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   margin-top: 4px;
 }
 
 .emojiDivider {
-  align-self: stretch;
+  align-self: center;
   width: 1px;
-  background: var(--pub-surface-border);
+  height: 14px;
+  background: color-mix(in srgb, var(--pub-primary, #4b5563) 35%, transparent);
 }
 
 .allergenEmojis {
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
 .allergenEmoji {
@@ -900,7 +949,7 @@
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
 }
 
 .characteristicEmoji {
@@ -1086,55 +1135,6 @@
   }
 }
 
-/* Overlay variant — solid white pill in Card·Grid, layered over product image.
-   Contrast at rest is mandatory: touch devices have no hover, and light product
-   photos would otherwise erase the button. */
-.addBtnOverlay {
-  position: absolute;
-  bottom: 8px;
-  right: 8px;
-  width: 32px;
-  height: 32px;
-  border-radius: var(--pub-btn-radius);
-  background: var(--pub-surface, #fff);
-  border: 1px solid rgba(0, 0, 0, 0.07);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--pub-surface-text);
-  padding: 0;
-  z-index: 2;
-  transition: box-shadow 0.18s ease, transform 0.18s ease;
-  outline: none;
-  -webkit-tap-highlight-color: transparent;
-
-  @include hover {
-    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.24);
-    transform: scale(1.05);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--pub-primary, #333);
-    outline-offset: 2px;
-  }
-
-  &:active {
-    transform: scale(var(--pub-press-scale, 0.96));
-    transition: transform 0.05s ease-out;
-  }
-}
-
-.addBtnOverlayActive {
-  background: var(--pub-accent);
-  color: var(--pub-cta-text);
-
-  @include hover {
-    background: color-mix(in srgb, var(--pub-accent) 85%, transparent);
-  }
-}
-
 /* Outline variant — usato da ProductCompactRow (sfondo pagina, no card surface) */
 .addBtnOutline {
   width: 26px;
@@ -1179,32 +1179,6 @@
   background: var(--pub-accent);
   color: var(--pub-cta-text);
   border-color: transparent;
-}
-
-/* Compact · Grid: padding ridotto */
-.container[data-card-layout="grid"] .compactRow {
-  padding: 0.625rem 0;
-}
-
-/* Compact · Grid: row-gap:0 così border-bottom agisce come separatore
-   naturale (identico look a Compact · List — nessuna doppia separazione).
-   column-gap esplicito perché gli item text-only senza wrapper necessitano
-   più respiro orizzontale rispetto ai 8px/1rem del grid base. */
-.container[data-card-layout="grid"][data-product-style="compact"] .grid {
-  row-gap: 0;
-  column-gap: 1.5rem;
-}
-
-/* Ultima riga visiva — mobile/default (2 colonne): ultimi 2 item DOM */
-.container[data-card-layout="grid"][data-product-style="compact"] .compactItem:nth-last-child(-n+2) {
-  border-bottom: none;
-}
-
-/* Ultima riga visiva — desktop (3 colonne): ultimi 3 item DOM */
-@container collection (min-width: 1024px) {
-  .container[data-card-layout="grid"][data-product-style="compact"] .compactItem:nth-last-child(-n+3) {
-    border-bottom: none;
-  }
 }
 
 .addBtnBadge {
@@ -1364,12 +1338,75 @@
   padding-bottom: max(2rem, env(safe-area-inset-bottom));
 }
 
+/* Reviews sheet: ReviewsView.root porta già il proprio padding verticale
+   (pensato per il flow a step, non per essere annidato in un wrapper già
+   paddato) — senza questo override si sommava a .infoSheetContent, doppiando
+   il padding e sbilanciandolo ulteriormente in basso. Scoped alla sola sheet
+   recensioni: Info/Eventi restano su .infoSheetContent invariato. */
+.reviewsSheetContent.infoSheetContent {
+  padding: 0;
+}
+
 .infoSheetTitle {
   font-size: 1rem;
   font-weight: 600;
   color: var(--pub-text);
   font-family: var(--pub-font-family, sans-serif);
   margin: 0 0 1.25rem 0;
+}
+
+/* Header sheet eventi — stessi valori di ItemDetail.module.scss .header
+   (peso titolo + divisore), passato via PublicSheet headerContent così
+   resta fisso sopra il contenuto scrollabile invece di scrollare con la
+   lista (coerenza di comportamento, non solo visiva). Scoped alla sola
+   sheet eventi: .infoSheetTitle (Info sheet) resta invariato. */
+.eventsSheetHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
+  background: var(--pub-surface, #fff);
+  flex-shrink: 0;
+}
+
+/* Bottone chiudi testuale, stesso pattern di CategoriesSheet/AllergensSheet
+   .closeBtn: nascosto <640px (chiusura via swipe/tap-fuori su mobile),
+   visibile da desktop in su dove l'unica via era il click sul backdrop. */
+.eventsCloseBtn {
+  display: none;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 10px;
+  border-radius: var(--pub-btn-radius, 6px);
+  border: none;
+  background: color-mix(in srgb, var(--pub-text, #000) 8%, transparent);
+  color: var(--pub-text, #333);
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  flex-shrink: 0;
+  outline: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-text, #000) 14%, transparent);
+  }
+
+  @media (min-width: 640px) {
+    display: inline-flex;
+  }
+}
+
+/* Lista eventi: .infoSheetContent porta top 1rem (Info sheet) — qui bumped a
+   1.5rem per allinearsi ai lati (1.5rem, invariati). EventsView.grid non
+   aggiunge più padding verticale proprio (rimosso, era residuo del vecchio
+   contesto tab/.tabPatternSurface pre-sheet, ora doppiava lo spazio verticale
+   rispetto ai lati). Scoped alla sola sheet eventi: Info resta invariata. */
+.eventsListContent.infoSheetContent {
+  padding-top: 1.5rem;
 }
 
 .infoSection {

@@ -9,6 +9,7 @@ import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
@@ -422,12 +423,7 @@ export function TranslationsTab({
 
     return (
         <div className={gridClass}>
-            <section className={styles.card}>
-                <header className={styles.cardHeader}>
-                    <span className={styles.cardLabel}>{sectionLabel}</span>
-                </header>
-                <div className={styles.cardHelp}>{sectionDescription}</div>
-
+            <SectionCard title={sectionLabel} subtitle={sectionDescription}>
                 {secondaryField && (
                     <div className={styles.segmentRow}>
                         <SegmentedControl<ViewMode>
@@ -751,7 +747,7 @@ export function TranslationsTab({
                         </>
                     )
                 )}
-            </section>
+            </SectionCard>
 
             <ConfirmDialog
                 isOpen={revertConfirmFor !== null}

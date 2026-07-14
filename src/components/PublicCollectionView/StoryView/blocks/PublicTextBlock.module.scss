@@ -6,3 +6,15 @@
   color: var(--pub-text);
   white-space: pre-wrap;
 }
+
+// Sommario editoriale: solo il primo blocco testo. Corpo maggiore del normale
+// (17/16 vs 15) → segnala "apre il pezzo", non didascalia del titolo. Gerarchia
+// 34 (titolo) → 20 (h2) → 17 (sommario) → 15 (testo).
+.lead {
+  font-size: 17px;
+  line-height: 1.6;
+
+  @media (max-width: 480px) {
+    font-size: 16px;
+  }
+}

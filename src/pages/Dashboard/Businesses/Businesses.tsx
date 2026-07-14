@@ -152,7 +152,7 @@ export default function Businesses() {
   const [isDeleting, setIsDeleting] = useState(false);
 
   // ======================================
-  // STATE: Drawer visibilità prodotti
+  // STATE: Drawer disponibilità prodotti
   // ======================================
   const [visibilityDrawerTarget, setVisibilityDrawerTarget] = useState<{
     activityId: string;

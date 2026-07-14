@@ -1,17 +1,19 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { ImageIcon, MessageCircle, MoreHorizontal, ScrollText, Search, ShoppingBag, Sparkles, Utensils } from "lucide-react";
+import { BookOpenText, CalendarDays, ImageIcon, MessageCircle, MoreHorizontal, ReceiptText, Search, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
+import { hasOpenSheet } from "../hooks/useScrollCollapse";
 import { buildCoverImageSet } from "@/utils/imageTransform";
 import LanguageSelector from "@components/PublicCollectionView/LanguageSelector/LanguageSelector";
 import styles from "./PublicCollectionHeader.module.scss";
 
-// ⚠️ Visibilità tab "events" sincronizzata con PublicBottomBar.tsx (stesso filtro)
+// Eventi/Recensioni non sono più tab (vedi trigger icona onOpenEvents/onOpenReviews
+// più sotto, PublicSheet dedicate in CollectionView) — "menu" resta l'unica vista
+// primaria, "storia" resta un tab (contenuto full-page, non un modale).
+// ⚠️ Visibilità tab "storia" sincronizzata con PublicBottomBar.tsx (stesso filtro)
 const HUB_TABS: { id: HubTab; icon: ReactNode; labelKey: string }[] = [
     { id: "menu", icon: <Utensils size={14} />, labelKey: "hub.menu" },
-    { id: "events", icon: <Sparkles size={14} />, labelKey: "hub.events" },
-    { id: "reviews", icon: <MessageCircle size={14} />, labelKey: "hub.reviews" },
-    { id: "storia", icon: <ScrollText size={14} />, labelKey: "hub.storia" },
+    { id: "storia", icon: <BookOpenText size={14} />, labelKey: "hub.storia" },
 ];
 
 // ── Prototype constants (authoritative — do not change) ─────────────────────
@@ -68,10 +70,10 @@ export type PublicCollectionHeaderProps = {
     allergensCount?: number;
     /** Apre il MoreSheet (allergeni + info). Undefined in preview. */
     onOpenMore?: () => void;
-    /** Mostra le hub tabs (menu/eventi/recensioni). Default true (comportamento storico). */
+    /** Mostra le hub tabs (menu/storia). Default true (comportamento storico). */
     showHubTabs?: boolean;
-    /** Mostra la tab "events". Default true (retrocompatibile). Filtrata via stessa
-     *  logica di PublicBottomBar quando non ci sono featured da mostrare. */
+    /** Mostra il trigger "eventi" (apre la sheet). Default true (retrocompatibile).
+     *  Stessa logica di PublicBottomBar: false quando non ci sono featured da mostrare. */
     showEventsTab?: boolean;
     /** Mostra la tab "storia". Default false (gated su has_story dal catalogo).
      *  Filtrata via stessa logica di PublicBottomBar. */
@@ -89,12 +91,22 @@ export type PublicCollectionHeaderProps = {
     orderVisible?: boolean;
     /** Apre il drawer ordine. Undefined ⇒ bottone non renderizzato. */
     onOpenOrder?: () => void;
-    /** Dot promemoria recensione sulla tab "Dicci la tua" (riusa valutaVisible). */
+    /** Apre la sheet "eventi". Undefined ⇒ bottone non renderizzato (fuori preview). */
+    onOpenEvents?: () => void;
+    /** Apre la sheet "recensioni". Undefined ⇒ bottone non renderizzato (fuori preview). */
+    onOpenReviews?: () => void;
+    /** Dot promemoria recensione sul trigger "Dicci la tua" (riusa valutaVisible). */
     reviewDot?: boolean;
     /** Solo preview: device emulato dal toggle Mobile/Desktop. Settato come
      *  attributo data-preview-device sul .root → pilota lo split CSS in anteprima
      *  (hub tab nascosti in mobile-preview). Undefined in runtime. */
     previewDevice?: "mobile" | "desktop";
+    /** Congela il tracking scroll (lerp header) mentre una sheet è aperta: gli
+     *  scroll event indotti dal body-lock/unlock di PublicSheet vengono ignorati
+     *  esplicitamente invece di affidarsi solo al defensive read di body.style.top
+     *  (che resta come rete di sicurezza). Stesso pattern dual-source del freeze
+     *  in useScrollCollapse: prop dal parent + contatore modulo hasOpenSheet(). */
+    frozen?: boolean;
 };
 
 export default function PublicCollectionHeader({
@@ -125,10 +137,18 @@ export default function PublicCollectionHeader({
     selectionCount = 0,
     orderVisible = false,
     onOpenOrder,
+    onOpenEvents,
+    onOpenReviews,
     reviewDot = false,
     previewDevice,
+    frozen = false,
 }: PublicCollectionHeaderProps) {
     const { t } = useTranslation("public");
+    // Aggiornato sincronicamente ad ogni render (stesso pattern di freezeRef in
+    // useScrollCollapse): già true prima degli scroll event post-apertura sheet,
+    // senza ri-attaccare il listener.
+    const frozenRef = useRef(frozen);
+    frozenRef.current = frozen;
     // ── ResizeObserver: write --pub-header-height on <main> ancestor ────────────
     const headerRef = useRef<HTMLElement | null>(null);
     // Ghost input: focalizzato in-gesto al tap per innescare la tastiera iOS; il
@@ -196,6 +216,11 @@ export default function PublicCollectionHeader({
     useEffect(() => {
         const target = scrollContainerEl ?? window;
         const readScroll = () => {
+            // Freeze in OR (prop esplicita + contatore sheet aperte): esce subito
+            // sugli scroll event sintetici del body-lock/unlock di PublicSheet.
+            // Il defensive read su body.style.top sotto RESTA come rete di
+            // sicurezza (e per la preview, dove le sheet non si aprono).
+            if (frozenRef.current || hasOpenSheet()) return;
             let y: number;
             if (scrollContainerEl) {
                 // Preview: container interno, non affetto dal body lock
@@ -397,6 +422,39 @@ export default function PublicCollectionHeader({
                             </button>
                         )}
 
+                        {/* Trigger eventi/recensioni: aprono le sheet dedicate (non più tab).
+                            Nascosti ≤640px via @media (stesso split di .headerActions/.chips):
+                            la bottom-bar mobile porta gli stessi trigger. */}
+                        {((onOpenEvents && showEventsTab) || onOpenReviews || mode === "preview") && (
+                            <div className={styles.hubTriggers}>
+                                {((onOpenEvents && showEventsTab) || mode === "preview") && (
+                                    <button
+                                        type="button"
+                                        className={styles.iconBtn}
+                                        onClick={onOpenEvents}
+                                        aria-label={t("hub.events")}
+                                        tabIndex={mode === "preview" ? -1 : undefined}
+                                    >
+                                        <CalendarDays size={15} strokeWidth={2} />
+                                    </button>
+                                )}
+                                {(onOpenReviews || mode === "preview") && (
+                                    <button
+                                        type="button"
+                                        className={styles.iconBtn}
+                                        onClick={onOpenReviews}
+                                        aria-label={t("hub.reviews")}
+                                        tabIndex={mode === "preview" ? -1 : undefined}
+                                    >
+                                        <MessageCircle size={15} strokeWidth={2} />
+                                        {reviewDot && (
+                                            <span className={styles.iconBtnDot} aria-hidden="true" />
+                                        )}
+                                    </button>
+                                )}
+                            </div>
+                        )}
+
                         {/* Gruppo azioni desktop (Ordine). Sotto flag bottom-bar è montato
                             sempre ma nascosto ≤640px via @media (la bottom-bar mobile porta
                             la stessa azione). */}
@@ -419,7 +477,7 @@ export default function PublicCollectionHeader({
                                     }
                                     tabIndex={mode === "preview" ? -1 : undefined}
                                 >
-                                    <ShoppingBag size={15} strokeWidth={2} />
+                                    <ReceiptText size={15} strokeWidth={2} />
                                     {selectionCount > 0 && (
                                         <span className={styles.iconBtnBadge} aria-hidden>
                                             {selectionCount}
@@ -440,8 +498,7 @@ export default function PublicCollectionHeader({
                                 .join(" ")}
                         >
                             {HUB_TABS.filter(tab =>
-                                (tab.id !== "events" || showEventsTab) &&
-                                (tab.id !== "storia" || showStoryTab)
+                                tab.id !== "storia" || showStoryTab
                             ).map(tab => (
                                 <button
                                     key={tab.id}
@@ -455,9 +512,6 @@ export default function PublicCollectionHeader({
                                     onClick={() => onTabChange?.(tab.id)}
                                 >
                                     {tab.icon} {t(tab.labelKey)}
-                                    {tab.id === "reviews" && reviewDot && activeTab !== "reviews" && (
-                                        <span className={styles.chipDot} aria-hidden="true" />
-                                    )}
                                 </button>
                             ))}
                         </div>

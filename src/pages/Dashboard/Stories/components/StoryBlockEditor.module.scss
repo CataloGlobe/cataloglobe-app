@@ -7,17 +7,32 @@
 .list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
 }
 
+// Nessuna cornice propria: il blocco eredita l'unico bordo dalla SectionCard.
+// I blocchi si separano con un hairline (non sul primo) invece di una scatola.
 .block {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 14px;
-  background: var(--card-bg);
-  border: 1px solid var(--border);
+  gap: 12px;
+  padding: 14px 0;
+}
+
+.list > div:not(:first-child) > .block {
+  border-top: 1px solid var(--border);
+}
+
+// Stato drag: tint invece di cornice piena; i separatori adiacenti (proprio
+// e quello del blocco successivo) spariscono per non spezzare la tinta.
+.list > div[data-dragging="true"] > .block {
+  background: var(--brand-primary-soft);
   border-radius: var(--radius-md);
+  padding: 14px 12px;
+  border-top-color: transparent;
+}
+
+.list > div[data-dragging="true"] + div > .block {
+  border-top-color: transparent;
 }
 
 .dragHandle {
@@ -29,7 +44,7 @@
   align-items: center;
   justify-content: center;
   padding: 4px;
-  margin-top: 4px;
+  margin-top: 6px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
@@ -45,7 +60,7 @@
   align-items: center;
   justify-content: center;
   padding: 4px;
-  margin-top: 4px;
+  margin-top: 6px;
   background: transparent;
   border: none;
   border-radius: var(--radius-sm);
@@ -58,7 +73,3 @@
   }
 }
 
-.addRow {
-  display: flex;
-  gap: 8px;
-}

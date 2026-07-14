@@ -2,10 +2,24 @@
   margin: 0;
 }
 
-.image {
+/*
+ * Container col rapporto noto PRIMA che l'immagine arrivi (aspect-ratio via
+ * data-frame) → l'altezza è riservata, nessun layout shift (CLS). FramedMedia
+ * richiede un box position:relative; overflow:hidden.
+ */
+.frameBox {
+  position: relative;
+  overflow: hidden;
   width: 100%;
   border-radius: var(--pub-radius, 12px);
-  display: block;
+
+  &[data-frame="3:2"] {
+    aspect-ratio: 3 / 2;
+  }
+
+  &[data-frame="4:5"] {
+    aspect-ratio: 4 / 5;
+  }
 }
 
 .caption {

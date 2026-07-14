@@ -1,0 +1,12 @@
+.heading {
+  // Respiro asimmetrico: molto più SOPRA che sotto — il titolo introduce ciò che
+  // segue, non chiude ciò che precede. margin-top si somma al gap 16px del
+  // container .blocks (i margini non collassano in flex) → sopra ≫ sotto. È la
+  // ragione per cui non serve un blocco Divisore.
+  margin: var(--pub-space-6) 0 0;
+  font-family: var(--pub-font-family);
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.3;
+  color: var(--pub-text);
+}

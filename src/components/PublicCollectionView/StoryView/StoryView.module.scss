@@ -1,23 +1,36 @@
 @use "@styles/mixins" as *;
 
-/* View-swap del lettore: overlay assoluto che scorre da destra sopra il feed
-   (transform, NON PublicSheet — vedi StoryReader). overflow-x:hidden clippa
-   il pannello durante la transizione; overflow-y esplicito a visible evita
-   che il computed value auto-converta creando un secondo scroll container
-   (regola CSS: overflow-x non-visible + overflow-y:visible → overflow-y:auto). */
+/* View-swap feed ⇄ lettore: UNA vista alla volta, IN FLUSSO (mode="wait" in
+   StoryView.tsx — l'uscita finisce prima che l'entrata monti). Niente overlay
+   assoluto: il lettore viveva prima in un pannello `position:absolute` con
+   sfondo proprio, alto quanto il feed (non il proprio contenuto) — causa dei
+   3 difetti: pannello sopra lo sfondo pagina, contenuto che si infila sotto
+   l'header, clearance bottom-bar che non proteggeva la coda reale. In flusso
+   ogni vista eredita naturalmente altezza/posizione/scroll della pagina.
+   overflow-x:hidden clippa lo scorrimento orizzontale durante la transizione. */
 .viewport {
-  position: relative;
   width: 100%;
   overflow-x: hidden;
-  overflow-y: visible;
+  // Inset laterale: unica fonte di padding orizzontale per feed + lettore. Su
+  // mobile viene azzerato da `.tabPatternSurface > .frame > *` in
+  // CollectionView.module.scss (l'inset arriva già da lì); su desktop (dove
+  // tabPatternSurface non monta) resta l'unico inset dentro `.frame`, stesso
+  // valore (1rem) per continuità visiva. `.viewport` è il diretto figlio di
+  // `.frame` (vedi CollectionView.tsx, tab "storia") — stesso ruolo di
+  // EventsView `.root`.
+  padding: 0 1rem;
+  // Contesto container per `.grid` sotto — prima non dichiarato da nessun
+  // antenato reale (Storie non è mai annidata dentro `.container` del Menu,
+  // che dichiara "collection" solo per la propria tab): la query restava
+  // inerte. Dichiarato qui localmente, stesso nome già referenziato.
+  container-type: inline-size;
+  container-name: collection;
 }
 
-.readerOverlay {
-  position: absolute;
-  inset: 0;
-  min-height: 100%;
-  background: var(--pub-bg);
-  z-index: 1;
+// Wrapper neutro della vista attiva (feed o lettore) — solo per l'animazione
+// di scorrimento di AnimatePresence, nessuno stile visivo proprio.
+.view {
+  width: 100%;
 }
 
 .stateBlock {
@@ -37,6 +50,11 @@
 
 .root {
   width: 100%;
+  // Clearance per la bottom bar pubblica fluttuante — ingombro REALE (token
+  // `--pub-bottombar-clearance`, PublicBottomBar.module.scss), non un valore
+  // a occhio. Sul `.root`, non su `.grid`, così vale anche quando c'è solo il
+  // cappello senza lista storie.
+  padding-bottom: max(var(--pub-bottombar-clearance), env(safe-area-inset-bottom));
 }
 
 /* ── Cappello ─────────────────────────────────────────────────────────── */
@@ -44,18 +62,27 @@
 .cappello {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 1.5rem 0 1rem;
+  align-items: center;
+  gap: var(--pub-space-3);
+  // Mobile: titolo subito, niente vuoto sotto header. Desktop ha respiro verticale
+  // da vendere — bump via @container (non @media: la preview Style Editor misura
+  // il device frame, stesso pattern di `.grid`/`.card` sotto).
+  padding: var(--pub-space-3) 0 var(--pub-space-6);
   text-align: center;
+
+  @container collection (min-width: 700px) {
+    padding-top: var(--pub-space-7);
+  }
 }
 
 .cappelloCover {
   width: 100%;
   max-width: 480px;
   aspect-ratio: 16 / 9;
-  margin: 0 auto 12px;
+  margin: 0 auto var(--pub-space-3);
   border-radius: var(--pub-radius, 12px);
   overflow: hidden;
+  box-shadow: var(--pub-card-shadow);
 
   img {
     width: 100%;
@@ -68,59 +95,92 @@
 .cappelloTitle {
   margin: 0;
   font-family: var(--pub-font-family);
-  font-size: 24px;
+  font-size: 28px;
   font-weight: 700;
+  line-height: 1.2;
   color: var(--pub-text);
+
+  @media (max-width: 480px) {
+    font-size: 22px;
+  }
 }
 
 .cappelloIntro {
+  // Testo lungo → allineato a SINISTRA (il centrato regge 2-3 righe, non 10:
+  // l'occhio ricerca l'inizio riga). La colonna resta centrata (margin auto),
+  // largh. di lettura ~65 caratteri. Titolo e pulsante restano centrati.
   margin: 0 auto;
-  max-width: 60ch;
-  font-size: 14px;
-  line-height: 1.6;
+  max-width: 62ch;
+  text-align: left;
+  font-size: 15px;
+  line-height: 1.65;
   color: var(--pub-text-secondary);
 }
 
 .cappelloWebsite {
   align-self: center;
-  margin-top: 4px;
+  margin-top: var(--pub-space-2);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border-radius: 999px;
+  background: var(--pub-cta-bg);
+  color: var(--pub-cta-text);
+  font-family: var(--pub-font-family);
   font-size: 13px;
   font-weight: 600;
-  color: var(--pub-primary);
   text-decoration: none;
+  box-shadow: var(--pub-card-shadow);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   @include hover {
-    text-decoration: underline;
+    box-shadow: var(--pub-card-shadow-hover);
+    transform: translateY(-1px);
   }
+}
+
+.cappelloWebsiteIcon {
+  flex: none;
+}
+
+.cappelloDivider {
+  border: none;
+  border-top: 1px solid var(--pub-surface-border);
+  margin: 0 0 var(--pub-space-2);
 }
 
 /* ── Feed "Approfondimenti" ───────────────────────────────────────────── */
 
 .sectionTitle {
-  margin: 1.5rem 0 1rem;
+  margin: var(--pub-space-6) 0 var(--pub-space-4);
   font-family: var(--pub-font-family);
-  font-size: 16px;
+  font-size: 17px;
   font-weight: 700;
   color: var(--pub-text);
 }
 
-/* Nessun container-type proprio: la griglia vive dentro il context `collection`
-   già dichiarato dall'ancestor CollectionView (stesso pattern di FeaturedBlock). */
+/* Card a misura propria (~380px), NON stirata: flex-wrap con basis fisso invece
+   di grid auto-fit (che stira sempre le colonne a riempire la riga). Regge sia
+   1 sola storia (resta a sinistra) sia molte (righe multiple, ultima incompleta
+   senza stiramento). Contesto `collection` dichiarato su `.viewport` (sopra). */
 .grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
-  gap: 20px;
-  padding: 0 0 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--pub-space-4);
+  padding: 0 0 var(--pub-space-6);
 
   @container collection (min-width: 700px) {
-    grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr));
-    gap: 24px;
+    gap: var(--pub-space-5);
   }
 }
 
 .card {
   display: flex;
   flex-direction: column;
+  flex: 0 1 380px;
+  min-width: 280px;
+  max-width: 420px;
   border-radius: var(--pub-radius, 12px);
   overflow: hidden;
   cursor: pointer;
@@ -137,6 +197,12 @@
     box-shadow: var(--pub-card-shadow-hover);
     transform: translateY(-1px);
   }
+
+  // Mobile: una colonna, piena larghezza (comportamento esistente preservato).
+  @container collection (max-width: 479px) {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
 }
 
 .cardCover {
@@ -151,7 +217,12 @@
     height: 100%;
     object-fit: cover;
     display: block;
+    transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
   }
+}
+
+.card:hover .cardCover img {
+  transform: scale(1.04);
 }
 
 .cardCoverPlaceholder {
@@ -163,42 +234,59 @@
 .cardBody {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 14px 16px 16px;
+  // Riempie l'altezza residua della card (che è stirata all'altezza della card
+  // più alta della riga): senza questo il `margin-top:auto` del CTA arriverebbe
+  // solo in fondo al cardBody, non della card → "Leggi" disallineati tra card.
+  flex: 1;
+  gap: var(--pub-space-1);
+  padding: var(--pub-space-4);
 }
 
 .cardEyebrow {
   display: inline-block;
   align-self: flex-start;
-  padding: 2px 8px;
-  border-radius: var(--pub-btn-radius, 4px);
+  padding: 3px 9px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--pub-primary);
   background: var(--pub-primary-soft, rgba(99, 102, 241, 0.1));
-  margin-bottom: 4px;
+  margin-bottom: var(--pub-space-1);
+}
+
+// Segnaposto invisibile ma con lo stesso box del chip (il &nbsp; ne conserva
+// l'altezza): riserva la riga occhiello quando assente → titoli allineati.
+.cardEyebrowEmpty {
+  visibility: hidden;
 }
 
 .cardTitle {
   font-family: var(--pub-font-family);
   font-size: 16px;
   font-weight: 700;
+  line-height: 1.35;
   color: var(--pub-text);
 }
 
 .cardExcerpt {
   font-size: 13px;
-  line-height: 1.5;
+  line-height: 1.55;
   color: var(--pub-text-secondary);
+  // Clamp a 2 righe fisse: tiene le card della stessa altezza a prescindere
+  // dalla lunghezza dell'estratto.
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .cardProduct {
   display: inline-block;
   align-self: flex-start;
-  margin-top: 4px;
-  padding: 3px 10px;
+  margin-top: var(--pub-space-2);
+  padding: 4px 10px;
   border-radius: var(--pub-btn-radius, 999px);
   font-size: 11px;
   font-weight: 600;
@@ -207,8 +295,11 @@
 }
 
 .cardCta {
-  margin-top: 8px;
+  // Sempre in fondo alla card (flex column) → "Leggi" allineato tra le card,
+  // niente buco bianco variabile tra excerpt/prodotto e il link.
+  margin-top: auto;
+  padding-top: var(--pub-space-2);
   font-size: 12px;
   font-weight: 700;
-  color: var(--pub-primary);
+  color: var(--pub-accent);
 }

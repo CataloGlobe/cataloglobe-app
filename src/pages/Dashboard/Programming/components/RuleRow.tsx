@@ -38,7 +38,7 @@ function getRuleTypeLabel(ruleType: LayoutRule["rule_type"]): string {
     if (ruleType === "layout") return "Layout";
     if (ruleType === "featured") return "In evidenza";
     if (ruleType === "price") return "Prezzi";
-    return "Visibilità";
+    return "Disponibilità";
 }
 
 export function RuleRow({

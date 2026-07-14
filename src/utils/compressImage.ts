@@ -29,6 +29,9 @@ export const COMPRESS_PROFILES = {
     logo:     { maxWidth: 512, maxHeight: 256,    quality: 0.90, format: "webp" },
     avatar:   { maxWidth: 512, maxHeight: 512,    quality: 0.90, format: "webp" },
     featured: { maxWidth: 1200, maxHeight: 800,  quality: 0.85, format: "webp" },
+    // Story image blocks: taller cap than `featured` so a 4:5 portrait saturates
+    // (1200×1500) instead of being height-limited to 800 → 640×800 (soft on DPR3).
+    story:    { maxWidth: 1200, maxHeight: 1500, quality: 0.82, format: "webp" },
 } satisfies Record<string, CompressOptions>;
 
 /**

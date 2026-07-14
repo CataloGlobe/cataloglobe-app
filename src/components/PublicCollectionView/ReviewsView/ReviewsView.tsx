@@ -17,16 +17,15 @@ export type ReviewsViewProps = {
 /* ── Rating config ──────────────────────────────────── */
 
 type RatingConfig = {
-    emoji: string;
     colorClass: string;
 };
 
 const RATING_CONFIG: Record<number, RatingConfig> = {
-    1: { emoji: "\u{1F61E}", colorClass: "ratingRed" },
-    2: { emoji: "\u{1F615}", colorClass: "ratingOrange" },
-    3: { emoji: "\u{1F610}", colorClass: "ratingYellow" },
-    4: { emoji: "\u{1F60A}", colorClass: "ratingGreen" },
-    5: { emoji: "\u{1F929}", colorClass: "ratingGreenDark" },
+    1: { colorClass: "ratingRed" },
+    2: { colorClass: "ratingOrange" },
+    3: { colorClass: "ratingYellow" },
+    4: { colorClass: "ratingGreen" },
+    5: { colorClass: "ratingGreenDark" },
 };
 
 function ratingCategory(rating: number): "positive" | "neutral" | "negative" {
@@ -89,8 +88,6 @@ export default function ReviewsView({
     const [showGoogleCard, setShowGoogleCard] = useState(false);
 
     const displayStars = hoverStars || selectedStars;
-    const ratingConfig = displayStars > 0 ? RATING_CONFIG[displayStars] : null;
-    const ratingLabel = displayStars > 0 ? t(`reviews.rating_labels.${displayStars}`) : "";
 
     const isLowRating = selectedStars >= 1 && selectedStars <= 3;
     const isHighRating = selectedStars >= 4;
@@ -99,8 +96,8 @@ export default function ReviewsView({
     /* ── Handle star click ──────────────────────────── */
     function handleStarClick(n: number) {
         setSelectedStars(n);
-        // Touch device: transizione immediata (badge nascosto via CSS).
-        // Desktop: 300ms delay per mostrare il badge di reazione prima del form.
+        // Touch device: transizione immediata.
+        // Desktop: 300ms delay — breve pausa percettiva prima di passare al form.
         const isTouch = window.matchMedia("(hover: none)").matches;
         if (isTouch) {
             setPhase("feedback");
@@ -189,7 +186,7 @@ export default function ReviewsView({
                             <path
                                 d="M20 6L9 17l-5-5"
                                 fill="none"
-                                stroke="#fff"
+                                stroke="currentColor"
                                 strokeWidth="2.5"
                                 strokeLinecap="round"
                                 strokeLinejoin="round"
@@ -244,24 +241,6 @@ export default function ReviewsView({
                             </button>
                         ))}
                     </div>
-
-                    {ratingConfig && (
-                        <div
-                            className={[
-                                styles.ratingBadge,
-                                styles[ratingConfig.colorClass],
-                            ]
-                                .filter(Boolean)
-                                .join(" ")}
-                        >
-                            <span className={styles.ratingEmoji}>
-                                {ratingConfig.emoji}
-                            </span>
-                            <span className={styles.ratingLabel}>
-                                {ratingLabel}
-                            </span>
-                        </div>
-                    )}
                 </div>
             </div>
         );
@@ -290,8 +269,6 @@ export default function ReviewsView({
             placeholder = t("reviews.placeholder_high");
         }
 
-        const bgClass = `${config.colorClass}Bg` as keyof typeof styles;
-
         return (
             <div className={styles.root}>
                 <div className={styles.feedbackPhase}>
@@ -303,41 +280,30 @@ export default function ReviewsView({
                         {t("reviews.back")}
                     </button>
 
-                    {/* Rating summary card */}
-                    <div
-                        className={[
-                            styles.ratingSummaryCard,
-                            styles[bgClass],
-                        ]
-                            .filter(Boolean)
-                            .join(" ")}
-                    >
-                        <span className={styles.ratingSummaryEmoji}>
-                            {config.emoji}
-                        </span>
-                        <div className={styles.ratingSummaryInfo}>
-                            <span className={styles.ratingSummaryLabel}>
-                                {summaryLabel}
-                            </span>
-                            <div className={styles.ratingSummaryStars}>
-                                {[1, 2, 3, 4, 5].map((n) => (
-                                    <svg
-                                        key={n}
-                                        viewBox="0 0 24 24"
-                                        className={[
-                                            styles.miniStar,
-                                            n <= selectedStars
-                                                ? styles.miniStarFilled
-                                                : styles.miniStarEmpty,
-                                        ]
-                                            .filter(Boolean)
-                                            .join(" ")}
-                                    >
-                                        <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                                    </svg>
-                                ))}
-                            </div>
+                    {/* Rating summary card — stelle neutre (token --pub-*) +
+                        label testuale, colore semantico solo sul testo. */}
+                    <div className={styles.summaryCard}>
+                        <div className={styles.summaryStars}>
+                            {[1, 2, 3, 4, 5].map((n) => (
+                                <svg
+                                    key={n}
+                                    viewBox="0 0 24 24"
+                                    className={[
+                                        styles.miniStar,
+                                        n <= selectedStars
+                                            ? styles.miniStarFilled
+                                            : styles.miniStarEmpty,
+                                    ]
+                                        .filter(Boolean)
+                                        .join(" ")}
+                                >
+                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                                </svg>
+                            ))}
                         </div>
+                        <span className={[styles.summaryLabel, styles[config.colorClass]].join(" ")}>
+                            {summaryLabel}
+                        </span>
                     </div>
 
                     {/* Textarea */}
@@ -355,35 +321,28 @@ export default function ReviewsView({
                             maxLength={2000}
                             autoFocus
                         />
-                        <div className={styles.charCount}>
-                            {feedback.length} / 2000
+                        <div className={styles.subline}>
+                            <p className={styles.caption}>
+                                {t("reviews.personal_data_hint")}{" "}
+                                {t("reviews.privacy_disclaimer_prefix")}
+                                <a
+                                    href="/legal/privacy"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    {t("reviews.privacy_disclaimer_link")}
+                                </a>
+                                {t("reviews.privacy_disclaimer_suffix")}
+                            </p>
+                            <span className={styles.charCount}>
+                                {feedback.length} / 2000
+                            </span>
                         </div>
-                        <p className={styles.feedbackNote}>
-                            {t("reviews.personal_data_hint")}
-                        </p>
                     </div>
 
                     {submitError && (
                         <p className={styles.errorMsg}>{submitError}</p>
                     )}
-
-                    {submitDisabled && (
-                        <p className={styles.requiredNote}>
-                            {t("reviews.required_note")}
-                        </p>
-                    )}
-
-                    <p className={styles.privacyDisclaimer}>
-                        {t("reviews.privacy_disclaimer_prefix")}
-                        <a
-                            href="/legal/privacy"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                        >
-                            {t("reviews.privacy_disclaimer_link")}
-                        </a>
-                        {t("reviews.privacy_disclaimer_suffix")}
-                    </p>
 
                     <button
                         type="button"
@@ -419,7 +378,7 @@ export default function ReviewsView({
                         <path
                             d="M20 6L9 17l-5-5"
                             fill="none"
-                            stroke="#fff"
+                            stroke="currentColor"
                             strokeWidth="2.5"
                             strokeLinecap="round"
                             strokeLinejoin="round"

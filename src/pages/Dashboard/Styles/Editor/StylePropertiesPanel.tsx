@@ -3,7 +3,6 @@ import { InfoTooltip } from "@components/ui/Tooltip/InfoTooltip";
 import {
     StyleTokenModel,
     NavigationStyle,
-    CardLayout,
     ProductStyle,
     FontFamily,
     BorderRadius,
@@ -11,10 +10,13 @@ import {
     PatternIntensity,
     FeaturedStyle,
     CardTreatment,
-    OutlinedBorderColor
+    OutlinedBorderColor,
+    IconStyle,
+    CompactLayoutStyle,
+    ContentDensity
 } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
-import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview, CardLayoutPreview } from "./StyleMiniPreviews";
+import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview } from "./StyleMiniPreviews";
 import { StyleColorPicker } from "./StyleColorPicker";
 import { IconRefresh } from "@tabler/icons-react";
 import { usePaletteWarnings } from "./usePaletteWarnings";
@@ -58,11 +60,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "compact", label: "Compatto" }
     ];
 
-    const cardLayoutOptions: Array<{ value: CardLayout; label: string }> = [
-        { value: "grid", label: "Grid" },
-        { value: "list", label: "List" }
-    ];
-
     const borderRadiusOptions: Array<{ value: BorderRadius; label: string }> = [
         { value: "none", label: "Nessuno" },
         { value: "soft", label: "Morbido" },
@@ -100,6 +97,22 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         { value: "highlight", label: "Highlight" }
     ];
 
+    const iconStyleOptions: Array<{ value: IconStyle; label: string }> = [
+        { value: "plain", label: "Senza sfondo" },
+        { value: "pill", label: "Con sfondo" }
+    ];
+
+    const compactLayoutStyleOptions: Array<{ value: CompactLayoutStyle; label: string }> = [
+        { value: "editorial", label: "Editoriale" },
+        { value: "modern", label: "Moderno" }
+    ];
+
+    const contentDensityOptions: Array<{ value: ContentDensity; label: string }> = [
+        { value: "minimal", label: "Minimo" },
+        { value: "standard", label: "Con descrizione" },
+        { value: "full", label: "Completo" }
+    ];
+
     const updateColor = (key: keyof StyleTokenModel["colors"], value: string | undefined) => {
         onChange({
             ...model,
@@ -119,6 +132,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const updateBorderRadius = (borderRadius: BorderRadius) => {
         onChange({ ...model, appearance: { ...model.appearance, borderRadius } });
+    };
+
+    const updateIconStyle = (iconStyle: IconStyle) => {
+        onChange({ ...model, appearance: { ...model.appearance, iconStyle } });
     };
 
     const updateCardTreatment = (cardTreatment: CardTreatment) => {
@@ -163,11 +180,12 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         onChange({ ...model, card: { ...model.card, productStyle } });
     };
 
-    const updateCard = (layout: CardLayout) => {
-        onChange({
-            ...model,
-            card: { ...model.card, layout }
-        });
+    const updateCompactLayoutStyle = (compactLayoutStyle: CompactLayoutStyle) => {
+        onChange({ ...model, card: { ...model.card, compactLayoutStyle } });
+    };
+
+    const updateContentDensity = (contentDensity: ContentDensity) => {
+        onChange({ ...model, card: { ...model.card, contentDensity } });
     };
 
     const updateCardImage = (mode: "show" | "hide", position: "left" | "right") => {
@@ -582,26 +600,60 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     </div>
                 )}
 
+                {/* Layout List/Grid rimosso: la Card si riorienta in automatico via
+                    container query (riga sotto 1024px, colonna multi-col sopra);
+                    il Compatto usa il grid auto-fit guidato dalla densità. */}
+
+                {model.card.productStyle === "compact" && (
                 <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Layout lista prodotti<InfoTooltip content="Grid mostra più prodotti affiancati su schermi ampi (desktop/tablet). Su mobile, entrambi i layout mostrano un prodotto per riga." />
+                        Variante Compatto<InfoTooltip content="Editoriale collega nome e prezzo con una linea di puntini, come un menù classico. Moderno li lascia separati." />
                     </Text>
-                    <div className={`${styles.miniPreviewGrid} ${styles.miniPreviewGridTwoCols}`} role="radiogroup">
-                        {cardLayoutOptions.map(option => {
-                            const isActive = model.card.layout === option.value;
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {compactLayoutStyleOptions.map(option => {
+                            const isActive = (model.card.compactLayoutStyle ?? "modern") === option.value;
                             return (
                                 <button
                                     key={option.value}
                                     type="button"
                                     role="radio"
                                     aria-checked={isActive}
-                                    className={`${styles.miniPreviewCard} ${
-                                        isActive ? styles.miniPreviewCardActive : ""
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
                                     }`}
-                                    onClick={() => updateCard(option.value)}
+                                    onClick={() => updateCompactLayoutStyle(option.value)}
                                 >
-                                    <CardLayoutPreview variant={option.value} />
-                                    <span className={styles.miniPreviewLabel}>{option.label}</span>
+                                    <Text as="span" variant="body" weight={600}>
+                                        {option.label}
+                                    </Text>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+                )}
+
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Densità contenuti<InfoTooltip content="Minimo mostra solo nome e prezzo. Con descrizione aggiunge la descrizione. Completo mostra anche abbinamenti e allergeni. Prezzo, sconto e bottone ordina restano sempre visibili." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {contentDensityOptions.map(option => {
+                            const isActive = (model.card.contentDensity ?? "full") === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isActive}
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateContentDensity(option.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {option.label}
+                                    </Text>
                                 </button>
                             );
                         })}
@@ -612,38 +664,10 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                 {model.card.productStyle !== "compact" && (
                 <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
-                        Immagini prodotti<InfoTooltip content="Posizione dell'immagine nella card prodotto. Visibile solo nello stile Card." />
+                        Immagini prodotti<InfoTooltip content="Posizione dell'immagine nella card prodotto quando la lista è a una colonna; su schermi ampi, con più colonne, l'immagine va automaticamente sopra. Visibile solo nello stile Card." />
                     </Text>
 
-                    {model.card.layout === "grid" ? (
-                        <div className={`${styles.buttonGroup} ${styles.cards}`}>
-                            {(
-                                [
-                                    { value: "show", label: "Mostra" },
-                                    { value: "hide", label: "Nascondi" }
-                                ] as Array<{ value: "show" | "hide"; label: string }>
-                            ).map(opt => {
-                                const isActive = model.card.image.mode === opt.value;
-                                return (
-                                    <button
-                                        key={opt.value}
-                                        type="button"
-                                        className={`${styles.optionButton} ${
-                                            isActive ? styles.optionButtonActive : ""
-                                        }`}
-                                        onClick={() =>
-                                            updateCardImage(opt.value, model.card.image.position)
-                                        }
-                                    >
-                                        <Text variant="body" weight={600}>
-                                            {opt.label}
-                                        </Text>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    ) : (
-                        <div className={styles.miniPreviewGrid} role="radiogroup">
+                    <div className={styles.miniPreviewGrid} role="radiogroup">
                             {(
                                 [
                                     { value: "left", label: "Sinistra", mode: "show" },
@@ -683,10 +707,36 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                     </button>
                                 );
                             })}
-                        </div>
-                    )}
+                    </div>
                 </div>
                 )}
+
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Stile icone<InfoTooltip content="Mostra le icone di allergeni e caratteristiche senza sfondo oppure con uno sfondo colorato, la cui forma segue l'impostazione Arrotondamento." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {iconStyleOptions.map(option => {
+                            const isActive = (model.appearance.iconStyle ?? "plain") === option.value;
+                            return (
+                                <button
+                                    key={option.value}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={isActive}
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateIconStyle(option.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {option.label}
+                                    </Text>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
             </section>
 
             {/* TIPOGRAFIA */}

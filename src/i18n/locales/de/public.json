@@ -130,6 +130,8 @@
     "product": {
         "price_from": "ab {{price}}",
         "pairing_prefix": "Perfekt zu",
+        "pairing_suggestions_one": "{{count}} empfohlene Kombination",
+        "pairing_suggestions_other": "{{count}} empfohlene Kombinationen",
         "pairing_added": "Hinzugefügt",
         "pairing_view_options": "Optionen ansehen",
         "pairing_upsell_aria": "Empfohlene Kombinationen",
@@ -148,7 +150,8 @@
     "item_detail": {
         "submit_default": "Zur Auswahl hinzufügen",
         "close_aria": "Schließen Sie",
-        "format_required": "Wählen Sie ein Format, um fortzufahren"
+        "format_required": "Wählen Sie ein Format, um fortzufahren",
+        "pairing_back": "Zurück zu {{name}}"
     },
     "order_confirmation": {
         "aria": "Bestellung gesendet",
@@ -249,7 +252,10 @@
     },
     "events": {
         "list_aria": "Veranstaltungen und Promotionen",
-        "empty": "Zurzeit keine aktiven Veranstaltungen oder Aktionen."
+        "empty": "Zurzeit keine aktiven Veranstaltungen oder Aktionen.",
+        "back": "← Zurück zur Liste",
+        "close_aria": "Schließen",
+        "close_label": "Schließen"
     },
     "hero": {
         "aria": "Kopfzeile des Katalogs"
@@ -259,7 +265,17 @@
     },
     "language_selector": {
         "trigger_aria": "Sprache auswählen",
-        "list_aria": "Verfügbare Sprachen"
+        "list_aria": "Verfügbare Sprachen",
+        "sheet_title": "Sprache",
+        "close_aria": "Schließen",
+        "close_label": "Schließen"
+    },
+    "categories": {
+        "sheet_title": "Kategorien",
+        "close_aria": "Schließen",
+        "close_label": "Schließen",
+        "back_to_top": "Nach oben",
+        "toggle_aria": "Kategorie ein-/ausklappen"
     },
     "brand": {
         "logo_alt_default": "Logo",
@@ -327,8 +343,11 @@
         "list_aria": "Geschichten des Standorts",
         "back_to_list": "Zurück zu den Geschichten",
         "product_link": "Aus der Speisekarte → {{name}}",
+        "product_link_label": "Aus der Speisekarte",
         "video_unavailable": "Video nicht verfügbar",
         "video_aria": "Video der Geschichte",
+        "video_play": "Video ansehen",
+        "video_play_aria": "Story-Video abspielen",
         "discover_label": "Geschichte entdecken"
     },
     "reviews": {

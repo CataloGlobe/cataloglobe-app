@@ -1,13 +1,19 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, ChevronRight, X } from "lucide-react";
+import { IconEyeOff, IconClockExclamation, IconTrash } from "@tabler/icons-react";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { PillGroupMultiple } from "@/components/ui/PillGroup/PillGroupMultiple";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { Select } from "@/components/ui/Select/Select";
 import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import {
     LayoutRuleOption,
     RuleType,
@@ -21,6 +27,25 @@ export interface FeaturedContentItem {
     slot: "before_catalog" | "after_catalog";
     sortOrder: number;
 }
+
+type ProductDisplayOption = {
+    id: string;
+    label: string;
+    isVariant: boolean;
+    parentId?: string;
+};
+
+type VisibilityProductRow = {
+    id: string;
+    label: string;
+    isVariant: boolean;
+    mode: VisibilityMode;
+};
+
+const VISIBILITY_MODE_OPTIONS: { value: VisibilityMode; label: string; icon: ReactNode }[] = [
+    { value: "hide", label: "Nascondi", icon: <IconEyeOff size={14} /> },
+    { value: "disable", label: "Non disp.", icon: <IconClockExclamation size={14} /> }
+];
 
 interface ProductOverride {
     overridePrice: string;
@@ -275,6 +300,11 @@ export function AssociatedContentSection({
     const [selectedGroupId, setSelectedGroupId] = useState("");
     const [productSearch, setProductSearch] = useState("");
     const [pendingSelectedIds, setPendingSelectedIds] = useState<string[]>([]);
+    // Sotto ~420px lo SegmentedControl Comportamento non ha spazio per stare
+    // sulla stessa riga del nome prodotto senza comprimersi eccessivamente —
+    // la riga va a capo (nome sopra, comportamento+rimuovi sotto) invece di
+    // schiacciare il controllo in orizzontale.
+    const isMobile = useMediaQuery("(max-width: 420px)");
 
     const productIdSetByGroupId = useMemo(() => {
         const map = new Map<string, Set<string>>();
@@ -286,14 +316,7 @@ export function AssociatedContentSection({
         return map;
     }, [tenantProductGroupItems]);
 
-    const productDisplayOptions = useMemo(() => {
-        type ProductDisplayOption = {
-            id: string;
-            label: string;
-            isVariant: boolean;
-            parentId?: string;
-        };
-
+    const productDisplayOptions = useMemo<ProductDisplayOption[]>(() => {
         const parentById = new Map(
             tenantProducts.filter(p => !p.parent_product_id).map(p => [p.id, p])
         );
@@ -370,6 +393,122 @@ export function AssociatedContentSection({
         [selectedProductIds, productLabelById]
     );
 
+    const removeSelectedProduct = useCallback(
+        (productId: string) => {
+            const nextIds = selectedProductIds.filter(id => id !== productId);
+            const nextModes = { ...visibilityProductModes };
+            delete nextModes[productId];
+            onFormChange({
+                selectedProductIds: nextIds,
+                visibilityProductModes: nextModes
+            });
+        },
+        [selectedProductIds, visibilityProductModes, onFormChange]
+    );
+
+    const visibilityTableRows = useMemo<VisibilityProductRow[]>(
+        () =>
+            sortedSelectedProductIds.map(productId => {
+                const option = productOptionById.get(productId);
+                return {
+                    id: productId,
+                    label: option?.label ?? productLabelById.get(productId) ?? productId,
+                    isVariant: option?.isVariant ?? false,
+                    mode: visibilityProductModes[productId] ?? "hide"
+                };
+            }),
+        [sortedSelectedProductIds, productOptionById, productLabelById, visibilityProductModes]
+    );
+
+    const visibilityTableColumns = useMemo<ColumnDefinition<VisibilityProductRow>[]>(() => {
+        if (isMobile) {
+            return [
+                {
+                    id: "product",
+                    header: "Prodotto",
+                    cell: (_, row) => (
+                        <div className={styles.visibilityRowStacked}>
+                            <Text variant="body-sm" weight={row.isVariant ? 400 : 600}>
+                                {row.isVariant && <span className={styles.variantArrow}>↳ </span>}
+                                {row.label}
+                            </Text>
+                            <div className={styles.visibilityRowStackedControls}>
+                                <SegmentedControl<VisibilityMode>
+                                    value={row.mode}
+                                    size="sm"
+                                    options={VISIBILITY_MODE_OPTIONS}
+                                    onChange={next => {
+                                        onFormChange({
+                                            visibilityProductModes: {
+                                                ...visibilityProductModes,
+                                                [row.id]: next
+                                            }
+                                        });
+                                    }}
+                                />
+                                <IconButton
+                                    icon={<IconTrash size={16} />}
+                                    aria-label="Rimuovi prodotto"
+                                    variant="ghost"
+                                    size="md"
+                                    onClick={() => removeSelectedProduct(row.id)}
+                                />
+                            </div>
+                        </div>
+                    )
+                }
+            ];
+        }
+        return [
+            {
+                id: "product",
+                header: "Prodotto",
+                cell: (_, row) => (
+                    <Text variant="body-sm" weight={row.isVariant ? 400 : 600}>
+                        {row.isVariant && <span className={styles.variantArrow}>↳ </span>}
+                        {row.label}
+                    </Text>
+                )
+            },
+            {
+                id: "behavior",
+                header: "Comportamento",
+                width: "180px",
+                align: "right",
+                cell: (_, row) => (
+                    <SegmentedControl<VisibilityMode>
+                        value={row.mode}
+                        size="sm"
+                        options={VISIBILITY_MODE_OPTIONS}
+                        onChange={next => {
+                            onFormChange({
+                                visibilityProductModes: {
+                                    ...visibilityProductModes,
+                                    [row.id]: next
+                                }
+                            });
+                        }}
+                    />
+                )
+            },
+            {
+                id: "actions",
+                header: "",
+                width: "56px",
+                align: "right",
+                cell: (_, row) => (
+                    <IconButton
+                        icon={<IconTrash size={16} />}
+                        aria-label="Rimuovi prodotto"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeSelectedProduct(row.id)}
+                    />
+                )
+            }
+        ];
+    }, [isMobile, onFormChange, visibilityProductModes, removeSelectedProduct]);
+
     const openProductsDrawer = () => {
         setPendingSelectedIds([...selectedProductIds]);
         setSearchTerm("");
@@ -382,15 +521,25 @@ export function AssociatedContentSection({
         setPendingSelectedIds([]);
     };
 
-    const togglePendingProduct = (productId: string, checked: boolean) => {
-        setPendingSelectedIds(prev => {
-            if (checked) {
-                if (prev.includes(productId)) return prev;
-                return [...prev, productId];
+    const productDrawerColumns = useMemo<ColumnDefinition<ProductDisplayOption>[]>(
+        () => [
+            {
+                id: "product",
+                header: "Prodotto",
+                cell: (_, opt) => (
+                    <Text
+                        variant="body-sm"
+                        weight={opt.isVariant ? 400 : 600}
+                        colorVariant={opt.isVariant ? "muted" : undefined}
+                    >
+                        {opt.isVariant && <span className={styles.variantArrow}>↳ </span>}
+                        {opt.label}
+                    </Text>
+                )
             }
-            return prev.filter(id => id !== productId);
-        });
-    };
+        ],
+        []
+    );
 
     const confirmProductsSelection = () => {
         const nextIds = [...pendingSelectedIds];
@@ -405,16 +554,6 @@ export function AssociatedContentSection({
         });
 
         closeProductsDrawer();
-    };
-
-    const removeSelectedProduct = (productId: string) => {
-        const nextIds = selectedProductIds.filter(id => id !== productId);
-        const nextModes = { ...visibilityProductModes };
-        delete nextModes[productId];
-        onFormChange({
-            selectedProductIds: nextIds,
-            visibilityProductModes: nextModes
-        });
     };
 
     if (ruleType === "layout") {
@@ -476,73 +615,12 @@ export function AssociatedContentSection({
                         </Text>
                     </div>
                 ) : (
-                    <div className={styles.visibilityTable}>
-                        <div className={styles.visibilityTableHeader}>
-                            <Text variant="caption" colorVariant="muted">
-                                Prodotto
-                            </Text>
-                            <Text variant="caption" colorVariant="muted">
-                                Comportamento
-                            </Text>
-                            <Text variant="caption" colorVariant="muted">
-                                Remove
-                            </Text>
-                        </div>
-
-                        {sortedSelectedProductIds.map(productId => {
-                            const productName = productLabelById.get(productId) ?? productId;
-                            const mode = visibilityProductModes[productId] ?? "hide";
-                            const impactLabel =
-                                mode === "hide"
-                                    ? "Verrà nascosto"
-                                    : "Verrà mostrato come non disponibile";
-
-                            return (
-                                <div key={productId} className={styles.visibilityTableRow}>
-                                    <Text variant="body-sm" weight={600}>
-                                        {productName}
-                                    </Text>
-
-                                    <div className={styles.visibilityModeCell}>
-                                        <Select
-                                            value={mode}
-                                            aria-label={`Comportamento per ${productName}`}
-                                            onChange={event => {
-                                                onFormChange({
-                                                    visibilityProductModes: {
-                                                        ...visibilityProductModes,
-                                                        [productId]: event.target
-                                                            .value as VisibilityMode
-                                                    }
-                                                });
-                                            }}
-                                            options={[
-                                                { value: "hide", label: "Nascondi" },
-                                                {
-                                                    value: "disable",
-                                                    label: "Mostra come non disponibile"
-                                                }
-                                            ]}
-                                        />
-                                        <Text
-                                            variant="caption"
-                                            className={styles.visibilityImpactBadge}
-                                        >
-                                            {impactLabel}
-                                        </Text>
-                                    </div>
-
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => removeSelectedProduct(productId)}
-                                    >
-                                        Rimuovi
-                                    </Button>
-                                </div>
-                            );
-                        })}
-                    </div>
+                    <DataTable<VisibilityProductRow>
+                        data={visibilityTableRows}
+                        columns={visibilityTableColumns}
+                        pageSize={9999}
+                        pageSizeOptions={["all"]}
+                    />
                 )}
 
                 <SystemDrawer
@@ -552,6 +630,7 @@ export function AssociatedContentSection({
                     aria-labelledby="visibility-products-drawer-title"
                 >
                     <DrawerLayout
+                        bodyLayout="flex"
                         header={
                             <div className={styles.drawerHeader}>
                                 <Text
@@ -578,72 +657,42 @@ export function AssociatedContentSection({
                         }
                     >
                         <div className={styles.visibilityDrawerContent}>
-                            <TextInput
-                                label="Cerca prodotto"
-                                value={searchTerm}
-                                onChange={event => setSearchTerm(event.target.value)}
-                                placeholder="Nome prodotto..."
-                            />
+                            <div className={styles.visibilityDrawerFilters}>
+                                <ToolbarSearch
+                                    value={searchTerm}
+                                    onChange={setSearchTerm}
+                                    placeholder="Cerca prodotto…"
+                                    className={styles.visibilityDrawerSearch}
+                                />
 
-                            <Select
-                                label="Gruppo prodotto"
-                                value={selectedGroupId}
-                                onChange={event => setSelectedGroupId(event.target.value)}
-                                options={[
-                                    { value: "", label: "Tutti i gruppi" },
-                                    ...tenantProductGroups.map(group => ({
-                                        value: group.id,
-                                        label: group.name
-                                    }))
-                                ]}
-                            />
-
-                            <div className={styles.visibilityDrawerCount}>
-                                <Text variant="caption" colorVariant="muted">
-                                    {filteredProducts.length} risultati
-                                </Text>
+                                <Select
+                                    label="Gruppo prodotto"
+                                    value={selectedGroupId}
+                                    onChange={event => setSelectedGroupId(event.target.value)}
+                                    options={[
+                                        { value: "", label: "Tutti i gruppi" },
+                                        ...tenantProductGroups.map(group => ({
+                                            value: group.id,
+                                            label: group.name
+                                        }))
+                                    ]}
+                                />
                             </div>
 
-                            <div className={styles.visibilityDrawerList}>
-                                {filteredProducts.length === 0 ? (
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        Nessun prodotto trovato con i filtri attuali.
-                                    </Text>
-                                ) : (
-                                    filteredProducts.map(opt => {
-                                        const checked = pendingSelectedIds.includes(opt.id);
-                                        return (
-                                            <label
-                                                key={opt.id}
-                                                className={`${styles.visibilityDrawerListItem}${opt.isVariant ? ` ${styles.visibilityDrawerListItemVariant}` : ""}`}
-                                            >
-                                                <input
-                                                    type="checkbox"
-                                                    checked={checked}
-                                                    onChange={event =>
-                                                        togglePendingProduct(
-                                                            opt.id,
-                                                            event.target.checked
-                                                        )
-                                                    }
-                                                />
-                                                <Text
-                                                    variant="body-sm"
-                                                    colorVariant={
-                                                        opt.isVariant ? "muted" : undefined
-                                                    }
-                                                >
-                                                    {opt.isVariant && (
-                                                        <span className={styles.variantArrow}>
-                                                            ↳{" "}
-                                                        </span>
-                                                    )}
-                                                    {opt.label}
-                                                </Text>
-                                            </label>
-                                        );
-                                    })
-                                )}
+                            <div className={styles.visibilityDrawerTableWrap}>
+                                <DataTable<ProductDisplayOption>
+                                    data={filteredProducts}
+                                    columns={productDrawerColumns}
+                                    selectable
+                                    selectedRowIds={pendingSelectedIds}
+                                    onSelectedRowsChange={setPendingSelectedIds}
+                                    showSelectionBar={false}
+                                    emptyState={{
+                                        title: "Nessun prodotto trovato",
+                                        description:
+                                            "Nessun prodotto corrispondente ai filtri attuali."
+                                    }}
+                                />
                             </div>
                         </div>
                     </DrawerLayout>

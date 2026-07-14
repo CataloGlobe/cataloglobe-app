@@ -1,3 +1,5 @@
+@use "@styles/variables" as *;
+
 .card {
   background: var(--card-bg, #ffffff);
   border: 1px solid var(--border, #e5e7eb);
@@ -188,26 +190,81 @@
   gap: 0.5rem;
 }
 
-.catalogLabel {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-
-  :first-child {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  :last-child {
-    font-size: 12px;
-    font-weight: 500;
-  }
-}
-
 .noCatalog {
   font-size: 12px;
   color: var(--color-gray-500, #6c757d);
   font-style: normal;
+}
+
+.catalogFooter {
+  display: flex;
+  flex-direction: column;
+  background: var(--brand-primary-soft);
+  border-radius: var(--radius-md, 10px);
+}
+
+.catalogFooterMain {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 8px 8px 10px;
+}
+
+/* Riga avviso override attivi (hidden/unavailable) — solo se presenti,
+   separata dalla riga principale da un bordo sottile, niente automatismi
+   di reset: solo promemoria passivo per il gestore. */
+.catalogWarningRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 8px;
+  border-top: 1px solid var(--border);
+}
+
+.catalogWarningIcon {
+  flex-shrink: 0;
+  color: $warning;
+}
+
+.catalogFooterLeft {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.catalogIcon {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm, 7px);
+  background: var(--card-bg, #fff);
+  color: var(--brand-primary);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.catalogText {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.catalogFooterLabel {
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--brand-primary) !important;
+}
+
+.catalogName {
+  font-size: 13px !important;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 

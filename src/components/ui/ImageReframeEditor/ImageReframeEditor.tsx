@@ -38,13 +38,26 @@ const FILL_OPTIONS: { value: MediaFillMode; label: string; icon: React.ReactNode
     { value: "none", label: "No", icon: <Ban size={14} /> }
 ];
 
+/**
+ * Extra opt-out props for lean host contexts (Storie image block). Both default
+ * true → featured call sites that don't pass them are byte-identical to before.
+ */
+interface ImageReframeEditorFullProps extends ImageReframeEditorProps {
+    /** Show the Riempi / Intera / Centra quick actions. Default true. */
+    showActions?: boolean;
+    /** Show the empty-bands fill-mode panel (Sfocato/Foto/Colore/No). Default true. */
+    showFillPanel?: boolean;
+}
+
 export function ImageReframeEditor({
     source,
     value,
     onChange,
     aspectRatio = DEFAULT_RATIO,
-    className
-}: ImageReframeEditorProps) {
+    className,
+    showActions = true,
+    showFillPanel = true
+}: ImageReframeEditorFullProps) {
     const frameRef = useRef<HTMLDivElement>(null);
     const [frame, setFrame] = useState({ w: 0, h: 0 });
     const [natural, setNatural] = useState<{ w: number; h: number } | null>(null);
@@ -254,37 +267,40 @@ export function ImageReframeEditor({
             </div>
 
             {/* 3. Azioni */}
-            <div className={styles.actions}>
-                <button
-                    type="button"
-                    className={styles.actionBtn}
-                    onClick={() => onChange({ ...value, zoom: 1 })}
-                    disabled={!natural}
-                >
-                    <Maximize2 size={15} />
-                    Riempi
-                </button>
-                <button
-                    type="button"
-                    className={styles.actionBtn}
-                    onClick={() => onChange({ ...value, zoom: czoom })}
-                    disabled={!natural}
-                >
-                    <Minimize2 size={15} />
-                    Intera
-                </button>
-                <button
-                    type="button"
-                    className={styles.actionBtn}
-                    onClick={() => onChange({ ...value, focalX: 0.5, focalY: 0.5 })}
-                    disabled={!natural}
-                >
-                    <Crosshair size={15} />
-                    Centra
-                </button>
-            </div>
+            {showActions && (
+                <div className={styles.actions}>
+                    <button
+                        type="button"
+                        className={styles.actionBtn}
+                        onClick={() => onChange({ ...value, zoom: 1 })}
+                        disabled={!natural}
+                    >
+                        <Maximize2 size={15} />
+                        Riempi
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.actionBtn}
+                        onClick={() => onChange({ ...value, zoom: czoom })}
+                        disabled={!natural}
+                    >
+                        <Minimize2 size={15} />
+                        Intera
+                    </button>
+                    <button
+                        type="button"
+                        className={styles.actionBtn}
+                        onClick={() => onChange({ ...value, focalX: 0.5, focalY: 0.5 })}
+                        disabled={!natural}
+                    >
+                        <Crosshair size={15} />
+                        Centra
+                    </button>
+                </div>
+            )}
 
             {/* 4. Pannello fasce contestuale */}
+            {showFillPanel && (
             <div className={`${styles.fillPanel} ${bands ? styles.fillPanelActive : styles.fillPanelIdle}`}>
                 <span className={styles.fillLabel}>
                     {bands
@@ -331,6 +347,7 @@ export function ImageReframeEditor({
                     </div>
                 )}
             </div>
+            )}
         </div>
     );
 }

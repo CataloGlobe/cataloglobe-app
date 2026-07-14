@@ -7,14 +7,21 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    // Chip-style mirror of AllergenIcon: theme-aware soft-tinted round
-    // chip with primary-color icon. Pepper color overrides (inline
-    // style on the SVG) win over this color via CSS specificity.
+    // Plain by default, mirrors AllergenIcon: theme-aware primary-color icon,
+    // no background. Pepper color overrides (inline style on the SVG) win
+    // over this color via CSS specificity.
     color: var(--pub-primary, var(--color-gray-700));
-    background-color: var(--pub-primary-soft, #F1F3F5);
-    border-radius: 50%;
-    padding: 4px;
     flex-shrink: 0;
+}
+
+// Opt-in tinted chip ("con sfondo"). Applied only when the `chip` prop is set
+// (Style Editor iconStyle = "pill"). La forma segue "Arrotondamento" via
+// --pub-radius (none=0 → quadrato, soft → arrotondato, rounded=20px → cerchio,
+// poiché il browser clampa border-radius al 50% del lato).
+.chip {
+    background-color: var(--pub-primary-soft, #F1F3F5);
+    border-radius: var(--pub-radius, 50%);
+    padding: 4px;
 }
 
 // Lucide SVG inherits color from the wrapper. The inline `style.color` set by
@@ -22,6 +29,15 @@
 .icon {
     display: block;
     color: inherit;
+}
+
+// Wraps the icon only in chip mode when a per-icon scale is applied. Transform
+// scales around the center so the icon grows symmetrically inside the chip.
+.scaleWrap {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transform-origin: center;
 }
 
 // ── Badge variant (text mark) ────────────────────────────────────────────────

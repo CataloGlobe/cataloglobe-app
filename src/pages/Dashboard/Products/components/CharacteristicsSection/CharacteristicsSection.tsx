@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Tag, RotateCw } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
+import { Pill } from "@/components/ui/Pill/Pill";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import { listCharacteristics } from "@/services/supabase/productCharacteristics";
 import type {
@@ -27,7 +28,7 @@ interface CharacteristicsSectionProps {
  * origin/preparation/warning are descriptive metadata; status closes the
  * list as the most operational layer (chef pick, new, out_of_stock).
  */
-const CATEGORY_ORDER: ProductCharacteristicCategory[] = [
+export const CATEGORY_ORDER: ProductCharacteristicCategory[] = [
     "diet",
     "spicy",
     "origin",
@@ -36,7 +37,7 @@ const CATEGORY_ORDER: ProductCharacteristicCategory[] = [
     "status"
 ];
 
-const CATEGORY_LABELS: Record<ProductCharacteristicCategory, string> = {
+export const CATEGORY_LABELS: Record<ProductCharacteristicCategory, string> = {
     diet: "Dieta",
     spicy: "Piccantezza",
     origin: "Origine e qualità",
@@ -206,26 +207,14 @@ export default function CharacteristicsSection({
                             {sorted.map(item => {
                                 const active = valueSet.has(item.id);
                                 return (
-                                    <button
+                                    <Pill
                                         key={item.id}
-                                        type="button"
-                                        role={isMutex ? "radio" : "checkbox"}
-                                        aria-checked={active}
-                                        aria-label={item.label_it}
+                                        label={item.label_it}
+                                        icon={<CharacteristicIcon icon={item.icon} size={16} variant="bare" />}
+                                        active={active}
                                         disabled={disabled}
-                                        className={[
-                                            styles.chip,
-                                            active ? styles.chipActive : ""
-                                        ].filter(Boolean).join(" ")}
                                         onClick={() => toggle(item)}
-                                    >
-                                        <CharacteristicIcon
-                                            icon={item.icon}
-                                            size={16}
-                                            variant="bare"
-                                        />
-                                        <span className={styles.chipLabel}>{item.label_it}</span>
-                                    </button>
+                                    />
                                 );
                             })}
                         </div>

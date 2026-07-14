@@ -16,8 +16,17 @@
     background: transparent;
 }
 
-.headerTitle {
+/* Colonna titolo — a 2 righe (breadcrumb + titolo) solo quando si arriva
+   navigando da un abbinamento, altrimenti solo il titolo (invariato). */
+.headerTitleBlock {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--pub-space-2, 8px);
+}
+
+.headerTitle {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -30,7 +39,6 @@
     /* Mobile: nascosto — l'utente chiude con drag, tap overlay o swipe */
     display: none;
     align-items: center;
-    gap: 5px;
     padding: 5px 10px;
     border-radius: var(--pub-btn-radius, 6px);
     border: none;
@@ -166,13 +174,15 @@
     border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
 }
 
-/* Abbinamenti — consiglio "Perfetto con" sotto la descrizione. Blocco
-   featured (no border-top separatore): le card portano il frame accento. */
+/* Abbinamenti — consiglio "Perfetto con", ora dopo allergeni/caratteristiche.
+   Stesso divisore delle altre sezioni per coerenza visiva nel nuovo ordine. */
 .pairingSection {
     margin-top: 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
 }
 
 .pairingSectionLabel {
@@ -193,21 +203,50 @@
 }
 
 /* Rimando storia — reverse-link (sub-fase 6). Card simmetrica del "Dal menu"
-   nel lettore storia (StoryReader.module.scss .productLink), stessa treatment
-   di PairingDetailCard (background --pub-surface + border color-mix). */
+   nel lettore storia (StoryReader.module.scss .productLink) — stesso ponte
+   di valore, stesso peso: piena su --pub-cta-bg (è un'azione, apre la
+   storia) invece della treatment pallida "surface + border" (residuo, non
+   un invito). */
+/* Breadcrumb "Torna a [prodotto precedente]" — solo ramo senza ordinazioni,
+   navigazione tra abbinati. Testo puro, nessun elemento a card: distinto
+   dalle azioni (storyLinkCard) perché è un back, non un invito. */
+.pairingBackBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--pub-surface-text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+        color: var(--pub-surface-text);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pub-accent);
+        outline-offset: 2px;
+    }
+}
+
 .storyLinkCard {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--pub-space-3, 10px);
     width: 100%;
-    margin-top: 12px;
-    padding: 10px 12px;
+    margin-top: var(--pub-space-3, 12px);
+    padding: var(--pub-space-3, 10px) var(--pub-space-4, 14px);
     border-radius: var(--pub-radius, 12px);
-    border: 1px solid color-mix(in srgb, var(--pub-text) 12%, var(--pub-surface));
-    background: var(--pub-surface);
+    border: none;
+    background: var(--pub-cta-bg);
+    color: var(--pub-cta-text);
     cursor: pointer;
     text-align: left;
     font: inherit;
+    box-shadow: var(--pub-card-shadow);
     transition: box-shadow 0.15s ease, transform 0.15s ease;
 
     &:hover {
@@ -228,8 +267,8 @@
     width: 44px;
     height: 44px;
     border-radius: var(--pub-btn-radius, 8px);
-    background: var(--pub-primary-soft, rgba(99, 102, 241, 0.1));
-    color: var(--pub-accent);
+    background: rgba(255, 255, 255, 0.18);
+    color: inherit;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -249,7 +288,7 @@
     font-weight: 700;
     letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: var(--pub-accent);
+    opacity: 0.85;
 }
 
 .storyLinkTitle {
@@ -260,7 +299,7 @@
 
 .storyLinkArrow {
     flex-shrink: 0;
-    color: var(--pub-surface-text-muted);
+    opacity: 0.85;
 }
 
 .characteristicSectionLabel {

@@ -1,0 +1,116 @@
+@keyframes cataloglobeOrbitGlow {
+  0% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.75;
+  }
+  65% {
+    opacity: 0.75;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes cataloglobeLoaderBreath {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.015);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes cataloglobeLoaderBreathSubtle {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.008);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes cataloglobeOrbitShimmerSweep {
+  0% {
+    transform: translate(-120%, -120%);
+    opacity: 0;
+  }
+  35% {
+    opacity: 0.7;
+  }
+  50% {
+    transform: translate(0%, 0%);
+    opacity: 0.75;
+  }
+  65% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate(120%, 120%);
+    opacity: 0;
+  }
+}
+
+@keyframes cataloglobeOrbitChase {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.75;
+  }
+  85% {
+    opacity: 0.75;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
+}
+
+.svg {
+  display: block;
+}
+
+.logoGroup {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: cataloglobeLoaderBreath 1000ms ease-in-out infinite;
+}
+
+.logoGroupStatic {
+  transform-box: fill-box;
+  transform-origin: center;
+  transform: none;
+  animation: none;
+}
+
+.orbitStatic {
+  opacity: 0.5;
+}
+
+.orbitGlow {
+  opacity: 0;
+  animation: cataloglobeOrbitGlow 1000ms ease-in-out infinite;
+}
+
+.orbitShimmerSweep {
+  transform-box: fill-box;
+  transform-origin: center;
+  mix-blend-mode: screen;
+  animation: cataloglobeOrbitShimmerSweep 1500ms ease-in-out infinite;
+}
+
+.orbitChaseTrail {
+  transform-box: fill-box;
+  transform-origin: center;
+  mix-blend-mode: screen;
+  animation: cataloglobeOrbitChase 1400ms ease-in-out infinite;
+}

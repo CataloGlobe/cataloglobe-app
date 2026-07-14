@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, Package, ScrollText, Sparkles, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, ScrollText, X } from "lucide-react";
+import { IconLink } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
@@ -47,6 +48,30 @@ type Props = {
      *  (chiude questo detail + switch tab Storia, gestito dal parent). Assente
      *  → nessuna card rimando anche se item.story_ref è presente. */
     onOpenStory?: (storyId: string) => void;
+    /**
+     * Universale (entrambe le modalità): tap sul corpo della card "Perfetto
+     * con" naviga al dettaglio completo dell'abbinato (swap contenuto nella
+     * stessa sheet, nessuna sheet impilata). Assente → card non cliccabile.
+     */
+    onOpenPairing?: (productId: string) => void;
+    /** Etichetta breadcrumb "Torna a {label}", visibile solo se si è arrivati
+     *  qui navigando da un abbinamento (stack non vuoto). */
+    pairingBackLabel?: string;
+    /** Click sul breadcrumb "Torna a" — pop dello stack lato parent. */
+    onPairingBack?: () => void;
+    /**
+     * Ramo CON ordinazioni: quick-add diretto di un abbinato NON configurabile
+     * — bottone "+" separato dal tap-to-navigate del corpo card (stopPropagation
+     * interno). Stesso meccanismo dell'upsell post-aggiunta. Abbinati
+     * configurabili non ricevono questo bottone: il tap sul corpo naviga al
+     * loro detail, dove l'utente configura e aggiunge normalmente.
+     */
+    onAddPairing?: (productId: string) => void;
+    /** Abbinato configurabile (ha optionGroups) → niente bottone "+", solo
+     *  tap-to-navigate (via `onOpenPairing`). */
+    isPairingConfigurable?: (productId: string) => boolean;
+    /** Abbinato già in selezione → card mostra "✓ Aggiunto" al posto del "+". */
+    isPairingAdded?: (productId: string) => boolean;
 };
 
 export default function ItemDetail({
@@ -61,7 +86,13 @@ export default function ItemDetail({
     submitLabel,
     showImage = true,
     orderingDisabled = false,
-    onOpenStory
+    onOpenStory,
+    onOpenPairing,
+    pairingBackLabel,
+    onPairingBack,
+    onAddPairing,
+    isPairingConfigurable,
+    isPairingAdded
 }: Props) {
     const { t } = useTranslation("public");
     const submitLabelResolved = submitLabel ?? t("item_detail.submit_default");
@@ -99,6 +130,27 @@ export default function ItemDetail({
         // with item changes (set together by CollectionView before setting selectedItem).
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [item]);
+
+    // ── Warm della cache immagini al mount/cambio item ───────────────────────
+    // Il fetch parte subito, in parallelo all'animazione d'entrata: anticipa il
+    // lazy-loading nativo (thumb storia/pairing sotto il fold del body scrollabile
+    // partirebbero solo allo scroll) — niente pop-in su rete lenta (4G in sala).
+    // Prefetch limitato a ciò che verrà davvero renderizzato (stesse condizioni
+    // dei rispettivi blocchi JSX): niente banda sprecata.
+    useEffect(() => {
+        if (!item) return;
+        const urls = [
+            showImage && mode === "public" ? item.image : null,
+            onOpenStory ? item.story_ref?.cover : null,
+            ...(showImage ? (item.pairings ?? []).map(p => p.imageUrl) : []),
+        ];
+        for (const url of urls) {
+            if (!url) continue;
+            const img = new Image();
+            img.decoding = "async";
+            img.src = url;
+        }
+    }, [item, showImage, mode, onOpenStory]);
 
     const primaryPriceGroup = displayItem?.optionGroups?.find(
         g => g.group_kind?.toUpperCase() === "PRIMARY_PRICE"
@@ -159,8 +211,11 @@ export default function ItemDetail({
         }
 
         const basePrice = format?.price ?? displayItem.effective_price ?? displayItem.price ?? 0;
+        // Niente onClose() qui: il parent (onAddToSelection) decide l'esito —
+        // chiudere, o tornare al padre se raggiunto via "Perfetto con"
+        // (pairingBackStack). Chiamarlo qui sovrascriverebbe quella scelta
+        // (stessa batch React, ultimo setSelectedItem vince).
         onAddToSelection(displayItem.id, displayItem.name, basePrice, format, addons);
-        onClose();
     };
 
     if (!displayItem) return null;
@@ -176,12 +231,26 @@ export default function ItemDetail({
             ariaLabel={displayItem.name}
             headerContent={
                 <div className={styles.header}>
-                    <Text as="h2" variant="title-md" weight={700} className={styles.headerTitle} color="var(--pub-surface-text)">
-                        {displayItem.name}
-                    </Text>
+                    <div className={styles.headerTitleBlock}>
+                        {/* BREADCRUMB "Torna a" — solo se aperto navigando da un
+                            abbinamento (stack non vuoto lato parent). Riga piccola
+                            sopra il titolo: prima da dove vieni, poi dove sei. */}
+                        {pairingBackLabel && onPairingBack && (
+                            <button
+                                type="button"
+                                className={styles.pairingBackBtn}
+                                onClick={onPairingBack}
+                            >
+                                <ChevronLeft size={16} strokeWidth={2.5} />
+                                {t("item_detail.pairing_back", { name: pairingBackLabel })}
+                            </button>
+                        )}
+                        <Text as="h2" variant="title-md" weight={700} className={styles.headerTitle} color="var(--pub-surface-text)">
+                            {displayItem.name}
+                        </Text>
+                    </div>
                     <button type="button" className={styles.closeBtn} onClick={onClose} aria-label={t("item_detail.close_aria")}>
-                        <X size={16} strokeWidth={2} />
-                        <span>{t("selection.close_label")}</span>
+                        {t("selection.close_label")}
                     </button>
                 </div>
             }
@@ -197,6 +266,9 @@ export default function ItemDetail({
                                 alt={displayItem.name}
                                 className={styles.image}
                                 loading="lazy"
+                                decoding="async"
+                                width={1600}
+                                height={900}
                             />
                         ) : (
                             <div className={styles.placeholderImage} aria-hidden="true">
@@ -279,25 +351,30 @@ export default function ItemDetail({
                                 </div>
                             ) : (
                                 /* Lista read-only */
-                                <div className={styles.formatPrices}>
-                                    {primaryPriceGroup.values.map(v => (
-                                        <div key={v.id} className={styles.formatPriceRow}>
-                                            <Text variant="body-sm" color="var(--pub-surface-text)">{v.name}</Text>
-                                            {v.absolutePrice != null && (
-                                                <div className={styles.formatPriceValue}>
-                                                    {v.originalPrice != null && (
-                                                        <span className={styles.priceOriginal}>
-                                                            € {v.originalPrice.toFixed(2)}
-                                                        </span>
-                                                    )}
-                                                    <Text variant="body-sm" weight={600} color="var(--pub-surface-text)">
-                                                        € {v.absolutePrice.toFixed(2)}
-                                                    </Text>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
+                                <>
+                                    <Text variant="body-sm" weight={700} color="var(--pub-surface-text)">
+                                        {primaryPriceGroup.name}
+                                    </Text>
+                                    <div className={styles.formatPrices}>
+                                        {primaryPriceGroup.values.map(v => (
+                                            <div key={v.id} className={styles.formatPriceRow}>
+                                                <Text variant="body-sm" color="var(--pub-surface-text)">{v.name}</Text>
+                                                {v.absolutePrice != null && (
+                                                    <div className={styles.formatPriceValue}>
+                                                        {v.originalPrice != null && (
+                                                            <span className={styles.priceOriginal}>
+                                                                € {v.originalPrice.toFixed(2)}
+                                                            </span>
+                                                        )}
+                                                        <Text variant="body-sm" weight={600} color="var(--pub-surface-text)">
+                                                            € {v.absolutePrice.toFixed(2)}
+                                                        </Text>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
                             )
                         )}
 
@@ -309,31 +386,6 @@ export default function ItemDetail({
                             >
                                 {displayItem.description}
                             </Text>
-                        )}
-
-                        {/* ABBINAMENTI — consiglio "Perfetto con", dopo la descrizione,
-                            prima del meta. Resa identica con ordinazione ON/OFF. */}
-                        {displayItem.pairings && displayItem.pairings.length > 0 && (
-                            <div className={styles.pairingSection}>
-                                <Text
-                                    variant="body-sm"
-                                    weight={700}
-                                    className={styles.pairingSectionLabel}
-                                    color="var(--pub-surface-text)"
-                                >
-                                    <Sparkles size={14} className={styles.pairingSectionIcon} />
-                                    {t("product.pairing_prefix")}
-                                </Text>
-                                <div className={styles.pairingCards}>
-                                    {displayItem.pairings.map(p => (
-                                        <PairingDetailCard
-                                            key={p.id}
-                                            pairing={p}
-                                            showThumbnail={showImage}
-                                        />
-                                    ))}
-                                </div>
-                            </div>
                         )}
 
                         {/* RIMANDO STORIA — reverse-link (sub-fase 6), card simmetrica del
@@ -350,6 +402,10 @@ export default function ItemDetail({
                                         src={displayItem.story_ref.cover}
                                         alt=""
                                         className={styles.storyLinkThumb}
+                                        loading="lazy"
+                                        decoding="async"
+                                        width={44}
+                                        height={44}
                                     />
                                 ) : (
                                     <div className={styles.storyLinkThumbPlaceholder}>
@@ -516,6 +572,42 @@ export default function ItemDetail({
                                             <CharacteristicIcon icon={c.icon} size={14} variant="bare" />
                                             {c.label}
                                         </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ABBINAMENTI — consiglio "Perfetto con", dopo allergeni/caratteristiche
+                            (sicurezza/info essenziali prima del cross-sell). Resa identica con
+                            ordinazione ON/OFF. */}
+                        {displayItem.pairings && displayItem.pairings.length > 0 && (
+                            <div className={styles.pairingSection}>
+                                <Text
+                                    variant="body-sm"
+                                    weight={700}
+                                    className={styles.pairingSectionLabel}
+                                    color="var(--pub-surface-text)"
+                                >
+                                    <IconLink size={14} className={styles.pairingSectionIcon} />
+                                    {t("product.pairing_prefix")}
+                                </Text>
+                                <div className={styles.pairingCards}>
+                                    {displayItem.pairings.map(p => (
+                                        <PairingDetailCard
+                                            key={p.id}
+                                            pairing={p}
+                                            showThumbnail={showImage}
+                                            isAdded={isPairingAdded?.(p.id) ?? false}
+                                            isConfigurable={isPairingConfigurable?.(p.id) ?? false}
+                                            onAdd={
+                                                onAddPairing && !(isPairingConfigurable?.(p.id) ?? false)
+                                                    ? () => onAddPairing(p.id)
+                                                    : undefined
+                                            }
+                                            onOpenPairing={
+                                                onOpenPairing ? () => onOpenPairing(p.id) : undefined
+                                            }
+                                        />
                                     ))}
                                 </div>
                             </div>

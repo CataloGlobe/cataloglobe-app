@@ -6,6 +6,7 @@ import {
     type ResolvedProduct
 } from "../_shared/resolveActivityCatalogs.ts";
 import { toRomeDateTime, getNowInRome } from "../_shared/schedulingNow.ts";
+import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/checkOrderingState.ts";
 
 interface ActivityFee { key: string; value: string; }
 
@@ -643,9 +644,11 @@ serve(async (req: Request) => {
                 }))
         ];
 
-        // 3b. Check subscription status — block if canceled or suspended
+        // 3b. Fail-closed allowlist: only known-good statuses serve the menu.
+        // Anything else (canceled, suspended, unpaid, incomplete, null, future
+        // values) blocks it — single source of truth shared with ordering.
         const subscriptionStatus = tenantInfo.data?.subscription_status;
-        if (subscriptionStatus === "canceled" || subscriptionStatus === "suspended") {
+        if (!VALID_SUBSCRIPTION_STATUSES.has(subscriptionStatus)) {
             return new Response(
                 JSON.stringify({
                     business,

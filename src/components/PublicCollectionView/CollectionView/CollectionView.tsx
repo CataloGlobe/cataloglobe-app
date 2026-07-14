@@ -4,7 +4,8 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LanguageContext } from "@/context/Language/LanguageContext";
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Phone, Plus, Sparkles } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Phone, Plus } from "lucide-react";
+import { IconLink } from "@tabler/icons-react";
 import type {
     ResolvedAllergen,
     ResolvedCharacteristic,
@@ -23,22 +24,37 @@ import PublicCollectionHeader from "../PublicCollectionHeader/PublicCollectionHe
 import PublicFooter from "../PublicFooter/PublicFooter";
 import { PublicFeeRows } from "../PublicFooter/PublicFees";
 import CollectionSectionNav from "../CollectionSectionNav/CollectionSectionNav";
-import type { CollectionStyle } from "@/types/collectionStyle";
+import type { CollectionStyle, CompactLayoutStyle, ContentDensity } from "@/types/collectionStyle";
 import { contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
+import { hasOpenSheet } from "../hooks/useScrollCollapse";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
+import CategoriesSheet from "../CategoriesSheet/CategoriesSheet";
 
 // Lazy-loaded: si aprono solo su interazione utente.
 // Factory estratta per consentire il preload idle e onPointerDown.
 const importSearchOverlay = () => import("../SearchOverlay/SearchOverlay");
 const SearchOverlay = lazy(importSearchOverlay);
-const ItemDetail = lazy(() => import("../ItemDetail/ItemDetail"));
-const OrderingSheet = lazy(() => import("../OrderingSheet/OrderingSheet"));
+const importItemDetail = () => import("../ItemDetail/ItemDetail");
+const ItemDetail = lazy(importItemDetail);
+const importOrderingSheet = () => import("../OrderingSheet/OrderingSheet");
+const OrderingSheet = lazy(importOrderingSheet);
 const ReviewsView = lazy(() => import("../ReviewsView/ReviewsView"));
 const StoryView = lazy(() => import("../StoryView/StoryView"));
+
+// Preload idle di TUTTI i chunk sheet aperti da interazione: senza, la PRIMA
+// apertura paga il fetch di rete del chunk dentro il ciclo di apertura
+// (Suspense fallback={null} → sheet che "non parte") — è la causa del
+// non-determinismo percepito su iOS. Stesso pattern del prefetch SearchOverlay.
+const preloadSheetChunks = () => {
+    void importSearchOverlay();
+    void importItemDetail();
+    void importOrderingSheet();
+    void importOrderConfirmationSheet();
+};
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import AllergensSheet from "../AllergensSheet/AllergensSheet";
 import MoreSheet from "../MoreSheet/MoreSheet";
@@ -59,7 +75,8 @@ import { useOptionalCustomerSession } from "@/context/CustomerSession/CustomerSe
 import type { OrderItemRequest, SubmitOrderResult, OrderingStateReason } from "@/types/orders";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { AlertCircle } from "lucide-react";
-const OrderConfirmationSheet = lazy(() => import("../OrderConfirmationSheet/OrderConfirmationSheet"));
+const importOrderConfirmationSheet = () => import("../OrderConfirmationSheet/OrderConfirmationSheet");
+const OrderConfirmationSheet = lazy(importOrderConfirmationSheet);
 
 // ─── Selection helpers ────────────────────────────────────────────────────────
 
@@ -247,24 +264,28 @@ type ProductRowProps = {
     item: CollectionViewSectionItem;
     showImage: boolean;
     imageRight?: boolean;
-    cardLayout?: "list" | "grid";
     mode: "public" | "preview";
     onClick: (item: CollectionViewSectionItem) => void;
     onAdd: (item: CollectionViewSectionItem) => void;
     orderingEnabled: boolean;
     selectionQty?: number;
+    iconChip?: boolean;
+    contentDensity?: ContentDensity;
+    isDisabled?: boolean;
 };
 
 function ProductRowInner({
     item,
     showImage,
     imageRight = false,
-    cardLayout = "list",
     mode,
     onClick,
     onAdd,
     orderingEnabled,
-    selectionQty = 0
+    selectionQty = 0,
+    iconChip = false,
+    contentDensity = "full",
+    isDisabled = false
 }: ProductRowProps) {
     const {
         name,
@@ -310,6 +331,11 @@ function ProductRowInner({
         >
             {showImage && (
                 <div className={styles.rowImageWrapper}>
+                    {isDisabled && (
+                        <span className={styles.unavailableBadgeOverlay}>
+                            {t("product.badge_unavailable")}
+                        </span>
+                    )}
                     {mode === "preview" || !image ? (
                         <div className={styles.rowPlaceholder} aria-hidden="true">
                             <Package
@@ -330,21 +356,6 @@ function ProductRowInner({
                             onLoad={() => setImgLoaded(true)}
                         />
                     )}
-                    {cardLayout === "grid" && orderingEnabled && (
-                        <button
-                            type="button"
-                            className={[styles.addBtnOverlay, selectionQty > 0 ? styles.addBtnOverlayActive : ""]
-                                .filter(Boolean)
-                                .join(" ")}
-                            onClick={handleAddBtnClick}
-                            aria-label={t("selection.add_aria")}
-                        >
-                            <Plus size={16} strokeWidth={2.5} />
-                            {selectionQty > 0 && (
-                                <span className={`${styles.addBtnBadge} ${styles.addBtnBadgeOnSurface}`}>{selectionQty}</span>
-                            )}
-                        </button>
-                    )}
                 </div>
             )}
             <div className={styles.rowBody}>
@@ -357,7 +368,21 @@ function ProductRowInner({
                             <span className={styles.promoBadge}>{t("product.badge_promo")}</span>
                         )}
                     </div>
-
+                    {orderingEnabled && (
+                        <button
+                            type="button"
+                            className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
+                                .filter(Boolean)
+                                .join(" ")}
+                            onClick={handleAddBtnClick}
+                            aria-label={t("selection.add_aria")}
+                        >
+                            <Plus size={16} strokeWidth={2.5} />
+                            {selectionQty > 0 && (
+                                <span className={`${styles.addBtnBadge} ${styles.addBtnBadgeOnSurface}`}>{selectionQty}</span>
+                            )}
+                        </button>
+                    )}
                 </div>
 
                 {dp.type === "from" ? (
@@ -388,32 +413,31 @@ function ProductRowInner({
                     </Text>
                 ) : null}
 
-                {description && (
+                {contentDensity !== "minimal" && description && (
                     <Text variant="caption" className={styles.description} color="var(--pub-surface-text-muted)">
                         {description}
                     </Text>
                 )}
-                {item.pairings && item.pairings.length > 0 && (
+                {contentDensity === "full" && item.pairings && item.pairings.length > 0 && (
                     <span className={`${styles.pairingChip} ${styles.pairingChipSurface}`}>
-                        <Sparkles size={13} className={styles.pairingChipIcon} />
+                        <IconLink size={13} className={styles.pairingChipIcon} />
                         <span className={styles.pairingChipText}>
-                            {t("product.pairing_prefix")} · {item.pairings[0].name}
+                            {item.pairings.length === 1
+                                ? item.pairings[0].name
+                                : t("product.pairing_suggestions", { count: item.pairings.length })}
                         </span>
-                        {item.pairings.length > 1 && (
-                            <span className={styles.pairingChipMore}>+{item.pairings.length - 1}</span>
-                        )}
                     </span>
                 )}
                 {optionGroups && optionGroups.length > 0 && (
                     <span className={styles.customizableHint}>{t("product.badge_customizable")}</span>
                 )}
-                {(hasAllergens || hasCardCharacteristics) && (
+                {contentDensity === "full" && (hasAllergens || hasCardCharacteristics) && (
                     <div className={styles.emojiRow}>
                         {hasAllergens && (
                             <div className={styles.allergenEmojis}>
                                 {visibleAllergens.map(a => (
                                     <span key={a.id} className={styles.allergenEmoji}>
-                                        <AllergenIcon code={a.code} size={20} label={a.label} />
+                                        <AllergenIcon code={a.code} size={18} label={a.label} chip={iconChip} />
                                     </span>
                                 ))}
                                 {hiddenCount > 0 && (
@@ -430,8 +454,9 @@ function ProductRowInner({
                                     <span key={c.id} className={styles.characteristicEmoji}>
                                         <CharacteristicIcon
                                             icon={c.icon}
-                                            size={20}
+                                            size={18}
                                             label={c.label}
+                                            chip={iconChip}
                                         />
                                     </span>
                                 ))}
@@ -445,21 +470,6 @@ function ProductRowInner({
                     </div>
                 )}
             </div>
-            {(cardLayout !== "grid" || !showImage) && orderingEnabled && (
-                <button
-                    type="button"
-                    className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
-                        .filter(Boolean)
-                        .join(" ")}
-                    onClick={handleAddBtnClick}
-                    aria-label={t("selection.add_aria")}
-                >
-                    <Plus size={16} strokeWidth={2.5} />
-                    {selectionQty > 0 && (
-                        <span className={`${styles.addBtnBadge} ${styles.addBtnBadgeOnSurface}`}>{selectionQty}</span>
-                    )}
-                </button>
-            )}
         </div>
     );
 }
@@ -474,6 +484,10 @@ type ProductCompactRowProps = {
     onAdd: (item: CollectionViewSectionItem) => void;
     orderingEnabled: boolean;
     selectionQty?: number;
+    iconChip?: boolean;
+    compactLayoutStyle?: CompactLayoutStyle;
+    contentDensity?: ContentDensity;
+    isDisabled?: boolean;
 };
 
 function ProductCompactRowInner({
@@ -481,7 +495,11 @@ function ProductCompactRowInner({
     onClick,
     onAdd,
     orderingEnabled,
-    selectionQty = 0
+    selectionQty = 0,
+    iconChip = false,
+    compactLayoutStyle = "modern",
+    contentDensity = "full",
+    isDisabled = false
 }: ProductCompactRowProps) {
     const {
         name,
@@ -517,8 +535,20 @@ function ProductCompactRowInner({
     return (
         <div className={styles.compactRow} onClick={handleRootClick}>
             <div className={styles.compactRowBody}>
-                <div className={styles.compactNameRow}>
+                {isDisabled && (
+                    <span className={styles.unavailableBadgeCompact}>
+                        {t("product.badge_unavailable")}
+                    </span>
+                )}
+                <div
+                    className={`${styles.compactNameRow}${
+                        compactLayoutStyle === "editorial" ? ` ${styles.compactNameRowEditorial}` : ""
+                    }`}
+                >
                     <span className={styles.compactName}>{name}</span>
+                    {compactLayoutStyle === "editorial" && (
+                        <span className={styles.compactLeader} aria-hidden="true" />
+                    )}
                     {dp.type !== "none" && (
                         <span className={styles.compactPrice}>
                             {dp.originalPrice != null && (
@@ -551,25 +581,26 @@ function ProductCompactRowInner({
                         </button>
                     )}
                 </div>
-                {description && <span className={styles.compactDescription}>{description}</span>}
-                {item.pairings && item.pairings.length > 0 && (
+                {contentDensity !== "minimal" && description && (
+                    <span className={styles.compactDescription}>{description}</span>
+                )}
+                {contentDensity === "full" && item.pairings && item.pairings.length > 0 && (
                     <span className={`${styles.pairingChip} ${styles.pairingChipBg}`}>
-                        <Sparkles size={12} className={styles.pairingChipIcon} />
+                        <IconLink size={12} className={styles.pairingChipIcon} />
                         <span className={styles.pairingChipText}>
-                            {t("product.pairing_prefix")} · {item.pairings[0].name}
+                            {item.pairings.length === 1
+                                ? item.pairings[0].name
+                                : t("product.pairing_suggestions", { count: item.pairings.length })}
                         </span>
-                        {item.pairings.length > 1 && (
-                            <span className={styles.pairingChipMore}>+{item.pairings.length - 1}</span>
-                        )}
                     </span>
                 )}
-                {(hasAllergens || hasCardCharacteristics) && (
+                {contentDensity === "full" && (hasAllergens || hasCardCharacteristics) && (
                     <div className={styles.compactEmojiRow}>
                         {hasAllergens && (
                             <div className={styles.compactAllergens}>
                                 {visibleAllergens.map(a => (
                                     <span key={a.id} className={styles.allergenEmoji}>
-                                        <AllergenIcon code={a.code} size={16} label={a.label} />
+                                        <AllergenIcon code={a.code} size={16} label={a.label} chip={iconChip} />
                                     </span>
                                 ))}
                                 {hiddenCount > 0 && (
@@ -588,6 +619,7 @@ function ProductCompactRowInner({
                                             icon={c.icon}
                                             size={16}
                                             label={c.label}
+                                            chip={iconChip}
                                         />
                                     </span>
                                 ))}
@@ -840,6 +872,15 @@ export default function CollectionView({
     // (orderingActive=true) mostra, public senza sessione (false) nasconde — come prima.
     const orderingEntryHidden =
         effectiveMaintenance != null || !orderingActive;
+    // Ordinazione possibile nell'ItemDetail attualmente aperto — stessa
+    // condizione di onAddToSelection più sotto. Riusata per decidere il
+    // comportamento delle card "Perfetto con": azione diretta (true) vs
+    // navigazione con breadcrumb "Torna a" (false).
+    const canOrderInDetail =
+        mode === "public" &&
+        activeTab === "menu" &&
+        (orderingActive || itemDetailOrderingDisabled) &&
+        !(effectiveMaintenance != null && SILENT_MAINTENANCE_REASONS.has(effectiveMaintenance.reason));
     const { t } = useTranslation("public");
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sectionGroups[0]?.root.id ?? null
@@ -862,6 +903,12 @@ export default function CollectionView({
     // identica reference). Propagato in contentKey verso PublicSheet → l'abort
     // di close-interruption scatta uniformemente, A→A incluso.
     const [openSeq, setOpenSeq] = useState(0);
+    // Stack "Torna a" per navigazione tra abbinati quando ordinazioni sono OFF
+    // (nessuna azione diretta possibile, la card "Perfetto con" naviga). Ogni
+    // push = prodotto lasciato per raggiungere l'abbinato aperto. Reset a ogni
+    // apertura "fresca" (menu/storia/edit selezione), preservato solo lungo
+    // la catena abbinato→abbinato.
+    const [pairingBackStack, setPairingBackStack] = useState<CollectionViewSectionItem[]>([]);
 
     // Upsell abbinamenti (D3): prodotto-sorgente + abbinati idonei congelati
     // all'apertura. null = nessun upsell aperto.
@@ -877,7 +924,7 @@ export default function CollectionView({
         void importSearchOverlay();
     }, []);
 
-    // Preload idle del chunk SearchOverlay (solo public). requestIdleCallback
+    // Preload idle dei chunk sheet lazy (solo public). requestIdleCallback
     // non disponibile su Safari iOS < 17.4 → fallback setTimeout 200ms.
     useEffect(() => {
         if (mode === "preview") return;
@@ -889,10 +936,10 @@ export default function CollectionView({
             cancelIdleCallback?: (id: number) => void;
         }).cancelIdleCallback;
         if (typeof ric === "function") {
-            const id = ric(() => { void importSearchOverlay(); }, { timeout: 1500 });
+            const id = ric(() => { preloadSheetChunks(); }, { timeout: 1500 });
             return () => { cic?.(id); };
         }
-        const id = window.setTimeout(() => { void importSearchOverlay(); }, 200);
+        const id = window.setTimeout(() => { preloadSheetChunks(); }, 200);
         return () => window.clearTimeout(id);
     }, [mode]);
 
@@ -936,6 +983,33 @@ export default function CollectionView({
 
     // ── More sheet ──────────────────────────────────────────────────────────
     const [isMoreSheetOpen, setIsMoreSheetOpen] = useState(false);
+
+    // ── Eventi/Recensioni: modali (PublicSheet), non più tab a pagina intera ──
+    // "menu" resta l'unica vista primaria di activeTab; eventi/recensioni si
+    // aprono/chiudono in stato locale, indipendente dal tab attivo.
+    const [isEventsSheetOpen, setIsEventsSheetOpen] = useState(false);
+    const [isReviewsSheetOpen, setIsReviewsSheetOpen] = useState(false);
+
+    const openEventsSheet = useCallback(() => {
+        if (mode === "public" && activityId) {
+            trackEvent(activityId, "tab_switch", { from_tab: activeTab, to_tab: "events" });
+        }
+        setIsEventsSheetOpen(true);
+    }, [mode, activityId, activeTab]);
+    const closeEventsSheet = useCallback(() => setIsEventsSheetOpen(false), []);
+
+    const openReviewsSheet = useCallback(() => {
+        if (mode === "public" && activityId) {
+            trackEvent(activityId, "tab_switch", { from_tab: activeTab, to_tab: "reviews" });
+        }
+        setIsReviewsSheetOpen(true);
+    }, [mode, activityId, activeTab]);
+    const closeReviewsSheet = useCallback(() => setIsReviewsSheetOpen(false), []);
+
+    // ── Indice categorie (sheet): trigger = retap sul tab "Menu" già attivo,
+    // sostituisce lo scroll-to-top diretto (vedi handleHubTabTap più sotto).
+    const [isCategoriesSheetOpen, setIsCategoriesSheetOpen] = useState(false);
+    const closeCategoriesSheet = useCallback(() => setIsCategoriesSheetOpen(false), []);
 
     // ── Tab Storia: predisposizione lettore (sub-fase 5 renderizza il contenuto) ──
     const [selectedStoryId, setSelectedStoryId] = useState<string | null>(null);
@@ -1110,8 +1184,12 @@ export default function CollectionView({
     );
 
     // ── Analytics: product_detail_open wrapper ──────────────────────────
+    // keepPairingBackStack: SOLO la catena abbinato→abbinato (ordinazioni
+    // OFF) preserva lo stack "Torna a". Ogni altra apertura (menu, storia,
+    // edit selezione, upsell) è "fresca" → stack azzerato.
     const openItemDetail = useCallback(
-        (item: CollectionViewSectionItem) => {
+        (item: CollectionViewSectionItem, opts?: { keepPairingBackStack?: boolean }) => {
+            if (!opts?.keepPairingBackStack) setPairingBackStack([]);
             setSelectedItem(item);
             setOpenSeq(s => s + 1);
             if (mode === "public" && activityId) {
@@ -1459,6 +1537,39 @@ export default function CollectionView({
         openItemDetail(p);
     }, [findProductById, openItemDetail]);
 
+    // Card "Perfetto con" dentro ItemDetail — tap sul corpo, universale
+    // (entrambe le modalità). Con ordinazioni ON convive con il "+" quick-add
+    // separato (stopPropagation lato PairingDetailCard). Push del prodotto
+    // corrente sullo stack "Torna a" prima dello swap — catena
+    // abbinato→abbinato gestita via keepPairingBackStack.
+    const openPairingFromDetail = useCallback((pairedProductId: string) => {
+        const p = findProductById(pairedProductId);
+        if (!p || !selectedItem) return;
+        setPairingBackStack(stack => [...stack, selectedItem]);
+        openItemDetail(p, { keepPairingBackStack: true });
+    }, [findProductById, openItemDetail, selectedItem]);
+
+    // "Torna a" — pop dello stack, riapre il prodotto precedente nella
+    // stessa sheet (nessun ulteriore push, non è una nuova apertura fresca).
+    const goBackPairing = useCallback(() => {
+        if (pairingBackStack.length === 0) return;
+        const prev = pairingBackStack[pairingBackStack.length - 1];
+        setPairingBackStack(stack => stack.slice(0, -1));
+        setSelectedItem(prev);
+        setOpenSeq(s => s + 1);
+    }, [pairingBackStack]);
+
+    // Abbinato configurabile (ha optionGroups) → card mostra "Vedi opzioni"
+    // invece di "+". Stesso predicato usato per l'upsell post-add.
+    const isPairingConfigurable = useCallback((pairedProductId: string) => {
+        return ((findProductById(pairedProductId)?.optionGroups?.length) ?? 0) > 0;
+    }, [findProductById]);
+
+    // Abbinato già in selezione → card mostra "✓ Aggiunto" invece di "+".
+    const isPairingAdded = useCallback((pairedProductId: string) => {
+        return (selectionMap[pairedProductId] ?? 0) > 0;
+    }, [selectionMap]);
+
     // Flusso A: aggiunge il principale (comportamento attuale) e, SOLO se
     // esistono abbinati idonei (non già in selezione), apre l'upsell. Ramo
     // senza idonei = byte-equivalente al comportamento pre-D3.
@@ -1470,7 +1581,6 @@ export default function CollectionView({
         addons?: SelectedAddon[]
     ) => {
         addToSelection(productId, productName, basePrice, format, addons);
-        setSelectedItem(null);
         const product = findProductById(productId);
         const eligible: UpsellPairing[] = (product?.pairings ?? [])
             .filter(p => (selectionMap[p.id] ?? 0) === 0)
@@ -1481,9 +1591,22 @@ export default function CollectionView({
                 isConfigurable: ((findProductById(p.id)?.optionGroups?.length) ?? 0) > 0
             }));
         if (product && eligible.length > 0) {
+            // Upsell esistente ha priorità — comportamento invariato (chiude,
+            // non torna al padre anche se raggiunto via abbinamento).
+            setSelectedItem(null);
             setUpsell({ sourceName: product.name, pairings: eligible });
+            return;
         }
-    }, [addToSelection, findProductById, selectionMap]);
+        // Raggiunto navigando da "Perfetto con" (stack non vuoto): torna al
+        // prodotto padre invece di chiudere — l'utente lo stava ancora
+        // valutando. selectionMap si aggiorna nello stesso batch → la sua
+        // card "Perfetto con" nel padre riflette subito "✓ Aggiunto".
+        if (pairingBackStack.length > 0) {
+            goBackPairing();
+        } else {
+            setSelectedItem(null);
+        }
+    }, [addToSelection, findProductById, selectionMap, pairingBackStack, goBackPairing]);
 
     const handleUpdateSelection = useCallback((
         _productId: string,
@@ -1501,14 +1624,22 @@ export default function CollectionView({
                 : item
         ));
         setEditingSelectionIndex(null);
-        setSelectedItem(null);
-    }, [editingSelectionIndex]);
+        if (pairingBackStack.length > 0) {
+            goBackPairing();
+        } else {
+            setSelectedItem(null);
+        }
+    }, [editingSelectionIndex, pairingBackStack, goBackPairing]);
 
     const handleEditSelectionItem = useCallback((index: number, item: SelectionItem) => {
         const product = findProductById(item.id);
         if (!product) return;
         setEditingSelectionIndex(index);
         setSelectedItem(product);
+        // Apertura fresca dal carrello (non da openItemDetail) — reset esplicito,
+        // altrimenti uno stack "Torna a" residuo da una navigazione precedente
+        // sopravviverebbe qui.
+        setPairingBackStack([]);
         setIsOrderingOpen(false);
     }, [findProductById]);
 
@@ -1744,6 +1875,16 @@ export default function CollectionView({
     // true = visitatore di ritorno entro 4h, senza review recente → FAB idoneo
     const valutaEligibleRef = useRef(false);
 
+    // Dismiss del promemoria recensione al tap sul trigger, stessa condizione
+    // del vecchio onReviewDotDismiss della bottom-bar (tab "reviews").
+    const handleOpenReviewsFromTrigger = useCallback(() => {
+        if (valutaVisible) {
+            setValutaVisible(false);
+            valutaEligibleRef.current = false;
+        }
+        openReviewsSheet();
+    }, [valutaVisible, openReviewsSheet]);
+
     // ── Keep first section active when sections load asynchronously ─────────
     useEffect(() => {
         if (!activeSectionId && sectionGroups.length > 0) {
@@ -1908,10 +2049,15 @@ export default function CollectionView({
         }
 
         function handleScroll() {
+            // Sheet aperta: il body-lock/unlock di PublicSheet induce scroll
+            // event sintetici (scrollY → 0 e ritorno) nei frame critici delle
+            // animazioni — niente section-tracking in quella finestra.
+            if (hasOpenSheet()) return;
             computeActiveSection();
         }
 
         function handleScrollEnd() {
+            if (hasOpenSheet()) return;
             if (isProgrammaticScrollRef.current) {
                 isProgrammaticScrollRef.current = false;
                 if (programmaticScrollTimeoutRef.current !== null) {
@@ -2014,16 +2160,23 @@ export default function CollectionView({
         }
     }, []);
 
-    // ── Intercetta il tap hub tab: re-tap sulla tab attiva = scroll-to-top ──
+    // ── Intercetta il tap hub tab: re-tap su "menu" = apre l'indice categorie
+    // (sostituisce lo scroll-to-top diretto, che resta la prima voce della
+    // sheet stessa — "Torna in cima" — così il comportamento non si perde).
+    // Re-tap sulle altre tab (storia/eventi/recensioni): invariato, scroll-to-top. ──
     const handleHubTabTap = useCallback(
         (tab: HubTab) => {
             if (tab === activeTab) {
+                if (tab === "menu" && displaySectionGroups.length > 0) {
+                    setIsCategoriesSheetOpen(true);
+                    return;
+                }
                 scrollContainerToTop();
                 return; // re-tap: niente cambio stato, niente analytics (già gated su prevTab !== tab)
             }
             onTabChange?.(tab);
         },
-        [activeTab, onTabChange, scrollContainerToTop]
+        [activeTab, onTabChange, scrollContainerToTop, displaySectionGroups]
     );
 
     // ── Subsection margin — distanza dipende dal contesto (child precedente) ──
@@ -2121,6 +2274,47 @@ export default function CollectionView({
         [sectionGroups, recomputeStickyOffset]
     );
 
+    // ── Scroll differito alla chiusura della sheet Categorie ────────────────
+    // La sheet blocca lo scroll body (iOS lock, position:fixed) finché aperta:
+    // scrollToSection/scrollToSubSection/scrollContainerToTop scritti mentre il
+    // body è lockato non si vedono (il container reale è pinnato via top offset).
+    // closeCategoriesSheet() sblocca il lock in un useLayoutEffect DENTRO
+    // PublicSheet, che React garantisce eseguito prima di questo useEffect
+    // (stesso commit: tutti i layout effect prima di tutti i passive effect) →
+    // qui il lock è già rilasciato, lo scroll è sicuro.
+    const pendingCategoryScrollRef = useRef<
+        { type: "top" } | { type: "section" | "subsection"; id: string } | null
+    >(null);
+
+    useEffect(() => {
+        if (isCategoriesSheetOpen) return;
+        const pending = pendingCategoryScrollRef.current;
+        if (!pending) return;
+        pendingCategoryScrollRef.current = null;
+        if (pending.type === "top") scrollContainerToTop();
+        else if (pending.type === "section") scrollToSection(pending.id);
+        else scrollToSubSection(pending.id);
+        // scrollToSection non è memoizzata (ridefinita ad ogni render, come già
+        // per CollectionSectionNav onSelect) → omessa dalle dep, l'effect deve
+        // reagire solo all'apertura/chiusura della sheet.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isCategoriesSheetOpen, scrollContainerToTop, scrollToSubSection]);
+
+    const handleSelectCategorySection = useCallback((sectionId: string) => {
+        pendingCategoryScrollRef.current = { type: "section", id: sectionId };
+        closeCategoriesSheet();
+    }, [closeCategoriesSheet]);
+
+    const handleSelectCategorySubSection = useCallback((childId: string) => {
+        pendingCategoryScrollRef.current = { type: "subsection", id: childId };
+        closeCategoriesSheet();
+    }, [closeCategoriesSheet]);
+
+    const handleCategoriesBackToTop = useCallback(() => {
+        pendingCategoryScrollRef.current = { type: "top" };
+        closeCategoriesSheet();
+    }, [closeCategoriesSheet]);
+
     // ── Derived values for render ───────────────────────────────────────────
     const hasHeader =
         style.showLogo || style.showCoverImage || style.showActivityName || style.showCatalogName;
@@ -2143,11 +2337,6 @@ export default function CollectionView({
                                     : `${styles.card}${isDisabled ? ` ${styles.disabledCard}` : ""}`
                             }
                         >
-                            {isDisabled && style.productStyle !== "compact" && (
-                                <span className={styles.unavailableBadge}>
-                                    {t("product.badge_unavailable")}
-                                </span>
-                            )}
                             {/* Case A/B: parent row — only if parentSelected */}
                             {item.parentSelected &&
                                 (style.productStyle === "compact" ? (
@@ -2157,18 +2346,24 @@ export default function CollectionView({
                                         onAdd={handleRowAdd}
                                         orderingEnabled={orderingEnabled}
                                         selectionQty={selectionMap[item.id]}
+                                        iconChip={style.iconStyle === "pill"}
+                                        compactLayoutStyle={style.compactLayoutStyle}
+                                        contentDensity={style.contentDensity}
+                                        isDisabled={isDisabled}
                                     />
                                 ) : (
                                     <ProductRow
                                         item={item}
                                         showImage={style.cardTemplate !== "no-image"}
                                         imageRight={style.cardTemplate === "right"}
-                                        cardLayout={style.cardLayout ?? "list"}
                                         mode={mode}
                                         onClick={handleRowClick}
                                         onAdd={handleRowAdd}
                                         orderingEnabled={orderingEnabled}
                                         selectionQty={selectionMap[item.id]}
+                                        iconChip={style.iconStyle === "pill"}
+                                        contentDensity={style.contentDensity}
+                                        isDisabled={isDisabled}
                                     />
                                 ))}
 
@@ -2194,6 +2389,9 @@ export default function CollectionView({
                                                 onAdd={handleRowAdd}
                                                 orderingEnabled={orderingEnabled}
                                                 selectionQty={selectionMap[v.id]}
+                                                iconChip={style.iconStyle === "pill"}
+                                                compactLayoutStyle={style.compactLayoutStyle}
+                                                contentDensity={style.contentDensity}
                                             />
                                         ) : (
                                             <ProductRow
@@ -2201,12 +2399,13 @@ export default function CollectionView({
                                                 item={variantItem}
                                                 showImage={style.cardTemplate !== "no-image"}
                                                 imageRight={style.cardTemplate === "right"}
-                                                cardLayout={style.cardLayout ?? "list"}
                                                 mode={mode}
                                                 onClick={handleRowClick}
                                                 onAdd={handleRowAdd}
                                                 orderingEnabled={orderingEnabled}
                                                 selectionQty={selectionMap[v.id]}
+                                                iconChip={style.iconStyle === "pill"}
+                                                contentDensity={style.contentDensity}
                                             />
                                         );
                                     })}
@@ -2259,6 +2458,7 @@ export default function CollectionView({
                     showCoverImage={style.showCoverImage}
                     showLogo={style.showLogo}
                     mode={mode}
+                    frozen={mode === "preview" ? false : (!!selectedItem || isOrderingOpen)}
                     onSearchOpen={mode !== "preview" ? handleOpenSearch : undefined}
                     onSearchPointerDown={mode !== "preview" ? handleSearchPrefetch : undefined}
                     scrollContainerEl={scrollContainerEl}
@@ -2277,6 +2477,8 @@ export default function CollectionView({
                     selectionCount={selectionCount}
                     orderVisible={showHeaderActions && !shouldHideOrderingEntry}
                     onOpenOrder={showHeaderActions ? (mode === "preview" ? () => {} : openOrdering) : undefined}
+                    onOpenEvents={mode === "public" ? openEventsSheet : undefined}
+                    onOpenReviews={mode === "public" && reviewsProps ? handleOpenReviewsFromTrigger : undefined}
                     reviewDot={showHeaderActions ? valutaVisible : false}
                 />
             )}
@@ -2478,8 +2680,14 @@ export default function CollectionView({
                                 <div
                                     id={contentId}
                                     className={styles.container}
-                                    data-card-layout={style.cardLayout ?? "list"}
+                                    // data-card-layout: solo per il Compatto (che comunque non lo
+                                    // consulta più dalla 2b) — la Card ha orientamento automatico
+                                    // via container query, il token layout non viene più letto.
+                                    data-card-layout={
+                                        style.productStyle === "compact" ? style.cardLayout ?? "list" : undefined
+                                    }
                                     data-product-style={style.productStyle ?? "card"}
+                                    data-content-density={style.contentDensity ?? "full"}
                                 >
                                     {featuredBeforeCatalogSlot}
                                     {allFiltered && (
@@ -2578,21 +2786,34 @@ export default function CollectionView({
                                             onClose={() => {
                                                 setSelectedItem(null);
                                                 setEditingSelectionIndex(null);
+                                                setPairingBackStack([]);
                                             }}
                                             mode={mode}
                                             showImage={style.productStyle !== "compact" && style.cardTemplate !== "no-image"}
                                             orderingDisabled={itemDetailOrderingDisabled}
                                             onOpenStory={openStoryFromProduct}
                                             onAddToSelection={
-                                                mode === "public" &&
-                                                activeTab === "menu" &&
-                                                (orderingActive || itemDetailOrderingDisabled) &&
-                                                !(effectiveMaintenance != null && SILENT_MAINTENANCE_REASONS.has(effectiveMaintenance.reason))
+                                                canOrderInDetail
                                                     ? (editingSelectionIndex !== null
                                                         ? handleUpdateSelection
                                                         : handleAddFromDetail)
                                                     : undefined
                                             }
+                                            onOpenPairing={openPairingFromDetail}
+                                            {...(pairingBackStack.length > 0
+                                                ? {
+                                                      pairingBackLabel:
+                                                          pairingBackStack[pairingBackStack.length - 1].name,
+                                                      onPairingBack: goBackPairing
+                                                  }
+                                                : {})}
+                                            {...(canOrderInDetail
+                                                ? {
+                                                      onAddPairing: addPairingToSelection,
+                                                      isPairingConfigurable,
+                                                      isPairingAdded
+                                                  }
+                                                : {})}
                                             initialFormat={editingSelectionIndex !== null
                                                 ? selection[editingSelectionIndex]?.selectedFormat
                                                 : undefined
@@ -2640,48 +2861,91 @@ export default function CollectionView({
                 </>
             )}
 
-            {activeTab === "events" && (
-                // Bottom-bar mode: niente CollectionSectionNav qui. Il contenuto sta sulla STESSA
-                // superficie a pattern del Menu (.tabPatternSurface, full-bleed + z-index) che taglia
-                // l'hero al bordo basso dell'header. Padding-top piccolo, niente fascia crema piatta.
-                <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
-                    <div className={styles.frame}>
+            {/* ── EVENTS SHEET ── Modale (non più tab a pagina intera). Gated su
+                showEventsTab: stessa condizione che prima decideva se il tab era
+                raggiungibile (public: featuredContents non vuoto; preview: sempre). */}
+            {showEventsTab && (
+                <PublicSheet
+                    isOpen={isEventsSheetOpen}
+                    onClose={closeEventsSheet}
+                    ariaLabel={t("hub.events")}
+                    headerContent={
+                        <div className={styles.eventsSheetHeader}>
+                            <Text as="h2" variant="title-md" weight={700} color="var(--pub-surface-text)">
+                                {t("hub.events")}
+                            </Text>
+                            <button
+                                type="button"
+                                className={styles.eventsCloseBtn}
+                                onClick={closeEventsSheet}
+                                aria-label={t("events.close_aria")}
+                            >
+                                {t("events.close_label")}
+                            </button>
+                        </div>
+                    }
+                >
+                    <div className={`${styles.infoSheetContent} ${styles.eventsListContent}`}>
                         <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} />
                     </div>
-                </div>
+                </PublicSheet>
             )}
 
-            {activeTab === "reviews" && reviewsProps && (
-                <Suspense fallback={null}>
-                    {/* Stesso meccanismo di Eventi: superficie a pattern che taglia l'hero. */}
-                    <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
-                        <ReviewsView
-                            {...reviewsProps}
-                            onReviewSubmitted={() => {
-                                // Nascondi FAB e salva timestamp per sopprimerlo per 24h
-                                setValutaVisible(false);
-                                valutaEligibleRef.current = false;
-                                if (activityId) {
-                                    try {
-                                        localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
-                                    } catch { /* Safari private mode */ }
-                                }
-                            }}
-                        />
-                    </div>
-                </Suspense>
+            {/* ── REVIEWS SHEET ── Modale (non più tab a pagina intera). */}
+            {reviewsProps && (
+                <PublicSheet
+                    isOpen={isReviewsSheetOpen}
+                    onClose={closeReviewsSheet}
+                    ariaLabel={t("hub.reviews")}
+                >
+                    <Suspense fallback={null}>
+                        <div className={`${styles.infoSheetContent} ${styles.reviewsSheetContent}`}>
+                            <ReviewsView
+                                {...reviewsProps}
+                                onReviewSubmitted={() => {
+                                    // Nascondi FAB e salva timestamp per sopprimerlo per 24h
+                                    setValutaVisible(false);
+                                    valutaEligibleRef.current = false;
+                                    if (activityId) {
+                                        try {
+                                            localStorage.setItem(`fab_reviewed_${activityId}`, Date.now().toString());
+                                        } catch { /* Safari private mode */ }
+                                    }
+                                }}
+                            />
+                        </div>
+                    </Suspense>
+                </PublicSheet>
+            )}
+
+            {/* ── CATEGORIES SHEET ── Trigger: retap sul tab "Menu" già attivo
+                (vedi handleHubTabTap). Dati: stessa fonte di navItems/CollectionSectionNav
+                (displaySectionGroups), nessun nuovo fetch/calcolo. */}
+            {displaySectionGroups.length > 0 && (
+                <CategoriesSheet
+                    isOpen={isCategoriesSheetOpen}
+                    onClose={closeCategoriesSheet}
+                    groups={displaySectionGroups}
+                    onSelectSection={handleSelectCategorySection}
+                    onSelectSubSection={handleSelectCategorySubSection}
+                    onBackToTop={handleCategoriesBackToTop}
+                />
             )}
 
             {activeTab === "storia" && slug && (
                 <Suspense fallback={null}>
-                    {/* Stesso meccanismo di Eventi/Recensioni: superficie a pattern che taglia l'hero. */}
+                    {/* Stesso meccanismo di Eventi: superficie a pattern che taglia l'hero + .frame
+                        per il cap desktop (1280px). A differenza di Recensioni, Storie ha bisogno del
+                        cap perché il feed/lettore non hanno un contenitore proprio con max-width. */}
                     <div className={useBottomBar ? styles.tabPatternSurface : undefined}>
-                        <StoryView
-                            slug={slug}
-                            selectedStoryId={selectedStoryId}
-                            onSelectStory={setSelectedStoryId}
-                            onOpenProduct={openProductFromStory}
-                        />
+                        <div className={styles.frame}>
+                            <StoryView
+                                slug={slug}
+                                selectedStoryId={selectedStoryId}
+                                onSelectStory={setSelectedStoryId}
+                                onOpenProduct={openProductFromStory}
+                            />
+                        </div>
                     </div>
                 </Suspense>
             )}
@@ -2699,6 +2963,8 @@ export default function CollectionView({
                     selectionCount={selectionCount}
                     cartVisible={mode === "preview" ? orderingActive && !shouldHideOrderingEntry : !shouldHideOrderingEntry}
                     onOpenCart={mode === "preview" ? () => {} : openOrdering}
+                    onOpenEvents={mode === "preview" ? () => {} : openEventsSheet}
+                    onOpenReviews={mode === "preview" ? () => {} : (reviewsProps ? openReviewsSheet : undefined)}
                     reviewDot={mode === "preview" ? false : valutaVisible}
                     onReviewDotDismiss={mode === "preview" ? () => {} : () => {
                         setValutaVisible(false);

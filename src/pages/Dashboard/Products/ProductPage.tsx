@@ -16,6 +16,9 @@ import {
 import { getProduct, V2Product } from "@/services/supabase/products";
 import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
 import { getProductUsage, ProductUsageData } from "@/services/supabase/productUsage";
+import { useSchedaDraft } from "./hooks/useSchedaDraft";
+import { HeaderSaveAction } from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
+import { useBeforeUnloadWarning } from "@/pages/Dashboard/Stories/hooks/useBeforeUnloadWarning";
 import SchedaTab from "./SchedaTab";
 import PrezziOpzioniTab from "./PrezziOpzioniTab";
 import { UsageTab } from "./UsageTab";
@@ -102,6 +105,28 @@ export default function ProductPage() {
 
     const { showToast } = useToast();
 
+    // Stabile: `setProduct` è già stabile (useState), ma un'arrow inline qui
+    // sarebbe una nuova referenza ad ogni render — instabilità che risale a
+    // handleSaveImage/Information/Notes → handleSaveAll → `actions` → loop
+    // sull'effect di `usePageHeader` (già capitato, vedi diagnosi task).
+    const handleProductUpdated = useCallback((updated: V2Product) => {
+        setProduct(updated);
+    }, []);
+
+    // Draft Scheda sollevato qui: sopravvive allo smontaggio di `SchedaTab`
+    // al cambio tab (mount condizionale sotto).
+    const schedaDraft = useSchedaDraft(
+        product,
+        productId!,
+        tenantId!,
+        handleProductUpdated,
+        selectedTenant?.vertical_type
+    );
+
+    // Guardia abbandono pagina — stesso hook di StoryDetailPage, riflette
+    // solo il draft Scheda (unica tab con stato non salvato).
+    useBeforeUnloadWarning(schedaDraft.isDirty);
+
     const loadOptions = useCallback(async () => {
         if (!productId) return;
         try {
@@ -185,8 +210,23 @@ export default function ProductPage() {
         </Tabs>
     ), [activeTab, handleTabChange, visibleTabs]);
 
+    // Azione Salva/Annulla di pagina — riflette solo il draft Scheda (unica
+    // tab con stato), visibile su tutti i tab come Storie.
+    const actions = useMemo(
+        () => (
+            <HeaderSaveAction
+                isDirty={schedaDraft.isDirty}
+                isSaving={schedaDraft.isSavingAll}
+                onSave={schedaDraft.handleSaveAll}
+                onDiscard={schedaDraft.handleDiscardAll}
+            />
+        ),
+        [schedaDraft.isDirty, schedaDraft.isSavingAll, schedaDraft.handleSaveAll, schedaDraft.handleDiscardAll]
+    );
+
     usePageHeader({
         leading,
+        actions,
         sticky: true,
     });
 
@@ -219,10 +259,10 @@ export default function ProductPage() {
                     productId={productId!}
                     tenantId={tenantId!}
                     vertical={selectedTenant?.vertical_type}
-                    onProductUpdated={updated => setProduct(updated)}
                     onNavigateToTab={tab =>
                         handleTabChange(tab as ProductPageTab)
                     }
+                    draft={schedaDraft}
                 />
             )}
             {activeTab === "prezzi-opzioni" && (
