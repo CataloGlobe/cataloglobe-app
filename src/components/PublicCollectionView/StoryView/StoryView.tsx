@@ -126,7 +126,18 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
                                             )}
                                         </div>
                                         <div className={styles.cardBody}>
-                                            {story.eyebrow && <span className={styles.cardEyebrow}>{story.eyebrow}</span>}
+                                            {/* Occhiello: spazio SEMPRE riservato (chip invisibile se assente)
+                                                così i titoli delle card in griglia condividono la baseline. */}
+                                            {story.eyebrow ? (
+                                                <span className={styles.cardEyebrow}>{story.eyebrow}</span>
+                                            ) : (
+                                                <span
+                                                    className={`${styles.cardEyebrow} ${styles.cardEyebrowEmpty}`}
+                                                    aria-hidden="true"
+                                                >
+                                                    &nbsp;
+                                                </span>
+                                            )}
                                             <span className={styles.cardTitle}>{story.title}</span>
                                             {story.excerpt && <span className={styles.cardExcerpt}>{story.excerpt}</span>}
                                             {story.product && (

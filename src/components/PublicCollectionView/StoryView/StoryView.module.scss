@@ -106,8 +106,12 @@
 }
 
 .cappelloIntro {
+  // Testo lungo → allineato a SINISTRA (il centrato regge 2-3 righe, non 10:
+  // l'occhio ricerca l'inizio riga). La colonna resta centrata (margin auto),
+  // largh. di lettura ~65 caratteri. Titolo e pulsante restano centrati.
   margin: 0 auto;
-  max-width: 56ch;
+  max-width: 62ch;
+  text-align: left;
   font-size: 15px;
   line-height: 1.65;
   color: var(--pub-text-secondary);
@@ -230,6 +234,10 @@
 .cardBody {
   display: flex;
   flex-direction: column;
+  // Riempie l'altezza residua della card (che è stirata all'altezza della card
+  // più alta della riga): senza questo il `margin-top:auto` del CTA arriverebbe
+  // solo in fondo al cardBody, non della card → "Leggi" disallineati tra card.
+  flex: 1;
   gap: var(--pub-space-1);
   padding: var(--pub-space-4);
 }
@@ -246,6 +254,12 @@
   color: var(--pub-primary);
   background: var(--pub-primary-soft, rgba(99, 102, 241, 0.1));
   margin-bottom: var(--pub-space-1);
+}
+
+// Segnaposto invisibile ma con lo stesso box del chip (il &nbsp; ne conserva
+// l'altezza): riserva la riga occhiello quando assente → titoli allineati.
+.cardEyebrowEmpty {
+  visibility: hidden;
 }
 
 .cardTitle {
@@ -281,7 +295,10 @@
 }
 
 .cardCta {
-  margin-top: var(--pub-space-2);
+  // Sempre in fondo alla card (flex column) → "Leggi" allineato tra le card,
+  // niente buco bianco variabile tra excerpt/prodotto e il link.
+  margin-top: auto;
+  padding-top: var(--pub-space-2);
   font-size: 12px;
   font-weight: 700;
   color: var(--pub-accent);

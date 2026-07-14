@@ -1,11 +1,8 @@
 .root {
+  // Larga quanto il .frame (gabbia della pagina): la copertina full-bleed vive
+  // qui, mentre il testo è incassato in `.column` (colonna di lettura ~640px).
+  // Pattern editoriale "wrapper largo + colonna stretta", zero margini negativi.
   width: 100%;
-  // Cap di lettura tokenizzato (--pub-reading-max, default 640px — più stretto
-  // del menu per leggibilità) spostato dal singolo `.article` a QUESTO livello:
-  // così back-link top, stateBlock e `.article` condividono la stessa colonna
-  // centrata invece di avere il back-link al bordo.
-  max-width: var(--pub-reading-max, 640px);
-  margin: 0 auto;
   // padding-top: mobile stretto (subito sotto l'header, come il cappello del
   // feed), desktop generoso via @container — il back-link è un target
   // cliccabile appiccicato alla barra cliccabile dell'header, serve respiro
@@ -21,6 +18,15 @@
   @container collection (min-width: 700px) {
     padding-top: var(--pub-space-7);
   }
+}
+
+// Colonna di lettura (~640px, tokenizzata) centrata dentro `.root`. Contiene
+// back-link, occhiello, titolo e blocchi; SOLO la copertina la scavalca per
+// riempire il .frame. Un unico gutter, mai doppio.
+.column {
+  width: 100%;
+  max-width: var(--pub-reading-max, 640px);
+  margin: 0 auto;
 }
 
 // Un solo back-link (in cima). Il duplicato in fondo è stato rimosso: con
@@ -48,12 +54,13 @@
   min-height: 30vh;
 }
 
+// Full-bleed: nessun border-radius (bordo a bordo del .frame), aspect-ratio 16/9
+// riservato (nessun CLS). Respiro generoso sotto → "apertura", non "prima foto".
 .cover {
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: var(--pub-radius, 12px);
   overflow: hidden;
-  margin-bottom: 16px;
+  margin-bottom: var(--pub-space-6);
 
   img {
     width: 100%;
@@ -76,13 +83,20 @@
   margin-bottom: 8px;
 }
 
+// Titolo storia: il pezzo più grande della pagina, SENZA confronto (h1 34px vs
+// blocchi Titolo h2 20px). Nessun token font-size esiste nel sistema pubblico →
+// literal px, come .cappelloTitle qui accanto (scala su mobile via @media).
 .title {
-  margin: 0 0 16px;
+  margin: 0 0 var(--pub-space-4);
   font-family: var(--pub-font-family);
-  font-size: 26px;
+  font-size: 34px;
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
   color: var(--pub-text);
+
+  @media (max-width: 480px) {
+    font-size: 27px;
+  }
 }
 
 .blocks {
