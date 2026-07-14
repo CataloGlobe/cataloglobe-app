@@ -12,11 +12,61 @@
     }
 }
 
-.col {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+// ── Colonne ─────────────────────────────────────────────────────────
+// Mobile: `display: contents` rimuove il box .colLeft/.colRight dal
+// render tree — le card diventano flex item DIRETTI di .grid, quindi
+// `order` (sotto) le riordina in modo lineare ignorando il gruppo
+// desktop. Senza questo, la grid a 2 colonne dell'auto-placement (con
+// `grid-column` esplicita per singola card, provato in precedenza)
+// crea un cursore di riga non-decrescente che lascia buchi quando le
+// due colonne hanno un numero di card diverso — bug osservato in
+// screenshot con Note prodotto spinta in fondo e un vuoto enorme sopra.
+// Desktop (>=1024px): tornano box reali (flex column), cosi le 2
+// colonne restano ad altezza indipendente (masonry), non righe-grid
+// condivise che forzerebbero l'allineamento riga-per-riga tra le due
+// colonne.
+.colLeft,
+.colRight {
+    display: contents;
+
+    @media (min-width: 1024px) {
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        min-width: 0;
+    }
+}
+
+.cardSlot {
     min-width: 0;
+}
+
+.slotImage {
+    order: 1;
+}
+
+.slotInfo {
+    order: 2;
+}
+
+.slotAllergens {
+    order: 3;
+}
+
+.slotCharacteristics {
+    order: 4;
+}
+
+.slotIngredients {
+    order: 5;
+}
+
+.slotPairings {
+    order: 6;
+}
+
+.slotNotes {
+    order: 7;
 }
 
 // ── Image preview ──────────────────────────────────────────────────
@@ -88,11 +138,9 @@
 }
 
 .subSectionLabel {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 600;
-    color: #64748b;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
+    color: var(--text);
 }
 
 .groupChips {
@@ -115,7 +163,6 @@
 }
 
 .compactGroupLabel {
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    letter-spacing: 0;
 }
 

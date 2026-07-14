@@ -107,9 +107,9 @@ export function SchedaTab({
 
     return (
         <div className={styles.grid}>
-            {/* ─────────────── COLONNA SINISTRA ─────────────── */}
-            <div className={styles.col}>
-                {/* Card Immagine */}
+            <div className={styles.colLeft}>
+            {/* Card Immagine — sx, sempre prima */}
+            <div className={`${styles.cardSlot} ${styles.slotImage}`}>
                 <SectionCard title="Immagine">
 
                     {image.visibleImageUrl && (
@@ -154,8 +154,10 @@ export function SchedaTab({
                     )}
 
                 </SectionCard>
+            </div>
 
-                {/* Card Informazioni */}
+            {/* Card Informazioni (+ Gruppi prodotto) — sx */}
+            <div className={`${styles.cardSlot} ${styles.slotInfo}`}>
                 <SectionCard title="Informazioni">
                     <div className={styles.fieldGrid}>
                         <TextInput
@@ -245,29 +247,12 @@ export function SchedaTab({
                     </div>
 
                 </SectionCard>
+            </div>
 
-                {/* Card Ingredienti */}
-                {draft.showIngredients && (
-                    <SectionCard title={verticalConfig.copy.productSections.ingredients}>
-                        {ingredients.loading ? (
-                            <Text variant="body-sm" colorVariant="muted">
-                                Caricamento ingredienti...
-                            </Text>
-                        ) : (
-                            <IngredientCombobox
-                                ingredients={ingredients.available}
-                                selectedIds={ingredients.draftIds}
-                                onToggle={ingredients.toggle}
-                                onCreate={ingredients.handleCreate}
-                                isLoadingIngredients={false}
-                            />
-                        )}
-
-                    </SectionCard>
-                )}
-
-                {/* Card Note prodotto */}
-                {draft.showNotes && (
+            {/* Card Note prodotto — sx nel layout desktop, ma ULTIMA anche in mobile
+                (sezione più interna): order forza la coda indipendentemente dal DOM. */}
+            {draft.showNotes && (
+                <div className={`${styles.cardSlot} ${styles.slotNotes}`}>
                     <SectionCard
                         title="Note prodotto"
                         subtitle="Note libere come provenienza, abbinamenti o dettagli particolari del prodotto"
@@ -280,37 +265,14 @@ export function SchedaTab({
                         />
 
                     </SectionCard>
-                )}
-
-                {/* Card Abbinamenti */}
-                {draft.showPairings && (
-                    <SectionCard
-                        title="Abbinamenti"
-                        subtitle="Suggerisci prodotti che stanno bene insieme"
-                        badge={pairings.draft.length > 0 ? <Badge variant="secondary">{pairings.draft.length}</Badge> : undefined}
-                    >
-                        {pairings.loading ? (
-                            <Text variant="body-sm" colorVariant="muted">
-                                Caricamento abbinamenti...
-                            </Text>
-                        ) : (
-                            <PairingsSection
-                                tenantId={tenantId}
-                                currentProductId={productId}
-                                value={pairings.draft}
-                                onChange={pairings.setDraft}
-                                disabled={pairings.isSaving}
-                            />
-                        )}
-
-                    </SectionCard>
-                )}
+                </div>
+            )}
             </div>
 
-            {/* ─────────────── COLONNA DESTRA ─────────────── */}
-            <div className={styles.col}>
-                {/* Card Allergeni */}
-                {draft.showAllergens && (
+            <div className={styles.colRight}>
+            {/* Card Allergeni — dx */}
+            {draft.showAllergens && (
+                <div className={`${styles.cardSlot} ${styles.slotAllergens}`}>
                     <SectionCard
                         title={verticalConfig.copy.productSections.allergens}
                         actions={
@@ -359,10 +321,12 @@ export function SchedaTab({
                             </div>
                         )}
                     </SectionCard>
-                )}
+                </div>
+            )}
 
-                {/* Card Caratteristiche */}
-                {draft.showCharacteristics && (
+            {/* Card Caratteristiche — dx */}
+            {draft.showCharacteristics && (
+                <div className={`${styles.cardSlot} ${styles.slotCharacteristics}`}>
                     <SectionCard
                         title="Caratteristiche"
                         actions={
@@ -440,7 +404,57 @@ export function SchedaTab({
                             </div>
                         )}
                     </SectionCard>
-                )}
+                </div>
+            )}
+
+            {/* Card Ingredienti — dx (composizione, stessa famiglia di Allergeni) */}
+            {draft.showIngredients && (
+                <div className={`${styles.cardSlot} ${styles.slotIngredients}`}>
+                    <SectionCard title={verticalConfig.copy.productSections.ingredients}>
+                        {ingredients.loading ? (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Caricamento ingredienti...
+                            </Text>
+                        ) : (
+                            <IngredientCombobox
+                                ingredients={ingredients.available}
+                                selectedIds={ingredients.draftIds}
+                                onToggle={ingredients.toggle}
+                                onCreate={ingredients.handleCreate}
+                                isLoadingIngredients={false}
+                            />
+                        )}
+
+                    </SectionCard>
+                </div>
+            )}
+
+            {/* Card Abbinamenti — dx, ultimo (relazione tra prodotti) */}
+            {draft.showPairings && (
+                <div className={`${styles.cardSlot} ${styles.slotPairings}`}>
+                    <SectionCard
+                        title="Abbinamenti"
+                        subtitle="Suggerisci prodotti che stanno bene insieme"
+                        badge={pairings.draft.length > 0 ? <Badge variant="secondary">{pairings.draft.length}</Badge> : undefined}
+                    >
+                        {pairings.loading ? (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Caricamento abbinamenti...
+                            </Text>
+                        ) : (
+                            <PairingsSection
+                                tenantId={tenantId}
+                                currentProductId={productId}
+                                value={pairings.draft}
+                                onChange={pairings.setDraft}
+                                disabled={pairings.isSaving}
+                            />
+                        )}
+
+                    </SectionCard>
+                </div>
+            )}
+
             </div>
 
             <ProductAllergensDrawer

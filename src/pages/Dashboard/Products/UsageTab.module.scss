@@ -114,13 +114,6 @@
     color: var(--text-subtle, #94a3b8);
 }
 
-// ── Empty state inline per ogni card ───────────────────────────────
-.empty {
-    font-size: 13px;
-    color: var(--text-muted, #64748b);
-    padding: 4px 0;
-}
-
 .loading {
     padding: 24px;
     text-align: center;
