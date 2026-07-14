@@ -6,9 +6,10 @@ import type { BusinessListProps, BusinessWithCapabilities } from "@/types/Busine
 import styles from "./BusinessList.module.scss";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { ExternalLink, Link, FileText, Edit, Trash2, MapPin } from "lucide-react";
+import { ExternalLink, Link, FileText, Edit, Trash2, MapPin, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { formatOverrideSummary } from "@/services/supabase/activeCatalog";
 import { useNavigate, useParams } from "react-router-dom";
 
 export const BusinessList: React.FC<BusinessListProps> = ({
@@ -71,8 +72,38 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 header: "Menu attivo ora",
                 width: "1.5fr",
                 cell: (_, business) => {
+                    if (catalogsLoading) {
+                        return (
+                            <div className={styles.catalogCell}>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    Caricamento...
+                                </Text>
+                            </div>
+                        );
+                    }
                     const activeCatalog = activeCatalogsMap?.[business.id];
-                    return <Text variant="body-sm">{activeCatalog?.catalogName ?? "—"}</Text>;
+                    const overrideSummary = activeCatalog
+                        ? formatOverrideSummary(activeCatalog.hiddenCount, activeCatalog.unavailableCount, {
+                              abbreviate: true
+                          })
+                        : null;
+                    return (
+                        <div className={styles.catalogCell}>
+                            <Text variant="body-sm">{activeCatalog?.catalogName ?? "—"}</Text>
+                            {overrideSummary && (
+                                <div className={styles.catalogWarningRow}>
+                                    <AlertTriangle
+                                        size={12}
+                                        strokeWidth={2}
+                                        className={styles.catalogWarningIcon}
+                                    />
+                                    <Text variant="caption" colorVariant="muted">
+                                        {overrideSummary}
+                                    </Text>
+                                </div>
+                            )}
+                        </div>
+                    );
                 }
             },
             {
@@ -143,7 +174,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 }
             }
         ],
-        [activeCatalogsMap, onManageAvailability, onEdit, onDelete, navigate]
+        [activeCatalogsMap, catalogsLoading, onManageAvailability, onEdit, onDelete, navigate]
     );
 
     const handleBulkDelete = (selectedIds: string[]) => {

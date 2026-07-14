@@ -17,6 +17,10 @@ export type ActiveCatalogMeta = {
     catalogId: string | null;
     catalogName: string | null;
     hasActiveCatalog: boolean;
+    /** Prodotti rimossi dalla pagina pubblica (override realtime, mode='hide'). */
+    hiddenCount: number;
+    /** Prodotti mostrati come "Non disponibile" (override realtime, mode='disable'). */
+    unavailableCount: number;
 };
 
 /**
@@ -52,12 +56,69 @@ export type RenderableCatalog = {
 // SERVICE
 // ==========================================
 
+type OverrideCounts = { hiddenCount: number; unavailableCount: number };
+
+/**
+ * Batch fetch di conteggi hidden/unavailable per più attività in UNA query
+ * (`.in("activity_id", ...)`), aggregati lato client — mai una query per
+ * sede. Stesso fallback di `deriveVisibilityState`: `mode` assente/'hide' →
+ * hidden, 'disable' → unavailable.
+ */
+async function getOverrideCountsForActivities(
+    activityIds: string[]
+): Promise<Record<string, OverrideCounts>> {
+    const result: Record<string, OverrideCounts> = {};
+    if (activityIds.length === 0) return result;
+
+    const { data, error } = await supabase
+        .from("activity_product_overrides")
+        .select("activity_id, mode")
+        .eq("visible_override", false)
+        .in("activity_id", activityIds);
+
+    if (error || !data) return result;
+
+    for (const row of data as Array<{ activity_id: string; mode: VisibilityMode | null }>) {
+        const counts = result[row.activity_id] ?? { hiddenCount: 0, unavailableCount: 0 };
+        if (row.mode === "disable") counts.unavailableCount += 1;
+        else counts.hiddenCount += 1;
+        result[row.activity_id] = counts;
+    }
+
+    return result;
+}
+
+/**
+ * Formatta il riepilogo override per card/tabella Sedi: "N nascosti, M non
+ * disponibili", omettendo la parte a zero. Null se non ci sono override
+ * attivi (nessuna riga renderizzata dal chiamante).
+ */
+export function formatOverrideSummary(
+    hiddenCount: number,
+    unavailableCount: number,
+    options?: { abbreviate?: boolean }
+): string | null {
+    if (hiddenCount === 0 && unavailableCount === 0) return null;
+    const parts: string[] = [];
+    if (hiddenCount > 0) {
+        parts.push(`${hiddenCount} nascost${hiddenCount === 1 ? "o" : "i"}`);
+    }
+    if (unavailableCount > 0) {
+        parts.push(
+            options?.abbreviate
+                ? `${unavailableCount} non disp.`
+                : `${unavailableCount} non disponibil${unavailableCount === 1 ? "e" : "i"}`
+        );
+    }
+    return parts.join(", ");
+}
+
 /**
  * Batch fetch of active catalog metadata for multiple activities.
  *
- * Uses Promise.all to resolve all activities in parallel, then
- * fetches catalog names in a single query. Returns only metadata
- * (catalogId, catalogName, hasActiveCatalog) — never the full catalog.
+ * Uses Promise.all to resolve all activities in parallel, fetches catalog
+ * names in a single query, and fetches hidden/unavailable override counts
+ * in a single additional query — mai una query per sede.
  */
 export async function getActiveCatalogForActivities(
     activityIds: string[]
@@ -66,20 +127,24 @@ export async function getActiveCatalogForActivities(
 
     const now = getNowInRome();
 
-    // ── Step 1: Resolve all activities in parallel ─────────────────────────
-    const resolvedList = await Promise.all(
-        activityIds.map(async activityId => {
-            try {
-                const resolved = await resolveActivityCatalogs(activityId, now);
-                // The resolver returns the catalog data if there is an active catalog.
-                // We only need the catalogId — extract it from the returned structure.
-                const catalogId = (resolved as { catalog?: { id?: string } }).catalog?.id ?? null;
-                return { activityId, catalogId };
-            } catch {
-                return { activityId, catalogId: null };
-            }
-        })
-    );
+    // ── Step 1: Resolve all activities in parallel + override counts in
+    //    parallelo (query indipendente, stessi activityIds) ────────────────
+    const [resolvedList, overrideCounts] = await Promise.all([
+        Promise.all(
+            activityIds.map(async activityId => {
+                try {
+                    const resolved = await resolveActivityCatalogs(activityId, now);
+                    // The resolver returns the catalog data if there is an active catalog.
+                    // We only need the catalogId — extract it from the returned structure.
+                    const catalogId = (resolved as { catalog?: { id?: string } }).catalog?.id ?? null;
+                    return { activityId, catalogId };
+                } catch {
+                    return { activityId, catalogId: null };
+                }
+            })
+        ),
+        getOverrideCountsForActivities(activityIds)
+    ]);
 
     // ── Step 2: Collect distinct non-null catalogIds ───────────────────────
     const catalogIds = Array.from(
@@ -106,11 +171,14 @@ export async function getActiveCatalogForActivities(
     const result: Record<string, ActiveCatalogMeta> = {};
 
     for (const { activityId, catalogId } of resolvedList) {
+        const counts = overrideCounts[activityId];
         result[activityId] = {
             activityId,
             catalogId,
             catalogName: catalogId ? (catalogNameById[catalogId] ?? null) : null,
-            hasActiveCatalog: catalogId !== null
+            hasActiveCatalog: catalogId !== null,
+            hiddenCount: counts?.hiddenCount ?? 0,
+            unavailableCount: counts?.unavailableCount ?? 0
         };
     }
 

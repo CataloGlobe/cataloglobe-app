@@ -1,3 +1,5 @@
+@use "@styles/variables" as *;
+
 .card {
   background: var(--card-bg, #ffffff);
   border: 1px solid var(--border, #e5e7eb);
@@ -196,12 +198,33 @@
 
 .catalogFooter {
   display: flex;
+  flex-direction: column;
+  background: var(--brand-primary-soft);
+  border-radius: var(--radius-md, 10px);
+}
+
+.catalogFooterMain {
+  display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
-  background: var(--brand-primary-soft);
-  border-radius: var(--radius-md, 10px);
   padding: 8px 8px 8px 10px;
+}
+
+/* Riga avviso override attivi (hidden/unavailable) — solo se presenti,
+   separata dalla riga principale da un bordo sottile, niente automatismi
+   di reset: solo promemoria passivo per il gestore. */
+.catalogWarningRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px 8px;
+  border-top: 1px solid var(--border);
+}
+
+.catalogWarningIcon {
+  flex-shrink: 0;
+  color: $warning;
 }
 
 .catalogFooterLeft {
