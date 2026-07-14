@@ -351,25 +351,30 @@ export default function ItemDetail({
                                 </div>
                             ) : (
                                 /* Lista read-only */
-                                <div className={styles.formatPrices}>
-                                    {primaryPriceGroup.values.map(v => (
-                                        <div key={v.id} className={styles.formatPriceRow}>
-                                            <Text variant="body-sm" color="var(--pub-surface-text)">{v.name}</Text>
-                                            {v.absolutePrice != null && (
-                                                <div className={styles.formatPriceValue}>
-                                                    {v.originalPrice != null && (
-                                                        <span className={styles.priceOriginal}>
-                                                            € {v.originalPrice.toFixed(2)}
-                                                        </span>
-                                                    )}
-                                                    <Text variant="body-sm" weight={600} color="var(--pub-surface-text)">
-                                                        € {v.absolutePrice.toFixed(2)}
-                                                    </Text>
-                                                </div>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
+                                <>
+                                    <Text variant="body-sm" weight={700} color="var(--pub-surface-text)">
+                                        {primaryPriceGroup.name}
+                                    </Text>
+                                    <div className={styles.formatPrices}>
+                                        {primaryPriceGroup.values.map(v => (
+                                            <div key={v.id} className={styles.formatPriceRow}>
+                                                <Text variant="body-sm" color="var(--pub-surface-text)">{v.name}</Text>
+                                                {v.absolutePrice != null && (
+                                                    <div className={styles.formatPriceValue}>
+                                                        {v.originalPrice != null && (
+                                                            <span className={styles.priceOriginal}>
+                                                                € {v.originalPrice.toFixed(2)}
+                                                            </span>
+                                                        )}
+                                                        <Text variant="body-sm" weight={600} color="var(--pub-surface-text)">
+                                                            € {v.absolutePrice.toFixed(2)}
+                                                        </Text>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
                             )
                         )}
 
