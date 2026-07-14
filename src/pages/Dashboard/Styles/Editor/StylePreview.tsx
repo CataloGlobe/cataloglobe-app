@@ -209,10 +209,10 @@ const MOCK_SECTION_GROUPS: CollectionViewSectionGroup[] = [
           pairings: [
             {
               id: "i2",
-              name: "Prodotto consigliato",
+              name: "Abbinamento consigliato",
               imageUrl: null,
               price: 24.0,
-              note: "Note del prodotto consigliato",
+              note: "Note dell'abbinamento consigliato",
             },
           ],
         },
