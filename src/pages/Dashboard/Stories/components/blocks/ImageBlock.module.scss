@@ -3,3 +3,52 @@
   flex-direction: column;
   gap: 12px;
 }
+
+.frameRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.frameLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+}
+
+.editorActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hiddenInput {
+  display: none;
+}
+
+.previewRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+/*
+ * Anteprima inquadrata: altezza fissa 160px, larghezza derivata dal rapporto del
+ * formato (3:2 = 240×160, 4:5 = 128×160). Righe di altezza uniforme + la sagoma
+ * comunica il formato senza etichette. FramedMedia richiede overflow:hidden.
+ */
+.previewBox {
+  position: relative;
+  overflow: hidden;
+  flex: none;
+  height: 160px;
+  border-radius: var(--radius-md);
+
+  &[data-frame="3:2"] {
+    aspect-ratio: 3 / 2;
+  }
+
+  &[data-frame="4:5"] {
+    aspect-ratio: 4 / 5;
+  }
+}

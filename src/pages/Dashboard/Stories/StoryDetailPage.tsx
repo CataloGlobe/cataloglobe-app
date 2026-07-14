@@ -10,7 +10,8 @@ import {
     updateStory,
     StoryBlock,
     StoryStatus,
-    StoryWithProduct
+    StoryWithProduct,
+    MAX_STORY_IMAGES
 } from "@/services/supabase/stories";
 import {
     uploadStoryImage,
@@ -167,6 +168,21 @@ export default function StoryDetailPage() {
             return false;
         }
 
+        // Guard trappola-featured: mai persistere un blocco immagine con un file
+        // pendente ma senza mediaAspectRatio. ImageBlock lo scrive sempre alla
+        // selezione; se manca, la lettura del ratio è fallita → abortisci invece
+        // di salvare un framing orfano che il render ignorerebbe (path cover).
+        for (const blockId of Object.keys(pendingBlockImages)) {
+            const b = blocks.find(x => x.id === blockId);
+            if (b?.type === "image" && b.mediaAspectRatio == null) {
+                showToast({
+                    message: "Un'immagine non ha proporzioni valide. Ricaricala e riprova.",
+                    type: "error"
+                });
+                return false;
+            }
+        }
+
         setIsSaving(true);
         try {
             let coverMedia = story.cover_media;
@@ -187,7 +203,9 @@ export default function StoryDetailPage() {
                 const url = await uploadStoryImage(
                     tenantId,
                     `${story.id}/${blockId}`,
-                    await compressImage(file, COMPRESS_PROFILES.cover)
+                    // Profilo `story` (1200×1500): i blocchi possono essere verticali
+                    // (4:5). La copertina sopra resta sul profilo `cover` (landscape).
+                    await compressImage(file, COMPRESS_PROFILES.story)
                 );
                 nextBlocks = nextBlocks.map(b => (b.id === blockId ? { ...b, url } : b));
             }
@@ -257,11 +275,21 @@ export default function StoryDetailPage() {
     // per scroll+focus dopo il render (vedi handleAddBlock).
     const [focusBlockId, setFocusBlockId] = useState<string | null>(null);
 
-    const handleAddBlock = useCallback((type: StoryBlock["type"]) => {
-        const block = createBlock(type);
-        setBlocks(prev => [...prev, block]);
-        setFocusBlockId(block.id);
-    }, []);
+    const imageBlockCount = useMemo(() => blocks.filter(b => b.type === "image").length, [blocks]);
+    const imageCapReached = imageBlockCount >= MAX_STORY_IMAGES;
+
+    const handleAddBlock = useCallback(
+        (type: StoryBlock["type"]) => {
+            if (type === "image" && imageCapReached) {
+                showToast({ message: `Massimo ${MAX_STORY_IMAGES} immagini per storia.`, type: "error" });
+                return;
+            }
+            const block = createBlock(type);
+            setBlocks(prev => [...prev, block]);
+            setFocusBlockId(block.id);
+        },
+        [imageCapReached, showToast]
+    );
 
     const handleFocusHandled = useCallback(() => setFocusBlockId(null), []);
 
@@ -350,7 +378,11 @@ export default function StoryDetailPage() {
                     <SectionCard
                         title="Contenuto"
                         subtitle="Blocchi di testo, immagini e video nell'ordine in cui verranno letti"
-                        actions={canWrite ? <AddBlockMenu onAdd={handleAddBlock} /> : undefined}
+                        actions={
+                            canWrite ? (
+                                <AddBlockMenu onAdd={handleAddBlock} imageDisabled={imageCapReached} />
+                            ) : undefined
+                        }
                     >
                         <StoryBlockEditor
                             value={blocks}

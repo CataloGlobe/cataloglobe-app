@@ -1,8 +1,12 @@
 import { supabase } from "@/services/supabase/client";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 import { deleteStoryImageBestEffort } from "./upload";
+import type { MediaFrame, MediaFraming } from "@/components/ui/ImageReframeEditor/types";
 
 export type StoryStatus = "draft" | "published";
+
+/** Tetto blocchi immagine per storia (racconto verticale, non una galleria). */
+export const MAX_STORY_IMAGES = 8;
 
 export type StoryVideoProvider = "youtube" | "vimeo";
 
@@ -13,7 +17,23 @@ export type StoryVideoProvider = "youtube" | "vimeo";
  * sub-fase). `id` is client-generated and stable, used for React key + dnd.
  */
 export type StoryTextBlock = { id: string; type: "text"; content: string };
-export type StoryImageBlock = { id: string; type: "image"; url: string; caption?: string };
+/**
+ * Image block. `frame` = user-chosen box ratio ("3:2" horizontal default | "4:5"
+ * vertical); `framing` = focal/zoom/fill authored in the reframe editor;
+ * `mediaAspectRatio` = NATURAL ratio (w/h) of the uploaded file, written on every
+ * upload/reframe (never a branch that saves framing without it). All three are
+ * optional at the type level because legacy JSONB rows predate them — consumers
+ * default on read (frame → "3:2", framing → FRAMING_DEFAULTS, ratio → null/cover).
+ */
+export type StoryImageBlock = {
+    id: string;
+    type: "image";
+    url: string;
+    caption?: string;
+    frame?: MediaFrame;
+    framing?: MediaFraming;
+    mediaAspectRatio?: number;
+};
 export type StoryVideoBlock = { id: string; type: "video"; provider: StoryVideoProvider; ref: string };
 export type StoryBlock = StoryTextBlock | StoryImageBlock | StoryVideoBlock;
 

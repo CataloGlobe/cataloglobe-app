@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
-import { StoryBlock } from "@/services/supabase/stories";
+import { StoryBlock, MAX_STORY_IMAGES } from "@/services/supabase/stories";
 import { AddBlockMenu } from "./AddBlockMenu";
 import { TextBlock } from "./blocks/TextBlock";
 import { ImageBlock } from "./blocks/ImageBlock";
@@ -134,6 +134,8 @@ export function StoryBlockEditor({
         onFocusHandled?.();
     }, [focusBlockId, onFocusHandled]);
 
+    const imageDisabled = value.filter(b => b.type === "image").length >= MAX_STORY_IMAGES;
+
     const handleDragEnd = (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
@@ -162,7 +164,11 @@ export function StoryBlockEditor({
                     icon={<Rows3 size={24} strokeWidth={1.8} />}
                     title="Nessun blocco ancora"
                     description="Aggiungi testo, immagini o video per raccontare la tua storia."
-                    action={!disabled && onAddBlock ? <AddBlockMenu onAdd={onAddBlock} /> : undefined}
+                    action={
+                        !disabled && onAddBlock ? (
+                            <AddBlockMenu onAdd={onAddBlock} imageDisabled={imageDisabled} />
+                        ) : undefined
+                    }
                 />
             )}
 
