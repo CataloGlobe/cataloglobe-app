@@ -5,10 +5,13 @@ import { deleteTranslationsForEntity } from "./translations";
 import { deleteFeaturedContentImageBestEffort } from "./upload";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 import type { MediaFraming, MediaFillMode } from "@/components/ui/ImageReframeEditor/types";
+import { FRAMING_DEFAULTS } from "@/components/ui/ImageReframeEditor/types";
 
-// Re-export the canonical framing types so consumers can pull them from the
-// service alongside FeaturedContent (single source of truth stays in the editor).
+// Re-export the canonical framing types + defaults so consumers can pull them
+// from the service alongside FeaturedContent (single source of truth stays in
+// the editor's types module).
 export type { MediaFraming, MediaFillMode };
+export { FRAMING_DEFAULTS };
 
 // Field di featured_contents tradotti via pipeline (Prompt 9 hook).
 const FEATURED_TRANSLATABLE_FIELDS = ["title", "subtitle", "description", "cta_text"] as const;
@@ -70,15 +73,6 @@ export interface FeaturedContent {
     created_at: string;
     updated_at: string;
 }
-
-/** Default framing, mirrors the DB column defaults (centered cover, blur fill). */
-const FRAMING_DEFAULTS: MediaFraming = {
-    focalX: 0.5,
-    focalY: 0.5,
-    zoom: 1,
-    fillMode: "blur",
-    fillColor: null
-};
 
 /** MediaFraming (camelCase) → featured_contents columns (snake_case). */
 export function framingToColumns(f: MediaFraming): {

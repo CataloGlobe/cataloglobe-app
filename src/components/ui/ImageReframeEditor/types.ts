@@ -23,6 +23,19 @@ export interface MediaFraming {
     fillColor: string | null; // hex #rrggbb; set for 'color' and 'dominant'
 }
 
+/**
+ * Default framing (centered cover, blur fill). Mirrors the DB column defaults on
+ * featured_contents (media_focal_x/y=0.5, media_zoom=1, media_fill_mode='blur').
+ * Canonical home is here alongside MediaFraming; featuredContents.ts re-exports.
+ */
+export const FRAMING_DEFAULTS: MediaFraming = {
+    focalX: 0.5,
+    focalY: 0.5,
+    zoom: 1,
+    fillMode: "blur",
+    fillColor: null
+};
+
 export interface ImageReframeEditorProps {
     source: string; // object URL (create) or remote URL (edit)
     value: MediaFraming;
