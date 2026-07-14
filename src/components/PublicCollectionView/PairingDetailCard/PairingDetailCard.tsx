@@ -1,4 +1,5 @@
-import { Plus, Check } from "lucide-react";
+import type { KeyboardEvent } from "react";
+import { Plus, Check, ChevronRight } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import Text from "@/components/ui/Text/Text";
 import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
@@ -24,12 +25,25 @@ interface PairingDetailCardProps {
      */
     isConfigurable?: boolean;
     onViewOptions?: () => void;
+    /**
+     * Tap sull'intera card apre il dettaglio dell'abbinato (uso D2, dentro
+     * ItemDetail — universale, convive con `onAdd`). Nessun bottone visivo
+     * aggiunto per la navigazione — lo stile a card con bordo comunica già
+     * interattività. Il "+" di `onAdd`, quando presente insieme a questo,
+     * resta un bottone reale annidato con `stopPropagation` (azione separata,
+     * non naviga).
+     */
+    onOpenPairing?: () => void;
 }
 
 /**
  * Card "consiglio" di un abbinamento: nome + prezzo + il "perché" (note).
- * Con `onAdd` diventa azionabile (upsell D3): "+" → "✓ Aggiunto". Senza `onAdd`
- * resta informativa (dettaglio prodotto D2). Nessun placeholder immagine: se
+ * `onOpenPairing` (se presente) rende l'intera card cliccabile → naviga al
+ * dettaglio abbinato. `onAdd` (se presente insieme, D2 con ordinazioni ON e
+ * abbinato non configurabile) aggiunge un "+" annidato, azione indipendente
+ * dal tap-to-navigate (stopPropagation mouse + tastiera). Upsell D3 (nessun
+ * `onOpenPairing`): solo azione, "+" → "✓ Aggiunto" o "Vedi opzioni" via
+ * `isConfigurable`/`onViewOptions`. Nessun placeholder immagine: se
  * `imageUrl` è null la card collassa a nome + perché + prezzo.
  */
 export default function PairingDetailCard({
@@ -38,11 +52,30 @@ export default function PairingDetailCard({
     onAdd,
     isAdded = false,
     isConfigurable = false,
-    onViewOptions
+    onViewOptions,
+    onOpenPairing
 }: PairingDetailCardProps) {
     const { t } = useTranslation("public");
     return (
-        <div className={styles.card}>
+        <div
+            className={onOpenPairing ? `${styles.card} ${styles.cardClickable}` : styles.card}
+            {...(onOpenPairing
+                ? {
+                      role: "button",
+                      tabIndex: 0,
+                      onClick: onOpenPairing,
+                      onKeyDown: (e: KeyboardEvent) => {
+                          // Ignora keydown "bollati" fino qui da figli (es. il "+"
+                          // annidato) — solo il div stesso, a fuoco diretto, naviga.
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === "Enter" || e.key === " ") {
+                              e.preventDefault();
+                              onOpenPairing();
+                          }
+                      }
+                  }
+                : {})}
+        >
             {showThumbnail && pairing.imageUrl && (
                 <img
                     src={pairing.imageUrl}
@@ -87,12 +120,29 @@ export default function PairingDetailCard({
                     <button
                         type="button"
                         className={styles.addBtn}
-                        onClick={onAdd}
+                        onClick={e => {
+                            // stopPropagation: la card sottostante può avere
+                            // onOpenPairing sullo stesso div — il "+" è un'azione
+                            // indipendente, non deve anche far navigare.
+                            e.stopPropagation();
+                            onAdd();
+                        }}
                         aria-label={t("selection.add_aria")}
                     >
                         <Plus size={16} strokeWidth={2.5} />
                     </button>
                 )
+            ) : isConfigurable && onOpenPairing ? (
+                // Solo visivo: nessun onClick proprio, stesso hit-target del
+                // tap-to-navigate sul div card. Simmetria col "+" degli
+                // abbinati semplici — altrimenti i configurabili sembrano
+                // non interattivi (nessun elemento a destra).
+                <ChevronRight
+                    size={18}
+                    strokeWidth={2}
+                    className={styles.configureHint}
+                    aria-hidden="true"
+                />
             ) : null}
         </div>
     );

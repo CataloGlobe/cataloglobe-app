@@ -858,6 +858,15 @@ export default function CollectionView({
     // (orderingActive=true) mostra, public senza sessione (false) nasconde — come prima.
     const orderingEntryHidden =
         effectiveMaintenance != null || !orderingActive;
+    // Ordinazione possibile nell'ItemDetail attualmente aperto — stessa
+    // condizione di onAddToSelection più sotto. Riusata per decidere il
+    // comportamento delle card "Perfetto con": azione diretta (true) vs
+    // navigazione con breadcrumb "Torna a" (false).
+    const canOrderInDetail =
+        mode === "public" &&
+        activeTab === "menu" &&
+        (orderingActive || itemDetailOrderingDisabled) &&
+        !(effectiveMaintenance != null && SILENT_MAINTENANCE_REASONS.has(effectiveMaintenance.reason));
     const { t } = useTranslation("public");
     const [activeSectionId, setActiveSectionId] = useState<string | null>(
         () => sectionGroups[0]?.root.id ?? null
@@ -880,6 +889,12 @@ export default function CollectionView({
     // identica reference). Propagato in contentKey verso PublicSheet → l'abort
     // di close-interruption scatta uniformemente, A→A incluso.
     const [openSeq, setOpenSeq] = useState(0);
+    // Stack "Torna a" per navigazione tra abbinati quando ordinazioni sono OFF
+    // (nessuna azione diretta possibile, la card "Perfetto con" naviga). Ogni
+    // push = prodotto lasciato per raggiungere l'abbinato aperto. Reset a ogni
+    // apertura "fresca" (menu/storia/edit selezione), preservato solo lungo
+    // la catena abbinato→abbinato.
+    const [pairingBackStack, setPairingBackStack] = useState<CollectionViewSectionItem[]>([]);
 
     // Upsell abbinamenti (D3): prodotto-sorgente + abbinati idonei congelati
     // all'apertura. null = nessun upsell aperto.
@@ -1155,8 +1170,12 @@ export default function CollectionView({
     );
 
     // ── Analytics: product_detail_open wrapper ──────────────────────────
+    // keepPairingBackStack: SOLO la catena abbinato→abbinato (ordinazioni
+    // OFF) preserva lo stack "Torna a". Ogni altra apertura (menu, storia,
+    // edit selezione, upsell) è "fresca" → stack azzerato.
     const openItemDetail = useCallback(
-        (item: CollectionViewSectionItem) => {
+        (item: CollectionViewSectionItem, opts?: { keepPairingBackStack?: boolean }) => {
+            if (!opts?.keepPairingBackStack) setPairingBackStack([]);
             setSelectedItem(item);
             setOpenSeq(s => s + 1);
             if (mode === "public" && activityId) {
@@ -1504,6 +1523,39 @@ export default function CollectionView({
         openItemDetail(p);
     }, [findProductById, openItemDetail]);
 
+    // Card "Perfetto con" dentro ItemDetail — tap sul corpo, universale
+    // (entrambe le modalità). Con ordinazioni ON convive con il "+" quick-add
+    // separato (stopPropagation lato PairingDetailCard). Push del prodotto
+    // corrente sullo stack "Torna a" prima dello swap — catena
+    // abbinato→abbinato gestita via keepPairingBackStack.
+    const openPairingFromDetail = useCallback((pairedProductId: string) => {
+        const p = findProductById(pairedProductId);
+        if (!p || !selectedItem) return;
+        setPairingBackStack(stack => [...stack, selectedItem]);
+        openItemDetail(p, { keepPairingBackStack: true });
+    }, [findProductById, openItemDetail, selectedItem]);
+
+    // "Torna a" — pop dello stack, riapre il prodotto precedente nella
+    // stessa sheet (nessun ulteriore push, non è una nuova apertura fresca).
+    const goBackPairing = useCallback(() => {
+        if (pairingBackStack.length === 0) return;
+        const prev = pairingBackStack[pairingBackStack.length - 1];
+        setPairingBackStack(stack => stack.slice(0, -1));
+        setSelectedItem(prev);
+        setOpenSeq(s => s + 1);
+    }, [pairingBackStack]);
+
+    // Abbinato configurabile (ha optionGroups) → card mostra "Vedi opzioni"
+    // invece di "+". Stesso predicato usato per l'upsell post-add.
+    const isPairingConfigurable = useCallback((pairedProductId: string) => {
+        return ((findProductById(pairedProductId)?.optionGroups?.length) ?? 0) > 0;
+    }, [findProductById]);
+
+    // Abbinato già in selezione → card mostra "✓ Aggiunto" invece di "+".
+    const isPairingAdded = useCallback((pairedProductId: string) => {
+        return (selectionMap[pairedProductId] ?? 0) > 0;
+    }, [selectionMap]);
+
     // Flusso A: aggiunge il principale (comportamento attuale) e, SOLO se
     // esistono abbinati idonei (non già in selezione), apre l'upsell. Ramo
     // senza idonei = byte-equivalente al comportamento pre-D3.
@@ -1515,7 +1567,6 @@ export default function CollectionView({
         addons?: SelectedAddon[]
     ) => {
         addToSelection(productId, productName, basePrice, format, addons);
-        setSelectedItem(null);
         const product = findProductById(productId);
         const eligible: UpsellPairing[] = (product?.pairings ?? [])
             .filter(p => (selectionMap[p.id] ?? 0) === 0)
@@ -1526,9 +1577,22 @@ export default function CollectionView({
                 isConfigurable: ((findProductById(p.id)?.optionGroups?.length) ?? 0) > 0
             }));
         if (product && eligible.length > 0) {
+            // Upsell esistente ha priorità — comportamento invariato (chiude,
+            // non torna al padre anche se raggiunto via abbinamento).
+            setSelectedItem(null);
             setUpsell({ sourceName: product.name, pairings: eligible });
+            return;
         }
-    }, [addToSelection, findProductById, selectionMap]);
+        // Raggiunto navigando da "Perfetto con" (stack non vuoto): torna al
+        // prodotto padre invece di chiudere — l'utente lo stava ancora
+        // valutando. selectionMap si aggiorna nello stesso batch → la sua
+        // card "Perfetto con" nel padre riflette subito "✓ Aggiunto".
+        if (pairingBackStack.length > 0) {
+            goBackPairing();
+        } else {
+            setSelectedItem(null);
+        }
+    }, [addToSelection, findProductById, selectionMap, pairingBackStack, goBackPairing]);
 
     const handleUpdateSelection = useCallback((
         _productId: string,
@@ -1546,14 +1610,22 @@ export default function CollectionView({
                 : item
         ));
         setEditingSelectionIndex(null);
-        setSelectedItem(null);
-    }, [editingSelectionIndex]);
+        if (pairingBackStack.length > 0) {
+            goBackPairing();
+        } else {
+            setSelectedItem(null);
+        }
+    }, [editingSelectionIndex, pairingBackStack, goBackPairing]);
 
     const handleEditSelectionItem = useCallback((index: number, item: SelectionItem) => {
         const product = findProductById(item.id);
         if (!product) return;
         setEditingSelectionIndex(index);
         setSelectedItem(product);
+        // Apertura fresca dal carrello (non da openItemDetail) — reset esplicito,
+        // altrimenti uno stack "Torna a" residuo da una navigazione precedente
+        // sopravviverebbe qui.
+        setPairingBackStack([]);
         setIsOrderingOpen(false);
     }, [findProductById]);
 
@@ -2703,21 +2775,34 @@ export default function CollectionView({
                                             onClose={() => {
                                                 setSelectedItem(null);
                                                 setEditingSelectionIndex(null);
+                                                setPairingBackStack([]);
                                             }}
                                             mode={mode}
                                             showImage={style.productStyle !== "compact" && style.cardTemplate !== "no-image"}
                                             orderingDisabled={itemDetailOrderingDisabled}
                                             onOpenStory={openStoryFromProduct}
                                             onAddToSelection={
-                                                mode === "public" &&
-                                                activeTab === "menu" &&
-                                                (orderingActive || itemDetailOrderingDisabled) &&
-                                                !(effectiveMaintenance != null && SILENT_MAINTENANCE_REASONS.has(effectiveMaintenance.reason))
+                                                canOrderInDetail
                                                     ? (editingSelectionIndex !== null
                                                         ? handleUpdateSelection
                                                         : handleAddFromDetail)
                                                     : undefined
                                             }
+                                            onOpenPairing={openPairingFromDetail}
+                                            {...(pairingBackStack.length > 0
+                                                ? {
+                                                      pairingBackLabel:
+                                                          pairingBackStack[pairingBackStack.length - 1].name,
+                                                      onPairingBack: goBackPairing
+                                                  }
+                                                : {})}
+                                            {...(canOrderInDetail
+                                                ? {
+                                                      onAddPairing: addPairingToSelection,
+                                                      isPairingConfigurable,
+                                                      isPairingAdded
+                                                  }
+                                                : {})}
                                             initialFormat={editingSelectionIndex !== null
                                                 ? selection[editingSelectionIndex]?.selectedFormat
                                                 : undefined

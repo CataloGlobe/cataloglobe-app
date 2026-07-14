@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronRight, Package, ScrollText, Sparkles, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Package, ScrollText, X } from "lucide-react";
+import { IconLink } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
@@ -47,6 +48,30 @@ type Props = {
      *  (chiude questo detail + switch tab Storia, gestito dal parent). Assente
      *  → nessuna card rimando anche se item.story_ref è presente. */
     onOpenStory?: (storyId: string) => void;
+    /**
+     * Universale (entrambe le modalità): tap sul corpo della card "Perfetto
+     * con" naviga al dettaglio completo dell'abbinato (swap contenuto nella
+     * stessa sheet, nessuna sheet impilata). Assente → card non cliccabile.
+     */
+    onOpenPairing?: (productId: string) => void;
+    /** Etichetta breadcrumb "Torna a {label}", visibile solo se si è arrivati
+     *  qui navigando da un abbinamento (stack non vuoto). */
+    pairingBackLabel?: string;
+    /** Click sul breadcrumb "Torna a" — pop dello stack lato parent. */
+    onPairingBack?: () => void;
+    /**
+     * Ramo CON ordinazioni: quick-add diretto di un abbinato NON configurabile
+     * — bottone "+" separato dal tap-to-navigate del corpo card (stopPropagation
+     * interno). Stesso meccanismo dell'upsell post-aggiunta. Abbinati
+     * configurabili non ricevono questo bottone: il tap sul corpo naviga al
+     * loro detail, dove l'utente configura e aggiunge normalmente.
+     */
+    onAddPairing?: (productId: string) => void;
+    /** Abbinato configurabile (ha optionGroups) → niente bottone "+", solo
+     *  tap-to-navigate (via `onOpenPairing`). */
+    isPairingConfigurable?: (productId: string) => boolean;
+    /** Abbinato già in selezione → card mostra "✓ Aggiunto" al posto del "+". */
+    isPairingAdded?: (productId: string) => boolean;
 };
 
 export default function ItemDetail({
@@ -61,7 +86,13 @@ export default function ItemDetail({
     submitLabel,
     showImage = true,
     orderingDisabled = false,
-    onOpenStory
+    onOpenStory,
+    onOpenPairing,
+    pairingBackLabel,
+    onPairingBack,
+    onAddPairing,
+    isPairingConfigurable,
+    isPairingAdded
 }: Props) {
     const { t } = useTranslation("public");
     const submitLabelResolved = submitLabel ?? t("item_detail.submit_default");
@@ -180,8 +211,11 @@ export default function ItemDetail({
         }
 
         const basePrice = format?.price ?? displayItem.effective_price ?? displayItem.price ?? 0;
+        // Niente onClose() qui: il parent (onAddToSelection) decide l'esito —
+        // chiudere, o tornare al padre se raggiunto via "Perfetto con"
+        // (pairingBackStack). Chiamarlo qui sovrascriverebbe quella scelta
+        // (stessa batch React, ultimo setSelectedItem vince).
         onAddToSelection(displayItem.id, displayItem.name, basePrice, format, addons);
-        onClose();
     };
 
     if (!displayItem) return null;
@@ -197,9 +231,24 @@ export default function ItemDetail({
             ariaLabel={displayItem.name}
             headerContent={
                 <div className={styles.header}>
-                    <Text as="h2" variant="title-md" weight={700} className={styles.headerTitle} color="var(--pub-surface-text)">
-                        {displayItem.name}
-                    </Text>
+                    <div className={styles.headerTitleBlock}>
+                        {/* BREADCRUMB "Torna a" — solo se aperto navigando da un
+                            abbinamento (stack non vuoto lato parent). Riga piccola
+                            sopra il titolo: prima da dove vieni, poi dove sei. */}
+                        {pairingBackLabel && onPairingBack && (
+                            <button
+                                type="button"
+                                className={styles.pairingBackBtn}
+                                onClick={onPairingBack}
+                            >
+                                <ChevronLeft size={16} strokeWidth={2.5} />
+                                {t("item_detail.pairing_back", { name: pairingBackLabel })}
+                            </button>
+                        )}
+                        <Text as="h2" variant="title-md" weight={700} className={styles.headerTitle} color="var(--pub-surface-text)">
+                            {displayItem.name}
+                        </Text>
+                    </div>
                     <button type="button" className={styles.closeBtn} onClick={onClose} aria-label={t("item_detail.close_aria")}>
                         {t("selection.close_label")}
                     </button>
@@ -344,7 +393,7 @@ export default function ItemDetail({
                                     className={styles.pairingSectionLabel}
                                     color="var(--pub-surface-text)"
                                 >
-                                    <Sparkles size={14} className={styles.pairingSectionIcon} />
+                                    <IconLink size={14} className={styles.pairingSectionIcon} />
                                     {t("product.pairing_prefix")}
                                 </Text>
                                 <div className={styles.pairingCards}>
@@ -353,6 +402,16 @@ export default function ItemDetail({
                                             key={p.id}
                                             pairing={p}
                                             showThumbnail={showImage}
+                                            isAdded={isPairingAdded?.(p.id) ?? false}
+                                            isConfigurable={isPairingConfigurable?.(p.id) ?? false}
+                                            onAdd={
+                                                onAddPairing && !(isPairingConfigurable?.(p.id) ?? false)
+                                                    ? () => onAddPairing(p.id)
+                                                    : undefined
+                                            }
+                                            onOpenPairing={
+                                                onOpenPairing ? () => onOpenPairing(p.id) : undefined
+                                            }
                                         />
                                     ))}
                                 </div>

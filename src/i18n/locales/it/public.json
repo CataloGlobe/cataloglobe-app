@@ -150,7 +150,8 @@
     "item_detail": {
         "submit_default": "Aggiungi alla selezione",
         "close_aria": "Chiudi",
-        "format_required": "Scegli un formato per continuare"
+        "format_required": "Scegli un formato per continuare",
+        "pairing_back": "Torna a {{name}}"
     },
     "order_confirmation": {
         "aria": "Ordine inviato",

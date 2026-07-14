@@ -16,8 +16,17 @@
     background: transparent;
 }
 
-.headerTitle {
+/* Colonna titolo — a 2 righe (breadcrumb + titolo) solo quando si arriva
+   navigando da un abbinamento, altrimenti solo il titolo (invariato). */
+.headerTitleBlock {
     flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--pub-space-2, 8px);
+}
+
+.headerTitle {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -196,6 +205,31 @@
    di valore, stesso peso: piena su --pub-cta-bg (è un'azione, apre la
    storia) invece della treatment pallida "surface + border" (residuo, non
    un invito). */
+/* Breadcrumb "Torna a [prodotto precedente]" — solo ramo senza ordinazioni,
+   navigazione tra abbinati. Testo puro, nessun elemento a card: distinto
+   dalle azioni (storyLinkCard) perché è un back, non un invito. */
+.pairingBackBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: none;
+    background: transparent;
+    color: var(--pub-surface-text-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+
+    &:hover {
+        color: var(--pub-surface-text);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--pub-accent);
+        outline-offset: 2px;
+    }
+}
+
 .storyLinkCard {
     display: flex;
     align-items: center;
