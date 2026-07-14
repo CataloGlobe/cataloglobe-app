@@ -3,7 +3,6 @@ import { framePercent, offset, hasBands } from "@components/ui/ImageReframeEdito
 import type { MediaFraming } from "@components/ui/ImageReframeEditor/types";
 import styles from "./FramedMedia.module.scss";
 
-const FRAME_RATIO = 16 / 9;
 // Neutral band fill when fillColor is null (e.g. dominant not extracted).
 const FILL_FALLBACK = "#e5e7eb";
 
@@ -18,6 +17,8 @@ export interface FramedMediaProps {
     ariaHidden?: boolean;
     /** Above-the-fold: loading="eager". Default lazy. */
     eager?: boolean;
+    /** Frame (viewport) ratio the framing was authored against. Default 16/9. */
+    frameRatio?: number;
 }
 
 /**
@@ -29,7 +30,7 @@ export interface FramedMediaProps {
  * Renders a fragment (fill layers + image); the CALLER must provide a
  * `position: relative; overflow: hidden` container (e.g. a 16:9 box).
  */
-export function FramedMedia({ source, framing, aspectRatio, alt, ariaHidden, eager = false }: FramedMediaProps) {
+export function FramedMedia({ source, framing, aspectRatio, alt, ariaHidden, eager = false, frameRatio = 16 / 9 }: FramedMediaProps) {
     const imgRef = useRef<HTMLImageElement>(null);
     const [imgLoaded, setImgLoaded] = useState(false);
 
@@ -63,7 +64,7 @@ export function FramedMedia({ source, framing, aspectRatio, alt, ariaHidden, eag
     }
 
     // Parametric path.
-    const { widthPct, heightPct } = framePercent(FRAME_RATIO, aspectRatio, zoom);
+    const { widthPct, heightPct } = framePercent(frameRatio, aspectRatio, zoom);
     const { ox, oy } = offset(100, 100, widthPct, heightPct, fx, fy);
     const bands = hasBands(100, 100, widthPct, heightPct);
     const resolvedFill = fillColor ?? FILL_FALLBACK;
