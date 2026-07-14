@@ -17,6 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
@@ -218,24 +219,38 @@ export default function PairingsSection({
                 </DndContext>
             )}
 
-            {value.length === 0 && (
-                <Text variant="body-sm" colorVariant="muted">
-                    Nessun abbinamento. Suggerisci prodotti che stanno bene insieme.
-                </Text>
+            {value.length === 0 ? (
+                <EmptyState
+                    variant="inline"
+                    icon={null}
+                    title="Nessun abbinamento"
+                    action={
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            size="sm"
+                            leftIcon={<Plus size={16} />}
+                            onClick={() => setIsPickerOpen(true)}
+                            disabled={disabled}
+                        >
+                            Aggiungi abbinamento
+                        </Button>
+                    }
+                />
+            ) : (
+                <div className={styles.addRow}>
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        leftIcon={<Plus size={16} />}
+                        onClick={() => setIsPickerOpen(true)}
+                        disabled={disabled}
+                    >
+                        Aggiungi abbinamento
+                    </Button>
+                </div>
             )}
-
-            <div className={styles.addRow}>
-                <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<Plus size={16} />}
-                    onClick={() => setIsPickerOpen(true)}
-                    disabled={disabled}
-                >
-                    Aggiungi abbinamento
-                </Button>
-            </div>
 
             <PairingProductPicker
                 open={isPickerOpen}

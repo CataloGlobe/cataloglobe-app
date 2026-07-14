@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { LayoutGrid, ListPlus } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Switch } from "@/components/ui/Switch/Switch";
@@ -1007,6 +1006,7 @@ export default function PrezziOpzioniTab({
             {!isVariant && (
                 <SectionCard
                     title="Varianti"
+                    subtitle="Le varianti hanno prezzo e descrizione propri. Si vedono come prodotti separati nel menu pubblico."
                     badge={variants.length > 0 ? <Badge variant="secondary">{variants.length}</Badge> : undefined}
                     actions={
                         variants.length > 0 ? (
@@ -1023,16 +1023,17 @@ export default function PrezziOpzioniTab({
                 >
                     {variants.length === 0 ? (
                         <EmptyState
-                            icon={<LayoutGrid size={24} strokeWidth={1.8} />}
+                            variant="inline"
+                            icon={null}
                             title="Nessuna variante"
-                            description="Le varianti hanno prezzo e descrizione propri. Si vedono come prodotti separati nel menu pubblico."
                             action={
                                 <Button
                                     type="button"
                                     variant="secondary"
+                                    size="sm"
                                     onClick={onOpenVariantDrawer}
                                 >
-                                    Aggiungi manualmente
+                                    Aggiungi variante
                                 </Button>
                             }
                         />
@@ -1054,6 +1055,7 @@ export default function PrezziOpzioniTab({
             <SectionCard
                 title="Opzioni extra"
                 subtitle="Configurazioni selezionabili dal cliente (es. cottura, aggiunte)"
+                badge={addonGroups.length > 0 ? <Badge variant="secondary">{addonGroups.length}</Badge> : undefined}
                 actions={
                     addonGroups.length > 0 && !isCreatingGroup ? (
                         <Button
@@ -1108,16 +1110,17 @@ export default function PrezziOpzioniTab({
                     </Text>
                 ) : addonGroups.length === 0 && !isCreatingGroup ? (
                     <EmptyState
-                        icon={<ListPlus size={24} strokeWidth={1.8} />}
+                        variant="inline"
+                        icon={null}
                         title="Nessuna opzione extra"
-                        description='Aggiungi gruppi come "Cottura" (al sangue/medio/ben cotta) o "Aggiunte" (mozzarella, prosciutto…).'
                         action={
                             <Button
                                 type="button"
                                 variant="secondary"
+                                size="sm"
                                 onClick={handleOpenCreateGroup}
                             >
-                                + Crea primo gruppo
+                                Crea gruppo
                             </Button>
                         }
                     />

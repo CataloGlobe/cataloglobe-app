@@ -1,7 +1,7 @@
-import { FileText, Plus, X } from "lucide-react";
-import Text from "@/components/ui/Text/Text";
+import { Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import type { ProductNote } from "@/services/supabase/products";
 import styles from "./ProductNotesSection.module.scss";
 
@@ -53,42 +53,24 @@ export default function ProductNotesSection({
     };
 
     return (
-        <section className={styles.root} aria-labelledby="product-notes-heading">
-            <div className={styles.header}>
-                <Text
-                    id="product-notes-heading"
-                    variant="caption"
-                    colorVariant="muted"
-                    weight={600}
-                    className={styles.counter}
-                >
-                    {value.length}/{MAX_NOTES} note
-                </Text>
-            </div>
-
+        <section className={styles.root}>
             {isEmpty ? (
-                <div className={styles.emptyState}>
-                    <span className={styles.emptyIcon} aria-hidden>
-                        <FileText size={28} />
-                    </span>
-                    <Text variant="body" weight={600}>
-                        Nessuna nota
-                    </Text>
-                    <Text variant="body-sm" colorVariant="muted">
-                        Aggiungi note libere come provenienza, abbinamenti o dettagli particolari
-                        del prodotto.
-                    </Text>
-                    <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={addRow}
-                        disabled={disabled}
-                        leftIcon={<Plus size={14} />}
-                        className={styles.emptyStateButton}
-                    >
-                        Aggiungi nota
-                    </Button>
-                </div>
+                <EmptyState
+                    variant="inline"
+                    icon={null}
+                    title="Nessuna nota"
+                    action={
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={addRow}
+                            disabled={disabled}
+                            leftIcon={<Plus size={14} />}
+                        >
+                            Aggiungi nota
+                        </Button>
+                    }
+                />
             ) : (
                 <>
                     <ul className={styles.list}>

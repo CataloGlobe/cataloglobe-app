@@ -4,6 +4,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { Pill } from "@/components/ui/Pill/Pill";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TranslationStatusBadge } from "@/components/ui/TranslationStatusBadge/TranslationStatusBadge";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
@@ -267,7 +268,11 @@ export function SchedaTab({
 
                 {/* Card Note prodotto */}
                 {draft.showNotes && (
-                    <SectionCard title="Note prodotto">
+                    <SectionCard
+                        title="Note prodotto"
+                        subtitle="Note libere come provenienza, abbinamenti o dettagli particolari del prodotto"
+                        badge={notes.draft.length > 0 ? <Badge variant="secondary">{notes.draft.length}/10</Badge> : undefined}
+                    >
                         <ProductNotesSection
                             value={notes.draft}
                             onChange={notes.setDraft}
@@ -279,7 +284,11 @@ export function SchedaTab({
 
                 {/* Card Abbinamenti */}
                 {draft.showPairings && (
-                    <SectionCard title="Abbinamenti">
+                    <SectionCard
+                        title="Abbinamenti"
+                        subtitle="Suggerisci prodotti che stanno bene insieme"
+                        badge={pairings.draft.length > 0 ? <Badge variant="secondary">{pairings.draft.length}</Badge> : undefined}
+                    >
                         {pairings.loading ? (
                             <Text variant="body-sm" colorVariant="muted">
                                 Caricamento abbinamenti...
