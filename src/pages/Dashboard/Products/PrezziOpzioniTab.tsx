@@ -1002,56 +1002,7 @@ export default function PrezziOpzioniTab({
                 )}
             </SectionCard>
 
-            {/* ──────────────── Card 2 — Varianti ──────────────── */}
-            {!isVariant && (
-                <SectionCard
-                    title="Varianti"
-                    subtitle="Le varianti hanno prezzo e descrizione propri. Si vedono come prodotti separati nel menu pubblico."
-                    badge={variants.length > 0 ? <Badge variant="secondary">{variants.length}</Badge> : undefined}
-                    actions={
-                        variants.length > 0 ? (
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                onClick={onOpenVariantDrawer}
-                            >
-                                + Aggiungi
-                            </Button>
-                        ) : undefined
-                    }
-                >
-                    {variants.length === 0 ? (
-                        <EmptyState
-                            variant="inline"
-                            icon={null}
-                            title="Nessuna variante"
-                            action={
-                                <Button
-                                    type="button"
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={onOpenVariantDrawer}
-                                >
-                                    Aggiungi variante
-                                </Button>
-                            }
-                        />
-                    ) : (
-                        <DataTable
-                            data={variants}
-                            columns={variantColumns}
-                            onRowClick={variant =>
-                                navigate(
-                                    `/business/${businessId}/products/${variant.id}`
-                                )
-                            }
-                        />
-                    )}
-                </SectionCard>
-            )}
-
-            {/* ──────────────── Card 3 — Opzioni extra ──────────────── */}
+            {/* ──────────────── Card 2 — Opzioni extra ──────────────── */}
             <SectionCard
                 title="Opzioni extra"
                 subtitle="Configurazioni selezionabili dal cliente (es. cottura, aggiunte)"
@@ -1279,6 +1230,55 @@ export default function PrezziOpzioniTab({
                     />
                 )}
             </SectionCard>
+
+            {/* ──────────────── Card 3 — Varianti ──────────────── */}
+            {!isVariant && (
+                <SectionCard
+                    title="Varianti"
+                    subtitle="Le varianti hanno prezzo e descrizione propri. Si vedono come prodotti separati nel menu pubblico."
+                    badge={variants.length > 0 ? <Badge variant="secondary">{variants.length}</Badge> : undefined}
+                    actions={
+                        variants.length > 0 ? (
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={onOpenVariantDrawer}
+                            >
+                                + Aggiungi
+                            </Button>
+                        ) : undefined
+                    }
+                >
+                    {variants.length === 0 ? (
+                        <EmptyState
+                            variant="inline"
+                            icon={null}
+                            title="Nessuna variante"
+                            action={
+                                <Button
+                                    type="button"
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={onOpenVariantDrawer}
+                                >
+                                    Aggiungi variante
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <DataTable
+                            data={variants}
+                            columns={variantColumns}
+                            onRowClick={variant =>
+                                navigate(
+                                    `/business/${businessId}/products/${variant.id}`
+                                )
+                            }
+                        />
+                    )}
+                </SectionCard>
+            )}
         </div>
     );
 }
