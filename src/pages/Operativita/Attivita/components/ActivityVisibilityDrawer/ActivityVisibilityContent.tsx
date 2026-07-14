@@ -9,8 +9,10 @@ import Text from "@/components/ui/Text/Text";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { ActivityVisibilityIngredients } from "./ActivityVisibilityIngredients";
 import { useTenantId } from "@/context/useTenantId";
 import {
     getActivityProductOverrides,
@@ -26,6 +28,9 @@ import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./ActivityVisibilityContent.module.scss";
 
 type FilterValue = "all" | "visible" | "hidden" | "unavailable";
+
+/** Vista di primo livello del drawer: tabella prodotti o tabella ingredienti. */
+export type VisibilityView = "products" | "ingredients";
 
 const VISIBILITY_OPTIONS: {
     value: ProductVisibilityState;
@@ -55,6 +60,11 @@ export type VisibilityContentMeta = {
     catalogName: string | null;
 };
 
+export type VisibilityCounts = {
+    products: number;
+    ingredients: number | null;
+};
+
 type ActivityVisibilityContentProps = {
     activityId: string;
     onMetaChange?: (meta: VisibilityContentMeta) => void;
@@ -64,12 +74,26 @@ type ActivityVisibilityContentProps = {
      * tab Disponibilità passa `"top"` per averlo vicino ai filtri.
      */
     countPlacement?: "top" | "bottom";
+    /**
+     * Tab Prodotti/Ingredienti controllate dal parent (es. header del drawer,
+     * Direzione A) invece che renderizzate qui in corpo (Direzione B, default
+     * — usato dalla tab Disponibilità inline, che non ha uno slot header
+     * disponibile per ospitarle). Quando presente, il blocco Tabs interno
+     * NON viene renderizzato: il parent lo fa altrove nel proprio layout.
+     */
+    view?: VisibilityView;
+    onViewChange?: (view: VisibilityView) => void;
+    /** Notifica i conteggi (prodotti/ingredienti) per il badge sulle tab del parent. */
+    onCountsChange?: (counts: VisibilityCounts) => void;
 };
 
 export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps> = ({
     activityId,
     onMetaChange,
-    countPlacement = "bottom"
+    countPlacement = "bottom",
+    view: controlledView,
+    onViewChange,
+    onCountsChange
 }) => {
     const tenantId = useTenantId();
     const { showToast } = useToast();
@@ -80,11 +104,49 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
     const [savingId, setSavingId] = useState<string | null>(null);
     const [search, setSearch] = useState("");
     const [filter, setFilter] = useState<FilterValue>("all");
+    const [internalView, setInternalView] = useState<VisibilityView>("products");
+    // Tab controllata dal parent (header drawer) se `view`/`onViewChange` sono
+    // passati, altrimenti stato locale (uso di default, tab inline).
+    const view = controlledView ?? internalView;
+    // La vista Ingredienti monta al PRIMO ingresso nella tab e resta montata
+    // (nascosta via CSS) allo switch: le sue due query lazy non si ripetono e
+    // filtro/ricerca sopravvivono al cambio vista.
+    const [ingredientsMounted, setIngredientsMounted] = useState(false);
+    const [ingredientCount, setIngredientCount] = useState<number | null>(null);
+
+    // Ancorato a `view` (non dentro `setView`): quando la tab è controllata dal
+    // parent (drawer, Direzione A) il cambio vista passa da `onViewChange`, MAI
+    // dalla funzione `setView` qui sotto — un mount-trigger dentro `setView`
+    // non scattava mai in quel caso e il pannello Ingredienti restava smontato
+    // (drawer vuoto al click su "Ingredienti").
+    useEffect(() => {
+        if (view === "ingredients") setIngredientsMounted(true);
+    }, [view]);
+
+    const setView = useCallback(
+        (next: VisibilityView) => {
+            if (onViewChange) onViewChange(next);
+            else setInternalView(next);
+        },
+        [onViewChange]
+    );
 
     const onMetaChangeRef = useRef(onMetaChange);
     useEffect(() => {
         onMetaChangeRef.current = onMetaChange;
     }, [onMetaChange]);
+
+    const onCountsChangeRef = useRef(onCountsChange);
+    useEffect(() => {
+        onCountsChangeRef.current = onCountsChange;
+    }, [onCountsChange]);
+
+    useEffect(() => {
+        onCountsChangeRef.current?.({
+            products: catalog?.products.length ?? 0,
+            ingredients: ingredientCount
+        });
+    }, [catalog, ingredientCount]);
 
     const loadData = useCallback(async () => {
         if (!tenantId) return;
@@ -112,17 +174,24 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         loadData();
     }, [loadData]);
 
+    // Reload silenzioso (niente skeleton): usato dopo il singolo cambio stato
+    // e dopo le azioni bulk della vista Ingredienti.
+    const refreshData = useCallback(async () => {
+        if (!tenantId) return;
+        const [cat, ovs] = await Promise.all([
+            getRenderableCatalogForActivity(activityId, tenantId),
+            getActivityProductOverrides(activityId)
+        ]);
+        setCatalog(cat);
+        setOverrides(ovs);
+    }, [activityId, tenantId]);
+
     const handleSetState = async (productId: string, state: ProductVisibilityState) => {
         if (!tenantId) return;
         setSavingId(productId);
         try {
             await updateActivityProductVisibility(activityId, productId, state);
-            const [cat, ovs] = await Promise.all([
-                getRenderableCatalogForActivity(activityId, tenantId),
-                getActivityProductOverrides(activityId)
-            ]);
-            setCatalog(cat);
-            setOverrides(ovs);
+            await refreshData();
         } catch (e) {
             console.error("Error updating visibility:", e);
             showToast({ message: "Errore durante l'aggiornamento.", type: "error" });
@@ -209,7 +278,7 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
             },
             {
                 id: "visibility",
-                header: "Visibilità",
+                header: "Disponibilità",
                 width: "156px",
                 align: "right",
                 cell: (_, product) => (
@@ -276,51 +345,93 @@ export const ActivityVisibilityContent: React.FC<ActivityVisibilityContentProps>
         </Text>
     );
 
+    // Tab Prodotti/Ingredienti: se il parent le controlla (header del drawer,
+    // Direzione A) non le renderizziamo qui. Altrimenti (uso di default, tab
+    // Disponibilità inline — niente slot header disponibile per ospitarle,
+    // vedi verifica Task 0) Direzione B: eyebrow "Vista" + pill piena, così da
+    // pesare visivamente più del filtro di stato sotto (subordinato).
+    const viewTabs = controlledView === undefined && (
+        <div className={styles.viewSwitch}>
+            <Text variant="caption" colorVariant="muted" className={styles.viewSwitchLabel}>
+                Vista
+            </Text>
+            <Tabs<VisibilityView> value={view} onChange={setView} variant="secondary">
+                <Tabs.List>
+                    <Tabs.Tab value="products" badge={catalog.products.length}>
+                        Prodotti
+                    </Tabs.Tab>
+                    <Tabs.Tab value="ingredients" badge={ingredientCount ?? undefined}>
+                        Ingredienti
+                    </Tabs.Tab>
+                </Tabs.List>
+            </Tabs>
+        </div>
+    );
+
     return (
         <div className={styles.container}>
-            <div className={styles.toolbar}>
-                <SegmentedControl<FilterValue>
-                    value={filter}
-                    onChange={setFilter}
-                    options={[
-                        { value: "all", label: "Tutti" },
-                        { value: "visible", label: "Visibili" },
-                        { value: "hidden", label: "Nascosti" },
-                        { value: "unavailable", label: "Non disponibili" }
-                    ]}
-                />
-                <div className={styles.searchSlot}>
-                    <ToolbarSearch
-                        value={search}
-                        onChange={setSearch}
-                        placeholder="Cerca prodotto…"
+            {viewTabs}
+
+            <div className={view === "products" ? styles.viewPanel : styles.viewPanelHidden}>
+                <div className={styles.toolbar}>
+                    <SegmentedControl<FilterValue>
+                        value={filter}
+                        onChange={setFilter}
+                        options={[
+                            { value: "all", label: "Tutti" },
+                            { value: "visible", label: "Visibili" },
+                            { value: "hidden", label: "Nascosti" },
+                            { value: "unavailable", label: "Non disponibili" }
+                        ]}
                     />
+                    <div className={styles.searchSlot}>
+                        <ToolbarSearch
+                            value={search}
+                            onChange={setSearch}
+                            placeholder="Cerca prodotto…"
+                        />
+                    </div>
                 </div>
+
+                {countPlacement === "top" && (
+                    <div className={styles.countTop}>{countText}</div>
+                )}
+
+                {filtered.length === 0 ? (
+                    <div className={styles.emptyFilter}>
+                        <Text variant="body-sm" colorVariant="muted">
+                            Nessun prodotto corrispondente ai filtri.
+                        </Text>
+                    </div>
+                ) : (
+                    <div className={styles.tableWrapper}>
+                        <DataTable
+                            data={filtered}
+                            columns={columns}
+                            getRowId={p => p.product_id}
+                            disabledRowIds={savingId ? [savingId] : []}
+                        />
+                    </div>
+                )}
+
+                {countPlacement === "bottom" && (
+                    <div className={styles.footer}>{countText}</div>
+                )}
             </div>
 
-            {countPlacement === "top" && (
-                <div className={styles.countTop}>{countText}</div>
-            )}
-
-            {filtered.length === 0 ? (
-                <div className={styles.emptyFilter}>
-                    <Text variant="body-sm" colorVariant="muted">
-                        Nessun prodotto corrispondente ai filtri.
-                    </Text>
-                </div>
-            ) : (
-                <div className={styles.tableWrapper}>
-                    <DataTable
-                        data={filtered}
-                        columns={columns}
-                        getRowId={p => p.product_id}
-                        disabledRowIds={savingId ? [savingId] : []}
+            {ingredientsMounted && tenantId && (
+                <div
+                    className={view === "ingredients" ? styles.viewPanel : styles.viewPanelHidden}
+                >
+                    <ActivityVisibilityIngredients
+                        activityId={activityId}
+                        tenantId={tenantId}
+                        products={catalog.products}
+                        overrides={overrides}
+                        onBulkApplied={refreshData}
+                        onCountChange={setIngredientCount}
                     />
                 </div>
-            )}
-
-            {countPlacement === "bottom" && (
-                <div className={styles.footer}>{countText}</div>
             )}
         </div>
     );

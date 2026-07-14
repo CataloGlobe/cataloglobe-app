@@ -17,14 +17,14 @@ const TYPE_LABEL: Record<RuleType, string> = {
     layout: "Layout",
     featured: "In evidenza",
     price: "Prezzi",
-    visibility: "Visibilità"
+    visibility: "Disponibilità"
 };
 
 const TYPE_SHORT: Record<RuleType, string> = {
     layout: "L",
     featured: "E",
     price: "P",
-    visibility: "V"
+    visibility: "D"
 };
 
 const TYPE_COLOR: Record<RuleType, string> = {

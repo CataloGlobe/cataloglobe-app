@@ -1,0 +1,224 @@
+// Vista "Ingredienti" del drawer Gestisci visibilità: toolbar filtri aggregati
+// + tabella ingredienti con stato aggregato e azione bulk tri-state.
+
+.container {
+    // Stessa dual-use safety della vista Prodotti: nella TAB (parent bounded)
+    // riempie e scrolla interna, nel DRAWER (block) resta inerte.
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.toolbar {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.searchSlot {
+    margin-left: auto;
+    flex: 0 0 auto;
+
+    @media (max-width: 767px) {
+        margin-left: 0;
+        width: 100%;
+    }
+}
+
+.countTop {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.tableWrapper {
+    // Flex-container per il `.autoSizeProbe` del DataTable (vedi vista Prodotti).
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.nameCell {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.nameRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+// Marker override: stesso linguaggio della vista Prodotti (icona accent + tooltip).
+.overrideMarker {
+    display: inline-flex;
+    align-items: center;
+    flex: 0 0 auto;
+    color: var(--brand-primary);
+    cursor: help;
+}
+
+// Pill di stato aggregato: dot semantico + label. Il misto usa il bordo/sfondo
+// warning per emergere a colpo d'occhio.
+.statePill {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+    background: var(--card-bg);
+    color: var(--text);
+    white-space: nowrap;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.statePillMixed {
+    border-color: color-mix(in srgb, var(--color-warning-500) 45%, transparent);
+    background: color-mix(in srgb, var(--color-warning-500) 10%, transparent);
+    color: var(--color-warning-700);
+
+    [data-theme="dark"] & {
+        color: var(--color-warning-300);
+    }
+}
+
+.stateDot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex: 0 0 auto;
+}
+
+.stateDotVisible {
+    background: var(--color-green-500);
+}
+
+.stateDotHidden {
+    background: #64748b;
+}
+
+.stateDotUnavailable,
+.stateDotMixed {
+    background: var(--color-warning-500);
+}
+
+.stateDotNone {
+    background: #64748b;
+    opacity: 0.4;
+}
+
+// Dot inline nella caption mobile (colonne Prodotti/Stato collassate).
+.captionDot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    margin-right: 5px;
+    vertical-align: 1px;
+}
+
+.countCell {
+    font-variant-numeric: tabular-nums;
+}
+
+.actionCell {
+    display: flex;
+    justify-content: flex-end;
+}
+
+// ── ConfirmDialog bulk ───────────────────────────────────────────────────────
+
+.confirmBody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 12px;
+}
+
+// Avviso sovrascrittura override manuali (solo ripristino a Visibile).
+.confirmWarn {
+    padding: 10px 12px;
+    border-radius: var(--radius-md, 12px);
+    font-size: 12.5px;
+    border: 1px solid color-mix(in srgb, var(--color-warning-500) 45%, transparent);
+    background: color-mix(in srgb, var(--color-warning-500) 10%, transparent);
+    color: var(--color-warning-700);
+
+    [data-theme="dark"] & {
+        color: var(--color-warning-300);
+    }
+}
+
+.previewList {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md, 12px);
+    overflow: hidden;
+}
+
+.previewItem {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--border);
+
+    &:last-child {
+        border-bottom: none;
+    }
+}
+
+.previewName {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.previewCaption {
+    flex: 0 0 auto;
+}
+
+.previewMore {
+    padding: 8px 12px;
+    background: var(--hover-bg);
+}
+
+// ── Stati vuoti / loading ────────────────────────────────────────────────────
+
+.loading {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 8px 0;
+}
+
+.emptyState {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    padding: 36px 24px;
+    text-align: center;
+    border: 1.5px dashed #e5e7eb;
+    border-radius: 12px;
+    background-color: #fafafa;
+}
+
+.emptyFilter {
+    padding: 24px;
+    text-align: center;
+}

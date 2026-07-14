@@ -285,6 +285,13 @@
   position: relative; /* ancora il velo ::after dell'evidenziazione ricerca */
   min-width: 0; /* consente ai figli flex (nome line-clamp) di restringersi nella traccia grid */
 
+  /* .unavailableBadge nasce con margin tarato sul padding della card (0.75rem
+     laterale); qui non c'è card né padding, solo lo stacking verticale di
+     .compactRow — margine solo verticale, nessun laterale. */
+  > .unavailableBadge {
+    margin: 0.5rem 0 0;
+  }
+
   &.disabledCard {
     opacity: 0.6;
     pointer-events: none;

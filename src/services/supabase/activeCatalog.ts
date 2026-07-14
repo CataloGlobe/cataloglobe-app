@@ -20,7 +20,7 @@ export type ActiveCatalogMeta = {
 };
 
 /**
- * Tri-state visibility for the realtime "Gestisci visibilità" control.
+ * Tri-state visibility for the realtime "Gestisci disponibilità" control.
  * - `visible`     → nessun override (segue la programmazione)
  * - `hidden`      → rimosso dalla pagina pubblica (visible_override=false, mode='hide')
  * - `unavailable` → mostrato come "Non disponibile" (visible_override=false, mode='disable')
@@ -118,7 +118,7 @@ export async function getActiveCatalogForActivities(
 }
 
 /**
- * Variante "leggera" di `loadCatalogById` per il drawer/tab Gestisci visibilità:
+ * Variante "leggera" di `loadCatalogById` per il drawer/tab Gestisci disponibilità:
  * stessa struttura (categorie → prodotti → varianti → option_groups), ma SENZA
  * attributes/allergens/characteristics/ingredients/notes/image_url/assignment —
  * campi non renderizzati dalla tabella di visibilità. Riusa `normalizeCatalog`
@@ -325,6 +325,88 @@ export async function updateActivityProductVisibility(
         const { error } = await supabase
             .from("activity_product_overrides")
             .insert([{ ...payload, id: crypto.randomUUID() }]);
+        if (error) throw error;
+    }
+}
+
+/**
+ * Variante batch di `updateActivityProductVisibility`: applica lo stesso stato
+ * tri-state a più prodotti con un numero costante di query (mai una per prodotto).
+ *
+ * - `"visible"` → 2 statement filtrati lato SQL, nessun SELECT intermedio:
+ *   DELETE delle righe senza price_override + UPDATE (azzera visible_override/mode)
+ *   di quelle con price_override, che resta intatto — stessa semantica
+ *   preserve-price del path single-product.
+ * - `"hidden"` | `"unavailable"` → SELECT delle righe esistenti + UPDATE batch
+ *   + INSERT batch dei mancanti (max 3 query). Niente upsert onConflict:
+ *   `id` non ha default DB, quindi il DO UPDATE riscriverebbe la PK delle
+ *   righe esistenti.
+ */
+export async function bulkUpdateActivityProductVisibility(
+    activityId: string,
+    productIds: string[],
+    state: ProductVisibilityState
+): Promise<void> {
+    if (productIds.length === 0) return;
+
+    const nowIso = new Date().toISOString();
+
+    if (state === "visible") {
+        const { error: deleteError } = await supabase
+            .from("activity_product_overrides")
+            .delete()
+            .eq("activity_id", activityId)
+            .in("product_id", productIds)
+            .is("price_override", null);
+        if (deleteError) throw deleteError;
+
+        const { error: updateError } = await supabase
+            .from("activity_product_overrides")
+            .update({ visible_override: null, mode: null, updated_at: nowIso })
+            .eq("activity_id", activityId)
+            .in("product_id", productIds)
+            .not("price_override", "is", null);
+        if (updateError) throw updateError;
+        return;
+    }
+
+    const mode: VisibilityMode = state === "unavailable" ? "disable" : "hide";
+
+    const { data: existingRows, error: selectError } = await supabase
+        .from("activity_product_overrides")
+        .select("product_id")
+        .eq("activity_id", activityId)
+        .in("product_id", productIds);
+    if (selectError) throw selectError;
+
+    const existingIds = new Set(
+        ((existingRows ?? []) as Array<{ product_id: string }>).map(r => r.product_id)
+    );
+    const toUpdate = productIds.filter(id => existingIds.has(id));
+    const toInsert = productIds.filter(id => !existingIds.has(id));
+
+    if (toUpdate.length > 0) {
+        const { error } = await supabase
+            .from("activity_product_overrides")
+            .update({ visible_override: false, mode, updated_at: nowIso })
+            .eq("activity_id", activityId)
+            .in("product_id", toUpdate);
+        if (error) throw error;
+    }
+
+    if (toInsert.length > 0) {
+        const { error } = await supabase
+            .from("activity_product_overrides")
+            .insert(
+                toInsert.map(productId => ({
+                    id: crypto.randomUUID(),
+                    activity_id: activityId,
+                    product_id: productId,
+                    visible_override: false,
+                    mode,
+                    updated_at: nowIso
+                }))
+            );
         if (error) throw error;
     }
 }

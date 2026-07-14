@@ -70,7 +70,7 @@ export default function TermsPage() {
                         <li>Creazione e gestione di cataloghi prodotti e menu digitali</li>
                         <li>Gestione di una o più sedi (locations) associate all'azienda</li>
                         <li>Pubblicazione di contenuti in evidenza (highlighted content)</li>
-                        <li>Pianificazione della visibilità dei contenuti tramite regole di scheduling</li>
+                        <li>Pianificazione della disponibilità dei contenuti tramite regole di scheduling</li>
                         <li>Personalizzazione grafica tramite stili configurabili</li>
                         <li>Gestione del team e dei permessi di accesso alla piattaforma</li>
                         <li>Visualizzazione pubblica dei cataloghi senza necessità di autenticazione</li>

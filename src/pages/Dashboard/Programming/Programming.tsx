@@ -103,7 +103,7 @@ const RULE_TYPE_TAB_OPTIONS: Array<{ value: RuleTypeFilter; label: string; descr
     { value: "layout", label: "Layout", description: "Definiscono quale catalogo e stile mostrare" },
     { value: "featured", label: "In evidenza", description: "Programmano quando mostrare contenuti in evidenza" },
     { value: "price", label: "Prezzi", description: "Sovrascrivono il prezzo di prodotti specifici" },
-    { value: "visibility", label: "Visibilità", description: "Nascondono prodotti specifici per sede o orario" },
+    { value: "visibility", label: "Disponibilità", description: "Nascondono prodotti specifici per sede o orario" },
     { value: "all", label: "Tutte", description: "Panoramica di tutte le regole di programmazione" }
 ];
 
@@ -113,7 +113,7 @@ function getRuleTypeLabel(ruleType: RuleType): string {
     if (ruleType === "layout") return "Layout";
     if (ruleType === "price") return "Prezzi";
     if (ruleType === "featured") return "In evidenza";
-    return "Visibilità";
+    return "Disponibilità";
 }
 
 function getRuleTargetLabel(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>): string {
@@ -1053,7 +1053,7 @@ export default function Programming() {
                         Prezzi
                     </Menu.Item>
                     <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
-                        Visibilità
+                        Disponibilità
                     </Menu.Item>
                 </Menu>
             ) : (
@@ -1151,7 +1151,7 @@ export default function Programming() {
                                                     Prezzi
                                                 </Menu.Item>
                                                 <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
-                                                    Visibilità
+                                                    Disponibilità
                                                 </Menu.Item>
                                             </Menu>
                                         </div>
@@ -1486,7 +1486,7 @@ export default function Programming() {
                                         );
                                     })()}
 
-                                    {/* Visibilità */}
+                                    {/* Disponibilità */}
                                     {(() => {
                                         const visRule = simResult.visibilityRule?.scheduleId
                                             ? rules.find(r => r.id === simResult.visibilityRule?.scheduleId)
@@ -1500,7 +1500,7 @@ export default function Programming() {
                                                     navigate(`/business/${currentTenantId}/scheduling/${visRule.id}`);
                                                 } : undefined}
                                             >
-                                                <Text variant="caption" colorVariant="muted">Visibilità</Text>
+                                                <Text variant="caption" colorVariant="muted">Disponibilità</Text>
                                                 <Text variant="body-sm" weight={700}>
                                                     {visRule?.name ?? simResult.visibilityRule?.scheduleId ?? "Nessuna regola attiva"}
                                                 </Text>
@@ -1586,7 +1586,7 @@ export default function Programming() {
                                                                     )}
                                                                 </span>
                                                                 <span className={visibilityBadgeClassName}>
-                                                                    Visibilità:{" "}
+                                                                    Disponibilità:{" "}
                                                                     {block.visibilityMode === "hide"
                                                                         ? "Nasconde"
                                                                         : block.visibilityMode === "disable"

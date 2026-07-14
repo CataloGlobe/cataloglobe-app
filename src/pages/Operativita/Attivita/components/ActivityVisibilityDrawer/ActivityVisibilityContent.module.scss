@@ -10,6 +10,44 @@
     padding: 0.25rem 0;
 }
 
+// Switch Prodotti/Ingredienti quando NON è ancorato nell'header del parent
+// (drawer, Direzione A) — Direzione B: eyebrow + pill piena, per pesare più
+// del filtro di stato sotto (subordinato via .toolbar invariata).
+.viewSwitch {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    // `.container` è flex-column senza align-items → stretch di default:
+    // senza questo, `.viewSwitch` (e a cascata il `Tabs` dentro, anch'esso
+    // flex-column) viene allargato alla larghezza piena del container, e il
+    // pill segmentato perde la sua larghezza naturale (Bug: toggle full-width
+    // nell'inline, diverso dal drawer dove il contesto è un flex ROW).
+    align-items: flex-start;
+}
+
+.viewSwitchLabel {
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-weight: 700;
+}
+
+// Pannelli delle due viste (Prodotti / Ingredienti). Montati entrambi dopo il
+// primo ingresso in Ingredienti, switch via display: lo stato locale (filtri,
+// ricerca, dati lazy) sopravvive al cambio tab. Il pannello attivo replica la
+// catena flex bounded del .container (dual-use tab/drawer safe, vedi sopra).
+.viewPanel {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.viewPanelHidden {
+    display: none;
+}
+
 // Toolbar di sezione: filtro segmented a sinistra, ricerca a destra.
 // Controlli a --control-height (38px) via SegmentedControl + ToolbarSearch.
 .toolbar {

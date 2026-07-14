@@ -60,7 +60,7 @@ type RuleDetailForm = {
 function getRuleTypeLabel(ruleType: RuleType): string {
     if (ruleType === "layout") return "Layout";
     if (ruleType === "price") return "Prezzi";
-    return "Visibilità";
+    return "Disponibilità";
 }
 
 function getRuleTypeBadgeColor(ruleType: RuleType): string {

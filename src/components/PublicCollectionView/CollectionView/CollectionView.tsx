@@ -2323,7 +2323,7 @@ export default function CollectionView({
                                     : `${styles.card}${isDisabled ? ` ${styles.disabledCard}` : ""}`
                             }
                         >
-                            {isDisabled && style.productStyle !== "compact" && (
+                            {isDisabled && (
                                 <span className={styles.unavailableBadge}>
                                     {t("product.badge_unavailable")}
                                 </span>
