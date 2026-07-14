@@ -110,6 +110,15 @@ export async function createProductOptionGroup(data: {
     pricing_mode?: OptionPricingMode;
 }): Promise<V2ProductOptionGroup> {
     if (data.group_kind === "PRIMARY_PRICE") {
+        // Un solo gruppo può "definire il prezzo" per prodotto — non è un
+        // vincolo DB (nessun UNIQUE su group_kind), solo applicativo. La UI
+        // disabilita già l'opzione quando ne esiste uno, questo è il secondo
+        // controllo (difesa in profondità, es. doppio submit).
+        const existingPrimary = await getPrimaryPriceGroup(data.product_id);
+        if (existingPrimary) {
+            throw new Error("Esiste già un gruppo che definisce il prezzo per questo prodotto");
+        }
+
         // Side effect: nullify base_price and set product_type = 'formats'.
         // Formats are authoritative — base_price is cleared to prevent dual-pricing.
         const { error: updateErr } = await supabase
