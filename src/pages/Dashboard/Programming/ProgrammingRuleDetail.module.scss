@@ -304,6 +304,26 @@
   font-style: normal;
 }
 
+/* Riga tabella "Prodotti" (regola Disponibilità) sotto ~420px: nome prodotto
+   sopra, comportamento + rimuovi sotto — invece di comprimere il
+   SegmentedControl in orizzontale sulla stessa riga del nome. */
+.visibilityRowStacked {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  width: 100%;
+  padding-block: 4px;
+}
+
+.visibilityRowStackedControls {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+}
+
 /* ─── Target mode radio group ─────────────────────────────────── */
 
 .targetModeGroup {

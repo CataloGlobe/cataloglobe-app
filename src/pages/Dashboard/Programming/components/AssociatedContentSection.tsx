@@ -13,6 +13,7 @@ import { Select } from "@/components/ui/Select/Select";
 import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import {
     LayoutRuleOption,
     RuleType,
@@ -299,6 +300,11 @@ export function AssociatedContentSection({
     const [selectedGroupId, setSelectedGroupId] = useState("");
     const [productSearch, setProductSearch] = useState("");
     const [pendingSelectedIds, setPendingSelectedIds] = useState<string[]>([]);
+    // Sotto ~420px lo SegmentedControl Comportamento non ha spazio per stare
+    // sulla stessa riga del nome prodotto senza comprimersi eccessivamente —
+    // la riga va a capo (nome sopra, comportamento+rimuovi sotto) invece di
+    // schiacciare il controllo in orizzontale.
+    const isMobile = useMediaQuery("(max-width: 420px)");
 
     const productIdSetByGroupId = useMemo(() => {
         const map = new Map<string, Set<string>>();
@@ -414,8 +420,46 @@ export function AssociatedContentSection({
         [sortedSelectedProductIds, productOptionById, productLabelById, visibilityProductModes]
     );
 
-    const visibilityTableColumns = useMemo<ColumnDefinition<VisibilityProductRow>[]>(
-        () => [
+    const visibilityTableColumns = useMemo<ColumnDefinition<VisibilityProductRow>[]>(() => {
+        if (isMobile) {
+            return [
+                {
+                    id: "product",
+                    header: "Prodotto",
+                    cell: (_, row) => (
+                        <div className={styles.visibilityRowStacked}>
+                            <Text variant="body-sm" weight={row.isVariant ? 400 : 600}>
+                                {row.isVariant && <span className={styles.variantArrow}>↳ </span>}
+                                {row.label}
+                            </Text>
+                            <div className={styles.visibilityRowStackedControls}>
+                                <SegmentedControl<VisibilityMode>
+                                    value={row.mode}
+                                    size="sm"
+                                    options={VISIBILITY_MODE_OPTIONS}
+                                    onChange={next => {
+                                        onFormChange({
+                                            visibilityProductModes: {
+                                                ...visibilityProductModes,
+                                                [row.id]: next
+                                            }
+                                        });
+                                    }}
+                                />
+                                <IconButton
+                                    icon={<IconTrash size={16} />}
+                                    aria-label="Rimuovi prodotto"
+                                    variant="ghost"
+                                    size="md"
+                                    onClick={() => removeSelectedProduct(row.id)}
+                                />
+                            </div>
+                        </div>
+                    )
+                }
+            ];
+        }
+        return [
             {
                 id: "product",
                 header: "Prodotto",
@@ -462,9 +506,8 @@ export function AssociatedContentSection({
                     />
                 )
             }
-        ],
-        [onFormChange, visibilityProductModes, removeSelectedProduct]
-    );
+        ];
+    }, [isMobile, onFormChange, visibilityProductModes, removeSelectedProduct]);
 
     const openProductsDrawer = () => {
         setPendingSelectedIds([...selectedProductIds]);
