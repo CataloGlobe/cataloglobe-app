@@ -174,13 +174,15 @@
     border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
 }
 
-/* Abbinamenti — consiglio "Perfetto con" sotto la descrizione. Blocco
-   featured (no border-top separatore): le card portano il frame accento. */
+/* Abbinamenti — consiglio "Perfetto con", ora dopo allergeni/caratteristiche.
+   Stesso divisore delle altre sezioni per coerenza visiva nel nuovo ordine. */
 .pairingSection {
     margin-top: 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
+    padding-top: 10px;
+    border-top: 1px solid color-mix(in srgb, var(--pub-text) 10%, var(--pub-surface));
 }
 
 .pairingSectionLabel {

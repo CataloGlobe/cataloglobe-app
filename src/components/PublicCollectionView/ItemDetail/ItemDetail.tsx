@@ -383,41 +383,6 @@ export default function ItemDetail({
                             </Text>
                         )}
 
-                        {/* ABBINAMENTI — consiglio "Perfetto con", dopo la descrizione,
-                            prima del meta. Resa identica con ordinazione ON/OFF. */}
-                        {displayItem.pairings && displayItem.pairings.length > 0 && (
-                            <div className={styles.pairingSection}>
-                                <Text
-                                    variant="body-sm"
-                                    weight={700}
-                                    className={styles.pairingSectionLabel}
-                                    color="var(--pub-surface-text)"
-                                >
-                                    <IconLink size={14} className={styles.pairingSectionIcon} />
-                                    {t("product.pairing_prefix")}
-                                </Text>
-                                <div className={styles.pairingCards}>
-                                    {displayItem.pairings.map(p => (
-                                        <PairingDetailCard
-                                            key={p.id}
-                                            pairing={p}
-                                            showThumbnail={showImage}
-                                            isAdded={isPairingAdded?.(p.id) ?? false}
-                                            isConfigurable={isPairingConfigurable?.(p.id) ?? false}
-                                            onAdd={
-                                                onAddPairing && !(isPairingConfigurable?.(p.id) ?? false)
-                                                    ? () => onAddPairing(p.id)
-                                                    : undefined
-                                            }
-                                            onOpenPairing={
-                                                onOpenPairing ? () => onOpenPairing(p.id) : undefined
-                                            }
-                                        />
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
                         {/* RIMANDO STORIA — reverse-link (sub-fase 6), card simmetrica del
                             "Dal menu → prodotto" nel lettore storia. Assente se il prodotto
                             non ha una storia collegata (o onOpenStory non fornito, es. preview). */}
@@ -602,6 +567,42 @@ export default function ItemDetail({
                                             <CharacteristicIcon icon={c.icon} size={14} variant="bare" />
                                             {c.label}
                                         </span>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ABBINAMENTI — consiglio "Perfetto con", dopo allergeni/caratteristiche
+                            (sicurezza/info essenziali prima del cross-sell). Resa identica con
+                            ordinazione ON/OFF. */}
+                        {displayItem.pairings && displayItem.pairings.length > 0 && (
+                            <div className={styles.pairingSection}>
+                                <Text
+                                    variant="body-sm"
+                                    weight={700}
+                                    className={styles.pairingSectionLabel}
+                                    color="var(--pub-surface-text)"
+                                >
+                                    <IconLink size={14} className={styles.pairingSectionIcon} />
+                                    {t("product.pairing_prefix")}
+                                </Text>
+                                <div className={styles.pairingCards}>
+                                    {displayItem.pairings.map(p => (
+                                        <PairingDetailCard
+                                            key={p.id}
+                                            pairing={p}
+                                            showThumbnail={showImage}
+                                            isAdded={isPairingAdded?.(p.id) ?? false}
+                                            isConfigurable={isPairingConfigurable?.(p.id) ?? false}
+                                            onAdd={
+                                                onAddPairing && !(isPairingConfigurable?.(p.id) ?? false)
+                                                    ? () => onAddPairing(p.id)
+                                                    : undefined
+                                            }
+                                            onOpenPairing={
+                                                onOpenPairing ? () => onOpenPairing(p.id) : undefined
+                                            }
+                                        />
                                     ))}
                                 </div>
                             </div>
