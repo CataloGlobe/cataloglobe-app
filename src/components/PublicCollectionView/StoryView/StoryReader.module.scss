@@ -54,12 +54,19 @@
   min-height: 30vh;
 }
 
-// Full-bleed: nessun border-radius (bordo a bordo del .frame), aspect-ratio 16/9
-// riservato (nessun CLS). Respiro generoso sotto → "apertura", non "prima foto".
+// Larga quanto il .frame ma col radius morbido della pagina (come immagini/card):
+// gli spigoli vivi stonavano perché la copertina galleggia DENTRO il frame, non
+// tocca lo schermo. max-height 420px (desktop): 16:9 a piena larghezza sarebbe
+// ~720px e mangerebbe la prima schermata; capato, il titolo entra subito. Il crop
+// (object-fit:cover, centrato) va bene: è una copertina, non un blocco immagine.
+// aspect-ratio riserva comunque l'altezza (min(aspect, max-height)) → nessun CLS.
+// Mobile (~219px a questa larghezza) resta sotto il cap → 16:9 pieno, invariato.
 .cover {
   width: 100%;
   aspect-ratio: 16 / 9;
+  max-height: 420px;
   overflow: hidden;
+  border-radius: var(--pub-radius, 12px);
   margin-bottom: var(--pub-space-6);
 
   img {

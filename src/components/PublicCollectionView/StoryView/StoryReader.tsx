@@ -71,12 +71,12 @@ export default function StoryReader({ slug, storyId, onClose, onOpenProduct }: S
 
     return (
         <div className={styles.root}>
-            <div className={styles.column}>
-                <button type="button" className={styles.backButton} onClick={onClose}>
-                    <ChevronLeft size={18} strokeWidth={2} />
-                    {t("story.back_to_list")}
-                </button>
-            </div>
+            {/* A livello .frame (fuori dalla .column) → si allinea al bordo sinistro
+                della copertina, non alla colonna di lettura più stretta. */}
+            <button type="button" className={styles.backButton} onClick={onClose}>
+                <ChevronLeft size={18} strokeWidth={2} />
+                {t("story.back_to_list")}
+            </button>
 
             {state.status === "loading" && (
                 <div className={styles.stateBlock}>
