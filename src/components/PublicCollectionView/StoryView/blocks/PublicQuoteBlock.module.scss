@@ -1,0 +1,32 @@
+// Segnale visivo: barra verticale a sinistra (UNA scelta, non barra + rientro).
+// Colore --pub-primary (identità), MAI --pub-accent (riservato ai CTA cliccabili).
+.quote {
+  margin: 0;
+  padding-left: var(--pub-space-4);
+  border-left: 3px solid var(--pub-primary);
+}
+
+.text {
+  margin: 0;
+  font-family: var(--pub-font-family);
+  // Si distingue dal Titolo per NATURA, non per dimensione: peso normale + corsivo
+  // (voce, non struttura). Il corsivo è deciso dal sistema di stile, non dall'utente.
+  font-size: 20px;
+  font-weight: 400;
+  font-style: italic;
+  line-height: 1.5;
+  // Leggermente attenuato rispetto al testo normale (--pub-text) → tono di "voce".
+  color: var(--pub-text-secondary);
+  white-space: pre-wrap;
+}
+
+// Reso solo se l'attribuzione è presente (guard nel JSX) → niente spazio vuoto.
+.cite {
+  display: block;
+  margin-top: var(--pub-space-2);
+  font-family: var(--pub-font-family);
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+  color: var(--pub-primary);
+}

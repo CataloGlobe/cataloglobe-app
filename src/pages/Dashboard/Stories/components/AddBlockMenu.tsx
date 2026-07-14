@@ -1,5 +1,5 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ChevronDown, Type, Image, Video } from "lucide-react";
+import { ChevronDown, Type, Image, Video, Heading, Quote } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { StoryBlock } from "@/services/supabase/stories";
 import styles from "./AddBlockMenu.module.scss";
@@ -12,6 +12,8 @@ interface AddBlockMenuProps {
 
 const ITEMS: { type: StoryBlock["type"]; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
     { type: "text", label: "Testo", icon: Type },
+    { type: "heading", label: "Titolo", icon: Heading },
+    { type: "quote", label: "Citazione", icon: Quote },
     { type: "image", label: "Immagine", icon: Image },
     { type: "video", label: "Video", icon: Video }
 ];

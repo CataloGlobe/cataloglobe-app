@@ -19,5 +19,7 @@ export function createBlock(type: StoryBlock["type"]): StoryBlock {
             frame: "3:2",
             framing: FRAMING_DEFAULTS
         };
+    if (type === "heading") return { id: makeBlockId(), type: "heading", content: "" };
+    if (type === "quote") return { id: makeBlockId(), type: "quote", content: "", attribution: "" };
     return { id: makeBlockId(), type: "video", provider: "youtube", ref: "" };
 }

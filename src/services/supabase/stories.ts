@@ -18,6 +18,16 @@ export type StoryVideoProvider = "youtube" | "vimeo";
  */
 export type StoryTextBlock = { id: string; type: "text"; content: string };
 /**
+ * Titolo di sezione (plain text). Sostituisce il blocco Divisore scartato: è il
+ * separatore visivo della storia (respiro sopra > sotto nel render pubblico).
+ */
+export type StoryHeadingBlock = { id: string; type: "heading"; content: string };
+/**
+ * Citazione (plain text). Sostituisce il rich-text scartato nel blocco testo:
+ * nessun HTML/markdown, la tipografia resta governata dai token di stile.
+ */
+export type StoryQuoteBlock = { id: string; type: "quote"; content: string; attribution?: string };
+/**
  * Image block. `frame` = user-chosen box ratio ("3:2" horizontal default | "4:5"
  * vertical); `framing` = focal/zoom/fill authored in the reframe editor;
  * `mediaAspectRatio` = NATURAL ratio (w/h) of the uploaded file, written on every
@@ -35,7 +45,12 @@ export type StoryImageBlock = {
     mediaAspectRatio?: number;
 };
 export type StoryVideoBlock = { id: string; type: "video"; provider: StoryVideoProvider; ref: string };
-export type StoryBlock = StoryTextBlock | StoryImageBlock | StoryVideoBlock;
+export type StoryBlock =
+    | StoryTextBlock
+    | StoryImageBlock
+    | StoryVideoBlock
+    | StoryHeadingBlock
+    | StoryQuoteBlock;
 
 export interface Story {
     id: string;
