@@ -377,7 +377,10 @@ export const ActivityVisibilityIngredients: React.FC<ActivityVisibilityIngredien
             {
                 id: "state",
                 header: "Stato",
-                width: "minmax(150px, 1fr)",
+                // 190px: "Tutti non disponibili" (label più lunga, dot+padding
+                // inclusi) tronca in ellipsis sotto questa soglia — vedi .statePill
+                // (max-width:100%; text-overflow:ellipsis) in ActivityVisibilityIngredients.module.scss.
+                width: "minmax(190px, 1fr)",
                 cell: (_, row) => {
                     const summary = stateSummary(row);
                     const pill = (

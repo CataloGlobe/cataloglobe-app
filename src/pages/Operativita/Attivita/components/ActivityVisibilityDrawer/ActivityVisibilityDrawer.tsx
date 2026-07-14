@@ -30,11 +30,12 @@ export const ActivityVisibilityDrawer: React.FC<Props> = ({
     const [view, setView] = useState<VisibilityView>("products");
     const [counts, setCounts] = useState<VisibilityCounts>({ products: 0, ingredients: null });
 
-    // 720px: con la 4ª tab "Non disponibili" il SegmentedControl + ToolbarSearch
-    // (280px fissa) non stanno più in una riga a 600px. 720 = area utile ~672px
-    // (dopo 48px di padding DrawerLayout) → tab + ricerca su una riga senza wrap.
+    // 900px: 720 (lg) bastava per il toolbar filtri+ricerca ma stringeva la
+    // colonna Stato della vista Ingredienti sotto la soglia dei suoi contenuti
+    // (pill "Tutti non disponibili" troncata in ellipsis). 900 dà margine alla
+    // colonna Stato (minmax 190px) senza far competere Ingrediente/Prodotti.
     return (
-        <SystemDrawer open={open} onClose={onClose} width={720}>
+        <SystemDrawer open={open} onClose={onClose} width={900}>
             <DrawerLayout
                 bodyLayout="flex"
                 header={
