@@ -81,6 +81,26 @@
     flex-wrap: wrap;
 }
 
+// ── Prezzo — assente, empty state onesto (non un trattino) ──────────
+.priceEmpty {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-height: 56px;
+    justify-content: center;
+}
+
+.priceEmptyRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+.priceEmptyHint {
+    font-size: 12px;
+}
+
 // ── Prezzo — modalità "Prezzo per formato" ──────────────────────────
 .formatMode {
     display: flex;

@@ -851,12 +851,26 @@ export default function PrezziOpzioniTab({
                                             Annulla
                                         </Button>
                                     </div>
+                                ) : product.base_price === null ? (
+                                    <div className={styles.priceEmpty}>
+                                        <div className={styles.priceEmptyRow}>
+                                            <Text variant="body-sm">Prezzo non impostato</Text>
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={handleStartEditBasePrice}
+                                            >
+                                                Imposta prezzo
+                                            </Button>
+                                        </div>
+                                        <Text variant="body-sm" colorVariant="muted" className={styles.priceEmptyHint}>
+                                            Il prodotto appare nel menu senza prezzo.
+                                        </Text>
+                                    </div>
                                 ) : (
                                     <div className={styles.priceDisplay}>
                                         <span className={styles.priceValue}>
-                                            {product.base_price !== null
-                                                ? product.base_price.toFixed(2)
-                                                : "—"}
+                                            {product.base_price.toFixed(2)}
                                         </span>
                                         <span className={styles.priceCurrency}>€</span>
                                         <Button
@@ -866,7 +880,7 @@ export default function PrezziOpzioniTab({
                                         >
                                             Modifica
                                         </Button>
-                                        {isVariant && product.base_price !== null && (
+                                        {isVariant && (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
