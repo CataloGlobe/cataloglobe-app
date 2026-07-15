@@ -913,10 +913,13 @@ export default function PrezziOpzioniTab({
                 }
             >
                 <div className={styles.configInfoBox}>
-                    <Text variant="body-sm" colorVariant="muted">
-                        Servono solo se accetti ordini dal menu. Aggiungono scelte come{" "}
+                    <Text variant="body-sm">
+                        Mostrano al cliente le possibili scelte del piatto — es.{" "}
                         <strong>Cottura</strong> (al sangue / media / ben cotta) o{" "}
                         <strong>Aggiunte</strong> (mozzarella +1 €).
+                    </Text>
+                    <Text variant="body-sm" colorVariant="muted" className={styles.configInfoSecondary}>
+                        Se accetti ordini dal menu, il cliente può anche selezionarle.
                     </Text>
                 </div>
 

@@ -103,11 +103,18 @@
 
 // ── Configurazioni ───────────────────────────────────────────────────
 .configInfoBox {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
     padding: 10px 12px;
     background: var(--bg);
     border: 1px solid var(--border);
     border-radius: 8px;
     margin-bottom: 4px;
+}
+
+.configInfoSecondary {
+    font-size: 12px;
 }
 
 .optionGroupsList {
