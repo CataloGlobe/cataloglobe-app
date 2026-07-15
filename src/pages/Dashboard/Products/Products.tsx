@@ -509,7 +509,7 @@ export default function Products() {
         <section className={styles.container}>
             {activeTab === "products" && (
                 <>
-                    <div className={styles.content}>
+                    <div className={styles.content} data-view-mode={viewMode}>
                         {isLoading ? (
                             <div className={styles.loadingState}>
                                 <Text variant="body-sm" colorVariant="muted">
