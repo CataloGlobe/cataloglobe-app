@@ -16,7 +16,14 @@ function deriveExcerpt(bodyBlocks: StoryBlock[] | null | undefined): string | nu
     const blocks = bodyBlocks ?? [];
     const firstText = blocks.find((b): b is StoryTextBlock => b?.type === "text" && typeof (b as StoryTextBlock).content === "string");
     if (!firstText) return null;
-    const content = firstText.content.trim();
+    // ⚠️ SYNC con parseInlineEmphasis.ts: rimuove i marcatori di enfasi ristretta
+    // (**grassetto** / *corsivo*) prima dello slice, così l'excerpt della card è
+    // testo pulito. Duplicazione voluta — l'edge Deno non può importare il parser
+    // frontend (stesso pattern di scheduleResolver.ts FE/edge). Se cambiano le
+    // regole del parser, aggiornare anche questa regex.
+    const content = firstText.content
+        .replace(/\*\*(.+?)\*\*|\*(.+?)\*/gs, (_m, bold, italic) => bold ?? italic)
+        .trim();
     if (content.length <= 160) return content;
     return `${content.slice(0, 160).trimEnd()}…`;
 }
