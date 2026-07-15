@@ -233,6 +233,10 @@
   width: 100%;
   min-height: 0;
   overflow-y: auto;
+  // MainLayout `.content` padding-bottom non basta: qui `.productGrid` è il
+  // vero scroll container (overflow-y:auto), il bottom gap del layout esterno
+  // non si applica al suo interno.
+  padding-bottom: 24px;
 }
 
 // Drawers
