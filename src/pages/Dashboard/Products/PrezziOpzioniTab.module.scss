@@ -15,7 +15,40 @@
     font-style: italic;
 }
 
-// ── Prezzo — campo semplice ─────────────────────────────────────────
+// ── Prezzo — toggle Unico ⇄ Per formato ─────────────────────────────
+.priceSection {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.priceModeToggle {
+    display: inline-flex;
+    gap: 8px;
+}
+
+.priceModeOption {
+    padding: 6px 14px;
+    font-size: 13px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    cursor: pointer;
+    color: var(--text, #0f172a);
+
+    &:disabled {
+        cursor: default;
+    }
+}
+
+.priceModeOptionActive {
+    @extend .priceModeOption;
+    border-color: var(--brand-primary, #6366f1);
+    color: var(--brand-primary, #6366f1);
+    font-weight: 600;
+}
+
+// ── Prezzo — modalità "Prezzo unico" ────────────────────────────────
 .singleMode {
     display: flex;
     flex-direction: column;
@@ -48,15 +81,12 @@
     flex-wrap: wrap;
 }
 
-// ── Prezzo — definito da un gruppo Opzioni ──────────────────────────
-.priceFromGroup {
+// ── Prezzo — modalità "Prezzo per formato" ──────────────────────────
+.formatMode {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    padding: 12px;
-    background: var(--bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    gap: 8px;
+    padding-top: 4px;
 }
 
 // ── Prezzo — variante che eredita dal padre ──────────────────────────
@@ -71,7 +101,15 @@
     margin-top: 4px;
 }
 
-// ── Opzioni ──────────────────────────────────────────────────────────
+// ── Configurazioni ───────────────────────────────────────────────────
+.configInfoBox {
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 4px;
+}
+
 .optionGroupsList {
     display: flex;
     flex-direction: column;
@@ -126,31 +164,29 @@
     justify-content: flex-end;
 }
 
-// Blocco etichetta + controllo dentro i form gruppo (es. "Come funziona il
-// prezzo?" + KindChooser, "Quante scelte..." + QuantityChooser).
+// Blocco etichetta + controllo dentro i form gruppo (es. "Il cliente può
+// scegliere più opzioni?" + pillToggle).
 .formSection {
     display: flex;
     flex-direction: column;
     gap: 6px;
 }
 
-// ── KindChooser — "Come funziona il prezzo?" ────────────────────────
-.kindChooser {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.kindCard {
-    flex: 1 1 200px;
+// ── ChoiceRulesEditor — regole di scelta a progressive disclosure ───
+.rulesCollapsed {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    text-align: left;
-    padding: 10px 12px;
-    background: var(--card-bg, #ffffff);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    gap: 4px;
+    align-items: flex-start;
+}
+
+.rulesExpandLink {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--brand-primary, #6366f1);
     cursor: pointer;
 
     &:disabled {
@@ -159,25 +195,23 @@
     }
 }
 
-.kindCardActive {
-    @extend .kindCard;
-    border-color: var(--brand-primary, #6366f1);
-    box-shadow: 0 0 0 1px var(--brand-primary, #6366f1);
-}
-
-// ── QuantityChooser — "Quante scelte può fare il cliente?" ──────────
-.quantityChooser {
+.rulesExpanded {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: 12px;
+    padding: 10px 12px;
+    background: var(--card-bg, #ffffff);
+    border: 1px solid var(--border);
+    border-radius: 8px;
 }
 
-.quantityToggle {
+.pillToggle {
     display: inline-flex;
+    flex-wrap: wrap;
     gap: 8px;
 }
 
-.quantityOption {
+.pillOption {
     padding: 6px 12px;
     font-size: 13px;
     background: var(--bg);
@@ -187,32 +221,18 @@
     color: var(--text, #0f172a);
 }
 
-.quantityOptionActive {
-    @extend .quantityOption;
+.pillOptionActive {
+    @extend .pillOption;
     border-color: var(--brand-primary, #6366f1);
     color: var(--brand-primary, #6366f1);
     font-weight: 600;
 }
 
+.pillHint {
+    font-weight: 400;
+    color: var(--text-muted, #64748b);
+}
+
 .quantityN {
-    max-width: 140px;
+    max-width: 160px;
 }
-
-// ── Proprietà legate all'ordinazione — "Se il cliente ordina dal menu" ──
-// Raggruppa visivamente "Quante scelte" + "Il cliente deve scegliere":
-// entrambe inerti senza sessione di ordinazione attiva (vedi InfoTooltip).
-.orderingSection {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    padding: 10px 12px;
-    background: var(--card-bg, #ffffff);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-}
-
-.orderingSectionHeader {
-    display: flex;
-    align-items: center;
-}
-

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Button } from "@/components/ui/Button/Button";
 import { Badge } from "@/components/ui/Badge/Badge";
-import { Switch } from "@/components/ui/Switch/Switch";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
@@ -10,7 +9,6 @@ import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
-import { InfoTooltip } from "@/components/ui/Tooltip/InfoTooltip";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -20,7 +18,6 @@ import {
 } from "@/services/supabase/products";
 import {
     type GroupWithValues,
-    type OptionGroupKind,
     createProductOptionGroup,
     updateProductOptionGroup,
     deleteProductOptionGroup,
@@ -51,125 +48,173 @@ function formatMoney(n: number): string {
     return `${n.toFixed(2).replace(".", ",")} €`;
 }
 
-/** Anteprima di ciò che vede il cliente nel menu pubblico, stessa regola
- * del resolver (`resolveActivityCatalogs.ts`): 1 valore prezzato → prezzo
- * secco, 2+ → "da X" sul minimo. Oggi questa anteprima non esiste altrove
- * nel backoffice — la si scopriva solo guardando il menu pubblico. */
-function pricePreviewLabel(group: GroupWithValues): string | null {
+/** Riga informativa sotto la lista formati — stessa regola del resolver
+ * (`resolveActivityCatalogs.ts`): 1 valore prezzato → prezzo secco, 2+ →
+ * "da X" sul minimo. */
+function formatPricePreview(group: GroupWithValues): string | null {
     const prices = group.values
         .map(v => v.absolute_price)
         .filter((p): p is number => p !== null);
     if (prices.length === 0) return null;
-    if (prices.length === 1) return `Il menu mostra ${formatMoney(prices[0])}`;
-    return `Il menu mostra "da ${formatMoney(Math.min(...prices))}"`;
+    if (prices.length === 1) return `Nel menu il prodotto mostra ${formatMoney(prices[0])}`;
+    return `Nel menu il prodotto mostra da ${formatMoney(Math.min(...prices))}`;
 }
 
 type MaxSelectableMode = "one" | "many";
-
-const PRICE_KIND_OPTIONS: {
-    value: OptionGroupKind;
-    title: string;
-    description: string;
-}[] = [
-    {
-        value: "PRIMARY_PRICE",
-        title: "Definisce il prezzo del prodotto",
-        description: "Ogni scelta ha il suo prezzo: Bottiglia 45 €, Calice 9 €. Sostituisce il prezzo base."
-    },
-    {
-        value: "ADDON",
-        title: "Aggiunge un costo",
-        description: "Ogni scelta somma al prezzo base: Patatine +3 €. Può anche essere gratis."
-    }
-];
-
-interface KindChooserProps {
-    value: OptionGroupKind;
-    onChange: (value: OptionGroupKind) => void;
-    disablePrimary: boolean;
-    disabled?: boolean;
-}
-
-/** Le due modalità prezzo di un gruppo — sostituisce il vecchio segmented
- * control "Prezzo singolo / Prezzi per formato": non è più uno switch di
- * pagina, è una proprietà del gruppo scelta alla creazione. */
-function KindChooser({ value, onChange, disablePrimary, disabled }: KindChooserProps) {
-    return (
-        <div className={styles.kindChooser}>
-            {PRICE_KIND_OPTIONS.map(opt => {
-                const isDisabled = disabled || (opt.value === "PRIMARY_PRICE" && disablePrimary);
-                const isActive = value === opt.value;
-                return (
-                    <button
-                        key={opt.value}
-                        type="button"
-                        className={`${styles.kindCard} ${isActive ? styles.kindCardActive : ""}`}
-                        onClick={() => !isDisabled && onChange(opt.value)}
-                        disabled={isDisabled}
-                    >
-                        <Text variant="body-sm" weight={600}>
-                            {opt.title}
-                        </Text>
-                        <Text variant="body-sm" colorVariant="muted">
-                            {isDisabled && opt.value === "PRIMARY_PRICE"
-                                ? "Un altro gruppo lo fa già"
-                                : opt.description}
-                        </Text>
-                    </button>
-                );
-            })}
-        </div>
-    );
-}
-
-interface QuantityChooserProps {
-    mode: MaxSelectableMode;
-    onModeChange: (mode: MaxSelectableMode) => void;
-    n: string;
-    onNChange: (n: string) => void;
-    disabled?: boolean;
-}
-
-/** "Quante scelte può fare il cliente?" — solo per gruppi ADDON. */
-function QuantityChooser({ mode, onModeChange, n, onNChange, disabled }: QuantityChooserProps) {
-    return (
-        <div className={styles.quantityChooser}>
-            <div className={styles.quantityToggle}>
-                <button
-                    type="button"
-                    className={mode === "one" ? styles.quantityOptionActive : styles.quantityOption}
-                    onClick={() => onModeChange("one")}
-                    disabled={disabled}
-                >
-                    Una sola
-                </button>
-                <button
-                    type="button"
-                    className={mode === "many" ? styles.quantityOptionActive : styles.quantityOption}
-                    onClick={() => onModeChange("many")}
-                    disabled={disabled}
-                >
-                    Più di una
-                </button>
-            </div>
-            {mode === "many" && (
-                <NumberInput
-                    label="Fino a"
-                    min="2"
-                    value={n}
-                    onChange={e => onNChange(e.target.value)}
-                    disabled={disabled}
-                    containerClassName={styles.quantityN}
-                />
-            )}
-        </div>
-    );
-}
 
 function parseMaxSelectable(mode: MaxSelectableMode, n: string): number | null {
     if (mode === "one") return 1;
     const parsed = parseInt(n, 10);
     return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+/** Frase collassata di riepilogo delle regole di scelta — deve restare
+ * coerente coi valori reali del gruppo anche quando il pannello è chiuso
+ * (in modifica di un gruppo esistente i default possono non essere quelli
+ * di fabbrica "una sola/facoltativo"). */
+function describeChoiceRules(mode: MaxSelectableMode, n: string, required: boolean): string {
+    const parsedN = parseMaxSelectable(mode, n);
+    const countPart = mode === "one" ? "una sola opzione" : `fino a ${parsedN ?? "più"} opzioni`;
+    const requiredPart = required ? "e deve sceglierla per ordinare" : "e può anche non sceglierla";
+    return `Il cliente sceglie ${countPart}, ${requiredPart}.`;
+}
+
+interface ChoiceRulesEditorProps {
+    mode: MaxSelectableMode;
+    onModeChange: (mode: MaxSelectableMode) => void;
+    n: string;
+    onNChange: (n: string) => void;
+    required: boolean;
+    onRequiredChange: (required: boolean) => void;
+    expanded: boolean;
+    onExpand: () => void;
+    disabled?: boolean;
+}
+
+/** Regole di scelta di un gruppo Configurazioni — progressive disclosure:
+ * di default una riga di riepilogo + link, "Fino a quante?" compare solo
+ * dopo aver dichiarato che il cliente può scegliere più di un'opzione. */
+function ChoiceRulesEditor({
+    mode,
+    onModeChange,
+    n,
+    onNChange,
+    required,
+    onRequiredChange,
+    expanded,
+    onExpand,
+    disabled
+}: ChoiceRulesEditorProps) {
+    if (!expanded) {
+        return (
+            <div className={styles.rulesCollapsed}>
+                <Text variant="body-sm" colorVariant="muted">
+                    {describeChoiceRules(mode, n, required)}
+                </Text>
+                <button
+                    type="button"
+                    className={styles.rulesExpandLink}
+                    onClick={onExpand}
+                    disabled={disabled}
+                >
+                    Modifica le regole di scelta →
+                </button>
+            </div>
+        );
+    }
+    return (
+        <div className={styles.rulesExpanded}>
+            <div className={styles.formSection}>
+                <Text variant="body-sm" weight={600}>
+                    Il cliente può scegliere più opzioni?
+                </Text>
+                <div className={styles.pillToggle}>
+                    <button
+                        type="button"
+                        className={mode === "one" ? styles.pillOptionActive : styles.pillOption}
+                        onClick={() => onModeChange("one")}
+                        disabled={disabled}
+                    >
+                        No, una sola <span className={styles.pillHint}>(es. la cottura)</span>
+                    </button>
+                    <button
+                        type="button"
+                        className={mode === "many" ? styles.pillOptionActive : styles.pillOption}
+                        onClick={() => onModeChange("many")}
+                        disabled={disabled}
+                    >
+                        Sì <span className={styles.pillHint}>(es. le aggiunte)</span>
+                    </button>
+                </div>
+                {mode === "many" && (
+                    <NumberInput
+                        label="Fino a quante?"
+                        min="2"
+                        value={n}
+                        onChange={e => onNChange(e.target.value)}
+                        disabled={disabled}
+                        containerClassName={styles.quantityN}
+                    />
+                )}
+            </div>
+            <div className={styles.formSection}>
+                <Text variant="body-sm" weight={600}>
+                    È obbligatorio scegliere?
+                </Text>
+                <div className={styles.pillToggle}>
+                    <button
+                        type="button"
+                        className={!required ? styles.pillOptionActive : styles.pillOption}
+                        onClick={() => onRequiredChange(false)}
+                        disabled={disabled}
+                    >
+                        No, è facoltativo
+                    </button>
+                    <button
+                        type="button"
+                        className={required ? styles.pillOptionActive : styles.pillOption}
+                        onClick={() => onRequiredChange(true)}
+                        disabled={disabled}
+                    >
+                        Sì, deve scegliere per ordinare
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+interface PriceModeToggleProps {
+    mode: "unico" | "formato";
+    onSelectUnico: () => void;
+    onSelectFormato: () => void;
+    disabled?: boolean;
+}
+
+/** Toggle Prezzo unico / Prezzo per formato — lo stato deriva dai dati
+ * (esiste un gruppo PRIMARY_PRICE?), il click esegue la transizione reale
+ * (crea/elimina il gruppo), non è solo UI. */
+function PriceModeToggle({ mode, onSelectUnico, onSelectFormato, disabled }: PriceModeToggleProps) {
+    return (
+        <div className={styles.priceModeToggle}>
+            <button
+                type="button"
+                className={mode === "unico" ? styles.priceModeOptionActive : styles.priceModeOption}
+                onClick={onSelectUnico}
+                disabled={disabled || mode === "unico"}
+            >
+                Prezzo unico
+            </button>
+            <button
+                type="button"
+                className={mode === "formato" ? styles.priceModeOptionActive : styles.priceModeOption}
+                onClick={onSelectFormato}
+                disabled={disabled || mode === "formato"}
+            >
+                Prezzo per formato
+            </button>
+        </div>
+    );
 }
 
 interface PrezziOpzioniTabProps {
@@ -186,10 +231,10 @@ interface PrezziOpzioniTabProps {
 }
 
 /**
- * Tab "Prezzi & Opzioni" — 3 card: Prezzo (campo semplice o dichiarazione
- * "definito dal gruppo X"), Opzioni (gruppi PRIMARY_PRICE + ADDON unificati
- * — un gruppo è una domanda al cliente, la modalità prezzo è una sua
- * proprietà, non uno switch di pagina), Varianti (invariata).
+ * Tab "Prezzi & Opzioni" — 3 card: Prezzo (toggle Unico/Per formato — il
+ * gruppo PRIMARY_PRICE è un dettaglio implementativo, mai mostrato come
+ * "gruppo" da gestire), Configurazioni (gruppi ADDON, opzionali, spiegati),
+ * Varianti (invariata).
  */
 export default function PrezziOpzioniTab({
     product,
@@ -208,7 +253,7 @@ export default function PrezziOpzioniTab({
     const isVariant = product.parent_product_id !== null;
     const hasPrimaryGroup = primaryPriceGroup !== null;
 
-    // ── Card Prezzo — campo semplice (nessun gruppo prezzo) ─────────────
+    // ── Card Prezzo — modalità "Prezzo unico" ───────────────────────────
     const [editingBasePrice, setEditingBasePrice] = useState(false);
     const [basePriceInput, setBasePriceInput] = useState("");
     const [savingBasePrice, setSavingBasePrice] = useState(false);
@@ -242,6 +287,58 @@ export default function PrezziOpzioniTab({
             showToast({ message: "Errore nel salvataggio del prezzo", type: "error" });
         } finally {
             setSavingBasePrice(false);
+        }
+    };
+
+    // ── Card Prezzo — toggle Unico ⇄ Per formato ────────────────────────
+    // Il gruppo "Formato" (PRIMARY_PRICE) è creato/eliminato dal toggle
+    // stesso: l'utente non vede mai il meccanismo di gruppo/valori.
+    const [switchingToFormato, setSwitchingToFormato] = useState(false);
+    const [revertingToUnico, setRevertingToUnico] = useState(false);
+    const [confirmRevertToUnico, setConfirmRevertToUnico] = useState(false);
+    // One-shot: precompila la riga di aggiunta del primo formato col vecchio
+    // base_price, poi si azzera al primo valore salvato.
+    const [justSwitchedToFormato, setJustSwitchedToFormato] = useState(false);
+    const [pendingFormatPrice, setPendingFormatPrice] = useState<number | null>(null);
+
+    const handleSwitchToFormato = async () => {
+        const priceToMigrate = product.base_price;
+        setSwitchingToFormato(true);
+        try {
+            await createProductOptionGroup({
+                tenant_id: tenantId,
+                product_id: productId,
+                name: "Formato",
+                is_required: true,
+                max_selectable: 1,
+                group_kind: "PRIMARY_PRICE",
+                pricing_mode: "ABSOLUTE"
+            });
+            setPendingFormatPrice(priceToMigrate);
+            setJustSwitchedToFormato(true);
+            await onRefreshOptions();
+        } catch {
+            showToast({ message: "Errore nel passaggio a prezzo per formato", type: "error" });
+        } finally {
+            setSwitchingToFormato(false);
+        }
+    };
+
+    const handleConfirmRevertToUnico = async (): Promise<boolean> => {
+        if (!primaryPriceGroup) return false;
+        try {
+            setRevertingToUnico(true);
+            await deleteProductOptionGroup(primaryPriceGroup.id, tenantId);
+            await onRefreshOptions();
+            setBasePriceInput("");
+            setEditingBasePrice(true);
+            showToast({ message: "Tornato a prezzo unico", type: "success" });
+            return true;
+        } catch {
+            showToast({ message: "Errore nel ripristino del prezzo unico", type: "error" });
+            return false;
+        } finally {
+            setRevertingToUnico(false);
         }
     };
 
@@ -364,29 +461,68 @@ export default function PrezziOpzioniTab({
 
     const variantsParentFromPrice = computeFromPrice(parentGroup, product.base_price);
 
-    // ── Card Opzioni — gruppi PRIMARY_PRICE + ADDON unificati ───────────
-    const allGroups = useMemo(
-        () => (primaryPriceGroup ? [primaryPriceGroup, ...addonGroups] : addonGroups),
-        [primaryPriceGroup, addonGroups]
-    );
+    // Value CRUD sul gruppo Formato (PRIMARY_PRICE) — salvataggio immediato.
+    const handleCreateFormatValue = async (name: string, price: number) => {
+        if (!primaryPriceGroup) return;
+        try {
+            await createOptionValue({
+                tenant_id: tenantId,
+                option_group_id: primaryPriceGroup.id,
+                name,
+                price_modifier: null,
+                absolute_price: price
+            });
+            await onRefreshOptions();
+            setJustSwitchedToFormato(false);
+            setPendingFormatPrice(null);
+        } catch (err) {
+            showToast({ message: "Errore nell'aggiunta del formato", type: "error" });
+            throw err;
+        }
+    };
 
+    const handleUpdateFormatValue = async (valueId: string, name: string, price: number) => {
+        try {
+            await updateOptionValue(valueId, {
+                name,
+                price_modifier: null,
+                absolute_price: price
+            });
+            await onRefreshOptions();
+        } catch (err) {
+            showToast({ message: "Errore nel salvataggio del formato", type: "error" });
+            throw err;
+        }
+    };
+
+    const handleDeleteValue = async (valueId: string) => {
+        try {
+            await deleteOptionValue(valueId);
+            await onRefreshOptions();
+        } catch (err) {
+            showToast({ message: "Errore nell'eliminazione", type: "error" });
+            throw err;
+        }
+    };
+
+    // ── Card Configurazioni — solo gruppi ADDON ─────────────────────────
     // Create group form
     const [isCreatingGroup, setIsCreatingGroup] = useState(false);
     const [newGroupName, setNewGroupName] = useState("");
-    const [newGroupKind, setNewGroupKind] = useState<OptionGroupKind>("ADDON");
     const [newGroupMaxMode, setNewGroupMaxMode] = useState<MaxSelectableMode>("one");
     const [newGroupMaxN, setNewGroupMaxN] = useState("2");
     const [newGroupRequired, setNewGroupRequired] = useState(false);
+    const [newGroupRulesExpanded, setNewGroupRulesExpanded] = useState(false);
     const [savingNewGroup, setSavingNewGroup] = useState(false);
     const [newGroupError, setNewGroupError] = useState<string | null>(null);
 
     const handleOpenCreateGroup = () => {
         setIsCreatingGroup(true);
         setNewGroupName("");
-        setNewGroupKind("ADDON");
         setNewGroupMaxMode("one");
         setNewGroupMaxN("2");
         setNewGroupRequired(false);
+        setNewGroupRulesExpanded(false);
         setNewGroupError(null);
     };
 
@@ -398,11 +534,9 @@ export default function PrezziOpzioniTab({
     const handleCreateGroup = async () => {
         const name = newGroupName.trim();
         if (!name) {
-            setNewGroupError("La domanda è obbligatoria");
+            setNewGroupError("Il nome è obbligatorio");
             return;
         }
-        const isPrimary = newGroupKind === "PRIMARY_PRICE";
-        const maxSelectable = isPrimary ? 1 : parseMaxSelectable(newGroupMaxMode, newGroupMaxN);
         try {
             setSavingNewGroup(true);
             setNewGroupError(null);
@@ -410,10 +544,10 @@ export default function PrezziOpzioniTab({
                 tenant_id: tenantId,
                 product_id: productId,
                 name,
-                is_required: isPrimary ? true : newGroupRequired,
-                max_selectable: maxSelectable,
-                group_kind: newGroupKind,
-                pricing_mode: isPrimary ? "ABSOLUTE" : "DELTA"
+                is_required: newGroupRequired,
+                max_selectable: parseMaxSelectable(newGroupMaxMode, newGroupMaxN),
+                group_kind: "ADDON",
+                pricing_mode: "DELTA"
             });
             await onRefreshOptions();
             setIsCreatingGroup(false);
@@ -433,6 +567,7 @@ export default function PrezziOpzioniTab({
     const [editGroupMaxMode, setEditGroupMaxMode] = useState<MaxSelectableMode>("one");
     const [editGroupMaxN, setEditGroupMaxN] = useState("2");
     const [editGroupRequired, setEditGroupRequired] = useState(false);
+    const [editGroupRulesExpanded, setEditGroupRulesExpanded] = useState(false);
     const [savingGroupId, setSavingGroupId] = useState<string | null>(null);
     const [groupEditError, setGroupEditError] = useState<string | null>(null);
 
@@ -450,6 +585,7 @@ export default function PrezziOpzioniTab({
             setEditGroupMaxN("2");
         }
         setEditGroupRequired(group.is_required);
+        setEditGroupRulesExpanded(false);
         setGroupEditError(null);
     };
 
@@ -461,19 +597,15 @@ export default function PrezziOpzioniTab({
     const handleSaveGroup = async (group: GroupWithValues) => {
         const name = editGroupName.trim();
         if (!name) {
-            setGroupEditError("La domanda è obbligatoria");
+            setGroupEditError("Il nome è obbligatorio");
             return;
         }
-        const isPrimary = group.group_kind === "PRIMARY_PRICE";
-        const maxSelectable = isPrimary
-            ? 1
-            : parseMaxSelectable(editGroupMaxMode, editGroupMaxN);
         try {
             setSavingGroupId(group.id);
             await updateProductOptionGroup(group.id, {
                 name,
-                max_selectable: maxSelectable,
-                is_required: isPrimary ? true : editGroupRequired
+                max_selectable: parseMaxSelectable(editGroupMaxMode, editGroupMaxN),
+                is_required: editGroupRequired
             });
             await onRefreshOptions();
             setEditingGroupId(null);
@@ -496,18 +628,14 @@ export default function PrezziOpzioniTab({
         }
     };
 
-    // Value CRUD — generico assoluto/delta in base al kind del gruppo,
-    // salvataggio immediato (chiama il service e rilancia per l'errore
-    // inline in `OptionValueList`).
-    const handleCreateValue = async (group: GroupWithValues, name: string, price: number) => {
-        const isPrimary = group.group_kind === "PRIMARY_PRICE";
+    const handleCreateAddonValue = async (group: GroupWithValues, name: string, price: number) => {
         try {
             await createOptionValue({
                 tenant_id: tenantId,
                 option_group_id: group.id,
                 name,
-                price_modifier: isPrimary ? null : price,
-                absolute_price: isPrimary ? price : null
+                price_modifier: price,
+                absolute_price: null
             });
             await onRefreshOptions();
         } catch (err) {
@@ -516,32 +644,21 @@ export default function PrezziOpzioniTab({
         }
     };
 
-    const handleUpdateValue = async (
+    const handleUpdateAddonValue = async (
         group: GroupWithValues,
         valueId: string,
         name: string,
         price: number
     ) => {
-        const isPrimary = group.group_kind === "PRIMARY_PRICE";
         try {
             await updateOptionValue(valueId, {
                 name,
-                price_modifier: isPrimary ? null : price,
-                absolute_price: isPrimary ? price : null
+                price_modifier: price,
+                absolute_price: null
             });
             await onRefreshOptions();
         } catch (err) {
             showToast({ message: "Errore nel salvataggio della scelta", type: "error" });
-            throw err;
-        }
-    };
-
-    const handleDeleteValue = async (valueId: string) => {
-        try {
-            await deleteOptionValue(valueId);
-            await onRefreshOptions();
-        } catch (err) {
-            showToast({ message: "Errore nell'eliminazione della scelta", type: "error" });
             throw err;
         }
     };
@@ -628,18 +745,6 @@ export default function PrezziOpzioniTab({
                     <Text variant="body-sm" colorVariant="muted">
                         Caricamento...
                     </Text>
-                ) : hasPrimaryGroup ? (
-                    <div className={styles.priceFromGroup}>
-                        <Text variant="body">
-                            Il prezzo è definito dal gruppo{" "}
-                            <strong>{primaryPriceGroup!.name}</strong>.
-                        </Text>
-                        {pricePreviewLabel(primaryPriceGroup!) && (
-                            <Text variant="body-sm" colorVariant="muted">
-                                {pricePreviewLabel(primaryPriceGroup!)}
-                            </Text>
-                        )}
-                    </div>
                 ) : isInheriting ? (
                     <div className={styles.inheritMode}>
                         {isLoadingParent ? (
@@ -672,77 +777,130 @@ export default function PrezziOpzioniTab({
                         )}
                     </div>
                 ) : (
-                    <div className={styles.singleMode}>
-                        {isVariant && (
-                            <Text variant="body-sm" colorVariant="muted">
-                                Prezzo della variante, indipendente dal prodotto principale.
-                            </Text>
-                        )}
-                        {editingBasePrice ? (
-                            <div className={styles.priceEditRow}>
-                                <NumberInput
-                                    value={basePriceInput}
-                                    onChange={e => setBasePriceInput(e.target.value)}
-                                    min="0"
-                                    step="0.01"
-                                    error={basePriceError ?? undefined}
-                                    disabled={savingBasePrice}
+                    <div className={styles.priceSection}>
+                        <PriceModeToggle
+                            mode={hasPrimaryGroup ? "formato" : "unico"}
+                            onSelectUnico={() => setConfirmRevertToUnico(true)}
+                            onSelectFormato={handleSwitchToFormato}
+                            disabled={switchingToFormato || revertingToUnico}
+                        />
+
+                        {hasPrimaryGroup ? (
+                            <div className={styles.formatMode}>
+                                {isVariant && (
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Prezzo della variante, indipendente dal prodotto principale.
+                                    </Text>
+                                )}
+                                <OptionValueList
+                                    values={primaryPriceGroup.values}
+                                    priceMode="absolute"
+                                    emptyTitle="Nessun formato"
+                                    namePlaceholder="Nome (es. Bottiglia)"
+                                    pricePlaceholder="Prezzo"
+                                    initialAddPrice={
+                                        justSwitchedToFormato && pendingFormatPrice !== null
+                                            ? pendingFormatPrice
+                                            : undefined
+                                    }
+                                    autoFocusAdd={justSwitchedToFormato}
+                                    onCreate={handleCreateFormatValue}
+                                    onUpdate={(id, name, price) =>
+                                        handleUpdateFormatValue(id, name, price)
+                                    }
+                                    onDelete={handleDeleteValue}
                                 />
-                                <Button
-                                    variant="primary"
-                                    size="sm"
-                                    onClick={handleSaveBasePrice}
-                                    disabled={savingBasePrice}
-                                    loading={savingBasePrice}
-                                >
-                                    Salva
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={handleCancelEditBasePrice}
-                                    disabled={savingBasePrice}
-                                >
-                                    Annulla
-                                </Button>
+                                {formatPricePreview(primaryPriceGroup) && (
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        {formatPricePreview(primaryPriceGroup)}
+                                    </Text>
+                                )}
                             </div>
                         ) : (
-                            <div className={styles.priceDisplay}>
-                                <span className={styles.priceValue}>
-                                    {product.base_price !== null
-                                        ? product.base_price.toFixed(2)
-                                        : "—"}
-                                </span>
-                                <span className={styles.priceCurrency}>€</span>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    onClick={handleStartEditBasePrice}
-                                >
-                                    Modifica
-                                </Button>
-                                {isVariant && product.base_price !== null && (
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={handleRevertToInherit}
-                                    >
-                                        Eredita dal padre
-                                    </Button>
+                            <div className={styles.singleMode}>
+                                {isVariant && (
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Prezzo della variante, indipendente dal prodotto principale.
+                                    </Text>
+                                )}
+                                {editingBasePrice ? (
+                                    <div className={styles.priceEditRow}>
+                                        <NumberInput
+                                            value={basePriceInput}
+                                            onChange={e => setBasePriceInput(e.target.value)}
+                                            min="0"
+                                            step="0.01"
+                                            error={basePriceError ?? undefined}
+                                            disabled={savingBasePrice}
+                                        />
+                                        <Button
+                                            variant="primary"
+                                            size="sm"
+                                            onClick={handleSaveBasePrice}
+                                            disabled={savingBasePrice}
+                                            loading={savingBasePrice}
+                                        >
+                                            Salva
+                                        </Button>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={handleCancelEditBasePrice}
+                                            disabled={savingBasePrice}
+                                        >
+                                            Annulla
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className={styles.priceDisplay}>
+                                        <span className={styles.priceValue}>
+                                            {product.base_price !== null
+                                                ? product.base_price.toFixed(2)
+                                                : "—"}
+                                        </span>
+                                        <span className={styles.priceCurrency}>€</span>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={handleStartEditBasePrice}
+                                        >
+                                            Modifica
+                                        </Button>
+                                        {isVariant && product.base_price !== null && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={handleRevertToInherit}
+                                            >
+                                                Eredita dal padre
+                                            </Button>
+                                        )}
+                                    </div>
                                 )}
                             </div>
                         )}
                     </div>
                 )}
+
+                {confirmRevertToUnico && (
+                    <ConfirmDialog
+                        isOpen={true}
+                        onClose={() => setConfirmRevertToUnico(false)}
+                        onConfirm={handleConfirmRevertToUnico}
+                        title="Torna a un prezzo unico?"
+                        message="Vuoi tornare a un prezzo unico? I formati inseriti verranno eliminati."
+                        confirmLabel="Torna a prezzo unico"
+                    />
+                )}
             </SectionCard>
 
-            {/* ──────────────── Card 2 — Opzioni ──────────────── */}
+            {/* ──────────────── Card 2 — Configurazioni ──────────────── */}
             <SectionCard
-                title="Opzioni"
-                subtitle="Le scelte che il cliente fa quando ordina questo prodotto"
-                badge={allGroups.length > 0 ? <Badge variant="secondary">{allGroups.length}</Badge> : undefined}
+                title="Configurazioni"
+                subtitle="Scelte che il cliente fa quando ordina dal menu"
+                badge={addonGroups.length > 0 ? <Badge variant="secondary">{addonGroups.length}</Badge> : undefined}
                 actions={
-                    allGroups.length > 0 && !isCreatingGroup ? (
+                    addonGroups.length > 0 && !isCreatingGroup ? (
                         <Button
                             type="button"
                             variant="ghost"
@@ -754,60 +912,38 @@ export default function PrezziOpzioniTab({
                     ) : undefined
                 }
             >
+                <div className={styles.configInfoBox}>
+                    <Text variant="body-sm" colorVariant="muted">
+                        Servono solo se accetti ordini dal menu. Aggiungono scelte come{" "}
+                        <strong>Cottura</strong> (al sangue / media / ben cotta) o{" "}
+                        <strong>Aggiunte</strong> (mozzarella +1 €).
+                    </Text>
+                </div>
+
                 {/* Inline create group form */}
                 {isCreatingGroup && (
                     <div className={styles.createGroupForm}>
                         <TextInput
-                            label="Titolo del gruppo"
-                            helperText="Il cliente lo vede sopra le scelte, nel menu"
-                            placeholder="Es. Formato · Cottura · Contorno · Aggiunte"
+                            label="Cosa può scegliere il cliente?"
+                            helperText="Il cliente lo vede sopra le opzioni, nel menu"
+                            placeholder="es. Cottura · Aggiunte · Contorno"
                             value={newGroupName}
                             onChange={e => setNewGroupName(e.target.value)}
                             disabled={savingNewGroup}
                             error={newGroupError ?? undefined}
                         />
 
-                        <div className={styles.formSection}>
-                            <Text variant="body-sm" weight={600}>
-                                Come funziona il prezzo?
-                            </Text>
-                            <KindChooser
-                                value={newGroupKind}
-                                onChange={setNewGroupKind}
-                                disablePrimary={hasPrimaryGroup}
-                                disabled={savingNewGroup}
-                            />
-                        </div>
-
-                        {newGroupKind === "ADDON" && (
-                            <div className={styles.orderingSection}>
-                                <div className={styles.orderingSectionHeader}>
-                                    <Text variant="body-sm" weight={600}>
-                                        Se il cliente ordina dal menu
-                                    </Text>
-                                    <InfoTooltip content="Queste impostazioni agiscono solo quando la sede ha l'ordinazione attiva. Senza ordinazione, le opzioni restano visibili nel menu ma non selezionabili." />
-                                </div>
-                                <div className={styles.formSection}>
-                                    <Text variant="body-sm" weight={600}>
-                                        Quante scelte può fare il cliente?
-                                    </Text>
-                                    <QuantityChooser
-                                        mode={newGroupMaxMode}
-                                        onModeChange={setNewGroupMaxMode}
-                                        n={newGroupMaxN}
-                                        onNChange={setNewGroupMaxN}
-                                        disabled={savingNewGroup}
-                                    />
-                                </div>
-                                <Switch
-                                    label="Il cliente deve scegliere"
-                                    helperText="Non può completare l'ordine senza aver scelto un'opzione di questo gruppo."
-                                    checked={newGroupRequired}
-                                    onChange={setNewGroupRequired}
-                                    disabled={savingNewGroup}
-                                />
-                            </div>
-                        )}
+                        <ChoiceRulesEditor
+                            mode={newGroupMaxMode}
+                            onModeChange={setNewGroupMaxMode}
+                            n={newGroupMaxN}
+                            onNChange={setNewGroupMaxN}
+                            required={newGroupRequired}
+                            onRequiredChange={setNewGroupRequired}
+                            expanded={newGroupRulesExpanded}
+                            onExpand={() => setNewGroupRulesExpanded(true)}
+                            disabled={savingNewGroup}
+                        />
 
                         <div className={styles.formatActions}>
                             <Button
@@ -835,13 +971,13 @@ export default function PrezziOpzioniTab({
 
                 {optionsLoading ? (
                     <Text variant="body-sm" colorVariant="muted">
-                        Caricamento opzioni...
+                        Caricamento configurazioni...
                     </Text>
-                ) : allGroups.length === 0 && !isCreatingGroup ? (
+                ) : addonGroups.length === 0 && !isCreatingGroup ? (
                     <EmptyState
                         variant="inline"
                         icon={null}
-                        title="Nessuna opzione"
+                        title="Nessuna configurazione"
                         action={
                             <Button
                                 type="button"
@@ -853,150 +989,110 @@ export default function PrezziOpzioniTab({
                             </Button>
                         }
                     />
-                ) : allGroups.length > 0 ? (
+                ) : addonGroups.length > 0 ? (
                     <div className={styles.optionGroupsList}>
-                        {allGroups.map(group => {
-                            const isPrimary = group.group_kind === "PRIMARY_PRICE";
-                            return (
-                                <div key={group.id} className={styles.groupCard}>
-                                    {editingGroupId === group.id ? (
-                                        <div className={styles.groupEditForm}>
-                                            <TextInput
-                                                label="Titolo del gruppo"
-                                                helperText="Il cliente lo vede sopra le scelte, nel menu"
-                                                placeholder="Es. Formato · Cottura · Contorno · Aggiunte"
-                                                value={editGroupName}
-                                                onChange={e => setEditGroupName(e.target.value)}
+                        {addonGroups.map(group => (
+                            <div key={group.id} className={styles.groupCard}>
+                                {editingGroupId === group.id ? (
+                                    <div className={styles.groupEditForm}>
+                                        <TextInput
+                                            label="Cosa può scegliere il cliente?"
+                                            helperText="Il cliente lo vede sopra le opzioni, nel menu"
+                                            placeholder="es. Cottura · Aggiunte · Contorno"
+                                            value={editGroupName}
+                                            onChange={e => setEditGroupName(e.target.value)}
+                                            disabled={savingGroupId === group.id}
+                                        />
+                                        <ChoiceRulesEditor
+                                            mode={editGroupMaxMode}
+                                            onModeChange={setEditGroupMaxMode}
+                                            n={editGroupMaxN}
+                                            onNChange={setEditGroupMaxN}
+                                            required={editGroupRequired}
+                                            onRequiredChange={setEditGroupRequired}
+                                            expanded={editGroupRulesExpanded}
+                                            onExpand={() => setEditGroupRulesExpanded(true)}
+                                            disabled={savingGroupId === group.id}
+                                        />
+                                        {groupEditError && (
+                                            <Text variant="body-sm" colorVariant="error">
+                                                {groupEditError}
+                                            </Text>
+                                        )}
+                                        <div className={styles.formatActions}>
+                                            <Button
+                                                type="button"
+                                                variant="primary"
+                                                size="sm"
+                                                onClick={() => handleSaveGroup(group)}
                                                 disabled={savingGroupId === group.id}
-                                            />
-                                            {isPrimary ? (
-                                                <Text variant="body-sm" colorVariant="muted">
-                                                    Definisce il prezzo del prodotto — sempre
-                                                    obbligatorio, una sola scelta per volta.
-                                                </Text>
-                                            ) : (
-                                                <div className={styles.orderingSection}>
-                                                    <div className={styles.orderingSectionHeader}>
-                                                        <Text variant="body-sm" weight={600}>
-                                                            Se il cliente ordina dal menu
-                                                        </Text>
-                                                        <InfoTooltip content="Queste impostazioni agiscono solo quando la sede ha l'ordinazione attiva. Senza ordinazione, le opzioni restano visibili nel menu ma non selezionabili." />
-                                                    </div>
-                                                    <div className={styles.formSection}>
-                                                        <Text variant="body-sm" weight={600}>
-                                                            Quante scelte può fare il cliente?
-                                                        </Text>
-                                                        <QuantityChooser
-                                                            mode={editGroupMaxMode}
-                                                            onModeChange={setEditGroupMaxMode}
-                                                            n={editGroupMaxN}
-                                                            onNChange={setEditGroupMaxN}
-                                                            disabled={savingGroupId === group.id}
-                                                        />
-                                                    </div>
-                                                    <Switch
-                                                        label="Il cliente deve scegliere"
-                                                        helperText="Non può completare l'ordine senza aver scelto un'opzione di questo gruppo."
-                                                        checked={editGroupRequired}
-                                                        onChange={setEditGroupRequired}
-                                                        disabled={savingGroupId === group.id}
-                                                    />
-                                                </div>
-                                            )}
-                                            {groupEditError && (
-                                                <Text variant="body-sm" colorVariant="error">
-                                                    {groupEditError}
-                                                </Text>
-                                            )}
-                                            <div className={styles.formatActions}>
-                                                <Button
-                                                    type="button"
-                                                    variant="primary"
-                                                    size="sm"
-                                                    onClick={() => handleSaveGroup(group)}
-                                                    disabled={savingGroupId === group.id}
-                                                    loading={savingGroupId === group.id}
-                                                >
-                                                    Salva
-                                                </Button>
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={handleCancelEditGroup}
-                                                    disabled={savingGroupId === group.id}
-                                                >
-                                                    Annulla
-                                                </Button>
-                                            </div>
+                                                loading={savingGroupId === group.id}
+                                            >
+                                                Salva
+                                            </Button>
+                                            <Button
+                                                type="button"
+                                                variant="ghost"
+                                                size="sm"
+                                                onClick={handleCancelEditGroup}
+                                                disabled={savingGroupId === group.id}
+                                            >
+                                                Annulla
+                                            </Button>
                                         </div>
-                                    ) : (
-                                        <div className={styles.groupHeader}>
-                                            <div className={styles.groupMeta}>
-                                                <Text variant="body" weight={600}>
-                                                    {group.name}
-                                                </Text>
-                                                {isPrimary ? (
-                                                    <Badge variant="secondary">
-                                                        Definisce il prezzo
-                                                    </Badge>
-                                                ) : (
-                                                    <>
-                                                        <Badge variant="secondary">
-                                                            {group.values.length}{" "}
-                                                            {group.values.length === 1
-                                                                ? "opzione"
-                                                                : "opzioni"}
-                                                        </Badge>
-                                                        {group.max_selectable != null && (
-                                                            <Badge variant="secondary">
-                                                                max {group.max_selectable}
-                                                            </Badge>
-                                                        )}
-                                                        {group.is_required && (
-                                                            <Badge variant="secondary">
-                                                                Obbligatorio
-                                                            </Badge>
-                                                        )}
-                                                    </>
-                                                )}
-                                            </div>
-                                            <TableRowActions
-                                                actions={[
-                                                    {
-                                                        label: "Modifica",
-                                                        onClick: () => handleStartEditGroup(group)
-                                                    },
-                                                    {
-                                                        label: "Elimina",
-                                                        onClick: () => setDeleteGroup(group),
-                                                        variant: "destructive",
-                                                        separator: true
-                                                    }
-                                                ]}
-                                            />
+                                    </div>
+                                ) : (
+                                    <div className={styles.groupHeader}>
+                                        <div className={styles.groupMeta}>
+                                            <Text variant="body" weight={600}>
+                                                {group.name}
+                                            </Text>
+                                            <Badge variant="secondary">
+                                                {group.values.length}{" "}
+                                                {group.values.length === 1 ? "opzione" : "opzioni"}
+                                            </Badge>
+                                            {group.max_selectable != null && (
+                                                <Badge variant="secondary">
+                                                    max {group.max_selectable}
+                                                </Badge>
+                                            )}
+                                            {group.is_required && (
+                                                <Badge variant="secondary">Obbligatorio</Badge>
+                                            )}
                                         </div>
-                                    )}
+                                        <TableRowActions
+                                            actions={[
+                                                {
+                                                    label: "Modifica",
+                                                    onClick: () => handleStartEditGroup(group)
+                                                },
+                                                {
+                                                    label: "Elimina",
+                                                    onClick: () => setDeleteGroup(group),
+                                                    variant: "destructive",
+                                                    separator: true
+                                                }
+                                            ]}
+                                        />
+                                    </div>
+                                )}
 
-                                    <OptionValueList
-                                        values={group.values}
-                                        priceMode={isPrimary ? "absolute" : "delta"}
-                                        emptyTitle="Nessuna scelta"
-                                        namePlaceholder={
-                                            isPrimary ? "Nome (es. Piccola)" : "Nome (es. Latte)"
-                                        }
-                                        pricePlaceholder={isPrimary ? "Prezzo" : "Costo aggiuntivo"}
-                                        onCreate={(name, price) =>
-                                            handleCreateValue(group, name, price)
-                                        }
-                                        onUpdate={(id, name, price) =>
-                                            handleUpdateValue(group, id, name, price)
-                                        }
-                                        onDelete={handleDeleteValue}
-                                    />
-                                </div>
-                            );
-                        })}
+                                <OptionValueList
+                                    values={group.values}
+                                    priceMode="delta"
+                                    emptyTitle="Nessuna scelta"
+                                    namePlaceholder="Nome (es. Latte)"
+                                    pricePlaceholder="Costo aggiuntivo"
+                                    onCreate={(name, price) =>
+                                        handleCreateAddonValue(group, name, price)
+                                    }
+                                    onUpdate={(id, name, price) =>
+                                        handleUpdateAddonValue(group, id, name, price)
+                                    }
+                                    onDelete={handleDeleteValue}
+                                />
+                            </div>
+                        ))}
                     </div>
                 ) : null}
 

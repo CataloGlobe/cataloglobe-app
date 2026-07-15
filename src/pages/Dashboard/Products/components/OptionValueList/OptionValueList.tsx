@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
@@ -20,6 +20,10 @@ interface OptionValueListProps {
     onCreate: (name: string, price: number) => Promise<void>;
     onUpdate: (id: string, name: string, price: number) => Promise<void>;
     onDelete: (id: string) => Promise<void>;
+    /** Precompila il prezzo della riga di aggiunta (transizione Unico → Per formato). */
+    initialAddPrice?: number;
+    /** Apre subito la riga di aggiunta con focus sul nome (stessa transizione). */
+    autoFocusAdd?: boolean;
 }
 
 function readPrice(value: V2ProductOptionValue, priceMode: OptionValuePriceMode): number | null {
@@ -53,7 +57,9 @@ export function OptionValueList({
     pricePlaceholder = "Prezzo",
     onCreate,
     onUpdate,
-    onDelete
+    onDelete,
+    initialAddPrice,
+    autoFocusAdd = false
 }: OptionValueListProps) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editName, setEditName] = useState("");
@@ -61,11 +67,21 @@ export function OptionValueList({
     const [editError, setEditError] = useState<string | null>(null);
     const [savingEditId, setSavingEditId] = useState<string | null>(null);
 
-    const [isAdding, setIsAdding] = useState(false);
+    const [isAdding, setIsAdding] = useState(autoFocusAdd);
     const [addName, setAddName] = useState("");
-    const [addPrice, setAddPrice] = useState("");
+    const [addPrice, setAddPrice] = useState(
+        initialAddPrice !== undefined ? String(initialAddPrice) : ""
+    );
     const [addError, setAddError] = useState<string | null>(null);
     const [savingAdd, setSavingAdd] = useState(false);
+    const addNameRef = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (autoFocusAdd) addNameRef.current?.focus();
+        // Solo al mount — la precompilazione serve solo alla transizione
+        // Unico → Per formato, un'unica volta.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const startEdit = (value: V2ProductOptionValue) => {
         setEditingId(value.id);
@@ -228,6 +244,7 @@ export function OptionValueList({
             {showAddRow && (
                 <div className={styles.editRow}>
                     <TextInput
+                        ref={addNameRef}
                         containerClassName={styles.nameField}
                         value={addName}
                         onChange={e => setAddName(e.target.value)}
