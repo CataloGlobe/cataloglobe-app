@@ -14,10 +14,18 @@
 // padding 24px). Coerente con Products e le altre pagine post-rollout.
 .content {
   background-color: var(--color-gray-50);
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+
+  // Catena flex vincolata (template Prodotti): propaga l'altezza bounded di
+  // `MainLayout .content` fino al `.autoSizeProbe` del DataTable. SOLO in
+  // list mode — in grid mode il bound si propagava a `.catalogsGrid` e ne
+  // schiacciava le card (flex-shrink + min-height:0 comprime la riga prima
+  // che CSS Grid le dia l'altezza naturale — vedi audit FASE 1).
+  &[data-view-mode="list"] {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 // CTA della header band: altezza armonizzata a search/toggle via
@@ -38,6 +46,8 @@
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
   gap: 1.5rem;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .loadingState,
