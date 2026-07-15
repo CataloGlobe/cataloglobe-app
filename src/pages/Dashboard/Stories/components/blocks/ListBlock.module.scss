@@ -1,0 +1,79 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+// L'input occupa lo spazio, il pulsante rimuovi resta compatto a destra.
+.row > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.removeItem {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  color: color-mix(in srgb, var(--text) 45%, transparent);
+  transition: color 0.12s ease, background-color 0.12s ease;
+
+  &:hover {
+    color: var(--color-danger, #dc2626);
+    background: var(--color-red-50, #fff1f2);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-danger, #dc2626);
+  }
+}
+
+.addItem {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-primary);
+  transition: background-color 0.12s ease;
+
+  &:hover {
+    background: var(--brand-primary-soft);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--brand-primary);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .removeItem,
+  .addItem {
+    transition: none;
+  }
+}

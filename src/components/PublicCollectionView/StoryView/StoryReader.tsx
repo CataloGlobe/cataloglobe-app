@@ -9,6 +9,7 @@ import PublicImageBlock from "./blocks/PublicImageBlock";
 import PublicVideoBlock from "./blocks/PublicVideoBlock";
 import PublicHeadingBlock from "./blocks/PublicHeadingBlock";
 import PublicQuoteBlock from "./blocks/PublicQuoteBlock";
+import PublicListBlock from "./blocks/PublicListBlock";
 import styles from "./StoryReader.module.scss";
 
 type StoryReaderProps = {
@@ -32,6 +33,8 @@ function renderBlock(block: StoryBlock, isLead: boolean) {
             return <PublicHeadingBlock key={block.id} block={block} />;
         case "quote":
             return <PublicQuoteBlock key={block.id} block={block} />;
+        case "list":
+            return <PublicListBlock key={block.id} block={block} />;
         case "image":
             return <PublicImageBlock key={block.id} block={block} />;
         case "video":

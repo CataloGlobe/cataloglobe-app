@@ -21,5 +21,7 @@ export function createBlock(type: StoryBlock["type"]): StoryBlock {
         };
     if (type === "heading") return { id: makeBlockId(), type: "heading", content: "" };
     if (type === "quote") return { id: makeBlockId(), type: "quote", content: "", attribution: "" };
+    // Elenco: variante puntato di default, una voce vuota iniziale su cui scrivere.
+    if (type === "list") return { id: makeBlockId(), type: "list", variant: "bullet", items: [""] };
     return { id: makeBlockId(), type: "video", provider: "youtube", ref: "" };
 }

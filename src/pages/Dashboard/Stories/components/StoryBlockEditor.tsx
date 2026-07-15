@@ -25,6 +25,7 @@ import { ImageBlock } from "./blocks/ImageBlock";
 import { VideoBlock } from "./blocks/VideoBlock";
 import { HeadingBlock } from "./blocks/HeadingBlock";
 import { QuoteBlock } from "./blocks/QuoteBlock";
+import { ListBlock } from "./blocks/ListBlock";
 import styles from "./StoryBlockEditor.module.scss";
 
 interface StoryBlockEditorProps {
@@ -93,6 +94,7 @@ function BlockRow({
                 {block.type === "text" && <TextBlock block={block} onChange={onUpdate} disabled={disabled} />}
                 {block.type === "heading" && <HeadingBlock block={block} onChange={onUpdate} disabled={disabled} />}
                 {block.type === "quote" && <QuoteBlock block={block} onChange={onUpdate} disabled={disabled} />}
+                {block.type === "list" && <ListBlock block={block} onChange={onUpdate} disabled={disabled} />}
                 {block.type === "image" && (
                     <ImageBlock
                         block={block}

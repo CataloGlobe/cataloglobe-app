@@ -1,0 +1,45 @@
+.list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pub-space-2);
+}
+
+.item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--pub-space-3);
+}
+
+// Box marcatore alto quanto la prima riga di testo → pallino/spunta centrati
+// sulla riga, non sull'intera voce multi-riga.
+.marker {
+  flex-shrink: 0;
+  width: 18px;
+  height: calc(15px * 1.7);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  // Identità (--pub-primary), MAI --pub-accent (riservato ai CTA cliccabili).
+  color: var(--pub-primary);
+}
+
+// Puntato: pallino piccolo.
+.bullet .marker::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--pub-primary);
+}
+
+.itemText {
+  min-width: 0;
+  font-family: var(--pub-font-family);
+  font-size: 15px;
+  line-height: 1.7;
+  color: var(--pub-text);
+  white-space: pre-wrap;
+}

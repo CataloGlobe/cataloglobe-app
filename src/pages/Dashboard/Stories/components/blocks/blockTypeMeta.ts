@@ -1,4 +1,4 @@
-import { Type, Heading, Quote, Image, Video } from "lucide-react";
+import { Type, Heading, Quote, List, Image, Video } from "lucide-react";
 import type { ComponentType } from "react";
 import type { StoryBlock } from "@/services/supabase/stories";
 
@@ -17,9 +17,10 @@ export const BLOCK_TYPE_META: Record<StoryBlock["type"], BlockTypeMeta> = {
     text: { label: "Testo", icon: Type },
     heading: { label: "Titolo", icon: Heading },
     quote: { label: "Citazione", icon: Quote },
+    list: { label: "Elenco", icon: List },
     image: { label: "Immagine", icon: Image },
     video: { label: "Video", icon: Video }
 };
 
-/** Ordine di presentazione nel menu "Aggiungi" (invariato rispetto a `ITEMS`). */
-export const BLOCK_TYPE_ORDER: StoryBlock["type"][] = ["text", "heading", "quote", "image", "video"];
+/** Ordine di presentazione nel menu "Aggiungi". Elenco tra i blocchi testuali, prima dei media. */
+export const BLOCK_TYPE_ORDER: StoryBlock["type"][] = ["text", "heading", "quote", "list", "image", "video"];
