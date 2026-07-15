@@ -7,69 +7,120 @@
 .list {
   display: flex;
   flex-direction: column;
+  gap: 10px;
 }
 
-// Nessuna cornice propria: il blocco eredita l'unico bordo dalla SectionCard.
-// I blocchi si separano con un hairline (non sul primo) invece di una scatola.
-.block {
+// Ogni blocco è una card: barra d'intestazione (maniglia · tipo · elimina)
+// + corpo. Più leggera del contenitore SectionCard che la avvolge (nessuna
+// ombra a riposo, radius minore) per non "sollevare" una scatola dentro una
+// scatola. L'ombra è riservata allo stato di trascinamento.
+.card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 8px);
+  background: var(--card-bg);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.cardHeader {
   display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 0;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 8px 7px 4px;
+  background: var(--hover-bg);
+  border-bottom: 1px solid var(--border);
 }
 
-.list > div:not(:first-child) > .block {
-  border-top: 1px solid var(--border);
-}
-
-// Stato drag: tint invece di cornice piena; i separatori adiacenti (proprio
-// e quello del blocco successivo) spariscono per non spezzare la tinta.
-.list > div[data-dragging="true"] > .block {
-  background: var(--brand-primary-soft);
-  border-radius: var(--radius-md);
-  padding: 14px 12px;
-  border-top-color: transparent;
-}
-
-.list > div[data-dragging="true"] + div > .block {
-  border-top-color: transparent;
+.cardBody {
+  padding: 14px;
 }
 
 .dragHandle {
   cursor: grab;
   border: none;
   background: transparent;
-  color: var(--text-muted);
+  color: color-mix(in srgb, var(--text) 55%, transparent);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 4px;
-  margin-top: 6px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-sm, 6px);
   flex-shrink: 0;
-}
 
-.blockBody {
-  flex: 1;
-  min-width: 0;
-}
-
-.removeBtn {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px;
-  margin-top: 6px;
-  background: transparent;
-  border: none;
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  color: var(--text-muted);
+  &:active {
+    cursor: grabbing;
+  }
 
   &:hover {
     color: var(--text);
-    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--brand-primary);
   }
 }
 
+.typeIcon {
+  display: inline-flex;
+  align-items: center;
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+  flex-shrink: 0;
+}
+
+.typeLabel {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+  white-space: nowrap;
+}
+
+// Sempre visibile (Marco lavora da mobile: niente hover). Tenue a riposo,
+// rosso su hover.
+.removeBtn {
+  flex-shrink: 0;
+  margin-left: auto; // spinge il cestino a destra della barra
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  color: color-mix(in srgb, var(--text) 50%, transparent);
+  transition: color 0.12s ease, background-color 0.12s ease;
+
+  &:hover {
+    color: var(--color-danger, #dc2626);
+    background: var(--color-red-50, #fff1f2);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-danger, #dc2626);
+  }
+}
+
+// Stato drag: la card si solleva (bordo brand + ombra) invece di una tinta.
+.list > div[data-dragging="true"] > .card {
+  border-color: var(--brand-primary);
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.14);
+}
+
+// Viewport stretta (mobile): resta l'icona-tipo, l'etichetta si nasconde.
+@media (max-width: 640px) {
+  .typeLabel {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card,
+  .removeBtn,
+  .dragHandle {
+    transition: none;
+  }
+}

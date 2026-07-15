@@ -1,7 +1,8 @@
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
-import { ChevronDown, Type, Image, Video, Heading, Quote } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { StoryBlock } from "@/services/supabase/stories";
+import { BLOCK_TYPE_META, BLOCK_TYPE_ORDER } from "./blocks/blockTypeMeta";
 import styles from "./AddBlockMenu.module.scss";
 
 interface AddBlockMenuProps {
@@ -9,14 +10,6 @@ interface AddBlockMenuProps {
     /** Disabilita la voce "Immagine" (tetto raggiunto: max 8 immagini per storia). */
     imageDisabled?: boolean;
 }
-
-const ITEMS: { type: StoryBlock["type"]; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
-    { type: "text", label: "Testo", icon: Type },
-    { type: "heading", label: "Titolo", icon: Heading },
-    { type: "quote", label: "Citazione", icon: Quote },
-    { type: "image", label: "Immagine", icon: Image },
-    { type: "video", label: "Video", icon: Video }
-];
 
 /** Menu "Aggiungi" nell'header della sezione Contenuto — sostituisce i 3 bottoni in fondo lista. */
 export function AddBlockMenu({ onAdd, imageDisabled }: AddBlockMenuProps) {
@@ -38,17 +31,20 @@ export function AddBlockMenu({ onAdd, imageDisabled }: AddBlockMenuProps) {
                     // Qui deleghiamo il focus al nuovo blocco stesso.
                     onCloseAutoFocus={e => e.preventDefault()}
                 >
-                    {ITEMS.map(item => (
-                        <DropdownMenu.Item
-                            key={item.type}
-                            className={styles.item}
-                            disabled={item.type === "image" && imageDisabled}
-                            onSelect={() => onAdd(item.type)}
-                        >
-                            <item.icon size={16} />
-                            {item.label}
-                        </DropdownMenu.Item>
-                    ))}
+                    {BLOCK_TYPE_ORDER.map(type => {
+                        const { label, icon: Icon } = BLOCK_TYPE_META[type];
+                        return (
+                            <DropdownMenu.Item
+                                key={type}
+                                className={styles.item}
+                                disabled={type === "image" && imageDisabled}
+                                onSelect={() => onAdd(type)}
+                            >
+                                <Icon size={16} />
+                                {label}
+                            </DropdownMenu.Item>
+                        );
+                    })}
                 </DropdownMenu.Content>
             </DropdownMenu.Portal>
         </DropdownMenu.Root>
