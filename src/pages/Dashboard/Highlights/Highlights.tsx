@@ -248,7 +248,7 @@ export default function Highlights() {
         <PageGate readPermission="featured.read">
             {() => (
         <>
-            <div className={styles.wrapper}>
+            <div className={styles.wrapper} data-view-mode={viewMode}>
                 <div className={styles.tableCard}>
                     {loading ? (
                         <div className={styles.loadingState}>
