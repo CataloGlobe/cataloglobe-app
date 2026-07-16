@@ -31,4 +31,13 @@ describe("resolvePriceSummary", () => {
         const summary = resolvePriceSummary([10, 10]);
         expect(summary).toEqual({ kind: "multi", min: 10, max: 10, count: 2 });
     });
+
+    // Regressione mirata sul bug #8 (getProductListMetadata): contava
+    // formatsCount su TUTTI i valori del gruppo, non solo quelli prezzati.
+    // Un gruppo con 2 valori di cui 1 senza prezzo deve restare "single",
+    // non "multi" — altrimenti backoffice e pubblico divergono.
+    it("counts only priced values, not the raw value count (bug #8 regression)", () => {
+        const summary = resolvePriceSummary([10, null]);
+        expect(summary).toEqual({ kind: "single", min: 10, max: 10, count: 1 });
+    });
 });
