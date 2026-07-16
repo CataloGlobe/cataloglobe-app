@@ -40,6 +40,18 @@
   }
 }
 
+// Stato attivo: la selezione è dentro testo già formattato. Brand tenue +
+// icona brand — coerente con i toggle dell'editor, leggibile light/dark.
+.toolBtn.active {
+  color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+
+  &:hover:not(:disabled) {
+    color: var(--brand-primary);
+    background: var(--brand-primary-soft-hover);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .toolBtn {
     transition: none;
