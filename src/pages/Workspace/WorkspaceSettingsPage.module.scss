@@ -119,18 +119,6 @@
   gap: 0.75rem;
 }
 
-.drawerAvatarRow {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-}
-
-.drawerAvatarInfo {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
 .removeAvatarBtn {
   display: inline-flex;
   align-items: center;
@@ -153,29 +141,6 @@
     opacity: 0.5;
     cursor: not-allowed;
   }
-}
-
-.drawerAvatar {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 1px solid var(--border, #e5e7eb);
-  background: #ffffff;
-}
-
-.drawerAvatarPlaceholder {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  background: #6366f1;
-  display: grid;
-  place-items: center;
-  flex-shrink: 0;
-  color: #fff;
-  font-size: 20px;
-  font-weight: 700;
-  user-select: none;
 }
 
 .modalHeader {
