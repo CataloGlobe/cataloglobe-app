@@ -9,7 +9,7 @@ import {
     updateProduct
 } from "@/services/supabase/products";
 import { uploadProductImage } from "@/services/supabase/upload";
-import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
+import type { MediaFraming } from "@components/ui/ImageReframeEditor/types";
 import {
     type V2SystemAllergen,
     listAllergens,
@@ -98,6 +98,17 @@ export function useSchedaDraft(
     const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
     const [removeImage, setRemoveImage] = useState(false);
     const [isSavingImage, setIsSavingImage] = useState(false);
+    // Framing metadata (non baked): pending settato dall'editor insieme al file
+    // (o da solo in ri-inquadratura di un'immagine esistente). null = nessuna
+    // modifica pendente di framing.
+    const [pendingFraming, setPendingFraming] = useState<MediaFraming | null>(null);
+    const [pendingAspectRatio, setPendingAspectRatio] = useState<number | null>(null);
+    const [savedFraming, setSavedFraming] = useState<MediaFraming | null>(
+        product?.image_framing ?? null
+    );
+    const [savedAspectRatio, setSavedAspectRatio] = useState<number | null>(
+        product?.image_aspect_ratio ?? null
+    );
 
     const pendingImagePreviewUrl = useMemo(() => {
         if (!pendingImageFile) return null;
@@ -116,8 +127,12 @@ export function useSchedaDraft(
         : pendingImagePreviewUrl ?? savedImageUrl;
 
     const isImageDirty = useMemo(
-        () => pendingImageFile !== null || removeImage || draftImageUrl !== savedImageUrl,
-        [pendingImageFile, removeImage, draftImageUrl, savedImageUrl]
+        () =>
+            pendingImageFile !== null ||
+            removeImage ||
+            pendingFraming !== null ||
+            draftImageUrl !== savedImageUrl,
+        [pendingImageFile, removeImage, pendingFraming, draftImageUrl, savedImageUrl]
     );
 
     useEffect(() => {
@@ -130,6 +145,10 @@ export function useSchedaDraft(
         setSavedImageUrl(url);
         setPendingImageFile(null);
         setRemoveImage(false);
+        setPendingFraming(null);
+        setPendingAspectRatio(null);
+        setSavedFraming(product.image_framing ?? null);
+        setSavedAspectRatio(product.image_aspect_ratio ?? null);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [product?.image_url]);
 
@@ -137,29 +156,45 @@ export function useSchedaDraft(
         setDraftImageUrl(savedImageUrl);
         setPendingImageFile(null);
         setRemoveImage(false);
+        setPendingFraming(null);
+        setPendingAspectRatio(null);
     }, [savedImageUrl]);
 
     const handleSaveImage = useCallback(async () => {
         try {
             setIsSavingImage(true);
             let nextUrl: string | null = draftImageUrl;
+            let nextFraming: MediaFraming | null = savedFraming;
+            let nextAspectRatio: number | null = savedAspectRatio;
             if (removeImage) {
                 nextUrl = null;
+                nextFraming = null;
+                nextAspectRatio = null;
             } else if (pendingImageFile) {
-                nextUrl = await uploadProductImage(
-                    tenantId,
-                    productId,
-                    await compressImage(pendingImageFile, COMPRESS_PROFILES.product)
-                );
+                // File già compresso dall'editor (ImageUploadEditor): nessun
+                // re-compress qui.
+                nextUrl = await uploadProductImage(tenantId, productId, pendingImageFile);
+                nextFraming = pendingFraming;
+                nextAspectRatio = pendingAspectRatio;
+            } else if (pendingFraming) {
+                // Ri-inquadratura di un'immagine esistente: solo framing, URL e
+                // ratio naturale invariati.
+                nextFraming = pendingFraming;
             }
             const updated = await updateProduct(productId, tenantId, {
-                image_url: nextUrl
+                image_url: nextUrl,
+                image_framing: nextFraming,
+                image_aspect_ratio: nextAspectRatio
             });
             onProductUpdated(updated);
             setDraftImageUrl(nextUrl);
             setSavedImageUrl(nextUrl);
+            setSavedFraming(nextFraming);
+            setSavedAspectRatio(nextAspectRatio);
             setPendingImageFile(null);
             setRemoveImage(false);
+            setPendingFraming(null);
+            setPendingAspectRatio(null);
             return true;
         } catch {
             return false;
@@ -170,6 +205,10 @@ export function useSchedaDraft(
         draftImageUrl,
         pendingImageFile,
         removeImage,
+        pendingFraming,
+        pendingAspectRatio,
+        savedFraming,
+        savedAspectRatio,
         productId,
         tenantId,
         onProductUpdated
@@ -637,6 +676,10 @@ export function useSchedaDraft(
             setPendingImageFile,
             removeImage,
             setRemoveImage,
+            savedFraming,
+            savedAspectRatio,
+            setPendingFraming,
+            setPendingAspectRatio,
             isSaving: isSavingImage,
             isDirty: isImageDirty,
             handleCancel: handleCancelImage,

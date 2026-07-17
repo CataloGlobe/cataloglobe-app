@@ -135,6 +135,8 @@ function mapProductToItem(
         ...(typeof v.original_price === "number" ? { original_price: v.original_price } : {}),
         ...(typeof v.from_price === "number" ? { from_price: v.from_price } : {}),
         ...(v.image_url ? { image: v.image_url } : {}),
+        ...(v.image_framing ? { image_framing: v.image_framing } : {}),
+        ...(v.image_aspect_ratio != null ? { image_aspect_ratio: v.image_aspect_ratio } : {}),
         ...(v.description ? { description: v.description } : {}),
         ...(v.optionGroups && v.optionGroups.length > 0
             ? {
@@ -169,6 +171,8 @@ function mapProductToItem(
         original_price: p.original_price ?? null,
         from_price: p.from_price ?? null,
         image: p.image_url ?? null,
+        image_framing: p.image_framing ?? null,
+        image_aspect_ratio: p.image_aspect_ratio ?? null,
         optionGroups: p.optionGroups?.map(g => ({
             id: g.id,
             name: g.name,

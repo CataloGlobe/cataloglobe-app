@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button/Button";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { FileInput } from "@/components/ui/Input/FileInput";
+import { ImageUploadEditor } from "@/components/ui/ImageUploadEditor";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { Pill } from "@/components/ui/Pill/Pill";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -112,24 +112,27 @@ export function SchedaTab({
             <div className={`${styles.cardSlot} ${styles.slotImage}`}>
                 <SectionCard title="Immagine">
 
-                    {image.visibleImageUrl && (
-                        <img
-                            src={image.visibleImageUrl}
-                            alt="Anteprima immagine prodotto"
-                            className={styles.imagePreview}
-                        />
-                    )}
+                    <Text variant="body-sm" colorVariant="muted">
+                        PNG, JPG o WEBP — max 10 MB. Inquadra in 16:9; l&apos;inquadratura
+                        (punto focale) viene riapplicata alle card e al dettaglio.
+                    </Text>
 
-                    <FileInput
-                        accept="image/*"
-                        maxSizeMb={5}
-                        preview="none"
-                        value={image.pendingImageFile}
-                        onChange={file => {
-                            image.setPendingImageFile(file);
-                            if (file) image.setRemoveImage(false);
+                    <ImageUploadEditor
+                        aspectRatio={16 / 9}
+                        backgroundFillModes={["blur", "dominant", "color", "none"]}
+                        maxSizeMB={10}
+                        compressLongEdge={1280}
+                        initialSource={image.removeImage ? null : image.visibleImageUrl}
+                        initialFraming={image.savedFraming ?? undefined}
+                        initialAspectRatio={image.savedAspectRatio ?? null}
+                        onConfirm={({ file, framing, aspectRatio }) => {
+                            image.setPendingFraming(framing);
+                            if (file) {
+                                image.setPendingImageFile(file);
+                                image.setPendingAspectRatio(aspectRatio);
+                                image.setRemoveImage(false);
+                            }
                         }}
-                        disabled={image.isSaving}
                     />
 
                     {image.visibleImageUrl && (

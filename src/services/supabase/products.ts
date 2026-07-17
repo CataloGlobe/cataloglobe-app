@@ -10,6 +10,7 @@ import {
     deleteTranslationJobsForEntity
 } from "./translationJobs";
 import { deleteTranslationsForEntity } from "./translations";
+import type { MediaFraming } from "@components/ui/ImageReframeEditor/types";
 import { deleteProductImageBestEffort } from "./upload";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 
@@ -31,6 +32,10 @@ export type V2Product = {
     base_price: number | null;
     parent_product_id: string | null;
     image_url: string | null;
+    /** Reframe metadata (focal/zoom/fill). NULL = default center/cover/blur. */
+    image_framing: MediaFraming | null;
+    /** Ratio naturale (w/h) del sorgente immagine. NULL = legacy cover path. */
+    image_aspect_ratio: number | null;
     product_type: ProductType;
     variant_strategy?: VariantStrategy;
     /**
@@ -325,6 +330,8 @@ export async function createProduct(
         description?: string | null;
         base_price?: number | null;
         image_url?: string | null;
+        image_framing?: MediaFraming | null;
+        image_aspect_ratio?: number | null;
         product_type?: ProductType;
         notes?: ProductNote[];
     },
@@ -350,6 +357,8 @@ export async function createProduct(
             base_price: data.base_price ?? null,
             parent_product_id: parentId || null,
             image_url: data.image_url ?? null,
+            image_framing: data.image_framing ?? null,
+            image_aspect_ratio: data.image_aspect_ratio ?? null,
             product_type: resolvedProductType,
             notes: validatedNotes,
             description_hash: descriptionHash,
@@ -400,6 +409,8 @@ export async function updateProduct(
         description?: string | null;
         base_price?: number | null;
         image_url?: string | null;
+        image_framing?: MediaFraming | null;
+        image_aspect_ratio?: number | null;
         product_type?: ProductType;
         notes?: ProductNote[];
     },
@@ -430,6 +441,8 @@ export async function updateProduct(
         description: string | null;
         base_price: number | null;
         image_url: string | null;
+        image_framing: MediaFraming | null;
+        image_aspect_ratio: number | null;
         product_type: ProductType;
         parent_product_id: string | null;
         notes: ProductNote[];
@@ -452,6 +465,9 @@ export async function updateProduct(
     }
     if (data.base_price !== undefined) updatePayload.base_price = data.base_price;
     if (data.image_url !== undefined) updatePayload.image_url = data.image_url;
+    if (data.image_framing !== undefined) updatePayload.image_framing = data.image_framing;
+    if (data.image_aspect_ratio !== undefined)
+        updatePayload.image_aspect_ratio = data.image_aspect_ratio;
     if (data.product_type !== undefined) updatePayload.product_type = data.product_type;
     if (parentId !== undefined) updatePayload.parent_product_id = parentId;
     if (notesInData) {
@@ -657,6 +673,8 @@ export async function duplicateProduct(productId: string, tenantId: string): Pro
             description: original.description,
             base_price: original.base_price,
             image_url: original.image_url,
+            image_framing: original.image_framing ?? null,
+            image_aspect_ratio: original.image_aspect_ratio ?? null,
             product_type: original.product_type,
             notes: original.notes ?? []
         },

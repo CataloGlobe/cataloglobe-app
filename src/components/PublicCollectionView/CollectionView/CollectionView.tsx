@@ -13,6 +13,9 @@ import type {
     ResolvedProductNote,
     V2FeaturedContent
 } from "@/types/resolvedCollections";
+import type { MediaFraming } from "@components/ui/ImageReframeEditor/types";
+import { FramedMedia } from "@components/ui/FramedMedia";
+import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "@pages/Dashboard/Products/components/productImageFraming";
 import type { HubTab } from "@/types/collectionStyle";
 import Text from "@/components/ui/Text/Text";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
@@ -127,6 +130,10 @@ export type CollectionViewSectionItem = {
     /** Min format price. When set, show "da X€" on card. */
     from_price?: number | null;
     image?: string | null;
+    /** Reframe metadata immagine. Assente = default center/cover/blur. */
+    image_framing?: MediaFraming | null;
+    /** Ratio naturale (w/h) dell'immagine. Assente = legacy cover path. */
+    image_aspect_ratio?: number | null;
     optionGroups?: {
         id: string;
         name: string;
@@ -157,6 +164,8 @@ export type CollectionViewSectionItem = {
         original_price?: number;
         from_price?: number;
         image?: string;
+        image_framing?: MediaFraming | null;
+        image_aspect_ratio?: number | null;
         description?: string;
         optionGroups?: CollectionViewSectionItem["optionGroups"];
     }[];
@@ -314,10 +323,6 @@ function ProductRowInner({
     );
     const dp = getDisplayPrice({ fromPrice, price, effectivePrice, originalPrice });
 
-    // ── Fade-in immagine prodotto ─────────────────────────────────────────
-    const [imgLoaded, setImgLoaded] = useState(false);
-    useEffect(() => { setImgLoaded(false); }, [image]);
-
     const handleRootClick = () => onClick(item);
     const handleAddBtnClick = (e: React.MouseEvent) => {
         e.stopPropagation();
@@ -345,16 +350,18 @@ function ProductRowInner({
                             />
                         </div>
                     ) : (
-                        <img
-                            src={image}
-                            alt={name}
-                            className={`${styles.rowImage} ${imgLoaded ? styles.rowImageLoaded : ""}`}
-                            loading="lazy"
-                            decoding="async"
-                            width={400}
-                            height={300}
-                            onLoad={() => setImgLoaded(true)}
-                        />
+                        // Card·List (1:1) e Card·Grid (4:3) condividono questo elemento
+                        // (container query). FramedMedia con aspectRatio=null usa il
+                        // path legacy cover → object-position dal focal point, ratio-
+                        // agnostico. Fallback default center/cover per image_framing NULL.
+                        <div className={styles.rowImageFrame}>
+                            <FramedMedia
+                                source={image}
+                                framing={item.image_framing ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
+                                aspectRatio={null}
+                                alt={name}
+                            />
+                        </div>
                     )}
                 </div>
             )}

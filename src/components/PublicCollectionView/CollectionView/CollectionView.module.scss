@@ -656,7 +656,8 @@
     }
 
     .rowImage,
-    .rowPlaceholder {
+    .rowPlaceholder,
+    .rowImageFrame {
       width: 100%;
       height: auto;
       aspect-ratio: 4 / 3;
@@ -707,6 +708,18 @@
   opacity: 1;
 }
 
+/* Box che ospita <FramedMedia> (immagine prodotto con framing). Replica la
+   dimensione di .rowImage ma con position:relative + overflow:hidden perche'
+   FramedMedia posiziona l'<img> in absolute inset:0. */
+.rowImageFrame {
+  position: relative;
+  overflow: hidden;
+  width: 96px;
+  height: 96px;
+  flex-shrink: 0;
+  border-radius: var(--pub-radius);
+}
+
 .rowPlaceholder {
   width: 96px;
   height: 96px;
@@ -722,7 +735,8 @@
 /* compact on small screens */
 @media (max-width: 640px) {
   .rowImage,
-  .rowPlaceholder {
+  .rowPlaceholder,
+  .rowImageFrame {
     width: 80px;
     height: 80px;
   }

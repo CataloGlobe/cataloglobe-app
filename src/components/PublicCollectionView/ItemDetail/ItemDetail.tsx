@@ -7,6 +7,8 @@ import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PairingDetailCard from "../PairingDetailCard/PairingDetailCard";
+import { FramedMedia } from "@components/ui/FramedMedia";
+import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "@pages/Dashboard/Products/components/productImageFraming";
 import styles from "./ItemDetail.module.scss";
 import type { CollectionViewSectionItem } from "../CollectionView/CollectionView";
 import type { SelectedAddon, SelectedFormat } from "../OrderingSheet/OrderingSheet";
@@ -261,15 +263,19 @@ export default function ItemDetail({
                     {/* IMMAGINE — mostrata solo se showImage=true; placeholder se immagine assente */}
                     {showImage && (
                         shouldShowImage ? (
-                            <img
-                                src={displayItem.image!}
-                                alt={displayItem.name}
-                                className={styles.image}
-                                loading="lazy"
-                                decoding="async"
-                                width={1600}
-                                height={900}
-                            />
+                            // 16:9 stabile = ratio di authoring → path parametrico
+                            // completo (zoom + fasce onorati). Fallback default per
+                            // image_framing NULL → legacy cover, identico all'odierno.
+                            <div className={styles.imageFrame}>
+                                <FramedMedia
+                                    source={displayItem.image!}
+                                    framing={displayItem.image_framing ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
+                                    aspectRatio={displayItem.image_aspect_ratio ?? null}
+                                    frameRatio={16 / 9}
+                                    alt={displayItem.name}
+                                    eager
+                                />
+                            </div>
                         ) : (
                             <div className={styles.placeholderImage} aria-hidden="true">
                                 <Package

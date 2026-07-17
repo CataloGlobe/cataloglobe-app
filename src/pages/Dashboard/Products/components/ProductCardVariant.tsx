@@ -62,7 +62,7 @@ export default function ProductCardVariant({ variant, metadata, parentPrice }: P
                 {variant.image_url ? (
                     <FramedMedia
                         source={variant.image_url}
-                        framing={PRODUCT_IMAGE_DEFAULT_FRAMING}
+                        framing={variant.image_framing ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
                         aspectRatio={null}
                         alt={variant.name}
                     />

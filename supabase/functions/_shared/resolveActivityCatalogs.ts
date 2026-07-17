@@ -50,6 +50,15 @@ export type ResolvedProductNote = {
     value: string;
 };
 
+/** Shape del framing immagine (mirror di MediaFraming in src/components/ui/ImageReframeEditor/types.ts). */
+export type ResolvedMediaFraming = {
+    focalX: number;
+    focalY: number;
+    zoom: number;
+    fillMode: "blur" | "dominant" | "color" | "none";
+    fillColor: string | null;
+};
+
 export type ResolvedVariant = {
     id: string;
     name: string;
@@ -58,6 +67,8 @@ export type ResolvedVariant = {
     from_price?: number;
     optionGroups?: ResolvedOptionGroup[];
     image_url?: string;
+    image_framing?: ResolvedMediaFraming;
+    image_aspect_ratio?: number;
     description?: string;
     // deno-lint-ignore no-explicit-any
     attributes?: any[];
@@ -103,6 +114,8 @@ export type ResolvedProduct = {
     ingredients?: ResolvedIngredient[];
     notes?: ResolvedProductNote[];
     image_url?: string;
+    image_framing?: ResolvedMediaFraming;
+    image_aspect_ratio?: number;
     variants?: ResolvedVariant[];
     optionGroups?: ResolvedOptionGroup[];
     product_type?: string;
@@ -298,6 +311,8 @@ type RawVariantRow = {
     description: string | null;
     base_price: number | null;
     image_url: string | null;
+    image_framing: ResolvedMediaFraming | null;
+    image_aspect_ratio: number | null;
     attributes: RawAttributeValueRow[] | RawAttributeValueRow | null;
     allergens: RawAllergenRow[] | RawAllergenRow | null;
     characteristics: RawCharacteristicRow[] | RawCharacteristicRow | null;
@@ -321,6 +336,8 @@ type RawProductRow = {
     ingredients: RawIngredientRow[] | RawIngredientRow | null;
     notes: ResolvedProductNote[] | null;
     image_url: string | null;
+    image_framing: ResolvedMediaFraming | null;
+    image_aspect_ratio: number | null;
 };
 
 type RawCategoryProductRow = {
@@ -597,6 +614,8 @@ export function normalizeCatalog(
                             ...(v.base_price === null && vFromPrice !== undefined ? { from_price: vFromPrice } : {}),
                             ...(v.base_price === null && vResolvedOptionGroups.length > 0 ? { optionGroups: vResolvedOptionGroups } : {}),
                             ...(v.image_url ? { image_url: v.image_url } : {}),
+                            ...(v.image_framing ? { image_framing: v.image_framing } : {}),
+                            ...(v.image_aspect_ratio != null ? { image_aspect_ratio: v.image_aspect_ratio } : {}),
                             ...(v.description ? { description: v.description } : {}),
                             ...(vAttrs.length > 0 ? { attributes: vAttrs } : {}),
                             ...(vAllergens.length > 0 ? { allergens: vAllergens } : {}),
@@ -717,6 +736,8 @@ export function normalizeCatalog(
                         ...(pIngredients.length > 0 ? { ingredients: pIngredients } : {}),
                         ...(Array.isArray(p.notes) && p.notes.length > 0 ? { notes: p.notes } : {}),
                         ...(p.image_url ? { image_url: p.image_url } : {}),
+                        ...(p.image_framing ? { image_framing: p.image_framing } : {}),
+                        ...(p.image_aspect_ratio != null ? { image_aspect_ratio: p.image_aspect_ratio } : {}),
                         ...(pVariantsResolved.length > 0 ? { variants: pVariantsResolved } : {}),
                         ...(resolvedOptionGroups.length > 0
                             ? { optionGroups: resolvedOptionGroups }
@@ -774,6 +795,8 @@ const CATALOG_SELECT = `
           parent_product_id,
           product_type,
           image_url,
+          image_framing,
+          image_aspect_ratio,
           notes,
           option_groups:product_option_groups(
             id,
@@ -795,6 +818,8 @@ const CATALOG_SELECT = `
             description,
             base_price,
             image_url,
+            image_framing,
+            image_aspect_ratio,
             notes,
             option_groups:product_option_groups(
               id,
