@@ -7,7 +7,11 @@ import { Select } from "@/components/ui/Select/Select";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import { FileInput } from "@/components/ui/Input/FileInput";
+import {
+    ImageUploadEditor,
+    IMAGE_UPLOAD_PRESETS,
+    type ImageUploadEditorResult
+} from "@/components/ui/ImageUploadEditor";
 import { PasswordRequirements } from "@/components/ui/PasswordRequirements/PasswordRequirements";
 import { isStrongPassword, isWeakPasswordError } from "@utils/validatePassword";
 import { useAuth } from "@/context/useAuth";
@@ -43,8 +47,6 @@ export default function WorkspaceSettingsPage() {
     const [draftFirstName, setDraftFirstName] = useState("");
     const [draftLastName, setDraftLastName] = useState("");
     const [draftPhone, setDraftPhone] = useState("");
-    const [draftAvatarPreview, setDraftAvatarPreview] = useState<string | null>(null);
-    const [avatarFile, setAvatarFile] = useState<File | null>(null);
     const [saving, setSaving] = useState(false);
     const [removingAvatar, setRemovingAvatar] = useState(false);
     const [loggingOut, setLoggingOut] = useState(false);
@@ -73,7 +75,6 @@ export default function WorkspaceSettingsPage() {
                 setDraftFirstName(data?.first_name ?? "");
                 setDraftLastName(data?.last_name ?? "");
                 setDraftPhone(data?.phone ?? "");
-                setDraftAvatarPreview(null);
             })
             .finally(() => setLoadingProfile(false));
     }, [user?.id]);
@@ -83,8 +84,6 @@ export default function WorkspaceSettingsPage() {
         setDraftFirstName(profile?.first_name ?? "");
         setDraftLastName(profile?.last_name ?? "");
         setDraftPhone(profile?.phone ?? "");
-        setDraftAvatarPreview(null);
-        setAvatarFile(null);
     }, [drawerOpen, profile?.first_name, profile?.last_name, profile?.phone, profile?.avatar_url]);
 
     const displayName = useMemo(() => {
@@ -107,9 +106,6 @@ export default function WorkspaceSettingsPage() {
     const displayEmail = user?.email || "—";
 
     const avatarUrl = useMemo(() => {
-        if (draftAvatarPreview && draftAvatarPreview.startsWith("blob:")) {
-            return draftAvatarPreview;
-        }
         if (profile?.avatar_url) {
             const baseUrl = supabase.storage.from("avatars").getPublicUrl(profile.avatar_url)
                 .data.publicUrl;
@@ -119,7 +115,7 @@ export default function WorkspaceSettingsPage() {
             return `${baseUrl}${cacheBuster}`;
         }
         return null;
-    }, [draftAvatarPreview, profile?.avatar_url, profile?.updated_at]);
+    }, [profile?.avatar_url, profile?.updated_at]);
 
     const initials = useMemo(() => {
         const f = profile?.first_name?.[0] ?? "";
@@ -128,21 +124,26 @@ export default function WorkspaceSettingsPage() {
         return user?.email?.[0]?.toUpperCase() ?? "?";
     }, [profile?.first_name, profile?.last_name, user?.email]);
 
-    const handleAvatarFileChange = (file: File | null) => {
-        setAvatarFile(file);
-        if (file) {
-            setDraftAvatarPreview(URL.createObjectURL(file));
-        } else {
-            setDraftAvatarPreview(profile?.avatar_url ?? null);
+    // Avatar salvato SUBITO al conferma dell'editor (immagine baked 1:1),
+    // coerente con la rimozione che è già immediata e standalone. Nome/telefono
+    // restano legati al "Salva modifiche" del form.
+    const handleAvatarConfirm = async ({ file }: ImageUploadEditorResult) => {
+        if (!user || !file) return;
+        try {
+            const avatarPath = await uploadAvatar(user.id, file);
+            await updateProfileAvatar(user.id, avatarPath);
+            const nextUpdatedAt = new Date().toISOString();
+            setProfile(prev =>
+                prev ? { ...prev, avatar_url: avatarPath, updated_at: nextUpdatedAt } : prev
+            );
+            showToast({ message: "Avatar aggiornato.", type: "success" });
+            window.dispatchEvent(new CustomEvent("profile:updated"));
+        } catch (err) {
+            const message =
+                err instanceof Error ? err.message : "Errore durante il salvataggio dell'avatar.";
+            showToast({ message, type: "error" });
         }
     };
-
-    useEffect(() => {
-        if (!draftAvatarPreview || !draftAvatarPreview.startsWith("blob:")) return;
-        return () => {
-            URL.revokeObjectURL(draftAvatarPreview);
-        };
-    }, [draftAvatarPreview]);
 
     const handleRemoveAvatar = async () => {
         if (!user || !profile?.avatar_url) return;
@@ -154,8 +155,6 @@ export default function WorkspaceSettingsPage() {
             setProfile(prev =>
                 prev ? { ...prev, avatar_url: null, updated_at: nextUpdatedAt } : null
             );
-            setDraftAvatarPreview(null);
-            setAvatarFile(null);
             window.dispatchEvent(new CustomEvent("profile:updated"));
         } catch (err) {
             console.error("[WorkspaceSettings] remove avatar failed:", err);
@@ -181,37 +180,24 @@ export default function WorkspaceSettingsPage() {
                 phone: draftPhone.trim() || null
             });
 
-            let nextAvatarPath = profile?.avatar_url ?? null;
-            let nextUpdatedAt = profile?.updated_at ?? null;
-            if (avatarFile) {
-                const avatarPath = await uploadAvatar(user.id, avatarFile);
-                await updateProfileAvatar(user.id, avatarPath);
-                nextAvatarPath = avatarPath;
-                nextUpdatedAt = new Date().toISOString();
-            }
-
             setProfile(prev =>
                 prev
                     ? {
                           ...prev,
                           first_name: nextFirstName || null,
                           last_name: nextLastName || null,
-                          phone: draftPhone.trim() || null,
-                          avatar_url: nextAvatarPath,
-                          updated_at: nextUpdatedAt
+                          phone: draftPhone.trim() || null
                       }
                     : {
                           id: user.id,
                           first_name: nextFirstName || null,
                           last_name: nextLastName || null,
                           phone: draftPhone.trim() || null,
-                          avatar_url: nextAvatarPath,
-                          updated_at: nextUpdatedAt,
+                          avatar_url: null,
+                          updated_at: new Date().toISOString(),
                           created_at: new Date().toISOString()
                       }
             );
-            setDraftAvatarPreview(null);
-            setAvatarFile(null);
             setDrawerOpen(false);
             window.dispatchEvent(new CustomEvent("profile:updated"));
         } catch (err) {
@@ -430,69 +416,63 @@ export default function WorkspaceSettingsPage() {
                         </div>
                     }
                 >
-                    <form
-                        id="workspace-profile-form"
-                        onSubmit={handleSaveProfile}
-                        className={styles.drawerForm}
-                    >
-                        <div className={styles.drawerAvatarRow}>
-                            {avatarUrl ? (
-                                <img
-                                    src={avatarUrl}
-                                    alt="Anteprima avatar"
-                                    className={styles.drawerAvatar}
-                                />
-                            ) : (
-                                <span className={styles.drawerAvatarPlaceholder}>{initials}</span>
+                    <div className={styles.drawerForm}>
+                        <div className={styles.drawerForm}>
+                            <Text variant="body-sm" colorVariant="muted">
+                                Avatar — PNG, JPG o WEBP, max 10 MB. Inquadra e ritaglia in
+                                formato quadrato; viene salvato subito.
+                            </Text>
+                            <ImageUploadEditor
+                                aspectRatio={IMAGE_UPLOAD_PRESETS.avatar.aspectRatio}
+                                backgroundFillModes={IMAGE_UPLOAD_PRESETS.avatar.backgroundFillModes}
+                                maxSizeMB={IMAGE_UPLOAD_PRESETS.avatar.maxSizeMB}
+                                compressLongEdge={IMAGE_UPLOAD_PRESETS.avatar.compressLongEdge}
+                                bake={{ size: 512, format: "image/webp", quality: 0.9, fileName: "avatar.webp" }}
+                                initialSource={avatarUrl}
+                                initialAspectRatio={1}
+                                onConfirm={handleAvatarConfirm}
+                            />
+                            {profile?.avatar_url && (
+                                <button
+                                    type="button"
+                                    className={styles.removeAvatarBtn}
+                                    onClick={handleRemoveAvatar}
+                                    disabled={removingAvatar}
+                                >
+                                    {removingAvatar ? "Rimozione..." : "Rimuovi foto"}
+                                </button>
                             )}
-                            <div className={styles.drawerAvatarInfo}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    PNG o JPG, max 5MB.
-                                </Text>
-                                {profile?.avatar_url && !avatarFile && (
-                                    <button
-                                        type="button"
-                                        className={styles.removeAvatarBtn}
-                                        onClick={handleRemoveAvatar}
-                                        disabled={removingAvatar}
-                                    >
-                                        {removingAvatar ? "Rimozione..." : "Rimuovi foto"}
-                                    </button>
-                                )}
-                            </div>
                         </div>
 
-                        <TextInput
-                            label="Nome"
-                            value={draftFirstName}
-                            onChange={e => setDraftFirstName(e.target.value)}
-                            required
-                        />
+                        <form
+                            id="workspace-profile-form"
+                            onSubmit={handleSaveProfile}
+                            className={styles.drawerForm}
+                        >
+                            <TextInput
+                                label="Nome"
+                                value={draftFirstName}
+                                onChange={e => setDraftFirstName(e.target.value)}
+                                required
+                            />
 
-                        <TextInput
-                            label="Cognome"
-                            value={draftLastName}
-                            onChange={e => setDraftLastName(e.target.value)}
-                        />
+                            <TextInput
+                                label="Cognome"
+                                value={draftLastName}
+                                onChange={e => setDraftLastName(e.target.value)}
+                            />
 
-                        <TextInput
-                            label="Telefono"
-                            type="tel"
-                            value={draftPhone}
-                            onChange={e => setDraftPhone(e.target.value)}
-                            placeholder="+39 000 0000000"
-                        />
+                            <TextInput
+                                label="Telefono"
+                                type="tel"
+                                value={draftPhone}
+                                onChange={e => setDraftPhone(e.target.value)}
+                                placeholder="+39 000 0000000"
+                            />
 
-                        <TextInput label="Email" value={displayEmail} disabled />
-
-                        <FileInput
-                            label="Avatar"
-                            accept="image/png,image/jpeg"
-                            helperText="PNG o JPG, max 5MB."
-                            maxSizeMb={5}
-                            onChange={handleAvatarFileChange}
-                        />
-                    </form>
+                            <TextInput label="Email" value={displayEmail} disabled />
+                        </form>
+                    </div>
                 </DrawerLayout>
             </SystemDrawer>
 
