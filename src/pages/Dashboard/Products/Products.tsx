@@ -105,6 +105,8 @@ export default function Products() {
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState("");
+    const [groupsSearchQuery, setGroupsSearchQuery] = useState("");
+    const [ingredientsSearchQuery, setIngredientsSearchQuery] = useState("");
     const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
         const saved = localStorage.getItem("products_view_mode");
         return (saved === "list" || saved === "grid") ? saved : "grid";
@@ -265,6 +267,32 @@ export default function Products() {
             </Button>
         ) : null;
 
+        if (activeTab === "groups") {
+            return (
+                <>
+                    <ToolbarSearch
+                        value={groupsSearchQuery}
+                        onChange={setGroupsSearchQuery}
+                        placeholder="Cerca gruppo..."
+                    />
+                    {cta}
+                </>
+            );
+        }
+
+        if (activeTab === "ingredients") {
+            return (
+                <>
+                    <ToolbarSearch
+                        value={ingredientsSearchQuery}
+                        onChange={setIngredientsSearchQuery}
+                        placeholder="Cerca ingrediente..."
+                    />
+                    {cta}
+                </>
+            );
+        }
+
         if (activeTab !== "products") return cta;
 
         return (
@@ -286,7 +314,19 @@ export default function Products() {
                 {cta}
             </>
         );
-    }, [activeTab, canEdit, canWriteProduct, canWriteAttribute, handleCreateBase, verticalConfig, searchQuery, viewMode, handleViewChange]);
+    }, [
+        activeTab,
+        canEdit,
+        canWriteProduct,
+        canWriteAttribute,
+        handleCreateBase,
+        verticalConfig,
+        searchQuery,
+        groupsSearchQuery,
+        ingredientsSearchQuery,
+        viewMode,
+        handleViewChange
+    ]);
 
     usePageHeader({ leading, actions: headerActions });
 
@@ -509,7 +549,7 @@ export default function Products() {
         <section className={styles.container}>
             {activeTab === "products" && (
                 <>
-                    <div className={styles.content}>
+                    <div className={styles.content} data-view-mode={viewMode}>
                         {isLoading ? (
                             <div className={styles.loadingState}>
                                 <Text variant="body-sm" colorVariant="muted">
@@ -615,6 +655,8 @@ export default function Products() {
                     tenantId={currentTenantId ?? undefined}
                     isCreateOpen={isCreateGroupOpen}
                     onCloseCreate={() => setCreateGroupOpen(false)}
+                    searchQuery={groupsSearchQuery}
+                    onSearchQueryChange={setGroupsSearchQuery}
                 />
             )}
             {activeTab === "attributes" && verticalConfig.productSections.customAttributes && (
@@ -625,7 +667,11 @@ export default function Products() {
                 />
             )}
             {activeTab === "ingredients" && verticalConfig.productSections.ingredients && (
-                <Ingredients createTrigger={ingredientCreateSeq} />
+                <Ingredients
+                    createTrigger={ingredientCreateSeq}
+                    searchQuery={ingredientsSearchQuery}
+                    onSearchQueryChange={setIngredientsSearchQuery}
+                />
             )}
         </section>
         )}

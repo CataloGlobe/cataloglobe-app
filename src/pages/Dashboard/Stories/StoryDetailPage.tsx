@@ -210,6 +210,11 @@ export default function StoryDetailPage() {
                 nextBlocks = nextBlocks.map(b => (b.id === blockId ? { ...b, url } : b));
             }
 
+            // Elenco: le voci vuote/whitespace non vengono persistite (altri tipi invariati).
+            nextBlocks = nextBlocks.map(b =>
+                b.type === "list" ? { ...b, items: b.items.filter(it => it.trim() !== "") } : b
+            );
+
             await updateStory(story.id, tenantId, {
                 eyebrow: eyebrow.trim() || null,
                 title: trimmedTitle,

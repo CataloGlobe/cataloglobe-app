@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import Text from "@/components/ui/Text/Text";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { IconFolder } from "@tabler/icons-react";
@@ -57,20 +56,21 @@ interface ProductGroupsTabProps {
     tenantId?: string;
     isCreateOpen: boolean;
     onCloseCreate: () => void;
+    searchQuery: string;
+    onSearchQueryChange: (value: string) => void;
 }
 
 export default function ProductGroupsTab({
     tenantId,
     isCreateOpen,
-    onCloseCreate
+    onCloseCreate,
+    searchQuery
 }: ProductGroupsTabProps) {
     const { showToast } = useToast();
     const { canEdit } = useSubscriptionGuard();
 
     const [isLoading, setIsLoading] = useState(true);
     const [allGroups, setAllGroups] = useState<ProductGroupWithCount[]>([]);
-
-    const [searchQuery, setSearchQuery] = useState("");
 
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
     const [createEditMode, setCreateEditMode] = useState<GroupFormMode>("create");
@@ -242,17 +242,6 @@ export default function ProductGroupsTab({
 
     return (
         <div className={styles.tabContent}>
-            <div className={styles.filterRow}>
-                <FilterBar
-                    search={{
-                        value: searchQuery,
-                        onChange: setSearchQuery,
-                        placeholder: "Cerca gruppo..."
-                    }}
-                    className={styles.filterBar}
-                />
-            </div>
-
             <DataTable<FlatGroup>
                 data={flatTree}
                 allRowIds={allGroupIds}

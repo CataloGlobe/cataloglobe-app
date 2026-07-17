@@ -45,12 +45,20 @@ export type StoryImageBlock = {
     mediaAspectRatio?: number;
 };
 export type StoryVideoBlock = { id: string; type: "video"; provider: StoryVideoProvider; ref: string };
+/**
+ * Elenco (plain text). `variant` è sola resa (puntato | checklist): lo stile del
+ * marcatore è deciso dal sistema, non dall'utente. `items` = una voce per stringa;
+ * le stringhe vuote/whitespace vengono filtrate al salvataggio (mai persistite).
+ */
+export type StoryListVariant = "bullet" | "check";
+export type StoryListBlock = { id: string; type: "list"; variant: StoryListVariant; items: string[] };
 export type StoryBlock =
     | StoryTextBlock
     | StoryImageBlock
     | StoryVideoBlock
     | StoryHeadingBlock
-    | StoryQuoteBlock;
+    | StoryQuoteBlock
+    | StoryListBlock;
 
 export interface Story {
     id: string;

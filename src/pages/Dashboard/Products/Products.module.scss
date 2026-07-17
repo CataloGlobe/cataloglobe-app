@@ -9,10 +9,17 @@
 }
 
 .content {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+  // Bounded flex-chain (per far propagare l'altezza reale al probe di
+  // useAutoPageSize in DataTable) SOLO in list mode. Grid mode resta
+  // block/non-bounded: la pagina scrolla attraverso MainLayout `.content`
+  // come prima del fix DataTable (commit 11c98386) — altrimenti il bound
+  // si propaga a `.productGrid` e ne taglia il contenuto (titolo/prezzo).
+  &[data-view-mode="list"] {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+  }
 }
 
 // CTA della header band: altezza armonizzata a search/toggle via
@@ -224,7 +231,12 @@
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   align-items: stretch;
   width: 100%;
-  overflow: hidden;
+  min-height: 0;
+  overflow-y: auto;
+  // MainLayout `.content` padding-bottom non basta: qui `.productGrid` è il
+  // vero scroll container (overflow-y:auto), il bottom gap del layout esterno
+  // non si applica al suo interno.
+  padding-bottom: 24px;
 }
 
 // Drawers

@@ -1,14 +1,34 @@
 @use "sass:color";
 @use "@styles/variables" as *;
 
+/* Ancorato alla navbar globale (unico elemento di altezza fissa e costante
+ * in MainLayout/WorkspaceLayout — $global-header-height: 56px in entrambi,
+ * a differenza del chrome per-pagina sotto, che varia). Centrato
+ * verticalmente sull'altezza del PRIMO toast (~44px: padding 12px top+bottom
+ * + line-height singola riga ~19.6px — misura reale di .toast, non stimata):
+ * (56 - 44) / 2 = 6px. Dal secondo toast in poi lo stack cresce verso il
+ * basso senza ricentrarsi (vedi flex-direction sotto).
+ *
+ * right: 1rem, appoggiato al bordo — copre volutamente campanella/avatar. */
 .toastContainer {
   position: fixed;
-  top: 1rem;
+  top: 5px;
   right: 1rem;
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   z-index: 9999;
+}
+
+.toastOverflowBadge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #374151;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  padding: 0.2rem 0.65rem;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
 /* Base toast */
@@ -150,7 +170,8 @@
   background: rgba(255, 255, 255, 0.85);
   transform-origin: left;
   transform: scaleX(1);
-  animation: toast-progress-shrink var(--toast-progress-duration, 4000ms) linear forwards;
+  animation: toast-progress-shrink var(--toast-progress-duration, 4000ms) linear
+    forwards;
 }
 
 .toastProgressPaused {

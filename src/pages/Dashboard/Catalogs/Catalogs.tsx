@@ -381,7 +381,7 @@ export default function Catalogs() {
         <PageGate readPermission="catalogs.read">
         {() => (
         <section className={styles.container}>
-            <div className={styles.content}>
+            <div className={styles.content} data-view-mode={viewMode}>
                 {isLoading ? (
                     loadingState
                 ) : filteredCatalogs.length === 0 ? (

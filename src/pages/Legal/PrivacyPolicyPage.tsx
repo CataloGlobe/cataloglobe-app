@@ -341,12 +341,14 @@ export default function PrivacyPolicyPage() {
                         </tbody>
                     </table>
 
-                    <p><strong>Tecnologie di terze parti utilizzate sulla pagina pubblica</strong></p>
+                    <p><strong>Tecnologie di terze parti utilizzate</strong></p>
                     <ul>
                         <li>
-                            <strong>Google Fonts</strong> (<em>fonts.googleapis.com</em>): per il
-                            caricamento dei font web. Non installa cookie, ma genera richieste HTTP
-                            che includono il vostro indirizzo IP. Per maggiori informazioni:{' '}
+                            <strong>Google Fonts</strong> (<em>fonts.googleapis.com</em>): utilizzato per
+                            il caricamento di diverse famiglie di font Google Fonts, impiegate su tutte
+                            le pagine del sito e dell'applicazione (pagina pubblica del catalogo, sito
+                            di presentazione, area riservata). Non installa cookie, ma genera richieste
+                            HTTP che includono il vostro indirizzo IP. Per maggiori informazioni:{' '}
                             <a
                                 href="https://policies.google.com/privacy"
                                 target="_blank"

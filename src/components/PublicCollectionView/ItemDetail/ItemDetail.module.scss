@@ -107,6 +107,16 @@
     object-fit: cover;
 }
 
+/* Box 16:9 che ospita <FramedMedia> (immagine prodotto con framing reale).
+   FramedMedia posiziona l'<img> in absolute → serve relative + overflow hidden. */
+.imageFrame {
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    aspect-ratio: 16/9;
+    border-radius: var(--pub-radius, 12px);
+}
+
 .placeholderImage {
     display: flex;
     align-items: center;

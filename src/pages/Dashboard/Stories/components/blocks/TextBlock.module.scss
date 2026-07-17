@@ -1,0 +1,59 @@
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.toolBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm, 6px);
+  cursor: pointer;
+  color: color-mix(in srgb, var(--text) 62%, transparent);
+  transition: color 0.12s ease, background-color 0.12s ease;
+
+  &:hover:not(:disabled) {
+    color: var(--text);
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--brand-primary);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// Stato attivo: la selezione è dentro testo già formattato. Brand tenue +
+// icona brand — coerente con i toggle dell'editor, leggibile light/dark.
+.toolBtn.active {
+  color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+
+  &:hover:not(:disabled) {
+    color: var(--brand-primary);
+    background: var(--brand-primary-soft-hover);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toolBtn {
+    transition: none;
+  }
+}

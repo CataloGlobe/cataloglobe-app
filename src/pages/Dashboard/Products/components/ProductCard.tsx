@@ -44,7 +44,7 @@ export default function ProductCard({ product, metadata, onEdit, onDelete }: Pro
                 {product.image_url ? (
                     <FramedMedia
                         source={product.image_url}
-                        framing={PRODUCT_IMAGE_DEFAULT_FRAMING}
+                        framing={product.image_framing ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
                         aspectRatio={null}
                         alt={product.name}
                     />

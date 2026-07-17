@@ -2,25 +2,29 @@
 // il ritmo navbar→banda→contenuto deriva da `MainLayout .content` (24px),
 // identico a Catalogs.
 .wrapper {
-  // Catena flex vincolata (template Prodotti): propaga l'altezza bounded di
-  // `MainLayout .content` fino al `.autoSizeProbe` del DataTable (vista lista).
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
   gap: 24px;
   width: 100%;
-}
 
-// Anello intermedio (= `.content` di Prodotti): flex-col bounded che ospita
-// vista lista (DataTable, bare flex child → auto-size) o vista grid
-// (`.contentGrid`). Prima MANCAVA nello SCSS → `styles.tableCard` era
-// undefined → div senza classe (block) → catena rotta.
-.tableCard {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
+  // Catena flex vincolata (template Prodotti): propaga l'altezza bounded di
+  // `MainLayout .content` fino al `.autoSizeProbe` del DataTable. SOLO in
+  // list mode — in grid mode il bound si propagava a `.contentGrid` e ne
+  // schiacciava le card (flex-shrink + min-height:0 comprime la riga prima
+  // che CSS Grid le dia l'altezza naturale — vedi audit FASE 1).
+  &[data-view-mode="list"] {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    // Anello intermedio (= `.content` di Prodotti): flex-col bounded che
+    // ospita la vista lista (DataTable, bare flex child → auto-size).
+    .tableCard {
+      flex: 1 1 auto;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+    }
+  }
 }
 
 // CTA della header band: altezza armonizzata a search/toggle via --control-height.

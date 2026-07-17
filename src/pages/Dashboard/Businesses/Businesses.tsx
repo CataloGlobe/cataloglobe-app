@@ -1004,6 +1004,7 @@ export default function Businesses() {
         <section
           className={styles.businesses}
           aria-labelledby="businesses-title"
+          data-view-mode={activeTab === "groups" ? "list" : viewMode}
         >
           {activeTab === "activities" ? (
             <>

@@ -58,7 +58,7 @@ npm run test:watch   # vitest watch
 
 - `tenant_id` SOLO da `useTenantId()` o `useTenant().selectedTenantId`. **MAI** da `auth.user.id`.
 - OGNI write al DB include `tenant_id`. Nessun dato cross-tenant (eccezione: `allergens`).
-- RLS obbligatorio su ogni tabella tenant-scoped: `tenant_id = ANY(get_my_tenant_ids())`. Per scope activity-granulare usa `has_permission(permission_id, activity_id?)` — vedi `## Sistema permessi multi-sede`.
+- RLS obbligatorio su ogni tabella tenant-scoped: `tenant_id IN (SELECT get_my_tenant_ids())` (NON `= ANY(...)` — funzione set-returning). Per scope activity-granulare usa `has_permission(permission_id, activity_id?)` — vedi `## Sistema permessi multi-sede`.
 
 ---
 
@@ -162,6 +162,8 @@ Pattern per editing rapido. Sostituisce debounce manuale (`useRef<setTimeout>`) 
 
 Esempi in produzione: `SchedaTab` (6 sezioni prodotto), `ActivitySettingsTab`. Dettaglio + accordion single-open: `docs/patterns/draft-unsaved-bar.md`.
 
+**Variante page-level (prodotto)**: `ProductPage.tsx` solleva il draft Scheda a livello pagina (hook `useSchedaDraft`: `isDirty`/`isSavingAll`/`handleSaveAll`/`handleDiscardAll`) → il draft sopravvive al cambio tab. Azione Salva/Annulla **unica** nell'header via `HeaderSaveAction` (`src/pages/Dashboard/Stories/components/HeaderSaveAction.tsx`, condiviso con Stories), NON una `UnsavedChangesBar` per-sezione. I toggle binari restano save-immediato. Le sezioni allergeni/caratteristiche editano in drawer dedicati.
+
 ---
 
 ## Pagine custom
@@ -176,6 +178,8 @@ Esempi in produzione: `SchedaTab` (6 sezioni prodotto), `ActivitySettingsTab`. D
   - **Testing performance iOS**: solo su iPhone reale, sessione **incognito** — iOS Safari serve il bundle vecchio dalla cache con grande persistenza; un test post-deploy su tab normale misura quasi certamente codice stale. Playwright su Chrome desktop verifica assenza di regressioni, non presenza di un fix WebKit.
   - Listener di scroll su `window` (header lerp, section-tracking) vanno congelati a sheet aperto: `hasOpenSheet()` (`useScrollCollapse.ts`) + prop `frozen` su `PublicCollectionHeader` — il lock/unlock del body genera scroll event spuri (`position:fixed` azzera `scrollY`, il `scrollTo` al rilascio ne genera un altro) proprio nei frame critici dell'animazione.
 - **Style Editor** (`/business/:businessId/styles/:styleId`) — preview/runtime devono restare sincronizzati via `parseTokens()`. Dettaglio: `docs/patterns/style-editor.md`.
+- **Stories** (`/business/:businessId/stories/...`) — editor a blocchi (`StoryBlockEditor`, blocchi in `src/pages/Dashboard/Stories/components/blocks/`): tipi `heading`, `quote`, `list` (bullet/check), `image` (framing 3:2/4:5 via `StoryImageFramingDrawer` + stack framing condiviso), `text`, `video`. Metadati tipo in `blockTypeMeta.ts`; ogni nuovo blocco = type TS + component + entry meta + factory + voce menu. Body persistito come JSONB `stories.body_blocks[]`. Render pubblico via `resolve-public-story` (parallelo a `resolve-public-catalog`).
+  - **Emphasis inline ristretta** (`src/components/PublicCollectionView/StoryView/blocks/parseInlineEmphasis.ts`): riconosce SOLO `**bold**` e `*italic*` — no nesting, marker spaiati restano literal, longest-match (`**` prima di `*`). Emette nodi TS (`text`/`strong`/`em`), **MAI HTML** → React escapa il testo, nessun vettore XSS. La regex di strip-excerpt in `resolve-public-story/index.ts` DEVE rispecchiare le stesse regole (header `⚠️ SYNC` in `parseInlineEmphasis.ts`).
 
 ---
 
@@ -184,6 +188,8 @@ Esempi in produzione: `SchedaTab` (6 sezioni prodotto), `ActivitySettingsTab`. D
 Due `rule_type` su stesso modello `schedules`: `"catalog"` + `"featured"`. Resolver via **competizione** (1 sola regola vince per sede per tipo). Sistema bozze (`enabled=false` finché campi obbligatori mancanti). Periodo + giorni combinabili.
 
 Dettaglio rule resolver, sistema bozze, simulatore, schema tabelle: `docs/scheduling.md`.
+
+**Visibilità prodotti tri-state** (per sede, realtime): un prodotto/variante è `visible` / `hidden` / `unavailable`. Gli override sono applicati dal resolver cataloghi (`applyActivityVisibilityOverridesToCatalog` in `resolveActivityCatalogs.ts`, mirror FE + Edge `_shared/`). **Gotcha double-key** (bug fix `3349d7f6`): `filterEmptyCategories` DEVE ricevere le categorie **MAPPATE** (con override applicati), non `catalog.categories` originali — una seconda chiave `categories: catalog.categories` scarterebbe il mapping → override inerti. Presente in 2 punti del resolver.
 
 ---
 
@@ -264,6 +270,8 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 
 **`scheduleResolver.ts` esiste in DUE posti**: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
 
+**`priceSummary.ts` idem duplicato FE↔Edge** (header `⚠️ SYNC`): `src/utils/priceSummary.ts` ↔ `supabase/functions/_shared/priceSummary.ts`. `resolvePriceSummary` calcola solo i *fatti* sul prezzo sintetico di un gruppo → `{kind: none|single|multi, min, max, count}`. La *presentazione* ("da X" / range) vive SOLO lato FE in `src/utils/formatPriceSummary.ts` (l'edge Deno usa solo i fatti grezzi). Separazione voluta: la regola di sintesi cambia senza toccare il formatting.
+
 Catalogo completo, bug history (`purgeTenantData` ordine FK, `purgeActivityFolder` ricorsivo, `config.toml` entry obbligatoria, slash `/` nei commenti Deno) + 11 Edge Functions epic ordering → `docs/edge-functions.md`.
 
 **`resolve-table` + `get-orders-for-session`**: post-migration `table_zones` (γ-lite), entrambe fanno JOIN `tables → table_zones` e mappano `zone_data.name → zone` (alias backward-compat) nel payload customer. Customer storage (`localStorage tableZone`) + `ResolveTableResult.table.zone` invariati. Refactor effettuato nella stessa migration di `table_zones` per evitare runtime errors (SELECT su colonna droppata).
@@ -313,6 +321,9 @@ Customer stepper (`OrderStatusStepper.tsx`): 4 step (Inviato → In cucina → P
 ## UI
 
 - Componenti in `src/components/ui/` — verificare PRIMA di crearne di nuovi. Catalogo dettagliato: `docs/patterns/ui-components.md` (`AddressAutocomplete`, `FeesSection`, `StatusBadge`, `UnsavedChangesBar`, `EmptyState`, `TranslationsTab`).
+- **`SectionCard`** (`src/components/ui/SectionCard/`) — container sezione unificato adottato su tutti i tab della pagina prodotto (Scheda, Prezzi/Opzioni). Anatomia: titolo (mai `text-transform: uppercase`) + badge/subtitle opzionali + 0–2 action `sm` (mai 2 primary) + body. Variante `flush` toglie il padding orizzontale (righe tabella, collapsible). Layout demandato alla pagina; non annidare card section-like.
+- **`Logo`** (`src/components/ui/Logo/`) — unico entry per il brand mark (header, auth, landing, status). `color="auto"` sceglie mono-dark (tema light) / mono-white (tema dark). Sostituisce i markup logo sparsi; non reintrodurre `<img>` logo inline.
+- **Framing immagini — stack condiviso** (maturo, usato da Featured + Storie): `ImageReframeEditor` (`src/components/ui/ImageReframeEditor/`) editor pan/zoom/fit/background, parametrico via prop `aspectRatio` (default 16/9); `reframeGeometry.ts` motore geometrico **puro** (no DOM, no canvas); `FramedMedia` (`src/components/ui/FramedMedia/`) renderer pubblico CSS-only SSR-safe che riapplica il framing salvato (path legacy cover a zoom≈1, path parametrico a zoom≠1 — richiede il ratio naturale); tipo `MediaFraming` (`{focalX, focalY, zoom, fillMode, fillColor}`) in `ImageReframeEditor/types.ts`; compressione centralizzata `src/utils/compressImage.ts` (`COMPRESS_PROFILES`: cover/product/logo/avatar/featured/story). L'editor è agnostico rispetto allo storage del framing (Featured usa colonne DB dedicate, Storie JSONB) e ritorna `MediaFraming` al caller. Audit completo dei 7 punti di upload: `docs/audit-image-upload.md`.
 - Lingua: **italiano** ovunque. Tenant→"Azienda", Activity→"Sede", `owner_user_id`→mai in UI.
 - **Stato attività**: UI usa sempre "**Pubblicata**" / "**Sospesa**" (mai "Attiva"/"Inattiva"). DB values restano `status: "active" | "inactive"`. Motivi sospensione mappati centralmente in `src/utils/activityStatus.ts` (`formatInactiveReason` + `INACTIVE_REASON_LABEL`).
 - SCSS Modules (`.module.scss`). Tema: `src/styles/_theme.scss`.
@@ -327,7 +338,7 @@ Customer stepper (`OrderStatusStepper.tsx`): 4 step (Inviato → In cucina → P
 
 Tech-debt e refactor differiti. Non bloccanti per il task corrente; da valutare durante refactor mirati o cicli di consolidamento.
 
-- **DropdownMenu custom vs TableRowActions** — coesistono due implementazioni di menu a tendina. `TableRowActions` (Radix-based) usato in 22 DataTable kebab. `DropdownMenu` custom (`src/components/ui/DropdownMenu/`, scritto a mano con framer-motion + useState/useRef/createPortal) usato in 4 call site non-tabella: `HeaderUserMenu`, `HeaderNotifications`, `ActivitySettingsTab`, `Programming.tsx` (bulk action). Refactor proposto: migrare i 4 call site a Radix DropdownMenu (stessa libreria di TableRowActions) ed eliminare `DropdownMenu` custom. Non urgente — funziona oggi. Vantaggio: una sola libreria menu, codice meno custom, manutenzione singola.
+- **Framing immagine prodotto (FASE 8b)** — WIP nel working tree (NON committato): migration `20260716120000_add_product_image_framing.sql` (colonne `image_framing jsonb` + `image_aspect_ratio real` su `products`), wrapper `ImageUploadEditor` (`src/components/ui/ImageUploadEditor/`, compone dropzone + `compressImage` + `ImageReframeEditor`; approccio **metadata NON-baked** perché l'immagine prodotto rende a 1:1/4:3/16:9 dallo stesso file), default read `PRODUCT_IMAGE_DEFAULT_FRAMING` (center/cover/blur) quando NULL. Propagazione end-to-end ancora in corso: write path (`ProductForm`/`useSchedaDraft`/`products.ts`) → `CATALOG_SELECT` + tipi `ResolvedProduct/Variant` nei 2 file gemelli resolver → render `FramedMedia` per-contesto (`ProductRow` List+Grid, `ItemDetail`, `ProductCard(+Variant)`). Audit: `docs/audit-image-upload-prodotto.md`. Richiede Playwright su 4 combinazioni card + ItemDetail (regressione sui 24 prodotti con `image_url` esistenti) prima del merge. Consolidare in CLAUDE.md solo dopo il commit.
 - **`leave_tenant` RPC rewrite** — vecchia firma `(p_tenant_id)`, no manager scope, no allineamento a `remove_tenant_member` v2. Low priority.
 - **Realtime sync su `tenant_memberships`** — cambio ruolo runtime richiede refresh manuale (`usePermissions().refresh()`). Eventuale switch a Supabase Realtime channel per propagation automatica.
 - **Sidebar loading-optimistic** — oggi `permissions===null` mostra tutte le voci (transitorio). Visivo flash su utenti scoped. Alternativa: skeleton durante load.
@@ -414,7 +425,7 @@ Per query su librerie/SDK del progetto (React 19, Vite 7, Framer Motion v12, Sup
 
 ### MCP — playwright
 
-Obbligatorio per modifiche a: `src/components/PublicCollectionView/`, `src/pages/Stili/StyleEditor/`, `scheduleResolver.ts` / `schedulingNow.ts`.
+Obbligatorio per modifiche a: `src/components/PublicCollectionView/`, `src/pages/Dashboard/Styles/Editor/`, `scheduleResolver.ts` / `schedulingNow.ts`.
 
 ### Slash commands matched-with-rules
 
@@ -439,7 +450,7 @@ NON modificare automaticamente: `CLAUDE.md` (root + `docs/`), `MEMORY.md`, file 
 
 **Scheduling**: `end_at` come mezzanotte UTC (usare `T23:59:59` locale) | disabilitare giorni della settimana se periodo attivo (sono combinabili) | slot `hero` nei featured (rimosso)
 
-**Pattern**: `null` da `list*` | `useEffect` senza `useCallback` | omettere toast nei catch | no reload dopo CRUD success | form con logica drawer | modificare scheduleResolver in un solo posto
+**Pattern**: `null` da `list*` | `useEffect` senza `useCallback` | omettere toast nei catch | no reload dopo CRUD success | form con logica drawer | modificare scheduleResolver in un solo posto | modificare `priceSummary.ts` in un solo posto (sync FE↔Edge) | passare categorie NON mappate a `filterEmptyCategories` nel resolver visibilità (double-key → override inerti) | reintrodurre `<img>` logo inline invece del componente `Logo` | HTML/nesting nel parser emphasis Storie (solo `**`/`*`, nodi TS) | `text-transform: uppercase` sul titolo `SectionCard`
 
 **Permessi**: usare `userRole` da `TenantContext` per gating (NULL per manager/staff/viewer) | usare API legacy (`Role` enum, `canManage`, `isOwner(string)`, `isAdmin`, `isMember` — eliminate Fase 5.C.C) | bypassare i gating frontend (`canChangeRoleOf`, `canRemoveMember`, `canInviteRole`) chiamando direttamente la RPC senza pre-check | montare `PermissionsProvider` fuori da `/business/:businessId/*` | usare `usePermissions()` in componenti workspace (`/workspace/*`, `/select-business`) — usa `workspaceRole` helpers | INSERT manuale `tenant_memberships.role='owner'` (constraint post-Fase 5.B.2 ammette solo NULL\|'admin')
 

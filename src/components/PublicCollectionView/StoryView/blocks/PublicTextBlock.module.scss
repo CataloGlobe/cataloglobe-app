@@ -7,6 +7,17 @@
   white-space: pre-wrap;
 }
 
+// Enfasi inline ristretta: SOLO peso (grassetto) e corsivo, colore invariato
+// (--pub-text). 600 = peso di enfasi semibold già usato nei blocchi pubblici
+// (vedi PublicQuoteBlock .cite), più morbido del bold 700 di default del browser.
+.text strong {
+  font-weight: 600;
+}
+
+.text em {
+  font-style: italic;
+}
+
 // Sommario editoriale: solo il primo blocco testo. Corpo maggiore del normale
 // (17/16 vs 15) → segnala "apre il pezzo", non didascalia del titolo. Gerarchia
 // 34 (titolo) → 20 (h2) → 17 (sommario) → 15 (testo).

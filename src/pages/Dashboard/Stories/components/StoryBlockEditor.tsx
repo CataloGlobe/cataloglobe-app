@@ -19,11 +19,13 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
 import { StoryBlock, MAX_STORY_IMAGES } from "@/services/supabase/stories";
 import { AddBlockMenu } from "./AddBlockMenu";
+import { BLOCK_TYPE_META } from "./blocks/blockTypeMeta";
 import { TextBlock } from "./blocks/TextBlock";
 import { ImageBlock } from "./blocks/ImageBlock";
 import { VideoBlock } from "./blocks/VideoBlock";
 import { HeadingBlock } from "./blocks/HeadingBlock";
 import { QuoteBlock } from "./blocks/QuoteBlock";
+import { ListBlock } from "./blocks/ListBlock";
 import styles from "./StoryBlockEditor.module.scss";
 
 interface StoryBlockEditorProps {
@@ -63,21 +65,36 @@ function BlockRow({
     rowRef,
     dragHandleProps
 }: BlockRowProps) {
-    return (
-        <div ref={rowRef} className={styles.block}>
-            <button
-                type="button"
-                aria-label="Trascina per riordinare"
-                className={styles.dragHandle}
-                {...(dragHandleProps as React.HTMLAttributes<HTMLButtonElement>)}
-            >
-                <GripVertical size={16} />
-            </button>
+    const meta = BLOCK_TYPE_META[block.type];
+    const TypeIcon = meta.icon;
 
-            <div className={styles.blockBody} data-block-body>
+    return (
+        <div ref={rowRef} className={styles.card}>
+            <div className={styles.cardHeader}>
+                <button
+                    type="button"
+                    aria-label="Trascina per riordinare"
+                    className={styles.dragHandle}
+                    {...(dragHandleProps as React.HTMLAttributes<HTMLButtonElement>)}
+                >
+                    <GripVertical size={16} />
+                </button>
+                <span className={styles.typeIcon} aria-hidden="true">
+                    <TypeIcon size={15} />
+                </span>
+                <span className={styles.typeLabel}>{meta.label}</span>
+                {!disabled && (
+                    <button type="button" aria-label="Elimina blocco" className={styles.removeBtn} onClick={onRemove}>
+                        <Trash2 size={16} />
+                    </button>
+                )}
+            </div>
+
+            <div className={styles.cardBody} data-block-body>
                 {block.type === "text" && <TextBlock block={block} onChange={onUpdate} disabled={disabled} />}
                 {block.type === "heading" && <HeadingBlock block={block} onChange={onUpdate} disabled={disabled} />}
                 {block.type === "quote" && <QuoteBlock block={block} onChange={onUpdate} disabled={disabled} />}
+                {block.type === "list" && <ListBlock block={block} onChange={onUpdate} disabled={disabled} />}
                 {block.type === "image" && (
                     <ImageBlock
                         block={block}
@@ -89,12 +106,6 @@ function BlockRow({
                 )}
                 {block.type === "video" && <VideoBlock block={block} onChange={onUpdate} disabled={disabled} />}
             </div>
-
-            {!disabled && (
-                <button type="button" aria-label="Elimina blocco" className={styles.removeBtn} onClick={onRemove}>
-                    <Trash2 size={16} />
-                </button>
-            )}
         </div>
     );
 }

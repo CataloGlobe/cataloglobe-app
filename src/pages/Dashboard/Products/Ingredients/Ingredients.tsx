@@ -3,7 +3,6 @@ import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/Data
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { IconLeaf } from "@tabler/icons-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
@@ -15,19 +14,20 @@ import styles from "./Ingredients.module.scss";
 
 type IngredientsProps = {
     createTrigger?: number;
+    searchQuery: string;
+    onSearchQueryChange: (value: string) => void;
 };
 
 const formatDate = (iso: string): string =>
     new Intl.DateTimeFormat("it-IT", { dateStyle: "medium" }).format(new Date(iso));
 
-export function Ingredients({ createTrigger }: IngredientsProps) {
+export function Ingredients({ createTrigger, searchQuery }: IngredientsProps) {
     const tenantId = useTenantId();
     const { showToast } = useToast();
     const { canEdit } = useSubscriptionGuard();
 
     const [isLoading, setIsLoading] = useState(true);
     const [ingredients, setIngredients] = useState<V2Ingredient[]>([]);
-    const [searchQuery, setSearchQuery] = useState("");
 
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
     const [editMode, setEditMode] = useState<"create" | "edit">("create");
@@ -164,20 +164,6 @@ export function Ingredients({ createTrigger }: IngredientsProps) {
 
     return (
         <div className={styles.root}>
-            <Text variant="body-sm" colorVariant="muted" className={styles.intro}>
-                Gli ingredienti vengono associati ai prodotti per descriverne la composizione.
-            </Text>
-
-            <div className={styles.filterRow}>
-                <FilterBar
-                    search={{
-                        value: searchQuery,
-                        onChange: setSearchQuery,
-                        placeholder: "Cerca ingrediente..."
-                    }}
-                />
-            </div>
-
             <DataTable<V2Ingredient>
                 data={filteredIngredients}
                 allRowIds={allIngredientIds}

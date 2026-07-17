@@ -1,3 +1,5 @@
+import type { MediaFraming } from "@components/ui/ImageReframeEditor/types";
+
 export type ResolvedVariantDimValue = {
     value_id: string;
     value_label: string;
@@ -111,6 +113,8 @@ export type ResolvedVariant = {
     from_price?: number;
     optionGroups?: ResolvedOptionGroup[];
     image_url?: string;
+    image_framing?: MediaFraming;
+    image_aspect_ratio?: number;
     description?: string;
     attributes?: ResolvedProductAttribute[];
     allergens?: ResolvedAllergen[];
@@ -137,6 +141,8 @@ export type ResolvedProduct = {
     ingredients?: ResolvedIngredient[];
     notes?: ResolvedProductNote[];
     image_url?: string;
+    image_framing?: MediaFraming;
+    image_aspect_ratio?: number;
     variants?: ResolvedVariant[];
     optionGroups?: ResolvedOptionGroup[];
     /** "simple" | "formats" | "configurable" */
