@@ -58,7 +58,7 @@ npm run test:watch   # vitest watch
 
 - `tenant_id` SOLO da `useTenantId()` o `useTenant().selectedTenantId`. **MAI** da `auth.user.id`.
 - OGNI write al DB include `tenant_id`. Nessun dato cross-tenant (eccezione: `allergens`).
-- RLS obbligatorio su ogni tabella tenant-scoped: `tenant_id = ANY(get_my_tenant_ids())`. Per scope activity-granulare usa `has_permission(permission_id, activity_id?)` — vedi `## Sistema permessi multi-sede`.
+- RLS obbligatorio su ogni tabella tenant-scoped: `tenant_id IN (SELECT get_my_tenant_ids())` (NON `= ANY(...)` — funzione set-returning). Per scope activity-granulare usa `has_permission(permission_id, activity_id?)` — vedi `## Sistema permessi multi-sede`.
 
 ---
 
