@@ -9,7 +9,11 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button } from "@/components/ui/Button/Button";
-import { FileInput } from "@/components/ui/Input/FileInput";
+import {
+    ImageUploadEditor,
+    IMAGE_UPLOAD_PRESETS,
+    type ImageUploadEditorResult
+} from "@/components/ui/ImageUploadEditor";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
 import {
@@ -19,7 +23,6 @@ import {
     updateTenantName,
     uploadTenantLogo
 } from "@/services/supabase/tenants";
-import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { TENANT_KEY } from "@/constants/storageKeys";
 import { SUBTYPE_LABELS, DEFAULT_SUBTYPE } from "@/constants/verticalTypes";
 import styles from "./BusinessSettingsPage.module.scss";
@@ -35,8 +38,6 @@ export default function BusinessSettingsPage() {
     const [saving, setSaving] = useState(false);
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
-    const [logoFile, setLogoFile] = useState<File | null>(null);
-    const [logoPreview, setLogoPreview] = useState<string | null>(null);
     const [isSavingLogo, setIsSavingLogo] = useState(false);
 
     useEffect(() => {
@@ -69,24 +70,17 @@ export default function BusinessSettingsPage() {
         }
     };
 
-    const handleLogoFileChange = (file: File | null) => {
-        setLogoFile(file);
-        if (file) {
-            setLogoPreview(URL.createObjectURL(file));
-        } else {
-            setLogoPreview(null);
-        }
-    };
-
-    const handleSaveLogo = async () => {
-        if (!selectedTenant || !logoFile) return;
+    // Riceve dal wrapper l'immagine GIÀ ritagliata (baked, quadrata): carica quel
+    // singolo file col servizio esistente. Nessun framing metadata persistito,
+    // nessuna nuova colonna DB — tutti i consumer (sidebar, card, pagina pubblica)
+    // si aspettano un logo pre-croppato, invariato.
+    const handleLogoConfirm = async ({ file }: ImageUploadEditorResult) => {
+        if (!selectedTenant || !file) return;
         setIsSavingLogo(true);
         try {
-            const path = await uploadTenantLogo(selectedTenant.id, await compressImage(logoFile, COMPRESS_PROFILES.logo));
+            const path = await uploadTenantLogo(selectedTenant.id, file);
             await updateTenantLogoUrl(selectedTenant.id, path);
             await refreshTenants();
-            setLogoFile(null);
-            setLogoPreview(null);
             showToast({ message: "Logo aggiornato.", type: "success" });
         } catch (err) {
             const message = err instanceof Error ? err.message : "Errore durante il salvataggio. Riprova.";
@@ -184,24 +178,28 @@ export default function BusinessSettingsPage() {
                         Identità visiva
                     </Text>
 
-                    {(logoPreview ?? selectedTenant?.logo_url) && (
-                        <img
-                            src={logoPreview ?? getTenantLogoPublicUrl(selectedTenant!.logo_url!)}
-                            alt="Logo attività"
-                            className={styles.logoPreview}
-                        />
-                    )}
+                    <Text variant="body-sm" colorVariant="muted">
+                        Logo attività — PNG, JPG o WEBP. Inquadra e ritaglia in formato
+                        quadrato prima di salvare.
+                    </Text>
 
-                    <FileInput
-                        label="Logo attività"
-                        accept="image/png,image/jpeg,image/webp"
-                        helperText="PNG, JPG o WEBP, max 5MB."
-                        maxSizeMb={5}
-                        onChange={handleLogoFileChange}
+                    <ImageUploadEditor
+                        aspectRatio={IMAGE_UPLOAD_PRESETS.logo.aspectRatio}
+                        backgroundFillModes={IMAGE_UPLOAD_PRESETS.logo.backgroundFillModes}
+                        maxSizeMB={IMAGE_UPLOAD_PRESETS.logo.maxSizeMB}
+                        compressLongEdge={IMAGE_UPLOAD_PRESETS.logo.compressLongEdge}
+                        bake={{ size: 512, format: "image/webp", quality: 0.9, fileName: "logo.webp" }}
+                        initialSource={
+                            selectedTenant.logo_url
+                                ? getTenantLogoPublicUrl(selectedTenant.logo_url)
+                                : null
+                        }
+                        initialAspectRatio={1}
+                        onConfirm={handleLogoConfirm}
                     />
 
-                    <div className={styles.sectionFooter}>
-                        {selectedTenant?.logo_url && !logoFile && (
+                    {selectedTenant.logo_url && (
+                        <div className={styles.sectionFooter}>
                             <Button
                                 variant="danger"
                                 onClick={handleRemoveLogo}
@@ -209,17 +207,8 @@ export default function BusinessSettingsPage() {
                             >
                                 {isSavingLogo ? "Rimozione..." : "Rimuovi logo"}
                             </Button>
-                        )}
-                        {logoFile && (
-                            <Button
-                                variant="primary"
-                                onClick={handleSaveLogo}
-                                disabled={isSavingLogo}
-                            >
-                                {isSavingLogo ? "Salvataggio..." : "Salva logo"}
-                            </Button>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
             )}
 
