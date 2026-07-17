@@ -47,6 +47,36 @@
   gap: 12px;
 }
 
+// Copertina storia: link "Rimuovi" defilato (distruttivo/raro) sotto l'editor.
+.coverRemoveBtn {
+  align-self: flex-start;
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-danger, #dc2626);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
+  }
+}
+
+// Anteprima copertina read-only (utenti senza permesso di scrittura).
+.coverReadonlyPreview {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: 12px;
+  border: 1px solid var(--border-subtle, #e5e7eb);
+}
+
 // Header pagina: [SegmentedControl stato] | [HeaderSaveAction].
 .headerActions {
   display: flex;
