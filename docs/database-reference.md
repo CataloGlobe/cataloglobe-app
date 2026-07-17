@@ -8,7 +8,7 @@ Riferimento schema. Per regole binding (RLS, naming, migration discipline) vedi 
 - `activities` — sedi (slug, status, inactive_reason, cover_image rimovibile, contatti, social, street_number, postal_code, province — indirizzo strutturato; `fees` JSONB tariffe predefinite con flag `fees_public`)
 - `activity_slug_aliases` — alias slug storici per redirect (slug UNIQUE globale, ON DELETE CASCADE da activities)
 - `schedules` — regole scheduling (rule_type: "catalog" | "featured")
-- `schedule_targets` — target N:N (no RLS — security gap noto)
+- `schedule_targets` — target N:N (RLS attivo, no `tenant_id` by design — dettaglio sotto)
 - `schedule_featured_contents` — contenuti in evidenza per slot
 - `featured_contents` — contenuti highlight (titolo, media, prodotti, pricing_mode)
 - `catalogs`, `catalog_categories`, `catalog_category_products` — catalogo
