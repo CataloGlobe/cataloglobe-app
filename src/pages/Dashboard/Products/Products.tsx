@@ -59,7 +59,8 @@ const EMPTY_PRODUCT_METADATA: ProductListMetadata = {
     configurationsCount: 0,
     catalogsCount: 0,
     fromPrice: null,
-    toPrice: null
+    toPrice: null,
+    pricedFormatsCount: 0
 };
 
 const formatCurrency = (value: number) => `${value.toFixed(2)} €`;
@@ -468,7 +469,7 @@ export default function Products() {
                     const variantMeta = productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA;
                     // Variant has formats
                     if (variantMeta.formatsCount > 0 && variantMeta.fromPrice !== null) {
-                        return variantMeta.formatsCount > 1 ? (
+                        return variantMeta.pricedFormatsCount > 1 ? (
                             <Text variant="body-sm">da {formatCurrency(variantMeta.fromPrice)}</Text>
                         ) : (
                             <Text variant="body-sm">{formatCurrency(variantMeta.fromPrice)}</Text>
@@ -494,14 +495,14 @@ export default function Products() {
 
                 // Base product
                 const meta = productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA;
-                if (meta.formatsCount > 1) {
+                if (meta.pricedFormatsCount > 1) {
                     return meta.fromPrice !== null ? (
                         <Text variant="body-sm">da {formatCurrency(meta.fromPrice)}</Text>
                     ) : (
                         <Text variant="body-sm" colorVariant="muted">—</Text>
                     );
                 }
-                if (meta.formatsCount === 1 && meta.fromPrice !== null) {
+                if (meta.pricedFormatsCount === 1 && meta.fromPrice !== null) {
                     return <Text variant="body-sm">{formatCurrency(meta.fromPrice)}</Text>;
                 }
                 return row.product.base_price !== null ? (

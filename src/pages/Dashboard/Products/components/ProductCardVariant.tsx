@@ -18,10 +18,10 @@ function formatVariantPrice(
     metadata: ProductListMetadata,
     parentPrice?: string | null
 ): string | null {
-    if (metadata.formatsCount > 1 && metadata.fromPrice !== null) {
+    if (metadata.pricedFormatsCount > 1 && metadata.fromPrice !== null) {
         return `da ${metadata.fromPrice.toFixed(2)} €`;
     }
-    if (metadata.formatsCount === 1 && metadata.fromPrice !== null) {
+    if (metadata.pricedFormatsCount === 1 && metadata.fromPrice !== null) {
         return `${metadata.fromPrice.toFixed(2)} €`;
     }
     if (variant.base_price !== null) {

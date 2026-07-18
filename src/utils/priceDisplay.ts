@@ -1,3 +1,5 @@
+import { resolvePriceSummary } from "@/utils/priceSummary";
+
 /**
  * Unified product price display utility.
  *
@@ -34,20 +36,19 @@ export function getDisplayPrice(product: PriceInput): PriceDisplayResult {
     }
 
     // 2. Compute from PRIMARY_PRICE option groups when available
-    const prices: number[] = [];
+    const prices: Array<number | null | undefined> = [];
     for (const group of product.option_groups ?? []) {
         if (group.group_kind !== "PRIMARY_PRICE") continue;
         for (const v of group.values ?? []) {
-            if (typeof v.absolute_price === "number") {
-                prices.push(v.absolute_price);
-            }
+            prices.push(v.absolute_price);
         }
     }
-    if (prices.length === 1) {
-        return { label: `€${prices[0].toFixed(2)}`, type: "single" };
+    const summary = resolvePriceSummary(prices);
+    if (summary.kind === "single" && summary.min !== null) {
+        return { label: `€${summary.min.toFixed(2)}`, type: "single" };
     }
-    if (prices.length > 1) {
-        return { label: `da €${Math.min(...prices).toFixed(2)}`, type: "multiple" };
+    if (summary.kind === "multi" && summary.min !== null) {
+        return { label: `da €${summary.min.toFixed(2)}`, type: "multiple" };
     }
 
     // 3. Single base price
