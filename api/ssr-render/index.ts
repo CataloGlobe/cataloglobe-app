@@ -5,8 +5,9 @@ import { pathToFileURL } from "node:url";
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 import {
-    getRedis,
     makeSnapshotKey,
+    redisGetSnapshot,
+    redisSetSnapshot,
     SNAPSHOT_SCHEMA_VERSION,
     SNAPSHOT_TTL_SECONDS
 } from "../_lib/redis.js";
@@ -157,23 +158,14 @@ async function fetchPayload(
         const payload = edgeResult.payload;
         if (isHealthyPayload(payload)) {
             // Best-effort, identico a api/public-catalog: il fallimento
-            // Redis non blocca la risposta live.
-            try {
-                const snapshot: Snapshot = {
-                    schemaVersion: SNAPSHOT_SCHEMA_VERSION,
-                    savedAt: new Date().toISOString(),
-                    payload
-                };
-                await getRedis().set(snapshotKey, snapshot, { ex: SNAPSHOT_TTL_SECONDS });
-            } catch (err) {
-                console.error(
-                    JSON.stringify({
-                        event: "ssr_render_redis_write_failed",
-                        slug,
-                        error: err instanceof Error ? err.message : String(err)
-                    })
-                );
-            }
+            // Redis non blocca la risposta live. Timeout + fail-open (no-op su
+            // errore, log `redis_timeout`) centralizzati in redisSetSnapshot.
+            const snapshot: Snapshot = {
+                schemaVersion: SNAPSHOT_SCHEMA_VERSION,
+                savedAt: new Date().toISOString(),
+                payload
+            };
+            await redisSetSnapshot(snapshotKey, snapshot, SNAPSHOT_TTL_SECONDS);
         }
         return { payload, source: "live" };
     }
@@ -182,25 +174,16 @@ async function fetchPayload(
         return { error: `domain_${edgeResult.status}` };
     }
 
-    // network_error → fallback snapshot Redis
-    try {
-        const cached = await getRedis().get<Snapshot>(snapshotKey);
-        if (
-            cached &&
-            typeof cached === "object" &&
-            cached.schemaVersion === SNAPSHOT_SCHEMA_VERSION &&
-            cached.payload
-        ) {
-            return { payload: cached.payload, source: "stale" };
-        }
-    } catch (err) {
-        console.error(
-            JSON.stringify({
-                event: "ssr_render_redis_read_failed",
-                slug,
-                error: err instanceof Error ? err.message : String(err)
-            })
-        );
+    // network_error → fallback snapshot Redis. Timeout + fail-open (→ null,
+    // trattato come miss) centralizzati in redisGetSnapshot (log `redis_timeout`).
+    const cached = await redisGetSnapshot<Snapshot>(snapshotKey);
+    if (
+        cached &&
+        typeof cached === "object" &&
+        cached.schemaVersion === SNAPSHOT_SCHEMA_VERSION &&
+        cached.payload
+    ) {
+        return { payload: cached.payload, source: "stale" };
     }
     return { error: "network_no_snapshot" };
 }
