@@ -58,7 +58,8 @@ const EMPTY_PRODUCT_METADATA: ProductListMetadata = {
     formatsCount: 0,
     configurationsCount: 0,
     catalogsCount: 0,
-    fromPrice: null
+    fromPrice: null,
+    toPrice: null
 };
 
 const formatCurrency = (value: number) => `${value.toFixed(2)} €`;

@@ -100,6 +100,8 @@ export type ProductListMetadata = {
     configurationsCount: number;
     catalogsCount: number;
     fromPrice: number | null;
+    /** Prezzo massimo tra i formati — non ancora mostrato in lista (fondamenta per una futura sintesi a range). */
+    toPrice: number | null;
 };
 
 type ProductOptionGroupListRow = {
@@ -130,7 +132,8 @@ export async function getProductListMetadata(
             formatsCount: 0,
             configurationsCount: 0,
             catalogsCount: 0,
-            fromPrice: null
+            fromPrice: null,
+            toPrice: null
         };
     }
 
@@ -193,6 +196,15 @@ export async function getProductListMetadata(
                     meta.fromPrice === null
                         ? value.absolute_price
                         : Math.min(meta.fromPrice, value.absolute_price);
+                // Non migrato a resolvePriceSummary: qui è una riduzione in
+                // streaming riga per riga da una query DB, non un array di
+                // valori già in memoria — servirebbe raccogliere prima tutti
+                // i prezzi per prodotto. Math.max locale, stesso pattern del
+                // Math.min già presente. Step 3.
+                meta.toPrice =
+                    meta.toPrice === null
+                        ? value.absolute_price
+                        : Math.max(meta.toPrice, value.absolute_price);
             }
         }
     }

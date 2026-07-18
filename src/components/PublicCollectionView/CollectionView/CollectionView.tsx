@@ -129,6 +129,8 @@ export type CollectionViewSectionItem = {
     original_price?: number | null;
     /** Min format price. When set, show "da X€" on card. */
     from_price?: number | null;
+    /** Max format price — always set alongside `from_price`. Not shown anywhere yet (foundation for a future range synthesis). */
+    to_price?: number | null;
     image?: string | null;
     /** Reframe metadata immagine. Assente = default center/cover/blur. */
     image_framing?: MediaFraming | null;
@@ -163,6 +165,7 @@ export type CollectionViewSectionItem = {
         price?: number;
         original_price?: number;
         from_price?: number;
+        to_price?: number;
         image?: string;
         image_framing?: MediaFraming | null;
         image_aspect_ratio?: number | null;
@@ -204,12 +207,14 @@ export type CollectionViewSectionGroup = {
 // Handles both parent products and variants identically.
 
 type DisplayPrice =
-    | { type: "from"; price: number; originalPrice?: number }
+    | { type: "from"; price: number; originalPrice?: number; toPrice?: number }
     | { type: "single"; price: number; originalPrice?: number }
     | { type: "none" };
 
 function getDisplayPrice(opts: {
     fromPrice?: number | null;
+    /** Sempre presente insieme a fromPrice — non ancora mostrato (fondamenta per una futura sintesi a range). */
+    toPrice?: number | null;
     price?: number | null;
     effectivePrice?: number | null;
     originalPrice?: number | null;
@@ -218,7 +223,8 @@ function getDisplayPrice(opts: {
         return {
             type: "from",
             price: opts.fromPrice,
-            ...(opts.originalPrice != null ? { originalPrice: opts.originalPrice } : {})
+            ...(opts.originalPrice != null ? { originalPrice: opts.originalPrice } : {}),
+            ...(opts.toPrice != null ? { toPrice: opts.toPrice } : {})
         };
     }
     const single = opts.effectivePrice ?? opts.price;
@@ -247,6 +253,7 @@ function buildVariantItem(
         price: variant.price ?? null,
         original_price: variant.original_price ?? null,
         from_price: variant.from_price ?? null,
+        to_price: variant.to_price ?? null,
         image: variant.image ?? null,
         description: variant.description ?? null,
         ...(variant.optionGroups && variant.optionGroups.length > 0
@@ -299,6 +306,7 @@ function ProductRowInner({
     const {
         name,
         from_price: fromPrice,
+        to_price: toPrice,
         price,
         effective_price: effectivePrice,
         original_price: originalPrice,
@@ -321,7 +329,7 @@ function ProductRowInner({
         0,
         cardCharacteristics.length - MAX_CHARACTERISTIC_EMOJIS
     );
-    const dp = getDisplayPrice({ fromPrice, price, effectivePrice, originalPrice });
+    const dp = getDisplayPrice({ fromPrice, toPrice, price, effectivePrice, originalPrice });
 
     const handleRootClick = () => onClick(item);
     const handleAddBtnClick = (e: React.MouseEvent) => {
@@ -511,6 +519,7 @@ function ProductCompactRowInner({
     const {
         name,
         from_price: fromPrice,
+        to_price: toPrice,
         price,
         effective_price: effectivePrice,
         original_price: originalPrice,
@@ -531,7 +540,7 @@ function ProductCompactRowInner({
         0,
         cardCharacteristics.length - MAX_CHARACTERISTIC_EMOJIS
     );
-    const dp = getDisplayPrice({ fromPrice, price, effectivePrice, originalPrice });
+    const dp = getDisplayPrice({ fromPrice, toPrice, price, effectivePrice, originalPrice });
 
     const handleRootClick = () => onClick(item);
     const handleAddBtnClick = (e: React.MouseEvent) => {
@@ -1483,6 +1492,7 @@ export default function CollectionView({
                                 price: variant.price ?? null,
                                 original_price: variant.original_price ?? null,
                                 from_price: variant.from_price ?? null,
+                                to_price: variant.to_price ?? null,
                                 image: variant.image ?? null,
                                 description: variant.description ?? null,
                                 ...(variant.optionGroups?.length ? { optionGroups: variant.optionGroups } : {}),

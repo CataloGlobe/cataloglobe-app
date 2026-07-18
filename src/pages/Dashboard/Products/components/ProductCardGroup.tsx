@@ -8,6 +8,7 @@ const EMPTY_METADATA: ProductListMetadata = {
     configurationsCount: 0,
     catalogsCount: 0,
     fromPrice: null,
+    toPrice: null,
 };
 
 type Props = {

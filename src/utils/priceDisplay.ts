@@ -19,6 +19,8 @@ type PriceInput = {
     base_price?: number | null;
     /** Pre-computed minimum format price (takes precedence over option_groups). */
     from_price?: number | null;
+    /** Pre-computed maximum format price — non ancora consumato da getDisplayPrice (fondamenta per una futura sintesi a range). */
+    to_price?: number | null;
     option_groups?: Array<{
         group_kind: string;
         values?: Array<{ absolute_price?: number | null }> | null;

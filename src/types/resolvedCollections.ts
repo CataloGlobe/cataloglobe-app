@@ -111,6 +111,8 @@ export type ResolvedVariant = {
     original_price?: number;
     /** Min absolute_price across PRIMARY_PRICE formats. Set when variant has formats instead of a single base_price. */
     from_price?: number;
+    /** Max absolute_price across PRIMARY_PRICE formats — always set alongside `from_price`. Not shown anywhere yet (foundation for a future range synthesis). */
+    to_price?: number;
     optionGroups?: ResolvedOptionGroup[];
     image_url?: string;
     image_framing?: MediaFraming;
@@ -133,6 +135,8 @@ export type ResolvedProduct = {
     original_price?: number;
     /** Min absolute_price across PRIMARY_PRICE formats. Set when product has formats. */
     from_price?: number;
+    /** Max absolute_price across PRIMARY_PRICE formats — always set alongside `from_price`. Not shown anywhere yet (foundation for a future range synthesis). */
+    to_price?: number;
     is_visible: boolean;
     is_disabled?: boolean;
     attributes?: ResolvedProductAttribute[];
@@ -214,6 +218,8 @@ export type V2FeaturedContent = {
             base_price: number | null;
             image_url: string | null;
             fromPrice: number | null;
+            /** Sempre popolato insieme a `fromPrice` dal resolver — non ancora mostrato (fondamenta per una futura sintesi a range). Opzionale qui: StylePreview.tsx costruisce oggetti mock di questo tipo senza passarlo. */
+            toPrice?: number | null;
             is_from_price: boolean;
             price_variants: Array<{ name: string | null; absolute_price: number | null }>;
         } | null;
