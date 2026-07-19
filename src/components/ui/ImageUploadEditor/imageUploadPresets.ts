@@ -34,6 +34,19 @@ export interface ImageUploadPreset {
     compress?: CompressOptions;
     /** Lato lungo target per il profilo derivato (se `compress` assente). */
     compressLongEdge?: number;
+    /**
+     * Etichetta di default del campo (header variant `field`). Il consumer può
+     * comunque passare `fieldLabel` esplicito per sovrascriverla.
+     */
+    fieldLabel?: string;
+    /** Titolo di default del drawer di editing (variant `field`). */
+    drawerTitle?: string;
+    /**
+     * Se la rimozione richiede conferma inline. Riflette FASE 10: `true` per i
+     * punti a delete immediata su storage (logo/cover/avatar), `false` per i
+     * punti a bozza differita (story cover/prodotto), reversibili via Annulla.
+     */
+    requiresConfirm?: boolean;
     status: "ready" | "documentary";
     note?: string;
 }
@@ -87,6 +100,9 @@ export const IMAGE_UPLOAD_PRESETS = {
         backgroundFillModes: ["color", "none"],
         maxSizeMB: 10,
         compressLongEdge: 512,
+        fieldLabel: "Logo attività",
+        drawerTitle: "Modifica logo",
+        requiresConfirm: true,
         status: "ready",
         note: "1:1 simmetrico. Sostituisce il profilo 512×256 (2:1) incoerente segnalato in FASE 1."
     },
@@ -95,6 +111,9 @@ export const IMAGE_UPLOAD_PRESETS = {
         backgroundFillModes: ALL_FILL,
         maxSizeMB: 10,
         compressLongEdge: 1280,
+        fieldLabel: "Immagine di copertina",
+        drawerTitle: "Modifica immagine di copertina",
+        requiresConfirm: true,
         status: "ready",
         note: "16:9. Aggiunge framing dove oggi c'è solo crop CSS automatico."
     },
@@ -103,6 +122,9 @@ export const IMAGE_UPLOAD_PRESETS = {
         backgroundFillModes: ["blur", "none"],
         maxSizeMB: 10,
         compressLongEdge: 512,
+        fieldLabel: "Avatar",
+        drawerTitle: "Modifica avatar",
+        requiresConfirm: true,
         status: "ready",
         note: "1:1. Il wrapper accetta WEBP (fix incoerenza uploadAvatar che oggi lo rifiuta)."
     },
@@ -111,16 +133,20 @@ export const IMAGE_UPLOAD_PRESETS = {
         backgroundFillModes: ALL_FILL,
         maxSizeMB: 10,
         compressLongEdge: 1280,
+        requiresConfirm: false,
         status: "ready",
-        note: "Media galleria sede (bucket business-covers). Path non-deterministico lato service."
+        note: "Media galleria sede (bucket business-covers). Flusso add-only → variant embedded, no header/rimozione (lista gestita in ActivityProfileTab)."
     },
     storyCover: {
         aspectRatio: 16 / 9,
         backgroundFillModes: ALL_FILL,
         maxSizeMB: 10,
         compressLongEdge: 1280,
+        fieldLabel: "Copertina",
+        drawerTitle: "Modifica copertina",
+        requiresConfirm: false,
         status: "ready",
-        note: "16:9. Aggiunge editor dove oggi la copertina storia è dumb-upload."
+        note: "16:9. Bozza differita (Annulla a livello pagina) → nessuna conferma su rimozione."
     },
     // --- Documentary --------------------------------------------------------
     product: {
@@ -128,6 +154,9 @@ export const IMAGE_UPLOAD_PRESETS = {
         backgroundFillModes: ALL_FILL,
         maxSizeMB: 10,
         compressLongEdge: 1000,
+        fieldLabel: "Immagine",
+        drawerTitle: "Modifica immagine",
+        requiresConfirm: false,
         status: "documentary",
         note: "Ratio da decidere nella fase Product (Card 4:3 / List quadrata / Compatto senza img). Default 4:3 provvisorio; strada consigliata FASE 1 = singolo storage + focal point via FramedMedia."
     },

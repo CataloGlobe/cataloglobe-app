@@ -110,18 +110,16 @@ export function SchedaTab({
             <div className={styles.colLeft}>
             {/* Card Immagine — sx, sempre prima */}
             <div className={`${styles.cardSlot} ${styles.slotImage}`}>
-                <SectionCard title="Immagine">
-
-                    <Text variant="body-sm" colorVariant="muted">
-                        PNG, JPG o WEBP — max 10 MB. Inquadra in 16:9; l&apos;inquadratura
-                        (punto focale) viene riapplicata alle card e al dettaglio.
-                    </Text>
+                <SectionCard>
 
                     <ImageUploadEditor
                         aspectRatio={16 / 9}
                         backgroundFillModes={["blur", "dominant", "color", "none"]}
                         maxSizeMB={10}
                         compressLongEdge={1280}
+                        fieldLabel="Immagine"
+                        drawerTitle="Modifica immagine"
+                        requiresConfirm={false}
                         initialSource={image.removeImage ? null : image.visibleImageUrl}
                         initialFraming={image.savedFraming ?? undefined}
                         initialAspectRatio={image.savedAspectRatio ?? null}
@@ -133,22 +131,17 @@ export function SchedaTab({
                                 image.setRemoveImage(false);
                             }
                         }}
+                        onRemove={() => {
+                            image.setRemoveImage(true);
+                            image.setPendingImageFile(null);
+                        }}
+                        removing={image.isSaving}
                     />
 
-                    {image.visibleImageUrl && (
-                        <Button
-                            variant="ghost"
-                            size="sm"
-                            type="button"
-                            onClick={() => {
-                                image.setRemoveImage(true);
-                                image.setPendingImageFile(null);
-                            }}
-                            disabled={image.isSaving}
-                        >
-                            Rimuovi immagine
-                        </Button>
-                    )}
+                    <Text variant="body-sm" colorVariant="muted">
+                        L&apos;inquadratura (punto focale) viene riapplicata alle card e al
+                        dettaglio.
+                    </Text>
 
                     {image.removeImage && (
                         <Text variant="body-sm" colorVariant="muted">

@@ -1,5 +1,4 @@
 import { TextInput } from "@/components/ui/Input/TextInput";
-import Text from "@/components/ui/Text/Text";
 import {
     ImageUploadEditor,
     IMAGE_UPLOAD_PRESETS,
@@ -72,34 +71,20 @@ export function StoryForm({
             />
 
             <div className={styles.fieldStack}>
-                <Text variant="body-sm" weight={500}>
-                    Copertina
-                </Text>
-                <Text variant="caption" colorVariant="muted">
-                    PNG, JPG o WEBP — max 10 MB. Inquadra e ritaglia in formato 16:9.
-                </Text>
-
                 {canWrite ? (
-                    <>
-                        <ImageUploadEditor
-                            aspectRatio={IMAGE_UPLOAD_PRESETS.storyCover.aspectRatio}
-                            backgroundFillModes={IMAGE_UPLOAD_PRESETS.storyCover.backgroundFillModes}
-                            maxSizeMB={IMAGE_UPLOAD_PRESETS.storyCover.maxSizeMB}
-                            compressLongEdge={IMAGE_UPLOAD_PRESETS.storyCover.compressLongEdge}
-                            bake={{ size: 1280, format: "image/webp", quality: 0.85, fileName: "cover.webp" }}
-                            initialSource={coverUrl}
-                            onConfirm={handleCoverConfirm}
-                        />
-                        {coverUrl && (
-                            <button
-                                type="button"
-                                className={styles.coverRemoveBtn}
-                                onClick={onCoverRemove}
-                            >
-                                Rimuovi copertina
-                            </button>
-                        )}
-                    </>
+                    <ImageUploadEditor
+                        aspectRatio={IMAGE_UPLOAD_PRESETS.storyCover.aspectRatio}
+                        backgroundFillModes={IMAGE_UPLOAD_PRESETS.storyCover.backgroundFillModes}
+                        maxSizeMB={IMAGE_UPLOAD_PRESETS.storyCover.maxSizeMB}
+                        compressLongEdge={IMAGE_UPLOAD_PRESETS.storyCover.compressLongEdge}
+                        bake={{ size: 1280, format: "image/webp", quality: 0.85, fileName: "cover.webp" }}
+                        fieldLabel={IMAGE_UPLOAD_PRESETS.storyCover.fieldLabel}
+                        drawerTitle={IMAGE_UPLOAD_PRESETS.storyCover.drawerTitle}
+                        requiresConfirm={IMAGE_UPLOAD_PRESETS.storyCover.requiresConfirm}
+                        initialSource={coverUrl}
+                        onConfirm={handleCoverConfirm}
+                        onRemove={onCoverRemove}
+                    />
                 ) : (
                     coverUrl && (
                         <img

@@ -117,13 +117,6 @@ export default function WorkspaceSettingsPage() {
         return null;
     }, [profile?.avatar_url, profile?.updated_at]);
 
-    const initials = useMemo(() => {
-        const f = profile?.first_name?.[0] ?? "";
-        const l = profile?.last_name?.[0] ?? "";
-        if (f || l) return (f + l).toUpperCase();
-        return user?.email?.[0]?.toUpperCase() ?? "?";
-    }, [profile?.first_name, profile?.last_name, user?.email]);
-
     // Avatar salvato SUBITO al conferma dell'editor (immagine baked 1:1),
     // coerente con la rimozione che è già immediata e standalone. Nome/telefono
     // restano legati al "Salva modifiche" del form.
@@ -267,25 +260,30 @@ export default function WorkspaceSettingsPage() {
             <div className={styles.container}>
                 <div className={styles.cards}>
                     <Card title="Profilo" className={styles.card}>
+                        <ImageUploadEditor
+                            aspectRatio={IMAGE_UPLOAD_PRESETS.avatar.aspectRatio}
+                            backgroundFillModes={IMAGE_UPLOAD_PRESETS.avatar.backgroundFillModes}
+                            maxSizeMB={IMAGE_UPLOAD_PRESETS.avatar.maxSizeMB}
+                            compressLongEdge={IMAGE_UPLOAD_PRESETS.avatar.compressLongEdge}
+                            bake={{ size: 512, format: "image/webp", quality: 0.9, fileName: "avatar.webp" }}
+                            fieldLabel={IMAGE_UPLOAD_PRESETS.avatar.fieldLabel}
+                            drawerTitle={IMAGE_UPLOAD_PRESETS.avatar.drawerTitle}
+                            requiresConfirm={IMAGE_UPLOAD_PRESETS.avatar.requiresConfirm}
+                            initialSource={avatarUrl}
+                            initialAspectRatio={1}
+                            onConfirm={handleAvatarConfirm}
+                            onRemove={handleRemoveAvatar}
+                            removing={removingAvatar}
+                        />
+
                         <div className={styles.profileRow}>
-                            <div className={styles.profileInfo}>
-                                {avatarUrl ? (
-                                    <img
-                                        src={avatarUrl}
-                                        alt={`Avatar di ${displayName}`}
-                                        className={styles.avatar}
-                                    />
-                                ) : (
-                                    <span className={styles.avatarPlaceholder}>{initials}</span>
-                                )}
-                                <div className={styles.profileMeta}>
-                                    <Text variant="body" weight={600}>
-                                        {displayName}
-                                    </Text>
-                                    <Text variant="caption" colorVariant="muted">
-                                        {displayEmail}
-                                    </Text>
-                                </div>
+                            <div className={styles.profileMeta}>
+                                <Text variant="body" weight={600}>
+                                    {displayName}
+                                </Text>
+                                <Text variant="caption" colorVariant="muted">
+                                    {displayEmail}
+                                </Text>
                             </div>
 
                             <Button
@@ -396,7 +394,7 @@ export default function WorkspaceSettingsPage() {
                                 Modifica profilo
                             </Text>
                             <Text variant="body-sm" colorVariant="muted">
-                                Aggiorna nome e avatar del tuo account.
+                                Aggiorna nome e recapiti del tuo account.
                             </Text>
                         </div>
                     }
@@ -417,33 +415,6 @@ export default function WorkspaceSettingsPage() {
                     }
                 >
                     <div className={styles.drawerForm}>
-                        <div className={styles.drawerForm}>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Avatar — PNG, JPG o WEBP, max 10 MB. Inquadra e ritaglia in
-                                formato quadrato; viene salvato subito.
-                            </Text>
-                            <ImageUploadEditor
-                                aspectRatio={IMAGE_UPLOAD_PRESETS.avatar.aspectRatio}
-                                backgroundFillModes={IMAGE_UPLOAD_PRESETS.avatar.backgroundFillModes}
-                                maxSizeMB={IMAGE_UPLOAD_PRESETS.avatar.maxSizeMB}
-                                compressLongEdge={IMAGE_UPLOAD_PRESETS.avatar.compressLongEdge}
-                                bake={{ size: 512, format: "image/webp", quality: 0.9, fileName: "avatar.webp" }}
-                                initialSource={avatarUrl}
-                                initialAspectRatio={1}
-                                onConfirm={handleAvatarConfirm}
-                            />
-                            {profile?.avatar_url && (
-                                <button
-                                    type="button"
-                                    className={styles.removeAvatarBtn}
-                                    onClick={handleRemoveAvatar}
-                                    disabled={removingAvatar}
-                                >
-                                    {removingAvatar ? "Rimozione..." : "Rimuovi foto"}
-                                </button>
-                            )}
-                        </div>
-
                         <form
                             id="workspace-profile-form"
                             onSubmit={handleSaveProfile}

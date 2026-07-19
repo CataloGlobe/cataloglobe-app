@@ -1,20 +1,200 @@
-.editor {
+// ── Variant "field": header (label + icone) + anteprima nel suo ratio ──────
+.field {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 8px;
+  width: 100%;
 }
 
-.preview {
+.fieldHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.fieldLabelWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.ratioChip {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 6px;
+  border-radius: 6px;
+  color: var(--text-muted, #6b7280);
+  background: var(--surface-secondary, #f3f4f6);
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.iconBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  background: var(--surface-primary, #fff);
+  color: var(--text-secondary, #374151);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+
+  &:hover:not(:disabled) {
+    background: var(--surface-secondary, #f3f4f6);
+    color: var(--text-primary, #111827);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+// Chip conferma rimozione — occupa lo stesso spazio delle 2 icone.
+.confirmChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.confirmChipText {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #374151);
+}
+
+.confirmChipBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  background: var(--surface-primary, #fff);
+  color: var(--text-secondary, #374151);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+
+  &:hover:not(:disabled) {
+    background: var(--surface-secondary, #f3f4f6);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.confirmChipDanger {
+  color: var(--color-danger, #dc2626);
+  border-color: var(--color-danger, #dc2626);
+
+  &:hover:not(:disabled) {
+    background: var(--color-danger, #dc2626);
+    color: #fff;
+  }
+}
+
+// Corpo: centra il riquadro anteprima (che vive nel proprio aspect-ratio),
+// così un 1:1 resta un quadrato centrato e un 16:9 si allarga — mai un
+// quadratone a tutta larghezza. L'header sopra resta invece a piena larghezza
+// del contenitore (icone mai appiccicate su campi stretti).
+.fieldBody {
+  display: flex;
+  justify-content: flex-start;
+  width: 100%;
+}
+
+// Larghezza-guida (NON solo aspect-ratio): con un solo figlio in position
+// absolute (dropzone) un box dimensionato dal solo aspect-ratio collasserebbe a
+// 0×0. width:100% + max-width dà un box reale; aspect-ratio ne deriva l'altezza.
+.previewBox {
   position: relative;
   width: 100%;
+  max-width: 420px;
   border-radius: 12px;
   overflow: hidden;
   border: 1px solid var(--border-subtle, #e5e7eb);
   background: var(--surface-secondary, #f9fafb);
 }
 
-.actions {
+.dropzone {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 12px;
+  text-align: center;
+  color: var(--text-muted, #6b7280);
+  border: 1px dashed var(--border-strong, #d1d5db);
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+
+  &:hover {
+    background: var(--surface-hover, #f3f4f6);
+    border-color: var(--brand-primary, #928e72);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary, #928e72);
+    outline-offset: 2px;
+  }
+}
+
+// ── Variant "embedded": dropzone → editor inline (host possiede il guscio) ──
+.editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.inlineActions {
   display: flex;
   justify-content: flex-end;
   gap: 8px;
+}
+
+// ── Editor housing (dentro il drawer per variant field) ────────────────────
+.drawerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.drawerFooter {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  width: 100%;
+}
+
+.editStack {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.replaceRow {
+  display: flex;
+}
+
+.hiddenInput {
+  display: none;
 }
