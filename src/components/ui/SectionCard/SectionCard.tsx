@@ -12,7 +12,14 @@ import styles from "./SectionCard.module.scss";
  * label di gruppo DENTRO il body (markup del contenuto, non prop).
  */
 export interface SectionCardProps {
-    title: string;
+    /**
+     * Titolo (16px bold). Opzionale: ometterlo quando il contenuto porta già la
+     * propria intestazione (es. il campo immagine prodotto, il cui header
+     * `label · ratio + icone` è la fonte di verità condivisa con gli altri
+     * punti immagine). Se assente — e senza badge/subtitle/actions — l'header
+     * (e il suo divisore) non viene renderizzato: il body parte in alto.
+     */
+    title?: string;
     /** Badge/conteggio inline subito dopo il titolo (es. numero varianti). */
     badge?: ReactNode;
     /** Una riga che previene errori (es. "Visibili nella pagina pubblica"). */
@@ -38,22 +45,25 @@ export function SectionCard({
     bodyClassName,
     children
 }: SectionCardProps) {
+    const hasHeader = Boolean(title || badge || subtitle || actions);
     return (
         <section className={`${styles.card} ${variant === "danger" ? styles.danger : ""}`}>
-            <header className={styles.header}>
-                <div className={styles.headerText}>
-                    {badge ? (
-                        <span className={styles.titleRow}>
-                            <span className={styles.title}>{title}</span>
-                            <span className={styles.badge}>{badge}</span>
-                        </span>
-                    ) : (
-                        <span className={styles.title}>{title}</span>
-                    )}
-                    {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
-                </div>
-                {actions && <div className={styles.actions}>{actions}</div>}
-            </header>
+            {hasHeader && (
+                <header className={styles.header}>
+                    <div className={styles.headerText}>
+                        {badge ? (
+                            <span className={styles.titleRow}>
+                                {title && <span className={styles.title}>{title}</span>}
+                                <span className={styles.badge}>{badge}</span>
+                            </span>
+                        ) : (
+                            title && <span className={styles.title}>{title}</span>
+                        )}
+                        {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
+                    </div>
+                    {actions && <div className={styles.actions}>{actions}</div>}
+                </header>
+            )}
             <div className={`${styles.body} ${flush ? styles.flush : ""} ${bodyClassName ?? ""}`}>
                 {children}
             </div>
