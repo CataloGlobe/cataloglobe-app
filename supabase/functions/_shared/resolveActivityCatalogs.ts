@@ -719,12 +719,15 @@ export function normalizeCatalog(
                             );
                             if (!hasOwnFormats) {
                                 displayPrice = undefined;
+                                // Prezzi già ridotti a scalare per-variante (min proprio di
+                                // ciascuna variante) — resolvePriceSummary riduce ulteriormente
+                                // all'aggregato min-di-min sull'intero configurable.
                                 const variantPrices = pVariantsResolved
                                     .map(v => v.price ?? v.from_price)
                                     .filter((n): n is number => n !== undefined);
-                                // Non migrato a resolvePriceSummary: prezzi già scalari
-                                // per-variante, non un array di valori raw. Math.max
-                                // locale, stesso pattern del Math.min esistente. Step 3.
+                                // Stesso pattern sul max proprio di ciascuna variante — aggregato
+                                // max-di-max. Due riduzioni indipendenti perché min e max non
+                                // vengono dallo stesso array grezzo (a differenza di #1/#2/#4).
                                 const variantToPrices = pVariantsResolved
                                     .map(v => v.price ?? v.to_price)
                                     .filter((n): n is number => n !== undefined);
@@ -735,11 +738,8 @@ export function normalizeCatalog(
                                         from_price = undefined;
                                         to_price = undefined;
                                     } else {
-                                        from_price = Math.min(...variantPrices);
-                                        to_price =
-                                            variantToPrices.length > 0
-                                                ? Math.max(...variantToPrices)
-                                                : undefined;
+                                        from_price = resolvePriceSummary(variantPrices).min ?? undefined;
+                                        to_price = resolvePriceSummary(variantToPrices).max ?? undefined;
                                     }
                                 }
                             }
@@ -1273,18 +1273,17 @@ function applyPriceOverridesToCatalog(
                                   };
                               }
 
+                              // Stessa situazione del ramo configurable sopra: due riduzioni
+                              // indipendenti (min-di-min, max-di-max) su prezzi già scalari
+                              // per-variante, non un array di valori raw.
                               const allVariantPrices = updatedVariants
                                   .map(v => v.price ?? v.from_price)
                                   .filter((p): p is number => p !== undefined);
-                              const minVariantPrice =
-                                  allVariantPrices.length > 0 ? Math.min(...allVariantPrices) : undefined;
-                              // Non migrato a resolvePriceSummary: stessa situazione del
-                              // ramo configurable sopra. Math.max locale. Step 3.
                               const allVariantToPrices = updatedVariants
                                   .map(v => v.price ?? v.to_price)
                                   .filter((p): p is number => p !== undefined);
-                              const maxVariantToPrice =
-                                  allVariantToPrices.length > 0 ? Math.max(...allVariantToPrices) : undefined;
+                              const minVariantPrice = resolvePriceSummary(allVariantPrices).min ?? undefined;
+                              const maxVariantToPrice = resolvePriceSummary(allVariantToPrices).max ?? undefined;
 
                               return {
                                   ...item,
