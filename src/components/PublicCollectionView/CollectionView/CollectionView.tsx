@@ -2961,6 +2961,7 @@ export default function CollectionView({
                                 selectedStoryId={selectedStoryId}
                                 onSelectStory={setSelectedStoryId}
                                 onOpenProduct={openProductFromStory}
+                                resolveProduct={findProductById}
                             />
                         </div>
                     </div>

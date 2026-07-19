@@ -26,6 +26,7 @@ import { VideoBlock } from "./blocks/VideoBlock";
 import { HeadingBlock } from "./blocks/HeadingBlock";
 import { QuoteBlock } from "./blocks/QuoteBlock";
 import { ListBlock } from "./blocks/ListBlock";
+import { ProductBlock } from "./blocks/ProductBlock";
 import styles from "./StoryBlockEditor.module.scss";
 
 interface StoryBlockEditorProps {
@@ -34,6 +35,8 @@ interface StoryBlockEditorProps {
     /** File pendenti per blocco immagine, keyed by block.id (posseduti dal parent). */
     pendingImages: Record<string, File>;
     onPendingImageChange: (blockId: string, file: File | null) => void;
+    /** Richiesto dal blocco Prodotto (StoryProductPicker + rilevamento id dangling). */
+    tenantId: string | null;
     disabled?: boolean;
     /** Id del blocco appena aggiunto (via "Aggiungi" in header) — scroll+focus one-shot. */
     focusBlockId?: string | null;
@@ -47,6 +50,7 @@ interface BlockRowProps {
     block: StoryBlock;
     pendingImage: File | null;
     onPendingImageChange: (file: File | null) => void;
+    tenantId: string | null;
     disabled?: boolean;
     onUpdate: (next: StoryBlock) => void;
     onRemove: () => void;
@@ -59,6 +63,7 @@ function BlockRow({
     block,
     pendingImage,
     onPendingImageChange,
+    tenantId,
     disabled,
     onUpdate,
     onRemove,
@@ -105,6 +110,9 @@ function BlockRow({
                     />
                 )}
                 {block.type === "video" && <VideoBlock block={block} onChange={onUpdate} disabled={disabled} />}
+                {block.type === "product" && (
+                    <ProductBlock block={block} onChange={onUpdate} tenantId={tenantId} disabled={disabled} />
+                )}
             </div>
         </div>
     );
@@ -115,6 +123,7 @@ export function StoryBlockEditor({
     onChange,
     pendingImages,
     onPendingImageChange,
+    tenantId,
     disabled,
     focusBlockId,
     onFocusHandled,
@@ -197,6 +206,7 @@ export function StoryBlockEditor({
                                         block={block}
                                         pendingImage={pendingImages[block.id] ?? null}
                                         onPendingImageChange={file => onPendingImageChange(block.id, file)}
+                                        tenantId={tenantId}
                                         disabled={disabled}
                                         onUpdate={next => updateBlock(block.id, next)}
                                         onRemove={() => removeBlock(block)}

@@ -10,6 +10,8 @@ import PublicVideoBlock from "./blocks/PublicVideoBlock";
 import PublicHeadingBlock from "./blocks/PublicHeadingBlock";
 import PublicQuoteBlock from "./blocks/PublicQuoteBlock";
 import PublicListBlock from "./blocks/PublicListBlock";
+import PublicProductBlock from "./blocks/PublicProductBlock";
+import type { CollectionViewSectionItem } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import styles from "./StoryReader.module.scss";
 
 type StoryReaderProps = {
@@ -18,6 +20,8 @@ type StoryReaderProps = {
     onClose: () => void;
     /** Apre la scheda prodotto associata (stesso meccanismo di CollectionView). Assente → nessun rimando cliccabile. */
     onOpenProduct?: (productId: string) => void;
+    /** Ripescaggio prodotto per il blocco Prodotto, dal catalogo già risolto in CollectionView. Assente → i blocchi Prodotto non compaiono. */
+    resolveProduct?: (productId: string) => CollectionViewSectionItem | null;
 };
 
 type LoadState =
@@ -25,7 +29,12 @@ type LoadState =
     | { status: "error" }
     | { status: "ready"; story: PublicStoryDetail };
 
-function renderBlock(block: StoryBlock, isLead: boolean) {
+function renderBlock(
+    block: StoryBlock,
+    isLead: boolean,
+    resolveProduct: (productId: string) => CollectionViewSectionItem | null,
+    onOpenProduct?: (productId: string) => void
+) {
     switch (block.type) {
         case "text":
             return <PublicTextBlock key={block.id} block={block} isLead={isLead} />;
@@ -39,12 +48,21 @@ function renderBlock(block: StoryBlock, isLead: boolean) {
             return <PublicImageBlock key={block.id} block={block} />;
         case "video":
             return <PublicVideoBlock key={block.id} block={block} />;
+        case "product":
+            return (
+                <PublicProductBlock
+                    key={block.id}
+                    block={block}
+                    resolveProduct={resolveProduct}
+                    onOpenProduct={onOpenProduct}
+                />
+            );
         default:
             return null;
     }
 }
 
-export default function StoryReader({ slug, storyId, onClose, onOpenProduct }: StoryReaderProps) {
+export default function StoryReader({ slug, storyId, onClose, onOpenProduct, resolveProduct }: StoryReaderProps) {
     const { t } = useTranslation("public");
     const [state, setState] = useState<LoadState>({ status: "loading" });
 
@@ -111,7 +129,14 @@ export default function StoryReader({ slug, storyId, onClose, onOpenProduct }: S
                         <h1 className={styles.title}>{state.story.title}</h1>
 
                         <div className={styles.blocks}>
-                            {state.story.body_blocks.map(block => renderBlock(block, block.id === firstTextId))}
+                            {state.story.body_blocks.map(block =>
+                                renderBlock(
+                                    block,
+                                    block.id === firstTextId,
+                                    resolveProduct ?? (() => null),
+                                    onOpenProduct
+                                )
+                            )}
                         </div>
 
                         {state.story.product && (
