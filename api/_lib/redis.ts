@@ -114,7 +114,35 @@ export function getEnvNamespace(): string {
     return process.env.VERCEL_ENV ?? "local";
 }
 
+/** Literal `langPart` usato per la lingua base (nessun segmento lingua in URL). */
+export const BASE_LANG_PART = "__base__";
+
 export function makeSnapshotKey(slug: string, lang: string | undefined): string {
-    const langPart = lang ?? "__base__";
+    const langPart = lang ?? BASE_LANG_PART;
     return `cataloglobe:${getEnvNamespace()}:public-catalog:v1:${slug}:${langPart}`;
+}
+
+/**
+ * Glob per `SCAN MATCH` di tutte le chiavi snapshot dell'env corrente.
+ * Centralizzato qui perché lo schema chiave vive in `makeSnapshotKey`:
+ * l'unico posto che conosce il prefisso.
+ */
+export function snapshotKeyMatchPattern(): string {
+    return `cataloglobe:${getEnvNamespace()}:public-catalog:v1:*`;
+}
+
+/**
+ * Parsa una chiave snapshot dell'env corrente in `{ slug, langPart }`.
+ * `null` se la chiave non appartiene allo schema/env (difensivo: SCAN può
+ * restituire chiavi di altri prefissi se il pattern venisse allargato).
+ * Nota: gli slug non contengono `:` (hyphenated) e `langPart` è l'ultimo
+ * segmento → split sull'ultimo `:`.
+ */
+export function parseSnapshotKey(key: string): { slug: string; langPart: string } | null {
+    const prefix = `cataloglobe:${getEnvNamespace()}:public-catalog:v1:`;
+    if (!key.startsWith(prefix)) return null;
+    const rest = key.slice(prefix.length);
+    const lastColon = rest.lastIndexOf(":");
+    if (lastColon <= 0 || lastColon === rest.length - 1) return null;
+    return { slug: rest.slice(0, lastColon), langPart: rest.slice(lastColon + 1) };
 }
