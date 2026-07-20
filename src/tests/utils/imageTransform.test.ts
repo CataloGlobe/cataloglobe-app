@@ -12,7 +12,8 @@ describe("buildCoverImageSet", () => {
 
     describe("flag VITE_IMAGE_TRANSFORM OFF (default)", () => {
         it("ritorna null (passthrough) → il chiamante serve l'object/public raw", () => {
-            // flag non settato = OFF di default
+            // flag esplicito OFF (indipendente da .env.local)
+            vi.stubEnv("VITE_IMAGE_TRANSFORM", "false");
             expect(buildCoverImageSet(STORAGE)).toBeNull();
         });
 
@@ -24,6 +25,7 @@ describe("buildCoverImageSet", () => {
         });
 
         it("OFF: nessun rewrite a render/image (output null, nessuna URL transform)", () => {
+            vi.stubEnv("VITE_IMAGE_TRANSFORM", "false");
             const set = buildCoverImageSet(`${STORAGE}?v=1777818448572`);
             expect(set).toBeNull();
         });
