@@ -348,7 +348,8 @@
         "video_aria": "Video della storia",
         "video_play": "Guarda il video",
         "video_play_aria": "Riproduci il video della storia",
-        "discover_label": "Scopri la storia"
+        "discover_label": "Scopri la storia",
+        "image_alt_fallback": "Immagine della storia"
     },
     "reviews": {
         "rating_labels": {

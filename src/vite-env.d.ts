@@ -3,7 +3,6 @@
 interface ImportMetaEnv {
     readonly VITE_SUPABASE_URL: string;
     readonly VITE_SUPABASE_ANON_KEY: string;
-    readonly VITE_REVALIDATE_SECRET?: string;
     readonly VITE_PUBLIC_CATALOG_API_BASE?: string;
     // Flag Supabase image transformations (render/image) per la cover pubblica.
     // "true" → rewrite render/image + srcset responsive; assente/altro → OFF
