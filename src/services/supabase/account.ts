@@ -30,31 +30,63 @@ export async function getProfileDeletionStatus(userId: string): Promise<string |
 }
 
 /**
- * Calls the recover-account Edge Function to restore a deleted account
- * within the 30-day recovery window.
+ * Calls the recover-account Edge Function (step A) to request an OTP for
+ * account recovery. No session is required — banned users cannot log in;
+ * the email is used server-side to look up the user via the Admin API.
  *
- * No session is required — banned users cannot log in.
- * The email is used server-side to look up the user via the Admin API.
+ * Anti-enumeration: the response is always the same 200
+ * `{ step: "otp_required" }` body regardless of whether the account is
+ * actually recoverable — a real email is only sent server-side when it is.
+ * A caller cannot distinguish "code sent" from "nothing happened" from this
+ * call alone.
  *
- * Throws:
- *   - "recovery_window_expired" if the 30-day window has passed (410)
- *   - A generic Error for all other failures
+ * Throws a generic Error only on transport/rate-limit failures.
  */
-export async function recoverAccount(email: string): Promise<void> {
+export async function requestAccountRecovery(email: string): Promise<void> {
     const { error } = await supabase.functions.invoke("recover-account", {
         body: { email }
     });
 
-    if (!error) return;
+    if (error) {
+        throw new Error("Impossibile inviare il codice. Riprova.");
+    }
+}
 
-    if (error instanceof FunctionsHttpError) {
-        const status = error.context.status;
-        if (status === 410) {
-            throw new Error("recovery_window_expired");
+/**
+ * Calls the recover-account Edge Function (step B) to confirm account
+ * recovery with the OTP sent by `requestAccountRecovery`. Only on a valid,
+ * unexpired code does the edge function unban the account, reactivate
+ * Stripe subscriptions and unlock owned tenants.
+ *
+ * Anti-enumeration: invalid code, expired code, and "account not actually
+ * recoverable" all come back as the same generic error — must check
+ * `data.success`, not just the transport-level `error`.
+ *
+ * Throws:
+ *   - "recovery_window_expired" if the 30-day window has passed (410) —
+ *     only revealed here, after the OTP has already proven email possession
+ *   - "invalid_or_expired" if the code is wrong/expired/or recovery isn't
+ *     actually possible (see anti-enumeration note above)
+ *   - A generic Error for all other failures
+ */
+export async function confirmAccountRecovery(email: string, code: string): Promise<void> {
+    const { data, error } = await supabase.functions.invoke("recover-account", {
+        body: { email, code }
+    });
+
+    if (error) {
+        if (error instanceof FunctionsHttpError) {
+            const status = error.context.status;
+            if (status === 410) {
+                throw new Error("recovery_window_expired");
+            }
         }
+        throw new Error("Impossibile recuperare l'account. Riprova.");
     }
 
-    throw new Error("Impossibile recuperare l'account. Riprova.");
+    if (data?.success === false) {
+        throw new Error(data?.error === "invalid_or_expired" ? "invalid_or_expired" : "Impossibile recuperare l'account. Riprova.");
+    }
 }
 
 export interface TenantMember {

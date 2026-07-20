@@ -3,15 +3,17 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4";
 import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/company-config.ts";
+import {
+    OTP_TTL_MS,
+    COOLDOWN_MS,
+    WINDOW_MS,
+    MAX_SENDS_PER_WINDOW,
+    LOCK_MINUTES,
+    generateOtp,
+    sha256
+} from "../_shared/otpCore.ts";
 
 /* ================= CONFIG ================= */
-const OTP_LENGTH = 6;
-const OTP_TTL_MS = 5 * 60 * 1000; // 5 min
-const COOLDOWN_MS = 60 * 1000; // 60 sec tra invii
-const WINDOW_MS = 15 * 60 * 1000; // finestra rate limit
-const MAX_SENDS_PER_WINDOW = 5;
-const LOCK_MINUTES = 15;
-
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
