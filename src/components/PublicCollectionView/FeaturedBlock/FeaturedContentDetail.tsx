@@ -2,6 +2,7 @@ import { useTranslation } from "react-i18next";
 import { ImageIcon } from "lucide-react";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import Text from "@/components/ui/Text/Text";
+import { resolveFeaturedDisplayPrice } from "@utils/resolveFeaturedDisplayPrice";
 import styles from "./FeaturedPreviewModal.module.scss";
 
 function formatPrice(price: number): string {
@@ -40,7 +41,7 @@ export function FeaturedContentDetail({ block }: Props) {
             .filter(item => item.product != null)
             .reduce((sum, item) => {
                 const p = item.product!;
-                const price = p.is_from_price ? (p.fromPrice ?? 0) : (p.base_price ?? 0);
+                const price = resolveFeaturedDisplayPrice(p) ?? 0;
                 return sum + price;
             }, 0);
         if (total === 0 || total === block.bundle_price) return null;
@@ -96,6 +97,7 @@ export function FeaturedContentDetail({ block }: Props) {
                             const hasVariants =
                                 product.price_variants &&
                                 product.price_variants.length > 0;
+                            const productPrice = resolveFeaturedDisplayPrice(product);
                             return (
                                 <li
                                     key={`${product.id}-${idx}`}
@@ -127,18 +129,13 @@ export function FeaturedContentDetail({ block }: Props) {
                                             )}
                                         </div>
                                         {/* Prezzo (solo per_item, senza varianti) */}
-                                        {showPrice && !hasVariants &&
-                                            (product.is_from_price
-                                                ? product.fromPrice != null && (
-                                                      <span className={styles.productPrice}>
-                                                          {t("product.price_from", { price: formatPrice(product.fromPrice) })}
-                                                      </span>
-                                                  )
-                                                : product.base_price != null && (
-                                                      <span className={styles.productPrice}>
-                                                          {formatPrice(product.base_price)}
-                                                      </span>
-                                                  ))}
+                                        {showPrice && !hasVariants && productPrice != null && (
+                                            <span className={styles.productPrice}>
+                                                {product.is_from_price
+                                                    ? t("product.price_from", { price: formatPrice(productPrice) })
+                                                    : formatPrice(productPrice)}
+                                            </span>
+                                        )}
                                     </div>
 
                                     {/* Varianti inline (PRIMARY_PRICE) */}
