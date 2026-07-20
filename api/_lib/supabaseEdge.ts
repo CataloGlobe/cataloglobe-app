@@ -123,18 +123,31 @@ async function singleAttempt(args: { slug: string; lang?: string }): Promise<Edg
     throw new TransientEdgeError(`Edge function returned status ${status}`, status, parsedBody);
 }
 
-export async function callResolvePublicCatalog(args: {
-    slug: string;
-    lang?: string;
-}): Promise<EdgeResult> {
+/**
+ * Override opzionali di retry/timeout. Default INVARIATI (3 tentativi, 6s) →
+ * behavior-preserving per tutti i caller esistenti. Il pre-warm cron passa
+ * `{maxAttempts:1, timeoutMs:3000}` per NON poter bruciare 18s (3×6s) su un
+ * singolo slug lento e sforare il limite maxDuration Hobby.
+ */
+export type CallEdgeOptions = { maxAttempts?: number; timeoutMs?: number };
+
+export async function callResolvePublicCatalog(
+    args: {
+        slug: string;
+        lang?: string;
+    },
+    opts?: CallEdgeOptions
+): Promise<EdgeResult> {
+    const maxAttempts = opts?.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
+    const timeoutMs = opts?.timeoutMs ?? DEFAULT_TIMEOUT_MS;
     let lastError: unknown;
 
-    for (let attempt = 0; attempt < DEFAULT_MAX_ATTEMPTS; attempt++) {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
         const delay = backoffWithJitter(attempt);
         if (delay > 0) await sleep(delay);
 
         try {
-            const result = await withTimeout(singleAttempt(args), DEFAULT_TIMEOUT_MS);
+            const result = await withTimeout(singleAttempt(args), timeoutMs);
             return { ...result, attempts: attempt + 1 };
         } catch (err) {
             lastError = err;
@@ -148,7 +161,7 @@ export async function callResolvePublicCatalog(args: {
         }
     }
 
-    return { kind: "network_error", cause: lastError, attempts: DEFAULT_MAX_ATTEMPTS };
+    return { kind: "network_error", cause: lastError, attempts: maxAttempts };
 }
 
 /**
