@@ -26,33 +26,39 @@
 }
 
 /* Preset trattamento card (data-card-treatment sul container catalogo).
-   Attributo globale (non hashato) + .card locale. Coerente con le card prodotto.
-   .cardHighlight (image-bg) NON toccata. */
-:global([data-card-treatment="raised"]) .card {
+   Attributo globale (non hashato) + .card/.cardCompact locali. Coerente con
+   le card prodotto. .cardHighlight (image-bg) NON toccata. */
+:global([data-card-treatment="raised"]) .card,
+:global([data-card-treatment="raised"]) .cardCompact {
   box-shadow: var(--pub-card-shadow);
   border-color: transparent;
 }
-:global([data-card-treatment="bordered"]) .card {
+:global([data-card-treatment="bordered"]) .card,
+:global([data-card-treatment="bordered"]) .cardCompact {
   box-shadow: none;
   border-color: var(--pub-surface-border);
 }
-:global([data-card-treatment="bordered"]) .card:hover {
+:global([data-card-treatment="bordered"]) .card:hover,
+:global([data-card-treatment="bordered"]) .cardCompact:hover {
   box-shadow: none;
 }
 
 /* Vetro: stessa logica delle card prodotto (terzo valore di cardTreatment). */
-:global([data-card-treatment="glass"]) .card {
+:global([data-card-treatment="glass"]) .card,
+:global([data-card-treatment="glass"]) .cardCompact {
   background: var(--pub-surface-glass);
   -webkit-backdrop-filter: blur(16px) saturate(1.6);
   backdrop-filter: blur(16px) saturate(1.6);
   border-color: rgba(255, 255, 255, 0.1);
   box-shadow: none;
 }
-:global([data-card-treatment="glass"]) .card:hover {
+:global([data-card-treatment="glass"]) .card:hover,
+:global([data-card-treatment="glass"]) .cardCompact:hover {
   box-shadow: none;
 }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  :global([data-card-treatment="glass"]) .card {
+  :global([data-card-treatment="glass"]) .card,
+  :global([data-card-treatment="glass"]) .cardCompact {
     background: var(--pub-surface);
   }
 }
@@ -281,10 +287,10 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   COMPACT VARIANT — dense horizontal row. NOT composed with .card, so it
-   never reacts to cardTreatment (raised/bordered/glass) — same precedent as
-   .cardHighlight. Background/shadow/radius below are static values (reusing
-   the raised .card tokens) purely so it reads as part of the card family.
+   COMPACT VARIANT — dense horizontal row. A card like .card (same border/
+   background/shadow base + same data-card-treatment reactions below), just
+   laid out horizontally. Unlike .cardHighlight it is NOT independent of
+   cardTreatment — Elevata/Contornata/Vetro apply exactly as they do to Card.
    ══════════════════════════════════════════════════════════════════════════ */
 
 .cardCompact {
@@ -292,23 +298,19 @@
   align-items: center;
   gap: 12px;
   padding: 10px 12px;
-  border: none;
-  border-bottom: 1px solid var(--pub-surface-border);
   border-radius: var(--pub-radius, 12px);
+  border: 1px solid var(--pub-surface-border);
   background: var(--pub-surface);
   box-shadow: var(--pub-card-shadow);
   cursor: pointer;
   text-align: left;
   font: inherit;
   color: inherit;
-  transition: opacity 0.15s ease;
-
-  &:last-child {
-    border-bottom: none;
-  }
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 
   @include hover {
-    opacity: 0.85;
+    box-shadow: var(--pub-card-shadow-hover);
+    transform: translateY(-1px);
   }
 }
 
