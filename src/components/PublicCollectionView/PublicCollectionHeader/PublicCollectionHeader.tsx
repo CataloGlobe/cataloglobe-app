@@ -359,7 +359,12 @@ export default function PublicCollectionHeader({
                             <div className={styles.logoPlaceholder} />
                         )}
 
-                        <div className={styles.textBlock}>
+                        <div
+                            className={styles.textBlock}
+                            data-lines={
+                                1 + (showAddress && activityAddress ? 1 : 0) + (showCatalogName && catalogName ? 1 : 0)
+                            }
+                        >
                             <span className={styles.name}>{activityName}</span>
                             {showAddress && activityAddress && (
                                 <span className={styles.address}>{activityAddress}</span>
