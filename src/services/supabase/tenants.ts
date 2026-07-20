@@ -203,24 +203,16 @@ export async function purgeTenantNow(tenantId: string): Promise<void> {
 }
 
 /**
- * Updates the name of a tenant. Only fields explicitly passed are updated.
- *
- * Postgres UPDATE non-zero affected-rows non solleva errore tramite supabase-js:
- * la RLS UPDATE policy filtra le righe target, quindi un caller senza permessi
- * (es. admin/member: la policy ammette solo owner_user_id = auth.uid()) riceve
- * un update da 0 righe senza errore. Per evitare il silent success usiamo
- * `.select("id")` come probe del row count e lanciamo se vuoto.
+ * Updates the name of a tenant via the tenant.manage-gated SECURITY DEFINER
+ * RPC, NOT on tenants RLS (owner-only, would silently 0-row admin) — same
+ * pattern as updateTenantStorySettings.
  */
 export async function updateTenantName(tenantId: string, name: string): Promise<void> {
-    const { data, error } = await supabase
-        .from("tenants")
-        .update({ name })
-        .eq("id", tenantId)
-        .select("id");
+    const { error } = await supabase.rpc("update_tenant_name", {
+        p_tenant_id: tenantId,
+        p_name: name
+    });
     if (error) throw error;
-    if (!data || data.length === 0) {
-        throw new Error("Aggiornamento non riuscito: permessi insufficienti o tenant non trovato.");
-    }
     void revalidatePublicCatalogForTenant(tenantId);
 }
 
@@ -332,22 +324,30 @@ export async function getTenantFiscalProfile(tenantId: string): Promise<TenantFi
  * Persists billing identity onto an existing tenant (resume flow, when fiscal
  * data was missing at first checkout). Create flow writes these inline on INSERT.
  *
- * Same RLS-probe pattern as updateTenantName: `.select("id")` detects a 0-row
- * update (owner-only UPDATE policy) which supabase-js does not surface as error.
+ * Same tenant.manage-gated RPC pattern as updateTenantName — see there.
  */
 export async function updateTenantBillingDetails(
     tenantId: string,
     billing: TenantBillingDetails
 ): Promise<void> {
-    const { data, error } = await supabase
-        .from("tenants")
-        .update(billing)
-        .eq("id", tenantId)
-        .select("id");
+    const { error } = await supabase.rpc("update_tenant_billing_details", {
+        p_tenant_id: tenantId,
+        p_legal_entity_type: billing.legal_entity_type,
+        p_legal_name: billing.legal_name,
+        p_vat_number: billing.vat_number,
+        p_fiscal_code: billing.fiscal_code,
+        p_first_name: billing.first_name,
+        p_last_name: billing.last_name,
+        p_pec: billing.pec,
+        p_codice_destinatario: billing.codice_destinatario,
+        p_address: billing.address,
+        p_street_number: billing.street_number,
+        p_postal_code: billing.postal_code,
+        p_city: billing.city,
+        p_province: billing.province,
+        p_country: billing.country
+    });
     if (error) throw error;
-    if (!data || data.length === 0) {
-        throw new Error("Aggiornamento dati di fatturazione non riuscito: permessi insufficienti o tenant non trovato.");
-    }
 }
 
 /**
