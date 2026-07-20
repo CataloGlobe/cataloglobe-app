@@ -286,23 +286,24 @@ export default async function middleware(request: Request): Promise<Response | u
             // De-block shell (Step 3a): il <link> Inter+Sora di index.html è
             // RBI #1 (~850ms wasted su mobile simulato). Solo su questo HTML
             // servito (il file resta intatto: admin e landing non matchano):
-            //   - Sora: rimosso (usato solo dalla landing, peso morto qui);
-            //   - token inter: link shell OMESSO del tutto — la spec statica
-            //     mw-font copre chrome + contenuto (4 pesi bastano, weight
-            //     check audit 3a) e si evita il doppio download (~73KB);
-            //   - altri token: Inter variable async (preload→stylesheet +
+            //   - Sora: rimossa (usata solo dalla landing, peso morto qui);
+            //   - token inter: link shell app-inter.css OMESSO del tutto — la
+            //     spec self-hosted mw-font (public-inter.css) copre chrome +
+            //     contenuto (4 pesi bastano, weight check audit 3a) e si
+            //     evita il doppio download;
+            //   - altri token: app-inter.css async (preload→stylesheet +
             //     <noscript>) per la shell, mw-font per il contenuto.
             // Guard-rail: si de-blocca SOLO se mw-font è stato iniettato
             // (fontHref valido), altrimenti il link blocking resta com'è.
+            html = html.replace(/<link href="\/fonts\/app-sora\.css" rel="stylesheet" \/>\n?/, "");
             html = html.replace(
-                /<link\s+href="(https:\/\/fonts\.googleapis\.com\/css2\?family=Inter[^"]*)"\s+rel="stylesheet"\s*\/>/,
-                (_m, shellUrl: string) => {
+                /<link href="(\/fonts\/app-inter\.css)" rel="stylesheet" \/>/,
+                (_m, shellHref: string) => {
                     if (fontToken === "inter") return "";
-                    const interOnly = escapeHtml(shellUrl.replace(/&family=Sora[^&"]*/g, ""));
                     return (
-                        `<link rel="preload" as="style" href="${interOnly}" ` +
+                        `<link rel="preload" as="style" href="${shellHref}" ` +
                         `onload="this.onload=null;this.rel='stylesheet'" />` +
-                        `<noscript><link rel="stylesheet" href="${interOnly}" /></noscript>`
+                        `<noscript><link rel="stylesheet" href="${shellHref}" /></noscript>`
                     );
                 }
             );

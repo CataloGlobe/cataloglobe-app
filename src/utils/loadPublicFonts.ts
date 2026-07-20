@@ -1,16 +1,8 @@
 const PUBLIC_FONTS_LINK_ID = "public-fonts-stylesheet";
 
-const PUBLIC_FONTS_URL =
-    "https://fonts.googleapis.com/css2?" +
-    "family=Caveat:wght@400;500;700" +
-    "&family=Cormorant+Garamond:wght@400;500;600" +
-    "&family=Josefin+Sans:wght@400;500;600" +
-    "&family=Lora:wght@400;500;600" +
-    "&family=Montserrat:wght@400;500;600" +
-    "&family=Raleway:wght@400;500;600" +
-    "&family=Playfair+Display:ital,wght@0,400..900;1,400..900" +
-    "&family=Poppins:wght@400;500;600;700" +
-    "&display=swap";
+// Self-hosted, 8 famiglie (esclusa Inter, gia' caricata dallo shell via
+// index.html). Nessuna richiesta a fonts.googleapis.com/fonts.gstatic.com.
+const PUBLIC_FONTS_URL = "/fonts/public-css/public-all.css";
 
 /**
  * Monta un <link rel="stylesheet"> per le 8 famiglie usate
