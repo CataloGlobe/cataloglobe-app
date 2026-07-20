@@ -8,6 +8,7 @@ import CollectionView, {
 } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import StaleDataBanner from "@/components/StaleDataBanner/StaleDataBanner";
+import LanguageFallbackBanner from "@/components/PublicCollectionView/LanguageFallbackBanner/LanguageFallbackBanner";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import { LanguageProvider } from "@context/Language/LanguageProvider";
 import {
@@ -416,6 +417,15 @@ export default function PublicCatalogReady({
             >
             {data.isStale && (
                 <StaleDataBanner onRetry={onRetry} />
+            )}
+            {data.langSwitchFailed && (
+                <LanguageFallbackBanner
+                    displayedLanguageName={
+                        availableLanguages.find(l => l.code === effectiveLanguage)?.name_native
+                        ?? effectiveLanguage.toUpperCase()
+                    }
+                    onRetry={onRetry}
+                />
             )}
             {bannerSlot}
             <CollectionViewWithCustomerSession

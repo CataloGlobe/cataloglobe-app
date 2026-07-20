@@ -47,6 +47,14 @@ export type PageState =
                 `x-cataloglobe-source: stale`).
               In entrambi i casi il banner ambra è mostrato. */
           isStale?: boolean;
+          /** Codice lingua richiesto da un cambio-lingua fallito (Supabase down
+              + nessuna cache localStorage per quella lingua). Quando valorizzato
+              la pagina RESTA sul contenuto già visibile (questo stato `ready`,
+              non toccato) e mostra `LanguageFallbackBanner`. Null/undefined =
+              nessun degrado attivo. Distinto da `isStale`: qui il contenuto è
+              fresco, solo il *cambio* verso un'altra lingua non è riuscito.
+              Vedi PublicCollectionPage ramo `network_error`. */
+          langSwitchFailed?: string | null;
       }
     | {
           status: "empty";

@@ -395,6 +395,10 @@
     "message": "Le contenu peut ne pas être à jour.",
     "retry": "Réessayer"
   },
+  "lang_fallback": {
+    "message": "Traduction indisponible pour le moment — menu affiché en {{lang}}.",
+    "retry": "Réessayer"
+  },
   "error": {
     "title": "Échec du chargement",
     "description": "Impossible de charger le menu. Vérifiez votre connexion et réessayez.",
