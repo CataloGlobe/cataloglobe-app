@@ -13,7 +13,8 @@ import {
     OutlinedBorderColor,
     IconStyle,
     CompactLayoutStyle,
-    ContentDensity
+    ContentDensity,
+    isCardTreatmentActive
 } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview } from "./StyleMiniPreviews";
@@ -543,7 +544,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     </div>
                 </div>
 
-                {(model.card.productStyle === "card" || model.appearance.featuredStyle === "card") && (
+                {isCardTreatmentActive(model.card.productStyle, model.appearance.featuredStyle) && (
                     <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                         <Text variant="body" weight={500} className={styles.fieldLabel}>
                             Aspetto card<InfoTooltip content="Aspetto di card e finestre: Elevata usa un'ombra, Contornata un bordo sottile, Vetro una superficie semitrasparente con sfocatura." />

@@ -102,6 +102,23 @@ const VALID_CARD_TREATMENTS: CardTreatment[] = ["raised", "bordered", "glass"];
 const VALID_OUTLINED_BORDER_COLORS: OutlinedBorderColor[] = ["auto", "primary"];
 
 /**
+ * Superfici che oggi compongono con `data-card-treatment` (vedi selettori
+ * `:global([data-card-treatment="..."])` in FeaturedCard.module.scss e
+ * CollectionView.module.scss). Aggiungere qui una riga quando una nuova
+ * variante viene agganciata al token — non serve più cercare la condizione
+ * di visibilità sparsa nel JSX.
+ */
+const PRODUCT_STYLES_CONSUMING_CARD_TREATMENT: ProductStyle[] = ["card"];
+const FEATURED_STYLES_CONSUMING_CARD_TREATMENT: FeaturedStyle[] = ["card", "compact"];
+
+/** Il controllo "Aspetto card" (Elevata/Contornata/Vetro) va mostrato solo se
+ * almeno una superficie attiva consuma davvero `appearance.cardTreatment`. */
+export function isCardTreatmentActive(productStyle: ProductStyle, featuredStyle: FeaturedStyle): boolean {
+    return PRODUCT_STYLES_CONSUMING_CARD_TREATMENT.includes(productStyle)
+        || FEATURED_STYLES_CONSUMING_CARD_TREATMENT.includes(featuredStyle);
+}
+
+/**
  * Parses raw JSON configuration (from DB) into a structured UI Token Model.
  * Provides backwards compatibility for old JSON shapes by checking multiple possible paths,
  * and falls back to safe defaults for missing values.
