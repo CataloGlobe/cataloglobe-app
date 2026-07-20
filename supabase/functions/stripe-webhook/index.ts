@@ -13,6 +13,36 @@ function json(status: number, body: Record<string, unknown>) {
 }
 
 /**
+ * Reduces a raw Stripe event to a diagnostic-only snapshot for
+ * webhook_errors.payload. Default-deny: only the fields explicitly listed
+ * below are kept, everything else (customer email/name/address/phone/
+ * tax_id, card/last4, billing_details, metadata, IP, ...) is dropped.
+ * Stripe events routinely embed PII in event.data.object (invoices,
+ * charges, customers, subscriptions all carry billing/contact data) — this
+ * is deliberately shallow and never spreads the object.
+ */
+function buildSafeWebhookPayload(event: Stripe.Event | undefined): Record<string, unknown> | null {
+    if (!event) return null;
+    const obj = event.data?.object as { id?: string; object?: string; status?: string } | undefined;
+
+    return {
+        id: event.id ?? null,
+        type: event.type ?? null,
+        created: event.created ?? null,
+        livemode: event.livemode ?? null,
+        api_version: event.api_version ?? null,
+        object: obj
+            ? {
+                  id: obj.id ?? null,
+                  object: obj.object ?? null,
+                  status: obj.status ?? null
+              }
+            : null,
+        request_id: event.request?.idempotency_key ?? null
+    };
+}
+
+/**
  * Update the tenant's subscription_status in the database.
  * Finds the tenant by stripe_customer_id.
  */
@@ -425,7 +455,7 @@ serve(async req => {
                     event_type: event?.type ?? null,
                     error_message: message,
                     error_stack: stack,
-                    payload: event ?? null
+                    payload: buildSafeWebhookPayload(event)
                 });
             } catch (auditErr) {
                 console.error("stripe-webhook: Failed to write audit trail:", auditErr);
