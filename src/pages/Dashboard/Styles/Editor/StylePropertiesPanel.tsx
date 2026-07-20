@@ -94,7 +94,8 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const featuredStyleOptions: Array<{ value: FeaturedStyle; label: string }> = [
         { value: "card", label: "Card" },
-        { value: "highlight", label: "Highlight" }
+        { value: "highlight", label: "Highlight" },
+        { value: "compact", label: "Compatto" }
     ];
 
     const iconStyleOptions: Array<{ value: IconStyle; label: string }> = [

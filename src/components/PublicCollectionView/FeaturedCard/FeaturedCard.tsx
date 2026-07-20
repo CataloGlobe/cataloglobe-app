@@ -11,7 +11,7 @@ export type FeaturedCardProps = {
     /** Chiamato al click sul pulsante CTA (solo per analytics — la navigazione è gestita dall'<a>). */
     onCtaClick?: () => void;
     className?: string;
-    variant?: "card" | "highlight";
+    variant?: "card" | "highlight" | "compact";
     /** Mostra il subtitle nella card overview. Default true (comportamento storico). */
     showSubtitle?: boolean;
     /** Above-the-fold: loading="eager" + fetchpriority="high". Default: lazy. */
@@ -57,6 +57,63 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
         if (!interactive) return;
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
     };
+
+    if (variant === "compact") {
+        return (
+            <div
+                role="listitem"
+                tabIndex={interactive ? 0 : -1}
+                className={`${styles.cardCompact} ${interactive ? "" : styles.nonInteractive} ${className ?? ""}`}
+                onClick={interactive ? onClick : undefined}
+                onKeyDown={keyHandler}
+            >
+                <div className={styles.cardCompactThumb}>
+                    {hasImage ? (
+                        <FramedMedia
+                            source={block.media_id!}
+                            framing={toFraming(block)}
+                            aspectRatio={block.media_aspect_ratio}
+                            alt={block.title}
+                            eager={eager}
+                            frameRatio={1}
+                        />
+                    ) : (
+                        <div className={styles.cardCompactThumbPlaceholder} />
+                    )}
+                </div>
+                <div className={styles.cardCompactBody}>
+                    <span className={styles.cardCompactTitle}>{block.title}</span>
+                    {showSubtitle && block.subtitle && (
+                        <span className={styles.cardCompactSubtitle}>{block.subtitle}</span>
+                    )}
+                    {block.pricing_mode === "bundle" && block.bundle_price != null && (
+                        <span className={styles.cardCompactPrice}>{formatPrice(block.bundle_price)}</span>
+                    )}
+                    {hasCta && (
+                        interactive ? (
+                            <a
+                                href={block.cta_url!}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className={styles.cardCompactCta}
+                                onClick={(e) => { e.stopPropagation(); onCtaClick?.(); }}
+                            >
+                                {block.cta_text}
+                            </a>
+                        ) : (
+                            <span
+                                className={styles.cardCompactCta}
+                                tabIndex={-1}
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                {block.cta_text}
+                            </span>
+                        )
+                    )}
+                </div>
+            </div>
+        );
+    }
 
     if (variant === "highlight") {
         return (

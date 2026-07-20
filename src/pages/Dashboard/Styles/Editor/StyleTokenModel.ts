@@ -5,7 +5,7 @@ export type BorderRadius = "none" | "soft" | "rounded";
 export type FontFamily = "inter" | "poppins" | "montserrat" | "josefin-sans" | "raleway" | "playfair" | "lora" | "cormorant-garamond" | "caveat";
 export type BackgroundPattern = "none" | "dots" | "diagonal" | "waves" | "crosshatch" | "noise";
 export type PatternIntensity = "subtle" | "medium" | "strong";
-export type FeaturedStyle = "card" | "highlight";
+export type FeaturedStyle = "card" | "highlight" | "compact";
 export type CardTreatment = "raised" | "bordered" | "glass";
 export type OutlinedBorderColor = "auto" | "primary";
 export type IconStyle = "plain" | "pill";
@@ -97,7 +97,7 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
 
 const VALID_PATTERNS: BackgroundPattern[] = ["none", "dots", "diagonal", "waves", "crosshatch", "noise"];
 const VALID_PATTERN_INTENSITIES: PatternIntensity[] = ["subtle", "medium", "strong"];
-const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight"];
+const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight", "compact"];
 const VALID_CARD_TREATMENTS: CardTreatment[] = ["raised", "bordered", "glass"];
 const VALID_OUTLINED_BORDER_COLORS: OutlinedBorderColor[] = ["auto", "primary"];
 

@@ -120,12 +120,25 @@ export function FeaturedStylePreview({ variant }: { variant: FeaturedStyle }) {
             </div>
         );
     }
+    if (variant === "highlight") {
+        return (
+            <div className={s.featuredSwatch} aria-hidden="true">
+                <div className={s.featuredSwatchHighlight}>
+                    <div className={s.featuredSwatchOverlay}>
+                        <span className={s.previewBarWhite} style={{ width: "55%" }} />
+                        <span className={s.previewBarWhite} style={{ width: "35%" }} />
+                    </div>
+                </div>
+            </div>
+        );
+    }
     return (
         <div className={s.featuredSwatch} aria-hidden="true">
-            <div className={s.featuredSwatchHighlight}>
-                <div className={s.featuredSwatchOverlay}>
-                    <span className={s.previewBarWhite} style={{ width: "55%" }} />
-                    <span className={s.previewBarWhite} style={{ width: "35%" }} />
+            <div className={s.featuredSwatchCompact}>
+                <div className={s.featuredSwatchCompactThumb} />
+                <div className={s.featuredSwatchText}>
+                    <span className={s.previewBarBold} style={{ width: "55%" }} />
+                    <span className={s.previewBarThin} style={{ width: "35%" }} />
                 </div>
             </div>
         </div>

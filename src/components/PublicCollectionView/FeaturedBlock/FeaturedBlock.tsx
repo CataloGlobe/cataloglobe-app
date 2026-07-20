@@ -14,7 +14,7 @@ type Props = {
     blocks: V2FeaturedContent[];
     activityId?: string;
     slot?: string;
-    layout?: "card" | "highlight";
+    layout?: "card" | "highlight" | "compact";
     /** Mostra il subtitle nella card overview. Default true (comportamento storico). */
     showSubtitle?: boolean;
     /** false in StyleEditor preview: card e CTA restano visive ma inerti. Default true. */
