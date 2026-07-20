@@ -1,9 +1,11 @@
 .heading {
   // Respiro asimmetrico: molto più SOPRA che sotto — il titolo introduce ciò che
-  // segue, non chiude ciò che precede. margin-top si somma al gap 16px del
-  // container .blocks (i margini non collassano in flex) → sopra ≫ sotto. È la
-  // ragione per cui non serve un blocco Divisore.
-  margin: var(--pub-space-6) 0 0;
+  // segue, non chiude ciò che precede. margin-top/-bottom si sommano al gap 16px
+  // del container .blocks (i margini non collassano in flex) → sopra (48px) ≫
+  // sotto (24px). Il sotto resta piccolo apposta (il titolo deve introdurre, non
+  // isolare) ma un blocco pesante come un'immagine subito dopo aveva solo 16px:
+  // +8px (space-2) per lasciarlo respirare senza avvicinarsi al peso del sopra.
+  margin: var(--pub-space-6) 0 var(--pub-space-2);
   font-family: var(--pub-font-family);
   font-size: 20px;
   font-weight: 700;
