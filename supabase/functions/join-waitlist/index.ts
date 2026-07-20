@@ -3,6 +3,10 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4";
 import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/company-config.ts";
+import { checkRateLimit, RateLimitExceededError, extractClientIp, hashIp } from "../_shared/rateLimit.ts";
+
+const RATE_LIMIT_PER_IP_PER_WINDOW = 5;
+const RATE_LIMIT_WINDOW_SECONDS = 300;
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
@@ -73,6 +77,21 @@ serve(async (req: Request) => {
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
         );
 
+        // ── Rate limit (per IP) ───────────────────────────────────────
+        try {
+            const ipHash = await hashIp(extractClientIp(req));
+            await checkRateLimit(supabase, {
+                key: `join-waitlist:ip:${ipHash}`,
+                limit: RATE_LIMIT_PER_IP_PER_WINDOW,
+                windowSeconds: RATE_LIMIT_WINDOW_SECONDS
+            });
+        } catch (e) {
+            if (e instanceof RateLimitExceededError) {
+                return jsonResponse({ success: false, error: "rate_limited" }, 429);
+            }
+            throw e;
+        }
+
         // ── Insert ──────────────────────────────────────────────────
         const { error: insertError } = await supabase.from("waitlist").insert({
             email,
@@ -80,16 +99,17 @@ serve(async (req: Request) => {
             activity_type: activityType
         });
 
-        if (insertError) {
-            // Duplicate email — respond success, don't leak existence
-            if (insertError.code === "23505") {
-                return jsonResponse({ success: true, message: "already_registered" }, 200);
-            }
+        // Duplicate email — same response shape as a new signup, no
+        // "already_registered" flag and no second confirmation email, so a
+        // caller cannot distinguish "new" from "already on the list" from
+        // the response alone (anti-enumeration).
+        const isDuplicate = insertError?.code === "23505";
+        if (insertError && !isDuplicate) {
             throw insertError;
         }
 
-        // ── Confirmation email (best-effort) ────────────────────────
-        resend.emails.send({
+        // ── Confirmation email (best-effort, only for genuinely new signups) ──
+        if (!isDuplicate) resend.emails.send({
             from: COMPANY.email.sender,
             reply_to: COMPANY.contact.info,
             to: email,

@@ -7,6 +7,9 @@ import {
 } from "../_shared/resolveActivityCatalogs.ts";
 import { toRomeDateTime, getNowInRome } from "../_shared/schedulingNow.ts";
 import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/checkOrderingState.ts";
+import { checkRateLimit, RateLimitExceededError, extractClientIp, hashIp } from "../_shared/rateLimit.ts";
+
+const RATE_LIMIT_PER_IP_PER_MIN = 120;
 
 interface ActivityFee { key: string; value: string; }
 
@@ -290,6 +293,27 @@ serve(async (req: Request) => {
             Deno.env.get("SUPABASE_URL")!,
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
         );
+
+        // Fail-closed per-IP rate limit — cheap fast-fail before any DB lookup.
+        try {
+            const ipHash = await hashIp(extractClientIp(req));
+            await checkRateLimit(supabase, {
+                key: `resolve-public-catalog:ip:${ipHash}`,
+                limit: RATE_LIMIT_PER_IP_PER_MIN,
+                windowSeconds: 60
+            });
+        } catch (e) {
+            if (e instanceof RateLimitExceededError) {
+                return new Response(
+                    JSON.stringify({ error: "Troppe richieste, riprova tra poco." }),
+                    {
+                        status: 429,
+                        headers: { ...corsHeaders, "Content-Type": "application/json", "Retry-After": String(e.retryAfterSeconds) }
+                    }
+                );
+            }
+            throw e;
+        }
 
         const ACTIVITY_SELECT =
             "id, tenant_id, name, slug, cover_image, status, inactive_reason, " +
