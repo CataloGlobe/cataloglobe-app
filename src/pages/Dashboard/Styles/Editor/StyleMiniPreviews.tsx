@@ -136,7 +136,7 @@ export function FeaturedStylePreview({ variant }: { variant: FeaturedStyle }) {
         <div className={s.featuredSwatch} aria-hidden="true">
             <div className={s.featuredSwatchCompact}>
                 <div className={s.featuredSwatchCompactThumb} />
-                <div className={s.featuredSwatchText}>
+                <div className={`${s.featuredSwatchText} ${s.featuredSwatchCompactBody}`}>
                     <span className={s.previewBarBold} style={{ width: "55%" }} />
                     <span className={s.previewBarThin} style={{ width: "35%" }} />
                 </div>

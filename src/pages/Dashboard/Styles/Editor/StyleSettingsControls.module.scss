@@ -491,7 +491,12 @@
   gap: 6px;
   width: 100%;
   height: 100%;
-  padding: 4px 6px;
+  padding: 6px 8px;
+  border-radius: 4px;
+  border: 1px solid var(--color-border, #dce3ef);
+  background: var(--color-surface, #ffffff);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  box-sizing: border-box;
 }
 
 .featuredSwatchCompactThumb {
@@ -500,6 +505,15 @@
   border-radius: 3px;
   background: #b5bcc9;
   flex-shrink: 0;
+}
+
+/* .featuredSwatchText di base è pensato per il layout a colonna di Card
+   (larghezza ereditata dal genitore full-width). Nel layout a riga del
+   Compatto serve un flex-basis esplicito perché le barre in % risolvano
+   contro una larghezza reale invece di collassare a 0. */
+.featuredSwatchCompactBody {
+  flex: 1;
+  min-width: 0;
 }
 
 /* ── Card layout swatch ──────────────────────────────────── */
