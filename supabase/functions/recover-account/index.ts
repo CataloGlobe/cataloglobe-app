@@ -42,21 +42,25 @@ async function sleepRemaining(startedAtMs: number, minDurationMs: number) {
     if (remaining > 0) await new Promise(resolve => setTimeout(resolve, remaining));
 }
 
+interface ResolvedUser {
+    userId: string;
+    bannedUntil: string | null;
+}
+
 // -------------------------------------------------------------------------
-// Resolve user_id from email + safety-net reban.
+// Resolve user_id (+ current banned_until) from email. Pure lookup — no
+// mutation. Supabase admin listUsers does not support email filtering
+// directly, so we paginate until we find a matching record.
 //
-// Supabase admin listUsers does not support email filtering directly, so we
-// paginate until we find a matching record. Mirrors the pre-OTP-gate logic:
-// if account_deleted_at is set but the user isn't currently banned (a prior
-// delete-account run may have failed partway through), re-apply the ban so
-// the two states are consistent before any recovery decision is made. This
-// is a defensive resync only — it never unbans/unlocks anything, so running
-// it from the unauthenticated "send code" step doesn't expose new risk.
+// Deliberately does NOT touch ban state here: this is reachable from Step A
+// with just an {email}, no proof of possession, so it must never mutate an
+// account that hasn't already been confirmed as deleted. The ban-resync
+// safety net (see isEligibleForRecoveryOtp) only runs after that check.
 // -------------------------------------------------------------------------
 async function resolveUserId(
     supabaseAdmin: ReturnType<typeof createClient>,
     email: string
-): Promise<string | null> {
+): Promise<ResolvedUser | null> {
     let page = 1;
     const perPage = 1000;
 
@@ -76,30 +80,7 @@ async function resolveUserId(
         const match = listData.users.find(u => (u.email ?? "").toLowerCase() === email);
 
         if (match) {
-            const isBanned =
-                match.banned_until != null && new Date(match.banned_until).getTime() > Date.now();
-
-            if (!isBanned) {
-                const { error: rebanError } = await supabaseAdmin.auth.admin.updateUserById(
-                    match.id,
-                    { ban_duration: "876000h" }
-                );
-                if (rebanError) {
-                    console.error(
-                        JSON.stringify({
-                            event: "recover_account_reban_failed",
-                            user_id: match.id,
-                            error_message: rebanError.message
-                        })
-                    );
-                } else {
-                    console.log(
-                        JSON.stringify({ event: "recover_account_reban_applied", user_id: match.id })
-                    );
-                }
-            }
-
-            return match.id;
+            return { userId: match.id, bannedUntil: match.banned_until ?? null };
         }
 
         if (listData.users.length < perPage) return null;
@@ -111,9 +92,17 @@ async function resolveUserId(
 // in principle recoverable, regardless of whether the 30-day window already
 // expired — the window check itself only happens after OTP verification,
 // see the module comment on handleVerifyStep).
+//
+// Safety-net reban: only reached here, after account_deleted_at IS
+// confirmed set. If account_deleted_at is set but the user isn't currently
+// banned (a prior delete-account run may have failed partway through the
+// ban step), re-apply the ban so state stays consistent. Never runs for an
+// account that hasn't been confirmed deleted — an active account is never
+// mutated by Step A.
 async function isEligibleForRecoveryOtp(
     supabaseAdmin: ReturnType<typeof createClient>,
-    userId: string
+    userId: string,
+    bannedUntil: string | null
 ): Promise<boolean> {
     const { data: profile, error } = await supabaseAdmin
         .from("profiles")
@@ -132,7 +121,28 @@ async function isEligibleForRecoveryOtp(
         return false;
     }
 
-    return !!profile.account_deleted_at;
+    if (!profile.account_deleted_at) return false;
+
+    const isBanned = bannedUntil != null && new Date(bannedUntil).getTime() > Date.now();
+
+    if (!isBanned) {
+        const { error: rebanError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+            ban_duration: "876000h"
+        });
+        if (rebanError) {
+            console.error(
+                JSON.stringify({
+                    event: "recover_account_reban_failed",
+                    user_id: userId,
+                    error_message: rebanError.message
+                })
+            );
+        } else {
+            console.log(JSON.stringify({ event: "recover_account_reban_applied", user_id: userId }));
+        }
+    }
+
+    return true;
 }
 
 // -------------------------------------------------------------------------
@@ -291,15 +301,22 @@ async function handleSendStep(
 ) {
     const startedAt = Date.now();
 
-    const userId = await resolveUserId(supabaseAdmin, email);
-    if (userId) {
-        const eligible = await isEligibleForRecoveryOtp(supabaseAdmin, userId);
+    const resolved = await resolveUserId(supabaseAdmin, email);
+    if (resolved) {
+        const eligible = await isEligibleForRecoveryOtp(
+            supabaseAdmin,
+            resolved.userId,
+            resolved.bannedUntil
+        );
         if (eligible) {
             try {
-                await sendRecoveryOtp(supabaseAdmin, userId, email, otpPepper, resend);
+                await sendRecoveryOtp(supabaseAdmin, resolved.userId, email, otpPepper, resend);
             } catch (e) {
                 console.error(
-                    JSON.stringify({ event: "recover_account_send_otp_error", user_id: userId })
+                    JSON.stringify({
+                        event: "recover_account_send_otp_error",
+                        user_id: resolved.userId
+                    })
                 );
             }
         }
@@ -326,8 +343,9 @@ async function handleVerifyStep(
 ) {
     const genericFailure = () => json(400, { success: false, error: "invalid_or_expired" });
 
-    const userId = await resolveUserId(supabaseAdmin, email);
-    if (!userId) return genericFailure();
+    const resolved = await resolveUserId(supabaseAdmin, email);
+    if (!resolved) return genericFailure();
+    const { userId } = resolved;
 
     const now = new Date();
     const nowMs = now.getTime();
