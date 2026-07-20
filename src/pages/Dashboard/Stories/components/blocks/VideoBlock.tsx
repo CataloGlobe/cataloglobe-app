@@ -1,4 +1,3 @@
-import { Video } from "lucide-react";
 import { Select } from "@/components/ui/Select/Select";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { StoryVideoBlock, StoryVideoProvider } from "@/services/supabase/stories";
@@ -18,10 +17,6 @@ interface VideoBlockProps {
 export function VideoBlock({ block, onChange, disabled }: VideoBlockProps) {
     return (
         <div className={styles.wrapper}>
-            {/* Unica eccezione alla regola "niente kind-label": select+URL da soli
-                non sono autoevidenti come una textarea (testo) o una miniatura
-                (immagine), quindi qui l'icona resta — mai testo. */}
-            <Video className={styles.kindIcon} size={16} aria-hidden="true" />
             <div className={styles.row}>
                 <Select
                     label="Provider"
