@@ -141,17 +141,19 @@ function ChoiceRulesEditor({
                     >
                         Sì <span className={styles.pillHint}>(es. le aggiunte)</span>
                     </button>
+                    {mode === "many" && (
+                        <NumberInput
+                            aria-label="Fino a quante?"
+                            placeholder="Fino a quante?"
+                            min="2"
+                            value={n}
+                            onChange={e => onNChange(e.target.value)}
+                            disabled={disabled}
+                            containerClassName={styles.quantityN}
+                            inputClassName={styles.controlInput}
+                        />
+                    )}
                 </div>
-                {mode === "many" && (
-                    <NumberInput
-                        label="Fino a quante?"
-                        min="2"
-                        value={n}
-                        onChange={e => onNChange(e.target.value)}
-                        disabled={disabled}
-                        containerClassName={styles.quantityN}
-                    />
-                )}
             </div>
             <div className={styles.formSection}>
                 <Text variant="body-sm" weight={600}>
@@ -1095,7 +1097,7 @@ export default function PrezziOpzioniTab({
                                     priceMode="delta"
                                     emptyTitle="Nessuna scelta"
                                     namePlaceholder="Nome (es. Latte)"
-                                    pricePlaceholder="Costo aggiuntivo"
+                                    pricePlaceholder="0,00"
                                     onCreate={(name, price) =>
                                         handleCreateAddonValue(group, name, price)
                                     }

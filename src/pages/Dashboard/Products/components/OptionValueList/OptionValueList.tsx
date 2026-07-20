@@ -41,6 +41,14 @@ function parsePrice(raw: string): number | null {
     return isNaN(parsed) ? null : parsed;
 }
 
+/** `absolute` mostra solo €; `delta` aggiunge anche il `+` a sinistra —
+ * il segno è l'informazione che distingue un addon da un formato. */
+function priceAdornments(priceMode: OptionValuePriceMode) {
+    return priceMode === "delta"
+        ? { startAdornment: "+", endAdornment: "€" }
+        : { endAdornment: "€" };
+}
+
 /**
  * Lista compatta dei valori di un gruppo opzioni (formati o addon) —
  * sostituisce la `DataTable` generica: niente paginazione/conteggio/header
@@ -173,6 +181,7 @@ export function OptionValueList({
                     <div key={value.id} className={styles.editRow}>
                         <TextInput
                             containerClassName={styles.nameField}
+                            inputClassName={styles.controlInput}
                             value={editName}
                             onChange={e => setEditName(e.target.value)}
                             placeholder={namePlaceholder}
@@ -180,6 +189,8 @@ export function OptionValueList({
                         />
                         <NumberInput
                             containerClassName={styles.priceField}
+                            inputClassName={styles.controlInput}
+                            {...priceAdornments(priceMode)}
                             value={editPrice}
                             onChange={e => setEditPrice(e.target.value)}
                             placeholder={pricePlaceholder}
@@ -191,6 +202,7 @@ export function OptionValueList({
                                 type="button"
                                 variant="primary"
                                 size="sm"
+                                className={styles.controlButton}
                                 onClick={() => saveEdit(value.id)}
                                 disabled={savingEditId === value.id}
                                 loading={savingEditId === value.id}
@@ -201,6 +213,7 @@ export function OptionValueList({
                                 type="button"
                                 variant="ghost"
                                 size="sm"
+                                className={styles.controlButton}
                                 onClick={cancelEdit}
                                 disabled={savingEditId === value.id}
                             >
@@ -218,10 +231,10 @@ export function OptionValueList({
                         <Text variant="body" className={styles.nameField}>
                             {value.name}
                         </Text>
-                        <Text variant="body" className={styles.priceField}>
+                        <Text variant="body" className={styles.priceValueRead}>
                             {formatPrice(readPrice(value, priceMode), priceMode)}
                         </Text>
-                        <div className={styles.rowActions}>
+                        <div className={styles.readActions}>
                             <TableRowActions
                                 actions={[
                                     {
@@ -246,6 +259,7 @@ export function OptionValueList({
                     <TextInput
                         ref={addNameRef}
                         containerClassName={styles.nameField}
+                        inputClassName={styles.controlInput}
                         value={addName}
                         onChange={e => setAddName(e.target.value)}
                         placeholder={namePlaceholder}
@@ -253,6 +267,8 @@ export function OptionValueList({
                     />
                     <NumberInput
                         containerClassName={styles.priceField}
+                        inputClassName={styles.controlInput}
+                        {...priceAdornments(priceMode)}
                         value={addPrice}
                         onChange={e => setAddPrice(e.target.value)}
                         placeholder={pricePlaceholder}
@@ -264,6 +280,7 @@ export function OptionValueList({
                             type="button"
                             variant="primary"
                             size="sm"
+                            className={styles.controlButton}
                             onClick={saveAdd}
                             disabled={savingAdd}
                             loading={savingAdd}
