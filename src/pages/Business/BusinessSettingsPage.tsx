@@ -178,17 +178,15 @@ export default function BusinessSettingsPage() {
                         Identità visiva
                     </Text>
 
-                    <Text variant="body-sm" colorVariant="muted">
-                        Logo attività — PNG, JPG o WEBP. Inquadra e ritaglia in formato
-                        quadrato prima di salvare.
-                    </Text>
-
                     <ImageUploadEditor
                         aspectRatio={IMAGE_UPLOAD_PRESETS.logo.aspectRatio}
                         backgroundFillModes={IMAGE_UPLOAD_PRESETS.logo.backgroundFillModes}
                         maxSizeMB={IMAGE_UPLOAD_PRESETS.logo.maxSizeMB}
                         compressLongEdge={IMAGE_UPLOAD_PRESETS.logo.compressLongEdge}
                         bake={{ size: 512, format: "image/webp", quality: 0.9, fileName: "logo.webp" }}
+                        fieldLabel={IMAGE_UPLOAD_PRESETS.logo.fieldLabel}
+                        drawerTitle={IMAGE_UPLOAD_PRESETS.logo.drawerTitle}
+                        requiresConfirm={IMAGE_UPLOAD_PRESETS.logo.requiresConfirm}
                         initialSource={
                             selectedTenant.logo_url
                                 ? getTenantLogoPublicUrl(selectedTenant.logo_url)
@@ -196,19 +194,9 @@ export default function BusinessSettingsPage() {
                         }
                         initialAspectRatio={1}
                         onConfirm={handleLogoConfirm}
+                        onRemove={handleRemoveLogo}
+                        removing={isSavingLogo}
                     />
-
-                    {selectedTenant.logo_url && (
-                        <div className={styles.sectionFooter}>
-                            <Button
-                                variant="danger"
-                                onClick={handleRemoveLogo}
-                                disabled={isSavingLogo}
-                            >
-                                {isSavingLogo ? "Rimozione..." : "Rimuovi logo"}
-                            </Button>
-                        </div>
-                    )}
                 </div>
             )}
 

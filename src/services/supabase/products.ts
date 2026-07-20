@@ -13,6 +13,7 @@ import { deleteTranslationsForEntity } from "./translations";
 import type { MediaFraming } from "@components/ui/ImageReframeEditor/types";
 import { deleteProductImageBestEffort } from "./upload";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
+import { resolvePriceSummary } from "@/utils/priceSummary";
 
 export type ProductType = "simple" | "formats" | "configurable";
 
@@ -100,6 +101,10 @@ export type ProductListMetadata = {
     configurationsCount: number;
     catalogsCount: number;
     fromPrice: number | null;
+    /** Prezzo massimo tra i formati — non ancora mostrato in lista (fondamenta per una futura sintesi a range). */
+    toPrice: number | null;
+    /** Numero di formati con prezzo valido — da resolvePriceSummary, a differenza di formatsCount (tutti i formati, prezzati o no). Usato per la decisione secco-vs-"da X". */
+    pricedFormatsCount: number;
 };
 
 type ProductOptionGroupListRow = {
@@ -130,7 +135,9 @@ export async function getProductListMetadata(
             formatsCount: 0,
             configurationsCount: 0,
             catalogsCount: 0,
-            fromPrice: null
+            fromPrice: null,
+            toPrice: null,
+            pricedFormatsCount: 0
         };
     }
 
@@ -179,6 +186,8 @@ export async function getProductListMetadata(
 
         if (valuesError) throw valuesError;
 
+        const pricesByProductId = new Map<string, Array<number | null>>();
+
         for (const value of (values ?? []) as ProductOptionValueListRow[]) {
             const productId = primaryGroupToProductId.get(value.option_group_id);
             if (!productId) continue;
@@ -188,12 +197,19 @@ export async function getProductListMetadata(
 
             meta.formatsCount += 1;
 
-            if (typeof value.absolute_price === "number") {
-                meta.fromPrice =
-                    meta.fromPrice === null
-                        ? value.absolute_price
-                        : Math.min(meta.fromPrice, value.absolute_price);
-            }
+            const prices = pricesByProductId.get(productId) ?? [];
+            prices.push(value.absolute_price);
+            pricesByProductId.set(productId, prices);
+        }
+
+        for (const [productId, prices] of pricesByProductId.entries()) {
+            const meta = metadataByProductId[productId];
+            if (!meta) continue;
+
+            const summary = resolvePriceSummary(prices);
+            meta.fromPrice = summary.min;
+            meta.toPrice = summary.max;
+            meta.pricedFormatsCount = summary.count;
         }
     }
 

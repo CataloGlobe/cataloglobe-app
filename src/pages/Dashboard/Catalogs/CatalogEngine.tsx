@@ -638,8 +638,8 @@ export default function CatalogEngine() {
                         if (typeof meta.fromPrice === "number") {
                             nextFormatPrices[id] = meta.fromPrice;
                         }
-                        if (meta.formatsCount > 0) {
-                            nextFormatCounts[id] = meta.formatsCount;
+                        if (meta.pricedFormatsCount > 0) {
+                            nextFormatCounts[id] = meta.pricedFormatsCount;
                         }
                     }
                     setFormatPriceByProductId(nextFormatPrices);

@@ -28,6 +28,7 @@ import {
 } from "@/services/supabase/productOptions";
 import { OptionValueList } from "./components/OptionValueList/OptionValueList";
 import { getDisplayPrice } from "@/utils/priceDisplay";
+import { resolvePriceSummary } from "@/utils/priceSummary";
 import styles from "./PrezziOpzioniTab.module.scss";
 
 function computeFromPrice(
@@ -36,10 +37,7 @@ function computeFromPrice(
 ): number | null {
     if (group === undefined) return null;
     if (group !== null && group.values.length > 0) {
-        const prices = group.values
-            .map(v => v.absolute_price)
-            .filter((p): p is number => p !== null);
-        return prices.length > 0 ? Math.min(...prices) : null;
+        return resolvePriceSummary(group.values.map(v => v.absolute_price)).min;
     }
     return fallback;
 }
@@ -52,12 +50,10 @@ function formatMoney(n: number): string {
  * (`resolveActivityCatalogs.ts`): 1 valore prezzato → prezzo secco, 2+ →
  * "da X" sul minimo. */
 function formatPricePreview(group: GroupWithValues): string | null {
-    const prices = group.values
-        .map(v => v.absolute_price)
-        .filter((p): p is number => p !== null);
-    if (prices.length === 0) return null;
-    if (prices.length === 1) return `Nel menu il prodotto mostra ${formatMoney(prices[0])}`;
-    return `Nel menu il prodotto mostra da ${formatMoney(Math.min(...prices))}`;
+    const summary = resolvePriceSummary(group.values.map(v => v.absolute_price));
+    if (summary.kind === "none" || summary.min === null) return null;
+    if (summary.kind === "single") return `Nel menu il prodotto mostra ${formatMoney(summary.min)}`;
+    return `Nel menu il prodotto mostra da ${formatMoney(summary.min)}`;
 }
 
 type MaxSelectableMode = "one" | "many";

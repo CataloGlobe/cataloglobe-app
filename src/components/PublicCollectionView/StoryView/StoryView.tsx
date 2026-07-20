@@ -7,6 +7,7 @@ import { fetchPublicStories } from "@/services/supabase/stories";
 import type { PublicStoryListResult } from "@/services/supabase/stories";
 import Text from "@/components/ui/Text/Text";
 import StoryReader from "./StoryReader";
+import type { CollectionViewSectionItem } from "@/components/PublicCollectionView/CollectionView/CollectionView";
 import styles from "./StoryView.module.scss";
 
 type StoryViewProps = {
@@ -15,6 +16,8 @@ type StoryViewProps = {
     onSelectStory: (storyId: string | null) => void;
     /** Apre la scheda prodotto dal rimando nel lettore (stesso meccanismo di CollectionView). */
     onOpenProduct?: (productId: string) => void;
+    /** Pass-through al lettore per il blocco Prodotto — vedi StoryReader. */
+    resolveProduct?: (productId: string) => CollectionViewSectionItem | null;
 };
 
 const SLIDE_TRANSITION = { duration: 0.28, ease: [0.22, 1, 0.36, 1] } as const;
@@ -24,7 +27,7 @@ type LoadState =
     | { status: "error" }
     | { status: "ready"; data: PublicStoryListResult };
 
-export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpenProduct }: StoryViewProps) {
+export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpenProduct, resolveProduct }: StoryViewProps) {
     const { t } = useTranslation("public");
     const [state, setState] = useState<LoadState>({ status: "loading" });
     const prefersReducedMotion = useReducedMotion();
@@ -172,6 +175,7 @@ export default function StoryView({ slug, selectedStoryId, onSelectStory, onOpen
                             storyId={selectedStoryId}
                             onClose={() => onSelectStory(null)}
                             onOpenProduct={onOpenProduct}
+                            resolveProduct={resolveProduct}
                         />
                     </motion.div>
                 ) : (

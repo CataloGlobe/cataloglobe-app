@@ -2,7 +2,8 @@ import { useState, useEffect, type FormEvent } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { signIn } from "@services/supabase/auth";
 import {
-    recoverAccount,
+    requestAccountRecovery,
+    confirmAccountRecovery,
     DELETED_ACCOUNT_HANDOFF_KEY,
     type DeletedAccountHandoff
 } from "@/services/supabase/account";
@@ -31,6 +32,8 @@ export default function Login() {
     const [isRecovering, setIsRecovering] = useState(false);
     const [recoveryError, setRecoveryError] = useState<string | null>(null);
     const [recoverySuccess, setRecoverySuccess] = useState(false);
+    const [recoveryOtpSent, setRecoveryOtpSent] = useState(false);
+    const [recoveryCode, setRecoveryCode] = useState("");
 
     // On mount, check for a forced-logout handoff written by AuthProvider.
     // This covers the case where account_deleted_at was set but the user
@@ -98,22 +101,39 @@ export default function Login() {
         }
     }
 
-    async function handleRecover() {
+    async function handleRequestRecover() {
         setRecoveryError(null);
         setIsRecovering(true);
 
         try {
-            await recoverAccount(email.trim());
+            await requestAccountRecovery(email.trim());
+            setRecoveryOtpSent(true);
+        } catch {
+            setRecoveryError("Impossibile inviare il codice. Riprova.");
+        } finally {
+            setIsRecovering(false);
+        }
+    }
+
+    async function handleConfirmRecover(e: FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        setRecoveryError(null);
+        setIsRecovering(true);
+
+        try {
+            await confirmAccountRecovery(email.trim(), recoveryCode.trim());
             setRecoverySuccess(true);
             setIsBanned(false);
+            setRecoveryOtpSent(false);
         } catch (err) {
             const message = err instanceof Error ? err.message : "";
             if (message === "recovery_window_expired") {
                 setRecoveryError(
                     "Il periodo di recupero è scaduto. L\u2019account è stato eliminato definitivamente."
                 );
+                setRecoveryOtpSent(false);
             } else {
-                setRecoveryError("Impossibile recuperare l'account. Riprova.");
+                setRecoveryError("Codice non valido o scaduto. Riprova.");
             }
         } finally {
             setIsRecovering(false);
@@ -165,7 +185,7 @@ export default function Login() {
                     </Text>
                 </div>
 
-                {isBanned && !recoverySuccess && (
+                {isBanned && !recoverySuccess && !recoveryOtpSent && (
                     <div className={styles.bannedBox}>
                         <Text variant="body-sm" weight={600}>
                             Account in fase di eliminazione
@@ -181,12 +201,48 @@ export default function Login() {
                         )}
                         <Button
                             variant="primary"
-                            onClick={handleRecover}
+                            onClick={handleRequestRecover}
                             loading={isRecovering}
                             disabled={isRecovering}
                         >
-                            {isRecovering ? "Recupero in corso..." : "Recupera account"}
+                            {isRecovering ? "Invio in corso..." : "Recupera account"}
                         </Button>
+                    </div>
+                )}
+
+                {isBanned && !recoverySuccess && recoveryOtpSent && (
+                    <div className={styles.bannedBox}>
+                        <Text variant="body-sm" weight={600}>
+                            Conferma il recupero
+                        </Text>
+                        <Text variant="body-sm" colorVariant="muted">
+                            Ti abbiamo inviato un codice via email. Inseriscilo per confermare il
+                            recupero dell&apos;account.
+                        </Text>
+                        {recoveryError && (
+                            <Text variant="caption" colorVariant="error" as="p">
+                                {recoveryError}
+                            </Text>
+                        )}
+                        <form onSubmit={handleConfirmRecover}>
+                            <TextInput
+                                label="Codice di verifica"
+                                inputMode="numeric"
+                                maxLength={6}
+                                value={recoveryCode}
+                                onChange={e => setRecoveryCode(e.target.value)}
+                                required
+                                autoComplete="one-time-code"
+                            />
+                            <Button
+                                type="submit"
+                                variant="primary"
+                                loading={isRecovering}
+                                disabled={isRecovering || recoveryCode.trim().length !== 6}
+                            >
+                                {isRecovering ? "Verifica in corso..." : "Conferma recupero"}
+                            </Button>
+                        </form>
                     </div>
                 )}
 

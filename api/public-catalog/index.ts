@@ -2,8 +2,9 @@ import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 import {
     getEnvNamespace,
-    getRedis,
     makeSnapshotKey,
+    redisGetSnapshot,
+    redisSetSnapshot,
     SNAPSHOT_SCHEMA_VERSION,
     SNAPSHOT_TTL_SECONDS
 } from "../_lib/redis.js";
@@ -218,24 +219,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         const payload = edgeResult.payload;
 
         if (isHealthyPayload(payload)) {
-            // Best-effort write: il fallimento Redis NON deve bloccare la risposta live
+            // Best-effort write: timeout + fail-open (no-op su errore, log
+            // `redis_timeout`) centralizzati in redisSetSnapshot. Il fallimento
+            // Redis NON deve bloccare la risposta live.
             const snapshot: Snapshot = {
                 schemaVersion: SNAPSHOT_SCHEMA_VERSION,
                 savedAt: new Date().toISOString(),
                 payload
             };
-            try {
-                const redis = getRedis();
-                await redis.set(snapshotKey, snapshot, { ex: SNAPSHOT_TTL_SECONDS });
-            } catch (err) {
-                console.error(JSON.stringify({
-                    event: "public_catalog_redis_write_failed",
-                    slug,
-                    lang: lang ?? null,
-                    env,
-                    error: err instanceof Error ? err.message : String(err)
-                }));
-            }
+            await redisSetSnapshot(snapshotKey, snapshot, SNAPSHOT_TTL_SECONDS);
         }
 
         res.setHeader("Cache-Control", "public, s-maxage=30, stale-while-revalidate=300");
@@ -280,27 +272,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
         cause: edgeResult.cause instanceof Error ? edgeResult.cause.message : String(edgeResult.cause)
     }));
 
+    // Timeout + fail-open (→ null, trattato come miss) centralizzati in
+    // redisGetSnapshot (log `redis_timeout`).
     let snapshot: Snapshot | null = null;
-    try {
-        const redis = getRedis();
-        const cached = await redis.get<Snapshot>(snapshotKey);
-        if (
-            cached &&
-            typeof cached === "object" &&
-            (cached as Snapshot).schemaVersion === SNAPSHOT_SCHEMA_VERSION &&
-            typeof (cached as Snapshot).savedAt === "string" &&
-            (cached as Snapshot).payload
-        ) {
-            snapshot = cached as Snapshot;
-        }
-    } catch (err) {
-        console.error(JSON.stringify({
-            event: "public_catalog_redis_read_failed",
-            slug,
-            lang: lang ?? null,
-            env,
-            error: err instanceof Error ? err.message : String(err)
-        }));
+    const cached = await redisGetSnapshot<Snapshot>(snapshotKey);
+    if (
+        cached &&
+        typeof cached === "object" &&
+        (cached as Snapshot).schemaVersion === SNAPSHOT_SCHEMA_VERSION &&
+        typeof (cached as Snapshot).savedAt === "string" &&
+        (cached as Snapshot).payload
+    ) {
+        snapshot = cached as Snapshot;
     }
 
     if (snapshot) {

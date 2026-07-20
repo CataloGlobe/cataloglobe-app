@@ -1,9 +1,9 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { LOCK_MINUTES, sha256 } from "../_shared/otpCore.ts";
 
 /* ================= CONFIG ================= */
-const LOCK_MINUTES = 15;
 const VERIFICATION_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -20,14 +20,6 @@ const corsHeaders = {
 
 function json(status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders });
-}
-
-async function sha256(value: string): Promise<string> {
-    const data = new TextEncoder().encode(value);
-    const hash = await crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(hash))
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join("");
 }
 
 serve(async req => {

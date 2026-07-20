@@ -52,13 +52,22 @@ export type StoryVideoBlock = { id: string; type: "video"; provider: StoryVideoP
  */
 export type StoryListVariant = "bullet" | "check";
 export type StoryListBlock = { id: string; type: "list"; variant: StoryListVariant; items: string[] };
+/**
+ * Ponte storia→menu. Salva SOLO `productId` — mai nome/prezzo/foto (ripescati
+ * al render, il prezzo è dinamico). `body_blocks` è JSONB senza FK: a
+ * differenza di `stories.product_id` (ON DELETE SET NULL), un id qui può
+ * restare dangling dopo la cancellazione del prodotto — gestito a valle
+ * (editor: avviso; pubblico: card assente).
+ */
+export type StoryProductBlock = { id: string; type: "product"; productId: string | null };
 export type StoryBlock =
     | StoryTextBlock
     | StoryImageBlock
     | StoryVideoBlock
     | StoryHeadingBlock
     | StoryQuoteBlock
-    | StoryListBlock;
+    | StoryListBlock
+    | StoryProductBlock;
 
 export interface Story {
     id: string;

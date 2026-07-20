@@ -70,6 +70,7 @@ export const ActivityGalleryUploadDrawer: React.FC<ActivityGalleryUploadDrawerPr
                     </Text>
 
                     <ImageUploadEditor
+                        variant="embedded"
                         aspectRatio={IMAGE_UPLOAD_PRESETS.gallery.aspectRatio}
                         backgroundFillModes={IMAGE_UPLOAD_PRESETS.gallery.backgroundFillModes}
                         maxSizeMB={IMAGE_UPLOAD_PRESETS.gallery.maxSizeMB}

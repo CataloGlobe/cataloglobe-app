@@ -7,6 +7,7 @@ import {
     type VisibilityMode
 } from "@/services/supabase/scheduleResolver";
 import { getNowInRome, type RomeDateTime } from "@/services/supabase/schedulingNow";
+import { resolvePriceSummary } from "@/utils/priceSummary";
 
 export type ResolvedVariantDimValue = {
     value_id: string;
@@ -65,6 +66,8 @@ export type ResolvedVariant = {
     original_price?: number;
     /** Min absolute_price across PRIMARY_PRICE formats. Set when variant has formats instead of a single base_price. */
     from_price?: number;
+    /** Max absolute_price across PRIMARY_PRICE formats — always set alongside `from_price`. Not shown anywhere yet (foundation for a future range synthesis). */
+    to_price?: number;
     optionGroups?: ResolvedOptionGroup[];
     image_url?: string;
     image_framing?: ResolvedMediaFraming;
@@ -106,6 +109,8 @@ export type ResolvedProduct = {
     original_price?: number;
     /** Min absolute_price across PRIMARY_PRICE formats. Set when product has formats. */
     from_price?: number;
+    /** Max absolute_price across PRIMARY_PRICE formats — always set alongside `from_price`. Not shown anywhere yet (foundation for a future range synthesis). */
+    to_price?: number;
     is_visible: boolean;
     is_disabled?: boolean;
     attributes?: any[];
@@ -197,6 +202,8 @@ export type V2FeaturedContent = {
             base_price: number | null;
             image_url: string | null;
             fromPrice: number | null;
+            /** Sempre popolato insieme a `fromPrice` — non ancora mostrato (fondamenta per una futura sintesi a range). */
+            toPrice: number | null;
             is_from_price: boolean;
             price_variants: Array<{ name: string | null; absolute_price: number | null }>;
         } | null;
@@ -586,19 +593,21 @@ export function normalizeCatalog(
                         }));
 
                         let vFromPrice: number | undefined = undefined;
+                        let vToPrice: number | undefined = undefined;
                         let vSinglePrice: number | undefined = undefined;
                         const vPrimaryGroup = vResolvedOptionGroups.find(
                             og => og.group_kind === "PRIMARY_PRICE" && og.pricing_mode === "ABSOLUTE"
                         );
                         if (vPrimaryGroup && vPrimaryGroup.values.length > 0) {
-                            const validPrices = vPrimaryGroup.values
-                                .map(val => val.absolute_price)
-                                .filter((price): price is number => price !== null);
                             // 1 price → "€X" (price field); 2+ prices → "da €X" (from_price field)
-                            if (validPrices.length === 1) {
-                                vSinglePrice = validPrices[0];
-                            } else if (validPrices.length > 1) {
-                                vFromPrice = Math.min(...validPrices);
+                            const vSummary = resolvePriceSummary(
+                                vPrimaryGroup.values.map(val => val.absolute_price)
+                            );
+                            if (vSummary.kind === "single") {
+                                vSinglePrice = vSummary.min ?? undefined;
+                            } else if (vSummary.kind === "multi") {
+                                vFromPrice = vSummary.min ?? undefined;
+                                vToPrice = vSummary.max ?? undefined;
                             }
                         }
 
@@ -611,6 +620,7 @@ export function normalizeCatalog(
                             ...(v.base_price === null && vSinglePrice !== undefined ? { price: vSinglePrice } : {}),
                             // Multiple format prices → from_price field (shows "da €X")
                             ...(v.base_price === null && vFromPrice !== undefined ? { from_price: vFromPrice } : {}),
+                            ...(v.base_price === null && vToPrice !== undefined ? { to_price: vToPrice } : {}),
                             ...(v.base_price === null && vResolvedOptionGroups.length > 0 ? { optionGroups: vResolvedOptionGroups } : {}),
                             ...(v.image_url ? { image_url: v.image_url } : {}),
                             ...(v.image_framing ? { image_framing: v.image_framing } : {}),
@@ -654,19 +664,21 @@ export function normalizeCatalog(
                     // Compute from_price / displayPrice from PRIMARY_PRICE group.
                     // Convention: single format → price (displayPrice); multiple → from_price (min).
                     let from_price: number | undefined = undefined;
+                    let to_price: number | undefined = undefined;
                     let displayPrice: number | undefined =
                         p.base_price !== null ? p.base_price : undefined;
                     const primaryGroup = resolvedOptionGroups.find(
                         og => og.group_kind === "PRIMARY_PRICE" && og.pricing_mode === "ABSOLUTE"
                     );
                     if (primaryGroup && primaryGroup.values.length > 0) {
-                        const validPrices = primaryGroup.values
-                            .map(v => v.absolute_price)
-                            .filter((price): price is number => price !== null);
-                        if (validPrices.length === 1) {
-                            displayPrice = validPrices[0]; // single format → price field
-                        } else if (validPrices.length > 1) {
-                            from_price = Math.min(...validPrices); // multiple formats → from_price field
+                        const pSummary = resolvePriceSummary(
+                            primaryGroup.values.map(v => v.absolute_price)
+                        );
+                        if (pSummary.kind === "single") {
+                            displayPrice = pSummary.min ?? undefined; // single format → price field
+                        } else if (pSummary.kind === "multi") {
+                            from_price = pSummary.min ?? undefined; // multiple formats → from_price field
+                            to_price = pSummary.max ?? undefined;
                         }
                     }
 
@@ -677,6 +689,7 @@ export function normalizeCatalog(
                     // variant-derived values, which would create a circular reference.
                     const parentOwnDisplayPrice = displayPrice;
                     const parentOwnFromPrice = from_price;
+                    const parentOwnToPrice = to_price;
                     const parentPrimaryGroups = resolvedOptionGroups.filter(
                         og => og.group_kind === "PRIMARY_PRICE"
                     );
@@ -688,6 +701,7 @@ export function normalizeCatalog(
                             return {
                                 ...v,
                                 from_price: parentOwnFromPrice,
+                                ...(parentOwnToPrice !== undefined ? { to_price: parentOwnToPrice } : {}),
                                 // Inherit parent's PRIMARY_PRICE groups so the UI can show format details
                                 ...(parentPrimaryGroups.length > 0 ? { optionGroups: parentPrimaryGroups } : {})
                             };
@@ -719,8 +733,17 @@ export function normalizeCatalog(
                             );
                             if (!hasOwnFormats) {
                                 displayPrice = undefined;
+                                // Prezzi già ridotti a scalare per-variante (min proprio di
+                                // ciascuna variante) — resolvePriceSummary riduce ulteriormente
+                                // all'aggregato min-di-min sull'intero configurable.
                                 const variantPrices = pVariantsResolved
                                     .map(v => v.price ?? v.from_price)
+                                    .filter((n): n is number => n !== undefined);
+                                // Stesso pattern sul max proprio di ciascuna variante — aggregato
+                                // max-di-max. Due riduzioni indipendenti perché min e max non
+                                // vengono dallo stesso array grezzo (a differenza di #1/#2/#4).
+                                const variantToPrices = pVariantsResolved
+                                    .map(v => v.price ?? v.to_price)
                                     .filter((n): n is number => n !== undefined);
                                 if (variantPrices.length > 0) {
                                     // If all variants share the same price (e.g. all inherited from parent),
@@ -729,8 +752,10 @@ export function normalizeCatalog(
                                     if (allSame) {
                                         displayPrice = variantPrices[0];
                                         from_price = undefined;
+                                        to_price = undefined;
                                     } else {
-                                        from_price = Math.min(...variantPrices);
+                                        from_price = resolvePriceSummary(variantPrices).min ?? undefined;
+                                        to_price = resolvePriceSummary(variantToPrices).max ?? undefined;
                                     }
                                 }
                             }
@@ -748,6 +773,7 @@ export function normalizeCatalog(
                         ...(p.description ? { description: p.description } : {}),
                         ...(displayPrice !== undefined ? { price: displayPrice } : {}),
                         ...(from_price !== undefined ? { from_price } : {}),
+                        ...(to_price !== undefined ? { to_price } : {}),
                         ...(pAttrs.length > 0 ? { attributes: pAttrs } : {}),
                         ...(pAllergens.length > 0 ? { allergens: pAllergens } : {}),
                         ...(pCharacteristics.length > 0 ? { characteristics: pCharacteristics } : {}),
@@ -1158,7 +1184,13 @@ function applyOverridesToOptionGroups(
     optionGroups: ResolvedOptionGroup[],
     overridesByProductId: Record<string, PriceOverrideRow>,
     overridesByValueId: Record<string, PriceOverrideRow>
-): { updatedGroups: ResolvedOptionGroup[]; newPrice: number | undefined; newFromPrice: number | undefined; newOriginalFromPrice: number | undefined } {
+): {
+    updatedGroups: ResolvedOptionGroup[];
+    newPrice: number | undefined;
+    newFromPrice: number | undefined;
+    newToPrice: number | undefined;
+    newOriginalFromPrice: number | undefined;
+} {
     const productOverride = overridesByProductId[productId];
 
     const updatedGroups: ResolvedOptionGroup[] = optionGroups.map(g => {
@@ -1183,22 +1215,25 @@ function applyOverridesToOptionGroups(
 
     let newPrice: number | undefined = undefined;
     let newFromPrice: number | undefined = undefined;
+    let newToPrice: number | undefined = undefined;
     let newOriginalFromPrice: number | undefined = undefined;
 
-    if (validValues.length === 1) {
+    const summary = resolvePriceSummary(validValues.map(v => v.absolute_price));
+    if (summary.kind === "single") {
         // Single format → price field ("€X")
         newPrice = validValues[0].absolute_price;
         newOriginalFromPrice = validValues[0].original_price;
-    } else if (validValues.length > 1) {
+    } else if (summary.kind === "multi") {
         // Multiple formats → from_price field ("da €X")
         const minEntry = validValues.reduce((min, v) =>
             v.absolute_price < min.absolute_price ? v : min
         );
-        newFromPrice = minEntry.absolute_price;
+        newFromPrice = summary.min ?? undefined;
+        newToPrice = summary.max ?? undefined;
         newOriginalFromPrice = minEntry.original_price;
     }
 
-    return { updatedGroups, newPrice, newFromPrice, newOriginalFromPrice };
+    return { updatedGroups, newPrice, newFromPrice, newToPrice, newOriginalFromPrice };
 }
 
 function applyPriceOverridesToCatalog(
@@ -1220,7 +1255,7 @@ function applyPriceOverridesToCatalog(
                               const updatedVariants: ResolvedVariant[] = item.variants.map(v => {
                                   // Format variant (has PRIMARY_PRICE optionGroups): apply per-value overrides
                                   if (v.optionGroups?.some(g => g.group_kind === "PRIMARY_PRICE")) {
-                                      const { updatedGroups, newPrice, newFromPrice, newOriginalFromPrice } = applyOverridesToOptionGroups(
+                                      const { updatedGroups, newPrice, newFromPrice, newToPrice, newOriginalFromPrice } = applyOverridesToOptionGroups(
                                           v.id, v.optionGroups, overridesByProductId, overridesByValueId
                                       );
                                       return {
@@ -1228,6 +1263,7 @@ function applyPriceOverridesToCatalog(
                                           optionGroups: updatedGroups,
                                           price: newPrice,
                                           from_price: newFromPrice,
+                                          to_price: newToPrice,
                                           ...(newOriginalFromPrice !== undefined
                                               ? { original_price: newOriginalFromPrice }
                                               : {})
@@ -1243,6 +1279,7 @@ function applyPriceOverridesToCatalog(
                                               ...v,
                                               price: variantOverride.override_price,
                                               from_price: undefined,
+                                              to_price: undefined,
                                               ...(variantOverride.show_original_price && originalValue !== undefined
                                                   ? { original_price: originalValue }
                                                   : {})
@@ -1252,6 +1289,7 @@ function applyPriceOverridesToCatalog(
                                           return {
                                               ...v,
                                               from_price: variantOverride.override_price,
+                                              to_price: undefined,
                                               price: undefined,
                                               ...(variantOverride.show_original_price && originalValue !== undefined
                                                   ? { original_price: originalValue }
@@ -1271,6 +1309,7 @@ function applyPriceOverridesToCatalog(
                                           variants: updatedVariants,
                                           price: parentOverride.override_price,
                                           from_price: item.from_price, // preserve variant range display
+                                          to_price: item.to_price, // preserve variant range display
                                           ...(parentOverride.show_original_price
                                               ? { original_price: item.price }
                                               : { original_price: undefined })
@@ -1282,7 +1321,7 @@ function applyPriceOverridesToCatalog(
                               // Parent has own format pricing (PRIMARY_PRICE option groups) —
                               // apply overrides to its own option groups ONLY, never touch variant prices
                               if (item.optionGroups?.some(g => g.group_kind === "PRIMARY_PRICE")) {
-                                  const { updatedGroups, newPrice, newFromPrice, newOriginalFromPrice } =
+                                  const { updatedGroups, newPrice, newFromPrice, newToPrice, newOriginalFromPrice } =
                                       applyOverridesToOptionGroups(
                                           item.id,
                                           item.optionGroups,
@@ -1295,31 +1334,39 @@ function applyPriceOverridesToCatalog(
                                       optionGroups: updatedGroups,
                                       price: newPrice,
                                       from_price: newFromPrice,
+                                      to_price: newToPrice,
                                       ...(newOriginalFromPrice !== undefined
                                           ? { original_price: newOriginalFromPrice }
                                           : { original_price: undefined })
                                   };
                               }
 
-                              // Parent has no own price — derive from_price from updated variants
+                              // Parent has no own price — derive from_price from updated variants.
+                              // Stessa situazione del ramo configurable sopra: due riduzioni
+                              // indipendenti (min-di-min, max-di-max) su prezzi già scalari
+                              // per-variante, non un array di valori raw.
                               const allVariantPrices = updatedVariants
                                   .map(v => v.price ?? v.from_price)
                                   .filter((p): p is number => p !== undefined);
-                              const minVariantPrice =
-                                  allVariantPrices.length > 0 ? Math.min(...allVariantPrices) : undefined;
+                              const allVariantToPrices = updatedVariants
+                                  .map(v => v.price ?? v.to_price)
+                                  .filter((p): p is number => p !== undefined);
+                              const minVariantPrice = resolvePriceSummary(allVariantPrices).min ?? undefined;
+                              const maxVariantToPrice = resolvePriceSummary(allVariantToPrices).max ?? undefined;
 
                               return {
                                   ...item,
                                   variants: updatedVariants,
                                   price: undefined,
                                   from_price: minVariantPrice,
+                                  to_price: maxVariantToPrice,
                                   original_price: undefined
                               };
                           }
 
                           // ── Format product (PRIMARY_PRICE optionGroups, no variants) ──
                           if (item.optionGroups?.some(g => g.group_kind === "PRIMARY_PRICE")) {
-                              const { updatedGroups, newPrice, newFromPrice, newOriginalFromPrice } = applyOverridesToOptionGroups(
+                              const { updatedGroups, newPrice, newFromPrice, newToPrice, newOriginalFromPrice } = applyOverridesToOptionGroups(
                                   item.id, item.optionGroups, overridesByProductId, overridesByValueId
                               );
                               return {
@@ -1327,6 +1374,7 @@ function applyPriceOverridesToCatalog(
                                   optionGroups: updatedGroups,
                                   price: newPrice,
                                   from_price: newFromPrice,
+                                  to_price: newToPrice,
                                   ...(newOriginalFromPrice !== undefined
                                       ? { original_price: newOriginalFromPrice }
                                       : { original_price: undefined })
@@ -1340,6 +1388,7 @@ function applyPriceOverridesToCatalog(
                               return {
                                   ...item,
                                   from_price: parentOverride.override_price,
+                                  to_price: undefined,
                                   price: undefined,
                                   ...(parentOverride.show_original_price
                                       ? { original_price: item.from_price }
@@ -1350,6 +1399,7 @@ function applyPriceOverridesToCatalog(
                               ...item,
                               price: parentOverride.override_price,
                               from_price: undefined,
+                              to_price: undefined,
                               ...(parentOverride.show_original_price
                                   ? { original_price: item.price }
                                   : {})
@@ -1666,17 +1716,18 @@ export async function resolveActivityCatalogs(
             group_kind: string;
             values: Array<{ absolute_price: number | null }>;
         }> | null | undefined
-    ): { fromPrice: number | null; is_from_price: boolean } {
-        if (!optionGroups) return { fromPrice: null, is_from_price: false };
+    ): { fromPrice: number | null; toPrice: number | null; is_from_price: boolean } {
+        if (!optionGroups) return { fromPrice: null, toPrice: null, is_from_price: false };
         const primaryGroup = optionGroups.find(g => g.group_kind === "PRIMARY_PRICE");
         if (!primaryGroup || !primaryGroup.values || primaryGroup.values.length === 0) {
-            return { fromPrice: null, is_from_price: false };
+            return { fromPrice: null, toPrice: null, is_from_price: false };
         }
-        const prices = primaryGroup.values
-            .map(v => v.absolute_price)
-            .filter((p): p is number => p != null);
-        if (prices.length === 0) return { fromPrice: null, is_from_price: false };
-        return { fromPrice: Math.min(...prices), is_from_price: true };
+        const summary = resolvePriceSummary(primaryGroup.values.map(v => v.absolute_price));
+        // NB: is_from_price resta true anche con un solo valore prezzato — bug
+        // noto (#6 nell'audit), non corretto qui: la migrazione al branch
+        // corretto single/multi è nello step 3, insieme al consumer.
+        if (summary.kind === "none") return { fromPrice: null, toPrice: null, is_from_price: false };
+        return { fromPrice: summary.min, toPrice: summary.max, is_from_price: true };
     }
 
     const featured: ResolvedCollections["featured"] = {
@@ -1726,7 +1777,7 @@ export async function resolveActivityCatalogs(
                         const rawProducts = fc.products as unknown as RawProductItem[];
                         fc.products = rawProducts.map(p => {
                             if (!p.product) return { ...p, product: null };
-                            const { fromPrice, is_from_price } = computeFromPrice(
+                            const { fromPrice, toPrice, is_from_price } = computeFromPrice(
                                 p.product.option_groups
                             );
                             const primaryGroup = (p.product.option_groups ?? []).find(
@@ -1742,6 +1793,7 @@ export async function resolveActivityCatalogs(
                                     base_price: p.product.base_price,
                                     image_url: p.product.image_url,
                                     fromPrice,
+                                    toPrice,
                                     is_from_price,
                                     price_variants
                                 }

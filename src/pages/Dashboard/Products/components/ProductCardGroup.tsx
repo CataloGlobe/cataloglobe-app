@@ -8,6 +8,8 @@ const EMPTY_METADATA: ProductListMetadata = {
     configurationsCount: 0,
     catalogsCount: 0,
     fromPrice: null,
+    toPrice: null,
+    pricedFormatsCount: 0,
 };
 
 type Props = {
@@ -19,8 +21,8 @@ type Props = {
 };
 
 function formatParentPrice(product: V2Product, meta: ProductListMetadata): string | null {
-    if (meta.formatsCount > 1 && meta.fromPrice !== null) return `da ${meta.fromPrice.toFixed(2)} €`;
-    if (meta.formatsCount === 1 && meta.fromPrice !== null) return `${meta.fromPrice.toFixed(2)} €`;
+    if (meta.pricedFormatsCount > 1 && meta.fromPrice !== null) return `da ${meta.fromPrice.toFixed(2)} €`;
+    if (meta.pricedFormatsCount === 1 && meta.fromPrice !== null) return `${meta.fromPrice.toFixed(2)} €`;
     if (product.base_price !== null) return `${product.base_price.toFixed(2)} €`;
     return null;
 }

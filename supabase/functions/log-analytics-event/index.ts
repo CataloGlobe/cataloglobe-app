@@ -1,6 +1,9 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { checkRateLimit, RateLimitExceededError, extractClientIp, hashIp } from "../_shared/rateLimit.ts";
+
+const RATE_LIMIT_PER_IP_PER_MIN = 300;
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -91,6 +94,21 @@ serve(async (req: Request) => {
             Deno.env.get("SUPABASE_URL")!,
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
         );
+
+        // ── Rate limit (per IP, tolerant — high-frequency UI telemetry) ──
+        try {
+            const ipHash = await hashIp(extractClientIp(req));
+            await checkRateLimit(supabase, {
+                key: `log-analytics-event:ip:${ipHash}`,
+                limit: RATE_LIMIT_PER_IP_PER_MIN,
+                windowSeconds: 60
+            });
+        } catch (e) {
+            if (e instanceof RateLimitExceededError) {
+                return jsonResponse({ error: "Troppe richieste" }, 429);
+            }
+            throw e;
+        }
 
         // ── Lookup activity → tenant_id ─────────────────────────────
         const { data: activity, error: activityError } = await supabase

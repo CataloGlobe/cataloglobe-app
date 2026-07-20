@@ -1,3 +1,5 @@
+import { resolvePriceSummary } from "@/utils/priceSummary";
+
 /**
  * Unified product price display utility.
  *
@@ -19,6 +21,8 @@ type PriceInput = {
     base_price?: number | null;
     /** Pre-computed minimum format price (takes precedence over option_groups). */
     from_price?: number | null;
+    /** Pre-computed maximum format price — non ancora consumato da getDisplayPrice (fondamenta per una futura sintesi a range). */
+    to_price?: number | null;
     option_groups?: Array<{
         group_kind: string;
         values?: Array<{ absolute_price?: number | null }> | null;
@@ -32,20 +36,19 @@ export function getDisplayPrice(product: PriceInput): PriceDisplayResult {
     }
 
     // 2. Compute from PRIMARY_PRICE option groups when available
-    const prices: number[] = [];
+    const prices: Array<number | null | undefined> = [];
     for (const group of product.option_groups ?? []) {
         if (group.group_kind !== "PRIMARY_PRICE") continue;
         for (const v of group.values ?? []) {
-            if (typeof v.absolute_price === "number") {
-                prices.push(v.absolute_price);
-            }
+            prices.push(v.absolute_price);
         }
     }
-    if (prices.length === 1) {
-        return { label: `€${prices[0].toFixed(2)}`, type: "single" };
+    const summary = resolvePriceSummary(prices);
+    if (summary.kind === "single" && summary.min !== null) {
+        return { label: `€${summary.min.toFixed(2)}`, type: "single" };
     }
-    if (prices.length > 1) {
-        return { label: `da €${Math.min(...prices).toFixed(2)}`, type: "multiple" };
+    if (summary.kind === "multi" && summary.min !== null) {
+        return { label: `da €${summary.min.toFixed(2)}`, type: "multiple" };
     }
 
     // 3. Single base price

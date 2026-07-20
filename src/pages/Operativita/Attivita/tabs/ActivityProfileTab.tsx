@@ -27,7 +27,16 @@ import {
     Trash2
 } from "lucide-react";
 import { Button, Card } from "@/components/ui";
-import { updateActivity } from "@/services/supabase/activities";
+import {
+    ImageUploadEditor,
+    IMAGE_UPLOAD_PRESETS,
+    type ImageUploadEditorResult
+} from "@/components/ui/ImageUploadEditor";
+import {
+    updateActivity,
+    uploadActivityCover,
+    removeActivityCover
+} from "@/services/supabase/activities";
 import {
     deleteActivityMedia,
     getActivityMedia,
@@ -38,7 +47,6 @@ import { getActivitySlugAliases } from "@/services/supabase/activitySlugAliases"
 import { useToast } from "@/context/Toast/ToastContext";
 import type { V2Activity, ActivitySlugAlias } from "@/types/activity";
 import type { ActivityMedia } from "@/types/activity-media";
-import { ActivityCoverDrawer } from "./ActivityCoverDrawer";
 import { ActivityGalleryUploadDrawer } from "./ActivityGalleryUploadDrawer";
 import { ActivityIdentityDrawer } from "./info/ActivityIdentityDrawer";
 import { ActivitySlugDrawer } from "./info/ActivitySlugDrawer";
@@ -150,7 +158,7 @@ export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
 
     const [editingField, setEditingField] = useState<string | null>(null);
 
-    const [isCoverDrawerOpen, setIsCoverDrawerOpen] = useState(false);
+    const [isCoverSaving, setIsCoverSaving] = useState(false);
     const [isUploadDrawerOpen, setIsUploadDrawerOpen] = useState(false);
     const [isIdentityDrawerOpen, setIsIdentityDrawerOpen] = useState(false);
     const [isSlugDrawerOpen, setIsSlugDrawerOpen] = useState(false);
@@ -211,6 +219,35 @@ export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
         },
         [activity.id, tenantId, onReload, showToast]
     );
+
+    // ── Cover handlers (immagine di copertina, delete immediata) ───────────────
+
+    // Riceve dal wrapper l'immagine GIÀ ritagliata 16:9 (baked): carica col
+    // servizio esistente. Nessun framing metadata persistito — invariato.
+    const handleCoverConfirm = async ({ file }: ImageUploadEditorResult) => {
+        if (!file) return;
+        try {
+            await uploadActivityCover(activity, file);
+            showToast({ message: "Immagine di copertina aggiornata.", type: "success" });
+            await onReload();
+        } catch {
+            showToast({ message: "Errore durante il caricamento dell'immagine.", type: "error" });
+        }
+    };
+
+    const handleCoverRemove = async () => {
+        if (!activity.cover_image) return;
+        setIsCoverSaving(true);
+        try {
+            await removeActivityCover(activity.id, activity.tenant_id, activity.cover_image);
+            showToast({ message: "Immagine di copertina rimossa", type: "success" });
+            await onReload();
+        } catch {
+            showToast({ message: "Errore durante la rimozione dell'immagine.", type: "error" });
+        } finally {
+            setIsCoverSaving(false);
+        }
+    };
 
     // ── Media handlers ────────────────────────────────────────────────────────
 
@@ -297,49 +334,33 @@ export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
                                     Cover e galleria sulla pagina pubblica
                                 </p>
                             </div>
-                            {canWrite && (
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    leftIcon={<Pencil size={14} />}
-                                    onClick={() => setIsCoverDrawerOpen(true)}
-                                >
-                                    Modifica copertina
-                                </Button>
-                            )}
                         </div>
                         <div className={styles.cardBody}>
-                            {activity.cover_image ? (
-                                <div
-                                    className={styles.coverPreview}
-                                    onClick={() => setIsCoverDrawerOpen(true)}
-                                    role="button"
-                                    tabIndex={0}
-                                    onKeyDown={e =>
-                                        e.key === "Enter" && setIsCoverDrawerOpen(true)
-                                    }
-                                    aria-label="Modifica copertina"
-                                >
-                                    <img
-                                        src={activity.cover_image}
-                                        alt="Copertina"
-                                        className={styles.coverImage}
-                                    />
-                                </div>
+                            {canWrite ? (
+                                <ImageUploadEditor
+                                    aspectRatio={IMAGE_UPLOAD_PRESETS.coverSede.aspectRatio}
+                                    backgroundFillModes={IMAGE_UPLOAD_PRESETS.coverSede.backgroundFillModes}
+                                    maxSizeMB={IMAGE_UPLOAD_PRESETS.coverSede.maxSizeMB}
+                                    compressLongEdge={IMAGE_UPLOAD_PRESETS.coverSede.compressLongEdge}
+                                    bake={{ size: 1280, format: "image/webp", quality: 0.85, fileName: "cover.webp" }}
+                                    fieldLabel={IMAGE_UPLOAD_PRESETS.coverSede.fieldLabel}
+                                    drawerTitle={IMAGE_UPLOAD_PRESETS.coverSede.drawerTitle}
+                                    requiresConfirm={IMAGE_UPLOAD_PRESETS.coverSede.requiresConfirm}
+                                    initialSource={activity.cover_image ?? null}
+                                    onConfirm={handleCoverConfirm}
+                                    onRemove={handleCoverRemove}
+                                    removing={isCoverSaving}
+                                />
                             ) : (
-                                <button
-                                    type="button"
-                                    className={styles.coverEmpty}
-                                    onClick={() => setIsCoverDrawerOpen(true)}
-                                >
-                                    <ImageIcon size={36} strokeWidth={1.5} />
-                                    <span className={styles.coverEmptyLabel}>
-                                        Aggiungi copertina
-                                    </span>
-                                    <span className={styles.coverEmptyHint}>
-                                        Formato consigliato 16:9
-                                    </span>
-                                </button>
+                                activity.cover_image && (
+                                    <div className={styles.coverPreview}>
+                                        <img
+                                            src={activity.cover_image}
+                                            alt="Copertina"
+                                            className={styles.coverImage}
+                                        />
+                                    </div>
+                                )
                             )}
 
                             <div className={styles.galleryHeader}>
@@ -643,14 +664,6 @@ export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
             </div>
 
             {/* ── Drawers ──────────────────────────────────────────── */}
-            <ActivityCoverDrawer
-                open={isCoverDrawerOpen}
-                onClose={() => setIsCoverDrawerOpen(false)}
-                activity={activity}
-                onSuccess={() => {
-                    void onReload();
-                }}
-            />
             <ActivityGalleryUploadDrawer
                 open={isUploadDrawerOpen}
                 onClose={() => setIsUploadDrawerOpen(false)}

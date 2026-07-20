@@ -16,10 +16,10 @@ type Props = {
 };
 
 function formatPrice(product: V2Product, metadata: ProductListMetadata): string | null {
-    if (metadata.formatsCount > 1 && metadata.fromPrice !== null) {
+    if (metadata.pricedFormatsCount > 1 && metadata.fromPrice !== null) {
         return `da ${metadata.fromPrice.toFixed(2)} €`;
     }
-    if (metadata.formatsCount === 1 && metadata.fromPrice !== null) {
+    if (metadata.pricedFormatsCount === 1 && metadata.fromPrice !== null) {
         return `${metadata.fromPrice.toFixed(2)} €`;
     }
     if (product.base_price !== null) {

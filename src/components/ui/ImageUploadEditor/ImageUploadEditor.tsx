@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Pencil, Trash2, X, Check, RefreshCw, ImagePlus } from "lucide-react";
+import { SystemDrawer } from "@components/layout/SystemDrawer/SystemDrawer";
+import { DrawerLayout } from "@components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@components/ui/Button/Button";
 import Text from "@components/ui/Text/Text";
 import { ImageUploadField } from "@components/ui/ImageUploadField/ImageUploadField";
@@ -23,6 +26,11 @@ import styles from "./ImageUploadEditor.module.scss";
 const DEFAULT_ACCEPTED_FORMATS = ["image/png", "image/jpeg", "image/webp"];
 const DEFAULT_MAX_SIZE_MB = 10; // limite REALE (compressImage), non i 5MB cosmetici.
 const DEFAULT_FILL_MODES: MediaFillMode[] = ["blur", "dominant", "color", "none"];
+const DEFAULT_DRAWER_WIDTH = 420; // sm
+
+/** Etichette accessibili uniformi (nessuna variazione per contesto). */
+const EDIT_LABEL = "Modifica";
+const REMOVE_LABEL = "Rimuovi immagine";
 
 /**
  * Risultato di conferma. Stessa shape di `MediaFraming` prodotta oggi da
@@ -74,9 +82,39 @@ export interface ImageUploadEditorProps {
      * Se presente, al conferma il framing viene applicato ai pixel (canvas) e il
      * risultato è un unico file GIÀ ritagliato al ratio target — nessun framing
      * metadata da persistere. `aspectRatio` è il ratio del frame. Omettere per il
-     * percorso "framing metadata + FramedMedia" (default).
+     * percorso "framing metadata + FramedMedia" (default, es. Prodotto).
      */
     bake?: Omit<BakeOptions, "aspectRatio">;
+
+    // --- Presentazione (FASE 11) -------------------------------------------
+    /**
+     * `"field"` (default): campo completo con header (label + icone
+     * Modifica/Rimuovi) e anteprima; l'editing avviene SEMPRE in un
+     * `SystemDrawer`. `"embedded"`: solo dropzone → editor inline, per host che
+     * gestiscono un flusso proprio (es. Gallery "Aggiungi foto"): niente header,
+     * niente drawer interno, niente anteprima-di-esistente.
+     */
+    variant?: "field" | "embedded";
+    /** Etichetta del campo mostrata nell'header (variant `field`). */
+    fieldLabel?: string;
+    /** Titolo del `SystemDrawer` di editing (variant `field`). */
+    drawerTitle?: string;
+    /** Larghezza del drawer di editing. Default 420 (sm). */
+    drawerWidth?: number;
+    /**
+     * Se true, il click su "Rimuovi" chiede conferma inline nell'header (chip
+     * "Rimuovere? ✕ ✓") prima di invocare `onRemove`. Se false, rimozione
+     * immediata. Default false. Vedi FASE 10 (Logo/Cover/Avatar = true).
+     */
+    requiresConfirm?: boolean;
+    /**
+     * Handler di rimozione. Se assente, l'icona cestino non viene renderizzata.
+     * Il wrapper NON conosce la semantica (delete immediata vs flag bozza): la
+     * decide il chiamante.
+     */
+    onRemove?: () => void | Promise<void>;
+    /** Stato "rimozione in corso" (disabilita le azioni header). */
+    removing?: boolean;
 
     // --- Contesto edit (immagine esistente) --------------------------------
     /** URL remoto dell'immagine corrente (contesto modifica). */
@@ -89,8 +127,8 @@ export interface ImageUploadEditorProps {
     /**
      * Upload delegato opzionale. Se fornito e c'è un nuovo file, il wrapper
      * carica e applica SEMPRE il cache-buster all'URL restituito, poi lo passa
-     * in `result.url` (fix incoerenza cache-buster segnalata in FASE 1). Se
-     * assente, il wrapper restituisce solo il File e l'upload resta al chiamante.
+     * in `result.url`. Se assente, il wrapper restituisce solo il File e
+     * l'upload resta al chiamante.
      */
     onUpload?: (file: File) => Promise<string>;
 
@@ -101,13 +139,30 @@ export interface ImageUploadEditorProps {
 
 type Stage = "select" | "edit";
 
+/** Etichetta leggibile del ratio per l'header (null se non standard). */
+function formatRatioLabel(ratio: number): string | null {
+    const known: Array<[number, string]> = [
+        [1, "1:1"],
+        [16 / 9, "16:9"],
+        [4 / 3, "4:3"],
+        [3 / 2, "3:2"],
+        [4 / 5, "4:5"],
+        [9 / 16, "9:16"],
+        [3 / 4, "3:4"]
+    ];
+    for (const [r, label] of known) {
+        if (Math.abs(ratio - r) < 0.01) return label;
+    }
+    return null;
+}
+
 /**
- * Wrapper generico upload + framing. Compone i building block esistenti
- * (`ImageUploadField` → `compressImageWithMeta` → `ImageReframeEditor`) in un
- * unico flusso parametrizzato per aspect ratio / fill / limiti. NON introduce
- * una nuova shape dati: `MediaFraming` resta il contratto condiviso con
- * Featured/Stories. Presentazionale: nessun drawer proprio, l'adottante lo
- * inserisce nel proprio contenitore (drawer o pagina).
+ * Campo upload + framing unificato (FASE 11). Compone i building block esistenti
+ * (`ImageUploadField` → `compressImageWithMeta` → `ImageReframeEditor` → bake/
+ * `FramedMedia`) e possiede l'INTERO campo: header con 2 icone, anteprima,
+ * housing dell'editor in un `SystemDrawer`, rimozione con eventuale conferma
+ * inline. Il motore di reframe/zoom/background-fill/bake NON è modificato: è solo
+ * riposizionato dentro il drawer. Contratto dati invariato: `MediaFraming`.
  */
 export function ImageUploadEditor({
     aspectRatio,
@@ -117,6 +172,13 @@ export function ImageUploadEditor({
     compress,
     compressLongEdge = 1280,
     bake,
+    variant = "field",
+    fieldLabel,
+    drawerTitle,
+    drawerWidth = DEFAULT_DRAWER_WIDTH,
+    requiresConfirm = false,
+    onRemove,
+    removing = false,
     initialSource = null,
     initialFraming,
     initialAspectRatio = null,
@@ -125,9 +187,11 @@ export function ImageUploadEditor({
     onCancel,
     className
 }: ImageUploadEditorProps) {
+    const [drawerOpen, setDrawerOpen] = useState(false);
     const [stage, setStage] = useState<Stage>("select");
     const [error, setError] = useState<string | null>(null);
     const [busy, setBusy] = useState(false);
+    const [confirmingRemove, setConfirmingRemove] = useState(false);
 
     // Sorgente mostrata nell'editor: object URL locale (nuovo file) o URL remoto.
     const [editSource, setEditSource] = useState<string | null>(null);
@@ -136,6 +200,8 @@ export function ImageUploadEditor({
     // Ratio naturale: nuovo file → dal compress; ri-inquadra → initialAspectRatio.
     const [pendingAspectRatio, setPendingAspectRatio] = useState<number | null>(null);
     const [framing, setFraming] = useState<MediaFraming>(initialFraming ?? FRAMING_DEFAULTS);
+
+    const replaceInputRef = useRef<HTMLInputElement>(null);
 
     // Object URL vivo da revocare (solo per file locali).
     const objectUrlRef = useRef<string | null>(null);
@@ -151,7 +217,11 @@ export function ImageUploadEditor({
     const resolvedCompress: CompressOptions =
         compress ?? deriveCompressProfile(aspectRatio, { longEdge: compressLongEdge });
 
-    const resetToSelect = useCallback(() => {
+    const isField = variant === "field";
+    const hasImage = isField && initialSource != null;
+    const ratioLabel = formatRatioLabel(aspectRatio);
+
+    const resetEditState = useCallback(() => {
         revokeObjectUrl();
         setEditSource(null);
         setPendingFile(null);
@@ -160,7 +230,7 @@ export function ImageUploadEditor({
         setError(null);
     }, [revokeObjectUrl]);
 
-    // SELECT → nuovo file: valida MIME → comprimi → object URL → editor.
+    // Compressione + entrata in stage edit (nuovo file: da dropzone o "Sostituisci").
     const handleFile = useCallback(
         async (file: File) => {
             setError(null);
@@ -193,16 +263,35 @@ export function ImageUploadEditor({
         [acceptedFormats, resolvedCompress, maxSizeMB, revokeObjectUrl]
     );
 
-    // Ri-inquadra l'immagine remota esistente senza re-upload.
-    const handleReframeExisting = useCallback(() => {
-        if (!initialSource) return;
-        setPendingFile(null);
-        setPendingAspectRatio(initialAspectRatio);
-        setFraming(initialFraming ?? FRAMING_DEFAULTS);
-        setEditSource(initialSource);
-        setStage("edit");
+    // Apertura drawer (variant field): immagine esistente → edit sul remoto;
+    // nessuna immagine → select (dropzone dentro il drawer).
+    const openDrawer = useCallback(() => {
         setError(null);
-    }, [initialSource, initialAspectRatio, initialFraming]);
+        if (hasImage && initialSource) {
+            setPendingFile(null);
+            setPendingAspectRatio(initialAspectRatio);
+            setFraming(initialFraming ?? FRAMING_DEFAULTS);
+            setEditSource(initialSource);
+            setStage("edit");
+        } else {
+            resetEditState();
+        }
+        setDrawerOpen(true);
+    }, [hasImage, initialSource, initialAspectRatio, initialFraming, resetEditState]);
+
+    // Drop diretto sul campo vuoto: apre il drawer e carica subito il file.
+    const openDrawerWithFile = useCallback(
+        (file: File) => {
+            setDrawerOpen(true);
+            void handleFile(file);
+        },
+        [handleFile]
+    );
+
+    const triggerReplace = useCallback(() => {
+        if (busy) return;
+        replaceInputRef.current?.click();
+    }, [busy]);
 
     const handleConfirm = useCallback(async () => {
         try {
@@ -219,11 +308,11 @@ export function ImageUploadEditor({
 
             let url: string | undefined;
             if (outFile && onUpload) {
-                // Cache-buster SEMPRE applicato qui (fix incoerenza FASE 1).
                 url = appendCacheBuster(await onUpload(outFile));
             }
             await onConfirm({ file: outFile, url, framing, aspectRatio: outAspectRatio });
-            resetToSelect();
+            resetEditState();
+            setDrawerOpen(false);
         } catch {
             setError("Errore durante il salvataggio dell'immagine.");
         } finally {
@@ -238,79 +327,245 @@ export function ImageUploadEditor({
         aspectRatio,
         onUpload,
         onConfirm,
-        resetToSelect
+        resetEditState
     ]);
 
-    const handleCancelEdit = useCallback(() => {
-        resetToSelect();
+    const handleCancel = useCallback(() => {
+        resetEditState();
+        setDrawerOpen(false);
         onCancel?.();
-    }, [resetToSelect, onCancel]);
+    }, [resetEditState, onCancel]);
 
-    return (
-        <div className={`${styles.editor} ${className ?? ""}`}>
-            {stage === "edit" && editSource ? (
-                <>
-                    <ImageReframeEditor
-                        source={editSource}
-                        value={framing}
-                        onChange={setFraming}
-                        aspectRatio={aspectRatio}
-                        showFillPanel={showFillPanel}
-                    />
-                    {error && (
-                        <Text variant="body-sm" colorVariant="error">
-                            {error}
-                        </Text>
-                    )}
-                    <div className={styles.actions}>
-                        <Button variant="secondary" onClick={handleCancelEdit} disabled={busy}>
-                            Annulla
-                        </Button>
-                        <Button variant="primary" onClick={handleConfirm} loading={busy}>
-                            Conferma
-                        </Button>
-                    </div>
-                </>
-            ) : (
-                <>
-                    {initialSource && (
-                        <>
-                            <div
-                                className={styles.preview}
-                                style={{ aspectRatio: String(aspectRatio) }}
-                            >
-                                <FramedMedia
-                                    source={initialSource}
-                                    framing={initialFraming ?? FRAMING_DEFAULTS}
-                                    aspectRatio={initialAspectRatio}
-                                    frameRatio={aspectRatio}
-                                    alt="Anteprima immagine"
-                                />
-                            </div>
-                            <Button
-                                variant="secondary"
-                                onClick={handleReframeExisting}
-                                disabled={busy}
-                                fullWidth
-                            >
-                                Ri-inquadra
-                            </Button>
-                        </>
-                    )}
-                    <ImageUploadField
-                        imageUrl={null}
-                        onFileChange={handleFile}
-                        accept={acceptedFormats.join(",")}
-                        maxSizeMb={maxSizeMB}
-                        thumbShape={aspectRatio >= 1 ? "wide" : "square"}
-                    />
-                    {error && (
-                        <Text variant="body-sm" colorVariant="error">
-                            {error}
-                        </Text>
-                    )}
-                </>
+    // --- Rimozione (header) -------------------------------------------------
+    const handleRemoveClick = useCallback(() => {
+        if (!onRemove) return;
+        if (requiresConfirm) {
+            setConfirmingRemove(true);
+        } else {
+            void onRemove();
+        }
+    }, [onRemove, requiresConfirm]);
+
+    const confirmRemove = useCallback(() => {
+        setConfirmingRemove(false);
+        void onRemove?.();
+    }, [onRemove]);
+
+    // Editor riusato dentro il drawer (field) o inline (embedded).
+    const editStage = (
+        <div className={styles.editStack}>
+            <div className={styles.replaceRow}>
+                <input
+                    ref={replaceInputRef}
+                    type="file"
+                    accept={acceptedFormats.join(",")}
+                    className={styles.hiddenInput}
+                    onChange={e => {
+                        const f = e.target.files?.[0];
+                        e.target.value = "";
+                        if (f) void handleFile(f);
+                    }}
+                />
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    type="button"
+                    leftIcon={<RefreshCw size={14} />}
+                    onClick={triggerReplace}
+                    disabled={busy}
+                >
+                    Sostituisci foto
+                </Button>
+            </div>
+
+            {editSource && (
+                <ImageReframeEditor
+                    source={editSource}
+                    value={framing}
+                    onChange={setFraming}
+                    aspectRatio={aspectRatio}
+                    showFillPanel={showFillPanel}
+                />
             )}
+
+            {error && (
+                <Text variant="body-sm" colorVariant="error">
+                    {error}
+                </Text>
+            )}
+        </div>
+    );
+
+    const selectStage = (
+        <>
+            <ImageUploadField
+                imageUrl={null}
+                onFileChange={handleFile}
+                accept={acceptedFormats.join(",")}
+                maxSizeMb={maxSizeMB}
+                thumbShape={aspectRatio >= 1 ? "wide" : "square"}
+            />
+            {error && (
+                <Text variant="body-sm" colorVariant="error">
+                    {error}
+                </Text>
+            )}
+        </>
+    );
+
+    // --- Variant embedded: solo dropzone → editor inline (flusso host) ------
+    if (!isField) {
+        return (
+            <div className={`${styles.editor} ${className ?? ""}`}>
+                {stage === "edit" && editSource ? (
+                    <>
+                        {editStage}
+                        <div className={styles.inlineActions}>
+                            <Button variant="secondary" onClick={handleCancel} disabled={busy}>
+                                Annulla
+                            </Button>
+                            <Button variant="primary" onClick={handleConfirm} loading={busy}>
+                                Conferma
+                            </Button>
+                        </div>
+                    </>
+                ) : (
+                    selectStage
+                )}
+            </div>
+        );
+    }
+
+    // --- Variant field: header a 2 icone + anteprima + drawer di editing ----
+    return (
+        <div className={`${styles.field} ${className ?? ""}`}>
+            <div className={styles.fieldHeader}>
+                <div className={styles.fieldLabelWrap}>
+                    {fieldLabel && (
+                        <Text as="span" variant="body-sm" weight={600}>
+                            {fieldLabel}
+                        </Text>
+                    )}
+                    {ratioLabel && <span className={styles.ratioChip}>{ratioLabel}</span>}
+                </div>
+
+                {hasImage && !confirmingRemove && (
+                    <div className={styles.headerActions}>
+                        <button
+                            type="button"
+                            className={styles.iconBtn}
+                            onClick={openDrawer}
+                            disabled={removing}
+                            title={EDIT_LABEL}
+                            aria-label={EDIT_LABEL}
+                        >
+                            <Pencil size={16} />
+                        </button>
+                        {onRemove && (
+                            <button
+                                type="button"
+                                className={styles.iconBtn}
+                                onClick={handleRemoveClick}
+                                disabled={removing}
+                                title={REMOVE_LABEL}
+                                aria-label={REMOVE_LABEL}
+                            >
+                                <Trash2 size={16} />
+                            </button>
+                        )}
+                    </div>
+                )}
+
+                {hasImage && confirmingRemove && (
+                    <div className={styles.confirmChip}>
+                        <span className={styles.confirmChipText}>Rimuovere?</span>
+                        <button
+                            type="button"
+                            className={styles.confirmChipBtn}
+                            onClick={() => setConfirmingRemove(false)}
+                            disabled={removing}
+                            aria-label="Annulla"
+                            title="Annulla"
+                        >
+                            <X size={15} />
+                        </button>
+                        <button
+                            type="button"
+                            className={`${styles.confirmChipBtn} ${styles.confirmChipDanger}`}
+                            onClick={confirmRemove}
+                            disabled={removing}
+                            aria-label="Conferma rimozione"
+                            title="Conferma rimozione"
+                        >
+                            <Check size={15} />
+                        </button>
+                    </div>
+                )}
+            </div>
+
+            <div className={styles.fieldBody}>
+                <div className={styles.previewBox} style={{ aspectRatio: String(aspectRatio) }}>
+                    {hasImage && initialSource ? (
+                        <FramedMedia
+                            source={initialSource}
+                            framing={initialFraming ?? FRAMING_DEFAULTS}
+                            aspectRatio={initialAspectRatio}
+                            frameRatio={aspectRatio}
+                            alt={fieldLabel ? `Anteprima ${fieldLabel}` : "Anteprima immagine"}
+                        />
+                    ) : (
+                        <div
+                            className={styles.dropzone}
+                            role="button"
+                            tabIndex={0}
+                            onClick={openDrawer}
+                            onKeyDown={e => {
+                                if (e.key === "Enter" || e.key === " ") {
+                                    e.preventDefault();
+                                    openDrawer();
+                                }
+                            }}
+                            onDragOver={e => e.preventDefault()}
+                            onDrop={e => {
+                                e.preventDefault();
+                                const f = e.dataTransfer.files?.[0];
+                                if (f) openDrawerWithFile(f);
+                            }}
+                        >
+                            <ImagePlus size={20} aria-hidden="true" />
+                            <Text as="span" variant="body-sm">
+                                Clicca o trascina un&apos;immagine
+                            </Text>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <SystemDrawer open={drawerOpen} onClose={handleCancel} width={drawerWidth}>
+                <DrawerLayout
+                    header={
+                        <Text as="span" variant="title-sm">
+                            {drawerTitle ?? "Modifica immagine"}
+                        </Text>
+                    }
+                    footer={
+                        <div className={styles.drawerFooter}>
+                            <Button variant="secondary" onClick={handleCancel} disabled={busy}>
+                                Annulla
+                            </Button>
+                            {stage === "edit" && editSource && (
+                                <Button variant="primary" onClick={handleConfirm} loading={busy}>
+                                    Conferma
+                                </Button>
+                            )}
+                        </div>
+                    }
+                >
+                    <div className={styles.drawerBody}>
+                        {stage === "edit" && editSource ? editStage : selectStage}
+                    </div>
+                </DrawerLayout>
+            </SystemDrawer>
         </div>
     );
 }

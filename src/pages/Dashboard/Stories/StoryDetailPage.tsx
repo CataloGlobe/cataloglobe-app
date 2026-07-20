@@ -394,6 +394,7 @@ export default function StoryDetailPage() {
                             onChange={setBlocks}
                             pendingImages={pendingBlockImages}
                             onPendingImageChange={handleBlockImageChange}
+                            tenantId={tenantId}
                             disabled={!canWrite}
                             focusBlockId={focusBlockId}
                             onFocusHandled={handleFocusHandled}
