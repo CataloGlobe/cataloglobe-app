@@ -498,14 +498,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     }
 
     if (state.status === "inactive") {
-        return (
-            <NotFound
-                variant="business-inactive"
-                inactiveReason={
-                    state.inactiveReason as "maintenance" | "closed" | "unavailable" | null
-                }
-            />
-        );
+        return <NotFound variant="business-inactive" />;
     }
 
     if (state.status === "subscription_inactive") {

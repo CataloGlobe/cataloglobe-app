@@ -25,7 +25,7 @@ export type PageState =
     | { status: "loading" }
     | { status: "error"; messageKey: string }
     | { status: "domain_error"; code: string }
-    | { status: "inactive"; inactiveReason: string | null }
+    | { status: "inactive" }
     | { status: "subscription_inactive" }
     | {
           status: "ready";
@@ -125,11 +125,10 @@ export function derivePageState(
         return { status: "subscription_inactive" };
     }
 
+    // Nessun dettaglio del motivo (manutenzione/chiusura/sospensione) esposto
+    // al visitatore anonimo: messaggio generico, vedi NotFound "business-inactive".
     if (business.status !== "active") {
-        return {
-            status: "inactive",
-            inactiveReason: business.inactive_reason ?? null
-        };
+        return { status: "inactive" };
     }
 
     if (

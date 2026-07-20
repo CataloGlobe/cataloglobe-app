@@ -21,7 +21,6 @@ export type PublicBusiness = {
     slug: string;
     cover_image: string | null;
     status: "active" | "inactive";
-    inactive_reason: "maintenance" | "closed" | "unavailable" | null;
     /**
      * Maintenance mode ordinazioni QR per-sede. Fonte di verita server-side
      * via `resolve-public-catalog`. Quando `false`, frontend mostra UI
