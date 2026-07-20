@@ -41,10 +41,25 @@ const BATCH_SIZE = 50;
 const MAX_ATTEMPTS = 3;
 const DEEPL_TIMEOUT_MS = 45_000;
 
+// Confronto constant-time (no early-exit sul primo byte diverso, no leak via
+// lunghezza): XOR a lunghezza fissa su UTF-8 bytes, loop sempre su maxLen.
+function timingSafeEqualStr(a: string, b: string): boolean {
+    const aBytes = new TextEncoder().encode(a);
+    const bBytes = new TextEncoder().encode(b);
+    const maxLen = Math.max(aBytes.length, bBytes.length);
+    let diff = aBytes.length === bBytes.length ? 0 : 1;
+    for (let i = 0; i < maxLen; i++) {
+        const x = i < aBytes.length ? aBytes[i] : 0;
+        const y = i < bBytes.length ? bBytes[i] : 0;
+        diff |= x ^ y;
+    }
+    return diff === 0;
+}
+
 Deno.serve(async (req: Request) => {
-    // 1. Auth check
+    // 1. Auth check — JOB_SECRET mancante dall'env = rifiuta (fail-safe).
     const providedSecret = req.headers.get("X-Job-Secret");
-    if (!providedSecret || providedSecret !== JOB_SECRET) {
+    if (!JOB_SECRET || !providedSecret || !timingSafeEqualStr(providedSecret, JOB_SECRET)) {
         return jsonResponse({ error: "unauthorized" }, 401);
     }
 
