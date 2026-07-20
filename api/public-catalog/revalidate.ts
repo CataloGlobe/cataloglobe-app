@@ -1,17 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
-import {
-    getEnvNamespace,
-    getRedis,
-    makeSnapshotKey,
-    SNAPSHOT_SCHEMA_VERSION,
-    SNAPSHOT_TTL_SECONDS
-} from "../_lib/redis.js";
-import {
-    callResolvePublicCatalog,
-    isHealthyPayload,
-    type PublicCatalogPayload
-} from "../_lib/supabaseEdge.js";
+import { getEnvNamespace, getRedis } from "../_lib/redis.js";
+import { snapshotPublicCatalog } from "../_lib/snapshotPublicCatalog.js";
 
 /**
  * POST /api/public-catalog/revalidate
@@ -31,12 +21,6 @@ import {
  * `cataloglobe:{env}:public-catalog:v1:<slug>:*`) — le traduzioni potrebbero
  * essere cambiate, evita mismatch tra lingue.
  */
-
-type Snapshot = {
-    schemaVersion: typeof SNAPSHOT_SCHEMA_VERSION;
-    savedAt: string;
-    payload: PublicCatalogPayload;
-};
 
 type NormalizedErrorBody = {
     error: {
@@ -141,48 +125,6 @@ async function deleteKeysByPattern(pattern: string): Promise<number> {
     return toDelete.length;
 }
 
-async function warmBaseSnapshot(slug: string, env: string): Promise<boolean> {
-    const edgeResult = await callResolvePublicCatalog({ slug });
-    if (edgeResult.kind !== "success") {
-        console.warn(JSON.stringify({
-            event: "public_catalog_revalidate_warm_failed",
-            slug,
-            env,
-            kind: edgeResult.kind,
-            ...(edgeResult.kind === "domain_error" ? { status: edgeResult.status } : {}),
-            ...(edgeResult.kind === "network_error"
-                ? { cause: edgeResult.cause instanceof Error ? edgeResult.cause.message : String(edgeResult.cause) }
-                : {})
-        }));
-        return false;
-    }
-
-    if (!isHealthyPayload(edgeResult.payload)) {
-        // Risposta upstream è valida ma non-healthy (inattiva, subscription, ecc.):
-        // non riscrivere la cache. La cancellazione precedente basta.
-        return false;
-    }
-
-    const snapshot: Snapshot = {
-        schemaVersion: SNAPSHOT_SCHEMA_VERSION,
-        savedAt: new Date().toISOString(),
-        payload: edgeResult.payload
-    };
-    try {
-        const redis = getRedis();
-        await redis.set(makeSnapshotKey(slug, undefined), snapshot, { ex: SNAPSHOT_TTL_SECONDS });
-        return true;
-    } catch (e) {
-        console.error(JSON.stringify({
-            event: "public_catalog_revalidate_write_failed",
-            slug,
-            env,
-            error: e instanceof Error ? e.message : String(e)
-        }));
-        return false;
-    }
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     const startedAt = Date.now();
     const env = getEnvNamespace();
@@ -263,7 +205,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
                 }));
             }
             try {
-                freshSnapshotSaved = await warmBaseSnapshot(slug, env);
+                // Ripopolo base-lang (post-purge). Helper condiviso, fail-soft:
+                // "written" solo se payload healthy + write Redis ok — identico
+                // al vecchio warmBaseSnapshot (boolean preservato).
+                freshSnapshotSaved = (await snapshotPublicCatalog({ slug })) === "written";
             } catch (e) {
                 console.error(JSON.stringify({
                     event: "public_catalog_revalidate_warm_unexpected",
