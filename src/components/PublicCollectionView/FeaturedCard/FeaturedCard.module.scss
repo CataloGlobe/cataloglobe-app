@@ -281,19 +281,22 @@
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   COMPACT VARIANT — dense horizontal row, no shadow/background wrapper.
-   NOT composed with .card (opts out of border/shadow/data-card-treatment).
+   COMPACT VARIANT — dense horizontal row. NOT composed with .card, so it
+   never reacts to cardTreatment (raised/bordered/glass) — same precedent as
+   .cardHighlight. Background/shadow/radius below are static values (reusing
+   the raised .card tokens) purely so it reads as part of the card family.
    ══════════════════════════════════════════════════════════════════════════ */
 
 .cardCompact {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 0;
+  padding: 10px 12px;
   border: none;
   border-bottom: 1px solid var(--pub-surface-border);
-  background: transparent;
-  box-shadow: none;
+  border-radius: var(--pub-radius, 12px);
+  background: var(--pub-surface);
+  box-shadow: var(--pub-card-shadow);
   cursor: pointer;
   text-align: left;
   font: inherit;

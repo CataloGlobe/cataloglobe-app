@@ -543,7 +543,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     </div>
                 </div>
 
-                {model.card.productStyle === "card" && (
+                {(model.card.productStyle === "card" || model.appearance.featuredStyle === "card") && (
                     <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                         <Text variant="body" weight={500} className={styles.fieldLabel}>
                             Aspetto card<InfoTooltip content="Aspetto di card e finestre: Elevata usa un'ombra, Contornata un bordo sottile, Vetro una superficie semitrasparente con sfocatura." />
