@@ -19,9 +19,6 @@ export type MenuPdfAssets = {
 const EMPTY_ASSETS: MenuPdfAssets = { logoDataUrl: null, coverDataUrl: null, qrDataUrl: null };
 
 const PAGE_MARGIN = 40;
-// Spazio minimo richiesto sotto un header di categoria perché non resti
-// orfano a fine pagina: ~header + prima riga prodotto.
-const CATEGORY_MIN_PRESENCE = 72;
 
 function createStyles(theme: PdfTheme, fontFamily: string) {
     return StyleSheet.create({
@@ -247,17 +244,22 @@ function ProductRow({ product, styles }: { product: MenuPdfProduct; styles: Styl
 
 function CategorySection({ category, styles }: { category: MenuPdfCategory; styles: Styles }) {
     const isSubCategory = category.level > 0;
+    const [firstProduct, ...restProducts] = category.products;
     return (
         <View style={styles.categorySection}>
-            {/* minPresenceAhead: se sotto l'header non c'è spazio almeno per la
-                prima riga prodotto, l'header passa alla pagina successiva. */}
-            <View style={styles.categoryHeader} minPresenceAhead={CATEGORY_MIN_PRESENCE}>
-                <Text style={isSubCategory ? styles.categoryNameSub : styles.categoryName}>
-                    {category.name}
-                </Text>
-                {!isSubCategory ? <View style={styles.categoryRule} /> : null}
+            {/* Header + PRIMO prodotto in un blocco indivisibile: l'header non
+                può mai restare orfano a fine pagina (minPresenceAhead non regge
+                per categorie a prodotto singolo — fix Stage 3c). */}
+            <View wrap={false}>
+                <View style={styles.categoryHeader}>
+                    <Text style={isSubCategory ? styles.categoryNameSub : styles.categoryName}>
+                        {category.name}
+                    </Text>
+                    {!isSubCategory ? <View style={styles.categoryRule} /> : null}
+                </View>
+                {firstProduct ? <ProductRow product={firstProduct} styles={styles} /> : null}
             </View>
-            {category.products.map(product => (
+            {restProducts.map(product => (
                 <ProductRow key={product.id} product={product} styles={styles} />
             ))}
         </View>
