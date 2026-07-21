@@ -152,6 +152,17 @@ p {
   color: $gray-700;
 }
 
+/* --- Josefin Sans body-weight override ---
+   400 legge troppo leggero sul corpo testo pagina pubblica; titoli/display
+   restano invariati (già a 500/600/700 via $typography-scale). */
+[data-font-family="josefin-sans"] {
+  .body-lg,
+  .body,
+  .body-sm {
+    font-weight: 500;
+  }
+}
+
 /* --- Links --- */
 a {
   color: $brand-primary;
