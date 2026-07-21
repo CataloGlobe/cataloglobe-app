@@ -85,20 +85,33 @@ export function ExportCatalogDrawer({
 
     const catalogOptions = catalogs.map(c => ({ value: c.id, label: c.name ?? "Catalogo senza nome" }));
 
-    // TEMP — verifica Stage 1b, rimuovere in Stage 6.
-    // Valida il data layer su un catalogo reale: log del MenuPdfData, nessun PDF.
+    // TEMP — Stage 2, rimuovere in Stage 6.
+    // Pipeline completa data layer → documento react-pdf → download.
+    // Import dinamici: react-pdf resta nel chunk lazy, fuori dal bundle principale.
     const [isSpikeRunning, setIsSpikeRunning] = useState(false);
     const handleSpike = async () => {
         if (!selectedCatalogId) return;
         setIsSpikeRunning(true);
         try {
-            const { loadMenuPdfData } = await import("@/services/pdf/loadMenuPdfData");
+            const [{ loadMenuPdfData }, { renderMenuPdfBlob }] = await Promise.all([
+                import("@/services/pdf/loadMenuPdfData"),
+                import("@/services/pdf/renderMenuPdf")
+            ]);
             const data = await loadMenuPdfData(tenantId, activityId, selectedCatalogId);
-            console.log("[Stage 1b] MenuPdfData:", data);
-            showToast({ message: "MenuPdfData in console.", type: "success" });
+            const blob = await renderMenuPdfBlob(data);
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `menu-stage2-${data.meta.catalogName}.pdf`;
+            link.style.display = "none";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
         } catch (error) {
-            console.error("MenuPdfData load failed:", error);
-            showToast({ message: "Caricamento MenuPdfData fallito (vedi console).", type: "error" });
+            console.error("Menu PDF (Stage 2) failed:", error);
+            showToast({ message: "Generazione PDF Stage 2 fallita (vedi console).", type: "error" });
         } finally {
             setIsSpikeRunning(false);
         }
