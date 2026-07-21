@@ -26,6 +26,7 @@
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { getProviderForLanguage } from "../_shared/translation/router.ts";
+import { logAiUsage } from "../_shared/aiUsageLog.ts";
 import {
     runTranslationTick,
     type JobStore,
@@ -79,7 +80,19 @@ Deno.serve(async (req: Request) => {
         log: (message, meta) => {
             if (meta !== undefined) console.error(`[process-translation-jobs] ${message}`, meta);
             else console.log(`[process-translation-jobs] ${message}`);
-        }
+        },
+        // Metering FASE 2 (best-effort): persiste il char count per code-point
+        // che il tick emette su translate riuscita. logAiUsage non lancia mai.
+        // model = provider name: per DeepL coincide con la chiave tariffario
+        // ('deepl'); provider non tariffati (es. 'mock') → cost NULL, unità ok.
+        logUsage: (e) => logAiUsage(supabase, {
+            tenantId: e.tenantId,
+            provider: e.provider,
+            model: e.provider,
+            operation: "translation",
+            unitKind: "chars",
+            unitsTotal: e.charsTotal
+        })
     });
 
     return jsonResponse(counters, 200);

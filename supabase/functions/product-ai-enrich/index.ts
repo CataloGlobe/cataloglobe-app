@@ -1,8 +1,10 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { classifyGeminiFailure, type ClassifiedFailure } from "../_shared/geminiFailure.ts";
 import { MAX_ATTEMPTS, isRetryable, computeBackoffSeconds } from "../_shared/geminiRetry.ts";
 import { serializeError } from "../_shared/errors.ts";
+import { logAiUsage } from "../_shared/aiUsageLog.ts";
 
 /* ────────────────────────────── CORS ────────────────────────────── */
 // CORS defined inline (no shared helper exists in the repo — same as
@@ -267,6 +269,30 @@ serve(async (req: Request) => {
                 debug: `missing description: ${JSON.stringify(parsed).slice(0, 300)}`
             });
         }
+
+        // ── Metering (best-effort, mai bloccante) ─────────────────
+        // Solo su risposta valida. Client service_role creato qui: questa edge
+        // non ne ha altrove (nessun accesso DB nel path principale).
+        const supabaseAdmin = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+            { auth: { persistSession: false } }
+        );
+        const usage = geminiData?.usageMetadata;
+        await logAiUsage(supabaseAdmin, {
+            tenantId: tenantId || null,
+            provider: "gemini",
+            model: "gemini-2.5-flash",
+            operation: "product_enrich",
+            unitKind: "tokens",
+            unitsInput: usage?.promptTokenCount ?? null,
+            // Output fatturato = candidates + eventuali thinking token.
+            unitsOutput: usage
+                ? (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0)
+                : null,
+            unitsTotal: usage?.totalTokenCount ?? null,
+            rawMeta: usage ?? null
+        });
 
         // ── Build response ────────────────────────────────────────
         return jsonOk({

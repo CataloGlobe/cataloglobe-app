@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { exceedsPayloadBudget, estimateDecodedBytes } from "../_shared/aiImportPayloadSize.ts";
 import { classifyGeminiFailure, type ClassifiedFailure } from "../_shared/geminiFailure.ts";
 import { MAX_ATTEMPTS, isRetryable, computeBackoffSeconds } from "../_shared/geminiRetry.ts";
+import { logAiUsage } from "../_shared/aiUsageLog.ts";
 
 /* ────────────────────────────── CORS ────────────────────────────── */
 
@@ -456,6 +457,25 @@ serve(async (req: Request) => {
                 debug: `missing categories array: ${JSON.stringify(parsed).slice(0, 300)}`
             });
         }
+
+        // ── Metering (best-effort, mai bloccante) ─────────────────
+        // Solo su risposta valida: operazione fallita = nessun consumo
+        // registrato. usageMetadata è nel body Gemini, prima ignorato.
+        const usage = geminiData?.usageMetadata;
+        await logAiUsage(supabaseAdmin, {
+            tenantId: tenant_id,
+            provider: "gemini",
+            model: "gemini-2.5-flash",
+            operation: "menu_import",
+            unitKind: "tokens",
+            unitsInput: usage?.promptTokenCount ?? null,
+            // Output fatturato = candidates + eventuali thinking token.
+            unitsOutput: usage
+                ? (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0)
+                : null,
+            unitsTotal: usage?.totalTokenCount ?? null,
+            rawMeta: usage ?? null
+        });
 
         // ── Build response ────────────────────────────────────────
         return jsonOk({

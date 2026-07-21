@@ -85,6 +85,25 @@ export function ExportCatalogDrawer({
 
     const catalogOptions = catalogs.map(c => ({ value: c.id, label: c.name ?? "Catalogo senza nome" }));
 
+    // TEMP — verifica Stage 1b, rimuovere in Stage 6.
+    // Valida il data layer su un catalogo reale: log del MenuPdfData, nessun PDF.
+    const [isSpikeRunning, setIsSpikeRunning] = useState(false);
+    const handleSpike = async () => {
+        if (!selectedCatalogId) return;
+        setIsSpikeRunning(true);
+        try {
+            const { loadMenuPdfData } = await import("@/services/pdf/loadMenuPdfData");
+            const data = await loadMenuPdfData(tenantId, activityId, selectedCatalogId);
+            console.log("[Stage 1b] MenuPdfData:", data);
+            showToast({ message: "MenuPdfData in console.", type: "success" });
+        } catch (error) {
+            console.error("MenuPdfData load failed:", error);
+            showToast({ message: "Caricamento MenuPdfData fallito (vedi console).", type: "error" });
+        } finally {
+            setIsSpikeRunning(false);
+        }
+    };
+
     return (
         <SystemDrawer open={open} onClose={onClose} width={420}>
             <DrawerLayout
@@ -100,6 +119,15 @@ export function ExportCatalogDrawer({
                 }
                 footer={
                     <>
+                        {/* TEMP SPIKE — rimuovere in Stage 6 */}
+                        <Button
+                            variant="secondary"
+                            onClick={handleSpike}
+                            loading={isSpikeRunning}
+                            disabled={isSpikeRunning}
+                        >
+                            Spike PDF
+                        </Button>
                         <Button variant="secondary" onClick={onClose} disabled={isDownloading}>
                             Annulla
                         </Button>
