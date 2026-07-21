@@ -573,7 +573,7 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                     </div>
                 </div>
 
-                {model.card.productStyle === "card" && model.appearance.cardTreatment === "bordered" && (
+                {isCardTreatmentActive(model.card.productStyle, model.appearance.featuredStyle) && model.appearance.cardTreatment === "bordered" && (
                     <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
                         <Text variant="body" weight={500} className={styles.fieldLabel}>
                             Colore bordo<InfoTooltip content="Automatico deriva il colore dal contrasto con lo sfondo. Primario usa il colore identità dello stile." />

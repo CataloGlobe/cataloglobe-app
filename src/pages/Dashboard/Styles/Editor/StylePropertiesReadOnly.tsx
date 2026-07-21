@@ -1,6 +1,7 @@
 import Text from "@/components/ui/Text/Text";
 import { InfoTooltip } from "@components/ui/Tooltip/InfoTooltip";
 import type { StyleTokenModel, BackgroundPattern, BorderRadius, NavigationStyle, ProductStyle, FeaturedStyle, PatternIntensity } from "./StyleTokenModel";
+import { isCardTreatmentActive } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview } from "./StyleMiniPreviews";
 import sharedStyles from "./StyleSettingsControls.module.scss";
@@ -68,6 +69,19 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         })}
                     </div>
                 </div>
+                {isCardTreatmentActive(model.card.productStyle, model.appearance.featuredStyle) && (
+                    <ValueReadRow
+                        label="Aspetto card"
+                        tooltip="Aspetto di card e finestre: Elevata usa un'ombra, Contornata un bordo sottile, Vetro una superficie semitrasparente con sfocatura. Si applica ai prodotti in stile Card e ai contenuti in evidenza in stile Card o Compatto."
+                        value={
+                            model.appearance.cardTreatment === "glass"
+                                ? "Vetro"
+                                : model.appearance.cardTreatment === "bordered"
+                                    ? "Contornata"
+                                    : "Elevata"
+                        }
+                    />
+                )}
                 <div className={sharedStyles.controlField}>
                     <Text variant="body" weight={500} className={sharedStyles.fieldLabel}>
                         Pattern sfondo<InfoTooltip content="Aggiunge un motivo decorativo leggero allo sfondo, usando il colore primario." />
@@ -248,19 +262,6 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
                         })}
                     </div>
                 </div>
-                {model.card.productStyle === "card" && (
-                    <ValueReadRow
-                        label="Aspetto card"
-                        tooltip="Aspetto di card e finestre: Elevata usa un'ombra, Contornata un bordo sottile, Vetro una superficie semitrasparente con sfocatura."
-                        value={
-                            model.appearance.cardTreatment === "glass"
-                                ? "Vetro"
-                                : model.appearance.cardTreatment === "bordered"
-                                    ? "Contornata"
-                                    : "Elevata"
-                        }
-                    />
-                )}
                 {/* Layout List/Grid rimosso: orientamento Card automatico via container query */}
                 {model.card.productStyle === "compact" && (
                     <ValueReadRow
