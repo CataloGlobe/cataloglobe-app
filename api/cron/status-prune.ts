@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 import { pgrest } from "../_lib/statusSupabase.js";
+import { timingSafeCompare } from "../_lib/timingSafeCompare.js";
 
 /**
  * Cron: `0 3 * * *` — cancella `status_checks.checked_at < now() - 90 days`.
@@ -19,7 +20,9 @@ function isAuthorized(req: VercelRequest): boolean {
     if (!secret) return false;
     const header = req.headers["authorization"];
     if (typeof header !== "string") return false;
-    return header === `Bearer ${secret}`;
+    const match = header.match(/^Bearer\s+(.+)$/);
+    if (!match) return false;
+    return timingSafeCompare(match[1], secret);
 }
 
 export default async function handler(
