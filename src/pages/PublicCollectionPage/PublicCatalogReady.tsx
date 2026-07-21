@@ -376,7 +376,8 @@ export default function PublicCatalogReady({
         featuredStyle: tokens.appearance.featuredStyle,
         cardTreatment: tokens.appearance.cardTreatment,
         iconStyle: tokens.appearance.iconStyle ?? "plain",
-        appearanceRadius: borderRadiusToPx(tokens.appearance.borderRadius)
+        appearanceRadius: borderRadiusToPx(tokens.appearance.borderRadius),
+        showFeaturedSubtitle: tokens.appearance.showFeaturedSubtitle ?? true
     } as const;
 
     const sectionGroups = mapCatalogToSectionGroups(resolved);

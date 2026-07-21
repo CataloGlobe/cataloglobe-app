@@ -2903,7 +2903,7 @@ export default function CollectionView({
                     }
                 >
                     <div className={`${styles.infoSheetContent} ${styles.eventsListContent}`}>
-                        <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} />
+                        <EventsView featuredContents={featuredContents} layout={style?.featuredStyle} showSubtitle={style?.showFeaturedSubtitle} />
                     </div>
                 </PublicSheet>
             )}

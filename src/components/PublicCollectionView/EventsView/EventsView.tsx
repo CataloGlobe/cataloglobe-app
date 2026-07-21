@@ -10,9 +10,11 @@ import styles from "./EventsView.module.scss";
 type EventsViewProps = {
     featuredContents: V2FeaturedContent[];
     layout?: "card" | "highlight" | "compact";
+    /** Mostra il subtitle nella card overview. Default true (comportamento storico). */
+    showSubtitle?: boolean;
 };
 
-export default function EventsView({ featuredContents, layout = "card" }: EventsViewProps) {
+export default function EventsView({ featuredContents, layout = "card", showSubtitle = true }: EventsViewProps) {
     const { t } = useTranslation("public");
     // Dettaglio in-place: niente seconda PublicSheet impilata sopra "Eventi &
     // Promo" (era il bug — doppio backdrop/handle). Stesso pattern di
@@ -63,6 +65,7 @@ export default function EventsView({ featuredContents, layout = "card" }: Events
                         onClick={() => setSelectedFeatured(fc)}
                         className={styles.cardFull}
                         variant={layout}
+                        showSubtitle={showSubtitle}
                     />
                 ))}
             </div>
