@@ -75,7 +75,7 @@ serve(async req => {
 
     const SUPABASE_URL              = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
-    const PURGE_SECRET              = Deno.env.get("PURGE_SECRET");
+    const PURGE_SECRET              = Deno.env.get("PURGE_TENANTS_SECRET");
 
     if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
         console.error("purge-tenants: Missing required env vars");
