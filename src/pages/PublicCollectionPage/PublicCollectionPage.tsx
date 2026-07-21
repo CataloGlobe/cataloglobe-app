@@ -230,6 +230,13 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
                 requestedLang: validatedLang
             });
             if (redirectTo) {
+                // Guard: il cleanup dell'effect (cancelled = true) non è
+                // sincrono con una navigazione utente avvenuta nel frattempo
+                // (es. tap su "Prenota un tavolo" mentre questo fetch era
+                // ancora in volo) — senza questo check il redirect di
+                // canonicalizzazione lingua sovrascriverebbe con replace:true
+                // la navigazione già fatta dall'utente.
+                if (cancelled) return;
                 navigate(redirectTo, { replace: true });
                 return;
             }
