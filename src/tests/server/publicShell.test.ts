@@ -126,7 +126,16 @@ describe("applyTenantHead", () => {
     it("cover https: og:image + twitter:image + preload fetchpriority", () => {
         const html = applyTenantHead(TEMPLATE, makePayload(), OPTS);
         expect(html).toContain('property="og:image" content="https://cdn.example.com/cover.jpg"');
+        expect(html).toContain('name="twitter:image" content="https://cdn.example.com/cover.jpg"');
         expect(html).toContain('rel="preload" as="image" href="https://cdn.example.com/cover.jpg"');
+        // REPLACE, non append: un solo og:image/twitter:image nel documento
+        // (i crawler usano il primo — il generico del template deve sparire).
+        expect(html.match(/property="og:image"/g)?.length).toBe(1);
+        expect(html.match(/name="twitter:image"/g)?.length).toBe(1);
+        expect(html).not.toContain("og-image.png");
+        // width/height descrivevano og-image.png: rimossi con la cover tenant
+        expect(html).not.toContain('property="og:image:width"');
+        expect(html).not.toContain('property="og:image:height"');
     });
 
     it("cover storage Supabase, flag ON: preload responsive (imagesrcset) ma og:image resta raw", () => {
@@ -220,7 +229,11 @@ describe("applyTenantHead", () => {
             OPTS
         );
         expect(html).not.toContain("javascript:alert(1)");
-        expect(html).not.toContain('property="og:image"');
+        // cover scartata → resta il fallback generico del template, intatto
+        // (width/height inclusi: descrivono og-image.png, che è l'immagine servita)
+        expect(html).toContain('property="og:image" content="https://cataloglobe.com/og-image.png"');
+        expect(html).toContain('property="og:image:width"');
+        expect(html.match(/property="og:image"/g)?.length).toBe(1);
     });
 
     it("senza nome business: template invariato", () => {
