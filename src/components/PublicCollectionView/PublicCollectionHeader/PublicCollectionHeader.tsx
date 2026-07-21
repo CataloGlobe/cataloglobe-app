@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { motion, useReducedMotion } from "framer-motion";
 import { BookOpenText, CalendarDays, ImageIcon, MessageCircle, MoreHorizontal, ReceiptText, Search, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { hasOpenSheet } from "../hooks/useScrollCollapse";
@@ -144,6 +145,7 @@ export default function PublicCollectionHeader({
     frozen = false,
 }: PublicCollectionHeaderProps) {
     const { t } = useTranslation("public");
+    const prefersReducedMotion = useReducedMotion();
     // Aggiornato sincronicamente ad ogni render (stesso pattern di freezeRef in
     // useScrollCollapse): già true prima degli scroll event post-apertura sheet,
     // senza ri-attaccare il listener.
@@ -267,6 +269,19 @@ export default function PublicCollectionHeader({
     // sovrascrivono il CSS partendo dagli stessi valori al pixel (stessa
     // formula, stessa var --pub-frame-max-desktop).
     const engaged = scrollY > 0;
+
+    // Richiamo recensioni: ex pallino statico, ora double-pulse periodico SOLO
+    // sull'icona (mai sul bottone) mentre reviewDot resta true — 2 colpi scale
+    // rapidi (non un singolo pulse: si confonderebbe con feedback hover/press).
+    // repeatDelay = pausa tra un ciclo e il successivo, non loop ininterrotto.
+    // Rispetta prefers-reduced-motion: icona statica, nessun fallback visivo
+    // sostitutivo (richiesto così in questa fase).
+    const reviewIconAnimate = reviewDot && !prefersReducedMotion
+        ? { scale: [1, 1.18, 1, 1.18, 1] }
+        : { scale: 1 };
+    const reviewIconTransition = reviewDot && !prefersReducedMotion
+        ? { duration: 0.4, repeat: Infinity, repeatDelay: 8.6, ease: "easeOut" as const }
+        : { duration: 0 };
 
     return (
         <>
@@ -451,10 +466,13 @@ export default function PublicCollectionHeader({
                                         aria-label={t("hub.reviews")}
                                         tabIndex={mode === "preview" ? -1 : undefined}
                                     >
-                                        <MessageCircle size={15} strokeWidth={2} />
-                                        {reviewDot && (
-                                            <span className={styles.iconBtnDot} aria-hidden="true" />
-                                        )}
+                                        <motion.span
+                                            className={styles.iconBtnIcon}
+                                            animate={reviewIconAnimate}
+                                            transition={reviewIconTransition}
+                                        >
+                                            <MessageCircle size={15} strokeWidth={2} />
+                                        </motion.span>
                                     </button>
                                 )}
                             </div>

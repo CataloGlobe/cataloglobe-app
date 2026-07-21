@@ -69,58 +69,8 @@
     margin: 0;
 }
 
-/* ── Stars row ──────────────────────────────────────── */
-
-.starsRow {
-    display: flex;
-    gap: 8px;
-    margin: 12px 0 4px;
-}
-
-.starBtn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    border-radius: var(--pub-btn-radius, 6px);
-    /* Area tappabile minima 44×44px (Apple HIG) — SVG 40px + padding 4px×2 = 48px, OK */
-    min-width: 44px;
-    min-height: 44px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    outline: none;
-    -webkit-tap-highlight-color: transparent;
-    transition: transform 0.15s ease;
-
-    @include hover {
-        transform: scale(1.15);
-    }
-
-    &:focus-visible {
-        outline: 2px solid var(--pub-primary, #333);
-        outline-offset: 2px;
-    }
-}
-
-.starSvgFilled,
-.starSvgEmpty {
-    width: 40px;
-    height: 40px;
-    transition: fill 0.12s ease, stroke 0.12s ease;
-}
-
-.starSvgFilled {
-    fill: #fbbf24;
-    stroke: #f59e0b;
-    stroke-width: 0.5;
-}
-
-.starSvgEmpty {
-    fill: #e5e7eb;
-    stroke: #d1d5db;
-    stroke-width: 0.5;
-}
+/* ── Stars row ── estratto in StarRating (src/components/PublicCollectionView/
+   StarRating/StarRating.module.scss) — riusato anche dal widget footer. ── */
 
 /* ── Rating semantic text colors ─────────────────────
    Usati SOLO come colore testo (label nella summary card, step feedback).
@@ -197,18 +147,7 @@
     font-family: inherit;
 }
 
-.miniStar {
-    width: 15px;
-    height: 15px;
-}
-
-.miniStarFilled {
-    fill: var(--pub-surface-text-muted);
-}
-
-.miniStarEmpty {
-    fill: var(--pub-surface-border);
-}
+/* .miniStar* → estratto in StarRating (size="mini"). */
 
 /* Feedback form */
 

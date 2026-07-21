@@ -1005,6 +1005,9 @@ export default function CollectionView({
     // aprono/chiudono in stato locale, indipendente dal tab attivo.
     const [isEventsSheetOpen, setIsEventsSheetOpen] = useState(false);
     const [isReviewsSheetOpen, setIsReviewsSheetOpen] = useState(false);
+    // Voto pre-impostato dal widget stelle in footer — undefined = flow normale
+    // da "stars" (header/bottombar). Passato a ReviewsView come `initialRating`.
+    const [initialReviewRating, setInitialReviewRating] = useState<number | undefined>(undefined);
 
     const openEventsSheet = useCallback(() => {
         if (mode === "public" && activityId) {
@@ -1014,10 +1017,11 @@ export default function CollectionView({
     }, [mode, activityId, activeTab]);
     const closeEventsSheet = useCallback(() => setIsEventsSheetOpen(false), []);
 
-    const openReviewsSheet = useCallback(() => {
+    const openReviewsSheet = useCallback((initialRating?: number) => {
         if (mode === "public" && activityId) {
             trackEvent(activityId, "tab_switch", { from_tab: activeTab, to_tab: "reviews" });
         }
+        setInitialReviewRating(initialRating);
         setIsReviewsSheetOpen(true);
     }, [mode, activityId, activeTab]);
     const closeReviewsSheet = useCallback(() => setIsReviewsSheetOpen(false), []);
@@ -1891,6 +1895,11 @@ export default function CollectionView({
     const [valutaVisible, setValutaVisible] = useState(false);
     // true = visitatore di ritorno entro 4h, senza review recente → FAB idoneo
     const valutaEligibleRef = useRef(false);
+    // Chiavi fab_visit_<id> già scritte in QUESTO mount (StrictMode dev rimonta
+    // l'effect 2x, o un futuro dep-change potrebbe rirunnarlo): evita di rileggere
+    // un timestamp appena scritto da noi stessi nella stessa execution, che
+    // leggerebbe età ≈0ms e tratterebbe una vera prima visita come ritorno-entro-4h.
+    const writtenVisitKeysRef = useRef<Set<string>>(new Set());
 
     // Dismiss del promemoria recensione al tap sul trigger, stessa condizione
     // del vecchio onReviewDotDismiss della bottom-bar (tab "reviews").
@@ -1933,9 +1942,12 @@ export default function CollectionView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab]);
 
-    // ── Valuta FAB: localStorage visit check + scroll 50% trigger ─────────
+    // ── Valuta FAB: localStorage visit check + timer 4s post-eleggibilità ──
     // 1. Primo accesso → salva timestamp, FAB nascosto
-    // 2. Ritorno entro 4h → FAB idoneo (appare dopo scroll ≥ 50%)
+    // 2. Ritorno entro 4h → FAB idoneo, appare dopo 4s (timer, non più scroll:
+    //    il ritorno-visita entro 4h è già un segnale abbastanza forte, il gate
+    //    sullo scroll escludeva utenti che tornano a cercare qualcosa di
+    //    specifico senza scrollare tutto il menu)
     // 3. Ritorno dopo 4h+ → reset timestamp, FAB nascosto
     // 4. Recensione inviata nelle ultime 24h → FAB nascosto
     useEffect(() => {
@@ -1957,54 +1969,29 @@ export default function CollectionView({
             // Recensione inviata nelle ultime 24h → no FAB
             if (lastReview && (now - parseInt(lastReview, 10)) < TWENTYFOUR_HOURS) return;
 
+            // Chiave già scritta da QUESTO mount: non rileggerla, sarebbe il
+            // timestamp appena scritto da noi stessi — bug read-after-write.
+            if (writtenVisitKeysRef.current.has(visitKey)) return;
+
             const prevTs = previousVisit ? parseInt(previousVisit, 10) : 0;
             const isReturnVisit = previousVisit && (now - prevTs) < FOUR_HOURS;
 
             if (!isReturnVisit) {
                 // Primo accesso o sessione scaduta → salva timestamp
                 localStorage.setItem(visitKey, now.toString());
+                writtenVisitKeysRef.current.add(visitKey);
                 return;
             }
 
-            // Visitatore di ritorno entro 4h, no review recente → idoneo
+            // Visitatore di ritorno entro 4h, no review recente → idoneo.
+            // Mostra dopo un breve ritardo (non più legato allo scroll).
             valutaEligibleRef.current = true;
+            const timerId = setTimeout(() => setValutaVisible(true), 4000);
+            return () => clearTimeout(timerId);
         } catch {
             // Safari private mode / quota exceeded — silenzioso
         }
     }, [activeTab, mode, activityId]);
-
-    // Scroll listener: mostra FAB quando scroll ≥ 50% (solo se eligible)
-    useEffect(() => {
-        if (!valutaEligibleRef.current || mode !== "public" || activeTab !== "menu") return;
-
-        const container = scrollContainerEl ?? window;
-        let ticking = false;
-
-        function onScroll() {
-            if (ticking) return;
-            ticking = true;
-            requestAnimationFrame(() => {
-                ticking = false;
-                let scrollPercent: number;
-                if (container === window) {
-                    const scrollable = document.documentElement.scrollHeight - window.innerHeight;
-                    scrollPercent = scrollable > 0 ? window.scrollY / scrollable : 0;
-                } else {
-                    const el = container as HTMLElement;
-                    const scrollable = el.scrollHeight - el.clientHeight;
-                    scrollPercent = scrollable > 0 ? el.scrollTop / scrollable : 0;
-                }
-                if (scrollPercent >= 0.7) {
-                    setValutaVisible(true);
-                    // Una volta visibile, rimuovi il listener
-                    container.removeEventListener("scroll", onScroll);
-                }
-            });
-        }
-
-        container.addEventListener("scroll", onScroll, { passive: true });
-        return () => container.removeEventListener("scroll", onScroll);
-    }, [activeTab, mode, scrollContainerEl]);
 
     // ── Main scroll effect: section tracking + scroll-to-top visibility ─────
     useEffect(() => {
@@ -2873,6 +2860,9 @@ export default function CollectionView({
                             services={mode !== "preview" ? activityServices : undefined}
                             allergens={mode !== "preview" ? allergens : null}
                             characteristics={mode !== "preview" ? catalogCharacteristics : undefined}
+                            // StarRating passa il rating (numero) a onSelect — nessun evento DOM
+                            // in mezzo, openReviewsSheet può essere passata diretta senza wrapper.
+                            onOpenReviewsWithRating={mode === "public" && reviewsProps ? openReviewsSheet : undefined}
                         />
                     )}
                 </>
@@ -2918,7 +2908,14 @@ export default function CollectionView({
                     <Suspense fallback={null}>
                         <div className={`${styles.infoSheetContent} ${styles.reviewsSheetContent}`}>
                             <ReviewsView
+                                // key forza il remount quando il voto pre-impostato cambia: l'istanza
+                                // vive sempre montata dentro PublicSheet (solo isOpen toggla la
+                                // visibilità), quindi lo useState lazy di ReviewsView girerebbe solo
+                                // al primo mount reale senza questo — un secondo click sul widget
+                                // footer con un voto diverso non aggiornerebbe fase/voto iniziali.
+                                key={initialReviewRating ?? "default"}
                                 {...reviewsProps}
+                                initialRating={initialReviewRating}
                                 onReviewSubmitted={() => {
                                     // Nascondi FAB e salva timestamp per sopprimerlo per 24h
                                     setValutaVisible(false);
@@ -2982,7 +2979,11 @@ export default function CollectionView({
                     cartVisible={mode === "preview" ? orderingActive && !shouldHideOrderingEntry : !shouldHideOrderingEntry}
                     onOpenCart={mode === "preview" ? () => {} : openOrdering}
                     onOpenEvents={mode === "preview" ? () => {} : openEventsSheet}
-                    onOpenReviews={mode === "preview" ? () => {} : (reviewsProps ? openReviewsSheet : undefined)}
+                    // Wrapper esplicito (non passare openReviewsSheet direttamente): il
+                    // bottone bottombar collega onClick={onOpenReviews} senza wrapper, quindi
+                    // l'evento DOM del click arriverebbe come primo argomento — ora che
+                    // openReviewsSheet accetta initialRating?, verrebbe scambiato per un voto.
+                    onOpenReviews={mode === "preview" ? () => {} : (reviewsProps ? () => openReviewsSheet() : undefined)}
                     reviewDot={mode === "preview" ? false : valutaVisible}
                     onReviewDotDismiss={mode === "preview" ? () => {} : () => {
                         setValutaVisible(false);

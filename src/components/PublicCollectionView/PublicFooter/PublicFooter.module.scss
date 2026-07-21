@@ -32,6 +32,71 @@
   }
 }
 
+/* ── REVIEW WIDGET ──────────────────────────────────────── */
+/* Riproduce esattamente la schermata "stars" della modale recensioni
+   (ReviewsView.module.scss .starsPhase/.title/.subtitle) — stesso testo,
+   stessa StarRating condivisa. Sempre visibile, nessun gate di eleggibilità.
+   Contenitore in stile card: base identica a .card in CollectionView.module.scss
+   (mai un mixin condiviso nel codebase — ogni consumer duplica a mano gli
+   stessi 3 blocchi cardTreatment, pattern volutamente ripetuto anche qui). */
+.reviewWidget {
+  width: 100%;
+  max-width: var(--pub-footer-max);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+  padding: 1.5rem 1.25rem;
+
+  background: var(--pub-surface);
+  border: 1px solid var(--pub-surface-border);
+  box-shadow: var(--pub-card-shadow);
+  border-radius: var(--pub-radius);
+}
+
+/* Aspetto card (data-card-treatment sul wrapper PublicThemeScope) — mirror di
+   CollectionView.module.scss:492-521. raised = ombra, bordo invisibile ·
+   bordered = bordo, niente ombra · glass = superficie semitrasparente + blur,
+   fallback solido se backdrop-filter non supportato. */
+:global([data-card-treatment="raised"]) .reviewWidget {
+  box-shadow: var(--pub-card-shadow);
+  border-color: transparent;
+}
+:global([data-card-treatment="bordered"]) .reviewWidget {
+  box-shadow: none;
+  border-color: var(--pub-surface-border);
+}
+
+:global([data-card-treatment="glass"]) .reviewWidget {
+  background: var(--pub-surface-glass);
+  -webkit-backdrop-filter: blur(16px) saturate(1.6);
+  backdrop-filter: blur(16px) saturate(1.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  box-shadow: none;
+}
+/* Fallback senza supporto backdrop-filter: torna al solido leggibile. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :global([data-card-treatment="glass"]) .reviewWidget {
+    background: var(--pub-surface);
+  }
+}
+
+.reviewWidgetTitle {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--pub-bg-text);
+  font-family: inherit;
+  margin: 0;
+}
+
+.reviewWidgetSubtitle {
+  font-size: 0.9rem;
+  color: var(--pub-bg-text-muted);
+  font-family: inherit;
+  margin: 0;
+}
+
 /* ── SOCIAL ROW ─────────────────────────────────────────── */
 .socialRow {
   display: flex;

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
+import StarRating from "../StarRating/StarRating";
 import styles from "./ReviewsView.module.scss";
 
 /* ── Props ───────────────────────────────────────────── */
@@ -12,6 +13,9 @@ export type ReviewsViewProps = {
     supabaseUrl: string;
     /** Notifica il parent dopo un submit riuscito (per nascondere il FAB). */
     onReviewSubmitted?: () => void;
+    /** Voto pre-impostato (dal widget stelle in footer): apre direttamente sulla
+     *  schermata "feedback", saltando "stars". Assente → flow normale da "stars". */
+    initialRating?: number;
 };
 
 /* ── Rating config ──────────────────────────────────── */
@@ -36,19 +40,6 @@ function ratingCategory(rating: number): "positive" | "neutral" | "negative" {
 
 type Phase = "stars" | "feedback" | "submitting" | "thanks";
 
-/* ── Star SVG ────────────────────────────────────────── */
-
-function StarIcon({ filled }: { filled: boolean }) {
-    return (
-        <svg
-            viewBox="0 0 24 24"
-            className={filled ? styles.starSvgFilled : styles.starSvgEmpty}
-        >
-            <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-        </svg>
-    );
-}
-
 /* ── Google Icon SVG ─────────────────────────────────── */
 
 function GoogleIcon({ size = 24 }: { size?: number }) {
@@ -70,6 +61,7 @@ export default function ReviewsView({
     sessionId,
     supabaseUrl,
     onReviewSubmitted,
+    initialRating,
 }: ReviewsViewProps) {
     const { t } = useTranslation("public");
     // ── Check se ha già recensito nelle ultime 24h ──────────────────────────
@@ -80,14 +72,14 @@ export default function ReviewsView({
         } catch { return false; }
     });
 
-    const [phase, setPhase] = useState<Phase>("stars");
-    const [selectedStars, setSelectedStars] = useState(0);
-    const [hoverStars, setHoverStars] = useState(0);
+    // initialRating (dal widget footer) → apre direttamente su "feedback" col voto
+    // già selezionato. Il caller (CollectionView) forza il remount dell'istanza con
+    // `key` quando initialRating cambia — qui basta l'init lazy, nessun effect di sync.
+    const [phase, setPhase] = useState<Phase>(initialRating ? "feedback" : "stars");
+    const [selectedStars, setSelectedStars] = useState(initialRating ?? 0);
     const [feedback, setFeedback] = useState("");
     const [submitError, setSubmitError] = useState<string | null>(null);
     const [showGoogleCard, setShowGoogleCard] = useState(false);
-
-    const displayStars = hoverStars || selectedStars;
 
     const isLowRating = selectedStars >= 1 && selectedStars <= 3;
     const isHighRating = selectedStars >= 4;
@@ -109,7 +101,6 @@ export default function ReviewsView({
     /* ── Handle back ────────────────────────────────── */
     function handleBack() {
         setSelectedStars(0);
-        setHoverStars(0);
         setFeedback("");
         setSubmitError(null);
         setPhase("stars");
@@ -214,33 +205,12 @@ export default function ReviewsView({
                         {t("reviews.subtitle")}
                     </p>
 
-                    <div
-                        className={styles.starsRow}
-                        role="group"
-                        aria-label={t("reviews.rating_group_aria")}
-                    >
-                        {[1, 2, 3, 4, 5].map((n) => (
-                            <button
-                                key={n}
-                                type="button"
-                                className={styles.starBtn}
-                                onMouseEnter={() => {
-                                    // No-op su touch: il tap non deve attivare l'hover-preview
-                                    // delle stelle (sticky finché si tappa altrove).
-                                    if (window.matchMedia("(hover: none)").matches) return;
-                                    setHoverStars(n);
-                                }}
-                                onMouseLeave={() => {
-                                    if (window.matchMedia("(hover: none)").matches) return;
-                                    setHoverStars(0);
-                                }}
-                                onClick={() => handleStarClick(n)}
-                                aria-label={t("reviews.stars_aria", { count: n })}
-                            >
-                                <StarIcon filled={displayStars >= n} />
-                            </button>
-                        ))}
-                    </div>
+                    <StarRating
+                        value={selectedStars}
+                        onSelect={handleStarClick}
+                        ariaLabel={t("reviews.rating_group_aria")}
+                        getStarAriaLabel={(n) => t("reviews.stars_aria", { count: n })}
+                    />
                 </div>
             </div>
         );
@@ -284,22 +254,7 @@ export default function ReviewsView({
                         label testuale, colore semantico solo sul testo. */}
                     <div className={styles.summaryCard}>
                         <div className={styles.summaryStars}>
-                            {[1, 2, 3, 4, 5].map((n) => (
-                                <svg
-                                    key={n}
-                                    viewBox="0 0 24 24"
-                                    className={[
-                                        styles.miniStar,
-                                        n <= selectedStars
-                                            ? styles.miniStarFilled
-                                            : styles.miniStarEmpty,
-                                    ]
-                                        .filter(Boolean)
-                                        .join(" ")}
-                                >
-                                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                                </svg>
-                            ))}
+                            <StarRating value={selectedStars} size="mini" />
                         </div>
                         <span className={[styles.summaryLabel, styles[config.colorClass]].join(" ")}>
                             {summaryLabel}

@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import { motion, useReducedMotion } from "framer-motion";
 import { BookOpenText, CalendarDays, MessageCircle, ReceiptText, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { useScrollCollapse } from "../hooks/useScrollCollapse";
@@ -76,6 +77,7 @@ export default function PublicBottomBar({
     preview = false,
 }: Props) {
     const { t } = useTranslation("public");
+    const prefersReducedMotion = useReducedMotion();
 
     // CSS-driven split: la barra è SEMPRE montata (markup SSR-safe), ma è visibile
     // solo ≤640px via @media. Gli effetti viewport-specifici (ResizeObserver sul
@@ -164,6 +166,16 @@ export default function PublicBottomBar({
         prevCountRef.current = selectionCount;
     }, [selectionCount]);
 
+    // Richiamo recensioni: ex pallino statico, ora double-pulse periodico SOLO
+    // sull'icona (mai sul bottone) mentre reviewDot resta true — stessa animazione
+    // del desktop (PublicCollectionHeader.tsx). Rispetta prefers-reduced-motion.
+    const reviewIconAnimate = reviewDot && !prefersReducedMotion
+        ? { scale: [1, 1.18, 1, 1.18, 1] }
+        : { scale: 1 };
+    const reviewIconTransition = reviewDot && !prefersReducedMotion
+        ? { duration: 0.4, repeat: Infinity, repeatDelay: 8.6, ease: "easeOut" as const }
+        : { duration: 0 };
+
     return (
         // Wrapper: posizionamento fisso + centratura + animazione di entrata (opacity/translateY).
         // Lo scale di shrink vive sul `.bar` interno per non collidere col transform dell'entry
@@ -220,8 +232,13 @@ export default function PublicBottomBar({
                         aria-label={t("hub.reviews")}
                         onClick={handleOpenReviews}
                     >
-                        <MessageCircle size={19} strokeWidth={1.9} />
-                        {reviewDot && <span className={styles.dot} aria-hidden="true" />}
+                        <motion.span
+                            className={styles.tabIcon}
+                            animate={reviewIconAnimate}
+                            transition={reviewIconTransition}
+                        >
+                            <MessageCircle size={19} strokeWidth={1.9} />
+                        </motion.span>
                     </button>
                 )}
             </div>

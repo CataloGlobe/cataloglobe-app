@@ -353,6 +353,7 @@
   right: -4px;
   min-width: 18px;
   height: 18px;
+  aspect-ratio: 1;
   padding: 0 5px;
   border-radius: 999px;
   background: var(--pub-accent, #F59E0B);
@@ -365,6 +366,15 @@
   border: 2px solid rgba(20, 20, 20, 0.92);
   line-height: 1;
   pointer-events: none;
+}
+
+/* Badge carrello su bottone accent (data-accent="true"): bordo riusa lo stesso
+   color-mix già definito per il border di .iconBtn[data-accent] (riga sopra) —
+   così l'anello del badge si fonde con quello del pulsante invece di leggere
+   come cerchio scuro estraneo. Scoped al solo bottone accent: il badge
+   allergeni su .iconBtn plain resta col border di base, invariato. */
+.iconBtn[data-accent="true"] .iconBtnBadge {
+  border-color: color-mix(in srgb, var(--pub-accent, #f59e0b) 55%, transparent);
 }
 
 /* ── HUB CHIPS ───────────────────────────────────────────── */
@@ -454,17 +464,11 @@
   }
 }
 
-/* Dot promemoria su un trigger icona (eventi/recensioni). Stessa geometria del
-   badge numerico .iconBtnBadge ma senza contenuto testuale. */
-.iconBtnDot {
-  position: absolute;
-  top: -2px;
-  right: -2px;
-  width: 8px;
-  height: 8px;
-  border-radius: 999px;
-  background: var(--pub-accent, #f59e0b);
-  border: 2px solid rgba(20, 20, 20, 0.92);
-  pointer-events: none;
+/* Wrapper icona del trigger recensioni: SOLO questo elemento anima (wiggle
+   periodico via Framer Motion, vedi reviewIconAnimate nel .tsx), mai il
+   .iconBtn intero. display:inline-flex per non alterare il centraggio
+   flex dell'icona dentro il bottone. */
+.iconBtnIcon {
+  display: inline-flex;
 }
 
