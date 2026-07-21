@@ -17,6 +17,33 @@
 /* --- Typography Variants Responsive --- */
 @include typography.generate-typography(typography.$typography-scale);
 
+/* --- Josefin Sans body-weight override ---
+   400 legge troppo leggero sul corpo testo pagina pubblica; titoli/display
+   restano invariati (già a 500/600/700 via $typography-scale). Selettore
+   attributo globale (data-font-family da PublicThemeScope) + classi locali
+   di questo CSS module (:global necessario solo sull'attributo, non sulle
+   classi — che restano hashate normalmente). */
+:global([data-font-family="josefin-sans"]) {
+  .body-lg,
+  .body,
+  .body-sm {
+    font-weight: 500;
+  }
+}
+
+/* --- Patrick Hand: niente weight forzato ---
+   Font a peso unico (400), nessun vero bold upstream: applicare 500/600/700
+   produrrebbe faux bold sintetico dal browser. Titoli/display restano al
+   peso reale della famiglia. */
+:global([data-font-family="patrick-hand"]) {
+  .display,
+  .title-lg,
+  .title-md,
+  .title-sm {
+    font-weight: 400;
+  }
+}
+
 /* --- Color Variants --- */
 .color-default {
   color: $text-color;

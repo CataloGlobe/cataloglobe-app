@@ -146,21 +146,24 @@ h6 {
   line-height: 1.2;
 }
 
+/* --- Patrick Hand: niente weight forzato sui titoli ---
+   Font a peso unico (400), nessun vero bold upstream: 600 produrrebbe
+   faux bold sintetico dal browser. Vale per h1-h6 nudi (usati fuori dal
+   componente Text — vedi anche l'analoga eccezione in Text.module.scss
+   per le classi .display/.title-lg/-md/-sm). */
+[data-font-family="patrick-hand"] h1,
+[data-font-family="patrick-hand"] h2,
+[data-font-family="patrick-hand"] h3,
+[data-font-family="patrick-hand"] h4,
+[data-font-family="patrick-hand"] h5,
+[data-font-family="patrick-hand"] h6 {
+  font-weight: 400;
+}
+
 /* --- Paragraphs --- */
 p {
   margin: 0 0 1em;
   color: $gray-700;
-}
-
-/* --- Josefin Sans body-weight override ---
-   400 legge troppo leggero sul corpo testo pagina pubblica; titoli/display
-   restano invariati (già a 500/600/700 via $typography-scale). */
-[data-font-family="josefin-sans"] {
-  .body-lg,
-  .body,
-  .body-sm {
-    font-weight: 500;
-  }
 }
 
 /* --- Links --- */
