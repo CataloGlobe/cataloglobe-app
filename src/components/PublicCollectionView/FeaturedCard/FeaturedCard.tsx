@@ -14,6 +14,10 @@ export type FeaturedCardProps = {
     variant?: "card" | "highlight" | "compact";
     /** Mostra il subtitle nella card overview. Default true (comportamento storico). */
     showSubtitle?: boolean;
+    /** Mostra il titolo nella card overview. Default true (comportamento storico). */
+    showTitle?: boolean;
+    /** Mostra il pulsante CTA nella card overview. Default true (comportamento storico). */
+    showCta?: boolean;
     /** Above-the-fold: loading="eager" + fetchpriority="high". Default: lazy. */
     eager?: boolean;
     /** false in StyleEditor preview: card e CTA restano visive ma inerti (niente click/modale/navigazione). Default true. */
@@ -48,11 +52,12 @@ function getTagKey(contentType: string | null): string {
     }
 }
 
-export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", showSubtitle = true, eager = false, interactive = true }: FeaturedCardProps) {
+export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", showSubtitle = true, showTitle = true, showCta = true, eager = false, interactive = true }: FeaturedCardProps) {
     const { t } = useTranslation("public");
     const tagLabel = t(getTagKey(block.content_type));
     const hasImage = !!block.media_id;
-    const hasCta = !!block.cta_text && !!block.cta_url;
+    const hasCta = showCta && !!block.cta_text && !!block.cta_url;
+    const hasVisibleText = showTitle || (showSubtitle && !!block.subtitle) || hasCta;
     const keyHandler = (e: KeyboardEvent) => {
         if (!interactive) return;
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onClick(); }
@@ -82,7 +87,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                     )}
                 </div>
                 <div className={styles.cardCompactBody}>
-                    <span className={styles.cardCompactTitle}>{block.title}</span>
+                    {showTitle && <span className={styles.cardCompactTitle}>{block.title}</span>}
                     {showSubtitle && block.subtitle && (
                         <span className={styles.cardCompactSubtitle}>{block.subtitle}</span>
                     )}
@@ -134,14 +139,14 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                         eager={eager}
                     />
                 )}
-                <div className={styles.highlightGradient} aria-hidden="true" />
+                {hasVisibleText && <div className={styles.highlightGradient} aria-hidden="true" />}
                 <span
                     className={`${styles.cardTag} ${styles.tagPrimary} ${styles.highlightBadge} ${styles.cardTagOnImage}`}
                 >
                     {tagLabel}
                 </span>
                 <div className={styles.highlightContent}>
-                    <span className={styles.highlightTitle}>{block.title}</span>
+                    {showTitle && <span className={styles.highlightTitle}>{block.title}</span>}
                     {showSubtitle && block.subtitle && (
                         <span className={styles.highlightSubtitle}>{block.subtitle}</span>
                     )}
@@ -201,7 +206,7 @@ export default function FeaturedCard({ block, onClick, onCtaClick, className, va
                 </span>
             </div>
             <div className={styles.cardBody}>
-                <span className={styles.cardTitle}>{block.title}</span>
+                {showTitle && <span className={styles.cardTitle}>{block.title}</span>}
                 {showSubtitle && block.subtitle && (
                     <span className={styles.cardSubtitle}>{block.subtitle}</span>
                 )}

@@ -64,6 +64,10 @@ export type CollectionStyle = {
     contentDensity?: ContentDensity;
     /** Whether the subtitle/description shows in the featured content overview card */
     showFeaturedSubtitle?: boolean;
+    /** Whether the title shows in the featured content overview card */
+    showFeaturedTitle?: boolean;
+    /** Whether the CTA button shows in the featured content overview card */
+    showFeaturedCta?: boolean;
 };
 
 /* =========================
@@ -97,5 +101,7 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
     iconStyle: "plain",
     compactLayoutStyle: "modern",
     contentDensity: "full",
-    showFeaturedSubtitle: true
+    showFeaturedSubtitle: true,
+    showFeaturedTitle: true,
+    showFeaturedCta: true
 };

@@ -542,6 +542,8 @@ export const StylePreview = ({
                     blocks={MOCK_FEATURED}
                     layout={model.appearance.featuredStyle}
                     showSubtitle={model.appearance.showFeaturedSubtitle ?? true}
+                    showTitle={model.appearance.showFeaturedTitle ?? true}
+                    showCta={model.appearance.showFeaturedCta ?? true}
                     interactive={false}
                   />
                 }
@@ -591,6 +593,8 @@ export const StylePreview = ({
                       showSubtitle={
                         model.appearance.showFeaturedSubtitle ?? true
                       }
+                      showTitle={model.appearance.showFeaturedTitle ?? true}
+                      showCta={model.appearance.showFeaturedCta ?? true}
                       interactive={false}
                     />
                   }

@@ -32,6 +32,10 @@ export interface StyleTokenModel {
         outlinedBorderColor?: OutlinedBorderColor;
         /** Sottotitolo nella card overview dei contenuti in evidenza. Assente = true (mostrato, comportamento storico). */
         showFeaturedSubtitle?: boolean;
+        /** Titolo nella card overview dei contenuti in evidenza. Assente = true (mostrato, comportamento storico). */
+        showFeaturedTitle?: boolean;
+        /** Pulsante CTA nella card overview dei contenuti in evidenza. Assente = true (mostrato, comportamento storico). */
+        showFeaturedCta?: boolean;
         /** Stile icone allergeni + caratteristiche nelle card prodotto: "plain" (nude) o "pill" (cerchio colorato). Assente = "plain" (comportamento storico). */
         iconStyle?: IconStyle;
     };
@@ -186,6 +190,16 @@ export function parseTokens(rawJson: any): StyleTokenModel {
     // iconStyle: assente = "plain" (nude, comportamento storico). Serializzato solo se "pill".
     const iconStyle: IconStyle | undefined = rawAppearance.iconStyle === "pill" ? "pill" : undefined;
 
+    // showFeaturedTitle / showFeaturedCta: stesso pattern di showFeaturedSubtitle, assente = true
+    const showFeaturedTitle: boolean | undefined =
+        typeof rawAppearance.showFeaturedTitle === "boolean" && rawAppearance.showFeaturedTitle === false
+            ? false
+            : undefined;
+    const showFeaturedCta: boolean | undefined =
+        typeof rawAppearance.showFeaturedCta === "boolean" && rawAppearance.showFeaturedCta === false
+            ? false
+            : undefined;
+
     return {
         colors: {
             pageBackground:
@@ -212,6 +226,8 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             cardTreatment,
             outlinedBorderColor,
             showFeaturedSubtitle,
+            showFeaturedTitle,
+            showFeaturedCta,
             iconStyle
         },
         header: {
@@ -295,6 +311,9 @@ export function serializeTokens(model: StyleTokenModel): Record<string, unknown>
     if (model.appearance.outlinedBorderColor === "primary") appearance.outlinedBorderColor = "primary";
     // showFeaturedSubtitle serializzato solo se false (true = default, chiave omessa)
     if (model.appearance.showFeaturedSubtitle === false) appearance.showFeaturedSubtitle = false;
+    // showFeaturedTitle / showFeaturedCta: stesso pattern, serializzati solo se false
+    if (model.appearance.showFeaturedTitle === false) appearance.showFeaturedTitle = false;
+    if (model.appearance.showFeaturedCta === false) appearance.showFeaturedCta = false;
     // iconStyle serializzato solo se "pill" (plain = default, chiave omessa, stesso pattern di outlinedBorderColor)
     if (model.appearance.iconStyle === "pill") appearance.iconStyle = "pill";
 

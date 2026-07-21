@@ -12,9 +12,13 @@ type EventsViewProps = {
     layout?: "card" | "highlight" | "compact";
     /** Mostra il subtitle nella card overview. Default true (comportamento storico). */
     showSubtitle?: boolean;
+    /** Mostra il titolo nella card overview. Default true (comportamento storico). */
+    showTitle?: boolean;
+    /** Mostra il pulsante CTA nella card overview. Default true (comportamento storico). */
+    showCta?: boolean;
 };
 
-export default function EventsView({ featuredContents, layout = "card", showSubtitle = true }: EventsViewProps) {
+export default function EventsView({ featuredContents, layout = "card", showSubtitle = true, showTitle = true, showCta = true }: EventsViewProps) {
     const { t } = useTranslation("public");
     // Dettaglio in-place: niente seconda PublicSheet impilata sopra "Eventi &
     // Promo" (era il bug — doppio backdrop/handle). Stesso pattern di
@@ -66,6 +70,8 @@ export default function EventsView({ featuredContents, layout = "card", showSubt
                         className={styles.cardFull}
                         variant={layout}
                         showSubtitle={showSubtitle}
+                        showTitle={showTitle}
+                        showCta={showCta}
                     />
                 ))}
             </div>

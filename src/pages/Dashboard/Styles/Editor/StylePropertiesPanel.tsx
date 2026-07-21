@@ -164,6 +164,14 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
         onChange({ ...model, appearance: { ...model.appearance, showFeaturedSubtitle } });
     };
 
+    const updateShowFeaturedTitle = (showFeaturedTitle: boolean) => {
+        onChange({ ...model, appearance: { ...model.appearance, showFeaturedTitle } });
+    };
+
+    const updateShowFeaturedCta = (showFeaturedCta: boolean) => {
+        onChange({ ...model, appearance: { ...model.appearance, showFeaturedCta } });
+    };
+
     const updateHeaderBool = (
         key: "showLogo" | "showCoverImage" | "showCatalogName" | "showAddress",
         value: boolean
@@ -530,6 +538,66 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                                         isActive ? styles.optionButtonActive : ""
                                     }`}
                                     onClick={() => updateShowFeaturedSubtitle(opt.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {opt.label}
+                                    </Text>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Titolo nell'anteprima<InfoTooltip content="Mostra o nascondi il titolo nella card dell'overview. Nella finestra di dettaglio resta sempre visibile." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {(
+                            [
+                                { value: true, label: "Mostra" },
+                                { value: false, label: "Nascondi" }
+                            ] as Array<{ value: boolean; label: string }>
+                        ).map(opt => {
+                            const isActive = (model.appearance.showFeaturedTitle ?? true) === opt.value;
+                            return (
+                                <button
+                                    key={String(opt.value)}
+                                    type="button"
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateShowFeaturedTitle(opt.value)}
+                                >
+                                    <Text as="span" variant="body" weight={600}>
+                                        {opt.label}
+                                    </Text>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                    <Text variant="body" weight={500} className={styles.fieldLabel}>
+                        Pulsante nell'anteprima<InfoTooltip content="Mostra o nascondi il pulsante nella card dell'overview. Nella finestra di dettaglio resta sempre visibile." />
+                    </Text>
+                    <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                        {(
+                            [
+                                { value: true, label: "Mostra" },
+                                { value: false, label: "Nascondi" }
+                            ] as Array<{ value: boolean; label: string }>
+                        ).map(opt => {
+                            const isActive = (model.appearance.showFeaturedCta ?? true) === opt.value;
+                            return (
+                                <button
+                                    key={String(opt.value)}
+                                    type="button"
+                                    className={`${styles.optionButton} ${
+                                        isActive ? styles.optionButtonActive : ""
+                                    }`}
+                                    onClick={() => updateShowFeaturedCta(opt.value)}
                                 >
                                     <Text as="span" variant="body" weight={600}>
                                         {opt.label}
