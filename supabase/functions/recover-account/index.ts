@@ -369,8 +369,13 @@ async function handleVerifyStep(
 
     const maxAttempts = challenge.max_attempts ?? 5;
 
+    // Locked collapses into the same generic response as invalid/expired —
+    // the lock itself still applies server-side (no code check happens
+    // below), it is just not observable from the response shape, so a
+    // caller cannot distinguish "this email had an active challenge that
+    // got locked" from "this email never had one" (enumeration oracle).
     if (challenge.locked_until && new Date(challenge.locked_until).getTime() > nowMs) {
-        return json(429, { success: false, error: "locked" });
+        return genericFailure();
     }
 
     const hash = await hashOtp(code, otpPepper);
@@ -387,11 +392,35 @@ async function handleVerifyStep(
         return genericFailure();
     }
 
-    // Code correct — consume it (single use) before doing anything else.
-    await supabaseAdmin
+    // Code correct — consume it atomically (single use). The WHERE clause
+    // closes the TOCTOU window between the SELECT above and this UPDATE: if
+    // two concurrent requests both read the same unconsumed challenge and
+    // both compute a valid hash, only one UPDATE can match consumed_at IS
+    // NULL and win the row; the loser observes 0 rows back and is rejected
+    // instead of proceeding to reactivate the account a second time.
+    const { data: consumedRows, error: consumeError } = await supabaseAdmin
         .from("otp_challenges")
         .update({ consumed_at: now, attempts: (challenge.attempts ?? 0) + 1 })
-        .eq("id", challenge.id);
+        .eq("id", challenge.id)
+        .is("consumed_at", null)
+        .select("id");
+
+    if (consumeError) {
+        console.error(
+            JSON.stringify({
+                event: "recover_account_consume_failed",
+                user_id: userId,
+                detail: consumeError.message
+            })
+        );
+        return json(500, { error: "consume_failed" });
+    }
+
+    if (!consumedRows || consumedRows.length === 0) {
+        // Lost the race — another concurrent request already consumed this
+        // challenge first. Reject like any other invalid/expired code.
+        return genericFailure();
+    }
 
     // -------------------------------------------------------------------------
     // profiles.account_deleted_at is the authoritative source for the deletion
