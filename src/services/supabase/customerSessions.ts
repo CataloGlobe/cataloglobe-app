@@ -134,26 +134,9 @@ export async function getCurrentSession(customerJwt: string): Promise<V2Customer
  * Validation: trim + max 40 caratteri. Empty/whitespace → null.
  * Throw "CUSTOMER_NAME_TOO_LONG" se eccede.
  */
-/**
- * Decode helper inline: estrae `customer_session_id` dal payload del JWT custom
- * firmato da resolve-table. Variant locale di `decodeJwtPart` (activities.ts,
- * non exported). Ritorna null se token malformato o claim assente.
- */
-function decodeCustomerSessionIdFromJwt(jwt: string): string | null {
-    try {
-        const parts = jwt.split(".");
-        if (parts.length !== 3) return null;
-        const base64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
-        const padding = "=".repeat((4 - (base64.length % 4)) % 4);
-        const payload = JSON.parse(atob(base64 + padding)) as { customer_session_id?: unknown };
-        return typeof payload.customer_session_id === "string" ? payload.customer_session_id : null;
-    } catch {
-        return null;
-    }
-}
-
 export async function updateCustomerName(
     customerJwt: string,
+    sessionId: string,
     name: string
 ): Promise<V2CustomerSession> {
     const trimmed = name.trim();
@@ -164,7 +147,8 @@ export async function updateCustomerName(
 
     // Postgres rifiuta UPDATE senza WHERE (error 21000) — il filtro RLS anon
     // arriva DOPO il parser, quindi serve .eq("id", sessionId) esplicito.
-    const sessionId = decodeCustomerSessionIdFromJwt(customerJwt);
+    // sessionId va passato dal chiamante (CustomerSessionBlob.sessionId da
+    // resolve-table), MAI decodificato dal JWT lato frontend.
     if (!sessionId) {
         throw new Error("SESSION_NOT_FOUND");
     }

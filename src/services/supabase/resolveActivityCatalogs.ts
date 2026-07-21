@@ -1723,11 +1723,8 @@ export async function resolveActivityCatalogs(
             return { fromPrice: null, toPrice: null, is_from_price: false };
         }
         const summary = resolvePriceSummary(primaryGroup.values.map(v => v.absolute_price));
-        // NB: is_from_price resta true anche con un solo valore prezzato — bug
-        // noto (#6 nell'audit), non corretto qui: la migrazione al branch
-        // corretto single/multi è nello step 3, insieme al consumer.
         if (summary.kind === "none") return { fromPrice: null, toPrice: null, is_from_price: false };
-        return { fromPrice: summary.min, toPrice: summary.max, is_from_price: true };
+        return { fromPrice: summary.min, toPrice: summary.max, is_from_price: summary.kind === "multi" };
     }
 
     const featured: ResolvedCollections["featured"] = {

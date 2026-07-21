@@ -16,7 +16,6 @@ function makeBusiness(overrides: Partial<PublicBusiness> = {}): PublicBusiness {
         slug: "sede-test",
         cover_image: null,
         status: "active",
-        inactive_reason: null,
         ordering_enabled: true,
         enable_reservations: false,
         address: null,
@@ -133,21 +132,11 @@ describe("derivePageState", () => {
         expect(derivePageState(payload, null)).toEqual({ status: "subscription_inactive" });
     });
 
-    it("business non attivo → inactive con reason", () => {
+    it("business non attivo → inactive, nessun motivo esposto al chiamante", () => {
         const payload = makePayload({
-            business: makeBusiness({ status: "inactive", inactive_reason: "maintenance" })
+            business: makeBusiness({ status: "inactive" })
         });
-        expect(derivePageState(payload, null)).toEqual({
-            status: "inactive",
-            inactiveReason: "maintenance"
-        });
-    });
-
-    it("business non attivo senza reason → inactiveReason null", () => {
-        const payload = makePayload({
-            business: makeBusiness({ status: "inactive", inactive_reason: null })
-        });
-        expect(derivePageState(payload, null)).toEqual({ status: "inactive", inactiveReason: null });
+        expect(derivePageState(payload, null)).toEqual({ status: "inactive" });
     });
 
     it("nessun catalogo né featured → empty con business e tenantLogoUrl", () => {

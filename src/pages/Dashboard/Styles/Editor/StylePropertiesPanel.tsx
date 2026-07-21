@@ -13,7 +13,8 @@ import {
     OutlinedBorderColor,
     IconStyle,
     CompactLayoutStyle,
-    ContentDensity
+    ContentDensity,
+    isCardTreatmentActive
 } from "./StyleTokenModel";
 import { getPatternCss, contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import { NavMiniPreview, RADIUS_CSS, ProductStylePreview, FeaturedStylePreview, ImagePositionPreview } from "./StyleMiniPreviews";
@@ -94,7 +95,8 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
 
     const featuredStyleOptions: Array<{ value: FeaturedStyle; label: string }> = [
         { value: "card", label: "Card" },
-        { value: "highlight", label: "Highlight" }
+        { value: "highlight", label: "Highlight" },
+        { value: "compact", label: "Compatto" }
     ];
 
     const iconStyleOptions: Array<{ value: IconStyle; label: string }> = [
@@ -280,6 +282,35 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                         })}
                     </div>
                 </div>
+
+                {isCardTreatmentActive(model.card.productStyle, model.appearance.featuredStyle) && (
+                    <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
+                        <Text variant="body" weight={500} className={styles.fieldLabel}>
+                            Aspetto card<InfoTooltip content="Aspetto di card e finestre: Elevata usa un'ombra, Contornata un bordo sottile, Vetro una superficie semitrasparente con sfocatura. Si applica ai prodotti in stile Card e ai contenuti in evidenza in stile Card o Compatto." />
+                        </Text>
+                        <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
+                            {cardTreatmentOptions.map(option => {
+                                const isActive = model.appearance.cardTreatment === option.value;
+                                return (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        role="radio"
+                                        aria-checked={isActive}
+                                        className={`${styles.optionButton} ${
+                                            isActive ? styles.optionButtonActive : ""
+                                        }`}
+                                        onClick={() => updateCardTreatment(option.value)}
+                                    >
+                                        <Text as="span" variant="body" weight={600}>
+                                            {option.label}
+                                        </Text>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 <div className={styles.controlField}>
                     <Text variant="body" weight={500} className={styles.fieldLabel}>
@@ -541,35 +572,6 @@ export const StylePropertiesPanel = ({ model, onChange }: StylePropertiesPanelPr
                         })}
                     </div>
                 </div>
-
-                {model.card.productStyle === "card" && (
-                    <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>
-                        <Text variant="body" weight={500} className={styles.fieldLabel}>
-                            Aspetto card<InfoTooltip content="Aspetto di card e finestre: Elevata usa un'ombra, Contornata un bordo sottile, Vetro una superficie semitrasparente con sfocatura." />
-                        </Text>
-                        <div className={`${styles.buttonGroup} ${styles.cards}`} role="radiogroup">
-                            {cardTreatmentOptions.map(option => {
-                                const isActive = model.appearance.cardTreatment === option.value;
-                                return (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        role="radio"
-                                        aria-checked={isActive}
-                                        className={`${styles.optionButton} ${
-                                            isActive ? styles.optionButtonActive : ""
-                                        }`}
-                                        onClick={() => updateCardTreatment(option.value)}
-                                    >
-                                        <Text as="span" variant="body" weight={600}>
-                                            {option.label}
-                                        </Text>
-                                    </button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
 
                 {model.card.productStyle === "card" && model.appearance.cardTreatment === "bordered" && (
                     <div className={`${styles.controlField} ${styles.controlFieldMt12}`}>

@@ -100,24 +100,27 @@ describe("applyTenantHead", () => {
         expect(html).toContain("$&amp; $1");
     });
 
-    it("emette il font dello stile attivo col marker mw-font e de-blocca Inter+Sora", () => {
+    it("emette il font dello stile attivo (self-hosted) col marker mw-font e de-blocca Inter+Sora", () => {
         const html = applyTenantHead(TEMPLATE, makePayload(), OPTS);
         expect(html).toContain('id="mw-font"');
-        expect(html).toContain("family=Poppins");
-        // shell Inter trasformata in preload async, Sora rimossa
+        expect(html).toContain('href="/fonts/public-css/public-poppins.css"');
+        // shell app-inter.css trasformata in preload async, app-sora.css rimossa
         expect(html).toContain('rel="preload" as="style"');
-        expect(html).not.toMatch(/family=Inter[^"]*family=Sora/);
+        expect(html).not.toContain('href="/fonts/app-sora.css"');
+        expect(html).not.toMatch(/fonts\.googleapis\.com|fonts\.gstatic\.com/);
     });
 
-    it("token inter: link shell omesso del tutto", () => {
+    it("token inter: link shell app-inter.css omesso del tutto", () => {
         const html = applyTenantHead(
             TEMPLATE,
             makePayload({ resolved: { style: { config: { typography: { fontFamily: "inter" } } } } }),
             OPTS
         );
         expect(html).toContain('id="mw-font"');
+        expect(html).toContain('href="/fonts/public-css/public-inter.css"');
         expect(html).not.toContain('rel="preload" as="style"');
-        expect(html).not.toMatch(/<link\s+href="https:\/\/fonts\.googleapis\.com\/css2\?family=Inter[^"]*"\s+rel="stylesheet"/);
+        expect(html).not.toContain('href="/fonts/app-inter.css"');
+        expect(html).not.toMatch(/fonts\.googleapis\.com|fonts\.gstatic\.com/);
     });
 
     it("cover https: og:image + twitter:image + preload fetchpriority", () => {

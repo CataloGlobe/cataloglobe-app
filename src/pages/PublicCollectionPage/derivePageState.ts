@@ -25,7 +25,7 @@ export type PageState =
     | { status: "loading" }
     | { status: "error"; messageKey: string }
     | { status: "domain_error"; code: string }
-    | { status: "inactive"; inactiveReason: string | null }
+    | { status: "inactive" }
     | { status: "subscription_inactive" }
     | {
           status: "ready";
@@ -47,6 +47,14 @@ export type PageState =
                 `x-cataloglobe-source: stale`).
               In entrambi i casi il banner ambra è mostrato. */
           isStale?: boolean;
+          /** Codice lingua richiesto da un cambio-lingua fallito (Supabase down
+              + nessuna cache localStorage per quella lingua). Quando valorizzato
+              la pagina RESTA sul contenuto già visibile (questo stato `ready`,
+              non toccato) e mostra `LanguageFallbackBanner`. Null/undefined =
+              nessun degrado attivo. Distinto da `isStale`: qui il contenuto è
+              fresco, solo il *cambio* verso un'altra lingua non è riuscito.
+              Vedi PublicCollectionPage ramo `network_error`. */
+          langSwitchFailed?: string | null;
       }
     | {
           status: "empty";
@@ -125,11 +133,10 @@ export function derivePageState(
         return { status: "subscription_inactive" };
     }
 
+    // Nessun dettaglio del motivo (manutenzione/chiusura/sospensione) esposto
+    // al visitatore anonimo: messaggio generico, vedi NotFound "business-inactive".
     if (business.status !== "active") {
-        return {
-            status: "inactive",
-            inactiveReason: business.inactive_reason ?? null
-        };
+        return { status: "inactive" };
     }
 
     if (

@@ -136,17 +136,18 @@ export function applyTenantHead(
         extra.push(`<link id="mw-font" rel="stylesheet" href="${escapeHtml(fontHref)}" />`);
 
         // De-block del link shell Inter+Sora (vedi middleware.ts Step 3a):
-        // Sora rimossa; token "inter" → link shell omesso (mw-font copre);
-        // altri token → Inter variable async (preload→stylesheet + noscript).
+        // Sora rimossa; token "inter" → link shell app-inter.css omesso
+        // (mw-font/public-inter.css copre); altri token → app-inter.css
+        // async (preload→stylesheet + noscript).
+        html = html.replace(/<link href="\/fonts\/app-sora\.css" rel="stylesheet" \/>\n?/, "");
         html = html.replace(
-            /<link\s+href="(https:\/\/fonts\.googleapis\.com\/css2\?family=Inter[^"]*)"\s+rel="stylesheet"\s*\/>/,
-            (_m, shellUrl: string) => {
+            /<link href="(\/fonts\/app-inter\.css)" rel="stylesheet" \/>/,
+            (_m, shellHref: string) => {
                 if (fontToken === "inter") return "";
-                const interOnly = escapeHtml(shellUrl.replace(/&family=Sora[^&"]*/g, ""));
                 return (
-                    `<link rel="preload" as="style" href="${interOnly}" ` +
+                    `<link rel="preload" as="style" href="${shellHref}" ` +
                     `onload="this.onload=null;this.rel='stylesheet'" />` +
-                    `<noscript><link rel="stylesheet" href="${interOnly}" /></noscript>`
+                    `<noscript><link rel="stylesheet" href="${shellHref}" /></noscript>`
                 );
             }
         );

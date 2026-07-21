@@ -395,6 +395,10 @@
         "message": "Content may be out of date.",
         "retry": "Retry"
     },
+    "lang_fallback": {
+        "message": "Translation unavailable right now — showing the menu in {{lang}}.",
+        "retry": "Retry"
+    },
     "error": {
         "title": "Loading failed",
         "description": "We couldn't load the menu. Check your connection and try again.",

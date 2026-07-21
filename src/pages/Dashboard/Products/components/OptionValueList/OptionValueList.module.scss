@@ -26,15 +26,26 @@
     white-space: nowrap;
 }
 
-.row .priceField {
+// Prezzo in lettura — tabular-nums cosi le cifre si allineano riga dopo
+// riga, subito prima della colonna azioni (mai spinto isolato al bordo).
+.priceValueRead {
     flex: 0 0 auto;
     white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+
+// Colonna azioni SOLO riga in lettura: un solo trigger TableRowActions
+// (32px), colonna fissa cosi il prezzo prima non "balla" tra le righe.
+.readActions {
+    flex: 0 0 56px;
+    display: flex;
+    justify-content: flex-end;
 }
 
 .editRow {
     display: flex;
     flex-wrap: wrap;
-    align-items: flex-start;
+    align-items: center;
     gap: 8px;
     padding: 10px 12px;
     background: var(--bg);
@@ -44,28 +55,45 @@
 
 // Su TextInput/NumberInput il className passato via `containerClassName` va
 // sull'elemento wrapper: qui gli diamo un flex-basis, non una width fissa —
-// si comprime o va a capo, non sfonda mai sulla colonna accanto. Il campo
-// prezzo è largo abbastanza da mostrare per intero placeholder come "Costo
-// aggiuntivo" (Task B — prima si troncava: "Delta € (e...").
+// si comprime o va a capo, non sfonda mai sulla colonna accanto.
 .nameField {
     flex: 1 1 200px;
     min-width: 140px;
 }
 
+// Box a larghezza fissa: il valore numerico ha sempre lo stesso ingombro,
+// il simbolo (€ sempre, + solo per i delta) vive dentro il box via
+// startAdornment/endAdornment di NumberInput — non serve più un
+// placeholder descrittivo lungo per comunicare l'unità.
 .priceField {
-    flex: 1 1 180px;
-    min-width: 150px;
+    flex: 0 0 120px;
+    min-width: 0;
 }
 
-// Area azioni: MAI a width fissa (causa del bug DataTable). `auto` si
-// dimensiona sul contenuto (1 icon-button in lettura, 2 bottoni testuali in
-// edit) e va a capo con `flex-wrap` del genitore se lo spazio non basta.
+// Altezza canonica dei controlli di riga (input reali) — var(--control-height,
+// 38px), la stessa usata da SegmentedControl/ToolbarSearch nel resto del
+// progetto. Applicata via inputClassName cosi non tocca lo stile condiviso
+// di TextInput/NumberInput, solo l'elemento <input> di questa riga.
+.controlInput {
+    height: var(--control-height, 38px);
+    box-sizing: border-box;
+}
+
+// Stessa altezza sui bottoni della riga (Salva/Annulla/Aggiungi) — di
+// default i Button "sm" sono più bassi degli input, qui allineati.
+.controlButton {
+    height: var(--control-height, 38px);
+    box-sizing: border-box;
+}
+
+// Area azioni riga edit/aggiunta (1-2 bottoni testuali): MAI a width fissa
+// (causa del bug DataTable), si dimensiona sul contenuto e va a capo con
+// flex-wrap del genitore se lo spazio non basta.
 .rowActions {
     flex: 0 0 auto;
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    margin-left: auto;
 }
 
 .rowError {

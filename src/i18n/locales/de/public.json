@@ -395,6 +395,10 @@
         "message": "Inhalte sind möglicherweise nicht aktuell.",
         "retry": "Erneut versuchen"
     },
+    "lang_fallback": {
+        "message": "Übersetzung derzeit nicht verfügbar — Menü wird in {{lang}} angezeigt.",
+        "retry": "Erneut versuchen"
+    },
     "error": {
         "title": "Laden fehlgeschlagen",
         "description": "Das Menü konnte nicht geladen werden. Bitte überprüfe deine Verbindung und versuche es erneut.",

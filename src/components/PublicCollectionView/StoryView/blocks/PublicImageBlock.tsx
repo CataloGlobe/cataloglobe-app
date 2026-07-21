@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { frameToRatio, FRAMING_DEFAULTS } from "@components/ui/ImageReframeEditor/types";
 import type { StoryImageBlock } from "@/services/supabase/stories";
@@ -8,6 +9,7 @@ type PublicImageBlockProps = {
 };
 
 export default function PublicImageBlock({ block }: PublicImageBlockProps) {
+    const { t } = useTranslation("public");
     // Frame + framing derivano dallo STESSO block.frame (unica sorgente): il
     // container riserva l'altezza via aspect-ratio (data-frame) → niente CLS, e
     // FramedMedia riproduce l'inquadratura con lo stesso rapporto di riquadro.
@@ -21,7 +23,7 @@ export default function PublicImageBlock({ block }: PublicImageBlockProps) {
                     framing={block.framing ?? FRAMING_DEFAULTS}
                     aspectRatio={block.mediaAspectRatio ?? null}
                     frameRatio={frameToRatio(frame)}
-                    alt={block.caption ?? ""}
+                    alt={block.caption || t("story.image_alt_fallback")}
                 />
             </div>
             {block.caption && <figcaption className={styles.caption}>{block.caption}</figcaption>}

@@ -3062,7 +3062,14 @@ export default function CollectionView({
                     allergensCount={allergenFilterIds.length}
                     hasAllergensInCatalog={allergensInCatalog.length > 0}
                     hasInfo={hasAnyInfo}
-                    shareUrl={slug ? `${window.location.origin}/${slug}` : undefined}
+                    // SSR-safe: window assente nel render server (entry-server);
+                    // shareUrl si popola al primo render client — il bottone
+                    // condividi è dietro interazione utente, undefined in SSR ok.
+                    shareUrl={
+                        slug && typeof window !== "undefined"
+                            ? `${window.location.origin}/${slug}`
+                            : undefined
+                    }
                     shareTitle={businessName}
                 />
             )}

@@ -54,8 +54,8 @@ export type CollectionStyle = {
     productStyle?: ProductStyle;
     /** Card/modal appearance: raised (shadow), bordered (border, no shadow), or glass (translucent + blur) */
     cardTreatment?: CardTreatment;
-    /** Visual style of featured content cards: card (image top + text below) or highlight (image as background, text overlaid) */
-    featuredStyle?: "card" | "highlight";
+    /** Visual style of featured content cards: card (image top + text below), highlight (image as background, text overlaid), or compact (dense horizontal row) */
+    featuredStyle?: "card" | "highlight" | "compact";
     /** Icon style for allergens + characteristics in product cards: plain (bare) or pill (colored circle) */
     iconStyle?: IconStyle;
     /** Structural variant of the compact product row: editorial (dotted leader between name and price) or modern (none). No effect on card style. */

@@ -348,7 +348,8 @@
         "video_aria": "Video della storia",
         "video_play": "Guarda il video",
         "video_play_aria": "Riproduci il video della storia",
-        "discover_label": "Scopri la storia"
+        "discover_label": "Scopri la storia",
+        "image_alt_fallback": "Immagine della storia"
     },
     "reviews": {
         "rating_labels": {
@@ -393,6 +394,10 @@
     },
     "stale_banner": {
         "message": "I contenuti potrebbero non essere aggiornati.",
+        "retry": "Riprova"
+    },
+    "lang_fallback": {
+        "message": "Traduzione non disponibile al momento — menù mostrato in {{lang}}.",
         "retry": "Riprova"
     },
     "error": {

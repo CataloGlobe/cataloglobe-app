@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { IconTool, IconCalendarOff, IconAlertCircle } from "@tabler/icons-react";
+import { IconAlertCircle } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui";
 import styles from "./NotFound.module.scss";
@@ -7,12 +7,20 @@ import { useEffect } from "react";
 
 type NotFoundVariant = "page" | "business" | "business-empty" | "business-inactive" | "subscription-inactive";
 
-type InactiveReason = "maintenance" | "closed" | "unavailable";
-
 interface NotFoundPageProps {
     variant?: NotFoundVariant;
-    inactiveReason?: InactiveReason | null;
 }
+
+// business-inactive e subscription-inactive condividono STESSO messaggio
+// generico: un visitatore anonimo non deve poter dedurre se la sede è
+// sospesa dal proprietario (maintenance/closed/unavailable) o se è
+// l'abbonamento del tenant a essere scaduto — info-disclosure verso
+// visitatori/competitor. Il motivo reale resta visibile solo al
+// proprietario in dashboard (vedi formatInactiveReason).
+const INACTIVE_COPY = {
+    title: "Non disponibile al momento",
+    description: "Questo menù non è al momento disponibile. Riprova più tardi."
+};
 
 const COPY: Record<NotFoundVariant, { title: string; description: string }> = {
     page: {
@@ -30,56 +38,17 @@ const COPY: Record<NotFoundVariant, { title: string; description: string }> = {
         description:
             "Questo catalogo non ha contenuti disponibili al momento. Riprova più tardi."
     },
-    "business-inactive": {
-        title: "Non disponibile al momento",
-        description:
-            "Questo catalogo è temporaneamente sospeso. Riprova più tardi o contatta direttamente il locale."
-    },
-    "subscription-inactive": {
-        title: "Sito non disponibile",
-        description:
-            "Questo sito non è al momento disponibile. Contatta il proprietario dell'attività."
-    }
+    "business-inactive": INACTIVE_COPY,
+    "subscription-inactive": INACTIVE_COPY
 };
 
-const INACTIVE_REASON_COPY: Record<InactiveReason, { title: string; description: string }> = {
-    maintenance: {
-        title: "In manutenzione",
-        description:
-            "Il locale è temporaneamente chiuso per lavori o aggiornamenti. Riprova più tardi."
-    },
-    closed: {
-        title: "Chiuso temporaneamente",
-        description:
-            "Il locale è al momento chiuso per ferie o festività. Riprova più tardi."
-    },
-    unavailable: {
-        title: "Non disponibile al momento",
-        description:
-            "Questo catalogo non è al momento consultabile. Riprova più tardi o contatta direttamente il locale."
-    }
-};
-
-const INACTIVE_REASON_ICON: Record<InactiveReason, typeof IconAlertCircle> = {
-    maintenance: IconTool,
-    closed: IconCalendarOff,
-    unavailable: IconAlertCircle
-};
-
-const NotFoundPage = ({ variant = "page", inactiveReason }: NotFoundPageProps) => {
+const NotFoundPage = ({ variant = "page" }: NotFoundPageProps) => {
     const navigate = useNavigate();
-    const copy =
-        variant === "business-inactive" && inactiveReason && INACTIVE_REASON_COPY[inactiveReason]
-            ? INACTIVE_REASON_COPY[inactiveReason]
-            : COPY[variant];
+    const copy = COPY[variant];
 
     const isInactiveVariant = variant === "business-inactive" || variant === "subscription-inactive";
 
-    const InactiveIcon = isInactiveVariant
-        ? (variant === "business-inactive" && inactiveReason
-            ? INACTIVE_REASON_ICON[inactiveReason]
-            : IconAlertCircle)
-        : null;
+    const InactiveIcon = isInactiveVariant ? IconAlertCircle : null;
 
     useEffect(() => {
         document.title =

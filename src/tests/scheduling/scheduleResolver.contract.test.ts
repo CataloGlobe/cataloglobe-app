@@ -102,6 +102,7 @@ function buildSchedule(
 ) {
     return {
         id: input.id,
+        tenant_id: input.tenant_id ?? TEST_TENANT_ID,
         rule_type: input.rule_type,
         enabled: input.enabled ?? true,
         priority: input.priority ?? 10,

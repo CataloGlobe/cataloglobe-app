@@ -9,7 +9,7 @@ import styles from "./EventsView.module.scss";
 
 type EventsViewProps = {
     featuredContents: V2FeaturedContent[];
-    layout?: "card" | "highlight";
+    layout?: "card" | "highlight" | "compact";
 };
 
 export default function EventsView({ featuredContents, layout = "card" }: EventsViewProps) {

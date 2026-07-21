@@ -316,7 +316,7 @@ serve(async (req: Request) => {
         }
 
         const ACTIVITY_SELECT =
-            "id, tenant_id, name, slug, cover_image, status, inactive_reason, " +
+            "id, tenant_id, name, slug, cover_image, status, " +
             "ordering_enabled, enable_reservations, " +
             "address, street_number, postal_code, city, province, " +
             "instagram, instagram_public, facebook, facebook_public, " +
@@ -394,7 +394,10 @@ serve(async (req: Request) => {
             slug: activity.slug,
             cover_image: activity.cover_image,
             status: activity.status,
-            inactive_reason: activity.inactive_reason,
+            // inactive_reason NON esposto al chiamante pubblico anonimo (info
+            // disclosure: rivelerebbe manutenzione/chiusura/sospensione a un
+            // visitatore/competitor). Il motivo reale resta visibile solo al
+            // proprietario via query diretta ad `activities` nella dashboard.
             ordering_enabled: orderingEnabledResolved,
             enable_reservations: reservationsEnabledResolved,
             address: activity.address ?? null,

@@ -5,7 +5,7 @@ export type BorderRadius = "none" | "soft" | "rounded";
 export type FontFamily = "inter" | "poppins" | "montserrat" | "josefin-sans" | "raleway" | "playfair" | "lora" | "cormorant-garamond" | "caveat";
 export type BackgroundPattern = "none" | "dots" | "diagonal" | "waves" | "crosshatch" | "noise";
 export type PatternIntensity = "subtle" | "medium" | "strong";
-export type FeaturedStyle = "card" | "highlight";
+export type FeaturedStyle = "card" | "highlight" | "compact";
 export type CardTreatment = "raised" | "bordered" | "glass";
 export type OutlinedBorderColor = "auto" | "primary";
 export type IconStyle = "plain" | "pill";
@@ -97,9 +97,26 @@ export const DEFAULT_STYLE_TOKENS: StyleTokenModel = {
 
 const VALID_PATTERNS: BackgroundPattern[] = ["none", "dots", "diagonal", "waves", "crosshatch", "noise"];
 const VALID_PATTERN_INTENSITIES: PatternIntensity[] = ["subtle", "medium", "strong"];
-const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight"];
+const VALID_FEATURED_STYLES: FeaturedStyle[] = ["card", "highlight", "compact"];
 const VALID_CARD_TREATMENTS: CardTreatment[] = ["raised", "bordered", "glass"];
 const VALID_OUTLINED_BORDER_COLORS: OutlinedBorderColor[] = ["auto", "primary"];
+
+/**
+ * Superfici che oggi compongono con `data-card-treatment` (vedi selettori
+ * `:global([data-card-treatment="..."])` in FeaturedCard.module.scss e
+ * CollectionView.module.scss). Aggiungere qui una riga quando una nuova
+ * variante viene agganciata al token — non serve più cercare la condizione
+ * di visibilità sparsa nel JSX.
+ */
+const PRODUCT_STYLES_CONSUMING_CARD_TREATMENT: ProductStyle[] = ["card"];
+const FEATURED_STYLES_CONSUMING_CARD_TREATMENT: FeaturedStyle[] = ["card", "compact"];
+
+/** Il controllo "Aspetto card" (Elevata/Contornata/Vetro) va mostrato solo se
+ * almeno una superficie attiva consuma davvero `appearance.cardTreatment`. */
+export function isCardTreatmentActive(productStyle: ProductStyle, featuredStyle: FeaturedStyle): boolean {
+    return PRODUCT_STYLES_CONSUMING_CARD_TREATMENT.includes(productStyle)
+        || FEATURED_STYLES_CONSUMING_CARD_TREATMENT.includes(featuredStyle);
+}
 
 /**
  * Parses raw JSON configuration (from DB) into a structured UI Token Model.

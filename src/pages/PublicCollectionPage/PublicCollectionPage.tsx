@@ -323,7 +323,9 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
             try {
                 setState(prev => {
                     if (prev.status === "ready") {
-                        return { ...prev, isRefetching: true };
+                        // Nuovo tentativo: azzera un eventuale degrado precedente
+                        // (banner lingua-fallita) mentre il refetch è in corso.
+                        return { ...prev, isRefetching: true, langSwitchFailed: null };
                     }
                     return { status: "loading" };
                 });
@@ -381,11 +383,32 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
                     return;
                 }
 
-                setState({ status: "error", messageKey: "page.loading_error" });
+                degradeOrError();
             } catch (err) {
                 if (cancelled) return;
                 console.error("[PublicCollectionPage] loading error:", err);
-                setState({ status: "error", messageKey: "page.loading_error" });
+                degradeOrError();
+            }
+
+            /**
+             * Fallback finale del fetch fallito, DOPO il miss di getCached.
+             * Se esiste già uno stato `ready` (menù visibile in una lingua),
+             * NON distruggerlo con l'error card: resta sul contenuto corrente e
+             * accende il banner lingua-fallita (LanguageFallbackBanner) col
+             * codice lingua richiesto. Solo quando non c'è nulla da mostrare
+             * (primo load fallito) → error card full-page.
+             */
+            function degradeOrError() {
+                setState(prev => {
+                    if (prev.status === "ready") {
+                        return {
+                            ...prev,
+                            isRefetching: false,
+                            langSwitchFailed: validatedLang ?? prev.baseLanguage
+                        };
+                    }
+                    return { status: "error", messageKey: "page.loading_error" };
+                });
             }
         }
 
@@ -438,10 +461,17 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
             if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
             setToastPhase("loading");
         } else if (!isRefetching && prevIsRefetchingRef.current) {
-            const lang = state.availableLanguages.find(l => l.code === state.effectiveLanguage);
-            setToastLabel(lang?.name_native ?? state.effectiveLanguage.toUpperCase());
-            setToastPhase("done");
-            toastTimerRef.current = setTimeout(() => setToastPhase("idle"), 1200);
+            // Cambio-lingua fallito (degrado attivo): niente toast "done" col
+            // check verde — sarebbe fuorviante. Il LanguageFallbackBanner è il
+            // segnale persistente. Chiudi solo la fase loading.
+            if (state.langSwitchFailed) {
+                setToastPhase("idle");
+            } else {
+                const lang = state.availableLanguages.find(l => l.code === state.effectiveLanguage);
+                setToastLabel(lang?.name_native ?? state.effectiveLanguage.toUpperCase());
+                setToastPhase("done");
+                toastTimerRef.current = setTimeout(() => setToastPhase("idle"), 1200);
+            }
         }
 
         prevIsRefetchingRef.current = isRefetching;
@@ -498,14 +528,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     }
 
     if (state.status === "inactive") {
-        return (
-            <NotFound
-                variant="business-inactive"
-                inactiveReason={
-                    state.inactiveReason as "maintenance" | "closed" | "unavailable" | null
-                }
-            />
-        );
+        return <NotFound variant="business-inactive" />;
     }
 
     if (state.status === "subscription_inactive") {

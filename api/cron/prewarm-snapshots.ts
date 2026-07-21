@@ -1,6 +1,12 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 import { snapshotPublicCatalog } from "../_lib/snapshotPublicCatalog.js";
+import {
+    BASE_LANG_PART,
+    getRedis,
+    parseSnapshotKey,
+    snapshotKeyMatchPattern
+} from "../_lib/redis.js";
 
 /**
  * Cron: pre-warming degli snapshot Redis (base-lang) degli slug attivi (Gap #1).
@@ -42,6 +48,13 @@ type CronSummary = {
     n_warmed: number;
     n_skipped: number;
     n_failed: number;
+    // Lingue extra "vive" (Testa B): coppie (slug, lang≠base) scoperte in Redis
+    // e rinfrescate KEEP-TTL. n_extra_total = coppie scoperte per gli slug del
+    // giro; warmed = riscritte; failed = errore resolve/write. Le "skipped"
+    // (chiave sparita mid-flight) = total - warmed - failed.
+    n_extra_total: number;
+    n_extra_warmed: number;
+    n_extra_failed: number;
     durationMs: number;
     offset: number;
     limit: number | null;
@@ -119,6 +132,83 @@ async function warmAll(
     );
 }
 
+type ExtraPair = { slug: string; lang: string };
+
+/**
+ * Scopre le coppie (slug, lang-extra) "vive" via `SCAN` su Redis: una chiave
+ * `...:{slug}:{lang}` con lang≠base esiste SOLO se quella lingua è stata
+ * visitata entro il TTL (il pre-warm base non le tocca) → la presenza È il
+ * segnale di traffico. Nessuna lettura di `tenant_languages`: auto-selezione.
+ *
+ * `SCAN` (cursore, NON `KEYS` che blocca il server). Filtra a `activeSlugs`
+ * (solo gli slug di questo giro) ed esclude il segmento base. Il timeout reale
+ * per iterazione è applicato dal `signal` del client Upstash → un Redis appeso
+ * lancia e il chiamante fa fail-open (salta la fase extra, il giro base resta).
+ */
+async function scanExtraPairs(activeSlugs: Set<string>): Promise<ExtraPair[]> {
+    const match = snapshotKeyMatchPattern();
+    const pairs: ExtraPair[] = [];
+    const seen = new Set<string>();
+    let cursor: string | number = 0;
+    do {
+        const [next, keys] = await getRedis().scan(cursor, { match, count: 250 });
+        cursor = next;
+        for (const key of keys) {
+            const parsed = parseSnapshotKey(key);
+            if (!parsed) continue;
+            if (parsed.langPart === BASE_LANG_PART) continue;
+            if (!activeSlugs.has(parsed.slug)) continue;
+            const dedupe = `${parsed.slug}:${parsed.langPart}`;
+            if (seen.has(dedupe)) continue;
+            seen.add(dedupe);
+            pairs.push({ slug: parsed.slug, lang: parsed.langPart });
+        }
+    } while (String(cursor) !== "0");
+    return pairs;
+}
+
+/**
+ * Rinfresca (KEEP-TTL) le lingue extra vive. Fail-OPEN sullo `scan`: se Redis è
+ * irraggiungibile/lento, salta l'intera fase — il giro base è già completato,
+ * nessun 5xx. Fail-SOFT per coppia: un errore conta e prosegue.
+ */
+async function warmExtraLangs(
+    activeSlugs: Set<string>,
+    counters: { extraTotal: number; extraWarmed: number; extraFailed: number }
+): Promise<void> {
+    let pairs: ExtraPair[];
+    try {
+        pairs = await scanExtraPairs(activeSlugs);
+    } catch (e) {
+        console.error(
+            JSON.stringify({
+                event: "prewarm_snapshots_extra_scan_failed",
+                error: e instanceof Error ? e.message : String(e)
+            })
+        );
+        return; // fail-open: base già fatto, extra saltate
+    }
+    counters.extraTotal = pairs.length;
+    if (pairs.length === 0) return;
+
+    let cursor = 0;
+    const worker = async (): Promise<void> => {
+        while (cursor < pairs.length) {
+            const { slug, lang } = pairs[cursor++];
+            const outcome = await snapshotPublicCatalog(
+                { slug, lang, keepTtl: true },
+                PREWARM_EDGE_OPTS
+            );
+            if (outcome === "written") counters.extraWarmed++;
+            else if (outcome === "failed") counters.extraFailed++;
+            // "skipped" (chiave sparita mid-flight, xx no-op) → né warmed né failed
+        }
+    };
+    await Promise.all(
+        Array.from({ length: Math.min(CONCURRENCY, pairs.length) }, () => worker())
+    );
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse): Promise<void> {
     const startedAt = Date.now();
 
@@ -158,12 +248,20 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
     const counters = { warmed: 0, skipped: 0, failed: 0 };
     await warmAll(slice, counters);
 
+    // Fase 2 (Testa B): rinfresca le lingue extra vive già calde in Redis,
+    // KEEP-TTL, limitate agli slug di questo giro. Fail-open interno.
+    const extra = { extraTotal: 0, extraWarmed: 0, extraFailed: 0 };
+    await warmExtraLangs(new Set(slice), extra);
+
     const body: CronSummary = {
         event: "prewarm_snapshots_cron",
         n_total: slice.length,
         n_warmed: counters.warmed,
         n_skipped: counters.skipped,
         n_failed: counters.failed,
+        n_extra_total: extra.extraTotal,
+        n_extra_warmed: extra.extraWarmed,
+        n_extra_failed: extra.extraFailed,
         durationMs: Date.now() - startedAt,
         offset,
         limit

@@ -345,7 +345,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse): 
             JSON.stringify({
                 event: "ssr_render_error",
                 slug,
-                error: err instanceof Error ? `${err.name}: ${err.message}` : String(err)
+                error: err instanceof Error ? `${err.name}: ${err.message}` : String(err),
+                stack: err instanceof Error ? err.stack?.slice(0, 2000) : undefined
             })
         );
         serveSpaFallback(res, 200, "render_error");
