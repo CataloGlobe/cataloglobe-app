@@ -2,7 +2,7 @@ export type NavigationStyle = "filled" | "outline" | "tabs" | "minimal" | "tinte
 export type CardLayout = "grid" | "list";
 export type ProductStyle = "card" | "compact";
 export type BorderRadius = "none" | "soft" | "rounded";
-export type FontFamily = "inter" | "poppins" | "montserrat" | "josefin-sans" | "raleway" | "playfair" | "lora" | "cormorant-garamond" | "caveat";
+export type FontFamily = "inter" | "poppins" | "montserrat" | "josefin-sans" | "raleway" | "spectral" | "lora" | "eb-garamond" | "patrick-hand";
 export type BackgroundPattern = "none" | "dots" | "diagonal" | "waves" | "crosshatch" | "noise";
 export type PatternIntensity = "subtle" | "medium" | "strong";
 export type FeaturedStyle = "card" | "highlight" | "compact";
@@ -198,7 +198,7 @@ export function parseTokens(rawJson: any): StyleTokenModel {
             accent: rawColors.accent || undefined
         },
         typography: {
-            fontFamily: ["inter", "poppins", "montserrat", "josefin-sans", "raleway", "playfair", "lora", "cormorant-garamond", "caveat"].includes(
+            fontFamily: ["inter", "poppins", "montserrat", "josefin-sans", "raleway", "spectral", "lora", "eb-garamond", "patrick-hand"].includes(
                 rawTypo.fontFamily || rawJson.fontFamily
             )
                 ? rawTypo.fontFamily || rawJson.fontFamily

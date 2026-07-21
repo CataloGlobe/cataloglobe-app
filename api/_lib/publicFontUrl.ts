@@ -10,8 +10,8 @@
  *
  * VINCOLO: modulo PURO — niente accesso a DOM/Node/process.
  *
- * Italic: solo `playfair` (variable) e `inter` hanno italic vero; le altre
- * 7 famiglie usano faux-italic, com'è sempre stato.
+ * Italic: solo `inter` ha italic vero; le altre 8 famiglie usano
+ * faux-italic, com'è sempre stato.
  */
 const PUBLIC_FONT_TOKENS = new Set([
     "inter",
@@ -19,10 +19,10 @@ const PUBLIC_FONT_TOKENS = new Set([
     "montserrat",
     "josefin-sans",
     "raleway",
-    "playfair",
+    "spectral",
     "lora",
-    "cormorant-garamond",
-    "caveat"
+    "eb-garamond",
+    "patrick-hand"
 ]);
 
 /**
