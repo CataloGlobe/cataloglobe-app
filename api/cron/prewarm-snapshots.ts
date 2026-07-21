@@ -1,6 +1,7 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 
 import { snapshotPublicCatalog } from "../_lib/snapshotPublicCatalog.js";
+import { timingSafeCompare } from "../_lib/timingSafeCompare.js";
 import {
     BASE_LANG_PART,
     getRedis,
@@ -65,7 +66,9 @@ function isAuthorized(req: VercelRequest): boolean {
     if (!secret) return false;
     const header = req.headers["authorization"];
     if (typeof header !== "string") return false;
-    return header === `Bearer ${secret}`;
+    const match = header.match(/^Bearer\s+(.+)$/);
+    if (!match) return false;
+    return timingSafeCompare(match[1], secret);
 }
 
 /** Parse intero non-negativo da query param; null se assente/invalido. */

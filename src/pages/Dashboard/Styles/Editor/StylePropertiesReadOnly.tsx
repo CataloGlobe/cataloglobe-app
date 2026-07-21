@@ -15,10 +15,10 @@ export const StylePropertiesReadOnly = ({ model }: Props) => {
         { value: "montserrat", label: "Montserrat", css: "'Montserrat', sans-serif" },
         { value: "josefin-sans", label: "Josefin Sans", css: "'Josefin Sans', sans-serif" },
         { value: "raleway", label: "Raleway", css: "'Raleway', sans-serif" },
-        { value: "playfair", label: "Playfair", css: "'Playfair Display', serif" },
+        { value: "spectral", label: "Spectral", css: "'Spectral', serif" },
         { value: "lora", label: "Lora", css: "'Lora', serif" },
-        { value: "cormorant-garamond", label: "Cormorant", css: "'Cormorant Garamond', serif" },
-        { value: "caveat", label: "Caveat", css: "'Caveat', cursive" }
+        { value: "eb-garamond", label: "EB Garamond", css: "'EB Garamond', serif" },
+        { value: "patrick-hand", label: "Patrick Hand", css: "'Patrick Hand', cursive" }
     ];
 
     return (

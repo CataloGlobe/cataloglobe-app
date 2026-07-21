@@ -15,7 +15,7 @@ export type CollectionStyle = {
   ========================= */
 
     backgroundColor?: string; // page background
-    fontFamily?: "inter" | "poppins" | "playfair";
+    fontFamily?: "inter" | "poppins" | "spectral";
 
     /* =========================
      HEADER / HERO

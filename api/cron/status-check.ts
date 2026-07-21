@@ -14,6 +14,7 @@ import {
     type ServiceStateRow
 } from "../_lib/statusAlerts.js";
 import { pgrest, readPreviousObservation } from "../_lib/statusSupabase.js";
+import { timingSafeCompare } from "../_lib/timingSafeCompare.js";
 
 /**
  * Cron: `*\/2 * * * *` — esegue health-check su 4 servizi.
@@ -60,7 +61,9 @@ function isAuthorized(req: VercelRequest): boolean {
     if (!secret) return false;
     const header = req.headers["authorization"];
     if (typeof header !== "string") return false;
-    return header === `Bearer ${secret}`;
+    const match = header.match(/^Bearer\s+(.+)$/);
+    if (!match) return false;
+    return timingSafeCompare(match[1], secret);
 }
 
 async function persistCheckRow(c: CheckResult, checkedAt: string): Promise<void> {

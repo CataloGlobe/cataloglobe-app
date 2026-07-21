@@ -170,10 +170,10 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         montserrat: "'Montserrat', sans-serif",
         "josefin-sans": "'Josefin Sans', sans-serif",
         raleway: "'Raleway', sans-serif",
-        playfair: "'Playfair Display', serif",
+        spectral: "'Spectral', serif",
         lora: "'Lora', serif",
-        "cormorant-garamond": "'Cormorant Garamond', serif",
-        caveat: "'Caveat', cursive"
+        "eb-garamond": "'EB Garamond', serif",
+        "patrick-hand": "'Patrick Hand', cursive"
     };
     const fontFamily = FONT_MAP[tokens.typography.fontFamily] ?? "'Inter', sans-serif";
 

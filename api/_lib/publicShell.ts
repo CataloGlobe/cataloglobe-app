@@ -156,9 +156,18 @@ export function applyTenantHead(
     if (cover) {
         const safeCover = escapeHtml(cover);
         // og:image/twitter:image: SEMPRE l'immagine raw full-size (gli scraper
-        // social vogliono l'originale, non la variante mobile).
-        extra.push(`<meta property="og:image" content="${safeCover}" />`);
-        extra.push(`<meta name="twitter:image" content="${safeCover}" />`);
+        // social vogliono l'originale, non la variante mobile). REPLACE del tag
+        // generico del template (non append): i crawler usano il PRIMO og:image
+        // del documento — un secondo tag appeso resterebbe ignorato.
+        html = setMetaContent(html, "og:image", safeCover);
+        html = setMetaContent(html, "twitter:image", safeCover);
+        // width/height del template descrivono og-image.png (1200×630): rimossi
+        // quando l'immagine è la cover della sede — dichiarare dimensioni di
+        // un'altra immagine causerebbe crop sbagliati negli scraper.
+        html = html.replace(
+            /\s*<meta\s+property="og:image:(?:width|height)"\s+content="[^"]*"\s*\/>/g,
+            () => ""
+        );
         // Preload LCP: responsive set IDENTICO all'<img> della cover
         // (PublicCollectionHeader) → il browser scarica una sola variante. Se
         // l'URL non è storage-public (set null) → fallback href raw, come prima.

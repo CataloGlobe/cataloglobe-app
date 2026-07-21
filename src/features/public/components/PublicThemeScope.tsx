@@ -35,6 +35,7 @@ export default function PublicThemeScope({ tokens: tokensProp, style, className,
             className={className}
             style={cssVars as React.CSSProperties}
             data-card-treatment={tokens.appearance.cardTreatment}
+            data-font-family={tokens.typography.fontFamily}
         >
             <PublicPortalContext.Provider value={portalNode}>
                 {children}
