@@ -83,6 +83,8 @@ export type MenuPdfBrand = {
 export type MenuPdfMeta = {
     activityName: string;
     catalogName: string;
+    /** Slug sede — per l'URL pubblico del QR in copertina. */
+    slug: string;
     /** Indirizzo già composto ("Via X, 12 — 20100 Milano") o null. */
     address: string | null;
     /** ISO timestamp di generazione (footer "aggiornato al"). */

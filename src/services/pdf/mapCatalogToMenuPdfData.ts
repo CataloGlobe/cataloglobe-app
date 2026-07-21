@@ -31,6 +31,7 @@ import type {
 export type MapCatalogContext = {
     brand: MenuPdfBrand;
     activityName: string;
+    slug: string;
     address: string | null;
     /** ISO timestamp; iniettabile per test deterministici. Default: now. */
     generatedAt?: string;
@@ -195,6 +196,7 @@ export function mapCatalogToMenuPdfData(
         meta: {
             activityName: context.activityName,
             catalogName: catalog.name,
+            slug: context.slug,
             address: context.address,
             generatedAt: context.generatedAt ?? new Date().toISOString()
         },

@@ -56,6 +56,7 @@ function context(): MapCatalogContext {
             coverUrl: null
         },
         activityName: "Sede Test",
+        slug: "sede-test",
         address: "Via Roma, 1 — 20100 Milano",
         generatedAt: "2026-07-22T10:00:00.000Z"
     };
@@ -194,6 +195,7 @@ describe("mapCatalogToMenuPdfData — categorie", () => {
         expect(data.meta).toEqual({
             activityName: "Sede Test",
             catalogName: "Menu Test",
+            slug: "sede-test",
             address: "Via Roma, 1 — 20100 Milano",
             generatedAt: "2026-07-22T10:00:00.000Z"
         });

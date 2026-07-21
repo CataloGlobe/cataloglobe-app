@@ -112,6 +112,7 @@ export async function loadMenuPdfData(
     return mapCatalogToMenuPdfData(curatedCatalog, {
         brand,
         activityName: activity.name,
+        slug: activity.slug,
         address: composeAddress(activity)
     });
 }
