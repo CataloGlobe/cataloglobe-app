@@ -52,10 +52,17 @@ function getTagKey(contentType: string | null): string {
     }
 }
 
-export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", showSubtitle = true, showTitle = true, showCta = true, eager = false, interactive = true }: FeaturedCardProps) {
+export default function FeaturedCard({ block, onClick, onCtaClick, className, variant = "card", showSubtitle: showSubtitleProp = true, showTitle: showTitleProp = true, showCta: showCtaProp = true, eager = false, interactive = true }: FeaturedCardProps) {
     const { t } = useTranslation("public");
     const tagLabel = t(getTagKey(block.content_type));
     const hasImage = !!block.media_id;
+    // I toggle Titolo/Descrizione/Pulsante hanno effetto solo su Highlight (testo
+    // sovrapposto all'immagine) — vedi isFeaturedHighlightControlActive in
+    // StyleTokenModel.ts. Su Card/Compatto ignorati: sempre tutto visibile.
+    const highlightControlsActive = variant === "highlight";
+    const showTitle = highlightControlsActive ? showTitleProp : true;
+    const showSubtitle = highlightControlsActive ? showSubtitleProp : true;
+    const showCta = highlightControlsActive ? showCtaProp : true;
     const hasCta = showCta && !!block.cta_text && !!block.cta_url;
     const hasVisibleText = showTitle || (showSubtitle && !!block.subtitle) || hasCta;
     const keyHandler = (e: KeyboardEvent) => {

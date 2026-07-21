@@ -122,6 +122,15 @@ export function isCardTreatmentActive(productStyle: ProductStyle, featuredStyle:
         || FEATURED_STYLES_CONSUMING_CARD_TREATMENT.includes(featuredStyle);
 }
 
+/** I toggle Titolo/Descrizione/Pulsante nell'anteprima hanno effetto solo su
+ * Highlight (testo sovrapposto all'immagine). Su Card/Compatto nasconderli
+ * lascerebbe un vuoto morto nella banda contenuto invece di "liberare"
+ * l'immagine — quindi i controlli vanno mostrati solo qui, e FeaturedCard
+ * ignora i prop fuori da questa variante. */
+export function isFeaturedHighlightControlActive(featuredStyle: FeaturedStyle): boolean {
+    return featuredStyle === "highlight";
+}
+
 /**
  * Parses raw JSON configuration (from DB) into a structured UI Token Model.
  * Provides backwards compatibility for old JSON shapes by checking multiple possible paths,
