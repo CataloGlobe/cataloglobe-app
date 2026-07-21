@@ -4,43 +4,43 @@ import { getVideoEmbedUrl } from "@/utils/videoEmbed";
 describe("getVideoEmbedUrl", () => {
     it("estrae l'ID da un URL YouTube watch", () => {
         expect(getVideoEmbedUrl("youtube", "https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe(
-            "https://www.youtube.com/embed/dQw4w9WgXcQ"
+            "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0"
         );
     });
 
     it("estrae l'ID da un URL youtu.be", () => {
         expect(getVideoEmbedUrl("youtube", "https://youtu.be/dQw4w9WgXcQ")).toBe(
-            "https://www.youtube.com/embed/dQw4w9WgXcQ"
+            "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0"
         );
     });
 
     it("estrae l'ID da un URL già in forma embed", () => {
         expect(getVideoEmbedUrl("youtube", "https://www.youtube.com/embed/dQw4w9WgXcQ")).toBe(
-            "https://www.youtube.com/embed/dQw4w9WgXcQ"
+            "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0"
         );
     });
 
     it("accetta un ID YouTube grezzo", () => {
         expect(getVideoEmbedUrl("youtube", "dQw4w9WgXcQ")).toBe(
-            "https://www.youtube.com/embed/dQw4w9WgXcQ"
+            "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ?autoplay=1&rel=0"
         );
     });
 
     it("estrae l'ID da un URL Vimeo", () => {
         expect(getVideoEmbedUrl("vimeo", "https://vimeo.com/76979871")).toBe(
-            "https://player.vimeo.com/video/76979871"
+            "https://player.vimeo.com/video/76979871?autoplay=1"
         );
     });
 
     it("estrae l'ID da un URL Vimeo con /video/", () => {
         expect(getVideoEmbedUrl("vimeo", "https://vimeo.com/video/76979871")).toBe(
-            "https://player.vimeo.com/video/76979871"
+            "https://player.vimeo.com/video/76979871?autoplay=1"
         );
     });
 
     it("accetta un ID Vimeo grezzo", () => {
         expect(getVideoEmbedUrl("vimeo", "76979871")).toBe(
-            "https://player.vimeo.com/video/76979871"
+            "https://player.vimeo.com/video/76979871?autoplay=1"
         );
     });
 
