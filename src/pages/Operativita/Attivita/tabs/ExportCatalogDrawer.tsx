@@ -8,6 +8,7 @@ import { TextInput } from "@/components/ui/Input/TextInput";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { listCatalogs, type V2Catalog } from "@/services/supabase/catalogs";
 import { listStyles, type V2Style } from "@/services/supabase/styles";
+import { getActivityById } from "@/services/supabase/activities";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./ExportCatalogDrawer.module.scss";
 
@@ -40,6 +41,9 @@ export function ExportCatalogDrawer({
   const [isLoadingStyles, setIsLoadingStyles] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [includePhotos, setIncludePhotos] = useState(false);
+  // Toggle cover mostrato solo se la sede ha un'immagine di copertina.
+  const [hasCoverImage, setHasCoverImage] = useState(false);
+  const [includeCoverImage, setIncludeCoverImage] = useState(true);
 
   useEffect(() => {
     if (!open) return;
@@ -48,6 +52,18 @@ export function ExportCatalogDrawer({
     setCurrentStyleId(null);
     setFileName("");
     setIncludePhotos(false);
+    setHasCoverImage(false);
+    setIncludeCoverImage(true);
+
+    async function loadActivityCover() {
+      try {
+        const activity = await getActivityById(activityId, tenantId);
+        setHasCoverImage(!!activity?.cover_image);
+      } catch {
+        // Silenzioso: senza info cover il toggle resta nascosto (default on).
+        setHasCoverImage(false);
+      }
+    }
 
     async function loadCatalogsList() {
       setIsLoadingCatalogs(true);
@@ -104,9 +120,10 @@ export function ExportCatalogDrawer({
       }
     }
 
+    void loadActivityCover();
     void loadCatalogsList();
     void loadStylesList();
-  }, [open, tenantId, activityName, showToast]);
+  }, [open, tenantId, activityId, activityName, showToast]);
 
   const handleCatalogChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value;
@@ -131,7 +148,10 @@ export function ExportCatalogDrawer({
         selectedCatalogId,
         selectedStyleId || undefined,
       );
-      const blob = await renderMenuPdfBlob(data, { includePhotos });
+      const blob = await renderMenuPdfBlob(data, {
+        includePhotos,
+        includeCoverImage,
+      });
 
       const base =
         fileName.trim() ||
@@ -246,6 +266,15 @@ export function ExportCatalogDrawer({
             disabled={isDownloading}
             helperText="Senza estensione .pdf"
           />
+          {hasCoverImage ? (
+            <Switch
+              label="Includi immagine di copertina"
+              helperText="Mostra l'immagine di copertina nella prima pagina del PDF."
+              checked={includeCoverImage}
+              onChange={setIncludeCoverImage}
+              disabled={isDownloading}
+            />
+          ) : null}
           <Switch
             label="Includi foto"
             helperText="Mostra le foto caricate direttamente (non i link esterni). I piatti senza foto avranno un segnaposto."

@@ -14,10 +14,13 @@ import { buildPublicMenuUrl } from "./menuPublicUrl";
 import type { MenuPdfData } from "./menuPdfTypes";
 
 export type RenderMenuPdfOptions = {
-    /** QR "Menu online" in copertina. Default true; cuttabile senza toccare altro. */
+    /** QR "Menu digitale" in copertina. Default true; cuttabile senza toccare altro. */
     includeQr?: boolean;
     /** Foto prodotto come thumbnail (esperimento Stage 5). Default FALSE. */
     includePhotos?: boolean;
+    /** Immagine di copertina in prima pagina. Default TRUE. Se false salta pure
+     *  il prefetch della cover (coverDataUrl null → copertina tipografica). */
+    includeCoverImage?: boolean;
     /** Override asset già pronti (test/control render). Salta il pre-fetch. */
     assets?: MenuPdfAssets;
 };
@@ -27,14 +30,16 @@ const PHOTO_PREFETCH_CONCURRENCY = 6;
 
 export async function prepareMenuPdfAssets(
     data: MenuPdfData,
-    options?: Pick<RenderMenuPdfOptions, "includeQr" | "includePhotos">
+    options?: Pick<RenderMenuPdfOptions, "includeQr" | "includePhotos" | "includeCoverImage">
 ): Promise<MenuPdfAssets> {
     const includeQr = options?.includeQr ?? true;
     const includePhotos = options?.includePhotos ?? false;
+    const includeCoverImage = options?.includeCoverImage ?? true;
 
     const [logoDataUrl, coverDataUrl] = await Promise.all([
         prefetchImageAsDataUrl(data.brand.logoUrl),
-        prefetchImageAsDataUrl(data.brand.coverUrl)
+        // Toggle off → niente prefetch cover: copertina tipografica pulita.
+        includeCoverImage ? prefetchImageAsDataUrl(data.brand.coverUrl) : Promise.resolve(null)
     ]);
 
     // Foto prodotto: solo con il flag attivo e solo per i prodotti che hanno
