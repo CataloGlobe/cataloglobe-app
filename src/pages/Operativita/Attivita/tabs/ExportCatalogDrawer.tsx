@@ -6,7 +6,6 @@ import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { listCatalogs, type V2Catalog } from "@/services/supabase/catalogs";
-import { downloadMenuPdf, DownloadMenuPdfError } from "@/services/pdf/downloadMenuPdf";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./ExportCatalogDrawer.module.scss";
 
@@ -67,56 +66,38 @@ export function ExportCatalogDrawer({
         if (!selectedCatalogId) return;
         setIsDownloading(true);
         try {
-            await downloadMenuPdf(activityId, {
-                catalogId: selectedCatalogId,
-                fileName: fileName.trim() || undefined
-            });
+            // Import dinamici: react-pdf resta nel chunk lazy, fuori dal
+            // bundle principale.
+            const [{ loadMenuPdfData }, { renderMenuPdfBlob }] = await Promise.all([
+                import("@/services/pdf/loadMenuPdfData"),
+                import("@/services/pdf/renderMenuPdf")
+            ]);
+            const data = await loadMenuPdfData(tenantId, activityId, selectedCatalogId);
+            const blob = await renderMenuPdfBlob(data);
+
+            const base =
+                fileName.trim() || `${data.meta.catalogName} - ${data.meta.activityName}`;
+            const finalName = base.toLowerCase().endsWith(".pdf") ? base : `${base}.pdf`;
+
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = finalName;
+            link.style.display = "none";
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
             onClose();
         } catch (error: unknown) {
-            if (error instanceof DownloadMenuPdfError) {
-                showToast({ message: error.message, type: "error" });
-            } else {
-                showToast({ message: "Errore durante il download del PDF.", type: "error" });
-            }
+            console.error("Menu PDF generation failed:", error);
+            showToast({ message: "Errore durante la generazione del PDF.", type: "error" });
         } finally {
             setIsDownloading(false);
         }
     };
 
     const catalogOptions = catalogs.map(c => ({ value: c.id, label: c.name ?? "Catalogo senza nome" }));
-
-    // TEMP — Stage 2, rimuovere in Stage 6.
-    // Pipeline completa data layer → documento react-pdf → download.
-    // Import dinamici: react-pdf resta nel chunk lazy, fuori dal bundle principale.
-    const [isSpikeRunning, setIsSpikeRunning] = useState(false);
-    const handleSpike = async () => {
-        if (!selectedCatalogId) return;
-        setIsSpikeRunning(true);
-        try {
-            const [{ loadMenuPdfData }, { renderMenuPdfBlob }] = await Promise.all([
-                import("@/services/pdf/loadMenuPdfData"),
-                import("@/services/pdf/renderMenuPdf")
-            ]);
-            const data = await loadMenuPdfData(tenantId, activityId, selectedCatalogId);
-            // TEMP: foto ON per la valutazione visiva Stage 5 (default resta off).
-            const blob = await renderMenuPdfBlob(data, { includePhotos: true });
-
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = `menu-stage2-${data.meta.catalogName}.pdf`;
-            link.style.display = "none";
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
-        } catch (error) {
-            console.error("Menu PDF (Stage 2) failed:", error);
-            showToast({ message: "Generazione PDF Stage 2 fallita (vedi console).", type: "error" });
-        } finally {
-            setIsSpikeRunning(false);
-        }
-    };
 
     return (
         <SystemDrawer open={open} onClose={onClose} width={420}>
@@ -133,15 +114,6 @@ export function ExportCatalogDrawer({
                 }
                 footer={
                     <>
-                        {/* TEMP SPIKE — rimuovere in Stage 6 */}
-                        <Button
-                            variant="secondary"
-                            onClick={handleSpike}
-                            loading={isSpikeRunning}
-                            disabled={isSpikeRunning}
-                        >
-                            Spike PDF
-                        </Button>
                         <Button variant="secondary" onClick={onClose} disabled={isDownloading}>
                             Annulla
                         </Button>
@@ -151,7 +123,7 @@ export function ExportCatalogDrawer({
                             loading={isDownloading}
                             disabled={!selectedCatalogId || isDownloading || isLoadingCatalogs}
                         >
-                            Scarica PDF
+                            {isDownloading ? "Generazione…" : "Scarica PDF"}
                         </Button>
                     </>
                 }

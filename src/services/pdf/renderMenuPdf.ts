@@ -53,17 +53,6 @@ export async function prepareMenuPdfAssets(
                 .map((product, index) => [product.id, dataUrls[index]] as const)
                 .filter((entry): entry is readonly [string, string] => entry[1] !== null)
         );
-
-        // TEMP — diagnostica Stage 5 (rimuovere in Stage 6): al click reale
-        // mostra quante foto sono state prefetchate e quante sono fallite
-        // (fallimento tipico: image_url esterno senza CORS → fetch bloccato).
-        console.log("[prepareMenuPdfAssets] foto prodotto:", {
-            includePhotos,
-            productsWithImageUrl: withImage.length,
-            sampleImageUrl: withImage[0]?.imageUrl ?? null,
-            prefetchOk: Object.keys(productImages).length,
-            prefetchNull: withImage.length - Object.keys(productImages).length
-        });
     }
 
     let qrDataUrl: string | null = null;
