@@ -929,6 +929,198 @@ serve(async req => {
             const existingScheduleId =
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
 
+            // 🆕 FASE 2d — schedule esistente: NIENTE release. Adotta lo schema B2
+            // (charge-first via one-off invoice, poi update IN-PLACE delle fasi),
+            // così il downgrade gia' programmato non viene mai distrutto: se
+            // l'addebito fallisce lo schedule resta intatto. Il ramo SENZA schedule
+            // preesistente resta sotto (legacy release-first, FASE 2e).
+            if (existingScheduleId) {
+                let existingSchedule: Stripe.SubscriptionSchedule;
+                try {
+                    existingSchedule = await stripe.subscriptionSchedules.retrieve(existingScheduleId);
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`stripe-change-subscription: combined(existing) schedule retrieve failed: ${message}`);
+                    return json(req, 502, { error: "stripe_schedule_failed" });
+                }
+                const existingCurrentPhase = existingSchedule.phases?.[0];
+                if (!existingCurrentPhase) {
+                    console.error(
+                        `stripe-change-subscription: combined(existing) schedule has no current phase tenant=${tenantId}`
+                    );
+                    return json(req, 502, { error: "stripe_schedule_failed" });
+                }
+
+                // Step 1 — importo delta sedi, prorato a tariffa CORRENTE (non il
+                // target), ricalcolato al commit. Stesso preview di B2.
+                let chargeAmount = 0;
+                try {
+                    const seatPreview = await stripe.invoices.createPreview({
+                        customer: tenant.stripe_customer_id,
+                        subscription: tenant.stripe_subscription_id,
+                        subscription_details: {
+                            items: [{ id: itemId, price: currentPriceId, quantity: newSeats }],
+                            proration_behavior: "always_invoice"
+                        }
+                    });
+                    chargeAmount = Math.max(0, seatPreview.amount_due ?? 0);
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`stripe-change-subscription: combined(existing) seat preview failed: ${message}`);
+                    return json(req, 502, { error: "preview_failed" });
+                }
+
+                // Step 2 — one-off invoice CHARGE-FIRST (customer-level, NESSUN
+                // release, funziona su sub schedule-managed). auto_advance:false →
+                // niente dunning async; void best-effort sul decline.
+                if (chargeAmount > 0) {
+                    const oneOffItemKey = buildIdempotencyKey({
+                        operation: "combined-existing-oneoff-item",
+                        tenantId,
+                        subscriptionId: tenant.stripe_subscription_id,
+                        currentPlan,
+                        currentSeats,
+                        targetPlan,
+                        targetSeats: newSeats
+                    });
+                    const oneOffCreateKey = buildIdempotencyKey({
+                        operation: "combined-existing-oneoff-create",
+                        tenantId,
+                        subscriptionId: tenant.stripe_subscription_id,
+                        currentPlan,
+                        currentSeats,
+                        targetPlan,
+                        targetSeats: newSeats
+                    });
+                    const oneOffPayKey = buildIdempotencyKey({
+                        operation: "combined-existing-oneoff-pay",
+                        tenantId,
+                        subscriptionId: tenant.stripe_subscription_id,
+                        currentPlan,
+                        currentSeats,
+                        targetPlan,
+                        targetSeats: newSeats
+                    });
+
+                    let comboInvoiceId: string | null = null;
+                    try {
+                        await stripe.invoiceItems.create(
+                            {
+                                customer: tenant.stripe_customer_id,
+                                amount: chargeAmount,
+                                currency,
+                                description: "Sedi aggiuntive (prorata fino al rinnovo)"
+                            },
+                            { idempotencyKey: oneOffItemKey }
+                        );
+                        const invoice = await stripe.invoices.create(
+                            {
+                                customer: tenant.stripe_customer_id,
+                                auto_advance: false,
+                                collection_method: "charge_automatically"
+                            },
+                            { idempotencyKey: oneOffCreateKey }
+                        );
+                        comboInvoiceId = invoice.id;
+                        await stripe.invoices.pay(invoice.id, { idempotencyKey: oneOffPayKey });
+                    } catch (err) {
+                        const message = err instanceof Error ? err.message : String(err);
+                        const type = (err as { type?: string })?.type ?? "";
+                        const code = (err as { code?: string })?.code ?? "";
+                        // Void best-effort della one-off non pagata → niente dunning async.
+                        if (comboInvoiceId) {
+                            try {
+                                await stripe.invoices.voidInvoice(comboInvoiceId);
+                            } catch (vErr) {
+                                const vMsg = vErr instanceof Error ? vErr.message : String(vErr);
+                                console.error(`stripe-change-subscription: combined(existing) void invoice failed: ${vMsg}`);
+                            }
+                        }
+                        if (
+                            type === "StripeCardError" ||
+                            code === "subscription_payment_intent_requires_action" ||
+                            /incomplete|requires_action|card_declined|payment/i.test(message)
+                        ) {
+                            console.warn(`stripe-change-subscription: combined(existing) seat charge payment failed: ${message}`);
+                            return json(req, 402, { error: "PAYMENT_FAILED" });
+                        }
+                        console.error(`stripe-change-subscription: combined(existing) one-off charge failed: ${message}`);
+                        return json(req, 502, { error: "stripe_update_failed" });
+                    }
+                }
+
+                // Step 3 — update IN-PLACE delle fasi dello schedule esistente (NO
+                // release, NO nuovo schedule). Fase corrente = piano attuale @
+                // newSeats (bumpa la qty → subscription.updated → webhook paid_seats).
+                // Fase futura = piano target del NUOVO cambio @ newSeats. proration
+                // 'none' (gia' addebitato dalla one-off, niente doppio addebito).
+                try {
+                    const scheduleUpdateKey = buildIdempotencyKey({
+                        operation: "combined-existing-update-phases",
+                        tenantId,
+                        subscriptionId: tenant.stripe_subscription_id,
+                        currentPlan,
+                        currentSeats,
+                        targetPlan,
+                        targetSeats: newSeats
+                    });
+                    const currentPhaseItems = (existingCurrentPhase.items ?? []).map(it => ({
+                        price: typeof it.price === "string" ? it.price : it.price?.id,
+                        quantity: newSeats
+                    }));
+                    await updateSchedulePhases(stripe, existingScheduleId, {
+                        currentPhaseItems,
+                        currentPhaseStart: existingCurrentPhase.start_date,
+                        currentPhaseEnd: existingCurrentPhase.end_date,
+                        futurePhaseItems: [{ price: newPriceId, quantity: newSeats }],
+                        futurePhasePlanCode: targetPlan,
+                        prorationBehavior: "none",
+                        idempotencyKey: scheduleUpdateKey
+                    });
+                } catch (err) {
+                    // Partial-failure: sedi PAGATE, schedule esistente INTATTO ma fasi
+                    // non aggiornate. Retry idempotente converge (one-off replay +
+                    // update completa). Stesso codice di B2.
+                    const message = err instanceof Error ? err.message : String(err);
+                    console.error(`stripe-change-subscription: combined(existing) schedule update failed (seats already charged): ${message}`);
+                    return json(req, 502, { error: "SEATS_ADDED_SCHEDULE_NOT_UPDATED" });
+                }
+
+                console.log(
+                    `stripe-change-subscription: COMBINED(existing) seats charged + schedule updated in-place tenant=${tenantId} seats=${newSeats} downgrade=${targetPlan} effective=${periodEndIso} schedule=${existingScheduleId}`
+                );
+                // Email best-effort dedicata al combinato (sedi attive ora + downgrade al rinnovo).
+                try {
+                    const to = await getRecipient();
+                    if (to) {
+                        await sendEmail({
+                            to,
+                            ...combinedChangeEmail({
+                                seats: newSeats,
+                                targetPlan,
+                                effectiveDateIso: periodEndIso
+                            })
+                        });
+                    }
+                } catch (err) {
+                    console.error("[stripe-change-subscription] combined(existing) email error:", err);
+                }
+                return json(req, 200, {
+                    ok: true,
+                    classification: "combined",
+                    plan: targetPlan,
+                    seats: newSeats,
+                    seatsChargedNow: true,
+                    effective: periodEndIso,
+                    scheduledChange: true,
+                    scheduleId: existingScheduleId
+                });
+            }
+
+            // Ramo SENZA schedule preesistente (FASE 2e: da allineare). Qui
+            // `existingScheduleId` e' null → il release-first e' un no-op (niente
+            // schedule da rilasciare) e resta la sequenza legacy subscriptions.update
+            // + create schedule.
             // Step 1 — release-first BLOCCANTE (opzione A). La sub non deve
             // restare schedule-managed prima di toccare le sedi (Stripe rifiuta
             // update su sub gestita da schedule). Se resta managed → abort PRIMA
