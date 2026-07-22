@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LanguageContext } from "@/context/Language/LanguageContext";
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Package, Phone, Plus } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Phone, Plus, Utensils } from "lucide-react";
 import { IconLink } from "@tabler/icons-react";
 import type {
     ResolvedAllergen,
@@ -346,7 +346,7 @@ function ProductRowInner({
                 <div className={styles.rowImageWrapper}>
                     {mode === "preview" || !image ? (
                         <div className={styles.rowPlaceholder} aria-hidden="true">
-                            <Package
+                            <Utensils
                                 size={24}
                                 strokeWidth={1.5}
                                 color="var(--pub-text-muted, var(--pub-text-secondary))"
