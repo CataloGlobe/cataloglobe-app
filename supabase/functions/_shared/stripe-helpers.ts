@@ -143,6 +143,175 @@ export async function updateSchedulePhases(
     );
 }
 
+/**
+ * Errore tipizzato: l'addebito one-off delle sedi NON è stato incassato in modo
+ * verificabile. Sollevato da `chargeOneOffSeatDelta` sia sul decline sincrono di
+ * `.pay()` sia quando la verifica post-pagamento fallisce (fattura non `paid` o
+ * importo incassato ≠ importo atteso). Il chiamante lo intercetta per ritornare
+ * lo stesso codice del caso "pagamento fallito" (PAYMENT_FAILED) e NON procedere
+ * agli step a valle (es. aggiornamento schedule).
+ */
+export class SeatChargeVerificationFailedError extends Error {
+    readonly reason: "declined" | "not_paid" | "amount_mismatch";
+    readonly invoiceId: string | null;
+    readonly expected: number;
+    readonly actual: number;
+    constructor(
+        reason: "declined" | "not_paid" | "amount_mismatch",
+        invoiceId: string | null,
+        expected: number,
+        actual: number
+    ) {
+        super(`seat charge verification failed (${reason}): invoice=${invoiceId} expected=${expected} actual=${actual}`);
+        this.name = "SeatChargeVerificationFailedError";
+        this.reason = reason;
+        this.invoiceId = invoiceId;
+        this.expected = expected;
+        this.actual = actual;
+    }
+}
+
+/** Riconosce un errore Stripe di pagamento/decline sincrono (vs errore API/rete). */
+function isPaymentDeclineError(err: unknown): boolean {
+    const message = err instanceof Error ? err.message : String(err);
+    const type = (err as { type?: string })?.type ?? "";
+    const code = (err as { code?: string })?.code ?? "";
+    return (
+        type === "StripeCardError" ||
+        code === "subscription_payment_intent_requires_action" ||
+        /incomplete|requires_action|card_declined|payment/i.test(message)
+    );
+}
+
+export interface ChargeOneOffSeatDeltaParams {
+    stripe: Stripe;
+    customerId: string;
+    /** Importo in centesimi, > 0. È anche l'importo atteso incassato. */
+    amount: number;
+    currency: string;
+    description: string;
+    /**
+     * Base deterministica da cui derivare le 3 idempotency key (`:invoice`,
+     * `:item`, `:pay`). Stabile sulla transizione → replay sicuro sul retry.
+     */
+    idempotencyKeyBase: string;
+}
+
+export interface ChargeOneOffSeatDeltaResult {
+    invoiceId: string;
+    amountPaid: number;
+}
+
+/**
+ * Addebita immediatamente un delta sedi one-off (customer-level, NON tocca la
+ * subscription né un eventuale schedule) e VERIFICA che sia stato realmente
+ * incassato.
+ *
+ * Sostituisce la sequenza difettosa `invoiceItems.create` (customer-level) →
+ * `invoices.create` → `invoices.pay`: l'item non collegato restava "pending",
+ * la fattura finalizzava vuota (€0), `.pay()` su fattura vuota NON lanciava, il
+ * chiamante logga(va) successo e procedeva senza aver incassato nulla.
+ *
+ * Sequenza corretta:
+ *  1. crea la draft invoice PRIMA (`auto_advance:false`), così l'item può
+ *     esserle collegato esplicitamente;
+ *  2. crea l'invoice item con `invoice: <id>` esplicito (mai affidarsi al
+ *     comportamento di default dei pending item dell'API);
+ *  3. `invoices.pay` finalizza la draft e addebita il metodo di pagamento;
+ *  4. verifica `status === 'paid'` E `amount_paid === amount`.
+ *
+ * Su decline sincrono di `.pay()` o su verifica fallita: void best-effort della
+ * fattura (mai lanciare dal void stesso) e throw `SeatChargeVerificationFailedError`.
+ * Gli errori API/rete (es. `invoices.create` fallita) si propagano grezzi → il
+ * chiamante li mappa sul suo codice generico (502).
+ */
+export async function chargeOneOffSeatDelta(
+    params: ChargeOneOffSeatDeltaParams
+): Promise<ChargeOneOffSeatDeltaResult> {
+    const { stripe, customerId, amount, currency, description, idempotencyKeyBase } = params;
+
+    let invoiceId: string | null = null;
+    try {
+        // 1 — draft invoice PRIMA (per poterle collegare l'item esplicitamente).
+        const invoice = await stripe.invoices.create(
+            {
+                customer: customerId,
+                auto_advance: false,
+                collection_method: "charge_automatically"
+            },
+            { idempotencyKey: `${idempotencyKeyBase}:invoice` }
+        );
+        invoiceId = invoice.id;
+
+        // 2 — invoice item COLLEGATO esplicitamente alla fattura.
+        await stripe.invoiceItems.create(
+            {
+                customer: customerId,
+                invoice: invoice.id,
+                amount,
+                currency,
+                description
+            },
+            { idempotencyKey: `${idempotencyKeyBase}:item` }
+        );
+
+        // 3 — finalizza (draft → open) e addebita.
+        const paid = await stripe.invoices.pay(invoice.id, {
+            idempotencyKey: `${idempotencyKeyBase}:pay`
+        });
+
+        // 4 — verifica esito REALE: pagare una fattura vuota riuscirebbe a €0
+        // senza lanciare. Richiedi paid + importo pieno atteso.
+        const amountPaid = paid.amount_paid ?? 0;
+        if (paid.status !== "paid" || amountPaid !== amount) {
+            const reason = paid.status !== "paid" ? "not_paid" : "amount_mismatch";
+            // Void best-effort: solo su fattura non pagata (una paid non è
+            // voidable in Stripe). Mai lanciare dal void.
+            if (paid.status !== "paid") {
+                try {
+                    await stripe.invoices.voidInvoice(invoice.id);
+                } catch (vErr) {
+                    const vMsg = vErr instanceof Error ? vErr.message : String(vErr);
+                    console.error(`chargeOneOffSeatDelta: void after verification failure failed: ${vMsg}`);
+                }
+            }
+            throw new SeatChargeVerificationFailedError(reason, invoice.id, amount, amountPaid);
+        }
+
+        return { invoiceId: invoice.id, amountPaid };
+    } catch (err) {
+        // Già tipizzato (verifica fallita sopra) → rilancia intatto.
+        if (err instanceof SeatChargeVerificationFailedError) throw err;
+
+        // Decline sincrono di `.pay()`: void best-effort + errore tipizzato.
+        if (isPaymentDeclineError(err)) {
+            if (invoiceId) {
+                try {
+                    await stripe.invoices.voidInvoice(invoiceId);
+                } catch (vErr) {
+                    const vMsg = vErr instanceof Error ? vErr.message : String(vErr);
+                    console.error(`chargeOneOffSeatDelta: void after decline failed: ${vMsg}`);
+                }
+            }
+            const message = err instanceof Error ? err.message : String(err);
+            console.warn(`chargeOneOffSeatDelta: seat charge payment declined: ${message}`);
+            throw new SeatChargeVerificationFailedError("declined", invoiceId, amount, 0);
+        }
+
+        // Errore API/rete (es. invoices.create): void best-effort se la fattura
+        // esiste, poi propaga grezzo (il chiamante mappa su 502).
+        if (invoiceId) {
+            try {
+                await stripe.invoices.voidInvoice(invoiceId);
+            } catch (vErr) {
+                const vMsg = vErr instanceof Error ? vErr.message : String(vErr);
+                console.error(`chargeOneOffSeatDelta: void after error failed: ${vMsg}`);
+            }
+        }
+        throw err;
+    }
+}
+
 function isResourceMissing(message: string): boolean {
     return /no such (subscription|customer)|resource_missing|404/i.test(message);
 }

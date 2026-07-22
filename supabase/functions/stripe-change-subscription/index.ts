@@ -7,7 +7,9 @@ import {
     releaseScheduleIfAny,
     scheduleStripeCancel,
     reactivateStripeSubIfScheduled,
-    updateSchedulePhases
+    updateSchedulePhases,
+    chargeOneOffSeatDelta,
+    SeatChargeVerificationFailedError
 } from "../_shared/stripe-helpers.ts";
 import { sendEmail } from "../_shared/sendEmail.ts";
 import {
@@ -974,8 +976,12 @@ serve(async req => {
                 // release, funziona su sub schedule-managed). auto_advance:false →
                 // niente dunning async; void best-effort sul decline.
                 if (chargeAmount > 0) {
-                    const oneOffItemKey = buildIdempotencyKey({
-                        operation: "combined-existing-oneoff-item",
+                    // Charge-first verificato: crea invoice + item collegato +
+                    // pay + assert incasso reale (vedi chargeOneOffSeatDelta). La
+                    // vecchia sequenza lasciava l'item "pending" e finalizzava una
+                    // fattura vuota (€0) senza lanciare → falso successo.
+                    const oneOffKeyBase = buildIdempotencyKey({
+                        operation: "combined-existing-oneoff",
                         tenantId,
                         subscriptionId: tenant.stripe_subscription_id,
                         currentPlan,
@@ -983,67 +989,23 @@ serve(async req => {
                         targetPlan,
                         targetSeats: newSeats
                     });
-                    const oneOffCreateKey = buildIdempotencyKey({
-                        operation: "combined-existing-oneoff-create",
-                        tenantId,
-                        subscriptionId: tenant.stripe_subscription_id,
-                        currentPlan,
-                        currentSeats,
-                        targetPlan,
-                        targetSeats: newSeats
-                    });
-                    const oneOffPayKey = buildIdempotencyKey({
-                        operation: "combined-existing-oneoff-pay",
-                        tenantId,
-                        subscriptionId: tenant.stripe_subscription_id,
-                        currentPlan,
-                        currentSeats,
-                        targetPlan,
-                        targetSeats: newSeats
-                    });
-
-                    let comboInvoiceId: string | null = null;
                     try {
-                        await stripe.invoiceItems.create(
-                            {
-                                customer: tenant.stripe_customer_id,
-                                amount: chargeAmount,
-                                currency,
-                                description: "Sedi aggiuntive (prorata fino al rinnovo)"
-                            },
-                            { idempotencyKey: oneOffItemKey }
-                        );
-                        const invoice = await stripe.invoices.create(
-                            {
-                                customer: tenant.stripe_customer_id,
-                                auto_advance: false,
-                                collection_method: "charge_automatically"
-                            },
-                            { idempotencyKey: oneOffCreateKey }
-                        );
-                        comboInvoiceId = invoice.id;
-                        await stripe.invoices.pay(invoice.id, { idempotencyKey: oneOffPayKey });
+                        await chargeOneOffSeatDelta({
+                            stripe,
+                            customerId: tenant.stripe_customer_id,
+                            amount: chargeAmount,
+                            currency,
+                            description: "Sedi aggiuntive (prorata fino al rinnovo)",
+                            idempotencyKeyBase: oneOffKeyBase
+                        });
                     } catch (err) {
-                        const message = err instanceof Error ? err.message : String(err);
-                        const type = (err as { type?: string })?.type ?? "";
-                        const code = (err as { code?: string })?.code ?? "";
-                        // Void best-effort della one-off non pagata → niente dunning async.
-                        if (comboInvoiceId) {
-                            try {
-                                await stripe.invoices.voidInvoice(comboInvoiceId);
-                            } catch (vErr) {
-                                const vMsg = vErr instanceof Error ? vErr.message : String(vErr);
-                                console.error(`stripe-change-subscription: combined(existing) void invoice failed: ${vMsg}`);
-                            }
-                        }
-                        if (
-                            type === "StripeCardError" ||
-                            code === "subscription_payment_intent_requires_action" ||
-                            /incomplete|requires_action|card_declined|payment/i.test(message)
-                        ) {
-                            console.warn(`stripe-change-subscription: combined(existing) seat charge payment failed: ${message}`);
+                        if (err instanceof SeatChargeVerificationFailedError) {
+                            console.warn(
+                                `stripe-change-subscription: combined(existing) seat charge failed (reason=${err.reason}): ${err.message}`
+                            );
                             return json(req, 402, { error: "PAYMENT_FAILED" });
                         }
+                        const message = err instanceof Error ? err.message : String(err);
                         console.error(`stripe-change-subscription: combined(existing) one-off charge failed: ${message}`);
                         return json(req, 502, { error: "stripe_update_failed" });
                     }
@@ -1353,8 +1315,10 @@ serve(async req => {
                     // Step 2-4 — one-off invoice CHARGE-FIRST (customer-level, NO release).
                     // auto_advance:false → controllo manuale, niente dunning automatico.
                     if (chargeAmount > 0) {
-                        const oneOffItemKey = buildIdempotencyKey({
-                            operation: "seats-oneoff-item",
+                        // Charge-first verificato (stesso helper del ramo
+                        // combined-existing): item collegato + assert incasso reale.
+                        const oneOffKeyBase = buildIdempotencyKey({
+                            operation: "seats-oneoff",
                             tenantId,
                             subscriptionId: tenant.stripe_subscription_id,
                             currentPlan,
@@ -1362,67 +1326,23 @@ serve(async req => {
                             targetPlan,
                             targetSeats: newSeats
                         });
-                        const oneOffCreateKey = buildIdempotencyKey({
-                            operation: "seats-oneoff-create",
-                            tenantId,
-                            subscriptionId: tenant.stripe_subscription_id,
-                            currentPlan,
-                            currentSeats,
-                            targetPlan,
-                            targetSeats: newSeats
-                        });
-                        const oneOffPayKey = buildIdempotencyKey({
-                            operation: "seats-oneoff-pay",
-                            tenantId,
-                            subscriptionId: tenant.stripe_subscription_id,
-                            currentPlan,
-                            currentSeats,
-                            targetPlan,
-                            targetSeats: newSeats
-                        });
-
-                        let b2InvoiceId: string | null = null;
                         try {
-                            await stripe.invoiceItems.create(
-                                {
-                                    customer: tenant.stripe_customer_id,
-                                    amount: chargeAmount,
-                                    currency,
-                                    description: "Sedi aggiuntive (prorata fino al rinnovo)"
-                                },
-                                { idempotencyKey: oneOffItemKey }
-                            );
-                            const invoice = await stripe.invoices.create(
-                                {
-                                    customer: tenant.stripe_customer_id,
-                                    auto_advance: false,
-                                    collection_method: "charge_automatically"
-                                },
-                                { idempotencyKey: oneOffCreateKey }
-                            );
-                            b2InvoiceId = invoice.id;
-                            await stripe.invoices.pay(invoice.id, { idempotencyKey: oneOffPayKey });
+                            await chargeOneOffSeatDelta({
+                                stripe,
+                                customerId: tenant.stripe_customer_id,
+                                amount: chargeAmount,
+                                currency,
+                                description: "Sedi aggiuntive (prorata fino al rinnovo)",
+                                idempotencyKeyBase: oneOffKeyBase
+                            });
                         } catch (err) {
-                            const message = err instanceof Error ? err.message : String(err);
-                            const type = (err as { type?: string })?.type ?? "";
-                            const code = (err as { code?: string })?.code ?? "";
-                            // Void best-effort della one-off non pagata → niente dunning async.
-                            if (b2InvoiceId) {
-                                try {
-                                    await stripe.invoices.voidInvoice(b2InvoiceId);
-                                } catch (vErr) {
-                                    const vMsg = vErr instanceof Error ? vErr.message : String(vErr);
-                                    console.error(`stripe-change-subscription: B2 void invoice failed: ${vMsg}`);
-                                }
-                            }
-                            if (
-                                type === "StripeCardError" ||
-                                code === "subscription_payment_intent_requires_action" ||
-                                /incomplete|requires_action|card_declined|payment/i.test(message)
-                            ) {
-                                console.warn(`stripe-change-subscription: B2 seat charge payment failed: ${message}`);
+                            if (err instanceof SeatChargeVerificationFailedError) {
+                                console.warn(
+                                    `stripe-change-subscription: B2 seat charge failed (reason=${err.reason}): ${err.message}`
+                                );
                                 return json(req, 402, { error: "PAYMENT_FAILED" });
                             }
+                            const message = err instanceof Error ? err.message : String(err);
                             console.error(`stripe-change-subscription: B2 one-off charge failed: ${message}`);
                             return json(req, 502, { error: "stripe_update_failed" });
                         }
