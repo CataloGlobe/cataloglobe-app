@@ -124,12 +124,35 @@ serve(async (req: Request) => {
     }
 
     try {
+        // ── Auth (canonica, mirror di menu-ai-import) ─────────────
+        // verify_jwt=false a livello platform (come tutte le edge del repo):
+        // l'autenticazione si fa qui. Gate PRIMA di Gemini → un chiamante non
+        // autorizzato non raggiunge il modello (no abuso di costo) e non può
+        // attribuire consumo a un tenant altrui in ai_usage_events (il tenantId
+        // grezzo del body non è più fidato: resolve-public-catalog espone i
+        // tenant_id, chiunque potrebbe passarne uno vittima).
+        const authHeader = req.headers.get("authorization");
+        if (!authHeader || !authHeader.startsWith("Bearer ")) {
+            return jsonError("Token di autenticazione mancante", 401, "unauthorized");
+        }
+        const token = authHeader.replace("Bearer ", "");
+
+        const supabaseAdmin = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+            { auth: { persistSession: false } }
+        );
+
+        const { data: { user }, error: authError } = await supabaseAdmin.auth.getUser(token);
+        if (authError || !user) {
+            return jsonError("Token non valido o scaduto", 401, "unauthorized");
+        }
+
         // ── Body parsing + validation ─────────────────────────────
         const body = await req.json().catch(() => null);
         const name = typeof body?.name === "string" ? body.name.trim() : "";
         const verticalType = typeof body?.verticalType === "string" ? body.verticalType : "";
         const categoryName = typeof body?.categoryName === "string" ? body.categoryName.trim() : "";
-        // tenantId accepted and logged for future cost attribution — unused for now.
         const tenantId = typeof body?.tenantId === "string" ? body.tenantId : "";
 
         if (name.length === 0) {
@@ -137,6 +160,28 @@ serve(async (req: Request) => {
         }
         if (name.length > MAX_NAME_LENGTH) {
             return jsonError("Nome prodotto troppo lungo", 400, "invalid_input");
+        }
+        if (!tenantId) {
+            return jsonError("tenant_id è obbligatorio", 400, "invalid_input");
+        }
+
+        // ── Permission check (canonica — owner via owner_user_id) ──
+        // products.write è scope='tenant', seedato solo per owner+admin in
+        // role_permissions (mig. 20260720130000). has_permission_any_activity
+        // risolve l'owner senza riga tenant_memberships. Client anon con il JWT
+        // dell'utente così la SECURITY DEFINER vede auth.uid() del chiamante.
+        const supabaseUser = createClient(
+            Deno.env.get("SUPABASE_URL")!,
+            Deno.env.get("SUPABASE_ANON_KEY")!,
+            { global: { headers: { Authorization: `Bearer ${token}` } }, auth: { persistSession: false, autoRefreshToken: false } }
+        );
+        const { data: hasPerm, error: permError } = await supabaseUser.rpc("has_permission_any_activity", {
+            p_permission_id: "products.write",
+            p_tenant_id: tenantId
+        });
+        if (permError) throw permError;
+        if (!hasPerm) {
+            return jsonError("Accesso al tenant non autorizzato", 403, "forbidden");
         }
 
         const failureCtx: Omit<FailureContext, "debug"> = {
@@ -271,16 +316,12 @@ serve(async (req: Request) => {
         }
 
         // ── Metering (best-effort, mai bloccante) ─────────────────
-        // Solo su risposta valida. Client service_role creato qui: questa edge
-        // non ne ha altrove (nessun accesso DB nel path principale).
-        const supabaseAdmin = createClient(
-            Deno.env.get("SUPABASE_URL")!,
-            Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-            { auth: { persistSession: false } }
-        );
+        // Solo su risposta valida. Riusa supabaseAdmin (service_role) creato in
+        // cima per l'auth. tenantId è ora quello VERIFICATO (getUser +
+        // products.write), non il valore grezzo del body.
         const usage = geminiData?.usageMetadata;
         await logAiUsage(supabaseAdmin, {
-            tenantId: tenantId || null,
+            tenantId,
             provider: "gemini",
             model: "gemini-2.5-flash",
             operation: "product_enrich",
