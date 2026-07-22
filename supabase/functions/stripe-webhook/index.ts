@@ -147,6 +147,85 @@ function getSubscriptionCurrentPeriodEnd(subscription: Stripe.Subscription): str
 }
 
 /**
+ * Read `current_period_start` from the subscription. Same item-level →
+ * top-level fallback as getSubscriptionCurrentPeriodEnd (recent Stripe API
+ * versions moved the period fields to the item level).
+ */
+function getSubscriptionCurrentPeriodStart(subscription: Stripe.Subscription): string | null {
+    const itemStart = subscription.items?.data?.[0]?.current_period_start;
+    if (itemStart) return toIsoTimestamp(itemStart);
+    return toIsoTimestamp(subscription.current_period_start);
+}
+
+/**
+ * Valore mensile CONTRATTUALE del piano in centesimi, AL LORDO di coupon/
+ * sconti: price × quantity come lo vede Stripe PRIMA di ogni discount (un
+ * comped 100%-off deve risultare al valore pieno, non a 0 — serve alla quota
+ * AI di FASE 4). NON usare mai invoice.amount_due (è post-coupon).
+ *
+ * I Price CataloGlobe sono graduated-tiered (billing_scheme=tiered): l'item
+ * della subscription NON porta i tiers, serve un prices.retrieve con expand.
+ * Stessa aritmetica di graduatedTotalFromPrice in stripe-change-subscription
+ * (duplicazione consapevole: quell'edge non espone helper condivisi).
+ * Ritorna null su errore/shape inattesa: il caller NON scrive la colonna in
+ * quel caso (mai azzerare un valore buono per un blip API).
+ */
+async function computePlanMonthlyValueCents(
+    stripe: Stripe,
+    subscription: Stripe.Subscription
+): Promise<number | null> {
+    const item = subscription.items?.data?.[0];
+    if (!item?.price?.id) return null;
+    const quantity = item.quantity ?? 1;
+
+    // Price flat per-unit: nessun fetch necessario.
+    if (item.price.billing_scheme === "per_unit" && item.price.unit_amount != null) {
+        return item.price.unit_amount * quantity;
+    }
+
+    try {
+        const price = await stripe.prices.retrieve(item.price.id, { expand: ["tiers"] });
+        if (
+            price.billing_scheme !== "tiered" ||
+            price.tiers_mode !== "graduated" ||
+            !Array.isArray(price.tiers)
+        ) {
+            console.warn(
+                `stripe-webhook: price ${item.price.id} non graduated-tiered (scheme=${price.billing_scheme}, mode=${price.tiers_mode}) — plan_monthly_value_cents skipped`
+            );
+            return null;
+        }
+        const tiers = [...price.tiers].sort((a, b) => {
+            const au = a.up_to ?? Number.POSITIVE_INFINITY;
+            const bu = b.up_to ?? Number.POSITIVE_INFINITY;
+            return au - bu;
+        });
+        let remaining = quantity;
+        let lower = 0;
+        let total = 0;
+        for (const tier of tiers) {
+            if (remaining <= 0) break;
+            const upTo = tier.up_to ?? Number.POSITIVE_INFINITY;
+            const capacity = upTo - lower;
+            const units = Math.min(remaining, capacity);
+            if (units <= 0) continue;
+            total += (tier.flat_amount ?? 0) + (tier.unit_amount ?? 0) * units;
+            remaining -= units;
+            lower = upTo;
+        }
+        if (remaining > 0) {
+            console.warn(`stripe-webhook: quantity ${quantity} oltre i tiers di ${item.price.id} — plan_monthly_value_cents skipped`);
+            return null;
+        }
+        return total;
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`stripe-webhook: prices.retrieve fallito per ${item.price.id}: ${message}`);
+        return null;
+    }
+}
+
+/**
  * Map Stripe subscription status to our DB status values.
  * Stripe statuses: trialing, active, past_due, canceled, incomplete, incomplete_expired, unpaid, paused
  * Our statuses:    trialing, active, past_due, suspended, canceled
@@ -268,6 +347,8 @@ serve(async req => {
                 let subscriptionStatus = "trialing"; // safe default if retrieve fails
                 let trialUntil: string | null = null;
                 let currentPeriodEnd: string | null = null;
+                let currentPeriodStart: string | null = null;
+                let planMonthlyValueCents: number | null = null;
                 let planCode: string | null = null;
                 try {
                     const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
@@ -275,6 +356,8 @@ serve(async req => {
                     subscriptionStatus = mapStripeStatus(sub.status);
                     trialUntil = toIsoTimestamp(sub.trial_end);
                     currentPeriodEnd = getSubscriptionCurrentPeriodEnd(sub);
+                    currentPeriodStart = getSubscriptionCurrentPeriodStart(sub);
+                    planMonthlyValueCents = await computePlanMonthlyValueCents(stripe, sub);
                     planCode = getSubscriptionPlanCode(sub);
                 } catch (err) {
                     console.warn("stripe-webhook: Could not retrieve subscription on checkout:", err.message);
@@ -291,9 +374,13 @@ serve(async req => {
                     stripe_subscription_id: stripeSubscriptionId,
                     subscription_status: subscriptionStatus,
                     paid_seats: paidSeats,
-                    current_period_end: currentPeriodEnd
+                    current_period_end: currentPeriodEnd,
+                    current_period_start: currentPeriodStart
                 };
                 if (planCode) updates.plan = planCode;
+                // Only write when computed — a transient Stripe API failure must
+                // never wipe a previously good contractual value.
+                if (planMonthlyValueCents !== null) updates.plan_monthly_value_cents = planMonthlyValueCents;
                 // Only write trial_until when present — never wipe an existing
                 // value on a payload that simply omits trial_end.
                 if (trialUntil !== null) updates.trial_until = trialUntil;
@@ -324,6 +411,8 @@ serve(async req => {
                 const paidSeats = getSubscriptionQuantity(subscription);
                 const trialUntil = toIsoTimestamp(subscription.trial_end);
                 const currentPeriodEnd = getSubscriptionCurrentPeriodEnd(subscription);
+                const currentPeriodStart = getSubscriptionCurrentPeriodStart(subscription);
+                const planMonthlyValueCents = await computePlanMonthlyValueCents(stripe, subscription);
                 // Priorità al metadata; se assente/non valido (es. cambio piano via
                 // subscriptions.update o subscription schedule senza metadata),
                 // deriva il piano dal price ID (source of truth in `plans`).
@@ -335,9 +424,13 @@ serve(async req => {
                 const updates: Record<string, unknown> = {
                     subscription_status: newStatus,
                     paid_seats: paidSeats,
-                    current_period_end: currentPeriodEnd
+                    current_period_end: currentPeriodEnd,
+                    current_period_start: currentPeriodStart
                 };
                 if (planCode) updates.plan = planCode;
+                // Only write when computed — a transient Stripe API failure must
+                // never wipe a previously good contractual value.
+                if (planMonthlyValueCents !== null) updates.plan_monthly_value_cents = planMonthlyValueCents;
                 // Only write trial_until when present — never wipe an existing
                 // value on a payload that simply omits trial_end.
                 if (trialUntil !== null) updates.trial_until = trialUntil;
@@ -358,7 +451,11 @@ serve(async req => {
 
                 const result = await updateTenantStatus(admin, stripeCustomerId, {
                     subscription_status: "canceled",
-                    current_period_end: null
+                    current_period_end: null,
+                    // Mirror di current_period_end: nessun periodo su canceled.
+                    // plan_monthly_value_cents resta com'è (tenant non eleggibile
+                    // comunque; il valore storico non nuoce).
+                    current_period_start: null
                 });
 
                 if (result.ok && result.rowsAffected > 0) {
