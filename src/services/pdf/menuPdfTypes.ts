@@ -13,6 +13,8 @@ import type { ResolvedMediaFraming } from "@/services/supabase/resolveActivityCa
 export type MenuPdfAllergen = {
     code: string;
     label: string;
+    /** Numero UE 1..14 (Reg. 1169/2011) — apici inline + ordinamento legenda. */
+    euNumber: number;
 };
 
 export type MenuPdfCharacteristic = {

@@ -4,9 +4,11 @@
 // testuali di copertina e running header gated dai toggle tokens.header.
 // Logo/cover-image/QR → Stage 3b; allergeni → Stage 4; foto → Stage 5.
 import { Document, Image, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
-import type { MenuPdfCategory, MenuPdfData, MenuPdfProduct } from "./menuPdfTypes";
+import type { MenuPdfCategory, MenuPdfCharacteristic, MenuPdfData, MenuPdfProduct } from "./menuPdfTypes";
 import { buildPdfTheme, type PdfTheme } from "./pdfTheme";
 import { resolvePdfFontFamily } from "./pdfFonts";
+import { PdfIcon, allergenIconGeometry, characteristicIconGeometry } from "./pdfIcons";
+import { ALL_ALLERGENS } from "./allergenEuNumbers";
 
 /** Asset immagine già pre-fetchati come data-URL (o null): il documento non
  *  fa MAI fetch a runtime — pipeline in renderMenuPdf/prefetchPdfImage. */
@@ -162,6 +164,23 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
             color: theme.ink,
             flexShrink: 1
         },
+        // Sub-line icone sotto la descrizione: allergeni | caratteristiche,
+        // tutte in primary come sul menu online (Stage 4c: via i numeri inline).
+        productIconsLine: {
+            flexDirection: "row",
+            alignItems: "center",
+            marginTop: 4
+        },
+        productIconGap: {
+            marginRight: 3
+        },
+        iconSeparator: {
+            width: 1,
+            height: 9,
+            backgroundColor: theme.primarySoft,
+            marginLeft: 3,
+            marginRight: 6
+        },
         productPrice: {
             fontFamily,
             fontWeight: 700,
@@ -197,6 +216,58 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
             marginLeft: 12
         },
 
+        // ── Legenda ───────────────────────────────────────────────────────
+        legendSection: {
+            marginTop: 18,
+            paddingTop: 16,
+            borderTopWidth: 1,
+            borderTopColor: theme.primarySoft
+        },
+        legendTitle: {
+            fontFamily,
+            fontWeight: 700,
+            fontSize: 12,
+            letterSpacing: 1.5,
+            color: theme.primary,
+            textTransform: "uppercase",
+            marginBottom: 10
+        },
+        legendSubtitle: {
+            fontFamily,
+            fontWeight: 700,
+            fontSize: 9,
+            letterSpacing: 1,
+            color: theme.primary,
+            textTransform: "uppercase",
+            marginBottom: 6
+        },
+        legendCharsBlock: {
+            marginTop: 12
+        },
+        // Griglia "chiave" a 2 colonne: icona sempre visibile + label.
+        legendGrid: {
+            flexDirection: "row",
+            flexWrap: "wrap"
+        },
+        legendItem: {
+            width: "50%",
+            flexDirection: "row",
+            alignItems: "center",
+            marginBottom: 5,
+            paddingRight: 10
+        },
+        legendLabel: {
+            fontFamily,
+            fontSize: 8.5,
+            color: theme.ink,
+            marginLeft: 6
+        },
+        legendLabelMuted: {
+            fontFamily,
+            fontSize: 8.5,
+            color: theme.muted,
+            marginLeft: 6
+        },
         footer: {
             position: "absolute",
             left: PAGE_MARGIN,
@@ -218,7 +289,24 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
 
 type Styles = ReturnType<typeof createStyles>;
 
-function ProductRow({ product, styles }: { product: MenuPdfProduct; styles: Styles }) {
+function ProductRow({
+    product,
+    styles,
+    theme
+}: {
+    product: MenuPdfProduct;
+    styles: Styles;
+    theme: PdfTheme;
+}) {
+    // Icone risolte a monte: servono i conteggi per decidere il separatore.
+    const allergenIcons = [...product.allergens]
+        .sort((a, b) => a.euNumber - b.euNumber)
+        .map(a => ({ key: a.code, geometry: allergenIconGeometry(a.code) }))
+        .filter((x): x is { key: string; geometry: NonNullable<ReturnType<typeof allergenIconGeometry>> } => x.geometry !== null);
+    const characteristicIcons = product.characteristics
+        .map(c => ({ key: c.code, geometry: characteristicIconGeometry(c.icon) }))
+        .filter((x): x is { key: string; geometry: NonNullable<ReturnType<typeof characteristicIconGeometry>> } => x.geometry !== null);
+
     return (
         <View style={styles.productRow} wrap={false}>
             <View style={styles.productLine}>
@@ -231,6 +319,23 @@ function ProductRow({ product, styles }: { product: MenuPdfProduct; styles: Styl
             {product.description ? (
                 <Text style={styles.productDescription}>{product.description}</Text>
             ) : null}
+            {allergenIcons.length > 0 || characteristicIcons.length > 0 ? (
+                <View style={styles.productIconsLine}>
+                    {allergenIcons.map(icon => (
+                        <View key={`al-${icon.key}`} style={styles.productIconGap}>
+                            <PdfIcon geometry={icon.geometry} size={9} color={theme.primary} />
+                        </View>
+                    ))}
+                    {allergenIcons.length > 0 && characteristicIcons.length > 0 ? (
+                        <View style={styles.iconSeparator} />
+                    ) : null}
+                    {characteristicIcons.map(icon => (
+                        <View key={`ch-${icon.key}`} style={styles.productIconGap}>
+                            <PdfIcon geometry={icon.geometry} size={9} color={theme.primary} />
+                        </View>
+                    ))}
+                </View>
+            ) : null}
             {product.formats.map(format => (
                 <View key={format.name} style={styles.formatLine}>
                     <Text style={styles.formatName}>{format.name}</Text>
@@ -242,7 +347,15 @@ function ProductRow({ product, styles }: { product: MenuPdfProduct; styles: Styl
     );
 }
 
-function CategorySection({ category, styles }: { category: MenuPdfCategory; styles: Styles }) {
+function CategorySection({
+    category,
+    styles,
+    theme
+}: {
+    category: MenuPdfCategory;
+    styles: Styles;
+    theme: PdfTheme;
+}) {
     const isSubCategory = category.level > 0;
     const [firstProduct, ...restProducts] = category.products;
     return (
@@ -257,11 +370,98 @@ function CategorySection({ category, styles }: { category: MenuPdfCategory; styl
                     </Text>
                     {!isSubCategory ? <View style={styles.categoryRule} /> : null}
                 </View>
-                {firstProduct ? <ProductRow product={firstProduct} styles={styles} /> : null}
+                {firstProduct ? (
+                    <ProductRow product={firstProduct} styles={styles} theme={theme} />
+                ) : null}
             </View>
             {restProducts.map(product => (
-                <ProductRow key={product.id} product={product} styles={styles} />
+                <ProductRow key={product.id} product={product} styles={styles} theme={theme} />
             ))}
+        </View>
+    );
+}
+
+/** Caratteristiche usate nel menù (prodotti + varianti), dedup per code. */
+function collectUsedCharacteristics(data: MenuPdfData): MenuPdfCharacteristic[] {
+    const byCode = new Map<string, MenuPdfCharacteristic>();
+    for (const category of data.categories) {
+        for (const product of category.products) {
+            for (const characteristic of [
+                ...product.characteristics,
+                ...product.variants.flatMap(v => v.characteristics)
+            ]) {
+                if (!byCode.has(characteristic.code)) byCode.set(characteristic.code, characteristic);
+            }
+        }
+    }
+    return Array.from(byCode.values()).sort((a, b) => a.label.localeCompare(b.label));
+}
+
+function LegendSection({
+    data,
+    styles,
+    theme
+}: {
+    data: MenuPdfData;
+    styles: Styles;
+    theme: PdfTheme;
+}) {
+    const usedCharacteristics = collectUsedCharacteristics(data);
+    if (data.allergenLegend.length === 0 && usedCharacteristics.length === 0) return null;
+
+    const presentAllergenCodes = new Set(data.allergenLegend.map(a => a.code));
+
+    return (
+        <View style={styles.legendSection}>
+            {data.allergenLegend.length > 0 ? (
+                <View wrap={false}>
+                    <Text style={styles.legendTitle}>Legenda</Text>
+                    <Text style={styles.legendSubtitle}>Allergeni</Text>
+                    <View style={styles.legendGrid}>
+                        {/* Tutti e 14 gli allergeni UE: presenti nel menù in
+                            evidenza, assenti attenuati. Nessun numero visibile. */}
+                        {ALL_ALLERGENS.map(allergen => {
+                            const isPresent = presentAllergenCodes.has(allergen.code);
+                            const geometry = allergenIconGeometry(allergen.code);
+                            return (
+                                <View key={allergen.code} style={styles.legendItem}>
+                                    {geometry ? (
+                                        <PdfIcon
+                                            geometry={geometry}
+                                            size={11}
+                                            color={isPresent ? theme.primary : theme.muted}
+                                        />
+                                    ) : null}
+                                    <Text style={isPresent ? styles.legendLabel : styles.legendLabelMuted}>
+                                        {allergen.label}
+                                    </Text>
+                                </View>
+                            );
+                        })}
+                    </View>
+                </View>
+            ) : null}
+            {usedCharacteristics.length > 0 ? (
+                <View wrap={false} style={styles.legendCharsBlock}>
+                    {data.allergenLegend.length === 0 ? (
+                        <Text style={styles.legendTitle}>Legenda</Text>
+                    ) : null}
+                    <Text style={styles.legendSubtitle}>Caratteristiche</Text>
+                    <View style={styles.legendGrid}>
+                        {usedCharacteristics.map(characteristic => {
+                            const geometry = characteristicIconGeometry(characteristic.icon);
+                            return (
+                                <View key={characteristic.code} style={styles.legendItem}>
+                                    {geometry ? (
+                                        <PdfIcon geometry={geometry} size={11} color={theme.primary} />
+                                    ) : null}
+                                    <Text style={styles.legendLabel}>{characteristic.label}</Text>
+                                </View>
+                            );
+                        })}
+                    </View>
+                </View>
+            ) : null}
         </View>
     );
 }
@@ -329,8 +529,10 @@ export function MenuPdfDocument({
                 ) : null}
 
                 {data.categories.map(category => (
-                    <CategorySection key={category.id} category={category} styles={styles} />
+                    <CategorySection key={category.id} category={category} styles={styles} theme={theme} />
                 ))}
+
+                <LegendSection data={data} styles={styles} theme={theme} />
 
                 <View style={styles.footer} fixed>
                     <Text style={styles.footerText}>

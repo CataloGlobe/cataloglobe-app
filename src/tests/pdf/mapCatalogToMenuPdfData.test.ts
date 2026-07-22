@@ -116,22 +116,22 @@ describe("mapCatalogToMenuPdfData — prezzi", () => {
 });
 
 describe("mapCatalogToMenuPdfData — legenda allergeni", () => {
-    it("unione degli allergeni usati (prodotti + varianti), dedup, ordinata per code", () => {
-        const glutine = allergen("01", "Glutine");
-        const latte = allergen("07", "Latte");
-        const frutta = allergen("08", "Frutta a guscio");
+    it("unione degli allergeni usati (prodotti + varianti), dedup, ordinata per euNumber", () => {
+        const latte = allergen("milk", "Latte");
+        const glutine = allergen("gluten", "Glutine");
+        const molluschi = allergen("molluscs", "Molluschi");
 
         const data = mapCatalogToMenuPdfData(
             catalog([
                 category("c1", [
-                    product("p1", { allergens: [latte, glutine] }),
+                    product("p1", { allergens: [molluschi, latte] }),
                     product("p2", {
-                        allergens: [glutine],
+                        allergens: [latte],
                         variants: [
                             {
                                 id: "var1",
                                 name: "Variante",
-                                allergens: [frutta]
+                                allergens: [glutine]
                             }
                         ]
                     })
@@ -141,10 +141,28 @@ describe("mapCatalogToMenuPdfData — legenda allergeni", () => {
         );
 
         expect(data.allergenLegend).toEqual([
-            { code: "01", label: "Glutine" },
-            { code: "07", label: "Latte" },
-            { code: "08", label: "Frutta a guscio" }
+            { code: "gluten", label: "Glutine", euNumber: 1 },
+            { code: "milk", label: "Latte", euNumber: 7 },
+            { code: "molluscs", label: "Molluschi", euNumber: 14 }
         ]);
+    });
+
+    it("euNumber popolato sul prodotto; code sconosciuto escluso", () => {
+        const data = mapCatalogToMenuPdfData(
+            catalog([
+                category("c1", [
+                    product("p1", {
+                        allergens: [allergen("sulphites", "Solfiti"), allergen("inventato", "Boh")]
+                    })
+                ])
+            ]),
+            context()
+        );
+
+        expect(data.categories[0].products[0].allergens).toEqual([
+            { code: "sulphites", label: "Solfiti", euNumber: 12 }
+        ]);
+        expect(data.allergenLegend.map(a => a.code)).toEqual(["sulphites"]);
     });
 });
 

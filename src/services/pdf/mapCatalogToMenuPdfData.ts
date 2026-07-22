@@ -8,6 +8,7 @@
 
 import { formatPriceSummary } from "@/utils/formatPriceSummary";
 import type { PriceSummary } from "@/utils/priceSummary";
+import { euNumberForCode } from "./allergenEuNumbers";
 import type {
     ResolvedAllergen,
     ResolvedCatalog,
@@ -110,10 +111,18 @@ function mapAddons(optionGroups: ResolvedOptionGroup[] | undefined): MenuPdfAddo
 }
 
 function mapAllergens(allergens: ResolvedAllergen[] | undefined): MenuPdfAllergen[] {
-    return (allergens ?? []).map(a => ({
-        code: a.code,
-        label: a.label_it ?? a.label
-    }));
+    const mapped: MenuPdfAllergen[] = [];
+    for (const a of allergens ?? []) {
+        const euNumber = euNumberForCode(a.code);
+        if (euNumber === null) {
+            // Fuori standard UE: niente apice/legenda numerata — non deve capitare
+            // con i 14 code platform, loggato per intercettare dati anomali.
+            console.warn(`[mapCatalogToMenuPdfData] allergene senza numero UE, escluso: ${a.code}`);
+            continue;
+        }
+        mapped.push({ code: a.code, label: a.label_it ?? a.label, euNumber });
+    }
+    return mapped;
 }
 
 function mapCharacteristics(
@@ -173,7 +182,7 @@ function buildAllergenLegend(categories: MenuPdfCategory[]): MenuPdfAllergen[] {
             }
         }
     }
-    return Array.from(byCode.values()).sort((a, b) => a.code.localeCompare(b.code));
+    return Array.from(byCode.values()).sort((a, b) => a.euNumber - b.euNumber);
 }
 
 export function mapCatalogToMenuPdfData(
