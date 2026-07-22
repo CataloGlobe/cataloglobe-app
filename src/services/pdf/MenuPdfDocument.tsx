@@ -122,7 +122,12 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
     },
     coverContent: {
       flexGrow: 1,
-      padding: PAGE_MARGIN,
+      paddingTop: PAGE_MARGIN,
+      paddingHorizontal: PAGE_MARGIN,
+      // Nudge sobrio: extra padding in fondo → il blocco brand centrato si
+      // alza (~40pt) sopra la metà esatta, bilanciando contro il QR ancorato
+      // in basso. Vale sia col band immagine sia in tipografico.
+      paddingBottom: PAGE_MARGIN + 80,
       justifyContent: "center",
       alignItems: "center",
     },
@@ -187,22 +192,6 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       paddingBottom: PAGE_MARGIN + 26,
       color: theme.ink,
     },
-    runningHeader: {
-      flexDirection: "row",
-      justifyContent: "center",
-      borderBottomWidth: 1,
-      borderBottomColor: theme.primarySoft,
-      paddingBottom: 8,
-      marginBottom: 20,
-    },
-    runningHeaderText: {
-      fontFamily,
-      fontSize: 8,
-      letterSpacing: 1.5,
-      color: theme.muted,
-      textTransform: "uppercase",
-    },
-
     categorySection: {
       marginBottom: 22,
     },
@@ -237,8 +226,12 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
     },
     // photoMode: colonna gutter fissa su OGNI riga (thumb o vuota) cosi il
     // bordo sinistro del contenuto e' identico riga per riga.
+    // width 100% obbligatoria: senza, il row si dimensiona sul max-content del
+    // testo → nessuno shrink → la descrizione sfora il margine destro e viene
+    // clippata. Con width definita, productContent = 100% − gutter → il Text wrappa.
     productRowPhotoMode: {
       flexDirection: "row",
+      width: "100%",
     },
     productThumbBox: {
       width: 52,
@@ -269,17 +262,32 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
     productContent: {
       flexGrow: 1,
       flexShrink: 1,
+      // flexBasis 0: la colonna si dimensiona SOLO dallo spazio libero (grow),
+      // non dal max-content del testo. Senza, react-pdf misura la descrizione a
+      // larghezza naturale e non sottrae il gutter → wrappa a larghezza piena
+      // pagina e sfora il margine destro (clip). minWidth 0 per sicurezza.
+      flexBasis: 0,
+      minWidth: 0,
     },
     productLine: {
       flexDirection: "row",
-      alignItems: "flex-end",
+      // flex-start: con un nome su più righe il prezzo resta allineato in alto
+      // (prima riga), mai spinto in fondo al blocco nome.
+      alignItems: "flex-start",
     },
     productName: {
       fontFamily,
       fontWeight: 700,
       fontSize: 11,
       color: theme.ink,
+      // flexGrow riempie lo spazio meno il prezzo; il nome lungo wrappa DENTRO
+      // questa colonna invece di sovrapporsi al prezzo. flexBasis 0 (come
+      // productContent): in una row il Text va dimensionato dal grow, non dal
+      // max-content, altrimenti non wrappa e sfora sul prezzo.
+      flexGrow: 1,
       flexShrink: 1,
+      flexBasis: 0,
+      minWidth: 0,
     },
     // Sub-line icone sotto la descrizione: allergeni | caratteristiche,
     // tutte in primary come sul menu online (Stage 4c: via i numeri inline).
@@ -304,6 +312,9 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       fontSize: 11,
       color: theme.ink,
       marginLeft: 12,
+      // Il prezzo non si comprime né wrappa: resta intatto a destra con lo
+      // stacco garantito dal marginLeft, mai a contatto col nome.
+      flexShrink: 0,
     },
     productSpacer: {
       flexGrow: 1,
@@ -453,7 +464,6 @@ function ProductRow({
     <>
       <View style={styles.productLine}>
         <Text style={styles.productName}>{product.name}</Text>
-        <View style={styles.productSpacer} />
         {product.priceLabel ? (
           <Text style={styles.productPrice}>{product.priceLabel}</Text>
         ) : null}
@@ -690,15 +700,11 @@ export function MenuPdfDocument({
   // niente gutter riservato, layout testo-only pieno-larghezza.
   const photoMode = Object.keys(productImages).length > 0;
 
-  const showCoverBand = header.showCoverImage && assets.coverDataUrl !== null;
+  // Il toggle export "Includi immagine di copertina" è il controllo effettivo:
+  // controlla il prefetch (coverDataUrl null se off) → qui basta la presenza
+  // dell'asset. Non si somma più al gate di stile header.showCoverImage.
+  const showCoverBand = assets.coverDataUrl !== null;
   const showLogo = header.showLogo && assets.logoDataUrl !== null;
-
-  const runningTitle = [
-    header.showActivityName ? data.meta.activityName : null,
-    header.showCatalogName ? data.meta.catalogName : null,
-  ]
-    .filter(Boolean)
-    .join("  ·  ");
 
   return (
     <Document title={`${data.meta.catalogName} — ${data.meta.activityName}`}>
@@ -733,19 +739,14 @@ export function MenuPdfDocument({
         {assets.qrDataUrl ? (
           <View style={styles.coverQrBlock}>
             <Image style={styles.coverQr} src={assets.qrDataUrl} />
-            <Text style={styles.coverQrCaption}>Menu online</Text>
+            <Text style={styles.coverQrCaption}>Menu digitale</Text>
           </View>
         ) : null}
       </Page>
 
-      {/* Pagine menù */}
+      {/* Pagine menù — nessun running header: partono pulite dalla prima
+          categoria; l'identificazione pagina resta nel footer. */}
       <Page size="A4" style={styles.menuPage} wrap>
-        {runningTitle ? (
-          <View style={styles.runningHeader} fixed>
-            <Text style={styles.runningHeaderText}>{runningTitle}</Text>
-          </View>
-        ) : null}
-
         {data.categories.map((category) => (
           <CategorySection
             key={category.id}
@@ -765,8 +766,10 @@ export function MenuPdfDocument({
           </Text>
           <Text
             style={styles.footerText}
+            // La copertina è il frontespizio (pagina 1, senza footer): esclusa
+            // dal conteggio. Le pagine prodotti partono da "1 di N".
             render={({ pageNumber, totalPages }) =>
-              `Pagina ${pageNumber} di ${totalPages}`
+              `Pagina ${pageNumber - 1} di ${totalPages - 1}`
             }
           />
         </View>
