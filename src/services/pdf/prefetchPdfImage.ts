@@ -41,6 +41,32 @@ async function transcodeToPngDataUrl(blob: Blob): Promise<string | null> {
     }
 }
 
+/**
+ * Prefetch di N immagini con pool bounded (Stage 5, foto prodotto): mai più
+ * di `concurrency` fetch+transcodifiche in volo. Ritorna un array allineato
+ * agli input (null sui fallimenti, come prefetchImageAsDataUrl).
+ */
+export async function prefetchImagesBounded(
+    urls: Array<string | null>,
+    concurrency = 6
+): Promise<Array<string | null>> {
+    const results: Array<string | null> = new Array(urls.length).fill(null);
+    let nextIndex = 0;
+
+    async function worker(): Promise<void> {
+        while (nextIndex < urls.length) {
+            const index = nextIndex;
+            nextIndex += 1;
+            results[index] = await prefetchImageAsDataUrl(urls[index]);
+        }
+    }
+
+    await Promise.all(
+        Array.from({ length: Math.min(concurrency, urls.length) }, () => worker())
+    );
+    return results;
+}
+
 export async function prefetchImageAsDataUrl(url: string | null): Promise<string | null> {
     if (!url) return null;
 

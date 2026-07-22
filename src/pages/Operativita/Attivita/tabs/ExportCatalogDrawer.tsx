@@ -98,7 +98,8 @@ export function ExportCatalogDrawer({
                 import("@/services/pdf/renderMenuPdf")
             ]);
             const data = await loadMenuPdfData(tenantId, activityId, selectedCatalogId);
-            const blob = await renderMenuPdfBlob(data);
+            // TEMP: foto ON per la valutazione visiva Stage 5 (default resta off).
+            const blob = await renderMenuPdfBlob(data, { includePhotos: true });
 
             const url = URL.createObjectURL(blob);
             const link = document.createElement("a");

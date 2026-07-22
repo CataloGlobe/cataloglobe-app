@@ -16,6 +16,9 @@ export type MenuPdfAssets = {
     logoDataUrl: string | null;
     coverDataUrl: string | null;
     qrDataUrl: string | null;
+    /** Foto prodotto (Stage 5, flag includePhotos): productId → data-URL.
+     *  Mappa vuota/assente = niente thumbnail. */
+    productImages?: Record<string, string>;
 };
 
 const EMPTY_ASSETS: MenuPdfAssets = { logoDataUrl: null, coverDataUrl: null, qrDataUrl: null };
@@ -152,6 +155,27 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
 
         productRow: {
             marginBottom: 12
+        },
+        // Thumbnail foto prodotto (Stage 5, opzionale): box fisso, cover-crop.
+        productRowWithThumb: {
+            flexDirection: "row"
+        },
+        productThumbBox: {
+            width: 52,
+            height: 52,
+            overflow: "hidden",
+            borderRadius: theme.radius / 3,
+            marginRight: 10,
+            flexShrink: 0
+        },
+        productThumbImage: {
+            width: "100%",
+            height: "100%",
+            objectFit: "cover"
+        },
+        productContent: {
+            flexGrow: 1,
+            flexShrink: 1
         },
         productLine: {
             flexDirection: "row",
@@ -292,11 +316,13 @@ type Styles = ReturnType<typeof createStyles>;
 function ProductRow({
     product,
     styles,
-    theme
+    theme,
+    thumbSrc
 }: {
     product: MenuPdfProduct;
     styles: Styles;
     theme: PdfTheme;
+    thumbSrc: string | null;
 }) {
     // Icone risolte a monte: servono i conteggi per decidere il separatore.
     const allergenIcons = [...product.allergens]
@@ -307,8 +333,15 @@ function ProductRow({
         .map(c => ({ key: c.code, geometry: characteristicIconGeometry(c.icon) }))
         .filter((x): x is { key: string; geometry: NonNullable<ReturnType<typeof characteristicIconGeometry>> } => x.geometry !== null);
 
-    return (
-        <View style={styles.productRow} wrap={false}>
+    // Cover-crop centrato sul focal point salvato quando presente (fedeltà
+    // piena zoom/fillMode di FramedMedia rimandata — v1 esperimento).
+    const framing = product.imageFraming;
+    const objectPosition = framing
+        ? `${Math.round(framing.focalX * 100)}% ${Math.round(framing.focalY * 100)}%`
+        : "50% 50%";
+
+    const content = (
+        <>
             <View style={styles.productLine}>
                 <Text style={styles.productName}>{product.name}</Text>
                 <View style={styles.productSpacer} />
@@ -343,6 +376,24 @@ function ProductRow({
                     <Text style={styles.formatPrice}>{format.priceLabel}</Text>
                 </View>
             ))}
+        </>
+    );
+
+    return (
+        <View style={styles.productRow} wrap={false}>
+            {thumbSrc ? (
+                <View style={styles.productRowWithThumb}>
+                    <View style={styles.productThumbBox}>
+                        <Image
+                            style={[styles.productThumbImage, { objectPosition }]}
+                            src={thumbSrc}
+                        />
+                    </View>
+                    <View style={styles.productContent}>{content}</View>
+                </View>
+            ) : (
+                content
+            )}
         </View>
     );
 }
@@ -350,11 +401,13 @@ function ProductRow({
 function CategorySection({
     category,
     styles,
-    theme
+    theme,
+    productImages
 }: {
     category: MenuPdfCategory;
     styles: Styles;
     theme: PdfTheme;
+    productImages: Record<string, string>;
 }) {
     const isSubCategory = category.level > 0;
     const [firstProduct, ...restProducts] = category.products;
@@ -371,11 +424,22 @@ function CategorySection({
                     {!isSubCategory ? <View style={styles.categoryRule} /> : null}
                 </View>
                 {firstProduct ? (
-                    <ProductRow product={firstProduct} styles={styles} theme={theme} />
+                    <ProductRow
+                        product={firstProduct}
+                        styles={styles}
+                        theme={theme}
+                        thumbSrc={productImages[firstProduct.id] ?? null}
+                    />
                 ) : null}
             </View>
             {restProducts.map(product => (
-                <ProductRow key={product.id} product={product} styles={styles} theme={theme} />
+                <ProductRow
+                    key={product.id}
+                    product={product}
+                    styles={styles}
+                    theme={theme}
+                    thumbSrc={productImages[product.id] ?? null}
+                />
             ))}
         </View>
     );
@@ -529,7 +593,13 @@ export function MenuPdfDocument({
                 ) : null}
 
                 {data.categories.map(category => (
-                    <CategorySection key={category.id} category={category} styles={styles} theme={theme} />
+                    <CategorySection
+                        key={category.id}
+                        category={category}
+                        styles={styles}
+                        theme={theme}
+                        productImages={assets.productImages ?? {}}
+                    />
                 ))}
 
                 <LegendSection data={data} styles={styles} theme={theme} />
