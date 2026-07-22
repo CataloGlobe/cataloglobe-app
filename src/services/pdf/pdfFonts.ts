@@ -1,9 +1,7 @@
-// Registrazione font per il PDF menu (Stage 3).
-// TTF statici OFL (regular + bold) da Google Fonts per le famiglie realmente
-// usate dagli stili su staging (inter, poppins, raleway, josefin-sans) più il
-// default. Le altre famiglie dell'enum (montserrat, spectral, lora,
-// eb-garamond, patrick-hand) ricadono su Inter finché non arriva il pass di
-// completamento famiglie.
+// Registrazione font per il PDF menu (Stage 3 + pass completamento famiglie).
+// TTF statici OFL (regular + bold) da Google Fonts per tutte le famiglie
+// dell'enum FontFamily. Patrick Hand non ha un peso bold reale: il weight 700
+// registrato punta al TTF regular (niente faux-bold).
 //
 // Questo modulo importa @react-pdf/renderer: va tenuto nel chunk lazy
 // (importarlo solo da renderMenuPdf/MenuPdfDocument, mai da codice eager).
@@ -18,6 +16,15 @@ import ralewayRegular from "@/assets/pdf-fonts/raleway-400.ttf?url";
 import ralewayBold from "@/assets/pdf-fonts/raleway-700.ttf?url";
 import josefinRegular from "@/assets/pdf-fonts/josefin-sans-400.ttf?url";
 import josefinBold from "@/assets/pdf-fonts/josefin-sans-700.ttf?url";
+import montserratRegular from "@/assets/pdf-fonts/montserrat-400.ttf?url";
+import montserratBold from "@/assets/pdf-fonts/montserrat-700.ttf?url";
+import spectralRegular from "@/assets/pdf-fonts/spectral-400.ttf?url";
+import spectralBold from "@/assets/pdf-fonts/spectral-700.ttf?url";
+import loraRegular from "@/assets/pdf-fonts/lora-400.ttf?url";
+import loraBold from "@/assets/pdf-fonts/lora-700.ttf?url";
+import ebGaramondRegular from "@/assets/pdf-fonts/eb-garamond-400.ttf?url";
+import ebGaramondBold from "@/assets/pdf-fonts/eb-garamond-700.ttf?url";
+import patrickHandRegular from "@/assets/pdf-fonts/patrick-hand-400.ttf?url";
 
 const FALLBACK_FAMILY = "Inter";
 
@@ -26,14 +33,25 @@ const REGISTERED_FAMILIES: Partial<Record<FontFamily, string>> = {
     inter: "Inter",
     poppins: "Poppins",
     raleway: "Raleway",
-    "josefin-sans": "Josefin Sans"
+    "josefin-sans": "Josefin Sans",
+    montserrat: "Montserrat",
+    spectral: "Spectral",
+    lora: "Lora",
+    "eb-garamond": "EB Garamond",
+    "patrick-hand": "Patrick Hand"
 };
 
 const FONT_SOURCES: Array<{ family: string; regular: string; bold: string }> = [
     { family: "Inter", regular: interRegular, bold: interBold },
     { family: "Poppins", regular: poppinsRegular, bold: poppinsBold },
     { family: "Raleway", regular: ralewayRegular, bold: ralewayBold },
-    { family: "Josefin Sans", regular: josefinRegular, bold: josefinBold }
+    { family: "Josefin Sans", regular: josefinRegular, bold: josefinBold },
+    { family: "Montserrat", regular: montserratRegular, bold: montserratBold },
+    { family: "Spectral", regular: spectralRegular, bold: spectralBold },
+    { family: "Lora", regular: loraRegular, bold: loraBold },
+    { family: "EB Garamond", regular: ebGaramondRegular, bold: ebGaramondBold },
+    // Patrick Hand: nessun peso bold reale — weight 700 punta al regular.
+    { family: "Patrick Hand", regular: patrickHandRegular, bold: patrickHandRegular }
 ];
 
 let registered = false;

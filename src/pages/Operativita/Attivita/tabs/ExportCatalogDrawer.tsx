@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import { Switch } from "@/components/ui/Switch/Switch";
 import { listCatalogs, type V2Catalog } from "@/services/supabase/catalogs";
 import { useToast } from "@/context/Toast/ToastContext";
 import styles from "./ExportCatalogDrawer.module.scss";
@@ -30,11 +31,13 @@ export function ExportCatalogDrawer({
     const [fileName, setFileName] = useState<string>("");
     const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(false);
     const [isDownloading, setIsDownloading] = useState(false);
+    const [includePhotos, setIncludePhotos] = useState(false);
 
     useEffect(() => {
         if (!open) return;
         setSelectedCatalogId("");
         setFileName("");
+        setIncludePhotos(false);
 
         async function load() {
             setIsLoadingCatalogs(true);
@@ -73,7 +76,7 @@ export function ExportCatalogDrawer({
                 import("@/services/pdf/renderMenuPdf")
             ]);
             const data = await loadMenuPdfData(tenantId, activityId, selectedCatalogId);
-            const blob = await renderMenuPdfBlob(data);
+            const blob = await renderMenuPdfBlob(data, { includePhotos });
 
             const base =
                 fileName.trim() || `${data.meta.catalogName} - ${data.meta.activityName}`;
@@ -150,6 +153,13 @@ export function ExportCatalogDrawer({
                         placeholder="Es. Catalogo Completo - McDonald's Viale Certosa"
                         disabled={isDownloading}
                         helperText="Senza estensione .pdf"
+                    />
+                    <Switch
+                        label="Includi foto"
+                        helperText="Attiva le foto dei piatti. Quelli senza foto mostreranno un segnaposto."
+                        checked={includePhotos}
+                        onChange={setIncludePhotos}
+                        disabled={isDownloading}
                     />
                 </div>
             </DrawerLayout>
