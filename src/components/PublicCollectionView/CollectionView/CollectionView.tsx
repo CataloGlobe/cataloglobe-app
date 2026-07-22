@@ -344,11 +344,6 @@ function ProductRowInner({
         >
             {showImage && (
                 <div className={styles.rowImageWrapper}>
-                    {isDisabled && (
-                        <span className={styles.unavailableBadgeOverlay}>
-                            {t("product.badge_unavailable")}
-                        </span>
-                    )}
                     {mode === "preview" || !image ? (
                         <div className={styles.rowPlaceholder} aria-hidden="true">
                             <Package
@@ -374,6 +369,11 @@ function ProductRowInner({
                 </div>
             )}
             <div className={styles.rowBody}>
+                {isDisabled && (
+                    <span className={styles.unavailableBadge}>
+                        {t("product.badge_unavailable")}
+                    </span>
+                )}
                 <div className={styles.titleRow}>
                     <div className={styles.titleRowLeft}>
                         <Text variant="body" weight={700} className={styles.title} color="var(--pub-surface-text)">
@@ -552,7 +552,7 @@ function ProductCompactRowInner({
         <div className={styles.compactRow} onClick={handleRootClick}>
             <div className={styles.compactRowBody}>
                 {isDisabled && (
-                    <span className={styles.unavailableBadgeCompact}>
+                    <span className={styles.unavailableBadge}>
                         {t("product.badge_unavailable")}
                     </span>
                 )}
