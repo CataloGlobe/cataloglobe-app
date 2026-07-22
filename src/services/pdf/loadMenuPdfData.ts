@@ -14,7 +14,7 @@ import {
 } from "@/services/supabase/resolveActivityCatalogs";
 import { resolveRulesForActivity } from "@/services/supabase/scheduleResolver";
 import { getNowInRome } from "@/services/supabase/schedulingNow";
-import { listStyles } from "@/services/supabase/styles";
+import { getStyle, listStyles } from "@/services/supabase/styles";
 import { getActivityById } from "@/services/supabase/activities";
 import { getTenantLogoPublicUrl, getTenantPublicInfo } from "@/services/supabase/tenants";
 import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
@@ -30,13 +30,27 @@ function composeAddress(activity: V2Activity): string | null {
 }
 
 /**
- * Catena stile v1 (selettore rimandato): stile pubblico corrente della sede →
+ * Catena stile: se `styleId` è passato (override runtime dal drawer di export)
+ * usa la config di quello stile; altrimenti stile pubblico corrente della sede →
  * stile system del tenant → DEFAULT_STYLE_TOKENS (via parseTokens(null)).
+ * Override NON risolvibile (stile eliminato/senza config) → fallback graceful
+ * alla catena attuale (non crasha).
  */
 async function resolveBrandStyle(
     tenantId: string,
-    activityId: string
+    activityId: string,
+    styleId?: string
 ): Promise<Pick<MenuPdfBrand, "tokens" | "styleName">> {
+    if (styleId) {
+        const style = await getStyle(styleId, tenantId);
+        if (style?.current_version?.config) {
+            return { tokens: parseTokens(style.current_version.config), styleName: style.name };
+        }
+        console.warn(
+            `[loadMenuPdfData] stile ${styleId} non risolvibile (eliminato o senza config): fallback alla catena stile della sede.`
+        );
+    }
+
     const ruleResolution = await resolveRulesForActivity({
         supabase,
         activityId,
@@ -63,16 +77,44 @@ async function resolveBrandStyle(
     return { tokens: parseTokens(null), styleName: null };
 }
 
+/**
+ * Id dello stile pubblico corrente della sede — STESSA catena di
+ * `resolveBrandStyle` (regola layout vincente → stile system del tenant), così
+ * il drawer di export può preselezionare esattamente lo stile che si otterrebbe
+ * senza override. Null se nessuno stile risolvibile (il caller decide il
+ * fallback difensivo lato UI). Read-only, nessun side effect.
+ */
+export async function resolveCurrentStyleId(
+    tenantId: string,
+    activityId: string
+): Promise<string | null> {
+    const ruleResolution = await resolveRulesForActivity({
+        supabase,
+        activityId,
+        tenantId,
+        now: getNowInRome(),
+        includeLayoutStyle: true,
+        ruleTypes: ["layout"]
+    });
+
+    const layoutStyle = ruleResolution.layout.styleData;
+    if (layoutStyle?.config) return layoutStyle.id;
+
+    const styles = await listStyles(tenantId);
+    return styles.find(s => s.is_system)?.id ?? null;
+}
+
 export async function loadMenuPdfData(
     tenantId: string,
     activityId: string,
-    catalogId: string
+    catalogId: string,
+    styleId?: string
 ): Promise<MenuPdfData> {
     const [activity, catalog, tenantInfo, brandStyle] = await Promise.all([
         getActivityById(activityId, tenantId),
         loadCatalogById(catalogId, tenantId),
         getTenantPublicInfo(tenantId),
-        resolveBrandStyle(tenantId, activityId)
+        resolveBrandStyle(tenantId, activityId, styleId)
     ]);
 
     if (!activity) throw new Error("Sede non trovata.");
