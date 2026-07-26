@@ -23,6 +23,7 @@ import type {
     MenuPdfBrand,
     MenuPdfCategory,
     MenuPdfCharacteristic,
+    MenuPdfClosingInfo,
     MenuPdfData,
     MenuPdfFormat,
     MenuPdfProduct,
@@ -34,6 +35,7 @@ export type MapCatalogContext = {
     activityName: string;
     slug: string;
     address: string | null;
+    closingInfo: MenuPdfClosingInfo;
     /** ISO timestamp; iniettabile per test deterministici. Default: now. */
     generatedAt?: string;
 };
@@ -207,7 +209,8 @@ export function mapCatalogToMenuPdfData(
             catalogName: catalog.name,
             slug: context.slug,
             address: context.address,
-            generatedAt: context.generatedAt ?? new Date().toISOString()
+            generatedAt: context.generatedAt ?? new Date().toISOString(),
+            closingInfo: context.closingInfo
         },
         brand: context.brand,
         categories,

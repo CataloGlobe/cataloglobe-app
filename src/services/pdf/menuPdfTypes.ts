@@ -82,15 +82,44 @@ export type MenuPdfBrand = {
     coverUrl: string | null;
 };
 
+/** Riga chiave→valore pronta per il render (orari, fees). */
+export type MenuPdfInfoRow = {
+    label: string;
+    value: string;
+};
+
+/**
+ * Info sede per la pagina di chiusura (Step 1: solo dati, render in Step 2).
+ * Ogni campo è popolato SOLO se il relativo flag `*_public` della sede è true
+ * (stessa semantica della pagina pubblica). Scalari null = non pubblico o
+ * assente. Array vuoti = non pubblici o non configurati.
+ */
+export type MenuPdfClosingInfo = {
+    phone: string | null;
+    email: string | null;
+    website: string | null;
+    whatsapp: string | null;
+    instagram: string | null;
+    facebook: string | null;
+    /** Non è flag-gated: incluso se valorizzato. */
+    googleReviewUrl: string | null;
+    /** Righe orari già formattate (giorni consecutivi raggruppati). */
+    hours: MenuPdfInfoRow[];
+    /** Fees già formattate via FEE_DEFINITIONS (label + unità). */
+    fees: MenuPdfInfoRow[];
+};
+
 export type MenuPdfMeta = {
     activityName: string;
     catalogName: string;
     /** Slug sede — per l'URL pubblico del QR in copertina. */
     slug: string;
-    /** Indirizzo già composto ("Via X, 12 — 20100 Milano") o null. */
+    /** Indirizzo già composto ("Via X, 12 — 20100 Milano (MI)") o null. */
     address: string | null;
     /** ISO timestamp di generazione (footer "aggiornato al"). */
     generatedAt: string;
+    /** Info sede per la pagina di chiusura, public-gated. */
+    closingInfo: MenuPdfClosingInfo;
 };
 
 export type MenuPdfData = {

@@ -16,17 +16,38 @@ import { resolveRulesForActivity } from "@/services/supabase/scheduleResolver";
 import { getNowInRome } from "@/services/supabase/schedulingNow";
 import { getStyle, listStyles } from "@/services/supabase/styles";
 import { getActivityById } from "@/services/supabase/activities";
+import { listActivityHours } from "@/services/supabase/activityHours";
 import { getTenantLogoPublicUrl, getTenantPublicInfo } from "@/services/supabase/tenants";
 import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import type { V2Activity } from "@/types/activity";
+import { FEE_DEFINITIONS_BY_KEY } from "@/constants/activityFees";
+import type { ActivityFee, V2Activity } from "@/types/activity";
 import { mapCatalogToMenuPdfData } from "./mapCatalogToMenuPdfData";
-import type { MenuPdfBrand, MenuPdfData } from "./menuPdfTypes";
+import { formatActivityHours } from "./formatActivityHours";
+import type { MenuPdfBrand, MenuPdfClosingInfo, MenuPdfData, MenuPdfInfoRow } from "./menuPdfTypes";
 
-/** Stesso pattern di composizione della pagina pubblica (PublicCatalogReady). */
+/**
+ * Stesso pattern di composizione della pagina pubblica (PublicCatalogReady),
+ * con la provincia in coda alla città ("… 20100 Milano (MI)"). La provincia è
+ * aggiunta solo se c'è una città/CAP a cui agganciarla (niente "(MI)" orfano).
+ */
 function composeAddress(activity: V2Activity): string | null {
     const street = [activity.address, activity.street_number].filter(Boolean).join(", ");
-    const location = [activity.postal_code, activity.city].filter(Boolean).join(" ");
+    const cityLine = [activity.postal_code, activity.city].filter(Boolean).join(" ");
+    const location = cityLine && activity.province ? `${cityLine} (${activity.province})` : cityLine;
     return [street, location].filter(Boolean).join(" — ") || null;
+}
+
+/** Fees JSONB (`{key,value}[]`) → righe label+unità via FEE_DEFINITIONS. */
+function mapFees(fees: ActivityFee[] | null): MenuPdfInfoRow[] {
+    return (fees ?? [])
+        .filter(f => f.value != null && f.value !== "")
+        .map(f => {
+            const def = FEE_DEFINITIONS_BY_KEY[f.key];
+            return {
+                label: def?.label ?? f.key,
+                value: def ? `${f.value} ${def.unit}` : f.value
+            };
+        });
 }
 
 /**
@@ -110,11 +131,17 @@ export async function loadMenuPdfData(
     catalogId: string,
     styleId?: string
 ): Promise<MenuPdfData> {
-    const [activity, catalog, tenantInfo, brandStyle] = await Promise.all([
+    // Gli orari (`activity_hours`) sono fetchati in parallelo agli altri pezzi:
+    // il gate `hours_public` vive su `activity`, risolto nello stesso Promise.all,
+    // quindi non è possibile skippare la query a monte senza serializzare (costo
+    // latenza). La SELECT è concorrente (nessuna latenza aggiuntiva) e l'inclusione
+    // nel payload resta gated su `hours_public` più sotto.
+    const [activity, catalog, tenantInfo, brandStyle, hours] = await Promise.all([
         getActivityById(activityId, tenantId),
         loadCatalogById(catalogId, tenantId),
         getTenantPublicInfo(tenantId),
-        resolveBrandStyle(tenantId, activityId, styleId)
+        resolveBrandStyle(tenantId, activityId, styleId),
+        listActivityHours(activityId, tenantId)
     ]);
 
     if (!activity) throw new Error("Sede non trovata.");
@@ -151,10 +178,25 @@ export async function loadMenuPdfData(
         coverUrl: activity.cover_image ?? null
     };
 
+    // Info chiusura: ogni campo popolato SOLO se il flag `*_public` è true (come
+    // sul sito). `google_review_url` non ha flag → incluso se valorizzato.
+    const closingInfo: MenuPdfClosingInfo = {
+        phone: activity.phone_public ? activity.phone : null,
+        email: activity.email_public_visible ? activity.email_public : null,
+        website: activity.website_public ? activity.website : null,
+        whatsapp: activity.whatsapp_public ? activity.whatsapp : null,
+        instagram: activity.instagram_public ? activity.instagram : null,
+        facebook: activity.facebook_public ? activity.facebook : null,
+        googleReviewUrl: activity.google_review_url ?? null,
+        hours: activity.hours_public ? formatActivityHours(hours) : [],
+        fees: activity.fees_public ? mapFees(activity.fees) : []
+    };
+
     return mapCatalogToMenuPdfData(curatedCatalog, {
         brand,
         activityName: activity.name,
         slug: activity.slug,
-        address: composeAddress(activity)
+        address: composeAddress(activity),
+        closingInfo
     });
 }

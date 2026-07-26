@@ -160,7 +160,8 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       letterSpacing: 3,
       color: theme.muted,
       textTransform: "uppercase",
-      marginBottom: 18,
+      // Tight verso l'indirizzo: nome sede + indirizzo = blocco "identità sede".
+      marginBottom: 6,
     },
     coverRule: {
       width: 48,
@@ -182,6 +183,8 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       fontSize: 10,
       color: theme.muted,
       textAlign: "center",
+      // Stacco verso la rule accento (che separa l'identità sede dal titolo menù).
+      marginBottom: 22,
     },
 
     // ── Pagine menù ───────────────────────────────────────────────────
@@ -344,35 +347,9 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       marginLeft: 12,
     },
 
-    // ── Legenda ───────────────────────────────────────────────────────
-    legendSection: {
-      marginTop: 18,
-      paddingTop: 16,
-      borderTopWidth: 1,
-      borderTopColor: theme.primarySoft,
-    },
-    legendTitle: {
-      fontFamily,
-      fontWeight: 700,
-      fontSize: 12,
-      letterSpacing: 1.5,
-      color: theme.primary,
-      textTransform: "uppercase",
-      marginBottom: 10,
-    },
-    legendSubtitle: {
-      fontFamily,
-      fontWeight: 700,
-      fontSize: 9,
-      letterSpacing: 1,
-      color: theme.primary,
-      textTransform: "uppercase",
-      marginBottom: 6,
-    },
-    legendCharsBlock: {
-      marginTop: 12,
-    },
-    // Griglia "chiave" a 2 colonne: icona sempre visibile + label.
+    // ── Legenda allergeni/caratteristiche (pagina finale, scala media) ──
+    // Griglia "chiave" a 2 colonne: icona (grande) + label. Gap verticale
+    // ampio per leggibilità (pagina dedicata, non coda di menù).
     legendGrid: {
       flexDirection: "row",
       flexWrap: "wrap",
@@ -381,20 +358,86 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       width: "50%",
       flexDirection: "row",
       alignItems: "center",
-      marginBottom: 5,
-      paddingRight: 10,
+      marginBottom: 16,
+      paddingRight: 12,
     },
     legendLabel: {
       fontFamily,
-      fontSize: 8.5,
+      fontSize: 11.5,
       color: theme.ink,
-      marginLeft: 6,
+      marginLeft: 10,
     },
     legendLabelMuted: {
       fontFamily,
-      fontSize: 8.5,
+      fontSize: 11.5,
       color: theme.muted,
-      marginLeft: 6,
+      marginLeft: 10,
+    },
+
+    // ── Pagina finale "Allergeni e caratteristiche" ───────────────────
+    // column + altezza piena: gli spaziatori elastici (finalSpacer) distribuiscono
+    // i blocchi verticalmente — titolo in alto, nota in fondo, contenuto in mezzo.
+    finalPage: {
+      backgroundColor: theme.pageBg,
+      paddingTop: PAGE_MARGIN,
+      paddingHorizontal: PAGE_MARGIN,
+      paddingBottom: PAGE_MARGIN,
+      color: theme.ink,
+      flexDirection: "column",
+    },
+    finalTitleBlock: {
+      alignItems: "center",
+      // Stacco titolo → contenuto: il contenuto parte in alto (pagina allineata
+      // in alto, non centrata), l'unico spaziatore elastico è prima della nota.
+      marginBottom: 32,
+    },
+    finalTitle: {
+      fontFamily,
+      fontWeight: 700,
+      fontSize: 24,
+      color: theme.ink,
+      textAlign: "center",
+      marginBottom: 14,
+    },
+    finalRule: {
+      width: 48,
+      height: 4,
+      backgroundColor: theme.primary,
+      borderRadius: theme.radius / 5,
+    },
+    finalSpacer: {
+      flexGrow: 1,
+    },
+    // Gap fisso tra allergeni e caratteristiche: le due sezioni formano un
+    // gruppo unico centrato dai due finalSpacer (sopra/sotto). Gap fisso (non
+    // elastico) → il baricentro del gruppo resta stabile con e senza caratteristiche.
+    finalCharsBlock: {
+      marginTop: 28,
+    },
+    finalSubtitle: {
+      fontFamily,
+      fontWeight: 700,
+      fontSize: 10,
+      letterSpacing: 1,
+      color: theme.primary,
+      textTransform: "uppercase",
+      marginBottom: 12,
+    },
+    finalNoteBlock: {
+      alignItems: "center",
+    },
+    finalNote: {
+      fontFamily,
+      fontSize: 8.5,
+      lineHeight: 1.4,
+      color: theme.muted,
+      textAlign: "center",
+    },
+    finalNoteDivider: {
+      alignSelf: "stretch",
+      height: 1,
+      backgroundColor: theme.primarySoft,
+      marginTop: 10,
     },
     footer: {
       position: "absolute",
@@ -605,7 +648,14 @@ function collectUsedCharacteristics(
   );
 }
 
-function LegendSection({
+/**
+ * Ultima pagina del menù: pagina dedicata "Allergeni e caratteristiche".
+ * Titolo di pagina + rule, i 14 allergeni UE (presenti evidenziati / assenti
+ * attenuati, con icone a scala media), le caratteristiche presenti (condizionale)
+ * e la nota di rito in fondo. Nessun footer/numero (come la copertina).
+ * Contenuto distribuito verticalmente dagli spaziatori elastici.
+ */
+function AllergensPage({
   data,
   styles,
   theme,
@@ -615,71 +665,78 @@ function LegendSection({
   theme: PdfTheme;
 }) {
   const usedCharacteristics = collectUsedCharacteristics(data);
-  if (data.allergenLegend.length === 0 && usedCharacteristics.length === 0)
-    return null;
-
   const presentAllergenCodes = new Set(data.allergenLegend.map((a) => a.code));
 
   return (
-    <View style={styles.legendSection}>
-      {data.allergenLegend.length > 0 ? (
-        <View wrap={false}>
-          <Text style={styles.legendTitle}>Legenda</Text>
-          <Text style={styles.legendSubtitle}>Allergeni</Text>
-          <View style={styles.legendGrid}>
-            {/* Tutti e 14 gli allergeni UE: presenti nel menù in
-                            evidenza, assenti attenuati. Nessun numero visibile. */}
-            {ALL_ALLERGENS.map((allergen) => {
-              const isPresent = presentAllergenCodes.has(allergen.code);
-              const geometry = allergenIconGeometry(allergen.code);
-              return (
-                <View key={allergen.code} style={styles.legendItem}>
-                  {geometry ? (
-                    <PdfIcon
-                      geometry={geometry}
-                      size={11}
-                      color={isPresent ? theme.primary : theme.muted}
-                    />
-                  ) : null}
-                  <Text
-                    style={
-                      isPresent ? styles.legendLabel : styles.legendLabelMuted
-                    }
-                  >
-                    {allergen.label}
-                  </Text>
-                </View>
-              );
-            })}
-          </View>
+    <Page size="A4" style={styles.finalPage}>
+      <View style={styles.finalTitleBlock}>
+        <Text style={styles.finalTitle}>Allergeni e caratteristiche</Text>
+        <View style={styles.finalRule} />
+      </View>
+
+      {/* Contenuto allineato in alto (subito sotto il titolo): allergeni +
+          (caratteristiche con gap fisso). Nessuno spaziatore sopra. */}
+      <View wrap={false}>
+        <Text style={styles.finalSubtitle}>Allergeni</Text>
+        <View style={styles.legendGrid}>
+          {/* Tutti e 14 gli allergeni UE: presenti nel menù evidenziati,
+              assenti attenuati. Nessun numero visibile. */}
+          {ALL_ALLERGENS.map((allergen) => {
+            const isPresent = presentAllergenCodes.has(allergen.code);
+            const geometry = allergenIconGeometry(allergen.code);
+            return (
+              <View key={allergen.code} style={styles.legendItem}>
+                {geometry ? (
+                  <PdfIcon
+                    geometry={geometry}
+                    size={20}
+                    color={isPresent ? theme.primary : theme.muted}
+                  />
+                ) : null}
+                <Text
+                  style={
+                    isPresent ? styles.legendLabel : styles.legendLabelMuted
+                  }
+                >
+                  {allergen.label}
+                </Text>
+              </View>
+            );
+          })}
         </View>
-      ) : null}
-      {usedCharacteristics.length > 0 ? (
-        <View wrap={false} style={styles.legendCharsBlock}>
-          {data.allergenLegend.length === 0 ? (
-            <Text style={styles.legendTitle}>Legenda</Text>
-          ) : null}
-          <Text style={styles.legendSubtitle}>Caratteristiche</Text>
-          <View style={styles.legendGrid}>
-            {usedCharacteristics.map((characteristic) => {
-              const geometry = characteristicIconGeometry(characteristic.icon);
-              return (
-                <View key={characteristic.code} style={styles.legendItem}>
-                  {geometry ? (
-                    <PdfIcon
-                      geometry={geometry}
-                      size={11}
-                      color={theme.primary}
-                    />
-                  ) : null}
-                  <Text style={styles.legendLabel}>{characteristic.label}</Text>
-                </View>
-              );
-            })}
+
+        {usedCharacteristics.length > 0 ? (
+          <View style={styles.finalCharsBlock}>
+            <Text style={styles.finalSubtitle}>Caratteristiche</Text>
+            <View style={styles.legendGrid}>
+              {usedCharacteristics.map((characteristic) => {
+                const geometry = characteristicIconGeometry(characteristic.icon);
+                return (
+                  <View key={characteristic.code} style={styles.legendItem}>
+                    {geometry ? (
+                      <PdfIcon geometry={geometry} size={20} color={theme.primary} />
+                    ) : null}
+                    <Text style={styles.legendLabel}>{characteristic.label}</Text>
+                  </View>
+                );
+              })}
+            </View>
           </View>
-        </View>
-      ) : null}
-    </View>
+        ) : null}
+      </View>
+
+      {/* Spaziatore sotto il gruppo: nota ancorata in fondo. */}
+      <View style={styles.finalSpacer} />
+
+      {/* Nota di rito in fondo, sopra un divider sottile. */}
+      <View style={styles.finalNoteBlock}>
+        <Text style={styles.finalNote}>
+          In caso di allergie o intolleranze si prega di informare il personale di
+          sala.
+        </Text>
+        <View style={styles.finalNoteDivider} />
+      </View>
+    </Page>
   );
 }
 
@@ -728,12 +785,14 @@ export function MenuPdfDocument({
           {header.showActivityName ? (
             <Text style={styles.coverActivity}>{data.meta.activityName}</Text>
           ) : null}
+          {/* Indirizzo = dato della sede: sotto il nome sede (blocco identità),
+              prima della rule accento che stacca verso il titolo del menù. */}
+          {header.showAddress && data.meta.address ? (
+            <Text style={styles.coverAddress}>{data.meta.address}</Text>
+          ) : null}
           <View style={styles.coverRule} />
           {header.showCatalogName ? (
             <Text style={styles.coverCatalog}>{data.meta.catalogName}</Text>
-          ) : null}
-          {header.showAddress && data.meta.address ? (
-            <Text style={styles.coverAddress}>{data.meta.address}</Text>
           ) : null}
         </View>
         {assets.qrDataUrl ? (
@@ -758,7 +817,8 @@ export function MenuPdfDocument({
           />
         ))}
 
-        <LegendSection data={data} styles={styles} theme={theme} />
+        {/* Legenda spostata nella pagina di chiusura (Step 2): non più in coda
+            ai prodotti, così resta fuori dalla numerazione. */}
 
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
@@ -766,14 +826,19 @@ export function MenuPdfDocument({
           </Text>
           <Text
             style={styles.footerText}
-            // La copertina è il frontespizio (pagina 1, senza footer): esclusa
-            // dal conteggio. Le pagine prodotti partono da "1 di N".
+            // Copertina (prima) e chiusura (ultima) sono frontespizi senza
+            // footer: entrambe escluse dal conteggio. N = pagine prodotti →
+            // prima prodotti "1 di N", ultima "N di N".
             render={({ pageNumber, totalPages }) =>
-              `Pagina ${pageNumber - 1} di ${totalPages - 1}`
+              `Pagina ${pageNumber - 1} di ${totalPages - 2}`
             }
           />
         </View>
       </Page>
+
+      {/* Pagina finale "Allergeni e caratteristiche".
+          Nessun footer/numero, come la copertina. */}
+      <AllergensPage data={data} styles={styles} theme={theme} />
     </Document>
   );
 }
