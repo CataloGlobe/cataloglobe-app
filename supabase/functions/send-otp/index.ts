@@ -32,20 +32,6 @@ function json(status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
 
-function generateOtp(): string {
-    const arr = new Uint32Array(1);
-    crypto.getRandomValues(arr);
-    return (arr[0] % 10 ** OTP_LENGTH).toString().padStart(OTP_LENGTH, "0");
-}
-
-async function sha256(value: string): Promise<string> {
-    const data = new TextEncoder().encode(value);
-    const hash = await crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(hash))
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join("");
-}
-
 function firstForwardedFor(header: string | null) {
     if (!header) return null;
     // prende il primo IP della lista "client, proxy1, proxy2"
