@@ -25,9 +25,13 @@ export function formatResetDate(iso: string | null): string {
     return d.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
 }
 
-/** Percentuale intera per la UI ("85%"). Clampa a ≥0; null → "0%". */
+/**
+ * Percentuale intera per la UI ("85%"). Clampa a ≥0; null (quota non
+ * calcolabile, es. piano senza `ai_quota_nanos_usd_per_seat`) → "—", MAI "0%"
+ * (0% legittimo solo a consumo realmente nullo con quota configurata).
+ */
 export function formatUsagePercent(percent: number | null): string {
-    if (percent === null || !Number.isFinite(percent)) return "0%";
+    if (percent === null || !Number.isFinite(percent)) return "—";
     return `${Math.max(0, Math.round(percent))}%`;
 }
 
