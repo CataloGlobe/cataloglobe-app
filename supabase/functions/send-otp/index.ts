@@ -224,8 +224,16 @@ serve(async req => {
     const codeHash = await sha256(otp + OTP_PEPPER);
     const expiresAt = new Date(nowMs + OTP_TTL_MS);
 
+    // Riferimenti per l'eventuale rollback del cooldown (vedi ramo `sendFailure`):
+    // id della riga scritta e valore di `last_sent_at` PRIMA di questo invio.
+    let challengeId: string | null = null;
+    let previousLastSentAt: string | null = null;
+
     // Se esiste challenge attiva, la aggiorno (NO delete)
     if (challenge?.id) {
+        challengeId = challenge.id;
+        previousLastSentAt = challenge.last_sent_at ?? null;
+
         const { error: updErr } = await supabaseAdmin
             .from("otp_challenges")
             .update({
@@ -248,23 +256,33 @@ serve(async req => {
             return json(500, { error: "db_error" });
         }
     } else {
-        const { error: insErr } = await supabaseAdmin.from("otp_challenges").insert({
-            user_id: user.id,
-            code_hash: codeHash,
-            expires_at: expiresAt,
-            attempts: 0,
-            max_attempts: 5,
-            last_sent_at: now,
-            send_count: sendCount,
-            window_start_at: windowStart,
-            request_ip: requestIp,
-            user_agent: userAgent
-        });
+        // Nessuna challenge precedente → non esiste un `last_sent_at` a cui tornare:
+        // il rollback scriverà null (colonna NULLABLE).
+        previousLastSentAt = null;
+
+        const { data: inserted, error: insErr } = await supabaseAdmin
+            .from("otp_challenges")
+            .insert({
+                user_id: user.id,
+                code_hash: codeHash,
+                expires_at: expiresAt,
+                attempts: 0,
+                max_attempts: 5,
+                last_sent_at: now,
+                send_count: sendCount,
+                window_start_at: windowStart,
+                request_ip: requestIp,
+                user_agent: userAgent
+            })
+            .select("id")
+            .single();
 
         if (insErr) {
             await auditSend({ outcome: "error", sendCountInWindow: sendCount });
             return json(500, { error: "db_error" });
         }
+
+        challengeId = inserted?.id ?? null;
     }
 
     // Invia email.
@@ -307,6 +325,34 @@ serve(async req => {
         // Log server-side: l'oggetto errore Resend contiene name/message/statusCode,
         // mai il codice OTP né il destinatario. Il client riceve un errore generico.
         console.error("[OTP_SEND] resend failure:", sendFailure);
+
+        // Rollback del SOLO `last_sent_at`: l'email non è partita, quindi il cooldown
+        // di 60s non deve bloccare il retry (l'UI dice "riprova" — deve essere possibile
+        // farlo davvero). `send_count` e `window_start_at` restano invece aggiornati:
+        // il tetto MAX_SENDS_PER_WINDOW continua a contare i tentativi, così un
+        // fallimento persistente di Resend incontra il rate-limit invece di aprire
+        // un canale di invio libero.
+        if (challengeId) {
+            const { error: rollbackErr } = await supabaseAdmin
+                .from("otp_challenges")
+                .update({ last_sent_at: previousLastSentAt })
+                .eq("id", challengeId);
+
+            if (rollbackErr) {
+                // Non maschera l'errore originale: la risposta resta 500
+                // email_send_failed e l'audit resta outcome "error".
+                console.error("[OTP_SEND] cooldown rollback failed:", rollbackErr);
+            }
+        } else {
+            // `.select("id")` sul ramo insert non ha restituito l'id: non sappiamo
+            // quale riga aggiornare, il cooldown resta attivo per un'email mai
+            // partita. Non è una regressione (era il comportamento precedente), ma
+            // non deve passare in silenzio.
+            console.warn(
+                "[OTP_SEND] cooldown rollback skipped: challenge id not available"
+            );
+        }
+
         await auditSend({ outcome: "error", sendCountInWindow: sendCount });
         return json(500, { error: "email_send_failed" });
     }
