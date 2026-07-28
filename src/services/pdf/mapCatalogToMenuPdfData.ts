@@ -138,13 +138,15 @@ function mapCharacteristics(
 }
 
 function mapVariant(variant: ResolvedVariant): MenuPdfVariant {
+    // Stessa regola di mapProduct: se c'è l'elenco formati, niente "da € X".
+    const formats = mapFormats(variant.optionGroups);
     return {
         id: variant.id,
         name: variant.name,
         description: variant.description ?? null,
-        priceLabel: formatPriceSummary(summaryFromResolved(variant)),
+        priceLabel: formats.length > 0 ? null : formatPriceSummary(summaryFromResolved(variant)),
         originalPriceLabel: null,
-        formats: mapFormats(variant.optionGroups),
+        formats,
         allergens: mapAllergens(variant.allergens),
         characteristics: mapCharacteristics(variant.characteristics),
         imageUrl: variant.image_url ?? null,
@@ -154,13 +156,16 @@ function mapVariant(variant: ResolvedVariant): MenuPdfVariant {
 }
 
 function mapProduct(product: ResolvedProduct): MenuPdfProduct {
+    // L'elenco formati (≥2 valori prezzati) è già esaustivo: in quel caso il
+    // riepilogo "da € X" nell'header è ridondante → soppresso (priceLabel null).
+    const formats = mapFormats(product.optionGroups);
     return {
         id: product.id,
         name: product.name,
         description: product.description ?? null,
-        priceLabel: formatPriceSummary(summaryFromResolved(product)),
+        priceLabel: formats.length > 0 ? null : formatPriceSummary(summaryFromResolved(product)),
         originalPriceLabel: null,
-        formats: mapFormats(product.optionGroups),
+        formats,
         addons: mapAddons(product.optionGroups),
         allergens: mapAllergens(product.allergens),
         characteristics: mapCharacteristics(product.characteristics),

@@ -84,7 +84,7 @@ describe("mapCatalogToMenuPdfData — prezzi", () => {
         expect(data.categories[0].products[0].priceLabel).toBe("€ 10.00");
     });
 
-    it("from/to price → 'da € X.XX' + formats espliciti dal PRIMARY_PRICE", () => {
+    it("multi-formato → SOLO elenco formats, priceLabel soppresso (niente 'da € X' ridondante)", () => {
         const data = mapCatalogToMenuPdfData(
             catalog([
                 category("c1", [
@@ -111,7 +111,8 @@ describe("mapCatalogToMenuPdfData — prezzi", () => {
             context()
         );
         const p = data.categories[0].products[0];
-        expect(p.priceLabel).toBe("da € 8.00");
+        // priceLabel soppresso quando c'è l'elenco formati (no ridondanza header + lista).
+        expect(p.priceLabel).toBeNull();
         expect(p.formats).toEqual([
             { name: "Piccola", priceLabel: "€ 8.00" },
             { name: "Grande", priceLabel: "€ 12.00" }
