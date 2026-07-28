@@ -514,6 +514,15 @@ function ProductRow({
       {product.description ? (
         <Text style={styles.productDescription}>{product.description}</Text>
       ) : null}
+      {/* Formati (prezzo del prodotto) subito dopo la descrizione. */}
+      {product.formats.map((format) => (
+        <View key={format.name} style={styles.formatLine}>
+          <Text style={styles.formatName}>{format.name}</Text>
+          <View style={styles.productSpacer} />
+          <Text style={styles.formatPrice}>{format.priceLabel}</Text>
+        </View>
+      ))}
+      {/* Allergeni/caratteristiche = nota di servizio → sempre per ultimi. */}
       {allergenIcons.length > 0 || characteristicIcons.length > 0 ? (
         <View style={styles.productIconsLine}>
           {allergenIcons.map((icon) => (
@@ -539,13 +548,6 @@ function ProductRow({
           ))}
         </View>
       ) : null}
-      {product.formats.map((format) => (
-        <View key={format.name} style={styles.formatLine}>
-          <Text style={styles.formatName}>{format.name}</Text>
-          <View style={styles.productSpacer} />
-          <Text style={styles.formatPrice}>{format.priceLabel}</Text>
-        </View>
-      ))}
     </>
   );
 

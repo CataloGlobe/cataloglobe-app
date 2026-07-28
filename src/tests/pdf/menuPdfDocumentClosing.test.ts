@@ -94,6 +94,23 @@ function countElasticSpacers(node: unknown): number {
     return (isSpacer ? 1 : 0) + countElasticSpacers(node.props?.children);
 }
 
+/**
+ * Sequenza DFS dei marker della riga prodotto: "fmt" per una riga formato
+ * (Text col nome formato), "icon" per la sub-line allergeni/caratteristiche
+ * (Svg via PdfIcon). Serve a verificare l'ordine formati → allergeni.
+ */
+function orderedRowMarkers(node: unknown, formatNames: Set<string>): string[] {
+    if (Array.isArray(node)) return node.flatMap(n => orderedRowMarkers(n, formatNames));
+    if (!isEl(node)) return [];
+    if (node.type === Svg) return ["icon"]; // icona: non ricorrere dentro
+    if (node.type === Text) {
+        const txt = stringsOf(node).join("");
+        if (formatNames.has(txt)) return ["fmt"];
+        return [];
+    }
+    return orderedRowMarkers(node.props?.children, formatNames);
+}
+
 // ── Fixtures ──────────────────────────────────────────────────────────
 function product(): MenuPdfProduct {
     return {
@@ -287,5 +304,64 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
         // Documento a 6 pagine fisiche: copertina + 4 prodotti + finale → N=4.
         expect(render!({ pageNumber: 2, totalPages: 6 })).toBe("Pagina 1 di 4");
         expect(render!({ pageNumber: 5, totalPages: 6 })).toBe("Pagina 4 di 4");
+    });
+});
+
+describe("MenuPdfDocument — ordine riga prodotto (allergeni per ultimi)", () => {
+    const FORMAT_NAMES = new Set(["Calice", "Bottiglia"]);
+    const FORMATS = [
+        { name: "Calice", priceLabel: "€ 9.00" },
+        { name: "Bottiglia", priceLabel: "€ 45.00" }
+    ];
+    const MILK = { code: "milk", label: "Latte", euNumber: 7 };
+
+    function rowData(over: Partial<MenuPdfProduct>): MenuPdfData {
+        const data = buildData("Sede", "Indirizzo", SAN_PIETRO);
+        data.categories[0].products[0] = {
+            ...data.categories[0].products[0],
+            name: "Vino",
+            priceLabel: null,
+            formats: [],
+            allergens: [],
+            characteristics: [],
+            ...over
+        };
+        return data;
+    }
+
+    function markers(data: MenuPdfData, assets?: MenuPdfAssets): string[] {
+        const tree = expand(MenuPdfDocument({ data, assets: assets ?? EMPTY_ASSETS }));
+        const pages: El[] = [];
+        findPages(tree, pages);
+        return orderedRowMarkers(pages[1], FORMAT_NAMES); // pages[1] = pagina prodotti
+    }
+
+    it("multi-formato + allergene: formati PRIMA, allergeni per ultimi", () => {
+        const m = markers(rowData({ formats: FORMATS, allergens: [MILK] }));
+        expect(m).toEqual(["fmt", "fmt", "icon"]);
+        expect(m.lastIndexOf("fmt")).toBeLessThan(m.indexOf("icon"));
+    });
+
+    it("multi-formato senza allergeni: nessuna sub-line icone", () => {
+        const m = markers(rowData({ formats: FORMATS }));
+        expect(m).toEqual(["fmt", "fmt"]);
+        expect(m).not.toContain("icon");
+    });
+
+    it("prezzo singolo + allergene: nessun formato, sub-line icone presente", () => {
+        const m = markers(rowData({ priceLabel: "€ 10.00", allergens: [MILK] }));
+        expect(m).toEqual(["icon"]);
+    });
+
+    it("photoMode: stesso ordine formati → allergeni", () => {
+        const data = rowData({ formats: FORMATS, allergens: [MILK], imageUrl: "https://x/y.jpg" });
+        // photoMode deriva da productImages non vuoto; thumb presente per p1 → niente placeholder Svg.
+        const assets: MenuPdfAssets = {
+            logoDataUrl: null,
+            coverDataUrl: null,
+            qrDataUrl: null,
+            productImages: { p1: "data:image/png;base64,AAAA" }
+        };
+        expect(markers(data, assets)).toEqual(["fmt", "fmt", "icon"]);
     });
 });
