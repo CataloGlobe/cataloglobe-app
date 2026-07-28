@@ -30,6 +30,28 @@ function jsonError(error: string, status: number) {
     });
 }
 
+// Blocco quota AI (FASE 4). Payload strutturato che FASE 5 usa per mostrare
+// "AI esaurita, riparte il X". status 402 (Payment Required): la quota è una
+// risorsa a pagamento del ciclo, non un rate-limit. `reason` è il campo
+// autoritativo; `code` lo rispecchia per l'envelope esistente.
+function quotaBlockResponse(status: string, resetAt: string | null, percent: number | null) {
+    const reason = status === "not_eligible" ? "not_eligible" : "quota_exhausted";
+    const payload = {
+        success: false,
+        error: reason === "not_eligible"
+            ? "Servizio AI non disponibile per lo stato dell'abbonamento."
+            : "Quota AI del ciclo esaurita. Riparte al rinnovo del periodo.",
+        code: reason,
+        reason,
+        reset_at: resetAt,
+        percent
+    };
+    return new Response(JSON.stringify(payload), {
+        status: 402,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+}
+
 interface FailureContext {
     fileCount: number;
     estimatedBytes: number;
@@ -272,6 +294,25 @@ serve(async (req: Request) => {
         if (permError) throw permError;
         if (!hasPerm) {
             return jsonError("Accesso al tenant non autorizzato", 403);
+        }
+
+        // ── AI quota gate (FASE 4, enforcement server-side) ───────
+        // Fonte unica: get_ai_usage_current_cycle (service_role via supabaseAdmin).
+        // Rifiuta PRIMA di Gemini se la quota del ciclo è esaurita (blocked) o il
+        // tenant non è eleggibile (not_eligible). Fail-open su errore di lettura
+        // RPC: mai bloccare un pagante per un errore transitorio — il consumo
+        // resta comunque metered e il check successivo ri-valuta.
+        const { data: quotaRows, error: quotaError } = await supabaseAdmin.rpc(
+            "get_ai_usage_current_cycle",
+            { p_tenant_id: tenant_id }
+        );
+        if (quotaError) {
+            console.error("[menu-ai-import] quota read failed (fail-open):", quotaError.message);
+        } else {
+            const q = Array.isArray(quotaRows) ? quotaRows[0] : quotaRows;
+            if (q && (q.status === "blocked" || q.status === "not_eligible")) {
+                return quotaBlockResponse(q.status, q.reset_at ?? null, q.percent ?? null);
+            }
         }
 
         // ── Images validation ─────────────────────────────────────
