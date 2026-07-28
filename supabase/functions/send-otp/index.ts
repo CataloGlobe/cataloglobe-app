@@ -201,7 +201,11 @@ serve(async req => {
         } else {
             await supabaseAdmin.from("otp_challenges").insert({
                 user_id: user.id,
-                code_hash: await sha256("000000" + OTP_PEPPER), // valore placeholder (non usato)
+                // Placeholder deliberatamente non verificabile: questa riga esiste solo
+                // per ancorare `locked_until`, nessun codice è mai stato inviato.
+                // L'hash deriva da valori casuali → nessun OTP può validarla, in
+                // qualsiasi configurazione di TTL e LOCK_MINUTES.
+                code_hash: await sha256(crypto.randomUUID() + crypto.randomUUID() + OTP_PEPPER),
                 created_at: now,
                 expires_at: new Date(nowMs + OTP_TTL_MS),
                 locked_until: lockedUntil,
