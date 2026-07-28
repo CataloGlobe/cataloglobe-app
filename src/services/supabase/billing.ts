@@ -141,8 +141,15 @@ async function invokeSubscriptionChange<T>(
     action: "preview" | "commit" | "preview-scheduled-change" | "update-scheduled-change",
     input: SubscriptionChangeInput
 ): Promise<T> {
+    // Per-attempt id: generated fresh at THIS invocation (one call == one
+    // "Conferma" click). Scopes the Stripe idempotency keys built edge-side to a
+    // single user attempt — a network retry of the same invoke reuses it (intended
+    // double-submit protection), while a new click after a visible error produces
+    // a new call, hence a new id, so the genuine retry is not swallowed as a stale
+    // replay inside Stripe's 24h idempotency window.
+    const requestId = crypto.randomUUID();
     const { data, error } = await supabase.functions.invoke("stripe-change-subscription", {
-        body: { tenantId, action, plan: input.plan, seats: input.seats }
+        body: { tenantId, action, plan: input.plan, seats: input.seats, request_id: requestId }
     });
 
     if (error) {
