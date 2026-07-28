@@ -5,6 +5,7 @@ import { classifyGeminiFailure, type ClassifiedFailure } from "../_shared/gemini
 import { MAX_ATTEMPTS, isRetryable, computeBackoffSeconds } from "../_shared/geminiRetry.ts";
 import { serializeError } from "../_shared/errors.ts";
 import { logAiUsage } from "../_shared/aiUsageLog.ts";
+import { GEMINI_MODEL } from "../_shared/geminiModel.ts";
 
 /* ────────────────────────────── CORS ────────────────────────────── */
 // CORS defined inline (no shared helper exists in the repo — same as
@@ -252,7 +253,7 @@ serve(async (req: Request) => {
             { text: userLines.join("\n") }
         ];
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
         const startMs = Date.now();
 
@@ -264,8 +265,9 @@ serve(async (req: Request) => {
                 generationConfig: {
                     // Short single-paragraph output: a small ceiling is enough.
                     maxOutputTokens: 512,
-                    // NOTE: thinkingConfig rimosso per compatibilità con gemini-2.5-flash (dev).
-                    // Ripristinare { thinkingLevel: "LOW" } quando si torna a gemini-3.5-flash in produzione.
+                    // thinkingConfig omesso: il default di gemini-3.5-flash-lite è già
+                    // "minimal" (il più basso disponibile), adatto a un output breve e
+                    // vincolato come questo.
                     responseMimeType: "application/json",
                     responseSchema: ENRICH_SCHEMA
                 }
@@ -364,7 +366,7 @@ serve(async (req: Request) => {
         await logAiUsage(supabaseAdmin, {
             tenantId,
             provider: "gemini",
-            model: "gemini-2.5-flash",
+            model: GEMINI_MODEL,
             operation: "product_enrich",
             unitKind: "tokens",
             unitsInput: usage?.promptTokenCount ?? null,
@@ -380,7 +382,7 @@ serve(async (req: Request) => {
         return jsonOk({
             description,
             metadata: {
-                model_used: "gemini-2.5-flash",
+                model_used: GEMINI_MODEL,
                 processing_time_ms: processingTimeMs
             }
         });

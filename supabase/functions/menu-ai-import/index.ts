@@ -5,6 +5,7 @@ import { exceedsPayloadBudget, estimateDecodedBytes } from "../_shared/aiImportP
 import { classifyGeminiFailure, type ClassifiedFailure } from "../_shared/geminiFailure.ts";
 import { MAX_ATTEMPTS, isRetryable, computeBackoffSeconds } from "../_shared/geminiRetry.ts";
 import { logAiUsage } from "../_shared/aiUsageLog.ts";
+import { GEMINI_MODEL } from "../_shared/geminiModel.ts";
 
 /* ────────────────────────────── CORS ────────────────────────────── */
 
@@ -383,7 +384,7 @@ serve(async (req: Request) => {
             { text: `Extract all products from this menu. The menu language is likely "${lang}".` }
         ];
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
         const startMs = Date.now();
 
@@ -395,12 +396,14 @@ serve(async (req: Request) => {
                 generationConfig: {
                     // temperature/top_p/top_k ai default (raccomandato per i 3.x).
                     // maxOutputTokens al ceiling del modello (65536, output token limit
-                    // documentato per gemini-2.5-flash): sul tier gratuito il vincolo e'
-                    // RPD non i token, quindi e' upside-only e riduce i MAX_TOKENS.
-                    // Non superare 65536: oltre il max la request fallisce.
+                    // documentato sia per gemini-2.5-flash sia per gemini-3.5-flash-lite):
+                    // sul tier gratuito il vincolo e' RPD non i token, quindi e' upside-only
+                    // e riduce i MAX_TOKENS. Non superare 65536: oltre il max la request fallisce.
                     maxOutputTokens: 65536,
-                    // NOTE: thinkingConfig rimosso per compatibilità con gemini-2.5-flash (dev).
-                    // Ripristinare { thinkingLevel: "LOW" } quando si torna a gemini-3.5-flash in produzione.
+                    // thinkingConfig omesso: il default di gemini-3.5-flash-lite è già
+                    // "minimal", il livello più basso disponibile e quello raccomandato da
+                    // Google per estrazione/classificazione ad alto throughput — impostare
+                    // esplicitamente "low" alzerebbe il thinking budget sopra il default.
                     // Structured output vincolato (forma classica v1beta), contratto invariato.
                     responseMimeType: "application/json",
                     responseSchema: MENU_SCHEMA
@@ -506,7 +509,7 @@ serve(async (req: Request) => {
         await logAiUsage(supabaseAdmin, {
             tenantId: tenant_id,
             provider: "gemini",
-            model: "gemini-2.5-flash",
+            model: GEMINI_MODEL,
             operation: "menu_import",
             unitKind: "tokens",
             unitsInput: usage?.promptTokenCount ?? null,
@@ -525,7 +528,7 @@ serve(async (req: Request) => {
             ...(parsed.error ? { error: parsed.error } : {}),
             metadata: {
                 images_analyzed: images.length,
-                model_used: "gemini-2.5-flash",
+                model_used: GEMINI_MODEL,
                 processing_time_ms: processingTimeMs
             }
         });
