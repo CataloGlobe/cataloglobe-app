@@ -267,13 +267,17 @@ serve(async req => {
         }
     }
 
-    // Invia email
-    await resend.emails.send({
-        from: COMPANY.email.sender,
-        reply_to: COMPANY.contact.support,
-        to: user.email,
-        subject: "Il tuo codice di verifica",
-        html: `
+    // Invia email.
+    // resend@4 NON lancia sugli errori API: ritorna { data, error }. La chiamata
+    // può però lanciare su fallimento di rete → serve anche il try/catch.
+    let sendFailure: unknown = null;
+    try {
+        const { error: resendError } = await resend.emails.send({
+            from: COMPANY.email.sender,
+            reply_to: COMPANY.contact.support,
+            to: user.email,
+            subject: "Il tuo codice di verifica",
+            html: `
       <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
         <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
           <h1 style="margin:0 0 16px;font-size:22px;color:#111827">Codice di accesso</h1>
@@ -292,8 +296,20 @@ serve(async req => {
         </div>
       </div>
     `,
-        text: `Codice di accesso CataloGlobe: ${otp}\n\nUsa questo codice per completare l'accesso. Il codice scade tra 5 minuti.\n\n${getEmailFooterText()}`
-    });
+            text: `Codice di accesso CataloGlobe: ${otp}\n\nUsa questo codice per completare l'accesso. Il codice scade tra 5 minuti.\n\n${getEmailFooterText()}`
+        });
+        sendFailure = resendError ?? null;
+    } catch (e) {
+        sendFailure = e;
+    }
+
+    if (sendFailure) {
+        // Log server-side: l'oggetto errore Resend contiene name/message/statusCode,
+        // mai il codice OTP né il destinatario. Il client riceve un errore generico.
+        console.error("[OTP_SEND] resend failure:", sendFailure);
+        await auditSend({ outcome: "error", sendCountInWindow: sendCount });
+        return json(500, { error: "email_send_failed" });
+    }
 
     await auditSend({ outcome: "sent", sendCountInWindow: sendCount });
     return json(200, { ok: true });
