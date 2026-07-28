@@ -9,6 +9,7 @@ import {
 } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate, useLocation } from "react-router-dom";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -34,6 +35,53 @@ function mapOtpError(error: unknown): OtpErrorCode {
     if (message.includes("unauthorized")) return "unauthorized";
 
     return "unknown";
+}
+
+/**
+ * Esito classificato di una chiamata a `send-otp`.
+ * - `wait`: attesa legittima (429) → messaggio informativo, il codice può ancora arrivare.
+ * - `unauthorized`: sessione non valida (401) → redirect al login.
+ * - `error`: guasto reale (5xx o fetch fallita) → messaggio di errore esplicito.
+ */
+type SendOtpFailure =
+    | { family: "wait"; code: "cooldown" | "rate_limited" | "locked" }
+    | { family: "unauthorized" }
+    | { family: "error" };
+
+/**
+ * Classifica l'errore di `supabase.functions.invoke("send-otp")`.
+ *
+ * NB: su risposta non-2xx supabase-js incapsula tutto in `FunctionsHttpError`,
+ * il cui `message` è generico ("Edge Function returned a non-2xx status code"):
+ * l'error code applicativo va letto dal body della Response su `error.context`.
+ */
+async function classifySendOtpError(error: unknown): Promise<SendOtpFailure> {
+    if (!(error instanceof FunctionsHttpError)) {
+        // FunctionsFetchError (rete/CORS), FunctionsRelayError o errore sconosciuto.
+        return { family: "error" };
+    }
+
+    const status = error.context.status;
+
+    let code: string | null = null;
+    try {
+        const body = (await error.context.clone().json()) as { error?: unknown };
+        if (typeof body?.error === "string") code = body.error;
+    } catch {
+        // body assente o non JSON: ci basiamo sullo status
+    }
+
+    if (status === 401 || code === "unauthorized") return { family: "unauthorized" };
+
+    if (status === 429) {
+        if (code === "cooldown" || code === "rate_limited" || code === "locked") {
+            return { family: "wait", code };
+        }
+        return { family: "wait", code: "rate_limited" };
+    }
+
+    // 5xx (server_misconfigured, db_error, email_send_failed) e ogni altro status
+    return { family: "error" };
 }
 
 /**
@@ -105,31 +153,32 @@ export default function VerifyOtp() {
             });
 
             if (error) {
-                const code = mapOtpError(error);
+                const failure = await classifySendOtpError(error);
 
-                // ❗ NON bloccare il flusso: il codice potrebbe arrivare comunque
-                if (code === "cooldown") {
-                    showToast({
-                        type: "error",
-                        message: "Attendi qualche secondo prima di richiedere un nuovo codice.",
-                        duration: 2500
-                    });
-                    setError("Attendi qualche secondo prima di richiedere un nuovo codice.");
-                } else if (code === "rate_limited" || code === "locked") {
-                    showToast({
-                        type: "error",
-                        message: "Hai fatto troppe richieste. Riprova più tardi.",
-                        duration: 2500
-                    });
-                    setError("Hai fatto troppe richieste. Riprova più tardi.");
-                } else {
-                    showToast({
-                        type: "info",
-                        message: "Se non ricevi il codice entro pochi secondi, riprova.",
-                        duration: 2500
-                    });
-                    setInfo("Se non ricevi il codice entro pochi secondi, riprova.");
+                if (failure.family === "unauthorized") {
+                    navigate("/login", { replace: true });
+                    return;
                 }
+
+                if (failure.family === "wait") {
+                    // Attesa legittima: il codice può ancora arrivare, non è un guasto.
+                    const message =
+                        failure.code === "cooldown"
+                            ? "Attendi qualche secondo prima di richiedere un nuovo codice."
+                            : "Hai fatto troppe richieste. Riprova più tardi.";
+
+                    showToast({ type: "error", message, duration: 2500 });
+                    setError(message);
+                    return; // ✅ IMPORTANT: evita toast “Codice inviato”
+                }
+
+                // Guasto reale (5xx o rete): niente suggerimenti di attesa, l'email
+                // non è partita. Nessun dettaglio tecnico esposto all'utente.
+                const message =
+                    "Non siamo riusciti a inviare il codice. Riprova, e se il problema persiste contattaci.";
+                showToast({ type: "error", message, duration: 4000 });
+                setError(message);
+                setInfo(null);
 
                 return; // ✅ IMPORTANT: evita toast “Codice inviato”
             }
