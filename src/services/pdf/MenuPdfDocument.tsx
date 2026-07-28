@@ -287,6 +287,15 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       // questa colonna invece di sovrapporsi al prezzo. flexBasis 0 (come
       // productContent): in una row il Text va dimensionato dal grow, non dal
       // max-content, altrimenti non wrappa e sfora sul prezzo.
+      //
+      // Corollario (control render 2026-07-28): niente leader dots su questa
+      // riga. I dots richiederebbero il nome dimensionato sul contenuto
+      // (flexBasis auto), ma yoga/react-pdf NON comprime un nodo testo in row:
+      // lo misura a max-content e il nome lungo finisce SOPRA il prezzo
+      // (sovrapposizione, non wrap). Provata anche la variante con wrapper View
+      // shrink: identica. Trade-off del motore — o il wrap è corretto, o i dots
+      // sono utili; qui vince il wrap. Sulle righe formato il caso non si pone
+      // (label corte, monoriga) e i dots ci sono.
       flexGrow: 1,
       flexShrink: 1,
       flexBasis: 0,
@@ -319,9 +328,6 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       // stacco garantito dal marginLeft, mai a contatto col nome.
       flexShrink: 0,
     },
-    productSpacer: {
-      flexGrow: 1,
-    },
     productDescription: {
       fontFamily,
       fontSize: 9,
@@ -334,17 +340,35 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       alignItems: "flex-end",
       marginTop: 3,
     },
+    // Label formato in bold: deve staccarsi dalla descrizione muted sopra,
+    // altrimenti il blocco prezzi si legge come testo di servizio.
     formatName: {
       fontFamily,
+      fontWeight: 700,
       fontSize: 9.5,
       color: theme.muted,
       flexShrink: 1,
+    },
+    // Leader dots label→prezzo. Filler elastico con solo il bordo inferiore
+    // punteggiato; alignItems flex-end della row allinea i box in basso e il
+    // marginBottom lo risolleva all'altezza della baseline (il box del Text
+    // scende sotto la baseline per i descender). Le label formato sono corte
+    // e non wrappano → il tratto resta sempre su una riga sola.
+    formatDots: {
+      flexGrow: 1,
+      flexShrink: 1,
+      minWidth: 8,
+      marginHorizontal: 5,
+      marginBottom: 2.5,
+      borderBottomWidth: 1,
+      borderBottomStyle: "dotted",
+      borderBottomColor: theme.primarySoft,
     },
     formatPrice: {
       fontFamily,
       fontSize: 9.5,
       color: theme.ink,
-      marginLeft: 12,
+      flexShrink: 0,
     },
 
     // ── Legenda allergeni/caratteristiche (pagina finale, scala media) ──
@@ -518,7 +542,7 @@ function ProductRow({
       {product.formats.map((format) => (
         <View key={format.name} style={styles.formatLine}>
           <Text style={styles.formatName}>{format.name}</Text>
-          <View style={styles.productSpacer} />
+          <View style={styles.formatDots} />
           <Text style={styles.formatPrice}>{format.priceLabel}</Text>
         </View>
       ))}
