@@ -1,0 +1,163 @@
+// Rispecchia il box `.section` della pagina Abbonamento (coerenza con la pagina,
+// che usa questo idiom e non SectionCard).
+.section {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    scroll-margin-top: 80px; // deep-link #utilizzo-ai sotto l'header fisso
+}
+
+.sectionHeader {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+}
+
+.meter {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.percentRow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.percent {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text);
+}
+
+.percentWarning {
+    color: var(--color-warning-700);
+}
+
+.percentBlocked {
+    color: var(--color-red-900);
+}
+
+.barTrack {
+    height: 8px;
+    background: var(--hover-bg);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.barFill {
+    height: 100%;
+    background: var(--brand-primary);
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    min-width: 2px;
+}
+
+.barWarning {
+    background: var(--color-warning-500);
+}
+
+.barBlocked {
+    background: var(--color-red-900);
+}
+
+// Note di stato: riga con icona + testo, accento morbido di sfondo.
+.noteWarning,
+.noteBlocked,
+.notEligible {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 10px 12px;
+    border-radius: 8px;
+}
+
+.noteWarning {
+    background: var(--color-warning-100);
+    border: 1px solid var(--color-warning-200);
+    color: var(--color-warning-700);
+}
+
+.noteBlocked {
+    background: var(--color-red-50);
+    border: 1px solid var(--color-red-200);
+    color: var(--color-red-900);
+}
+
+.notEligible {
+    background: var(--hover-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+}
+
+.noteWarning svg,
+.noteBlocked svg,
+.notEligible svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+// Dettaglio per operazione, in percentuale (mai costi).
+.detail {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 4px;
+    border-top: 1px solid var(--border);
+}
+
+.detailList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.detailRow {
+    display: grid;
+    grid-template-columns: minmax(120px, 1fr) minmax(80px, 2fr) auto;
+    align-items: center;
+    gap: 12px;
+}
+
+.detailBarTrack {
+    height: 6px;
+    background: var(--hover-bg);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.detailBarFill {
+    height: 100%;
+    background: var(--brand-primary);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+    min-width: 2px;
+}
+
+.detailPercent {
+    min-width: 3ch;
+    text-align: right;
+}
+
+@media (max-width: 640px) {
+    .detailRow {
+        grid-template-columns: 1fr auto;
+    }
+
+    .detailBarTrack {
+        display: none;
+    }
+}

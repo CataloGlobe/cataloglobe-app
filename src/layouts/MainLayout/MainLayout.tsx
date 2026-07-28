@@ -14,6 +14,7 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
 import { useAiImportSession } from "@/hooks/useAiImportSession";
+import { useAiUsage } from "@/hooks/useAiUsage";
 import { AiMenuImportDrawer } from "@/pages/Dashboard/Catalogs/AiMenuImport/AiMenuImportDrawer";
 import type { BusinessOutletContext } from "./outletContext";
 
@@ -126,7 +127,12 @@ export default function MainLayout() {
     // richiesta `menu-ai-import` vivono nel layout → sopravvivono all'unmount
     // della pagina. Il drawer è reso fuori dall'Outlet e riceve la sessione per
     // props; le pagine ricevono `openAiImport` + `importRefreshKey` via context.
-    const aiImport = useAiImportSession(tenantId);
+    // ── Stato quota AI sollevato (FASE 5) ──────────────────────────────
+    // Montato una sola volta qui (come coverage/import): header pill + sezione
+    // Abbonamento leggono da qui. `refresh` viene passato all'import per
+    // aggiornare la pill dopo un'operazione che consuma quota.
+    const aiUsage = useAiUsage(tenantId);
+    const aiImport = useAiImportSession(tenantId, aiUsage.refresh);
     // Booleano largo per la pillola sidebar: cambia solo alle transizioni di
     // status (non a ogni tick di createProgress) → niente rerender per tick.
     const importInProgress = aiImport.status === "analyzing" || aiImport.status === "creating";
@@ -136,9 +142,19 @@ export default function MainLayout() {
             wakeTranslations,
             openAiImport: aiImport.open,
             importRefreshKey: aiImport.importRefreshKey,
-            importStatus: aiImport.status
+            importStatus: aiImport.status,
+            aiUsage: aiUsage.usage,
+            refreshAiUsage: aiUsage.refresh
         }),
-        [translationCoverage, wakeTranslations, aiImport.open, aiImport.importRefreshKey, aiImport.status]
+        [
+            translationCoverage,
+            wakeTranslations,
+            aiImport.open,
+            aiImport.importRefreshKey,
+            aiImport.status,
+            aiUsage.usage,
+            aiUsage.refresh
+        ]
     );
 
     // Tenant without subscription → redirect to workspace with resume param.
@@ -172,7 +188,10 @@ export default function MainLayout() {
                     <PageHeaderProvider>
                         <OperationalAlerts />
                         <header className={styles.globalHeader}>
-                            <AppHeader onOpenMobileSidebar={() => setMobileSidebarOpen(true)} />
+                            <AppHeader
+                                onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
+                                aiUsage={aiUsage.usage}
+                            />
                         </header>
 
                         <div className={styles.body}>

@@ -849,20 +849,28 @@ export async function generateProductDescription(
     if (error) {
         let code = "SERVER_ERROR";
         let message: string | undefined;
+        // Blocco quota AI (FASE 4/5): l'edge risponde 402 con { reason, reset_at }.
+        // Propaghiamo reset_at così la UI mostra "riparte il <data>" invece di
+        // invitare a riprovare qualcosa che non può riuscire.
+        let resetAt: string | null = null;
         if (error instanceof FunctionsHttpError) {
             try {
                 const body = (await error.context.clone().json()) as {
                     code?: unknown;
                     error?: unknown;
+                    reason?: unknown;
+                    reset_at?: unknown;
                 };
                 if (typeof body?.code === "string") code = body.code;
                 if (typeof body?.error === "string") message = body.error;
+                if (typeof body?.reset_at === "string") resetAt = body.reset_at;
             } catch {
                 // body not JSON → keep defaults
             }
         }
         const err = new Error(message ?? "Generazione descrizione non riuscita");
-        (err as Error & { code?: string }).code = code;
+        (err as Error & { code?: string; resetAt?: string | null }).code = code;
+        (err as Error & { code?: string; resetAt?: string | null }).resetAt = resetAt;
         throw err;
     }
 

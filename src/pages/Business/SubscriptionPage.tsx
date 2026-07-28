@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTenant } from "@/context/useTenant";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -28,6 +28,8 @@ import { canDoOnTenant } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { PlanSeatsSelector } from "@/components/ui/PlanSeatsSelector/PlanSeatsSelector";
+import { AiUsageSection } from "@/pages/Business/components/AiUsageSection";
+import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { usePageHeader } from "@/context/usePageHeader";
@@ -143,6 +145,33 @@ export default function SubscriptionPage() {
     const { status, trialDaysLeft, hasPaymentMethod } = useSubscriptionGuard();
     const { showToast } = useToast();
     const navigate = useNavigate();
+
+    // Stato quota AI (FASE 5): fetch unico in MainLayout, letto via Outlet context.
+    // Freschiamo all'apertura della pagina (fonte di verità permanente).
+    const outlet = useBusinessOutletContext();
+    const aiUsage = outlet?.aiUsage ?? null;
+    const refreshAiUsage = outlet?.refreshAiUsage;
+    useEffect(() => {
+        refreshAiUsage?.();
+    }, [refreshAiUsage]);
+
+    // Deep-link dalla pill dell'header (#utilizzo-ai): porta davvero alla sezione
+    // invece di fermarsi in cima. Attende che la sezione esista (aiUsage caricato),
+    // poi scrolla una sola volta finché l'ancora resta nell'URL.
+    const { hash } = useLocation();
+    const didScrollToUsageRef = useRef(false);
+    useEffect(() => {
+        if (hash !== "#utilizzo-ai") {
+            didScrollToUsageRef.current = false;
+            return;
+        }
+        if (didScrollToUsageRef.current) return;
+        const el = document.getElementById("utilizzo-ai");
+        if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+            didScrollToUsageRef.current = true;
+        }
+    }, [hash, aiUsage]);
 
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
@@ -780,6 +809,9 @@ export default function SubscriptionPage() {
                     </div>
                 )}
             </div>
+
+            {/* --- Utilizzo AI (FASE 5) --- */}
+            <AiUsageSection usage={aiUsage} planName={displayPlanName} seats={displaySeats} />
 
             {/* --- Actions (manage + cancel) --- */}
             {canManageBilling && (

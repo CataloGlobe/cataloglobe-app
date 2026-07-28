@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { generateProductDescription } from "@/services/supabase/products";
+import { aiBlockMessage } from "@/utils/aiUsage";
 
 /**
  * Lifecycle of the AI-generated description, used to drive the chip:
@@ -17,6 +18,13 @@ export interface UseAiDescriptionParams {
     tenantId: string | null;
     /** Called with the generated text so the caller can set its field state. */
     onDescriptionGenerated: (text: string) => void;
+    /**
+     * Opzionale (FASE 5): invocato dopo ogni tentativo di generazione (successo,
+     * blocco quota o errore) così il chiamante può aggiornare lo stato quota AI
+     * (es. la pill dell'header). Best-effort — se assente, la quota si aggiorna
+     * comunque al prossimo fetch (cambio tenant / apertura Abbonamento).
+     */
+    onConsumed?: () => void;
 }
 
 export interface UseAiDescriptionResult {
@@ -39,7 +47,8 @@ export interface UseAiDescriptionResult {
 export function useAiDescription({
     name,
     tenantId,
-    onDescriptionGenerated
+    onDescriptionGenerated,
+    onConsumed
 }: UseAiDescriptionParams): UseAiDescriptionResult {
     const { selectedTenant } = useTenant();
     const { showToast } = useToast();
@@ -59,17 +68,22 @@ export function useAiDescription({
             onDescriptionGenerated(generated);
             setAiState("generated");
         } catch (err) {
-            const code = (err as { code?: string }).code;
+            const { code, resetAt } = err as { code?: string; resetAt?: string | null };
+            // Blocco quota (FASE 5): spiega e dà la data, NON invita a riprovare.
+            const isQuotaBlock = code === "quota_exhausted" || code === "not_eligible";
             const isRateLimit =
                 code === "rate_limit_rpd" || code === "rate_limit_rpm_tpm" || code === "rate_limit";
-            showToast({
-                message: isRateLimit
+            const message = isQuotaBlock
+                ? aiBlockMessage(code, resetAt ?? null)
+                : isRateLimit
                     ? "Troppe richieste verso il servizio AI. Riprova tra qualche istante."
-                    : "Generazione della descrizione non riuscita. Riprova.",
-                type: "error"
-            });
+                    : "Generazione della descrizione non riuscita. Riprova.";
+            showToast({ message, type: "error" });
         } finally {
             setIsGenerating(false);
+            // Aggiorna lo stato quota (successo o blocco): la pill/sezione riflettono
+            // il consumo o il blocco appena avvenuto.
+            onConsumed?.();
         }
     };
 
