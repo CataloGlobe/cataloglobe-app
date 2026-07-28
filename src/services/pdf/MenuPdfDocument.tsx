@@ -26,7 +26,10 @@ import {
   allergenIconGeometry,
   characteristicIconGeometry,
 } from "./pdfIcons";
-import { ALL_ALLERGENS } from "./allergenEuNumbers";
+import {
+  ALLERGEN_COVERAGE_THRESHOLD,
+  ALL_ALLERGENS,
+} from "./allergenEuNumbers";
 
 /** Asset immagine già pre-fetchati come data-URL (o null): il documento non
  *  fa MAI fetch a runtime — pipeline in renderMenuPdf/prefetchPdfImage. */
@@ -463,6 +466,51 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       backgroundColor: theme.primarySoft,
       marginTop: 10,
     },
+    // Didascalia sotto il rule: dichiara cosa significa l'evidenziazione della
+    // griglia. Testo variabile per copertura (vedi ALLERGEN_PAGE_TEXT).
+    finalCaption: {
+      fontFamily,
+      fontSize: 9,
+      lineHeight: 1.45,
+      color: theme.muted,
+      textAlign: "center",
+      marginTop: 14,
+    },
+    // Riga di cautela (solo copertura bassa): stesso stile della didascalia —
+    // non è un allarme, è una precisazione.
+    finalCaptionCaution: {
+      fontFamily,
+      fontSize: 9,
+      lineHeight: 1.45,
+      color: theme.muted,
+      textAlign: "center",
+      marginTop: 6,
+    },
+    // Blocco promosso in testa (solo copertura zero): la nota di rito sale qui
+    // perché con zero dati è l'unica informazione vera della pagina. Barra
+    // sinistra + fondo tenue dai token esistenti, nessun colore nuovo.
+    finalPromoBlock: {
+      backgroundColor: theme.primarySoft,
+      borderLeftWidth: 3,
+      borderLeftColor: theme.primary,
+      borderRadius: theme.radius / 5,
+      paddingVertical: 10,
+      paddingHorizontal: 12,
+      marginBottom: 28,
+    },
+    finalPromoText: {
+      fontFamily,
+      fontSize: 9,
+      lineHeight: 1.45,
+      color: theme.ink,
+    },
+    finalPromoTextSecondary: {
+      fontFamily,
+      fontSize: 9,
+      lineHeight: 1.45,
+      color: theme.ink,
+      marginTop: 5,
+    },
     footer: {
       position: "absolute",
       left: PAGE_MARGIN,
@@ -675,11 +723,35 @@ function collectUsedCharacteristics(
 }
 
 /**
+ * Testi della pagina finale, in un punto solo: sono in revisione legale e vanno
+ * sostituiti qui senza toccare il render.
+ *
+ * `captionNoData` è la formulazione per copertura zero — con nessun allergene
+ * assegnato la griglia non può dire "questi sono presenti", quindi dichiara solo
+ * cosa sta elencando. `caption` è la formulazione normale.
+ */
+const ALLERGEN_PAGE_TEXT = {
+  caption: "Gli allergeni evidenziati sono presenti in almeno un piatto di questo menù.",
+  captionNoData: "Elenco dei 14 allergeni previsti dal Regolamento UE 1169/2011.",
+  lowCoverageCaution:
+    "Gli allergeni non evidenziati non sono stati segnalati per questo menù: per informazioni complete rivolgersi al personale di sala.",
+  staffNote:
+    "In caso di allergie o intolleranze si prega di informare il personale di sala.",
+  askInRoom:
+    "Le informazioni su ingredienti e allergeni di ogni piatto sono disponibili in sala su richiesta.",
+} as const;
+
+/**
  * Ultima pagina del menù: pagina dedicata "Allergeni e caratteristiche".
- * Titolo di pagina + rule, i 14 allergeni UE (presenti evidenziati / assenti
- * attenuati, con icone a scala media), le caratteristiche presenti (condizionale)
- * e la nota di rito in fondo. Nessun footer/numero (come la copertina).
- * Contenuto distribuito verticalmente dagli spaziatori elastici.
+ * Titolo di pagina + rule + didascalia, i 14 allergeni UE (presenti evidenziati
+ * / assenti attenuati, con icone a scala media), le caratteristiche presenti
+ * (condizionale) e la nota di rito in fondo. Nessun footer/numero (come la
+ * copertina). Contenuto distribuito verticalmente dagli spaziatori elastici.
+ *
+ * Il testo si adatta alla copertura del dato: senza allergeni assegnati
+ * l'attenuato non significa "assente dal locale" ma "non compilato", e la
+ * pagina non può lasciarlo intendere. Layout, colori e griglia sono identici
+ * nei tre casi — cambia solo il testo.
  */
 function AllergensPage({
   data,
@@ -693,12 +765,44 @@ function AllergensPage({
   const usedCharacteristics = collectUsedCharacteristics(data);
   const presentAllergenCodes = new Set(data.allergenLegend.map((a) => a.code));
 
+  const { productsTotal, productsWithAllergens } = data.allergenCoverage;
+  const hasNoAllergenData = productsWithAllergens === 0;
+  // productsTotal > 0: un catalogo senza prodotti stampabili non deve dividere
+  // per zero — ricade su hasNoAllergenData (numeratore 0).
+  const isLowCoverage =
+    !hasNoAllergenData &&
+    productsTotal > 0 &&
+    productsWithAllergens / productsTotal < ALLERGEN_COVERAGE_THRESHOLD;
+
   return (
     <Page size="A4" style={styles.finalPage}>
       <View style={styles.finalTitleBlock}>
         <Text style={styles.finalTitle}>Allergeni e caratteristiche</Text>
         <View style={styles.finalRule} />
+        <Text style={styles.finalCaption}>
+          {hasNoAllergenData
+            ? ALLERGEN_PAGE_TEXT.captionNoData
+            : ALLERGEN_PAGE_TEXT.caption}
+        </Text>
+        {isLowCoverage ? (
+          <Text style={styles.finalCaptionCaution}>
+            {ALLERGEN_PAGE_TEXT.lowCoverageCaution}
+          </Text>
+        ) : null}
       </View>
+
+      {/* Copertura zero: la nota di rito sale in testa (e sparisce dal fondo:
+          deve comparire una volta sola) insieme al rimando alla sala. */}
+      {hasNoAllergenData ? (
+        <View style={styles.finalPromoBlock}>
+          <Text style={styles.finalPromoText}>
+            {ALLERGEN_PAGE_TEXT.staffNote}
+          </Text>
+          <Text style={styles.finalPromoTextSecondary}>
+            {ALLERGEN_PAGE_TEXT.askInRoom}
+          </Text>
+        </View>
+      ) : null}
 
       {/* Contenuto allineato in alto (subito sotto il titolo): allergeni +
           (caratteristiche con gap fisso). Nessuno spaziatore sopra. */}
@@ -751,17 +855,18 @@ function AllergensPage({
         ) : null}
       </View>
 
-      {/* Spaziatore sotto il gruppo: nota ancorata in fondo. */}
+      {/* Spaziatore sotto il gruppo: nota ancorata in fondo. Resta anche nel
+          caso senza nota — con nulla sotto, tiene il contenuto in alto. */}
       <View style={styles.finalSpacer} />
 
-      {/* Nota di rito in fondo, sopra un divider sottile. */}
-      <View style={styles.finalNoteBlock}>
-        <Text style={styles.finalNote}>
-          In caso di allergie o intolleranze si prega di informare il personale di
-          sala.
-        </Text>
-        <View style={styles.finalNoteDivider} />
-      </View>
+      {/* Nota di rito in fondo, sopra un divider sottile. Assente a copertura
+          zero: è già stata promossa in testa. */}
+      {hasNoAllergenData ? null : (
+        <View style={styles.finalNoteBlock}>
+          <Text style={styles.finalNote}>{ALLERGEN_PAGE_TEXT.staffNote}</Text>
+          <View style={styles.finalNoteDivider} />
+        </View>
+      )}
     </Page>
   );
 }

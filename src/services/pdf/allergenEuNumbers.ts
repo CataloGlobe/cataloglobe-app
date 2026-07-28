@@ -25,6 +25,9 @@ export const ALL_ALLERGENS: EuAllergen[] = [
     { code: "molluscs", euNumber: 14, label: "Molluschi" }
 ];
 
+/** Sotto questa copertura la pagina finale aggiunge una riga di cautela sui non evidenziati. */
+export const ALLERGEN_COVERAGE_THRESHOLD = 0.5;
+
 export const ALLERGEN_EU_NUMBER: Record<string, number> = Object.fromEntries(
     ALL_ALLERGENS.map(a => [a.code, a.euNumber])
 );

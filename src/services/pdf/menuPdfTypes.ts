@@ -122,10 +122,23 @@ export type MenuPdfMeta = {
     closingInfo: MenuPdfClosingInfo;
 };
 
+/**
+ * Copertura del dato allergeni sul catalogo stampato. Serve alla pagina finale
+ * per non far leggere l'attenuato come "allergene assente dal locale" quando in
+ * realtà nessuno lo ha assegnato a database.
+ */
+export type MenuPdfAllergenCoverage = {
+    /** Prodotti stampati nel PDF (denominatore). */
+    productsTotal: number;
+    /** Prodotti con almeno un allergene UE valido, sul prodotto o su una sua variante. */
+    productsWithAllergens: number;
+};
+
 export type MenuPdfData = {
     meta: MenuPdfMeta;
     brand: MenuPdfBrand;
     categories: MenuPdfCategory[];
-    /** Solo gli allergeni effettivamente usati dai prodotti presenti, ordinati per code. */
+    /** Solo gli allergeni effettivamente usati dai prodotti presenti, ordinati per euNumber. */
     allergenLegend: MenuPdfAllergen[];
+    allergenCoverage: MenuPdfAllergenCoverage;
 };

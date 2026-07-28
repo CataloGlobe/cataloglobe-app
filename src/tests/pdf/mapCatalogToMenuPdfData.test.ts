@@ -180,6 +180,86 @@ describe("mapCatalogToMenuPdfData — legenda allergeni", () => {
     });
 });
 
+describe("mapCatalogToMenuPdfData — copertura allergeni", () => {
+    it("nessun prodotto con allergeni → productsWithAllergens 0", () => {
+        const data = mapCatalogToMenuPdfData(
+            catalog([category("c1", [product("p1"), product("p2"), product("p3")])]),
+            context()
+        );
+        expect(data.allergenCoverage).toEqual({ productsTotal: 3, productsWithAllergens: 0 });
+    });
+
+    it("allergeni solo su una variante → il prodotto conta come coperto", () => {
+        const data = mapCatalogToMenuPdfData(
+            catalog([
+                category("c1", [
+                    product("senza"),
+                    product("via-variante", {
+                        variants: [
+                            {
+                                id: "var1",
+                                name: "Variante",
+                                allergens: [allergen("milk", "Latte")]
+                            }
+                        ]
+                    } as Partial<ResolvedProduct>)
+                ])
+            ]),
+            context()
+        );
+        expect(data.allergenCoverage).toEqual({ productsTotal: 2, productsWithAllergens: 1 });
+    });
+
+    it("solo code fuori standard UE → prodotto NON coperto (coerente con lo scarto in legenda)", () => {
+        const data = mapCatalogToMenuPdfData(
+            catalog([
+                category("c1", [
+                    product("p1", { allergens: [allergen("inventato", "Boh")] }),
+                    product("p2", { allergens: [allergen("gluten", "Glutine")] })
+                ])
+            ]),
+            context()
+        );
+        expect(data.allergenCoverage).toEqual({ productsTotal: 2, productsWithAllergens: 1 });
+        expect(data.allergenLegend.map(a => a.code)).toEqual(["gluten"]);
+    });
+
+    it("prodotti non visibili e categorie scartate fuori dal denominatore", () => {
+        const base = catalog([
+            category("piena", [
+                product("visibile", { allergens: [allergen("milk", "Latte")] }),
+                product("nascosto")
+            ]),
+            category("svuotata", [product("rimosso")])
+        ]);
+        const overrides: Record<string, ActivityProductOverrideRow> = {
+            nascosto: { product_id: "nascosto", visible_override: false, mode: "hide" },
+            rimosso: { product_id: "rimosso", visible_override: false, mode: "hide" }
+        };
+        const curated = applyActivityVisibilityOverridesToCatalog(base, base, overrides);
+
+        const data = mapCatalogToMenuPdfData(curated as ResolvedCatalog, context());
+        expect(data.categories.map(c => c.id)).toEqual(["piena"]);
+        expect(data.allergenCoverage).toEqual({ productsTotal: 1, productsWithAllergens: 1 });
+    });
+
+    it("unavailable (mode disable) resta nel denominatore: viene stampato", () => {
+        const base = catalog([
+            category("c1", [
+                product("visibile", { allergens: [allergen("milk", "Latte")] }),
+                product("esaurito")
+            ])
+        ]);
+        const overrides: Record<string, ActivityProductOverrideRow> = {
+            esaurito: { product_id: "esaurito", visible_override: false, mode: "disable" }
+        };
+        const curated = applyActivityVisibilityOverridesToCatalog(base, base, overrides);
+
+        const data = mapCatalogToMenuPdfData(curated as ResolvedCatalog, context());
+        expect(data.allergenCoverage).toEqual({ productsTotal: 2, productsWithAllergens: 1 });
+    });
+});
+
 describe("mapCatalogToMenuPdfData — semantica override di stampa", () => {
     it("hide assente, disable presente come prodotto normale (isDisabled false)", () => {
         const base = catalog([

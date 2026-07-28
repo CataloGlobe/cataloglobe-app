@@ -4,6 +4,7 @@ import { Document, Image, Link, Page, Path, Svg, Text, View } from "@react-pdf/r
 import { MenuPdfDocument, type MenuPdfAssets } from "@/services/pdf/MenuPdfDocument";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import type {
+    MenuPdfAllergenCoverage,
     MenuPdfClosingInfo,
     MenuPdfData,
     MenuPdfProduct
@@ -134,7 +135,10 @@ function product(): MenuPdfProduct {
 function buildData(
     activityName: string,
     address: string,
-    closingInfo: MenuPdfClosingInfo
+    closingInfo: MenuPdfClosingInfo,
+    // Default = copertura piena (il prodotto della fixture ha "Latte"): i test
+    // storici restano nel caso "sopra soglia", con la nota di rito in fondo.
+    coverage: MenuPdfAllergenCoverage = { productsTotal: 1, productsWithAllergens: 1 }
 ): MenuPdfData {
     return {
         meta: {
@@ -155,7 +159,8 @@ function buildData(
                 products: [product()]
             }
         ],
-        allergenLegend: [{ code: "milk", label: "Latte", euNumber: 7 }]
+        allergenLegend: [{ code: "milk", label: "Latte", euNumber: 7 }],
+        allergenCoverage: coverage
     };
 }
 
@@ -304,6 +309,90 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
         // Documento a 6 pagine fisiche: copertina + 4 prodotti + finale → N=4.
         expect(render!({ pageNumber: 2, totalPages: 6 })).toBe("Pagina 1 di 4");
         expect(render!({ pageNumber: 5, totalPages: 6 })).toBe("Pagina 4 di 4");
+    });
+});
+
+describe("MenuPdfDocument — pagina finale, testo per copertura allergeni", () => {
+    const CAPTION = "Gli allergeni evidenziati sono presenti in almeno un piatto di questo menù.";
+    const CAPTION_NO_DATA = "Elenco dei 14 allergeni previsti dal Regolamento UE 1169/2011.";
+    const CAUTION =
+        "Gli allergeni non evidenziati non sono stati segnalati per questo menù: per informazioni complete rivolgersi al personale di sala.";
+    const ASK_IN_ROOM =
+        "Le informazioni su ingredienti e allergeni di ogni piatto sono disponibili in sala su richiesta.";
+
+    function finalPageStrings(coverage: MenuPdfAllergenCoverage): string[] {
+        return stringsOf(renderPages(buildData("Sede", "Indirizzo", SAN_PIETRO, coverage)).pages[2]);
+    }
+
+    it("copertura zero: didascalia normativa, blocco promosso, nota una sola volta", () => {
+        const data = buildData("Sede", "Indirizzo", SAN_PIETRO, {
+            productsTotal: 12,
+            productsWithAllergens: 0
+        });
+        const { tree, pages } = renderPages(data);
+        const final = stringsOf(pages[2]);
+
+        expect(final).toContain(CAPTION_NO_DATA);
+        expect(final).not.toContain(CAPTION);
+        expect(final).toContain(NOTE); // promossa in testa
+        expect(final).toContain(ASK_IN_ROOM);
+        expect(final).not.toContain(CAUTION);
+
+        // Promossa, non duplicata: una sola occorrenza in TUTTO il documento.
+        expect(stringsOf(tree).filter(s => s === NOTE)).toHaveLength(1);
+        // In testa davvero: dopo la didascalia, prima della griglia.
+        expect(final.indexOf(CAPTION_NO_DATA)).toBeLessThan(final.indexOf(NOTE));
+        expect(final.indexOf(NOTE)).toBeLessThan(final.indexOf(ASK_IN_ROOM));
+        expect(final.indexOf(ASK_IN_ROOM)).toBeLessThan(final.indexOf("Latte"));
+    });
+
+    it("copertura zero: griglia, caratteristiche e struttura invariate", () => {
+        const final = finalPageStrings({ productsTotal: 12, productsWithAllergens: 0 });
+        expect(final).toContain("Allergeni e caratteristiche");
+        expect(final).toContain("Allergeni");
+        expect(final).toContain("Caratteristiche");
+        expect(final).toContain("Latte"); // i 14 restano tutti elencati
+        expect(final).toContain("Vegano");
+    });
+
+    it("copertura sotto soglia: didascalia + riga di cautela", () => {
+        const final = finalPageStrings({ productsTotal: 10, productsWithAllergens: 3 });
+        expect(final).toContain(CAPTION);
+        expect(final).toContain(CAUTION);
+        expect(final).not.toContain(CAPTION_NO_DATA);
+        expect(final).not.toContain(ASK_IN_ROOM);
+        expect(final).toContain(NOTE); // resta in fondo
+    });
+
+    it("copertura sopra soglia: solo didascalia, nessuna cautela", () => {
+        const final = finalPageStrings({ productsTotal: 10, productsWithAllergens: 8 });
+        expect(final).toContain(CAPTION);
+        expect(final).not.toContain(CAUTION);
+        expect(final).not.toContain(CAPTION_NO_DATA);
+        expect(final).toContain(NOTE);
+    });
+
+    it("soglia 50%: esattamente a metà NON è copertura bassa", () => {
+        const final = finalPageStrings({ productsTotal: 10, productsWithAllergens: 5 });
+        expect(final).not.toContain(CAUTION);
+    });
+
+    it("catalogo senza prodotti stampabili: nessuna divisione per zero, ricade su copertura zero", () => {
+        const final = finalPageStrings({ productsTotal: 0, productsWithAllergens: 0 });
+        expect(final).toContain(CAPTION_NO_DATA);
+        expect(final).not.toContain(CAUTION);
+    });
+
+    it("spaziatore elastico invariato in tutti i casi (contenuto in alto)", () => {
+        const cases: MenuPdfAllergenCoverage[] = [
+            { productsTotal: 12, productsWithAllergens: 0 },
+            { productsTotal: 10, productsWithAllergens: 3 },
+            { productsTotal: 10, productsWithAllergens: 8 }
+        ];
+        for (const coverage of cases) {
+            const final = renderPages(buildData("Sede", "Indirizzo", SAN_PIETRO, coverage)).pages[2];
+            expect(countElasticSpacers(final)).toBe(1);
+        }
     });
 });
 

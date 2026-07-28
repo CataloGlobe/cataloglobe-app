@@ -117,7 +117,8 @@ function buildData(products: MenuPdfProduct[]): MenuPdfData {
         categories: [
             { id: "c1", name: "Vini", level: 0, parentCategoryId: null, products }
         ],
-        allergenLegend: []
+        allergenLegend: [],
+        allergenCoverage: { productsTotal: products.length, productsWithAllergens: 0 }
     };
 }
 

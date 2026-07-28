@@ -20,6 +20,7 @@ import type {
 import type {
     MenuPdfAddonGroup,
     MenuPdfAllergen,
+    MenuPdfAllergenCoverage,
     MenuPdfBrand,
     MenuPdfCategory,
     MenuPdfCharacteristic,
@@ -177,19 +178,43 @@ function mapProduct(product: ResolvedProduct): MenuPdfProduct {
     };
 }
 
-function buildAllergenLegend(categories: MenuPdfCategory[]): MenuPdfAllergen[] {
+/**
+ * Legenda + copertura in un solo passaggio sulle categorie GIÀ mappate (quindi
+ * post-filtro visibilità e post-scarto delle categorie vuote): il catalogo
+ * risolto non viene percorso una seconda volta.
+ *
+ * Copertura: denominatore = prodotti effettivamente stampati (gli unavailable/
+ * disable contano, finiscono nel PDF come normali); numeratore = prodotti con
+ * almeno un allergene, propri o di una variante. Gli allergeni sono già passati
+ * da `mapAllergens`, quindi i code fuori dai 14 UE non contano: non comparendo
+ * nel documento non sono copertura.
+ */
+function buildAllergenSummary(categories: MenuPdfCategory[]): {
+    legend: MenuPdfAllergen[];
+    coverage: MenuPdfAllergenCoverage;
+} {
     const byCode = new Map<string, MenuPdfAllergen>();
+    let productsTotal = 0;
+    let productsWithAllergens = 0;
+
     for (const category of categories) {
         for (const product of category.products) {
-            for (const allergen of [
+            productsTotal += 1;
+            const allergens = [
                 ...product.allergens,
                 ...product.variants.flatMap(v => v.allergens)
-            ]) {
+            ];
+            if (allergens.length > 0) productsWithAllergens += 1;
+            for (const allergen of allergens) {
                 if (!byCode.has(allergen.code)) byCode.set(allergen.code, allergen);
             }
         }
     }
-    return Array.from(byCode.values()).sort((a, b) => a.euNumber - b.euNumber);
+
+    return {
+        legend: Array.from(byCode.values()).sort((a, b) => a.euNumber - b.euNumber),
+        coverage: { productsTotal, productsWithAllergens }
+    };
 }
 
 export function mapCatalogToMenuPdfData(
@@ -208,6 +233,8 @@ export function mapCatalogToMenuPdfData(
         }))
         .filter(category => category.products.length > 0);
 
+    const { legend, coverage } = buildAllergenSummary(categories);
+
     return {
         meta: {
             activityName: context.activityName,
@@ -219,6 +246,7 @@ export function mapCatalogToMenuPdfData(
         },
         brand: context.brand,
         categories,
-        allergenLegend: buildAllergenLegend(categories)
+        allergenLegend: legend,
+        allergenCoverage: coverage
     };
 }
