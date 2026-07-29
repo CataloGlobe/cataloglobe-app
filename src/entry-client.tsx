@@ -1,3 +1,4 @@
+import { Suspense, lazy } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { Route, Routes } from "react-router-dom";
 
@@ -5,9 +6,15 @@ import "@styles/global.scss";
 import "@/i18n";
 
 import PublicProviders from "@/components/public/PublicProviders";
+import PublicErrorBoundary from "@/components/PublicErrorBoundary/PublicErrorBoundary";
+import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import PublicCollectionPage from "@/pages/PublicCollectionPage/PublicCollectionPage";
 import type { Allergen } from "@/services/supabase/allergens";
 import type { ResolvedPayloadShape } from "@/types/publicCatalog";
+
+// Lazy: la prenotazione è dietro interazione utente, non deve entrare nel
+// bundle di hydration del catalogo (critico per LCP).
+const ReservationPage = lazy(() => import("@/pages/ReservationPage/ReservationPage"));
 
 /**
  * Entry client di hydration per la pagina pubblica /:slug.
@@ -40,6 +47,32 @@ if (container) {
         container,
         <PublicProviders router="browser">
             <Routes>
+                {/* Le route raggiungibili via `navigate()` DALLA pagina pubblica
+                    devono esistere anche qui, non solo in App.tsx: su una pagina
+                    servita dalla shell SSR gira questo bundle, non la SPA. Se
+                    manca, `/:slug/prenota` cade sul catch-all `/:slug/:lang?`
+                    con lang="prenota" → redirect a `/:slug` e refetch (toast
+                    "Traduzione..."), invece della pagina prenotazione. */}
+                <Route
+                    path="/:slug/prenota"
+                    element={
+                        <PublicErrorBoundary>
+                            <Suspense fallback={<AppLoader intent="public" />}>
+                                <ReservationPage />
+                            </Suspense>
+                        </PublicErrorBoundary>
+                    }
+                />
+                <Route
+                    path="/:slug/:lang/prenota"
+                    element={
+                        <PublicErrorBoundary>
+                            <Suspense fallback={<AppLoader intent="public" />}>
+                                <ReservationPage />
+                            </Suspense>
+                        </PublicErrorBoundary>
+                    }
+                />
                 <Route path="/:slug/:lang?" element={<PublicCollectionPage initialPayload={initialPayload} />} />
             </Routes>
         </PublicProviders>,
