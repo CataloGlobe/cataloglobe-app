@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
@@ -6,10 +6,16 @@ import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Switch } from "@/components/ui/Switch/Switch";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { listCatalogs, type V2Catalog } from "@/services/supabase/catalogs";
 import { listStyles, type V2Style } from "@/services/supabase/styles";
 import { getActivityById } from "@/services/supabase/activities";
+import type { MenuPdfAllergenCoverage, MenuPdfData } from "@/services/pdf/menuPdfTypes";
 import { useToast } from "@/context/Toast/ToastContext";
+import {
+  buildAllergenCoverageMessage,
+  pdfDataCacheKey,
+} from "./exportCatalogMessages";
 import styles from "./ExportCatalogDrawer.module.scss";
 
 type ExportCatalogDrawerProps = {
@@ -44,6 +50,23 @@ export function ExportCatalogDrawer({
   // Toggle cover mostrato solo se la sede ha un'immagine di copertina.
   const [hasCoverImage, setHasCoverImage] = useState(false);
   const [includeCoverImage, setIncludeCoverImage] = useState(true);
+  // Copertura allergeni del catalogo selezionato: informazione accessoria,
+  // null = niente da mostrare (non caricata, fallita, o copertura sufficiente).
+  const [allergenCoverage, setAllergenCoverage] =
+    useState<MenuPdfAllergenCoverage | null>(null);
+  // Payload già caricati, riusati al download. Ref e non state: non deve
+  // triggerare render.
+  const pdfDataCacheRef = useRef<Map<string, MenuPdfData>>(new Map());
+  // Lo stile non entra nelle deps del preload (la copertura non dipende dallo
+  // stile: cambiarlo non deve far ripartire il caricamento) ma serve al momento
+  // della richiesta per la chiave di cache → letto via ref.
+  const selectedStyleIdRef = useRef(selectedStyleId);
+  selectedStyleIdRef.current = selectedStyleId;
+  // "Gli stili di QUESTA apertura sono risolti". Ref e non state perché va
+  // azzerato in modo sincrono all'apertura: un reset via setState arriverebbe
+  // solo al commit successivo, e nel frattempo il preload partirebbe leggendo il
+  // valore della sessione precedente (→ fetch sprecata sul vecchio catalogo).
+  const stylesResolvedRef = useRef(false);
 
   useEffect(() => {
     if (!open) return;
@@ -54,6 +77,11 @@ export function ExportCatalogDrawer({
     setIncludePhotos(false);
     setHasCoverImage(false);
     setIncludeCoverImage(true);
+    setAllergenCoverage(null);
+    // Riapertura = dati freschi: il catalogo può essere stato modificato dopo
+    // l'ultima apertura del drawer.
+    pdfDataCacheRef.current.clear();
+    stylesResolvedRef.current = false;
 
     async function loadActivityCover() {
       try {
@@ -116,6 +144,9 @@ export function ExportCatalogDrawer({
           type: "error",
         });
       } finally {
+        // Anche in caso di errore: lo stile resta "" e il preload procede con
+        // quella chiave (il click userà la stessa) invece di restare bloccato.
+        stylesResolvedRef.current = true;
         setIsLoadingStyles(false);
       }
     }
@@ -124,6 +155,76 @@ export function ExportCatalogDrawer({
     void loadCatalogsList();
     void loadStylesList();
   }, [open, tenantId, activityId, activityName, showToast]);
+
+  // Precarica il payload PDF del catalogo selezionato per ricavarne la
+  // copertura allergeni. Stessa funzione del download → stesso numero che
+  // finirà nel documento (override di visibilità di sede inclusi), zero query
+  // aggiuntive. Effetto collaterale voluto: al click i dati sono già pronti.
+  //
+  // Deps volutamente senza selectedStyleId: la copertura non dipende dallo
+  // stile, cambiarlo non deve far ripartire il caricamento. C'è invece
+  // isLoadingStyles, che serve solo a far avvenire il PRIMO preload a stile già
+  // noto (vedi guard sotto).
+  useEffect(() => {
+    if (!open || !selectedCatalogId) {
+      setAllergenCoverage(null);
+      return;
+    }
+
+    // Attendi che gli stili siano risolti: la chiave di cache include lo stile,
+    // e precaricare a stile ancora vuoto garantirebbe un cache miss al click →
+    // loadMenuPdfData due volte nel percorso più comune. Il flag va a true anche
+    // quando il caricamento stili FALLISCE o la sede non ha stili usabili: in
+    // quel caso si precarica con styleId "" e il click, che usa lo stesso "",
+    // fa comunque cache hit. Nessun blocco permanente.
+    // `isLoadingStyles` è nelle deps solo per far ri-scattare l'effetto quando
+    // il flag diventa true (un ref non provoca render da sé).
+    if (!stylesResolvedRef.current) return;
+
+    // Reset immediato: mai mostrare i numeri del catalogo precedente mentre
+    // arriva la risposta del nuovo.
+    setAllergenCoverage(null);
+
+    const styleId = selectedStyleIdRef.current;
+    const cached = pdfDataCacheRef.current.get(
+      pdfDataCacheKey(selectedCatalogId, styleId),
+    );
+    if (cached) {
+      setAllergenCoverage(cached.allergenCoverage);
+      return;
+    }
+
+    // `cancelled` (idiom del progetto): una risposta in volo su un catalogo
+    // ormai deselezionato viene scartata invece di sovrascrivere la corrente.
+    let cancelled = false;
+
+    async function loadCoverage(catalogId: string) {
+      try {
+        const { loadMenuPdfData } = await import("@/services/pdf/loadMenuPdfData");
+        const data = await loadMenuPdfData(
+          tenantId,
+          activityId,
+          catalogId,
+          styleId || undefined,
+        );
+        // La cache si popola anche se la risposta è stale: il payload è valido
+        // per la sua chiave e serve comunque a un eventuale ritorno.
+        pdfDataCacheRef.current.set(pdfDataCacheKey(catalogId, styleId), data);
+        if (cancelled) return;
+        setAllergenCoverage(data.allergenCoverage);
+      } catch (error: unknown) {
+        // Informazione accessoria: se non si riesce a calcolarla si tace.
+        // Nessun toast, nessun blocco: il download al click gestisce i propri
+        // errori per conto suo.
+        console.warn("Allergen coverage preload failed:", error);
+      }
+    }
+
+    void loadCoverage(selectedCatalogId);
+    return () => {
+      cancelled = true;
+    };
+  }, [open, selectedCatalogId, isLoadingStyles, tenantId, activityId]);
 
   const handleCatalogChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const id = e.target.value;
@@ -142,12 +243,19 @@ export function ExportCatalogDrawer({
         import("@/services/pdf/loadMenuPdfData"),
         import("@/services/pdf/renderMenuPdf"),
       ]);
-      const data = await loadMenuPdfData(
-        tenantId,
-        activityId,
-        selectedCatalogId,
-        selectedStyleId || undefined,
-      );
+      // Payload già precaricato per (catalogo, stile) correnti → riuso, niente
+      // seconda fetch. Chiave con lo stile: riusare un payload risolto su un
+      // altro stile produrrebbe un PDF con la tematizzazione sbagliata.
+      const cacheKey = pdfDataCacheKey(selectedCatalogId, selectedStyleId);
+      const data =
+        pdfDataCacheRef.current.get(cacheKey) ??
+        (await loadMenuPdfData(
+          tenantId,
+          activityId,
+          selectedCatalogId,
+          selectedStyleId || undefined,
+        ));
+      pdfDataCacheRef.current.set(cacheKey, data);
       const blob = await renderMenuPdfBlob(data, {
         includePhotos,
         includeCoverImage,
@@ -185,6 +293,10 @@ export function ExportCatalogDrawer({
     value: c.id,
     label: c.name ?? "Catalogo senza nome",
   }));
+
+  const allergenCoverageMessage = allergenCoverage
+    ? buildAllergenCoverageMessage(allergenCoverage)
+    : null;
 
   // Solo gli stili reali del tenant; il corrente è preselezionato per nome e
   // marcato " (attuale)" nella sola label (value/id invariati).
@@ -246,6 +358,9 @@ export function ExportCatalogDrawer({
                   : undefined
             }
           />
+          {allergenCoverageMessage ? (
+            <InlineBanner variant="info">{allergenCoverageMessage}</InlineBanner>
+          ) : null}
           <Select
             label="Stile"
             options={styleOptions}

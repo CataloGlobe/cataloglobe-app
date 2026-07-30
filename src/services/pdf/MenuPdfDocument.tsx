@@ -468,22 +468,22 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
     },
     // Didascalia sotto il rule: dichiara cosa significa l'evidenziazione della
     // griglia. Testo variabile per copertura (vedi ALLERGEN_PAGE_TEXT).
+    // maxWidth: senza vincolo la riga più lunga correva da margine a margine
+    // mentre quella sopra restava corta — due elementi scollegati invece di un
+    // blocco. Stessa gabbia per entrambe le righe.
     finalCaption: {
       fontFamily,
       fontSize: 9,
       lineHeight: 1.45,
       color: theme.muted,
       textAlign: "center",
+      maxWidth: "72%",
       marginTop: 14,
     },
     // Riga di cautela (solo copertura bassa): stesso stile della didascalia —
-    // non è un allarme, è una precisazione.
+    // non è un allarme, è una precisazione. Applicata IN AGGIUNTA a finalCaption
+    // (array di stili): cambia solo lo stacco verticale.
     finalCaptionCaution: {
-      fontFamily,
-      fontSize: 9,
-      lineHeight: 1.45,
-      color: theme.muted,
-      textAlign: "center",
       marginTop: 6,
     },
     // Blocco promosso in testa (solo copertura zero): la nota di rito sale qui
@@ -733,8 +733,8 @@ function collectUsedCharacteristics(
 const ALLERGEN_PAGE_TEXT = {
   caption: "Gli allergeni evidenziati sono presenti in almeno un piatto di questo menù.",
   captionNoData: "Elenco dei 14 allergeni previsti dal Regolamento UE 1169/2011.",
-  lowCoverageCaution:
-    "Gli allergeni non evidenziati non sono stati segnalati per questo menù: per informazioni complete rivolgersi al personale di sala.",
+  // Nessun rimando al personale: lo fa già la nota di rito in fondo pagina.
+  lowCoverageCaution: "Gli allergeni non evidenziati non sono stati segnalati per questo menù.",
   staffNote:
     "In caso di allergie o intolleranze si prega di informare il personale di sala.",
   askInRoom:
@@ -785,7 +785,7 @@ function AllergensPage({
             : ALLERGEN_PAGE_TEXT.caption}
         </Text>
         {isLowCoverage ? (
-          <Text style={styles.finalCaptionCaution}>
+          <Text style={[styles.finalCaption, styles.finalCaptionCaution]}>
             {ALLERGEN_PAGE_TEXT.lowCoverageCaution}
           </Text>
         ) : null}

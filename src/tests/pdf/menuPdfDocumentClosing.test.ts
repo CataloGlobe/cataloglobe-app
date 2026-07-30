@@ -315,13 +315,18 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
 describe("MenuPdfDocument — pagina finale, testo per copertura allergeni", () => {
     const CAPTION = "Gli allergeni evidenziati sono presenti in almeno un piatto di questo menù.";
     const CAPTION_NO_DATA = "Elenco dei 14 allergeni previsti dal Regolamento UE 1169/2011.";
-    const CAUTION =
-        "Gli allergeni non evidenziati non sono stati segnalati per questo menù: per informazioni complete rivolgersi al personale di sala.";
+    // Frammento e non frase intera: i testi sono in revisione legale, e la
+    // riga di cautela è già stata accorciata una volta.
+    const CAUTION_FRAGMENT = "non sono stati segnalati";
     const ASK_IN_ROOM =
         "Le informazioni su ingredienti e allergeni di ogni piatto sono disponibili in sala su richiesta.";
 
     function finalPageStrings(coverage: MenuPdfAllergenCoverage): string[] {
         return stringsOf(renderPages(buildData("Sede", "Indirizzo", SAN_PIETRO, coverage)).pages[2]);
+    }
+
+    function hasCaution(strings: string[]): boolean {
+        return strings.some(s => s.includes(CAUTION_FRAGMENT));
     }
 
     it("copertura zero: didascalia normativa, blocco promosso, nota una sola volta", () => {
@@ -336,7 +341,7 @@ describe("MenuPdfDocument — pagina finale, testo per copertura allergeni", () 
         expect(final).not.toContain(CAPTION);
         expect(final).toContain(NOTE); // promossa in testa
         expect(final).toContain(ASK_IN_ROOM);
-        expect(final).not.toContain(CAUTION);
+        expect(hasCaution(final)).toBe(false);
 
         // Promossa, non duplicata: una sola occorrenza in TUTTO il documento.
         expect(stringsOf(tree).filter(s => s === NOTE)).toHaveLength(1);
@@ -358,7 +363,7 @@ describe("MenuPdfDocument — pagina finale, testo per copertura allergeni", () 
     it("copertura sotto soglia: didascalia + riga di cautela", () => {
         const final = finalPageStrings({ productsTotal: 10, productsWithAllergens: 3 });
         expect(final).toContain(CAPTION);
-        expect(final).toContain(CAUTION);
+        expect(hasCaution(final)).toBe(true);
         expect(final).not.toContain(CAPTION_NO_DATA);
         expect(final).not.toContain(ASK_IN_ROOM);
         expect(final).toContain(NOTE); // resta in fondo
@@ -367,20 +372,20 @@ describe("MenuPdfDocument — pagina finale, testo per copertura allergeni", () 
     it("copertura sopra soglia: solo didascalia, nessuna cautela", () => {
         const final = finalPageStrings({ productsTotal: 10, productsWithAllergens: 8 });
         expect(final).toContain(CAPTION);
-        expect(final).not.toContain(CAUTION);
+        expect(hasCaution(final)).toBe(false);
         expect(final).not.toContain(CAPTION_NO_DATA);
         expect(final).toContain(NOTE);
     });
 
     it("soglia 50%: esattamente a metà NON è copertura bassa", () => {
         const final = finalPageStrings({ productsTotal: 10, productsWithAllergens: 5 });
-        expect(final).not.toContain(CAUTION);
+        expect(hasCaution(final)).toBe(false);
     });
 
     it("catalogo senza prodotti stampabili: nessuna divisione per zero, ricade su copertura zero", () => {
         const final = finalPageStrings({ productsTotal: 0, productsWithAllergens: 0 });
         expect(final).toContain(CAPTION_NO_DATA);
-        expect(final).not.toContain(CAUTION);
+        expect(hasCaution(final)).toBe(false);
     });
 
     it("spaziatore elastico invariato in tutti i casi (contenuto in alto)", () => {
