@@ -1,4 +1,3 @@
-import { Suspense, lazy } from "react";
 import { hydrateRoot } from "react-dom/client";
 import { Route, Routes } from "react-router-dom";
 
@@ -6,16 +5,9 @@ import "@styles/global.scss";
 import "@/i18n";
 
 import PublicProviders from "@/components/public/PublicProviders";
-import PublicErrorBoundary from "@/components/PublicErrorBoundary/PublicErrorBoundary";
-import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "@/pages/NotFound/NotFound";
-import PublicCollectionPage from "@/pages/PublicCollectionPage/PublicCollectionPage";
-import type { Allergen } from "@/services/supabase/allergens";
-import type { ResolvedPayloadShape } from "@/types/publicCatalog";
-
-// Lazy: la prenotazione è dietro interazione utente, non deve entrare nel
-// bundle di hydration del catalogo (critico per LCP).
-const ReservationPage = lazy(() => import("@/pages/ReservationPage/ReservationPage"));
+import type { PublicCatalogInitialPayload } from "@/pages/PublicCollectionPage/PublicCollectionPage";
+import { publicRoutes } from "@/routes/publicRoutes";
 
 /**
  * Entry client di hydration per la pagina pubblica /:slug.
@@ -27,16 +19,18 @@ const ReservationPage = lazy(() => import("@/pages/ReservationPage/ReservationPa
  * Stesso albero del render server (PublicProviders → route pubblica) ma con
  * BrowserRouter; niente StrictMode (coerenza col markup server, double-effect
  * solo dev non necessario qui).
+ *
+ * Le route pubbliche NON sono dichiarate qui: vivono in `routes/publicRoutes`,
+ * condivise con `App.tsx`. Il commento di testa di quel modulo spiega perché
+ * (una route presente solo nella SPA è invisibile su QUESTO percorso, che è
+ * quello di chi apre il menu da QR).
  */
 
 declare global {
     interface Window {
         /** Dati inlinati dalla shell SSR (4b: payload + allergeni già
             fetchati server-side). Assente su SPA classica. */
-        __PUBLIC_CATALOG__?: {
-            payload: ResolvedPayloadShape;
-            allergens: Allergen[] | null;
-        };
+        __PUBLIC_CATALOG__?: PublicCatalogInitialPayload;
     }
 }
 
@@ -48,40 +42,7 @@ if (container) {
         container,
         <PublicProviders router="browser">
             <Routes>
-                {/* Le route raggiungibili via `navigate()` DALLA pagina pubblica
-                    devono esistere anche qui, non solo in App.tsx: su una pagina
-                    servita dalla shell SSR gira questo bundle, non la SPA. Se
-                    manca, `/:slug/prenota` cade sul catch-all `/:slug/:lang?`
-                    con lang="prenota" → redirect a `/:slug` e refetch (toast
-                    "Traduzione..."), invece della pagina prenotazione. */}
-                <Route
-                    path="/:slug/prenota"
-                    element={
-                        <PublicErrorBoundary>
-                            <Suspense fallback={<AppLoader intent="public" />}>
-                                <ReservationPage />
-                            </Suspense>
-                        </PublicErrorBoundary>
-                    }
-                />
-                <Route
-                    path="/:slug/:lang/prenota"
-                    element={
-                        <PublicErrorBoundary>
-                            <Suspense fallback={<AppLoader intent="public" />}>
-                                <ReservationPage />
-                            </Suspense>
-                        </PublicErrorBoundary>
-                    }
-                />
-                <Route
-                    path="/:slug/:lang?"
-                    element={
-                        <PublicErrorBoundary>
-                            <PublicCollectionPage initialPayload={initialPayload} />
-                        </PublicErrorBoundary>
-                    }
-                />
+                {publicRoutes({ initialPayload })}
 
                 {/* Global 404 — senza, un path non matchato renderizza nulla
                     (schermo bianco). NotFound è già nel bundle: lo importa
