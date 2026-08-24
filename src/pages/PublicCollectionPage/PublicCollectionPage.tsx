@@ -46,11 +46,18 @@ function messageForReason(reason: OrderingStateReason, t: TFunction): string {
     }
 }
 
+/**
+ * Payload inlinato dalla shell SSR (`window.__PUBLIC_CATALOG__`). Esportato
+ * perché lo consumano anche `entry-client.tsx` e `routes/publicRoutes.tsx`:
+ * unica dichiarazione, non tre copie della stessa shape.
+ */
+export type PublicCatalogInitialPayload = {
+    payload: ResolvedPayloadShape;
+    allergens: Allergen[] | null;
+};
+
 type Props = {
-    initialPayload?: {
-        payload: ResolvedPayloadShape;
-        allergens: Allergen[] | null;
-    };
+    initialPayload?: PublicCatalogInitialPayload;
 };
 
 export default function PublicCollectionPage({ initialPayload }: Props) {
