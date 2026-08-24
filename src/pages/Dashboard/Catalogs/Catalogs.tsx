@@ -361,16 +361,20 @@ export default function Catalogs() {
     const emptyState = (
         <EmptyState
             icon={<IconBook2 size={40} stroke={1.5} />}
-            title={hasSearchFilter ? `Nessun ${catalogLower} trovato` : `Non hai ancora creato ${catalogLower}`}
+            title={
+                hasSearchFilter
+                    ? "Nessun risultato"
+                    : `Il ${catalogLower} è quello che i clienti vedono col QR`
+            }
             description={
                 hasSearchFilter
                     ? `Nessun ${catalogLower} corrisponde alla ricerca.`
-                    : `I ${catalogLower} organizzano i tuoi ${verticalConfig.productLabel.toLowerCase()}i e vengono mostrati ai clienti.`
+                    : "Puoi crearne più di uno — alla carta, colazioni, carta dei vini — e decidere con la programmazione quando mostrarli."
             }
             action={
                 !hasSearchFilter && canWriteCatalog ? (
                     <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
-                        {`+ Crea il tuo primo ${catalogLower}`}
+                        {`Crea il primo ${catalogLower}`}
                     </Button>
                 ) : undefined
             }
