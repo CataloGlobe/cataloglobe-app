@@ -308,14 +308,23 @@ serve(async req => {
         let stripeCustomerId = tenantData.stripe_customer_id;
 
         if (!stripeCustomerId) {
-            const customer = await stripe.customers.create({
-                email: userEmail,
-                name: customerName,
-                address: customerAddress,
-                description: customerDescription,
-                preferred_locales: ["it"],
-                metadata: { ...customerMetadata, user_id: userId }
-            });
+            let customer: Stripe.Customer;
+            try {
+                customer = await stripe.customers.create({
+                    email: userEmail,
+                    name: customerName,
+                    address: customerAddress,
+                    description: customerDescription,
+                    preferred_locales: ["it"],
+                    metadata: { ...customerMetadata, user_id: userId }
+                });
+            } catch (err) {
+                // Log only the error class — Stripe messages can echo the submitted value.
+                console.error(
+                    `stripe-checkout: customer create failed: code=${(err as any)?.code} type=${(err as any)?.type} status=${(err as any)?.statusCode}`
+                );
+                return json(req, 502, { error: "stripe_customer_create_failed" });
+            }
             stripeCustomerId = customer.id;
 
             const { error: updateErr } = await supabaseAdmin
@@ -405,7 +414,9 @@ serve(async req => {
         return json(req, 200, { checkout_url: session.url });
     } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
+        // Logged only server-side — the raw message (Stripe errors can echo
+        // submitted values like P.IVA/address) must never reach the client.
         console.error("stripe-checkout: Unhandled error:", message);
-        return json(req, 500, { error: "checkout_failed", detail: message });
+        return json(req, 500, { error: "checkout_failed" });
     }
 });
