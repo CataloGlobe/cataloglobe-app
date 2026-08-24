@@ -8,6 +8,7 @@ import "@/i18n";
 import PublicProviders from "@/components/public/PublicProviders";
 import PublicErrorBoundary from "@/components/PublicErrorBoundary/PublicErrorBoundary";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
+import NotFound from "@/pages/NotFound/NotFound";
 import PublicCollectionPage from "@/pages/PublicCollectionPage/PublicCollectionPage";
 import type { Allergen } from "@/services/supabase/allergens";
 import type { ResolvedPayloadShape } from "@/types/publicCatalog";
@@ -73,7 +74,19 @@ if (container) {
                         </PublicErrorBoundary>
                     }
                 />
-                <Route path="/:slug/:lang?" element={<PublicCollectionPage initialPayload={initialPayload} />} />
+                <Route
+                    path="/:slug/:lang?"
+                    element={
+                        <PublicErrorBoundary>
+                            <PublicCollectionPage initialPayload={initialPayload} />
+                        </PublicErrorBoundary>
+                    }
+                />
+
+                {/* Global 404 — senza, un path non matchato renderizza nulla
+                    (schermo bianco). NotFound è già nel bundle: lo importa
+                    PublicCollectionPage per gli stati inactive/empty. */}
+                <Route path="*" element={<NotFound />} />
             </Routes>
         </PublicProviders>,
         {
