@@ -60,7 +60,14 @@ function findPages(node: unknown, out: El[]): void {
     findPages(node.props?.children, out);
 }
 
-function findRenderFn(node: unknown): ((ctx: { pageNumber: number; totalPages: number }) => string) | null {
+type DynamicPageProps = {
+    pageNumber: number;
+    totalPages: number;
+    subPageNumber: number;
+    subPageTotalPages: number;
+};
+
+function findRenderFn(node: unknown): ((ctx: DynamicPageProps) => string) | null {
     if (Array.isArray(node)) {
         for (const n of node) {
             const found = findRenderFn(n);
@@ -70,7 +77,7 @@ function findRenderFn(node: unknown): ((ctx: { pageNumber: number; totalPages: n
     }
     if (!isEl(node)) return null;
     if (typeof node.props?.render === "function") {
-        return node.props.render as (ctx: { pageNumber: number; totalPages: number }) => string;
+        return node.props.render as (ctx: DynamicPageProps) => string;
     }
     return findRenderFn(node.props?.children);
 }
@@ -302,13 +309,27 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
         expect(iCatalog).toBeGreaterThan(iAddr); // titolo menù dopo l'indirizzo
     });
 
-    it("paginazione invariata: copertina + finale escluse (offset -2)", () => {
+    it("paginazione locale alla Page prodotti: sub-page, nessun offset globale", () => {
         const { pages } = renderPages(buildData("San Pietro", "Indirizzo", SAN_PIETRO));
         const render = findRenderFn(pages[1]); // footer nella pagina prodotti
         expect(render).not.toBeNull();
-        // Documento a 6 pagine fisiche: copertina + 4 prodotti + finale → N=4.
-        expect(render!({ pageNumber: 2, totalPages: 6 })).toBe("Pagina 1 di 4");
-        expect(render!({ pageNumber: 5, totalPages: 6 })).toBe("Pagina 4 di 4");
+        // 4 pagine fisiche di prodotti → "1 di 4" … "4 di 4".
+        expect(render!({ pageNumber: 2, totalPages: 6, subPageNumber: 1, subPageTotalPages: 4 }))
+            .toBe("Pagina 1 di 4");
+        expect(render!({ pageNumber: 5, totalPages: 6, subPageNumber: 4, subPageTotalPages: 4 }))
+            .toBe("Pagina 4 di 4");
+    });
+
+    it("chiusura su 2 pagine: il totale prodotti resta corretto", () => {
+        // Il difetto storico: con `totalPages - 2` una chiusura su due pagine
+        // sovrastimava il totale di 1 ("Pagina 1 di 2" con una sola pagina
+        // prodotti). Gli indici globali ora non entrano più nel calcolo.
+        const { pages } = renderPages(buildData("San Pietro", "Indirizzo", SAN_PIETRO));
+        const render = findRenderFn(pages[1]);
+        expect(render).not.toBeNull();
+        // Copertina + 1 prodotti + 2 di chiusura = 4 pagine fisiche.
+        expect(render!({ pageNumber: 2, totalPages: 4, subPageNumber: 1, subPageTotalPages: 1 }))
+            .toBe("Pagina 1 di 1");
     });
 });
 
@@ -398,6 +419,72 @@ describe("MenuPdfDocument — pagina finale, testo per copertura allergeni", () 
             const final = renderPages(buildData("Sede", "Indirizzo", SAN_PIETRO, coverage)).pages[2];
             expect(countElasticSpacers(final)).toBe(1);
         }
+    });
+});
+
+describe("MenuPdfDocument — pagina finale con molte caratteristiche", () => {
+    /** N caratteristiche distinte sul prodotto della fixture. */
+    function dataWithCharacteristics(count: number): MenuPdfData {
+        const data = buildData("Sede", "Indirizzo", SAN_PIETRO);
+        data.categories[0].products[0].characteristics = Array.from(
+            { length: count },
+            (_, i) => ({
+                code: `char-${i}`,
+                // Label lunga come le più lunghe del seed di piattaforma
+                // ("Può contenere ingredienti surgelati", 35 caratteri).
+                label: `Caratteristica numero ${String(i).padStart(2, "0")}`,
+                icon: "lucide:leaf"
+            })
+        );
+        return data;
+    }
+
+    /** Un `wrap={false}` che racchiuda l'INTERO gruppo legenda = il difetto. */
+    function countUnwrappableNodes(node: unknown): number {
+        if (Array.isArray(node)) return node.reduce<number>((n, c) => n + countUnwrappableNodes(c), 0);
+        if (!isEl(node)) return 0;
+        const self = node.props?.wrap === false ? 1 : 0;
+        return self + countUnwrappableNodes(node.props?.children);
+    }
+
+    for (const count of [26, 31]) {
+        it(`${count} caratteristiche: nessun contenuto perso, nota una sola volta`, () => {
+            const data = dataWithCharacteristics(count);
+            const { tree, pages } = renderPages(data);
+            const final = stringsOf(pages[2]);
+
+            // Tutte le voci presenti nell'albero: nessuna scartata dal render.
+            for (let i = 0; i < count; i += 1) {
+                expect(final).toContain(`Caratteristica numero ${String(i).padStart(2, "0")}`);
+            }
+            // I 14 allergeni restano al loro posto.
+            expect(final).toContain("Latte");
+            expect(final).toContain("Molluschi");
+            // La nota di rito non si duplica.
+            expect(stringsOf(tree).filter(s => s === NOTE)).toHaveLength(1);
+        });
+    }
+
+    it("il gruppo legenda non è più un unico blocco indivisibile", () => {
+        // Il wrap={false} sopravvive solo a granularità fine (item singolo e
+        // sottotitolo+prima riga), mai sull'intera sezione: un blocco più alto
+        // della pagina verrebbe disegnato oltre il bordo invece di impaginarsi.
+        const withMany = renderPages(dataWithCharacteristics(31)).pages[2];
+        const withFew = renderPages(dataWithCharacteristics(2)).pages[2];
+        const many = countUnwrappableNodes(withMany);
+        const few = countUnwrappableNodes(withFew);
+        // Cresce con le voci → è per-item, non un contenitore unico.
+        expect(many).toBeGreaterThan(few);
+        // 14 allergeni + 31 caratteristiche + 2 header di sezione = 47.
+        expect(many).toBe(14 + 31 + 2);
+    });
+
+    it("poche caratteristiche: struttura invariata (spaziatore + nota in fondo)", () => {
+        const final = renderPages(dataWithCharacteristics(2)).pages[2];
+        expect(countElasticSpacers(final)).toBe(1);
+        const s = stringsOf(final);
+        expect(s).toContain(NOTE);
+        expect(s.indexOf("Caratteristiche")).toBeLessThan(s.indexOf(NOTE));
     });
 });
 

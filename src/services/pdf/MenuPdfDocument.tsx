@@ -452,6 +452,11 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
     },
     finalNoteBlock: {
       alignItems: "center",
+      // Stacco minimo garantito: quando il contenuto riempie la pagina lo
+      // spaziatore elastico collassa a 0 e la nota si incollerebbe all'ultima
+      // voce della griglia. Nel caso normale il margine è irrilevante (lo
+      // spaziatore fa il grosso del lavoro).
+      marginTop: 18,
     },
     finalNote: {
       fontFamily,
@@ -741,6 +746,72 @@ const ALLERGEN_PAGE_TEXT = {
     "Le informazioni su ingredienti e allergeni di ogni piatto sono disponibili in sala su richiesta.",
 } as const;
 
+type LegendEntry = {
+  key: string;
+  label: string;
+  geometry: ReturnType<typeof allergenIconGeometry>;
+  iconColor: string;
+  labelStyle: Styles["legendLabel"];
+};
+
+/** Numero di voci per riga della griglia legenda (legendItem = width 50%). */
+const LEGEND_COLUMNS = 2;
+
+/**
+ * Sezione della pagina finale: sottotitolo + griglia a 2 colonne (icona +
+ * label). Usata sia dagli allergeni sia dalle caratteristiche.
+ *
+ * Impaginazione — il gruppo NON è indivisibile. Un unico `wrap={false}` su
+ * tutta la sezione faceva scattare `!fitsInsidePage && !canWrap` in
+ * @react-pdf/layout: il blocco veniva disegnato oltre il bordo pagina e i
+ * fratelli (spaziatore, nota) sbalzati alla pagina dopo. Con 26 caratteristiche
+ * succedeva davvero. Il wrap è quindi riportato a granularità fine:
+ *
+ * - `wrap={false}` sul singolo item → una voce non si spezza mai tra icona e label;
+ * - `wrap={false}` su sottotitolo + PRIMA riga → il sottotitolo non resta orfano
+ *   a fine pagina (stesso pattern di CategorySection per l'header categoria;
+ *   `minPresenceAhead` era già stato scartato lì perché non regge).
+ *
+ * La prima riga è un container `legendGrid` separato dal resto: contenendo
+ * esattamente LEGEND_COLUMNS voci a width 50%, la griglia successiva riparte
+ * allineata e l'impaginazione resta identica a occhio.
+ */
+function LegendSection({
+  subtitle,
+  items,
+  styles,
+  blockStyle,
+}: {
+  subtitle: string;
+  items: LegendEntry[];
+  styles: Styles;
+  blockStyle?: Styles["finalCharsBlock"];
+}) {
+  const firstRow = items.slice(0, LEGEND_COLUMNS);
+  const restRows = items.slice(LEGEND_COLUMNS);
+
+  const renderItem = (item: LegendEntry) => (
+    <View key={item.key} style={styles.legendItem} wrap={false}>
+      {item.geometry ? (
+        <PdfIcon geometry={item.geometry} size={20} color={item.iconColor} />
+      ) : null}
+      <Text style={item.labelStyle}>{item.label}</Text>
+    </View>
+  );
+
+  return (
+    <View style={blockStyle}>
+      <View wrap={false}>
+        <Text style={styles.finalSubtitle}>{subtitle}</Text>
+        <View style={styles.legendGrid}>{firstRow.map(renderItem)}</View>
+      </View>
+      {restRows.length > 0 ? (
+        <View style={styles.legendGrid}>{restRows.map(renderItem)}</View>
+      ) : null}
+    </View>
+  );
+}
+
 /**
  * Ultima pagina del menù: pagina dedicata "Allergeni e caratteristiche".
  * Titolo di pagina + rule + didascalia, i 14 allergeni UE (presenti evidenziati
@@ -805,55 +876,42 @@ function AllergensPage({
       ) : null}
 
       {/* Contenuto allineato in alto (subito sotto il titolo): allergeni +
-          (caratteristiche con gap fisso). Nessuno spaziatore sopra. */}
-      <View wrap={false}>
-        <Text style={styles.finalSubtitle}>Allergeni</Text>
-        <View style={styles.legendGrid}>
-          {/* Tutti e 14 gli allergeni UE: presenti nel menù evidenziati,
-              assenti attenuati. Nessun numero visibile. */}
-          {ALL_ALLERGENS.map((allergen) => {
-            const isPresent = presentAllergenCodes.has(allergen.code);
-            const geometry = allergenIconGeometry(allergen.code);
-            return (
-              <View key={allergen.code} style={styles.legendItem}>
-                {geometry ? (
-                  <PdfIcon
-                    geometry={geometry}
-                    size={20}
-                    color={isPresent ? theme.primary : theme.muted}
-                  />
-                ) : null}
-                <Text
-                  style={
-                    isPresent ? styles.legendLabel : styles.legendLabelMuted
-                  }
-                >
-                  {allergen.label}
-                </Text>
-              </View>
-            );
-          })}
-        </View>
+          (caratteristiche con gap fisso). Nessuno spaziatore sopra.
+          NB: nessun wrap={false} sul gruppo — con molte caratteristiche
+          sfondava il bordo pagina invece di impaginarsi (vedi LegendSection). */}
+      <LegendSection
+        subtitle="Allergeni"
+        styles={styles}
+        // Tutti e 14 gli allergeni UE: presenti nel menù evidenziati, assenti
+        // attenuati. Nessun numero visibile.
+        items={ALL_ALLERGENS.map((allergen) => {
+          const isPresent = presentAllergenCodes.has(allergen.code);
+          return {
+            key: allergen.code,
+            label: allergen.label,
+            geometry: allergenIconGeometry(allergen.code),
+            iconColor: isPresent ? theme.primary : theme.muted,
+            labelStyle: isPresent
+              ? styles.legendLabel
+              : styles.legendLabelMuted,
+          };
+        })}
+      />
 
-        {usedCharacteristics.length > 0 ? (
-          <View style={styles.finalCharsBlock}>
-            <Text style={styles.finalSubtitle}>Caratteristiche</Text>
-            <View style={styles.legendGrid}>
-              {usedCharacteristics.map((characteristic) => {
-                const geometry = characteristicIconGeometry(characteristic.icon);
-                return (
-                  <View key={characteristic.code} style={styles.legendItem}>
-                    {geometry ? (
-                      <PdfIcon geometry={geometry} size={20} color={theme.primary} />
-                    ) : null}
-                    <Text style={styles.legendLabel}>{characteristic.label}</Text>
-                  </View>
-                );
-              })}
-            </View>
-          </View>
-        ) : null}
-      </View>
+      {usedCharacteristics.length > 0 ? (
+        <LegendSection
+          subtitle="Caratteristiche"
+          styles={styles}
+          blockStyle={styles.finalCharsBlock}
+          items={usedCharacteristics.map((characteristic) => ({
+            key: characteristic.code,
+            label: characteristic.label,
+            geometry: characteristicIconGeometry(characteristic.icon),
+            iconColor: theme.primary,
+            labelStyle: styles.legendLabel,
+          }))}
+        />
+      ) : null}
 
       {/* Spaziatore sotto il gruppo: nota ancorata in fondo. Resta anche nel
           caso senza nota — con nulla sotto, tiene il contenuto in alto. */}
@@ -957,11 +1015,17 @@ export function MenuPdfDocument({
           </Text>
           <Text
             style={styles.footerText}
-            // Copertina (prima) e chiusura (ultima) sono frontespizi senza
-            // footer: entrambe escluse dal conteggio. N = pagine prodotti →
-            // prima prodotti "1 di N", ultima "N di N".
-            render={({ pageNumber, totalPages }) =>
-              `Pagina ${pageNumber - 1} di ${totalPages - 2}`
+            // Numerazione LOCALE a questa <Page>: subPageNumber (base 1) e
+            // subPageTotalPages contano solo le pagine fisiche in cui questa
+            // Page si è spezzata, ignorando copertina e chiusura.
+            //
+            // Prima era `pageNumber - 1` / `totalPages - 2` su indici globali:
+            // l'offset costante presupponeva frontespizi a pagina singola, e
+            // quando la chiusura ne occupava due il totale usciva sovrastimato
+            // di 1 ("Pagina 1 di 2" con una sola pagina prodotti). Con i sub-*
+            // l'assunzione sparisce del tutto.
+            render={({ subPageNumber, subPageTotalPages }) =>
+              `Pagina ${subPageNumber} di ${subPageTotalPages}`
             }
           />
         </View>
