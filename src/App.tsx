@@ -14,6 +14,7 @@ import { TenantProvider } from "@context/TenantProvider";
 import { PermissionsProvider } from "@context/PermissionsContext";
 import { DashboardRedirect } from "./components/Routes/DashboardRedirect";
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
+import { publicRoutes } from "@/routes/publicRoutes";
 
 // Auth pages — eager (percorso critico per utenti non autenticati)
 import Login from "./pages/Auth/Login";
@@ -25,8 +26,6 @@ import ForgotPassword from "./pages/Auth/ForgotPassword";
 import ResetPassword from "./pages/Auth/ResetPassword";
 
 // Public pages — eager (entry point visitatori anonimi, evita round-trip extra del lazy chunk)
-import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
-import PublicErrorBoundary from "./components/PublicErrorBoundary/PublicErrorBoundary";
 import TableEntryPage from "./pages/TableEntryPage/TableEntryPage";
 import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
@@ -34,11 +33,6 @@ import InvitePage from "./pages/Invite/InvitePage";
 import PrivacyPolicyPage from "./pages/Legal/PrivacyPolicyPage";
 import TermsPage from "./pages/Legal/TermsPage";
 import StatusPage from "./pages/Status/StatusPage";
-
-// Prenotazione — lazy: dietro interazione utente, e il gemello in
-// entry-client.tsx la tiene fuori dal bundle di hydration (critico per LCP:
-// lo paga ogni scansione QR). Stessa forma nei due entry.
-const ReservationPage = lazy(() => import("./pages/ReservationPage/ReservationPage"));
 
 // Admin (lazy: solo Lorenzo lo carica)
 const StatusIncidentsAdminPage = lazy(
@@ -282,39 +276,10 @@ export default function App() {
             {/* CUSTOMER ORDERING — QR bootstrap (DEVE precedere /:slug catch-all) */}
             <Route path="/t/:qrToken" element={<TableEntryPage />} />
 
-            {/* RESERVATION FORM — più specifica del catch-all /:slug/:lang? grazie al segmento literal */}
-            <Route
-                path="/:slug/prenota"
-                element={
-                    <PublicErrorBoundary>
-                        <Suspense fallback={<AppLoader intent="public" />}>
-                            <ReservationPage />
-                        </Suspense>
-                    </PublicErrorBoundary>
-                }
-            />
-
-            {/* RESERVATION FORM lang-aware — /:slug/:lang/prenota (stesso componente, lingua da URL) */}
-            <Route
-                path="/:slug/:lang/prenota"
-                element={
-                    <PublicErrorBoundary>
-                        <Suspense fallback={<AppLoader intent="public" />}>
-                            <ReservationPage />
-                        </Suspense>
-                    </PublicErrorBoundary>
-                }
-            />
-
-            {/* PUBLIC BUSINESS */}
-            <Route
-                path="/:slug/:lang?"
-                element={
-                    <PublicErrorBoundary>
-                        <PublicCollectionPage />
-                    </PublicErrorBoundary>
-                }
-            />
+            {/* PUBLIC — prenotazione + catalogo. Dichiarate in
+                routes/publicRoutes.tsx, condivise con entry-client.tsx (bundle
+                di hydration SSR): una route pubblica nuova va aggiunta LÌ. */}
+            {publicRoutes()}
 
             {/* Global 404 */}
             <Route path="*" element={<NotFound />} />
