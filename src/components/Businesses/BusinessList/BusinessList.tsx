@@ -21,7 +21,8 @@ export const BusinessList: React.FC<BusinessListProps> = ({
     activeCatalogsMap,
     catalogsLoading,
     onManageAvailability,
-    onCreateClick
+    onCreateClick,
+    hasActiveFilter = false
 }) => {
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
@@ -186,12 +187,20 @@ export const BusinessList: React.FC<BusinessListProps> = ({
         return (
             <EmptyState
                 icon={<MapPin size={40} strokeWidth={1.5} />}
-                title="Non hai ancora aggiunto sedi"
-                description="Le sedi rappresentano i tuoi punti vendita o ristoranti."
+                title={
+                    hasActiveFilter
+                        ? "Nessun risultato"
+                        : "Le sedi sono i locali che i clienti raggiungono con il QR"
+                }
+                description={
+                    hasActiveFilter
+                        ? "Nessuna sede corrisponde alla ricerca."
+                        : "Ogni sede ha il suo indirizzo e il suo link pubblico. Se gestisci più locali, li trovi tutti qui."
+                }
                 action={
-                    onCreateClick ? (
+                    !hasActiveFilter && onCreateClick ? (
                         <Button variant="primary" onClick={onCreateClick}>
-                            + Aggiungi la prima sede
+                            Aggiungi la prima sede
                         </Button>
                     ) : undefined
                 }
