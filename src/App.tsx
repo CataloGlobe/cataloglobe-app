@@ -28,13 +28,17 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 import PublicCollectionPage from "./pages/PublicCollectionPage/PublicCollectionPage";
 import PublicErrorBoundary from "./components/PublicErrorBoundary/PublicErrorBoundary";
 import TableEntryPage from "./pages/TableEntryPage/TableEntryPage";
-import ReservationPage from "./pages/ReservationPage/ReservationPage";
 import Home from "./pages/Home/Home";
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
 import PrivacyPolicyPage from "./pages/Legal/PrivacyPolicyPage";
 import TermsPage from "./pages/Legal/TermsPage";
 import StatusPage from "./pages/Status/StatusPage";
+
+// Prenotazione — lazy: dietro interazione utente, e il gemello in
+// entry-client.tsx la tiene fuori dal bundle di hydration (critico per LCP:
+// lo paga ogni scansione QR). Stessa forma nei due entry.
+const ReservationPage = lazy(() => import("./pages/ReservationPage/ReservationPage"));
 
 // Admin (lazy: solo Lorenzo lo carica)
 const StatusIncidentsAdminPage = lazy(
@@ -283,7 +287,9 @@ export default function App() {
                 path="/:slug/prenota"
                 element={
                     <PublicErrorBoundary>
-                        <ReservationPage />
+                        <Suspense fallback={<AppLoader intent="public" />}>
+                            <ReservationPage />
+                        </Suspense>
                     </PublicErrorBoundary>
                 }
             />
@@ -293,7 +299,9 @@ export default function App() {
                 path="/:slug/:lang/prenota"
                 element={
                     <PublicErrorBoundary>
-                        <ReservationPage />
+                        <Suspense fallback={<AppLoader intent="public" />}>
+                            <ReservationPage />
+                        </Suspense>
                     </PublicErrorBoundary>
                 }
             />
