@@ -36,6 +36,7 @@ import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import {
     ExternalLink,
     CreditCard,
@@ -208,6 +209,7 @@ export default function SubscriptionPage() {
 
     // --- Stato abbonamento live (banner persistente + disdetta) ---
     const [subState, setSubState] = useState<SubscriptionState | null>(null);
+    const [subStateLoading, setSubStateLoading] = useState(true);
     const [isCancelOpen, setIsCancelOpen] = useState(false);
     const [cancelLoading, setCancelLoading] = useState(false);
     const [reactivateLoading, setReactivateLoading] = useState(false);
@@ -217,10 +219,13 @@ export default function SubscriptionPage() {
     const tenantId = selectedTenant?.id ?? null;
     const reloadSubState = useCallback(async () => {
         if (!tenantId) return;
+        setSubStateLoading(true);
         try {
             setSubState(await getSubscriptionState(tenantId));
         } catch (err) {
             console.error("[SubscriptionPage] subscription state load failed:", err);
+        } finally {
+            setSubStateLoading(false);
         }
     }, [tenantId]);
 
@@ -765,6 +770,8 @@ export default function SubscriptionPage() {
                             </Button>
                         )}
                     </div>
+                ) : subStateLoading ? (
+                    <Skeleton height="44px" radius="10px" />
                 ) : pendingBanner && (
                     <div className={styles.scheduledNote}>
                         <Info size={16} />
