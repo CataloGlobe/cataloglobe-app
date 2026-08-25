@@ -1,14 +1,18 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, AlertCircle, Plus, ChevronRight } from "lucide-react";
+import { CheckCircle2, Circle, Plus, ChevronRight } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { usePageHeader } from "@/context/usePageHeader";
+import { usePermissions } from "@/context/PermissionsContext";
+import { useToast } from "@/context/Toast/ToastContext";
+import { isOwnerOrAdmin } from "@/lib/permissions";
 import { supabase } from "@/services/supabase/client";
 import Text from "@/components/ui/Text/Text";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
+import { getTenantSetupStatus, type TenantSetupStatus } from "@/services/supabase/overviewStats";
 import { SUBTYPE_LABELS, VERTICAL_LABELS } from "@/constants/verticalTypes";
 import styles from "./OverviewPage.module.scss";
 
@@ -33,18 +37,41 @@ interface Stats {
     schedules: number;
 }
 
+type SetupStep = {
+    id: string;
+    done: boolean;
+    /** Titolo a passo compiuto (constatazione). */
+    doneTitle: string;
+    /** Titolo a passo da compiere (azione), usato sia per `next` che per `todo`. */
+    todoTitle: string;
+    description: string;
+    to: string;
+};
+
 export default function OverviewPage() {
     const { selectedTenant, loading: tenantLoading } = useTenant();
     const tenantId = useTenantId();
     const navigate = useNavigate();
+    const { permissions } = usePermissions();
+    const { showToast } = useToast();
 
     const [stats, setStats] = useState<Stats | null>(null);
     const [loadingStats, setLoadingStats] = useState(true);
+    const [setup, setSetup] = useState<TenantSetupStatus | null>(null);
+    const [loadingSetup, setLoadingSetup] = useState(true);
 
     usePageHeader({ title: "Panoramica", sticky: true });
 
+    // La checklist è per owner/admin: per i ruoli activity-scoped i count sono
+    // filtrati da RLS e possono valere 0 per mancanza di permesso, indistinguibile
+    // da "non configurato".
+    const canSeeSetup = permissions != null && isOwnerOrAdmin(permissions);
+
+    // Totali grezzi per l'header e le Statistiche rapide. Restano count
+    // "quanti ce ne sono", distinti dai criteri severi della checklist.
     useEffect(() => {
         if (!tenantId) return;
+        let cancelled = false;
 
         async function loadStats() {
             setLoadingStats(true);
@@ -55,6 +82,9 @@ export default function OverviewPage() {
                 supabase.from("featured_contents").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId!),
                 supabase.from("schedules").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId!)
             ]);
+            // Cambio tenant rapido: una risposta tardiva non deve scrivere sullo
+            // stato del tenant nuovo.
+            if (cancelled) return;
             setStats({
                 locations: locations.count ?? 0,
                 products: products.count ?? 0,
@@ -66,7 +96,34 @@ export default function OverviewPage() {
         }
 
         loadStats();
+        return () => { cancelled = true; };
     }, [tenantId]);
+
+    useEffect(() => {
+        if (!tenantId || !canSeeSetup) return;
+        let cancelled = false;
+
+        async function loadSetup() {
+            setLoadingSetup(true);
+            try {
+                const status = await getTenantSetupStatus(tenantId!);
+                if (cancelled) return;
+                setSetup(status);
+            } catch (error) {
+                console.error("[OverviewPage] setup status failed:", error);
+                if (cancelled) return;
+                showToast({
+                    message: "Non è stato possibile verificare lo stato della configurazione.",
+                    type: "error"
+                });
+            } finally {
+                if (!cancelled) setLoadingSetup(false);
+            }
+        }
+
+        loadSetup();
+        return () => { cancelled = true; };
+    }, [tenantId, canSeeSetup, showToast]);
 
     if (tenantLoading || !selectedTenant) {
         return (
@@ -89,28 +146,63 @@ export default function OverviewPage() {
     const { bg, text } = avatarColors(selectedTenant.name);
     const initial = selectedTenant.name.charAt(0).toUpperCase();
 
-    const configItems = [
+    // I passi sono una sequenza, non una lista paritaria: ognuno serve al
+    // successivo. Lo stato è derivato dai dati, niente flag persistiti.
+    const setupSteps: SetupStep[] = [
         {
-            label: (stats?.locations ?? 0) > 0 ? "Sedi create" : "Nessuna sede creata",
-            ok: (stats?.locations ?? 0) > 0,
+            id: "location",
+            done: setup?.hasActiveLocation ?? false,
+            doneTitle: "Sede pubblicata",
+            // Zero sedi e sede sospesa sono due situazioni diverse: nel secondo
+            // caso la sede c'è già e l'azione è riattivarla, non crearne una.
+            todoTitle: setup?.hasAnyLocation ? "Pubblica una sede" : "Crea la prima sede",
+            description: setup?.hasAnyLocation
+                ? "Hai una sede sospesa: finché resta così, la pagina non è raggiungibile."
+                : "È il locale che i clienti raggiungono con il QR.",
             to: `${b}/locations`
         },
         {
-            label: (stats?.products ?? 0) > 0 ? "Prodotti aggiunti" : "Nessun prodotto aggiunto",
-            ok: (stats?.products ?? 0) > 0,
+            id: "products",
+            done: setup?.hasProducts ?? false,
+            doneTitle: "Prodotti aggiunti",
+            todoTitle: "Aggiungi i primi prodotti",
+            description: "Piatti, bevande, prezzi: li crei una volta e li riusi in ogni menù.",
             to: `${b}/products`
         },
         {
-            label: (stats?.catalogs ?? 0) > 0 ? "Catalogo creato" : "Nessun catalogo creato",
-            ok: (stats?.catalogs ?? 0) > 0,
+            id: "catalog",
+            done: setup?.hasPopulatedCatalog ?? false,
+            doneTitle: "Menù pronto",
+            todoTitle: "Crea un menù",
+            description: "I prodotti vanno organizzati in un menù per essere mostrati ai clienti.",
             to: `${b}/catalogs`
         },
         {
-            label: (stats?.schedules ?? 0) > 0 ? "Programmazione configurata" : "Programmazione non configurata",
-            ok: (stats?.schedules ?? 0) > 0,
+            id: "rule",
+            done: setup?.hasActiveLayoutRule ?? false,
+            doneTitle: "Regola attiva",
+            todoTitle: "Attiva una regola",
+            description: "Decide quale menù mostrare in quale sede. Senza, la pagina resta vuota.",
             to: `${b}/scheduling`
         }
     ];
+
+    const completedSteps = setupSteps.filter(step => step.done).length;
+    const missingSteps = setupSteps.length - completedSteps;
+    // `next` è la PRIMA voce non soddisfatta: le successive restano spente.
+    const nextStepIndex = setupSteps.findIndex(step => !step.done);
+    const setupComplete = nextStepIndex === -1;
+    // Tag sulla voce `next`: solo quando dice qualcosa in più del titolo —
+    // l'inizio della sequenza o la sua chiusura. Negli altri casi resta muto.
+    const nextStepTag = missingSteps === 1
+        ? "Ultimo passo"
+        : nextStepIndex === 0
+            ? "Inizia da qui"
+            : null;
+
+    // Il blocco compare solo a owner/admin, solo a dati caricati e solo finché
+    // c'è qualcosa da fare. Lo stato "tutto pronto" arriverà a parte.
+    const showSetupBlock = canSeeSetup && (loadingSetup || !setupComplete);
 
     const quickActions = [
         { label: "Nuovo prodotto", to: `${b}/products` },
@@ -152,33 +244,94 @@ export default function OverviewPage() {
             </div>
 
             {/* ===== Section 2 — Configuration Status ===== */}
-            <div className={styles.section}>
-                <Text variant="title-sm" weight={600}>Configurazione</Text>
-                <div className={styles.configList}>
-                    {loadingStats
-                        ? [...Array(4)].map((_, i) => <Skeleton key={i} height="44px" radius="8px" />)
-                        : configItems.map((item, i) => (
-                            <button
-                                key={i}
-                                className={styles.configItem}
-                                onClick={() => navigate(item.to)}
-                            >
-                                <span className={[
-                                    styles.configIcon,
-                                    item.ok ? styles.configOk : styles.configWarn
-                                ].join(" ")}>
-                                    {item.ok
-                                        ? <CheckCircle2 size={16} />
-                                        : <AlertCircle size={16} />
-                                    }
-                                </span>
-                                <Text variant="body-sm" weight={500}>{item.label}</Text>
-                                <ChevronRight size={14} className={styles.configArrow} />
-                            </button>
-                        ))
-                    }
+            {showSetupBlock && (
+                <div className={styles.section}>
+                    {loadingSetup || !setup ? (
+                        <>
+                            <Skeleton height="44px" radius="8px" />
+                            <div className={styles.configList}>
+                                {[...Array(4)].map((_, i) => (
+                                    <Skeleton key={i} height="56px" radius="8px" />
+                                ))}
+                            </div>
+                        </>
+                    ) : (
+                        <>
+                            <div className={styles.setupHeader}>
+                                <div className={styles.setupHeading}>
+                                    <Text variant="title-sm" weight={600}>
+                                        Il tuo menù non è ancora online
+                                    </Text>
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        {missingSteps === 1
+                                            ? "Manca un passaggio: resta solo da dire dove e quando mostrare il menù."
+                                            : `Mancano ${missingSteps} passaggi. Si fanno in quest'ordine: ognuno serve al successivo.`}
+                                    </Text>
+                                </div>
+                                <div className={styles.setupProgress}>
+                                    <Text variant="caption" colorVariant="muted">
+                                        {completedSteps} di {setupSteps.length}
+                                    </Text>
+                                    <div
+                                        className={styles.setupProgressTrack}
+                                        role="progressbar"
+                                        aria-valuenow={completedSteps}
+                                        aria-valuemin={0}
+                                        aria-valuemax={setupSteps.length}
+                                    >
+                                        <div
+                                            className={styles.setupProgressFill}
+                                            style={{ transform: `scaleX(${completedSteps / setupSteps.length})` }}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className={styles.configList}>
+                                {setupSteps.map((step, i) => {
+                                    const state = step.done
+                                        ? "done"
+                                        : i === nextStepIndex
+                                            ? "next"
+                                            : "todo";
+
+                                    return (
+                                        <button
+                                            key={step.id}
+                                            className={styles.configItem}
+                                            data-state={state}
+                                            onClick={() => navigate(step.to)}
+                                        >
+                                            <span className={styles.configIcon}>
+                                                {step.done
+                                                    ? <CheckCircle2 size={18} />
+                                                    : <Circle size={18} />
+                                                }
+                                            </span>
+                                            <span className={styles.configBody}>
+                                                <span className={styles.configTitleRow}>
+                                                    <Text variant="body-sm" weight={state === "next" ? 600 : 500}>
+                                                        {step.done ? step.doneTitle : step.todoTitle}
+                                                    </Text>
+                                                    {state === "next" && nextStepTag && (
+                                                        <span className={styles.configTag}>{nextStepTag}</span>
+                                                    )}
+                                                </span>
+                                                {!step.done && (
+                                                    <Text variant="caption" colorVariant="muted">
+                                                        {step.description}
+                                                    </Text>
+                                                )}
+                                            </span>
+                                            <ChevronRight size={14} className={styles.configArrow} />
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </>
+                    )}
                 </div>
-            </div>
+            )}
 
             {/* ===== Section 3 — Quick Stats ===== */}
             <div className={styles.section}>
