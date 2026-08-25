@@ -225,7 +225,7 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
         expect(pages).toHaveLength(3);
     });
 
-    it("pagina finale = 'Allergeni e caratteristiche' (no colophon/contatti/orari)", () => {
+    it("pagina finale = allergeni, caratteristiche e contatti (no colophon, no orari)", () => {
         const { pages } = renderPages(buildData("San Pietro", "Indirizzo", SAN_PIETRO));
         const [, products, final] = pages;
         // Allergeni/caratteristiche non più in pagina prodotti
@@ -237,12 +237,18 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
         expect(s).toContain("Latte"); // allergene presente
         expect(s).toContain("Vegano"); // caratteristica presente
         expect(s).toContain(NOTE); // nota di rito
-        // Colophon/contatti/orari rimossi dalla pagina finale
+        // Contatti: resi dallo Step 2 (prima erano volutamente assenti).
+        expect(s).toContain("Contatti");
+        expect(s).toContain("02 7862 2210");
+        expect(s).toContain("@sanpietromilano"); // instagram reso come handle
+        // Colophon mai esistito; ORARI fuori per scelta di prodotto: un menù
+        // stampato che dichiara orari vecchi è peggio di uno che tace.
         expect(s).not.toContain("Grazie per averci scelto");
-        expect(s).not.toContain("Contatti");
-        expect(s).not.toContain("02 7862 2210");
-        expect(s).not.toContain("@sanpietromilano");
         expect(s).not.toContain("Orari");
+        expect(s).not.toContain("07:30–22:30");
+        expect(s).not.toContain("Lun–Ven");
+        // googleReviewUrl fuori scope: la pagina informa, non chiede recensioni.
+        expect(s.join(" ")).not.toContain("writereview");
     });
 
     it("orari rimossi dalla copertina (anche se presenti nel data layer)", () => {
@@ -422,6 +428,125 @@ describe("MenuPdfDocument — pagina finale, testo per copertura allergeni", () 
     });
 });
 
+describe("MenuPdfDocument — contatti e costi di servizio (Step 2)", () => {
+    // Delle 5 fee di FEE_DEFINITIONS solo coperto e servizio sono costi: le
+    // altre tre (prenotazione minima, spesa minima, età minima) sono condizioni.
+    const FEES_TITLE = "Costi e condizioni";
+
+    const NO_CONTACTS: MenuPdfClosingInfo = {
+        phone: null,
+        email: null,
+        website: null,
+        whatsapp: null,
+        instagram: null,
+        facebook: null,
+        googleReviewUrl: null,
+        hours: [],
+        fees: []
+    };
+
+    function finalStrings(closingInfo: MenuPdfClosingInfo): string[] {
+        return stringsOf(renderPages(buildData("Sede", "Indirizzo", closingInfo)).pages[2]);
+    }
+
+    it("contatti e fees presenti: entrambe le sezioni rese", () => {
+        // SEDE_TEST ha tutti i contatti + 5 fees.
+        const s = finalStrings(SEDE_TEST);
+        expect(s).toContain("Contatti");
+        expect(s).toContain(FEES_TITLE);
+        expect(s).toContain("3451559558"); // telefono
+        expect(s).toContain("info@esempio.it");
+        expect(s).toContain("Coperto");
+        expect(s).toContain("2.5 €/persona");
+    });
+
+    it("telefono e WhatsApp uguali: il numero compare una volta sola", () => {
+        // SEDE_TEST ha phone === whatsapp: caso reale (stesso numero per
+        // chiamate e messaggi), stampato due volte sembrava un errore.
+        const s = finalStrings(SEDE_TEST);
+        expect(s.filter(v => v === "3451559558")).toHaveLength(1);
+    });
+
+    it("stesso numero scritto in modo diverso: comunque una riga sola", () => {
+        const s = finalStrings({ ...SEDE_TEST, whatsapp: "+39 345 155-9558" });
+        // Il valore stampato resta quello di `phone`, non quello di whatsapp.
+        expect(s).toContain("3451559558");
+        expect(s).not.toContain("+39 345 155-9558");
+        expect(s.filter(v => v.includes("9558"))).toHaveLength(1);
+    });
+
+    it("numeri diversi: due righe distinte", () => {
+        const s = finalStrings({ ...SEDE_TEST, whatsapp: "333 1234567" });
+        expect(s).toContain("3451559558");
+        expect(s).toContain("333 1234567");
+    });
+
+    it("solo WhatsApp senza telefono: la riga resta", () => {
+        const s = finalStrings({ ...NO_CONTACTS, whatsapp: "3451559558" });
+        expect(s).toContain("3451559558");
+    });
+
+    it("Instagram reso come handle, senza raddoppiare la chiocciola", () => {
+        expect(finalStrings({ ...NO_CONTACTS, instagram: "lorenzo.calzi" }))
+            .toContain("@lorenzo.calzi");
+        expect(finalStrings({ ...NO_CONTACTS, instagram: "@lorenzo.calzi" }))
+            .toContain("@lorenzo.calzi");
+        expect(finalStrings({ ...NO_CONTACTS, instagram: "https://instagram.com/lorenzo.calzi" }))
+            .toContain("@lorenzo.calzi");
+    });
+
+    it("Facebook: coda del percorso da un dominio noto, altrimenti valore grezzo", () => {
+        expect(finalStrings({ ...NO_CONTACTS, facebook: "https://facebook.com/pagina" }))
+            .toContain("pagina");
+        // Testo libero non riconoscibile: stampato com'è, non trasformato male.
+        expect(finalStrings({ ...NO_CONTACTS, facebook: "facebook/pagina" }))
+            .toContain("facebook/pagina");
+    });
+
+    it("il protocollo è tolto dal sito, il resto del valore è intatto", () => {
+        const s = finalStrings(SEDE_TEST);
+        expect(s).toContain("www.esempio.it");
+        expect(s).not.toContain("https://www.esempio.it");
+    });
+
+    it("gli orari NON sono resi, anche se popolati nel dato", () => {
+        // SEDE_TEST.hours ha 3 righe valorizzate.
+        const s = finalStrings(SEDE_TEST);
+        expect(s).not.toContain("Orari");
+        expect(s).not.toContain("09:00–18:00");
+        expect(s).not.toContain("Mar–Gio");
+    });
+
+    it("solo contatti: nessuna sezione costi", () => {
+        const s = finalStrings({ ...SEDE_TEST, fees: [] });
+        expect(s).toContain("Contatti");
+        expect(s).not.toContain(FEES_TITLE);
+    });
+
+    it("solo fees: nessuna sezione contatti", () => {
+        const s = finalStrings({ ...NO_CONTACTS, fees: [{ label: "Coperto", value: "2 €/persona" }] });
+        expect(s).toContain(FEES_TITLE);
+        expect(s).toContain("Coperto");
+        expect(s).not.toContain("Contatti");
+    });
+
+    it("né contatti né fees: nessun blocco, pagina come prima dello Step 2", () => {
+        const s = finalStrings(NO_CONTACTS);
+        expect(s).not.toContain("Contatti");
+        expect(s).not.toContain(FEES_TITLE);
+        // Il resto della pagina è intatto.
+        expect(s).toContain("Allergeni e caratteristiche");
+        expect(s).toContain(NOTE);
+    });
+
+    it("fees non pubbliche (array vuoto dal gate fees_public): niente costi", () => {
+        // Il gate vive nel loader: qui arriva già come array vuoto.
+        const s = finalStrings({ ...SEDE_TEST, fees: [] });
+        expect(s).not.toContain(FEES_TITLE);
+        expect(s).not.toContain("Coperto");
+    });
+});
+
 describe("MenuPdfDocument — pagina finale con molte caratteristiche", () => {
     /** N caratteristiche distinte sul prodotto della fixture. */
     function dataWithCharacteristics(count: number): MenuPdfData {
@@ -475,8 +600,9 @@ describe("MenuPdfDocument — pagina finale con molte caratteristiche", () => {
         const few = countUnwrappableNodes(withFew);
         // Cresce con le voci → è per-item, non un contenitore unico.
         expect(many).toBeGreaterThan(few);
-        // 14 allergeni + 31 caratteristiche + 2 header di sezione = 47.
-        expect(many).toBe(14 + 31 + 2);
+        // 14 allergeni + 31 caratteristiche + 2 header di sezione + il blocco
+        // contatti/costi (unico e indivisibile, Step 2) = 48.
+        expect(many).toBe(14 + 31 + 2 + 1);
     });
 
     it("poche caratteristiche: struttura invariata (spaziatore + nota in fondo)", () => {

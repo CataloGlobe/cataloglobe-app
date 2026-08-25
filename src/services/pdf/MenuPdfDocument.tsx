@@ -4,10 +4,13 @@
 // testuali di copertina e running header gated dai toggle tokens.header.
 // Logo/cover-image/QR → Stage 3b; allergeni → Stage 4; foto → Stage 5.
 import {
+  Circle,
   Document,
   Image,
+  Line,
   Page,
   Path,
+  Rect,
   StyleSheet,
   Svg,
   Text,
@@ -16,7 +19,9 @@ import {
 import type {
   MenuPdfCategory,
   MenuPdfCharacteristic,
+  MenuPdfClosingInfo,
   MenuPdfData,
+  MenuPdfInfoRow,
   MenuPdfProduct,
 } from "./menuPdfTypes";
 import { buildPdfTheme, type PdfTheme } from "./pdfTheme";
@@ -103,6 +108,88 @@ function PdfUtensilsPlaceholder({
         d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3Zm0 0v7"
         {...strokeProps}
       />
+    </Svg>
+  );
+}
+
+/**
+ * Icone contatti della pagina di chiusura.
+ *
+ * ⚠️ Stessi glifi delle icone inline di
+ * `src/components/PublicCollectionView/PublicFooter/PublicFooter.tsx:21-75`
+ * (path-data replicata, non importata): quelle sono **stroke-only** e mescolano
+ * `<circle>/<rect>/<line>`, mentre `pdfIcons.extractIconGeometry` sa estrarre
+ * solo `<path>` fill-based → tornerebbe null. Stesso trattamento del segnaposto
+ * posate qui sopra. Se cambiano i glifi del footer pubblico, questi restano
+ * indietro senza rompersi (icona diversa, mai crash).
+ */
+type ContactIconName =
+  | "phone"
+  | "mail"
+  | "website"
+  | "whatsapp"
+  | "instagram"
+  | "facebook";
+
+function PdfContactIcon({
+  name,
+  size,
+  color,
+}: {
+  name: ContactIconName;
+  size: number;
+  color: string;
+}) {
+  const stroke = {
+    fill: "none",
+    stroke: color,
+    strokeWidth: 1.75,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24">
+      {name === "phone" ? (
+        <Path
+          d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6 6l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"
+          {...stroke}
+        />
+      ) : null}
+      {name === "mail" ? (
+        <>
+          <Rect x="2" y="4" width="20" height="16" rx="2" {...stroke} />
+          <Path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" {...stroke} />
+        </>
+      ) : null}
+      {name === "website" ? (
+        <>
+          <Circle cx="12" cy="12" r="10" {...stroke} />
+          <Line x1="2" y1="12" x2="22" y2="12" {...stroke} />
+          <Path
+            d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"
+            {...stroke}
+          />
+        </>
+      ) : null}
+      {name === "whatsapp" ? (
+        <Path
+          d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"
+          {...stroke}
+        />
+      ) : null}
+      {name === "instagram" ? (
+        <>
+          <Rect x="2" y="2" width="20" height="20" rx="5" {...stroke} />
+          <Path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" {...stroke} />
+          <Line x1="17.5" y1="6.5" x2="17.51" y2="6.5" {...stroke} />
+        </>
+      ) : null}
+      {name === "facebook" ? (
+        <Path
+          d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"
+          {...stroke}
+        />
+      ) : null}
     </Svg>
   );
 }
@@ -509,6 +596,61 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       lineHeight: 1.45,
       color: theme.ink,
     },
+    // ── Blocco contatti + costi di servizio (Step 2) ──────────────────
+    // Divider identico a quello della nota: la stessa hairline separa i due
+    // blocchi di servizio in fondo alla pagina.
+    finalInfoBlock: {
+      marginTop: 28,
+    },
+    finalInfoDivider: {
+      alignSelf: "stretch",
+      height: 1,
+      backgroundColor: theme.primarySoft,
+      marginBottom: 18,
+    },
+    finalInfoColumns: {
+      flexDirection: "row",
+    },
+    // width 50% anche a colonna singola: allineata alla griglia a 2 colonne
+    // sopra, e le righe fee (label ↔ valore) non si allargano a tutta pagina
+    // lasciando un vuoto enorme in mezzo.
+    finalInfoColumn: {
+      width: "50%",
+      paddingRight: 12,
+    },
+    finalInfoRow: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 8,
+    },
+    // Riga fee: label a sinistra, valore a destra dentro la colonna.
+    finalInfoRowSpread: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      marginBottom: 8,
+    },
+    finalInfoText: {
+      fontFamily,
+      fontSize: 9.5,
+      color: theme.ink,
+      marginLeft: 8,
+    },
+    // Stesso corpo e stesso colore del valore contatto: i costi hanno la
+    // medesima dignità visiva, nessuna enfasi (niente riquadri o accenti).
+    finalInfoFeeLabel: {
+      fontFamily,
+      fontSize: 9.5,
+      color: theme.muted,
+      flexShrink: 1,
+      paddingRight: 8,
+    },
+    finalInfoFeeValue: {
+      fontFamily,
+      fontSize: 9.5,
+      color: theme.ink,
+      flexShrink: 0,
+    },
     finalPromoTextSecondary: {
       fontFamily,
       fontSize: 9,
@@ -727,6 +869,167 @@ function collectUsedCharacteristics(
   );
 }
 
+/** Contatti pubblici in ordine di render, con la rispettiva icona. */
+const CONTACT_FIELDS: Array<{
+  key: keyof MenuPdfClosingInfo;
+  icon: ContactIconName;
+}> = [
+  { key: "phone", icon: "phone" },
+  { key: "email", icon: "mail" },
+  { key: "website", icon: "website" },
+  { key: "whatsapp", icon: "whatsapp" },
+  { key: "instagram", icon: "instagram" },
+  { key: "facebook", icon: "facebook" },
+];
+
+/** Su carta il protocollo è rumore: nessun altro ritocco al valore. */
+function stripProtocol(value: string): string {
+  return value.replace(/^https?:\/\//, "");
+}
+
+/**
+ * Chiave di confronto per due numeri di telefono: sole cifre, ultime 9. Regge
+ * le scritture diverse dello stesso numero (`+39 345 1559558` vs `3451559558`,
+ * prefissi, spazi, trattini, punti) senza dover conoscere i piani di
+ * numerazione nazionali. Serve SOLO al confronto: quello stampato resta il
+ * valore originale del campo.
+ */
+function phoneComparisonKey(value: string): string {
+  const digits = value.replace(/\D/g, "");
+  return digits.length > 9 ? digits.slice(-9) : digits;
+}
+
+/**
+ * Instagram → handle `@nome`. Accetta URL completo, handle già prefissato o
+ * nome nudo. Il servizio ha un formato di identificativo stabile, quindi
+ * normalizzarlo è sicuro.
+ */
+function formatInstagram(value: string): string {
+  const withoutProtocol = stripProtocol(value.trim());
+  const fromUrl = withoutProtocol.match(/^(?:www\.)?instagram\.com\/([^/?#]+)/i);
+  const handle = (fromUrl ? fromUrl[1] : withoutProtocol).replace(/^@/, "").replace(/\/$/, "");
+  return handle.length > 0 ? `@${handle}` : value;
+}
+
+/**
+ * Facebook: campo a testo libero (il valore reale osservato è "facebook/pagina",
+ * né URL né handle). Da un dominio Facebook riconoscibile si estrae la coda del
+ * percorso; in ogni altro caso il valore si stampa **grezzo** — meglio così che
+ * trasformato male su un formato che non è garantito.
+ */
+function formatFacebook(value: string): string {
+  const withoutProtocol = stripProtocol(value.trim());
+  const fromUrl = withoutProtocol.match(/^(?:www\.)?(?:facebook\.com|fb\.com|fb\.me)\/([^?#]+)/i);
+  if (!fromUrl) return withoutProtocol;
+  const path = fromUrl[1].replace(/\/$/, "");
+  return path.length > 0 ? path : withoutProtocol;
+}
+
+/**
+ * Contatti pronti al render: valori formattati, campi vuoti fuori, e la riga
+ * WhatsApp soppressa quando ripete il numero di telefono — caso frequentissimo
+ * (stesso numero per chiamate e messaggi) che stampato due volte identico
+ * sembra un errore di impaginazione. Resta l'icona del telefono: la riga dice
+ * "questo è il numero della sede", WhatsApp è uno dei canali su quel numero.
+ * Numeri diversi → due righe, che è corretto.
+ */
+function buildContactEntries(
+  closingInfo: MenuPdfClosingInfo,
+): Array<{ icon: ContactIconName; value: string }> {
+  const phone = closingInfo.phone?.trim() ?? "";
+  const whatsapp = closingInfo.whatsapp?.trim() ?? "";
+  const sameNumber =
+    phone.length > 0 &&
+    whatsapp.length > 0 &&
+    phoneComparisonKey(phone) === phoneComparisonKey(whatsapp);
+
+  return CONTACT_FIELDS.map((field) => {
+    if (field.key === "whatsapp" && sameNumber) return null;
+    const raw = closingInfo[field.key];
+    if (typeof raw !== "string" || raw.trim().length === 0) return null;
+
+    const value =
+      field.key === "instagram"
+        ? formatInstagram(raw)
+        : field.key === "facebook"
+          ? formatFacebook(raw)
+          : stripProtocol(raw.trim());
+
+    return { icon: field.icon, value };
+  }).filter((entry): entry is { icon: ContactIconName; value: string } => entry !== null);
+}
+
+/**
+ * Contatti + costi di servizio in coda alla pagina finale (Step 2).
+ *
+ * Volutamente FUORI dal render: `closingInfo.hours` (un menù stampato che
+ * dichiara orari vecchi è peggio di uno che tace — stessa ragione per cui gli
+ * orari sono già fuori dalla copertina) e `googleReviewUrl` (trasformerebbe una
+ * pagina informativa in una richiesta di recensione).
+ *
+ * `wrap={false}`: il blocco vale al massimo ~150pt (6 contatti + poche fee),
+ * molto sotto l'altezza pagina, quindi scende intero alla pagina dopo invece di
+ * spezzarsi. Non è il caso del vecchio wrapper su tutta la legenda, che poteva
+ * superare la pagina e finiva disegnato oltre il bordo.
+ *
+ * Niente da dire (nessun contatto pubblico e nessuna fee) → `null`: nessun
+ * divider, nessuno spazio, pagina identica a prima dello Step 2.
+ */
+function ClosingInfoBlock({
+  closingInfo,
+  styles,
+  theme,
+}: {
+  closingInfo: MenuPdfClosingInfo;
+  styles: Styles;
+  theme: PdfTheme;
+}) {
+  const contacts = buildContactEntries(closingInfo);
+  const fees: MenuPdfInfoRow[] = closingInfo.fees;
+
+  if (contacts.length === 0 && fees.length === 0) return null;
+
+  return (
+    <View style={styles.finalInfoBlock} wrap={false}>
+      <View style={styles.finalInfoDivider} />
+      <View style={styles.finalInfoColumns}>
+        {contacts.length > 0 ? (
+          <View style={styles.finalInfoColumn}>
+            <Text style={styles.finalSubtitle}>Contatti</Text>
+            {contacts.map((contact) => (
+              <View key={contact.icon} style={styles.finalInfoRow}>
+                <PdfContactIcon
+                  name={contact.icon}
+                  size={11}
+                  color={theme.primary}
+                />
+                <Text style={styles.finalInfoText}>{contact.value}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
+        {fees.length > 0 ? (
+          <View style={styles.finalInfoColumn}>
+            {/* "Costi e condizioni", non "Costi di servizio": delle 5 fee di
+                FEE_DEFINITIONS solo coperto e servizio sono costi — prenotazione
+                minima, spesa minima ed età minima sono condizioni d'accesso.
+                Nessun attributo nel dato le separa (unitFormatKey è un hint di
+                formattazione, non una classe semantica): titolo unico. */}
+            <Text style={styles.finalSubtitle}>Costi e condizioni</Text>
+            {fees.map((fee) => (
+              <View key={fee.label} style={styles.finalInfoRowSpread}>
+                <Text style={styles.finalInfoFeeLabel}>{fee.label}</Text>
+                <Text style={styles.finalInfoFeeValue}>{fee.value}</Text>
+              </View>
+            ))}
+          </View>
+        ) : null}
+      </View>
+    </View>
+  );
+}
+
 /**
  * Testi della pagina finale, in un punto solo: sono in revisione legale e vanno
  * sostituiti qui senza toccare il render.
@@ -912,6 +1215,13 @@ function AllergensPage({
           }))}
         />
       ) : null}
+
+      {/* Contatti + costi di servizio, in coda alle sezioni legenda. */}
+      <ClosingInfoBlock
+        closingInfo={data.meta.closingInfo}
+        styles={styles}
+        theme={theme}
+      />
 
       {/* Spaziatore sotto il gruppo: nota ancorata in fondo. Resta anche nel
           caso senza nota — con nulla sotto, tiene il contenuto in alto. */}
