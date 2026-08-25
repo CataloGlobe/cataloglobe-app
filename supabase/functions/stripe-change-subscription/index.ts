@@ -879,8 +879,31 @@ serve(async req => {
                         return json(req, 502, { error: "preview_failed" });
                     }
                 }
+            } else if (existingScheduleId) {
+                // Downgrade con schedule già pendente: createPreview su una sub
+                // schedule-managed non riflette l'override items richiesto — resta
+                // ancorato alla fase target dello schedule ESISTENTE. Calcolo diretto
+                // dai tiers (stesso pattern di B2 e preview-scheduled-change), fallback
+                // a createPreview solo se il Price non è graduated-tiered.
+                const tiered = await graduatedTotalFromPrice(stripe, newPriceId, newSeats);
+                if (tiered != null) {
+                    nextAmount = tiered;
+                } else {
+                    try {
+                        const nextPreview = await stripe.invoices.createPreview({
+                            customer: tenant.stripe_customer_id,
+                            subscription: tenant.stripe_subscription_id,
+                            subscription_details: { items: newItems, proration_behavior: "none" }
+                        });
+                        nextAmount = nextPreview.total ?? 0;
+                    } catch (err) {
+                        const message = err instanceof Error ? err.message : String(err);
+                        console.error(`stripe-change-subscription: next preview failed: ${message}`);
+                        return json(req, 502, { error: "preview_failed" });
+                    }
+                }
             } else {
-                // Downgrade: createPreview riflette legittimamente la fase target.
+                // Downgrade senza schedule attivo: createPreview riflette legittimamente la fase target.
                 try {
                     const nextPreview = await stripe.invoices.createPreview({
                         customer: tenant.stripe_customer_id,
