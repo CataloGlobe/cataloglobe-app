@@ -494,6 +494,21 @@ export default function SubscriptionPage() {
                 // ahead of the async webhook, without a DB refetch race.
                 patchSelectedTenant({ plan: commitResult.plan, paid_seats: commitResult.seats });
                 showToast({ message: "Piano aggiornato.", type: "success" });
+            } else if (commitResult.classification === "combined") {
+                // Combined: sedi addebitate e applicate subito lato Stripe, ma il
+                // downgrade di piano resta programmato al rinnovo. `effective` qui
+                // è sempre l'ISO di fine periodo (mai "now"), quindi il ramo sopra
+                // non lo intercetta. Patch solo `paid_seats` — il `plan` visualizzato
+                // deve restare quello corrente finché il rinnovo non lo applica; il
+                // cambio futuro resta comunicato dal banner sotto.
+                patchSelectedTenant({ paid_seats: commitResult.seats });
+                setScheduledChange({
+                    planName: plans.find(p => p.code === draftPlan)?.name ?? draftPlan,
+                    seats: draftSeats,
+                    nextDate: preview?.nextDate ?? selectedTenant.current_period_end ?? null,
+                    isDowngradeToBase
+                });
+                showToast({ message: "Sedi aggiunte. Il cambio piano avrà effetto al prossimo rinnovo.", type: "success" });
             } else {
                 // Downgrade/programmato: piano e sedi correnti restano invariati
                 // fino al rinnovo; mostra solo l'indicatore del cambio programmato.
