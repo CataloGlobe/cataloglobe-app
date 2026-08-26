@@ -19,11 +19,11 @@ import { getActivityById } from "@/services/supabase/activities";
 import { listActivityHours } from "@/services/supabase/activityHours";
 import { getTenantLogoPublicUrl, getTenantPublicInfo } from "@/services/supabase/tenants";
 import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
-import { FEE_DEFINITIONS_BY_KEY } from "@/constants/activityFees";
-import type { ActivityFee, V2Activity } from "@/types/activity";
+import type { V2Activity } from "@/types/activity";
 import { mapCatalogToMenuPdfData } from "./mapCatalogToMenuPdfData";
+import { mapFees } from "./mapFees";
 import { formatActivityHours } from "./formatActivityHours";
-import type { MenuPdfBrand, MenuPdfClosingInfo, MenuPdfData, MenuPdfInfoRow } from "./menuPdfTypes";
+import type { MenuPdfBrand, MenuPdfClosingInfo, MenuPdfData } from "./menuPdfTypes";
 
 /**
  * Stesso pattern di composizione della pagina pubblica (PublicCatalogReady),
@@ -35,19 +35,6 @@ function composeAddress(activity: V2Activity): string | null {
     const cityLine = [activity.postal_code, activity.city].filter(Boolean).join(" ");
     const location = cityLine && activity.province ? `${cityLine} (${activity.province})` : cityLine;
     return [street, location].filter(Boolean).join(" — ") || null;
-}
-
-/** Fees JSONB (`{key,value}[]`) → righe label+unità via FEE_DEFINITIONS. */
-function mapFees(fees: ActivityFee[] | null): MenuPdfInfoRow[] {
-    return (fees ?? [])
-        .filter(f => f.value != null && f.value !== "")
-        .map(f => {
-            const def = FEE_DEFINITIONS_BY_KEY[f.key];
-            return {
-                label: def?.label ?? f.key,
-                value: def ? `${f.value} ${def.unit}` : f.value
-            };
-        });
 }
 
 /**

@@ -1,3 +1,4 @@
+import { formatCurrency } from "@/utils/formatCurrency";
 import type { PriceSummary } from "@/utils/priceSummary";
 
 /**
@@ -14,17 +15,15 @@ export type PriceSummaryFormatOptions = {
 };
 
 /**
- * Traduce i fatti (`PriceSummary`) nella stringa da mostrare, riprendendo
- * il pattern della stringa i18n pubblica `product.price_from` ("da
- * {{price}}" con price = "€ X.XX" — vedi CollectionView.tsx): "€ X.XX" /
- * "da € X.XX" / null. Non chiama `t()` direttamente (nessuna dipendenza da
- * i18next in una utility pura testabile in isolamento) — riproduce lo
- * stesso output a mano. Il backoffice ha oggi una convenzione diversa
- * (virgola, simbolo dopo il numero) non ancora unificata qui: nessun call
- * site chiama questa funzione in questo step, quindi non c'è nulla da
- * preservare per quel lato finché lo step 2 non lo collega. Il campo `max`
- * di `summary` non è ancora usato: è il punto di innesto per una futura
- * sintesi a range, non implementata ora.
+ * Traduce i fatti (`PriceSummary`) nella stringa da mostrare: "€ X,XX" /
+ * "da € X,XX" / null. Riprende la struttura della stringa i18n pubblica
+ * `product.price_from` ("da {{price}}") senza chiamare `t()` (nessuna
+ * dipendenza da i18next in una utility pura testabile in isolamento).
+ * Il separatore decimale è la virgola italiana via `formatCurrency` — la
+ * pagina pubblica usa ancora `toFixed(2)` inline (punto) ed è fuori
+ * perimetro qui: migrazione tracciata nel task Notion sulla formattazione
+ * monetaria. Il campo `max` di `summary` non è ancora usato: è il punto di
+ * innesto per una futura sintesi a range, non implementata ora.
  */
 export function formatPriceSummary(
     summary: PriceSummary,
@@ -36,7 +35,7 @@ export function formatPriceSummary(
         return null;
     }
 
-    const minLabel = `${currencySymbol} ${summary.min.toFixed(2)}`;
+    const minLabel = formatCurrency(summary.min, currencySymbol);
 
     if (summary.kind === "single") {
         return minLabel;
