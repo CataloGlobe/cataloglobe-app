@@ -248,12 +248,17 @@ export async function submitReservation(
 
 // ─── ADMIN-SIDE (edge function `respond-reservation`, authenticated) ────────
 
-export type RespondReservationAction = "confirm" | "decline" | "cancel";
+export type RespondReservationAction =
+    | "confirm"
+    | "decline"
+    | "cancel"
+    | "mark_no_show"
+    | "undo_no_show";
 
 export interface RespondReservationResult {
     success: true;
     reservation_id: string;
-    status: "confirmed" | "declined" | "cancelled";
+    status: "confirmed" | "declined" | "cancelled" | "no_show";
 }
 
 /**

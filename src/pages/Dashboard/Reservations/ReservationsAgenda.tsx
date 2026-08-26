@@ -19,6 +19,12 @@ interface Props {
 
 type ViewMode = "days" | "week";
 
+// `no_show` NON sta qui, di proposito. `declined` e `cancelled` sono decisioni
+// prese PRIMA del servizio: una volta prese non interessa più vederle. Un
+// no-show è invece un fatto accaduto DURANTE quel servizio e fa parte di
+// com'è andata la serata, quindi resta visibile nella vista del giorno —
+// distinto dal badge "Non presentato". Vale anche per la correzione: annullare
+// una marcatura sbagliata non deve stare dietro il toggle "mostra terminali".
 const TERMINAL = new Set<V2Reservation["status"]>(["declined", "cancelled"]);
 
 // ── Date helpers (local to this view; shared primitives in @utils/dateLocal)
@@ -89,6 +95,8 @@ function statusBadgeFor(status: V2Reservation["status"]): {
             return { variant: "neutral", label: "Rifiutata" };
         case "cancelled":
             return { variant: "neutral", label: "Annullata" };
+        case "no_show":
+            return { variant: "neutral", label: "Non presentato" };
     }
 }
 

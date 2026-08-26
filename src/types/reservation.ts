@@ -6,7 +6,17 @@
 // `reservation_date` e' DATE Postgres serializzato come stringa "YYYY-MM-DD".
 // `reservation_time` e' TIME senza timezone, serializzato come "HH:MM:SS"
 // (wall-clock locale della sede; nessuna aritmetica timezone DB-side).
-export type ReservationStatus = "pending" | "confirmed" | "declined" | "cancelled";
+// `no_show` = il cliente non si è presentato. Raggiungibile solo da
+// `confirmed` ed è reversibile: il dato alimenterà un indice di affidabilità,
+// quindi una marcatura sbagliata deve essere correggibile.
+// Il CHECK del DB ammette anche `seated` e `completed` (migration
+// 20260615140000): restano fuori finché non esiste chi li scrive.
+export type ReservationStatus =
+    | "pending"
+    | "confirmed"
+    | "declined"
+    | "cancelled"
+    | "no_show";
 
 // "online" = submitted via the public form (submit-reservation edge function);
 // "manual" = inserted by an admin via the dashboard (createReservation).

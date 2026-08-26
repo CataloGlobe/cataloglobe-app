@@ -2,12 +2,23 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { respondReservation } from "@/services/supabase/reservations";
 import type { ReservationStatus } from "@/types/reservation";
 
-export type DeferredAction = "confirm" | "decline" | "cancel";
+// Deve restare allineato a `RespondReservationAction` nel service e alla
+// matrice in `supabase/functions/_shared/reservationTransitions.ts`.
+// `mark_no_show` / `undo_no_show` passano da qui come tutte le altre: stesso
+// ritardo di undo, stesso override ottimistico, nessun caso particolare.
+export type DeferredAction =
+    | "confirm"
+    | "decline"
+    | "cancel"
+    | "mark_no_show"
+    | "undo_no_show";
 
 const ACTION_TO_STATUS: Record<DeferredAction, ReservationStatus> = {
-    confirm: "confirmed",
-    decline: "declined",
-    cancel:  "cancelled"
+    confirm:      "confirmed",
+    decline:      "declined",
+    cancel:       "cancelled",
+    mark_no_show: "no_show",
+    undo_no_show: "confirmed"
 };
 
 interface PendingCommit {
