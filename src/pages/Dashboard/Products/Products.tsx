@@ -167,6 +167,12 @@ export default function Products() {
         });
     }, [allProducts, searchQuery]);
 
+    // Discriminante dell'empty state: true se ALMENO un filtro che concorre a
+    // `filteredProducts` è attivo. Oggi la sola sorgente è `searchQuery`; nuovi
+    // filtri vanno aggiunti qui oltre che nel useMemo sopra, così il copy
+    // "nessun risultato" non viene mai scambiato per "vuoto assoluto".
+    const hasActiveFilter = searchQuery.trim().length > 0;
+
     const tableRows = useMemo<ProductTableRow[]>(() => {
         const rows: ProductTableRow[] = [];
 
@@ -562,19 +568,19 @@ export default function Products() {
                             <EmptyState
                                 icon={<Package size={40} strokeWidth={1.5} />}
                                 title={
-                                    searchQuery
-                                        ? `Nessun ${verticalConfig.productLabel.toLowerCase()} trovato`
-                                        : `Non hai ancora creato ${verticalConfig.productLabelPlural.toLowerCase()}`
+                                    hasActiveFilter
+                                        ? "Nessun risultato"
+                                        : `Crei un ${verticalConfig.productLabel.toLowerCase()} una volta, lo usi in ogni catalogo`
                                 }
                                 description={
-                                    searchQuery
-                                        ? `Nessun ${verticalConfig.productLabel.toLowerCase()} corrisponde ai filtri di ricerca.`
-                                        : `I ${verticalConfig.productLabelPlural.toLowerCase()} sono gli elementi che compariranno nei tuoi cataloghi.`
+                                    hasActiveFilter
+                                        ? `Nessun ${verticalConfig.productLabel.toLowerCase()} corrisponde ai filtri attivi.`
+                                        : "Nome, prezzo, foto, allergeni: li imposti qui e restano aggiornati ovunque compaia."
                                 }
                                 action={
-                                    !searchQuery && canWriteProduct ? (
+                                    !hasActiveFilter && canWriteProduct ? (
                                         <Button variant="primary" onClick={handleCreateBase} disabled={!canEdit}>
-                                            {`+ Crea il tuo primo ${verticalConfig.productLabel.toLowerCase()}`}
+                                            {`Crea il primo ${verticalConfig.productLabel.toLowerCase()}`}
                                         </Button>
                                     ) : undefined
                                 }

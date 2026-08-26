@@ -1,4 +1,4 @@
-import { ChevronRight, Package } from "lucide-react";
+import { ChevronRight, Utensils } from "lucide-react";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { FRAMING_DEFAULTS } from "@components/ui/ImageReframeEditor/types";
 import type { StoryProductBlock } from "@/services/supabase/stories";
@@ -50,7 +50,7 @@ export default function PublicProductBlock({ block, resolveProduct, onOpenProduc
                     />
                 ) : (
                     <span className={styles.thumbPlaceholder} aria-hidden="true">
-                        <Package size={18} strokeWidth={1.5} />
+                        <Utensils size={18} strokeWidth={1.5} />
                     </span>
                 )}
             </div>

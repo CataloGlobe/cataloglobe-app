@@ -6,7 +6,8 @@ import React, {
     useState
 } from "react";
 import { useNavigate } from "react-router-dom";
-import { QRCodeSVG } from "qrcode.react";
+import { QrCode, type QrCodeHandle } from "@/components/ui/QrCode/QrCode";
+import { buildPublicUrl } from "@/utils/publicUrl";
 import {
     AlertTriangle,
     Check,
@@ -196,8 +197,11 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     const [selectedClosure, setSelectedClosure] = useState<V2ActivityClosure | undefined>();
 
     // ── QR / preview state ───────────────────────────────────────────────────
-    const qrCardRef = useRef<SVGSVGElement>(null);
-    const qrModalRef = useRef<SVGSVGElement>(null);
+    // Due istanze del QR (anteprima nella card + modale ingrandita): i controlli
+    // di download vivono fuori dal componente e scelgono a runtime quale delle
+    // due scaricare, quindi i download passano dai ref imperativi.
+    const qrCardRef = useRef<QrCodeHandle>(null);
+    const qrModalRef = useRef<QrCodeHandle>(null);
     const [isQrPreviewOpen, setIsQrPreviewOpen] = useState(false);
     const [qrFgColor, setQrFgColor] = useState(activity.qr_fg_color ?? DEFAULT_FG);
     const [qrBgColor, setQrBgColor] = useState(activity.qr_bg_color ?? DEFAULT_BG);
@@ -301,9 +305,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     );
 
     // ── Computed values ──────────────────────────────────────────────────────
-    const domain = import.meta.env.VITE_PUBLIC_DOMAIN || window.location.host;
-    const protocol = window.location.protocol;
-    const publicUrl = `${protocol}//${domain}/${activity.slug}`;
+    const publicUrl = buildPublicUrl(activity.slug);
     const isActive = activity.status === "active";
 
     const logoUrl = useMemo(() => {
@@ -681,66 +683,17 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         }
     }, [publicUrl, showToast]);
 
+    // La modale, quando aperta, è l'istanza che l'utente sta guardando: è quella
+    // da scaricare (size 300 invece di 90).
     const handleDownloadQR = useCallback(async () => {
-        const svg = isQrPreviewOpen ? qrModalRef.current : qrCardRef.current;
-        if (!svg) return;
-
-        const clone = svg.cloneNode(true) as SVGSVGElement;
-        const images = clone.querySelectorAll("image");
-        await Promise.all(
-            Array.from(images).map(async imgEl => {
-                const href =
-                    imgEl.getAttribute("href") ??
-                    imgEl.getAttributeNS("http://www.w3.org/1999/xlink", "href");
-                if (!href || href.startsWith("data:")) return;
-                try {
-                    const resp = await fetch(href, { mode: "cors" });
-                    const blob = await resp.blob();
-                    const dataUrl = await new Promise<string>(resolve => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => resolve(reader.result as string);
-                        reader.readAsDataURL(blob);
-                    });
-                    imgEl.setAttribute("href", dataUrl);
-                    imgEl.removeAttributeNS("http://www.w3.org/1999/xlink", "href");
-                } catch {
-                    // logo may not appear
-                }
-            })
-        );
-
-        const svgData = new XMLSerializer().serializeToString(clone);
-        const img = new Image();
-        await new Promise<void>(resolve => {
-            img.onload = () => {
-                const canvas = document.createElement("canvas");
-                canvas.width = img.width;
-                canvas.height = img.height;
-                const ctx = canvas.getContext("2d");
-                ctx?.drawImage(img, 0, 0);
-                const pngFile = canvas.toDataURL("image/png");
-                const downloadLink = document.createElement("a");
-                downloadLink.download = `${activity.slug}-qr.png`;
-                downloadLink.href = pngFile;
-                downloadLink.click();
-                resolve();
-            };
-            img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-        });
-    }, [activity.slug, isQrPreviewOpen]);
+        const qr = isQrPreviewOpen ? qrModalRef.current : qrCardRef.current;
+        await qr?.downloadPng();
+    }, [isQrPreviewOpen]);
 
     const handleDownloadSVG = useCallback(() => {
-        const svg = isQrPreviewOpen ? qrModalRef.current : qrCardRef.current;
-        if (!svg) return;
-        const svgData = new XMLSerializer().serializeToString(svg);
-        const blob = new Blob([svgData], { type: "image/svg+xml" });
-        const url = URL.createObjectURL(blob);
-        const downloadLink = document.createElement("a");
-        downloadLink.download = `${activity.slug}-qr.svg`;
-        downloadLink.href = url;
-        downloadLink.click();
-        URL.revokeObjectURL(url);
-    }, [activity.slug, isQrPreviewOpen]);
+        const qr = isQrPreviewOpen ? qrModalRef.current : qrCardRef.current;
+        qr?.downloadSvg();
+    }, [isQrPreviewOpen]);
 
     const handleSaveColors = useCallback(async () => {
         setIsSavingColors(true);
@@ -939,7 +892,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                         }
                                         aria-label="Apri anteprima QR"
                                     >
-                                        <QRCodeSVG
+                                        <QrCode
                                             ref={qrCardRef}
                                             value={publicUrl}
                                             size={90}
@@ -948,6 +901,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                             fgColor={qrFgColor}
                                             bgColor={qrBgColor}
                                             imageSettings={qrCardImageSettings}
+                                            fileName={`${activity.slug}-qr`}
                                         />
                                     </div>
                                     <div className={styles.qrSectionInfo}>
@@ -1588,7 +1542,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                 <ModalLayoutContent>
                     <div className={styles.qrModalBody}>
                         <div className={styles.qrModalPreview}>
-                            <QRCodeSVG
+                            <QrCode
                                 ref={qrModalRef}
                                 value={publicUrl}
                                 size={300}
@@ -1597,6 +1551,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                 fgColor={qrFgColor}
                                 bgColor={qrBgColor}
                                 imageSettings={qrModalImageSettings}
+                                fileName={`${activity.slug}-qr`}
                             />
                         </div>
                         <div className={styles.qrCustomize}>

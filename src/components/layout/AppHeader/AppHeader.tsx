@@ -5,13 +5,17 @@ import { HeaderTenantSwitcher } from "./HeaderTenantSwitcher";
 import { HeaderNotifications } from "./HeaderNotifications";
 import { HeaderUserMenu } from "./HeaderUserMenu";
 import { NavbarBreadcrumb } from "./NavbarBreadcrumb";
+import { AiUsagePill } from "./AiUsagePill";
+import type { AiUsageCycle } from "@/types/aiUsage";
 import styles from "./AppHeader.module.scss";
 
 interface AppHeaderProps {
     onOpenMobileSidebar?: () => void;
+    /** Stato quota AI (FASE 5). La pill compare solo in warning/blocked. */
+    aiUsage?: AiUsageCycle | null;
 }
 
-export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
+export function AppHeader({ onOpenMobileSidebar, aiUsage = null }: AppHeaderProps) {
     const { selectedTenantId } = useTenant();
     return (
         <div className={styles.appHeader}>
@@ -32,6 +36,7 @@ export function AppHeader({ onOpenMobileSidebar }: AppHeaderProps) {
                 <NavbarBreadcrumb />
             </div>
             <div className={styles.right}>
+                <AiUsagePill usage={aiUsage} />
                 <HeaderNotifications scope="tenant" tenantId={selectedTenantId} />
                 <HeaderUserMenu />
             </div>

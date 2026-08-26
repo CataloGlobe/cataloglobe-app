@@ -10,6 +10,7 @@ import {
     type AiImportProductInput
 } from "@/pages/Dashboard/Catalogs/AiMenuImport/buildImportManifest";
 import { importProductsIntoCatalog, enqueueImportSideEffects } from "@/services/supabase/aiImport";
+import { aiBlockMessage } from "@/utils/aiUsage";
 
 /* ────────────────────────────── Types ───────────────────── */
 
@@ -189,7 +190,15 @@ function getAiErrorMessage(error: unknown): string {
 
 /* ────────────────────────────── Hook ───────────────────── */
 
-export function useAiImportSession(tenantId: string | null): AiImportSession {
+export function useAiImportSession(
+    tenantId: string | null,
+    /**
+     * Opzionale (FASE 5): invocato dopo che l'edge `menu-ai-import` risponde
+     * (successo o blocco quota) così il chiamante aggiorna lo stato quota AI
+     * (pill/sezione). Non chiamato su abort intenzionale.
+     */
+    onConsumed?: () => void
+): AiImportSession {
     const { showToast } = useToast();
 
     // Drawer
@@ -373,12 +382,19 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
             // throw.
             if (controller.signal.aborted) return;
 
+            // L'edge ha risposto (successo o errore): aggiorna lo stato quota.
+            onConsumed?.();
+
             // Non-2xx → supabase-js wraps response in FunctionsHttpError. The
             // original Response sits on error.context; read its JSON body so we
             // can surface the specific Italian message returned by the function
             // instead of the generic "Edge Function returned a non-2xx".
             if (error) {
                 let apiMessage: string | null = null;
+                // Blocco quota AI (FASE 4/5): l'edge risponde 402 con
+                // { reason, reset_at } → messaggio con la data, non "riprova".
+                let quotaReason: string | undefined;
+                let quotaResetAt: string | null = null;
                 try {
                     const ctx = (error as { context?: Response }).context;
                     if (ctx && typeof ctx.json === "function") {
@@ -386,12 +402,18 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
                         if (errBody && typeof errBody.error === "string" && errBody.error.length > 0) {
                             apiMessage = errBody.error;
                         }
+                        if (errBody && typeof errBody.reason === "string") quotaReason = errBody.reason;
+                        if (errBody && typeof errBody.reset_at === "string") quotaResetAt = errBody.reset_at;
                     }
                 } catch {
                     // body unreadable, fall back below
                 }
                 console.error("[AiMenuImport] analyze edge error:", error);
-                setAnalyzeError(apiMessage ?? getAiErrorMessage(error));
+                if (quotaReason === "quota_exhausted" || quotaReason === "not_eligible") {
+                    setAnalyzeError(aiBlockMessage(quotaReason, quotaResetAt));
+                } else {
+                    setAnalyzeError(apiMessage ?? getAiErrorMessage(error));
+                }
                 return;
             }
 
@@ -446,7 +468,7 @@ export function useAiImportSession(tenantId: string | null): AiImportSession {
             console.error("[AiMenuImport] analyze error:", err);
             setAnalyzeError(getAiErrorMessage(err));
         }
-    }, [tenantId, files]);
+    }, [tenantId, files, onConsumed]);
 
     const retry = useCallback(() => {
         setStep("upload");

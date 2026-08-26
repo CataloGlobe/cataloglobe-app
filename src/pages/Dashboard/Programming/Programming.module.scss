@@ -416,29 +416,6 @@
   gap: 8px;
 }
 
-.tabEmptyState {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
-  padding: 4rem 2rem;
-}
-
-.tabEmptyIcon {
-  display: flex;
-  justify-content: center;
-  color: var(--text-tertiary, #94a3b8);
-  margin-bottom: 1rem;
-}
-
-.tabEmptyDescription {
-  font-size: 14px;
-  color: var(--text-secondary, #64748b);
-  max-width: 400px;
-  margin: 0 auto 1.5rem;
-  line-height: 1.5;
-}
-
 .emptyIcon {
   color: #94a3b8;
   margin-bottom: 4px;

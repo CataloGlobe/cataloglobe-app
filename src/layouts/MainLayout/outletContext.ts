@@ -1,6 +1,7 @@
 import { useOutletContext } from "react-router-dom";
 import type { TranslationCoverage } from "@/services/supabase/tenantLanguages";
 import type { AiImportStatus, ImportOpenTarget } from "@/hooks/useAiImportSession";
+import type { AiUsageCycle } from "@/types/aiUsage";
 
 /**
  * Valore esposto da `MainLayout` alle pagine business via `<Outlet context>`.
@@ -36,6 +37,14 @@ export interface BusinessOutletContext {
      * granulare NON passa di qui (resta sul path props verso il drawer).
      */
     importStatus: AiImportStatus;
+    /**
+     * Stato quota AI del tenant (FASE 5). Fetch unico in MainLayout: header pill
+     * e sezione "Utilizzo AI" in Abbonamento leggono da qui. null finché il primo
+     * fetch non è arrivato.
+     */
+    aiUsage: AiUsageCycle | null;
+    /** Refetch immediato dello stato quota (dopo un'operazione AI / apertura pagina). */
+    refreshAiUsage: () => void;
 }
 
 /**

@@ -259,18 +259,18 @@ export default function Highlights() {
                             icon={<Layers size={40} strokeWidth={1.5} />}
                             title={
                                 searchQuery
-                                    ? "Nessun contenuto trovato"
-                                    : "Non hai ancora creato contenuti in evidenza"
+                                    ? "Nessun risultato"
+                                    : "Metti in risalto quello che vuoi far notare"
                             }
                             description={
                                 searchQuery
                                     ? "Nessun contenuto corrisponde alla ricerca."
-                                    : "I contenuti in evidenza compaiono nella homepage del tuo catalogo."
+                                    : "Promozioni, piatti consigliati, eventi: compaiono sopra o sotto il menù, e puoi programmarli per periodi specifici."
                             }
                             action={
                                 !searchQuery && canWrite ? (
                                     <Button variant="primary" onClick={handleCreate} disabled={!canEdit}>
-                                        + Crea il primo contenuto
+                                        Crea il primo contenuto
                                     </Button>
                                 ) : undefined
                             }

@@ -187,6 +187,13 @@ export default function CollectionSectionNav({
             };
         })()
         : {};
+    // data-font-family non è una CSS var: non attraversa il portal via style{}.
+    // Serve per gli override peso in Text.module.scss ([data-font-family="..."]
+    // josefin-sans bump / patrick-hand no-bold) — senza questo il dropdown ha
+    // il font giusto ma il peso sbagliato.
+    const portalFontFamily = listRef.current
+        ? listRef.current.closest<HTMLElement>("[data-font-family]")?.getAttribute("data-font-family") ?? undefined
+        : undefined;
 
     const navStyle = style?.navStyle ?? "filled";
     // Il radius è interamente governato da CSS via var(--pub-radius) per tutte le varianti.
@@ -287,6 +294,7 @@ export default function CollectionSectionNav({
                         <motion.div
                             ref={dropdownRef}
                             className={styles.dropdown}
+                            data-font-family={portalFontFamily}
                             style={{ top: dropdownPos.top, left: dropdownPos.left, ...portalStyle } as React.CSSProperties}
                             initial={{ opacity: 0, scale: 0.96, y: -4 }}
                             animate={{ opacity: 1, scale: 1, y: 0 }}

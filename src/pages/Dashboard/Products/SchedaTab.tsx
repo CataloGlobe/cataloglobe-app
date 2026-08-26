@@ -13,6 +13,7 @@ import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useAiDescription } from "./hooks/useAiDescription";
+import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import type { SchedaDraft } from "./hooks/useSchedaDraft";
 import { AiDescriptionField } from "./components/AiDescriptionField";
 import { type V2Product } from "@/services/supabase/products";
@@ -69,10 +70,12 @@ export function SchedaTab({
 
     // AI description enrichment — stato UI ephemeral (non persistito), resta
     // locale al componente. Scrive nel draft sollevato via onDescriptionGenerated.
+    const businessOutlet = useBusinessOutletContext();
     const ai = useAiDescription({
         name: information.draftName,
         tenantId,
-        onDescriptionGenerated: information.setDraftDescription
+        onDescriptionGenerated: information.setDraftDescription,
+        onConsumed: businessOutlet?.refreshAiUsage
     });
 
     // ── Card Gruppi prodotto (read-only + drawer) ──────────────────────

@@ -124,9 +124,11 @@
     .divider {
       background: rgba(0, 0, 0, 0.1);
     }
-    .dot,
+    // Bordo carrello riusa lo stesso rgba della .bar background di questo tema
+    // (riga sopra) — il badge si fonde nella pill invece di leggere come anello
+    // bianco estraneo.
     .cartBadge {
-      border-color: rgba(255, 255, 255, 0.92);
+      border-color: rgba(244, 244, 245, 0.82);
     }
   }
 
@@ -169,9 +171,10 @@
     .divider {
       background: rgba(255, 255, 255, 0.16);
     }
-    .dot,
+    // Idem tema dark: bordo riusa rgba(20, 20, 20, 0.72), stesso valore della
+    // .bar background di questo tema (riga sopra).
     .cartBadge {
-      border-color: rgba(20, 20, 20, 0.92);
+      border-color: rgba(20, 20, 20, 0.72);
     }
   }
 }
@@ -254,19 +257,12 @@
   font: inherit;
 }
 
-// Pallino reminder recensione sull'icona cuore. Ancorato al centro dello slot via
-// translate (slot-width-independent), così resta sul glifo a qualsiasi larghezza tab.
-.dot {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(6px, -12px);
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--pub-alert);
-  border: 2px solid rgba(20, 20, 20, 0.92);
-  box-sizing: content-box;
+// Wrapper icona del trigger recensioni: SOLO questo elemento anima (wiggle
+// periodico via Framer Motion, vedi reviewIconAnimate nel .tsx), mai il
+// .tab intero. display:inline-flex per non alterare il centraggio flex
+// dell'icona dentro il bottone.
+.tabIcon {
+  display: inline-flex;
 }
 
 .divider {
@@ -331,6 +327,7 @@
   transform: translate(3px, -13px);
   min-width: 16px;
   height: 16px;
+  aspect-ratio: 1;
   padding: 0 4px;
   border-radius: 999px;
   background: var(--pub-accent, #F59E0B);

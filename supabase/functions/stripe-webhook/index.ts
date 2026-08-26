@@ -3,6 +3,11 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
+import {
+    getInvoiceSubscriptionId,
+    mapStripeStatus,
+    syncSubscriptionStatus
+} from "../_shared/subscriptionStatusSync.ts";
 
 // Note: this endpoint is called server-to-server by Stripe. CORS headers
 // not needed — never call from a browser.
@@ -147,30 +152,87 @@ function getSubscriptionCurrentPeriodEnd(subscription: Stripe.Subscription): str
 }
 
 /**
- * Map Stripe subscription status to our DB status values.
- * Stripe statuses: trialing, active, past_due, canceled, incomplete, incomplete_expired, unpaid, paused
- * Our statuses:    trialing, active, past_due, suspended, canceled
+ * Read `current_period_start` from the subscription. Same item-level →
+ * top-level fallback as getSubscriptionCurrentPeriodEnd (recent Stripe API
+ * versions moved the period fields to the item level).
  */
-function mapStripeStatus(stripeStatus: string): string {
-    switch (stripeStatus) {
-        case "trialing":
-            return "trialing";
-        case "active":
-            return "active";
-        case "past_due":
-            return "past_due";
-        case "canceled":
-        case "incomplete_expired":
-            return "canceled";
-        case "incomplete":
-        case "unpaid":
-        case "paused":
-            return "suspended";
-        default:
-            console.warn(`stripe-webhook: Unknown Stripe status '${stripeStatus}', mapping to 'suspended'`);
-            return "suspended";
+function getSubscriptionCurrentPeriodStart(subscription: Stripe.Subscription): string | null {
+    const itemStart = subscription.items?.data?.[0]?.current_period_start;
+    if (itemStart) return toIsoTimestamp(itemStart);
+    return toIsoTimestamp(subscription.current_period_start);
+}
+
+/**
+ * Valore mensile CONTRATTUALE del piano in centesimi, AL LORDO di coupon/
+ * sconti: price × quantity come lo vede Stripe PRIMA di ogni discount (un
+ * comped 100%-off deve risultare al valore pieno, non a 0 — serve alla quota
+ * AI di FASE 4). NON usare mai invoice.amount_due (è post-coupon).
+ *
+ * I Price CataloGlobe sono graduated-tiered (billing_scheme=tiered): l'item
+ * della subscription NON porta i tiers, serve un prices.retrieve con expand.
+ * Stessa aritmetica di graduatedTotalFromPrice in stripe-change-subscription
+ * (duplicazione consapevole: quell'edge non espone helper condivisi).
+ * Ritorna null su errore/shape inattesa: il caller NON scrive la colonna in
+ * quel caso (mai azzerare un valore buono per un blip API).
+ */
+async function computePlanMonthlyValueCents(
+    stripe: Stripe,
+    subscription: Stripe.Subscription
+): Promise<number | null> {
+    const item = subscription.items?.data?.[0];
+    if (!item?.price?.id) return null;
+    const quantity = item.quantity ?? 1;
+
+    // Price flat per-unit: nessun fetch necessario.
+    if (item.price.billing_scheme === "per_unit" && item.price.unit_amount != null) {
+        return item.price.unit_amount * quantity;
+    }
+
+    try {
+        const price = await stripe.prices.retrieve(item.price.id, { expand: ["tiers"] });
+        if (
+            price.billing_scheme !== "tiered" ||
+            price.tiers_mode !== "graduated" ||
+            !Array.isArray(price.tiers)
+        ) {
+            console.warn(
+                `stripe-webhook: price ${item.price.id} non graduated-tiered (scheme=${price.billing_scheme}, mode=${price.tiers_mode}) — plan_monthly_value_cents skipped`
+            );
+            return null;
+        }
+        const tiers = [...price.tiers].sort((a, b) => {
+            const au = a.up_to ?? Number.POSITIVE_INFINITY;
+            const bu = b.up_to ?? Number.POSITIVE_INFINITY;
+            return au - bu;
+        });
+        let remaining = quantity;
+        let lower = 0;
+        let total = 0;
+        for (const tier of tiers) {
+            if (remaining <= 0) break;
+            const upTo = tier.up_to ?? Number.POSITIVE_INFINITY;
+            const capacity = upTo - lower;
+            const units = Math.min(remaining, capacity);
+            if (units <= 0) continue;
+            total += (tier.flat_amount ?? 0) + (tier.unit_amount ?? 0) * units;
+            remaining -= units;
+            lower = upTo;
+        }
+        if (remaining > 0) {
+            console.warn(`stripe-webhook: quantity ${quantity} oltre i tiers di ${item.price.id} — plan_monthly_value_cents skipped`);
+            return null;
+        }
+        return total;
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`stripe-webhook: prices.retrieve fallito per ${item.price.id}: ${message}`);
+        return null;
     }
 }
+
+// `mapStripeStatus` now lives in ../_shared/subscriptionStatusSync.ts — the
+// single writer for tenants.subscription_status. Nothing in this file may write
+// that column from an event type; go through syncSubscriptionStatus instead.
 
 serve(async req => {
     // Stripe sends only POST; no OPTIONS preflight needed (server-to-server).
@@ -268,6 +330,8 @@ serve(async req => {
                 let subscriptionStatus = "trialing"; // safe default if retrieve fails
                 let trialUntil: string | null = null;
                 let currentPeriodEnd: string | null = null;
+                let currentPeriodStart: string | null = null;
+                let planMonthlyValueCents: number | null = null;
                 let planCode: string | null = null;
                 try {
                     const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
@@ -275,6 +339,8 @@ serve(async req => {
                     subscriptionStatus = mapStripeStatus(sub.status);
                     trialUntil = toIsoTimestamp(sub.trial_end);
                     currentPeriodEnd = getSubscriptionCurrentPeriodEnd(sub);
+                    currentPeriodStart = getSubscriptionCurrentPeriodStart(sub);
+                    planMonthlyValueCents = await computePlanMonthlyValueCents(stripe, sub);
                     planCode = getSubscriptionPlanCode(sub);
                 } catch (err) {
                     console.warn("stripe-webhook: Could not retrieve subscription on checkout:", err.message);
@@ -290,10 +356,18 @@ serve(async req => {
                     stripe_customer_id: stripeCustomerId,
                     stripe_subscription_id: stripeSubscriptionId,
                     subscription_status: subscriptionStatus,
+                    // Baseline for the ordering guard used by syncSubscriptionStatus:
+                    // the status written here comes from the live subscription we
+                    // just retrieved, so it is as authoritative as a synced one.
+                    subscription_status_event_at: new Date((event.created ?? 0) * 1000).toISOString(),
                     paid_seats: paidSeats,
-                    current_period_end: currentPeriodEnd
+                    current_period_end: currentPeriodEnd,
+                    current_period_start: currentPeriodStart
                 };
                 if (planCode) updates.plan = planCode;
+                // Only write when computed — a transient Stripe API failure must
+                // never wipe a previously good contractual value.
+                if (planMonthlyValueCents !== null) updates.plan_monthly_value_cents = planMonthlyValueCents;
                 // Only write trial_until when present — never wipe an existing
                 // value on a payload that simply omits trial_end.
                 if (trialUntil !== null) updates.trial_until = trialUntil;
@@ -320,35 +394,46 @@ serve(async req => {
             case "customer.subscription.updated": {
                 const subscription = event.data.object as Stripe.Subscription;
                 const stripeCustomerId = subscription.customer as string;
-                const newStatus = mapStripeStatus(subscription.status);
-                const paidSeats = getSubscriptionQuantity(subscription);
-                const trialUntil = toIsoTimestamp(subscription.trial_end);
-                const currentPeriodEnd = getSubscriptionCurrentPeriodEnd(subscription);
-                // Priorità al metadata; se assente/non valido (es. cambio piano via
-                // subscriptions.update o subscription schedule senza metadata),
-                // deriva il piano dal price ID (source of truth in `plans`).
-                let planCode = getSubscriptionPlanCode(subscription);
-                if (!planCode) {
-                    planCode = await lookupPlanCodeByPriceId(admin, subscription);
-                }
 
-                const updates: Record<string, unknown> = {
-                    subscription_status: newStatus,
-                    paid_seats: paidSeats,
-                    current_period_end: currentPeriodEnd
-                };
-                if (planCode) updates.plan = planCode;
-                // Only write trial_until when present — never wipe an existing
-                // value on a payload that simply omits trial_end.
-                if (trialUntil !== null) updates.trial_until = trialUntil;
+                // Routed through the same helper as the invoice events: one
+                // ordering guard, one source of truth. The companion fields are
+                // computed from the LIVE subscription the helper retrieves, not
+                // from the (possibly stale/redelivered) event payload.
+                await syncSubscriptionStatus({
+                    admin,
+                    stripe,
+                    event,
+                    stripeCustomerId,
+                    subscriptionId: subscription.id,
+                    buildExtraUpdates: async liveSub => {
+                        const paidSeats = getSubscriptionQuantity(liveSub);
+                        const trialUntil = toIsoTimestamp(liveSub.trial_end);
+                        const currentPeriodEnd = getSubscriptionCurrentPeriodEnd(liveSub);
+                        const currentPeriodStart = getSubscriptionCurrentPeriodStart(liveSub);
+                        const planMonthlyValueCents = await computePlanMonthlyValueCents(stripe, liveSub);
+                        // Priorità al metadata; se assente/non valido (es. cambio piano via
+                        // subscriptions.update o subscription schedule senza metadata),
+                        // deriva il piano dal price ID (source of truth in `plans`).
+                        let planCode = getSubscriptionPlanCode(liveSub);
+                        if (!planCode) {
+                            planCode = await lookupPlanCodeByPriceId(admin, liveSub);
+                        }
 
-                const result = await updateTenantStatus(admin, stripeCustomerId, updates);
-
-                if (result.ok && result.rowsAffected > 0) {
-                    console.log(`stripe-webhook: Subscription updated → status=${newStatus}, plan=${planCode ?? "unchanged"}, seats=${paidSeats}, period_end=${currentPeriodEnd ?? "null"} for customer ${stripeCustomerId} (event ${event.id})`);
-                } else if (result.ok && result.rowsAffected === 0) {
-                    console.warn(`stripe-webhook: NO TENANT MATCHED customer ${stripeCustomerId} for event ${event.id} (${event.type}). Possibile causa: evento da ambiente diverso o tenant eliminato.`);
-                }
+                        const extras: Record<string, unknown> = {
+                            paid_seats: paidSeats,
+                            current_period_end: currentPeriodEnd,
+                            current_period_start: currentPeriodStart
+                        };
+                        if (planCode) extras.plan = planCode;
+                        // Only write when computed — a transient Stripe API failure must
+                        // never wipe a previously good contractual value.
+                        if (planMonthlyValueCents !== null) extras.plan_monthly_value_cents = planMonthlyValueCents;
+                        // Only write trial_until when present — never wipe an existing
+                        // value on a payload that simply omits trial_end.
+                        if (trialUntil !== null) extras.trial_until = trialUntil;
+                        return extras;
+                    }
+                });
                 break;
             }
 
@@ -358,7 +443,11 @@ serve(async req => {
 
                 const result = await updateTenantStatus(admin, stripeCustomerId, {
                     subscription_status: "canceled",
-                    current_period_end: null
+                    current_period_end: null,
+                    // Mirror di current_period_end: nessun periodo su canceled.
+                    // plan_monthly_value_cents resta com'è (tenant non eleggibile
+                    // comunque; il valore storico non nuoce).
+                    current_period_start: null
                 });
 
                 if (result.ok && result.rowsAffected > 0) {
@@ -369,44 +458,24 @@ serve(async req => {
                 break;
             }
 
-            case "invoice.payment_failed": {
-                const invoice = event.data.object as Stripe.Invoice;
-                const stripeCustomerId = invoice.customer as string;
-
-                const result = await updateTenantStatus(admin, stripeCustomerId, {
-                    subscription_status: "past_due"
-                });
-
-                if (result.ok && result.rowsAffected > 0) {
-                    console.log(`stripe-webhook: Payment failed → past_due for customer ${stripeCustomerId} (event ${event.id})`);
-                } else if (result.ok && result.rowsAffected === 0) {
-                    console.warn(`stripe-webhook: NO TENANT MATCHED customer ${stripeCustomerId} for event ${event.id} (${event.type}). Possibile causa: evento da ambiente diverso o tenant eliminato.`);
-                }
-                break;
-            }
-
+            // Invoice events are a TRIGGER to resync, never a source of truth for
+            // the status: a failed/paid invoice may be a one-off charge (seat
+            // delta) that says nothing about the subscription's health. The
+            // helper re-reads the live subscription and writes its real status.
+            case "invoice.payment_failed":
             case "invoice.payment_succeeded": {
                 const invoice = event.data.object as Stripe.Invoice;
                 const stripeCustomerId = invoice.customer as string;
 
-                // Only move to 'active' if currently trialing or past_due
-                // (avoid overwriting 'canceled' if a final invoice pays)
-                const { data: tenant } = await admin
-                    .from("tenants")
-                    .select("subscription_status")
-                    .eq("stripe_customer_id", stripeCustomerId)
-                    .maybeSingle();
-
-                if (tenant && (tenant.subscription_status === "trialing" || tenant.subscription_status === "past_due")) {
-                    const result = await updateTenantStatus(admin, stripeCustomerId, {
-                        subscription_status: "active"
-                    });
-                    if (result.ok && result.rowsAffected > 0) {
-                        console.log(`stripe-webhook: Payment succeeded → active for customer ${stripeCustomerId} (event ${event.id})`);
-                    } else if (result.ok && result.rowsAffected === 0) {
-                        console.warn(`stripe-webhook: NO TENANT MATCHED customer ${stripeCustomerId} for event ${event.id} (${event.type}). Possibile causa: evento da ambiente diverso o tenant eliminato.`);
-                    }
-                }
+                await syncSubscriptionStatus({
+                    admin,
+                    stripe,
+                    event,
+                    stripeCustomerId,
+                    // Invoice-bound subscription when present; the helper falls
+                    // back to the tenant's own subscription for one-off invoices.
+                    subscriptionId: getInvoiceSubscriptionId(invoice)
+                });
                 break;
             }
 

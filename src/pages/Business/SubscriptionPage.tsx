@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useTenant } from "@/context/useTenant";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -28,12 +28,15 @@ import { canDoOnTenant } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { PlanSeatsSelector } from "@/components/ui/PlanSeatsSelector/PlanSeatsSelector";
+import { AiUsageSection } from "@/pages/Business/components/AiUsageSection";
+import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import {
     ExternalLink,
     CreditCard,
@@ -144,6 +147,33 @@ export default function SubscriptionPage() {
     const { showToast } = useToast();
     const navigate = useNavigate();
 
+    // Stato quota AI (FASE 5): fetch unico in MainLayout, letto via Outlet context.
+    // Freschiamo all'apertura della pagina (fonte di verità permanente).
+    const outlet = useBusinessOutletContext();
+    const aiUsage = outlet?.aiUsage ?? null;
+    const refreshAiUsage = outlet?.refreshAiUsage;
+    useEffect(() => {
+        refreshAiUsage?.();
+    }, [refreshAiUsage]);
+
+    // Deep-link dalla pill dell'header (#utilizzo-ai): porta davvero alla sezione
+    // invece di fermarsi in cima. Attende che la sezione esista (aiUsage caricato),
+    // poi scrolla una sola volta finché l'ancora resta nell'URL.
+    const { hash } = useLocation();
+    const didScrollToUsageRef = useRef(false);
+    useEffect(() => {
+        if (hash !== "#utilizzo-ai") {
+            didScrollToUsageRef.current = false;
+            return;
+        }
+        if (didScrollToUsageRef.current) return;
+        const el = document.getElementById("utilizzo-ai");
+        if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "start" });
+            didScrollToUsageRef.current = true;
+        }
+    }, [hash, aiUsage]);
+
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
     const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
@@ -179,6 +209,7 @@ export default function SubscriptionPage() {
 
     // --- Stato abbonamento live (banner persistente + disdetta) ---
     const [subState, setSubState] = useState<SubscriptionState | null>(null);
+    const [subStateLoading, setSubStateLoading] = useState(true);
     const [isCancelOpen, setIsCancelOpen] = useState(false);
     const [cancelLoading, setCancelLoading] = useState(false);
     const [reactivateLoading, setReactivateLoading] = useState(false);
@@ -188,10 +219,13 @@ export default function SubscriptionPage() {
     const tenantId = selectedTenant?.id ?? null;
     const reloadSubState = useCallback(async () => {
         if (!tenantId) return;
+        setSubStateLoading(true);
         try {
             setSubState(await getSubscriptionState(tenantId));
         } catch (err) {
             console.error("[SubscriptionPage] subscription state load failed:", err);
+        } finally {
+            setSubStateLoading(false);
         }
     }, [tenantId]);
 
@@ -465,6 +499,21 @@ export default function SubscriptionPage() {
                 // ahead of the async webhook, without a DB refetch race.
                 patchSelectedTenant({ plan: commitResult.plan, paid_seats: commitResult.seats });
                 showToast({ message: "Piano aggiornato.", type: "success" });
+            } else if (commitResult.classification === "combined") {
+                // Combined: sedi addebitate e applicate subito lato Stripe, ma il
+                // downgrade di piano resta programmato al rinnovo. `effective` qui
+                // è sempre l'ISO di fine periodo (mai "now"), quindi il ramo sopra
+                // non lo intercetta. Patch solo `paid_seats` — il `plan` visualizzato
+                // deve restare quello corrente finché il rinnovo non lo applica; il
+                // cambio futuro resta comunicato dal banner sotto.
+                patchSelectedTenant({ paid_seats: commitResult.seats });
+                setScheduledChange({
+                    planName: plans.find(p => p.code === draftPlan)?.name ?? draftPlan,
+                    seats: draftSeats,
+                    nextDate: preview?.nextDate ?? selectedTenant.current_period_end ?? null,
+                    isDowngradeToBase
+                });
+                showToast({ message: "Sedi aggiunte. Il cambio piano avrà effetto al prossimo rinnovo.", type: "success" });
             } else {
                 // Downgrade/programmato: piano e sedi correnti restano invariati
                 // fino al rinnovo; mostra solo l'indicatore del cambio programmato.
@@ -638,7 +687,7 @@ export default function SubscriptionPage() {
                         </Text>
                         <span className={styles.planLabelRow}>
                             <Text variant="title-sm" weight={700}>
-                                {displayPlanName}
+                                {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"}
                             </Text>
                             {isFounder && <Badge variant="primary">Founder</Badge>}
                         </span>
@@ -688,11 +737,25 @@ export default function SubscriptionPage() {
                             </Text>
                         )}
                     </div>
-                </div>
 
-                <Text variant="body-sm" colorVariant="muted">
-                    {displaySeats} {displaySeats === 1 ? "sede attiva" : "sedi attive"} sul piano {displayPlanName}
-                </Text>
+                    <div className={styles.summaryItem} style={{ gridColumn: "1 / -1" }}>
+                        <Text variant="caption" colorVariant="muted">
+                            Prossimo cambio
+                        </Text>
+                        {subStateLoading ? (
+                            <Skeleton height="1.2em" width="240px" radius="4px" />
+                        ) : pendingBanner ? (
+                            <Text variant="title-sm" weight={700} colorVariant="primary">
+                                {pendingBanner.planName} · {pendingBanner.seats}{" "}
+                                {pendingBanner.seats === 1 ? "sede" : "sedi"} dal {formatDate(pendingBanner.date)}
+                            </Text>
+                        ) : (
+                            <Text variant="title-sm" weight={700}>
+                                Nessuno
+                            </Text>
+                        )}
+                    </div>
+                </div>
 
                 {consumedDiscount && (
                     <div className={styles.consumedNote}>
@@ -703,7 +766,7 @@ export default function SubscriptionPage() {
                     </div>
                 )}
 
-                {cancelAtPeriodEnd ? (
+                {cancelAtPeriodEnd && (
                     <div className={styles.cancelNote}>
                         <AlertTriangle size={16} />
                         <Text variant="body-sm" weight={500}>
@@ -721,14 +784,15 @@ export default function SubscriptionPage() {
                             </Button>
                         )}
                     </div>
-                ) : pendingBanner && (
-                    <div className={styles.scheduledNote}>
-                        <Info size={16} />
-                        <Text variant="body-sm" weight={500}>
-                            Cambio programmato: passerai a {pendingBanner.planName} · {pendingBanner.seats}{" "}
-                            {pendingBanner.seats === 1 ? "sede" : "sedi"} il {formatDate(pendingBanner.date)}.
-                            {pendingBanner.isBase && " Ordini e prenotazioni da QR verranno disattivati."}
-                        </Text>
+                )}
+
+                {!subStateLoading && pendingBanner && (pendingBanner.isBase || canManageBilling) && (
+                    <div className={styles.contactRow}>
+                        {pendingBanner.isBase && (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Ordini e prenotazioni da QR verranno disattivati al rinnovo.
+                            </Text>
+                        )}
                         {canManageBilling && (
                             <div className={styles.scheduledNoteActions}>
                                 <Button
@@ -780,6 +844,9 @@ export default function SubscriptionPage() {
                     </div>
                 )}
             </div>
+
+            {/* --- Utilizzo AI (FASE 5) --- */}
+            <AiUsageSection usage={aiUsage} planName={displayPlanName} seats={displaySeats} />
 
             {/* --- Actions (manage + cancel) --- */}
             {canManageBilling && (

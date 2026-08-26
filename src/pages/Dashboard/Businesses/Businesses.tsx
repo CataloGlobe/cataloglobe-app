@@ -998,6 +998,12 @@ export default function Businesses() {
     });
   }, [businesses, searchTerm]);
 
+  // Discriminante dell'empty state: true se ALMENO un filtro che concorre a
+  // `filteredBusinesses` è attivo. Oggi la sola sorgente è `searchTerm`; nuovi
+  // filtri vanno aggiunti qui oltre che nel useMemo sopra, così il copy
+  // "nessun risultato" non viene mai scambiato per "vuoto assoluto".
+  const hasActiveFilter = searchTerm.trim().length > 0;
+
   return (
     <PageGate readPermission="activity.read">
       {() => (
@@ -1072,6 +1078,7 @@ export default function Businesses() {
                 <>
                   <BusinessList
                     businesses={filteredBusinesses}
+                    hasActiveFilter={hasActiveFilter}
                     viewMode={viewMode}
                     onEdit={handleEditClick}
                     onDelete={canDelete ? handleDelete : undefined}

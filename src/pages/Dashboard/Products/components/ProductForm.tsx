@@ -54,6 +54,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { useAiDescription } from "../hooks/useAiDescription";
+import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { AiDescriptionField } from "./AiDescriptionField";
 import styles from "../Products.module.scss";
 import { IngredientCombobox } from "./IngredientCombobox";
@@ -263,7 +264,13 @@ export function ProductForm({
     const [name, setName] = useState("");
     const [description, setDescription] = useState("");
     // AI description enrichment — shared affordance (hook + AiDescriptionField).
-    const ai = useAiDescription({ name, tenantId, onDescriptionGenerated: setDescription });
+    const businessOutlet = useBusinessOutletContext();
+    const ai = useAiDescription({
+        name,
+        tenantId,
+        onDescriptionGenerated: setDescription,
+        onConsumed: businessOutlet?.refreshAiUsage
+    });
     const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
     const [basePrice, setBasePrice] = useState<string>("");
     const [productType, setProductType] = useState<ProductType>("simple");

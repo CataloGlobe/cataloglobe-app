@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { usePageHead } from "@/hooks/usePageHead";
 import { usePublicLanguageSync } from "@/hooks/usePublicLanguageSync";
+import { usePublicFontInjection } from "@/hooks/usePublicFontInjection";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import type { HubTab } from "@/types/collectionStyle";
@@ -16,11 +17,9 @@ import { listAllAllergens, type Allergen } from "@/services/supabase/allergens";
 import { supabase } from "@/services/supabase/client";
 import { fetchPublicCatalog, type CatalogSource, type PublicCatalogPayload } from "@/services/publicCatalog/fetchPublicCatalog";
 import { getCached, setCached } from "@/services/publicCatalog/publicCatalogCache";
-import { parseTokens } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import NotFound from "../NotFound/NotFound";
-import { buildSingleFamilyFontUrl } from "@utils/publicFontUrl";
 import { isValidLangFormat } from "@/utils/lang";
 import pageStyles from "./PublicCollectionPage.module.scss";
 // reviews_summary and recent_reviews still returned by edge function — unused in frontend for now
@@ -47,11 +46,18 @@ function messageForReason(reason: OrderingStateReason, t: TFunction): string {
     }
 }
 
+/**
+ * Payload inlinato dalla shell SSR (`window.__PUBLIC_CATALOG__`). Esportato
+ * perché lo consumano anche `entry-client.tsx` e `routes/publicRoutes.tsx`:
+ * unica dichiarazione, non tre copie della stessa shape.
+ */
+export type PublicCatalogInitialPayload = {
+    payload: ResolvedPayloadShape;
+    allergens: Allergen[] | null;
+};
+
 type Props = {
-    initialPayload?: {
-        payload: ResolvedPayloadShape;
-        allergens: Allergen[] | null;
-    };
+    initialPayload?: PublicCatalogInitialPayload;
 };
 
 export default function PublicCollectionPage({ initialPayload }: Props) {
@@ -169,44 +175,8 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         imageUrl: headImage
     });
 
-    // ── Font dello stile attivo (Step 2) ─────────────────────────────────
-    // Warm: il middleware ha già iniettato <link id="mw-font"> nell'head →
-    // nessun caricamento runtime. Cold (fallback opzione B): carica la SOLA
-    // famiglia dello stile attivo appena i token arrivano col payload — non
-    // più le 8 famiglie di loadPublicFonts (che resta in uso solo nello
-    // Style Editor).
-    const activeFontToken =
-        state.status === "ready"
-            ? parseTokens(state.resolved.style?.config ?? null).typography.fontFamily
-            : null;
-
-    useEffect(() => {
-        if (!activeFontToken) return;
-        if (document.getElementById("mw-font")) return;
-
-        // Cold hit = HTML originale: l'Inter variable blocking di index.html
-        // è ancora presente (il de-block Step 3a avviene solo sul warm), la
-        // spec statica sarebbe un secondo download inutile (~30KB).
-        if (activeFontToken === "inter") return;
-
-        const href = buildSingleFamilyFontUrl(activeFontToken);
-        if (!href) return; // token sconosciuto: nessuna injection
-
-        const existing = document.getElementById("public-font-fallback") as HTMLLinkElement | null;
-        if (existing) {
-            if (existing.href !== href) existing.href = href;
-            return;
-        }
-        const link = document.createElement("link");
-        link.id = "public-font-fallback";
-        link.rel = "stylesheet";
-        link.href = href;
-        document.head.appendChild(link);
-
-        return () => {
-            if (document.head.contains(link)) document.head.removeChild(link);
-        };
-    }, [activeFontToken]);
+    // ── Font dello stile attivo — vedi usePublicFontInjection ────────────
+    usePublicFontInjection(state.status === "ready" ? state.resolved.style : null);
 
     useEffect(() => {
         if (!slug) {
@@ -267,6 +237,13 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
                 requestedLang: validatedLang
             });
             if (redirectTo) {
+                // Guard: il cleanup dell'effect (cancelled = true) non è
+                // sincrono con una navigazione utente avvenuta nel frattempo
+                // (es. tap su "Prenota un tavolo" mentre questo fetch era
+                // ancora in volo) — senza questo check il redirect di
+                // canonicalizzazione lingua sovrascriverebbe con replace:true
+                // la navigazione già fatta dall'utente.
+                if (cancelled) return;
                 navigate(redirectTo, { replace: true });
                 return;
             }

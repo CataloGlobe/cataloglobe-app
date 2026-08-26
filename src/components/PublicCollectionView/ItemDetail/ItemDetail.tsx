@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ChevronLeft, ChevronRight, Package, ScrollText, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, ScrollText, Utensils, X } from "lucide-react";
 import { IconLink } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
@@ -278,7 +278,7 @@ export default function ItemDetail({
                             </div>
                         ) : (
                             <div className={styles.placeholderImage} aria-hidden="true">
-                                <Package
+                                <Utensils
                                     size={40}
                                     strokeWidth={1.5}
                                     color="var(--pub-text-muted, var(--pub-text-secondary))"

@@ -1,3 +1,8 @@
+// ⚠️ SYNC: unico punto di lettura del JWT secret cliente — non duplicare
+// altrove. Firma/verifica del customer JWT DEVONO passare da questo modulo
+// (signCustomerJwt / verifyCustomerJwt). Guardrail statico che impedisce il
+// drift: supabase/functions/_shared/customerJwtCentralization.test.ts.
+//
 // Custom JWT signing/verification for guest (anon) sessions of the
 // table-ordering epic. See docs/orders-architecture.md v1.1 §5.2 for
 // the full pattern rationale.

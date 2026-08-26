@@ -102,6 +102,17 @@ export interface JobStore {
     resetOrphans(jobIds: string[]): Promise<{ error: DbError | null }>;
 }
 
+/**
+ * Evento di consumo emesso dopo una chiamata provider riuscita (metering
+ * FASE 2). Caratteri contati per code-point ([...s].length), aggregati per
+ * tenant all'interno del gruppo tradotto.
+ */
+export interface TickUsageEvent {
+    tenantId: string | null;
+    provider: string;
+    charsTotal: number;
+}
+
 export interface TickDeps {
     store: JobStore;
     getProvider(targetLang: string): TranslationProviderLike;
@@ -115,6 +126,13 @@ export interface TickDeps {
     now(): string;
     /** Logger opzionale (default no-op). */
     log?(message: string, meta?: unknown): void;
+    /**
+     * Metering best-effort opzionale (iniettato, MAI importato: questo modulo
+     * resta puro/testabile). Chiamato solo su translate riuscita. Un errore
+     * qui non deve toccare il flusso job: il chiamante non deve lanciare, e
+     * comunque il tick difende con try/catch.
+     */
+    logUsage?(event: TickUsageEvent): Promise<void>;
 }
 
 export interface TickCounters {
@@ -184,6 +202,28 @@ export async function runTranslationTick(deps: TickDeps): Promise<TickCounters> 
                     { texts: group.jobs.map(j => j.source_text), sourceLang: group.source, targetLang: group.target },
                     deps.deeplTimeoutMs
                 );
+
+                // Metering: il consumo avviene al successo della chiamata
+                // provider (i caratteri sono spesi anche se un upsert a valle
+                // fallisse). Code-point count, aggregato per tenant del gruppo.
+                // Best-effort: mai interferire con l'esito dei job.
+                if (deps.logUsage) {
+                    try {
+                        const charsByTenant = new Map<string | null, number>();
+                        for (const j of group.jobs) {
+                            const chars = [...j.source_text].length;
+                            charsByTenant.set(j.tenant_id, (charsByTenant.get(j.tenant_id) ?? 0) + chars);
+                        }
+                        for (const [tenantId, charsTotal] of charsByTenant) {
+                            await deps.logUsage({ tenantId, provider: result.provider, charsTotal });
+                        }
+                    } catch (usageErr) {
+                        deps.log?.(
+                            "usage logging failed",
+                            usageErr instanceof Error ? usageErr.message : String(usageErr)
+                        );
+                    }
+                }
 
                 for (let i = 0; i < group.jobs.length; i++) {
                     const job = group.jobs[i];

@@ -17,18 +17,12 @@ import { pgrest } from "../_lib/statusSupabase.js";
  *                                                    → resolve (resolved_at=now, status='resolved')
  *   DELETE /api/admin/status-incidents?id=<uuid>     → hard delete (raro, ma utile per testi)
  *
- * Auth (oggi):
+ * Auth:
  *   - Header `Authorization: Bearer <supabase_access_token>` obbligatorio
  *   - Si chiama Supabase Auth `/auth/v1/user` con l'access_token per
- *     ottenere l'email autenticata
- *   - Si confronta con `process.env.ADMIN_EMAIL` (case-insensitive)
+ *     ottenere lo user id autenticato
+ *   - Si verifica l'appartenenza a `public.platform_admins` per quello user id
  *   - Match → procedi con service_role; mismatch → 403
- *
- * TODO (multi-admin futuro): rimpiazzare la verifica email-based con una
- * colonna `is_admin` su `user_profiles` (o `auth.users.raw_app_meta_data`)
- * e abilitare policy RLS authenticated dirette su `status_incidents`,
- * cancellando questo endpoint. La verifica via env è un placeholder per
- * lo stato single-admin attuale (Lorenzo).
  */
 
 type IncidentStatus = "investigating" | "identified" | "monitoring" | "resolved";
@@ -53,18 +47,36 @@ const SERVICE_KEYS: ReadonlySet<string> = new Set([
     "cache"
 ]);
 
-type AuthOk = { ok: true; email: string };
+type AuthOk = { ok: true; userId: string };
 type AuthFail = { ok: false; status: number; reason: string };
 
-async function authenticateAdmin(req: VercelRequest): Promise<AuthOk | AuthFail> {
-    const adminEmail = process.env.ADMIN_EMAIL;
-    if (!adminEmail) {
-        return {
-            ok: false,
-            status: 500,
-            reason: "Missing ADMIN_EMAIL env var on server"
-        };
+/**
+ * Verifica l'appartenenza a `platform_admins`.
+ *
+ * ATTENZIONE: `pgrest` usa la `service_role` key, che BYPASSA RLS. La policy
+ * SELECT su `platform_admins` (`USING (is_platform_admin())`) qui non filtra
+ * nulla: la query vede tutta la tabella. È voluto — serve poter risolvere un
+ * utente arbitrario partendo dal suo id — ma significa che la sicurezza di
+ * questo endpoint sta in QUESTO codice, non nella policy. Ogni modifica al
+ * filtro `user_id=eq.` sotto è una modifica al controllo di accesso.
+ *
+ * Fail-closed: errore di query o zero righe → non admin.
+ */
+async function isPlatformAdminUser(userId: string): Promise<boolean> {
+    try {
+        const result = await pgrest<Array<{ user_id: string }>>("platform_admins", {
+            query: `select=user_id&user_id=eq.${encodeURIComponent(userId)}&limit=1`
+        });
+        if (!result.ok) return false;
+        const rows = Array.isArray(result.data) ? result.data : [];
+        return rows.length > 0;
+    } catch {
+        // env mancanti o fetch fallita: nessun beneficio del dubbio.
+        return false;
     }
+}
+
+async function authenticateAdmin(req: VercelRequest): Promise<AuthOk | AuthFail> {
     const header = req.headers["authorization"];
     if (typeof header !== "string" || !header.startsWith("Bearer ")) {
         return { ok: false, status: 401, reason: "missing_bearer" };
@@ -101,20 +113,21 @@ async function authenticateAdmin(req: VercelRequest): Promise<AuthOk | AuthFail>
     if (!res.ok) {
         return { ok: false, status: 401, reason: `auth_upstream_${res.status}` };
     }
-    let payload: { email?: string | null } = {};
+    let payload: { id?: string | null } = {};
     try {
-        payload = (await res.json()) as { email?: string | null };
+        payload = (await res.json()) as { id?: string | null };
     } catch {
         return { ok: false, status: 502, reason: "auth_upstream_invalid_json" };
     }
-    const email = (payload.email ?? "").toLowerCase();
-    if (!email) {
-        return { ok: false, status: 401, reason: "no_email_in_token" };
+    const userId = typeof payload.id === "string" ? payload.id.trim() : "";
+    if (!userId) {
+        return { ok: false, status: 401, reason: "no_user_id_in_token" };
     }
-    if (email !== adminEmail.toLowerCase()) {
+    const isAdmin = await isPlatformAdminUser(userId);
+    if (!isAdmin) {
         return { ok: false, status: 403, reason: "not_admin" };
     }
-    return { ok: true, email };
+    return { ok: true, userId };
 }
 
 function jsonError(res: VercelResponse, status: number, code: string, message?: string): void {

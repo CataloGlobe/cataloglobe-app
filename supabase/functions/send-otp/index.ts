@@ -32,20 +32,6 @@ function json(status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders });
 }
 
-function generateOtp(): string {
-    const arr = new Uint32Array(1);
-    crypto.getRandomValues(arr);
-    return (arr[0] % 10 ** OTP_LENGTH).toString().padStart(OTP_LENGTH, "0");
-}
-
-async function sha256(value: string): Promise<string> {
-    const data = new TextEncoder().encode(value);
-    const hash = await crypto.subtle.digest("SHA-256", data);
-    return Array.from(new Uint8Array(hash))
-        .map(b => b.toString(16).padStart(2, "0"))
-        .join("");
-}
-
 function firstForwardedFor(header: string | null) {
     if (!header) return null;
     // prende il primo IP della lista "client, proxy1, proxy2"
@@ -215,7 +201,11 @@ serve(async req => {
         } else {
             await supabaseAdmin.from("otp_challenges").insert({
                 user_id: user.id,
-                code_hash: await sha256("000000" + OTP_PEPPER), // valore placeholder (non usato)
+                // Placeholder deliberatamente non verificabile: questa riga esiste solo
+                // per ancorare `locked_until`, nessun codice è mai stato inviato.
+                // L'hash deriva da valori casuali → nessun OTP può validarla, in
+                // qualsiasi configurazione di TTL e LOCK_MINUTES.
+                code_hash: await sha256(crypto.randomUUID() + crypto.randomUUID() + OTP_PEPPER),
                 created_at: now,
                 expires_at: new Date(nowMs + OTP_TTL_MS),
                 locked_until: lockedUntil,
@@ -234,8 +224,16 @@ serve(async req => {
     const codeHash = await sha256(otp + OTP_PEPPER);
     const expiresAt = new Date(nowMs + OTP_TTL_MS);
 
+    // Riferimenti per l'eventuale rollback del cooldown (vedi ramo `sendFailure`):
+    // id della riga scritta e valore di `last_sent_at` PRIMA di questo invio.
+    let challengeId: string | null = null;
+    let previousLastSentAt: string | null = null;
+
     // Se esiste challenge attiva, la aggiorno (NO delete)
     if (challenge?.id) {
+        challengeId = challenge.id;
+        previousLastSentAt = challenge.last_sent_at ?? null;
+
         const { error: updErr } = await supabaseAdmin
             .from("otp_challenges")
             .update({
@@ -258,32 +256,46 @@ serve(async req => {
             return json(500, { error: "db_error" });
         }
     } else {
-        const { error: insErr } = await supabaseAdmin.from("otp_challenges").insert({
-            user_id: user.id,
-            code_hash: codeHash,
-            expires_at: expiresAt,
-            attempts: 0,
-            max_attempts: 5,
-            last_sent_at: now,
-            send_count: sendCount,
-            window_start_at: windowStart,
-            request_ip: requestIp,
-            user_agent: userAgent
-        });
+        // Nessuna challenge precedente → non esiste un `last_sent_at` a cui tornare:
+        // il rollback scriverà null (colonna NULLABLE).
+        previousLastSentAt = null;
+
+        const { data: inserted, error: insErr } = await supabaseAdmin
+            .from("otp_challenges")
+            .insert({
+                user_id: user.id,
+                code_hash: codeHash,
+                expires_at: expiresAt,
+                attempts: 0,
+                max_attempts: 5,
+                last_sent_at: now,
+                send_count: sendCount,
+                window_start_at: windowStart,
+                request_ip: requestIp,
+                user_agent: userAgent
+            })
+            .select("id")
+            .single();
 
         if (insErr) {
             await auditSend({ outcome: "error", sendCountInWindow: sendCount });
             return json(500, { error: "db_error" });
         }
+
+        challengeId = inserted?.id ?? null;
     }
 
-    // Invia email
-    await resend.emails.send({
-        from: COMPANY.email.sender,
-        reply_to: COMPANY.contact.support,
-        to: user.email,
-        subject: "Il tuo codice di verifica",
-        html: `
+    // Invia email.
+    // resend@4 NON lancia sugli errori API: ritorna { data, error }. La chiamata
+    // può però lanciare su fallimento di rete → serve anche il try/catch.
+    let sendFailure: unknown = null;
+    try {
+        const { error: resendError } = await resend.emails.send({
+            from: COMPANY.email.sender,
+            reply_to: COMPANY.contact.support,
+            to: user.email,
+            subject: "Il tuo codice di verifica",
+            html: `
       <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
         <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
           <h1 style="margin:0 0 16px;font-size:22px;color:#111827">Codice di accesso</h1>
@@ -302,8 +314,48 @@ serve(async req => {
         </div>
       </div>
     `,
-        text: `Codice di accesso CataloGlobe: ${otp}\n\nUsa questo codice per completare l'accesso. Il codice scade tra 5 minuti.\n\n${getEmailFooterText()}`
-    });
+            text: `Codice di accesso CataloGlobe: ${otp}\n\nUsa questo codice per completare l'accesso. Il codice scade tra 5 minuti.\n\n${getEmailFooterText()}`
+        });
+        sendFailure = resendError ?? null;
+    } catch (e) {
+        sendFailure = e;
+    }
+
+    if (sendFailure) {
+        // Log server-side: l'oggetto errore Resend contiene name/message/statusCode,
+        // mai il codice OTP né il destinatario. Il client riceve un errore generico.
+        console.error("[OTP_SEND] resend failure:", sendFailure);
+
+        // Rollback del SOLO `last_sent_at`: l'email non è partita, quindi il cooldown
+        // di 60s non deve bloccare il retry (l'UI dice "riprova" — deve essere possibile
+        // farlo davvero). `send_count` e `window_start_at` restano invece aggiornati:
+        // il tetto MAX_SENDS_PER_WINDOW continua a contare i tentativi, così un
+        // fallimento persistente di Resend incontra il rate-limit invece di aprire
+        // un canale di invio libero.
+        if (challengeId) {
+            const { error: rollbackErr } = await supabaseAdmin
+                .from("otp_challenges")
+                .update({ last_sent_at: previousLastSentAt })
+                .eq("id", challengeId);
+
+            if (rollbackErr) {
+                // Non maschera l'errore originale: la risposta resta 500
+                // email_send_failed e l'audit resta outcome "error".
+                console.error("[OTP_SEND] cooldown rollback failed:", rollbackErr);
+            }
+        } else {
+            // `.select("id")` sul ramo insert non ha restituito l'id: non sappiamo
+            // quale riga aggiornare, il cooldown resta attivo per un'email mai
+            // partita. Non è una regressione (era il comportamento precedente), ma
+            // non deve passare in silenzio.
+            console.warn(
+                "[OTP_SEND] cooldown rollback skipped: challenge id not available"
+            );
+        }
+
+        await auditSend({ outcome: "error", sendCountInWindow: sendCount });
+        return json(500, { error: "email_send_failed" });
+    }
 
     await auditSend({ outcome: "sent", sendCountInWindow: sendCount });
     return json(200, { ok: true });

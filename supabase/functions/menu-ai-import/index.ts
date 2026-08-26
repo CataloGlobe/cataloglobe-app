@@ -4,6 +4,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { exceedsPayloadBudget, estimateDecodedBytes } from "../_shared/aiImportPayloadSize.ts";
 import { classifyGeminiFailure, type ClassifiedFailure } from "../_shared/geminiFailure.ts";
 import { MAX_ATTEMPTS, isRetryable, computeBackoffSeconds } from "../_shared/geminiRetry.ts";
+import { logAiUsage } from "../_shared/aiUsageLog.ts";
+import { GEMINI_MODEL } from "../_shared/geminiModel.ts";
 
 /* ────────────────────────────── CORS ────────────────────────────── */
 
@@ -25,6 +27,28 @@ function jsonOk(data: unknown) {
 function jsonError(error: string, status: number) {
     return new Response(JSON.stringify({ success: false, error }), {
         status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+}
+
+// Blocco quota AI (FASE 4). Payload strutturato che FASE 5 usa per mostrare
+// "AI esaurita, riparte il X". status 402 (Payment Required): la quota è una
+// risorsa a pagamento del ciclo, non un rate-limit. `reason` è il campo
+// autoritativo; `code` lo rispecchia per l'envelope esistente.
+function quotaBlockResponse(status: string, resetAt: string | null, percent: number | null) {
+    const reason = status === "not_eligible" ? "not_eligible" : "quota_exhausted";
+    const payload = {
+        success: false,
+        error: reason === "not_eligible"
+            ? "Servizio AI non disponibile per lo stato dell'abbonamento."
+            : "Quota AI del ciclo esaurita. Riparte al rinnovo del periodo.",
+        code: reason,
+        reason,
+        reset_at: resetAt,
+        percent
+    };
+    return new Response(JSON.stringify(payload), {
+        status: 402,
         headers: { ...corsHeaders, "Content-Type": "application/json" }
     });
 }
@@ -273,6 +297,25 @@ serve(async (req: Request) => {
             return jsonError("Accesso al tenant non autorizzato", 403);
         }
 
+        // ── AI quota gate (FASE 4, enforcement server-side) ───────
+        // Fonte unica: get_ai_usage_current_cycle (service_role via supabaseAdmin).
+        // Rifiuta PRIMA di Gemini se la quota del ciclo è esaurita (blocked) o il
+        // tenant non è eleggibile (not_eligible). Fail-open su errore di lettura
+        // RPC: mai bloccare un pagante per un errore transitorio — il consumo
+        // resta comunque metered e il check successivo ri-valuta.
+        const { data: quotaRows, error: quotaError } = await supabaseAdmin.rpc(
+            "get_ai_usage_current_cycle",
+            { p_tenant_id: tenant_id }
+        );
+        if (quotaError) {
+            console.error("[menu-ai-import] quota read failed (fail-open):", quotaError.message);
+        } else {
+            const q = Array.isArray(quotaRows) ? quotaRows[0] : quotaRows;
+            if (q && (q.status === "blocked" || q.status === "not_eligible")) {
+                return quotaBlockResponse(q.status, q.reset_at ?? null, q.percent ?? null);
+            }
+        }
+
         // ── Images validation ─────────────────────────────────────
         if (!Array.isArray(images) || images.length === 0) {
             return jsonError("images deve essere un array non vuoto", 400);
@@ -341,7 +384,7 @@ serve(async (req: Request) => {
             { text: `Extract all products from this menu. The menu language is likely "${lang}".` }
         ];
 
-        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`;
+        const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
 
         const startMs = Date.now();
 
@@ -353,12 +396,14 @@ serve(async (req: Request) => {
                 generationConfig: {
                     // temperature/top_p/top_k ai default (raccomandato per i 3.x).
                     // maxOutputTokens al ceiling del modello (65536, output token limit
-                    // documentato per gemini-2.5-flash): sul tier gratuito il vincolo e'
-                    // RPD non i token, quindi e' upside-only e riduce i MAX_TOKENS.
-                    // Non superare 65536: oltre il max la request fallisce.
+                    // documentato sia per gemini-2.5-flash sia per gemini-3.5-flash-lite):
+                    // sul tier gratuito il vincolo e' RPD non i token, quindi e' upside-only
+                    // e riduce i MAX_TOKENS. Non superare 65536: oltre il max la request fallisce.
                     maxOutputTokens: 65536,
-                    // NOTE: thinkingConfig rimosso per compatibilità con gemini-2.5-flash (dev).
-                    // Ripristinare { thinkingLevel: "LOW" } quando si torna a gemini-3.5-flash in produzione.
+                    // thinkingConfig omesso: il default di gemini-3.5-flash-lite è già
+                    // "minimal", il livello più basso disponibile e quello raccomandato da
+                    // Google per estrazione/classificazione ad alto throughput — impostare
+                    // esplicitamente "low" alzerebbe il thinking budget sopra il default.
                     // Structured output vincolato (forma classica v1beta), contratto invariato.
                     responseMimeType: "application/json",
                     responseSchema: MENU_SCHEMA
@@ -457,6 +502,25 @@ serve(async (req: Request) => {
             });
         }
 
+        // ── Metering (best-effort, mai bloccante) ─────────────────
+        // Solo su risposta valida: operazione fallita = nessun consumo
+        // registrato. usageMetadata è nel body Gemini, prima ignorato.
+        const usage = geminiData?.usageMetadata;
+        await logAiUsage(supabaseAdmin, {
+            tenantId: tenant_id,
+            provider: "gemini",
+            model: GEMINI_MODEL,
+            operation: "menu_import",
+            unitKind: "tokens",
+            unitsInput: usage?.promptTokenCount ?? null,
+            // Output fatturato = candidates + eventuali thinking token.
+            unitsOutput: usage
+                ? (usage.candidatesTokenCount ?? 0) + (usage.thoughtsTokenCount ?? 0)
+                : null,
+            unitsTotal: usage?.totalTokenCount ?? null,
+            rawMeta: usage ?? null
+        });
+
         // ── Build response ────────────────────────────────────────
         return jsonOk({
             menu_language: parsed.menu_language || lang,
@@ -464,7 +528,7 @@ serve(async (req: Request) => {
             ...(parsed.error ? { error: parsed.error } : {}),
             metadata: {
                 images_analyzed: images.length,
-                model_used: "gemini-2.5-flash",
+                model_used: GEMINI_MODEL,
                 processing_time_ms: processingTimeMs
             }
         });

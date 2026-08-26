@@ -109,11 +109,29 @@ serve(async req => {
         });
     }
 
-    // success -> consumo (e attempts++ per audit)
-    await supabaseAdmin
+    // success -> consumo atomico (single use). WHERE consumed_at IS NULL
+    // chiude la finestra TOCTOU tra la SELECT sopra e questa UPDATE: se due
+    // richieste concorrenti leggono la stessa challenge non consumata e
+    // calcolano entrambe un hash valido, solo una UPDATE puo' matchare
+    // consumed_at IS NULL; l'altra vede 0 righe e viene rifiutata invece di
+    // proseguire con una seconda verifica riuscita dello stesso codice.
+    const { data: consumedRows, error: consumeError } = await supabaseAdmin
         .from("otp_challenges")
         .update({ consumed_at: now, attempts: (challenge.attempts ?? 0) + 1 })
-        .eq("id", challenge.id);
+        .eq("id", challenge.id)
+        .is("consumed_at", null)
+        .select("id");
+
+    if (consumeError) {
+        console.error("verify-otp: consume update failed", consumeError);
+        return json(500, { error: "db_error" });
+    }
+
+    if (!consumedRows || consumedRows.length === 0) {
+        // Persa la race — un'altra richiesta concorrente ha gia' consumato
+        // questa challenge. Rifiuta come codice invalido/scaduto.
+        return json(400, { error: "invalid_or_expired" });
+    }
 
     const verifiedAt = new Date();
     const expiresAt = new Date(verifiedAt.getTime() + VERIFICATION_TTL_MS);

@@ -62,6 +62,12 @@ export type CollectionStyle = {
     compactLayoutStyle?: CompactLayoutStyle;
     /** Content density of product rows (card + compact): minimal (name+price only), standard (+description), full (+pairings and allergens) */
     contentDensity?: ContentDensity;
+    /** Whether the subtitle/description shows in the featured content overview card */
+    showFeaturedSubtitle?: boolean;
+    /** Whether the title shows in the featured content overview card */
+    showFeaturedTitle?: boolean;
+    /** Whether the CTA button shows in the featured content overview card */
+    showFeaturedCta?: boolean;
 };
 
 /* =========================
@@ -94,5 +100,8 @@ export const DEFAULT_COLLECTION_STYLE: Required<CollectionStyle> = {
     featuredStyle: "card",
     iconStyle: "plain",
     compactLayoutStyle: "modern",
-    contentDensity: "full"
+    contentDensity: "full",
+    showFeaturedSubtitle: true,
+    showFeaturedTitle: true,
+    showFeaturedCta: true
 };

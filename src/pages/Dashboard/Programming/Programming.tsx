@@ -107,6 +107,41 @@ const RULE_TYPE_TAB_OPTIONS: Array<{ value: RuleTypeFilter; label: string; descr
     { value: "all", label: "Tutte", description: "Panoramica di tutte le regole di programmazione" }
 ];
 
+/**
+ * Copy dell'empty state "vuoto assoluto", uno per tab. Volutamente separato da
+ * `RULE_TYPE_TAB_OPTIONS.description`: quella riga resta come sottotitolo sopra
+ * la lista, e riusarla qui la mostrerebbe due volte identica nella stessa
+ * schermata. Qui il testo spiega a cosa serve il tipo di regola e qual è la
+ * prima mossa; là descrive la tab in una riga.
+ */
+const EMPTY_STATE_COPY: Record<RuleTypeFilter, { title: string; description: string }> = {
+    layout: {
+        title: "Decidi cosa mostrare, e quando",
+        description:
+            "Una regola sceglie il menù e lo stile da mostrare in una sede, in una finestra di tempo: colazione fino alle 11, cena dalle 19. Senza finestra, vale sempre."
+    },
+    featured: {
+        title: "Fai comparire promozioni, eventi e avvisi",
+        description:
+            "Scegli il contenuto da mettere in risalto e il periodo in cui deve apparire: compare e sparisce da solo, sopra o sotto il menù."
+    },
+    price: {
+        title: "Applica uno sconto per un giorno o un periodo",
+        description:
+            "Happy hour del giovedì, promozione di agosto: il prodotto resta uno, cambia solo il prezzo nel periodo che scegli."
+    },
+    visibility: {
+        title: "Gestisci i prodotti finiti o fuori stagione",
+        description:
+            "Puoi nasconderlo del tutto o lasciarlo visibile segnandolo come non disponibile, per una sede o in certi orari."
+    },
+    all: {
+        title: "Le regole decidono cosa vedono i clienti, e quando",
+        description:
+            "Menù e stile, contenuti in risalto, sconti e disponibilità: ogni regola vale per una sede e una finestra di tempo."
+    }
+};
+
 const DAILY_TIMELINE_STEP_MINUTES = 30;
 
 function getRuleTypeLabel(ruleType: RuleType): string {
@@ -1098,11 +1133,15 @@ export default function Programming() {
         <section className={styles.programming}>
             {viewMode === "list" ? (
                 <div className={styles.tableCard}>
-                    <div className={styles.tabDescription}>
+                    {/* Sottotitolo della tab: ha senso sopra una lista popolata,
+                        non sopra un empty state (che porta già il proprio testo). */}
+                    {(isLoading || filteredRules.length > 0) && (
+                        <div className={styles.tabDescription}>
                             <Text variant="body-sm" colorVariant="muted">
                                 {RULE_TYPE_TAB_OPTIONS.find(o => o.value === ruleTypeFilter)?.description}
                             </Text>
                         </div>
+                    )}
 
                         {isLoading ? (
                             <div className={styles.emptyState}>
@@ -1110,62 +1149,65 @@ export default function Programming() {
                             </div>
                         ) : filteredRules.length === 0 ? (
                             (searchTerm || filterActivityId) ? (
-                                <div className={styles.emptyState}>
-                                    <Text colorVariant="muted">
-                                        {filterActivityId && searchTerm
+                                <EmptyState
+                                    icon={<Calendar size={40} strokeWidth={1.5} />}
+                                    title="Nessun risultato"
+                                    description={
+                                        filterActivityId && searchTerm
                                             ? "Nessuna regola corrisponde alla ricerca per questa sede."
                                             : filterActivityId
                                             ? "Nessuna regola per questa sede."
-                                            : "Nessuna regola corrisponde alla ricerca."}
-                                    </Text>
-                                </div>
+                                            : "Nessuna regola corrisponde alla ricerca."
+                                    }
+                                />
                             ) : (
-                                <div className={styles.tabEmptyState}>
-                                    <div className={styles.tabEmptyIcon}>
-                                        <Calendar size={48} strokeWidth={1.2} />
-                                    </div>
-                                    <p className={styles.tabEmptyDescription}>
-                                        {RULE_TYPE_TAB_OPTIONS.find(o => o.value === ruleTypeFilter)?.description ?? ""}
-                                    </p>
-                                    {canWrite && (ruleTypeFilter === "all" ? (
-                                        <div className={styles.newRuleDropdown}>
-                                            <Menu
-                                                trigger={
-                                                    <Button
-                                                        variant="primary"
-                                                        disabled={!currentTenantId || isCreating || !canEdit}
-                                                        loading={isCreating}
+                                <EmptyState
+                                    icon={<Calendar size={40} strokeWidth={1.5} />}
+                                    title={EMPTY_STATE_COPY[ruleTypeFilter].title}
+                                    description={EMPTY_STATE_COPY[ruleTypeFilter].description}
+                                    action={
+                                        canWrite ? (
+                                            ruleTypeFilter === "all" ? (
+                                                <div className={styles.newRuleDropdown}>
+                                                    <Menu
+                                                        trigger={
+                                                            <Button
+                                                                variant="primary"
+                                                                disabled={!currentTenantId || isCreating || !canEdit}
+                                                                loading={isCreating}
+                                                            >
+                                                                {isCreating ? "Creazione..." : "Crea la prima regola"}
+                                                            </Button>
+                                                        }
+                                                        align="start"
                                                     >
-                                                        {isCreating ? "Creazione..." : "Crea la prima regola"}
-                                                    </Button>
-                                                }
-                                                align="start"
-                                            >
-                                                <Menu.Item onSelect={() => void handleCreateRule("layout")}>
-                                                    Layout
-                                                </Menu.Item>
-                                                <Menu.Item onSelect={() => void handleCreateRule("featured")}>
-                                                    In evidenza
-                                                </Menu.Item>
-                                                <Menu.Item onSelect={() => void handleCreateRule("price")}>
-                                                    Prezzi
-                                                </Menu.Item>
-                                                <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
-                                                    Disponibilità
-                                                </Menu.Item>
-                                            </Menu>
-                                        </div>
-                                    ) : (
-                                        <Button
-                                            variant="primary"
-                                            onClick={() => void handleCreateRule()}
-                                            disabled={isCreating || !canEdit}
-                                            loading={isCreating}
-                                        >
-                                            Crea la prima regola
-                                        </Button>
-                                    ))}
-                                </div>
+                                                        <Menu.Item onSelect={() => void handleCreateRule("layout")}>
+                                                            Layout
+                                                        </Menu.Item>
+                                                        <Menu.Item onSelect={() => void handleCreateRule("featured")}>
+                                                            In evidenza
+                                                        </Menu.Item>
+                                                        <Menu.Item onSelect={() => void handleCreateRule("price")}>
+                                                            Prezzi
+                                                        </Menu.Item>
+                                                        <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
+                                                            Disponibilità
+                                                        </Menu.Item>
+                                                    </Menu>
+                                                </div>
+                                            ) : (
+                                                <Button
+                                                    variant="primary"
+                                                    onClick={() => void handleCreateRule()}
+                                                    disabled={isCreating || !canEdit}
+                                                    loading={isCreating}
+                                                >
+                                                    Crea la prima regola
+                                                </Button>
+                                            )
+                                        ) : undefined
+                                    }
+                                />
                             )
                         ) : (
                             <div className={styles.groupedList}>

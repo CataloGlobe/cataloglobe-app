@@ -6,6 +6,7 @@ import LanguageSelectorView from "@components/PublicCollectionView/LanguageSelec
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
 import { usePageHead } from "@/hooks/usePageHead";
 import { usePublicLanguageSync } from "@/hooks/usePublicLanguageSync";
+import { usePublicFontInjection } from "@/hooks/usePublicFontInjection";
 import { fetchPublicCatalog } from "@/services/publicCatalog/fetchPublicCatalog";
 import type { SubmitReservationStatus } from "@/services/supabase/reservations";
 import type { AvailableLanguage } from "@context/Language/LanguageContext";
@@ -128,6 +129,17 @@ export default function ReservationPage() {
                 ? t("reservation.doc_title", { brand: brandNameForTitle })
                 : t("reservation.title");
     usePageHead({ title: pageTitle });
+
+    // Font dello stile attivo — vedi usePublicFontInjection. Stessa gap
+    // fix di PublicCollectionPage: senza questo, l'@font-face reale non
+    // viene mai caricato qui e il browser ricade sul generic CSS.
+    const resolvedStyleForFont =
+        resolve.status === "ready" || resolve.status === "reservations-disabled"
+            ? resolve.brand.resolvedStyle
+            : resolve.status === "inactive"
+                ? resolve.brand?.resolvedStyle ?? null
+                : null;
+    usePublicFontInjection(resolvedStyleForFont);
 
     const handleResolveErrorCode = useCallback(
         (code: "ACTIVITY_NOT_FOUND" | "ACTIVITY_NOT_ACTIVE" | "RESERVATIONS_DISABLED") => {

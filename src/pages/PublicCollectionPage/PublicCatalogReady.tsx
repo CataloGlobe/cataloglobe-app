@@ -376,7 +376,10 @@ export default function PublicCatalogReady({
         featuredStyle: tokens.appearance.featuredStyle,
         cardTreatment: tokens.appearance.cardTreatment,
         iconStyle: tokens.appearance.iconStyle ?? "plain",
-        appearanceRadius: borderRadiusToPx(tokens.appearance.borderRadius)
+        appearanceRadius: borderRadiusToPx(tokens.appearance.borderRadius),
+        showFeaturedSubtitle: tokens.appearance.showFeaturedSubtitle ?? true,
+        showFeaturedTitle: tokens.appearance.showFeaturedTitle ?? true,
+        showFeaturedCta: tokens.appearance.showFeaturedCta ?? true
     } as const;
 
     const sectionGroups = mapCatalogToSectionGroups(resolved);
@@ -472,13 +475,13 @@ export default function PublicCatalogReady({
                 featuredBeforeCatalogSlot={
                     resolved.featured?.before_catalog &&
                     resolved.featured.before_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.before_catalog} activityId={business.id} slot="before_catalog" layout={tokens.appearance.featuredStyle} showSubtitle={tokens.appearance.showFeaturedSubtitle ?? true} />
+                        <FeaturedBlock blocks={resolved.featured.before_catalog} activityId={business.id} slot="before_catalog" layout={tokens.appearance.featuredStyle} showSubtitle={tokens.appearance.showFeaturedSubtitle ?? true} showTitle={tokens.appearance.showFeaturedTitle ?? true} showCta={tokens.appearance.showFeaturedCta ?? true} />
                     ) : null
                 }
                 featuredAfterCatalogSlot={
                     resolved.featured?.after_catalog &&
                     resolved.featured.after_catalog.length > 0 ? (
-                        <FeaturedBlock blocks={resolved.featured.after_catalog} activityId={business.id} slot="after_catalog" layout={tokens.appearance.featuredStyle} showSubtitle={tokens.appearance.showFeaturedSubtitle ?? true} />
+                        <FeaturedBlock blocks={resolved.featured.after_catalog} activityId={business.id} slot="after_catalog" layout={tokens.appearance.featuredStyle} showSubtitle={tokens.appearance.showFeaturedSubtitle ?? true} showTitle={tokens.appearance.showFeaturedTitle ?? true} showCta={tokens.appearance.showFeaturedCta ?? true} />
                     ) : null
                 }
                 reviewsProps={{

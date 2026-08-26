@@ -5,9 +5,9 @@ import "@styles/global.scss";
 import "@/i18n";
 
 import PublicProviders from "@/components/public/PublicProviders";
-import PublicCollectionPage from "@/pages/PublicCollectionPage/PublicCollectionPage";
-import type { Allergen } from "@/services/supabase/allergens";
-import type { ResolvedPayloadShape } from "@/types/publicCatalog";
+import NotFound from "@/pages/NotFound/NotFound";
+import type { PublicCatalogInitialPayload } from "@/pages/PublicCollectionPage/PublicCollectionPage";
+import { publicRoutes } from "@/routes/publicRoutes";
 
 /**
  * Entry client di hydration per la pagina pubblica /:slug.
@@ -19,16 +19,18 @@ import type { ResolvedPayloadShape } from "@/types/publicCatalog";
  * Stesso albero del render server (PublicProviders → route pubblica) ma con
  * BrowserRouter; niente StrictMode (coerenza col markup server, double-effect
  * solo dev non necessario qui).
+ *
+ * Le route pubbliche NON sono dichiarate qui: vivono in `routes/publicRoutes`,
+ * condivise con `App.tsx`. Il commento di testa di quel modulo spiega perché
+ * (una route presente solo nella SPA è invisibile su QUESTO percorso, che è
+ * quello di chi apre il menu da QR).
  */
 
 declare global {
     interface Window {
         /** Dati inlinati dalla shell SSR (4b: payload + allergeni già
             fetchati server-side). Assente su SPA classica. */
-        __PUBLIC_CATALOG__?: {
-            payload: ResolvedPayloadShape;
-            allergens: Allergen[] | null;
-        };
+        __PUBLIC_CATALOG__?: PublicCatalogInitialPayload;
     }
 }
 
@@ -40,7 +42,12 @@ if (container) {
         container,
         <PublicProviders router="browser">
             <Routes>
-                <Route path="/:slug/:lang?" element={<PublicCollectionPage initialPayload={initialPayload} />} />
+                {publicRoutes({ initialPayload })}
+
+                {/* Global 404 — senza, un path non matchato renderizza nulla
+                    (schermo bianco). NotFound è già nel bundle: lo importa
+                    PublicCollectionPage per gli stati inactive/empty. */}
+                <Route path="*" element={<NotFound />} />
             </Routes>
         </PublicProviders>,
         {

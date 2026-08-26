@@ -51,10 +51,19 @@ function segment(value: string | number | null | undefined): string {
 
 /**
  * Build a deterministic idempotency key identifying a billing transition.
- * Stable for a given (operation, tenant, subscription, from-state, to-state);
- * distinct transitions yield distinct keys.
+ * Stable for a given (operation, tenant, subscription, from-state, to-state)
+ * WITHIN a single user attempt, identified by `requestId`.
+ *
+ * `requestId` (generated per "Conferma" click on the frontend, propagated
+ * end-to-end) is appended as the final segment. This keeps the intended
+ * idempotency protection — a double-click or network retry of the SAME request
+ * reuses the same key — while a genuinely NEW attempt at another moment gets a
+ * fresh key, so it is NOT swallowed as a stale replay inside Stripe's 24h
+ * idempotency window. Omitting `requestId` falls back to the legacy pure-business
+ * key (segment() emits "_"), which is unsafe against stale replay — always pass
+ * a per-attempt id.
  */
-export function buildIdempotencyKey(params: IdempotencyKeyParams): string {
+export function buildIdempotencyKey(params: IdempotencyKeyParams, requestId?: string): string {
     const from = `${segment(params.currentPlan)}x${segment(params.currentSeats)}`;
     const to = `${segment(params.targetPlan)}x${segment(params.targetSeats)}`;
     const key = [
@@ -62,7 +71,8 @@ export function buildIdempotencyKey(params: IdempotencyKeyParams): string {
         segment(params.operation),
         segment(params.tenantId),
         segment(params.subscriptionId),
-        `${from}-to-${to}`
+        `${from}-to-${to}`,
+        segment(requestId)
     ].join(":");
     return key.length > MAX_KEY_LENGTH ? key.slice(0, MAX_KEY_LENGTH) : key;
 }

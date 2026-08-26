@@ -8,6 +8,7 @@ import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/P
 import PublicFees from "./PublicFees";
 import AllergensSheet from "../AllergensSheet/AllergensSheet";
 import CharacteristicsSheet from "../CharacteristicsSheet/CharacteristicsSheet";
+import StarRating from "../StarRating/StarRating";
 import type { Allergen } from "@/services/supabase/allergens";
 import type { ActivityFee } from "@/types/activity";
 import type { ResolvedCharacteristic } from "@/types/resolvedCollections";
@@ -118,6 +119,8 @@ type Props = {
      * nascosto.
      */
     characteristics?: ResolvedCharacteristic[];
+    /** Undefined → widget stelle nascosto (stesso gate di reviewsProps in CollectionView). */
+    onOpenReviewsWithRating?: (rating: number) => void;
 };
 
 export default function PublicFooter({
@@ -127,7 +130,8 @@ export default function PublicFooter({
     upcomingClosures,
     fees,
     allergens,
-    characteristics
+    characteristics,
+    onOpenReviewsWithRating
 }: Props) {
     const { t } = useTranslation("public");
     const hasFees = (fees?.length ?? 0) > 0;
@@ -189,6 +193,27 @@ export default function PublicFooter({
 
     return (
         <footer className={styles.footer}>
+            {/* Widget recensioni — sempre visibile, nessuna condizione di eleggibilità
+                (a differenza del richiamo icona/FAB legato a valutaVisible). Click su una
+                stella apre la modale ESISTENTE già alla schermata "feedback" col voto
+                pre-impostato — canale indipendente dal FAB, non lo tocca/dismiss. */}
+            {onOpenReviewsWithRating && (
+                <div className={styles.reviewWidget}>
+                    <h2 className={styles.reviewWidgetTitle}>
+                        {t("reviews.title_question")}
+                    </h2>
+                    <p className={styles.reviewWidgetSubtitle}>
+                        {t("reviews.subtitle")}
+                    </p>
+                    <StarRating
+                        value={0}
+                        onSelect={onOpenReviewsWithRating}
+                        ariaLabel={t("reviews.rating_group_aria")}
+                        getStarAriaLabel={(n) => t("reviews.stars_aria", { count: n })}
+                    />
+                </div>
+            )}
+
             {/* Opening hours */}
             {openingHours && openingHours.length > 0 && (
                 <PublicOpeningHours openingHours={openingHours} upcomingClosures={upcomingClosures} />

@@ -36,6 +36,13 @@ export interface BusinessListProps {
     catalogsLoading?: boolean;
     onManageAvailability?: (id: string, name: string) => void;
     onCreateClick?: () => void;
+    /**
+     * Calcolata dal chiamante (che possiede gli stati dei filtri) e usata per
+     * distinguere "nessuna sede esiste" da "la ricerca non ha prodotto
+     * risultati": `businesses` arriva già filtrata, quindi da sola non permette
+     * di riconoscere i due casi.
+     */
+    hasActiveFilter?: boolean;
 }
 
 export type BusinessWithCapabilities = V2Activity & {

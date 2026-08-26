@@ -9,6 +9,7 @@ import {
 } from "react";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useNavigate, useLocation } from "react-router-dom";
+import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import { useAuth } from "@/context/useAuth";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -34,6 +35,107 @@ function mapOtpError(error: unknown): OtpErrorCode {
     if (message.includes("unauthorized")) return "unauthorized";
 
     return "unknown";
+}
+
+/**
+ * Esito classificato di una chiamata a `send-otp`.
+ * - `wait`: attesa legittima (429) → messaggio informativo, il codice può ancora arrivare.
+ * - `unauthorized`: sessione non valida (401) → redirect al login.
+ * - `error`: guasto reale (5xx o fetch fallita) → messaggio di errore esplicito.
+ */
+type SendOtpFailure =
+    | { family: "wait"; code: "cooldown" | "rate_limited" | "locked" }
+    | { family: "unauthorized" }
+    | { family: "error" };
+
+/**
+ * Esito dell'ultimo invio, tracciato per tenere il sottotitolo della pagina
+ * coerente con quanto è realmente successo.
+ *
+ * `status` non basta: distingue solo sending/verifying/idle, e `error` è
+ * condiviso con gli errori di verifica del codice — nessuno dei due dice se
+ * l'email è partita.
+ *
+ * - `idle`: nessun invio in questa sessione di pagina (es. arrivo in cooldown,
+ *   il codice era già stato inviato prima).
+ * - `sending` / `sent` / `failed`: esito dell'invio corrente.
+ * - `waiting`: 429, un codice precedente è già stato inviato ed è ancora valido.
+ */
+type SendOutcome = "idle" | "sending" | "sent" | "waiting" | "failed";
+
+/**
+ * Sottotitolo della schermata, coerente con l'esito reale dell'invio.
+ *
+ * L'indirizzo resta visibile in ogni stato in cui è noto: serve all'utente per
+ * capire su quale account sta operando. Finché `userEmail` non è caricato ogni
+ * stato ha una frase propria — interpolare un fallback dentro "a {…}"
+ * sgrammaticherebbe la frase.
+ *
+ * Nello stato `failed` nessuna delle due varianti afferma che l'email sia
+ * partita: sotto questa riga compare l'errore che dice il contrario.
+ */
+function buildSendStatusCopy(outcome: SendOutcome, email: string | null) {
+    if (!email) {
+        switch (outcome) {
+            case "sending":
+                return "Stiamo inviando un codice di verifica via email.";
+            case "waiting":
+                return "Un codice di verifica è già stato inviato via email.";
+            case "failed":
+                return "Stai accedendo al tuo account.";
+            default:
+                return "Ti abbiamo inviato un codice di verifica via email.";
+        }
+    }
+
+    const target = <strong>{email}</strong>;
+
+    switch (outcome) {
+        case "sending":
+            return <>Stiamo inviando un codice di verifica a {target}.</>;
+        case "waiting":
+            return <>Un codice di verifica è già stato inviato a {target}.</>;
+        case "failed":
+            return <>Stai accedendo come {target}.</>;
+        default:
+            return <>Ti abbiamo inviato un codice di verifica a {target}.</>;
+    }
+}
+
+/**
+ * Classifica l'errore di `supabase.functions.invoke("send-otp")`.
+ *
+ * NB: su risposta non-2xx supabase-js incapsula tutto in `FunctionsHttpError`,
+ * il cui `message` è generico ("Edge Function returned a non-2xx status code"):
+ * l'error code applicativo va letto dal body della Response su `error.context`.
+ */
+async function classifySendOtpError(error: unknown): Promise<SendOtpFailure> {
+    if (!(error instanceof FunctionsHttpError)) {
+        // FunctionsFetchError (rete/CORS), FunctionsRelayError o errore sconosciuto.
+        return { family: "error" };
+    }
+
+    const status = error.context.status;
+
+    let code: string | null = null;
+    try {
+        const body = (await error.context.clone().json()) as { error?: unknown };
+        if (typeof body?.error === "string") code = body.error;
+    } catch {
+        // body assente o non JSON: ci basiamo sullo status
+    }
+
+    if (status === 401 || code === "unauthorized") return { family: "unauthorized" };
+
+    if (status === 429) {
+        if (code === "cooldown" || code === "rate_limited" || code === "locked") {
+            return { family: "wait", code };
+        }
+        return { family: "wait", code: "rate_limited" };
+    }
+
+    // 5xx (server_misconfigured, db_error, email_send_failed) e ogni altro status
+    return { family: "error" };
 }
 
 /**
@@ -74,6 +176,7 @@ export default function VerifyOtp() {
     const [info, setInfo] = useState<string | null>(null);
     const [resendSeconds, setResendSeconds] = useState<number | null>(null);
     const [status, setStatus] = useState<OtpStatus>("idle");
+    const [sendOutcome, setSendOutcome] = useState<SendOutcome>("idle");
     const [attemptsLeft, setAttemptsLeft] = useState<number | null>(null);
     const [maxAttempts, setMaxAttempts] = useState<number | null>(null);
     const [locked, setLocked] = useState(false);
@@ -88,6 +191,7 @@ export default function VerifyOtp() {
         try {
             setLoading(true);
             setStatus("sending");
+            setSendOutcome("sending");
             setError(null);
             setInfo(null);
 
@@ -105,36 +209,45 @@ export default function VerifyOtp() {
             });
 
             if (error) {
-                const code = mapOtpError(error);
+                const failure = await classifySendOtpError(error);
 
-                // ❗ NON bloccare il flusso: il codice potrebbe arrivare comunque
-                if (code === "cooldown") {
-                    showToast({
-                        type: "error",
-                        message: "Attendi qualche secondo prima di richiedere un nuovo codice.",
-                        duration: 2500
-                    });
-                    setError("Attendi qualche secondo prima di richiedere un nuovo codice.");
-                } else if (code === "rate_limited" || code === "locked") {
-                    showToast({
-                        type: "error",
-                        message: "Hai fatto troppe richieste. Riprova più tardi.",
-                        duration: 2500
-                    });
-                    setError("Hai fatto troppe richieste. Riprova più tardi.");
-                } else {
-                    showToast({
-                        type: "info",
-                        message: "Se non ricevi il codice entro pochi secondi, riprova.",
-                        duration: 2500
-                    });
-                    setInfo("Se non ricevi il codice entro pochi secondi, riprova.");
+                if (failure.family === "unauthorized") {
+                    navigate("/login", { replace: true });
+                    return;
                 }
+
+                if (failure.family === "wait") {
+                    // Attesa legittima: il codice può ancora arrivare, non è un guasto.
+                    const message =
+                        failure.code === "cooldown"
+                            ? "Attendi qualche secondo prima di richiedere un nuovo codice."
+                            : "Hai fatto troppe richieste. Riprova più tardi.";
+
+                    setSendOutcome("waiting");
+                    showToast({ type: "error", message, duration: 2500 });
+                    setError(message);
+                    return; // ✅ IMPORTANT: evita toast “Codice inviato”
+                }
+
+                // Guasto reale (5xx o rete): niente suggerimenti di attesa, l'email
+                // non è partita. Nessun dettaglio tecnico esposto all'utente.
+                //
+                // Nessun toast qui: il messaggio è già inline sopra il pulsante
+                // Verifica, dove sta vicino all'azione e non scompare da solo.
+                // Il toast resta per gli altri esiti (429 sopra, errori di verifica
+                // del codice in handleVerify), che non hanno un equivalente inline
+                // altrettanto visibile.
+                setSendOutcome("failed");
+                setError(
+                    "Non siamo riusciti a inviare il codice. Riprova, e se il problema persiste contattaci."
+                );
+                setInfo(null);
 
                 return; // ✅ IMPORTANT: evita toast “Codice inviato”
             }
 
             // ✅ solo se OK
+            setSendOutcome("sent");
             showToast({ type: "info", message: "Codice inviato.", duration: 2500 });
             setInfo("Codice inviato.");
             setResendSeconds(RESEND_COOLDOWN);
@@ -420,13 +533,7 @@ export default function VerifyOtp() {
                     Inserisci il codice
                 </Text>
                 <Text as="p" variant="body-sm" colorVariant="muted" className={styles.subtitle}>
-                    {userEmail ? (
-                        <>
-                            Ti abbiamo inviato un codice di verifica a <strong>{userEmail}</strong>.
-                        </>
-                    ) : (
-                        "Ti abbiamo inviato un codice di verifica via email."
-                    )}
+                    {buildSendStatusCopy(sendOutcome, userEmail)}
                 </Text>
                 <form
                     onSubmit={(e: FormEvent) => {
