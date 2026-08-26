@@ -5,7 +5,8 @@ import {
     buildReservationReceiptEmail,
     buildReservationVenueAlertEmail,
     type ReservationEmailBase,
-    type ReservationEmailContent
+    type ReservationEmailContent,
+    type ReservationVenueAlertVariant
 } from "./reservationEmails.ts";
 
 const BASE: ReservationEmailBase = {
@@ -45,7 +46,21 @@ const ALL_BUILDERS: ReadonlyArray<[string, (over?: Partial<ReservationEmailBase>
                 customerEmail: "mario@example.com",
                 customerPhone: "+39 333 1234567",
                 notes: null,
-                dashboardUrl: DASHBOARD_URL
+                dashboardUrl: DASHBOARD_URL,
+                variant: "request"
+            })
+    ],
+    [
+        "venueAlert:autoConfirmed",
+        over =>
+            buildReservationVenueAlertEmail({
+                ...BASE,
+                ...over,
+                customerEmail: "mario@example.com",
+                customerPhone: "+39 333 1234567",
+                notes: null,
+                dashboardUrl: DASHBOARD_URL,
+                variant: "autoConfirmed"
             })
     ]
 ];
@@ -128,14 +143,21 @@ describe("reservation email builders (_shared)", () => {
     });
 
     describe("venue alert", () => {
-        const venue = (dashboardUrl: string | null, notes: string | null = null) =>
+        const venue = (
+            dashboardUrl: string | null,
+            notes: string | null = null,
+            variant: ReservationVenueAlertVariant = "request"
+        ) =>
             buildReservationVenueAlertEmail({
                 ...BASE,
                 customerEmail: "mario@example.com",
                 customerPhone: "+39 333 1234567",
                 notes,
-                dashboardUrl
+                dashboardUrl,
+                variant
             });
+        const venueAuto = (dashboardUrl: string | null, notes: string | null = null) =>
+            venue(dashboardUrl, notes, "autoConfirmed");
 
         it("includes the customer contact details", () => {
             const email = venue("https://cataloglobe.com");
@@ -182,6 +204,70 @@ describe("reservation email builders (_shared)", () => {
             expect(email.html).toContain("Accedi alla dashboard per confermarla o rifiutarla.");
             expect(email.text).toContain("Accedi alla dashboard per confermarla o rifiutarla.\n\n");
             expect(email.text).not.toContain("https://cataloglobe.com/business/");
+        });
+
+        it("uses the request subject and title on the manual-confirm path", () => {
+            const email = venue(DASHBOARD_URL);
+            expect(email.subject).toBe("Nuova richiesta di prenotazione — Trattoria da Ciro");
+            expect(email.html).toContain(">Nuova richiesta di prenotazione</h1>");
+            expect(email.html).toContain(
+                "Hai ricevuto una nuova richiesta di prenotazione su <strong>Trattoria da Ciro</strong>."
+            );
+            expect(email.text).toContain("Nuova richiesta di prenotazione su Trattoria da Ciro.");
+        });
+
+        it("uses the auto-confirmed subject and title on the auto path", () => {
+            const email = venueAuto(DASHBOARD_URL);
+            expect(email.subject).toBe("Nuova prenotazione confermata — Trattoria da Ciro");
+            expect(email.html).toContain(">Nuova prenotazione</h1>");
+            expect(email.html).toContain(
+                "Una nuova prenotazione su <strong>Trattoria da Ciro</strong> è stata confermata automaticamente. Vedi il dettaglio "
+            );
+            expect(email.text).toContain(
+                "Una nuova prenotazione su Trattoria da Ciro è stata confermata automaticamente."
+            );
+            expect(email.text).toContain("Vedi il dettaglio nella dashboard.");
+        });
+
+        it("never asks to confirm or decline on the auto path", () => {
+            for (const email of [venueAuto(DASHBOARD_URL), venueAuto(null)]) {
+                expect(email.html).not.toContain("confermarla o rifiutarla");
+                expect(email.text).not.toContain("confermarla o rifiutarla");
+                expect(email.html).not.toContain("Accedi alla dashboard");
+                expect(email.text).not.toContain("Accedi alla dashboard");
+            }
+        });
+
+        it("links the dashboard wording in both variants", () => {
+            expect(venue(DASHBOARD_URL).html).toContain(
+                `<a href="${DASHBOARD_URL}" style="color:#111827;text-decoration:underline">Accedi alla dashboard</a> per confermarla o rifiutarla.`
+            );
+            expect(venueAuto(DASHBOARD_URL).html).toContain(
+                `<a href="${DASHBOARD_URL}" style="color:#111827;text-decoration:underline">nella dashboard</a>.`
+            );
+            expect(venueAuto(DASHBOARD_URL).text).toContain(
+                `Vedi il dettaglio nella dashboard.\n${DASHBOARD_URL}\n`
+            );
+        });
+
+        it("falls back to link-less copy in the auto variant too", () => {
+            const email = venueAuto(null);
+            expectNonEmptyContent(email);
+            expect(email.html).not.toContain("</a>.</p>");
+            expect(email.html).toContain("Vedi il dettaglio nella dashboard.");
+            expect(email.text).toContain("Vedi il dettaglio nella dashboard.\n\n");
+            expect(email.text).not.toContain("https://cataloglobe.com/business/");
+        });
+
+        it("keeps customer and reservation blocks identical across variants", () => {
+            const req = venue(null, "Tavolo vicino alla finestra");
+            const auto = venueAuto(null, "Tavolo vicino alla finestra");
+            for (const email of [req, auto]) {
+                expect(email.html).toContain("mario@example.com");
+                expect(email.html).toContain("+39 333 1234567");
+                expect(email.html).toContain("<strong>Note:</strong> Tavolo vicino alla finestra");
+                expect(email.html).toContain("<strong>Data:</strong> 15 giugno 2026");
+            }
         });
 
         it("renders the notes row only when notes are present", () => {

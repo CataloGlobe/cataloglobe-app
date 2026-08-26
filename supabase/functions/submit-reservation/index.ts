@@ -483,7 +483,10 @@ serve(async (req: Request) => {
                     // Deep link to the tenant's reservations dashboard. null
                     // when PUBLIC_SITE_URL is unset → alert still goes out,
                     // just without the link.
-                    dashboardUrl: buildReservationsDashboardUrl(activity.tenant_id)
+                    dashboardUrl: buildReservationsDashboardUrl(activity.tenant_id),
+                    // Same `isAutoConfirmed` that picks the customer template:
+                    // on the auto path there is nothing to confirm or decline.
+                    variant: isAutoConfirmed ? "autoConfirmed" : "request"
                 });
                 const results = await Promise.allSettled(
                     recipients.emails.map(to =>

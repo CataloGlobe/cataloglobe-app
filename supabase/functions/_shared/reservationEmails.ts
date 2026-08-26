@@ -255,6 +255,65 @@ export function buildReservationOutcomeEmail(
     return { subject, html, text };
 }
 
+/**
+ * Which state the reservation is already in when the venue is alerted. The
+ * copy differs on purpose and MUST stay distinct:
+ *
+ *   - "request"       → the venue confirms manually, the row is `pending` and
+ *                       the dashboard shows Conferma / Rifiuta. The email asks
+ *                       for a decision.
+ *   - "autoConfirmed" → the venue runs in auto-confirm mode, the row is
+ *                       already `confirmed` and no accept/decline action
+ *                       exists. Asking to "confermarla o rifiutarla" would
+ *                       point at buttons that are not there, so the email is
+ *                       purely informative.
+ *
+ * No default value: the call site passes it explicitly, so any future third
+ * path is forced to make the choice instead of silently inheriting one.
+ */
+export type ReservationVenueAlertVariant = "request" | "autoConfirmed";
+
+/** Per-variant copy. Everything else in the email is shared. */
+const VENUE_ALERT_COPY: Record<
+    ReservationVenueAlertVariant,
+    {
+        subject: (activityName: string) => string;
+        title: string;
+        /** HTML lead, up to (and including) the space before the anchor. */
+        htmlLead: (eActivityName: string) => string;
+        /** Portion rendered as an anchor when a dashboard URL is available. */
+        anchorLabel: string;
+        /** HTML tail that follows the anchor. */
+        htmlTail: string;
+        /** First plain-text line. */
+        textLead: (activityName: string) => string;
+        /** Second plain-text line, the one the URL follows. */
+        textSentence: string;
+    }
+> = {
+    request: {
+        subject: activityName => `Nuova richiesta di prenotazione — ${activityName}`,
+        title: "Nuova richiesta di prenotazione",
+        htmlLead: eActivityName =>
+            `Hai ricevuto una nuova richiesta di prenotazione su <strong>${eActivityName}</strong>. `,
+        anchorLabel: "Accedi alla dashboard",
+        htmlTail: " per confermarla o rifiutarla.",
+        textLead: activityName => `Nuova richiesta di prenotazione su ${activityName}.`,
+        textSentence: "Accedi alla dashboard per confermarla o rifiutarla."
+    },
+    autoConfirmed: {
+        subject: activityName => `Nuova prenotazione confermata — ${activityName}`,
+        title: "Nuova prenotazione",
+        htmlLead: eActivityName =>
+            `Una nuova prenotazione su <strong>${eActivityName}</strong> è stata confermata automaticamente. Vedi il dettaglio `,
+        anchorLabel: "nella dashboard",
+        htmlTail: ".",
+        textLead: activityName =>
+            `Una nuova prenotazione su ${activityName} è stata confermata automaticamente.`,
+        textSentence: "Vedi il dettaglio nella dashboard."
+    }
+};
+
 export interface ReservationVenueAlertEmailArgs {
     activityName: string;
     customerName: string;
@@ -273,9 +332,11 @@ export interface ReservationVenueAlertEmailArgs {
      * alert from going out.
      */
     dashboardUrl: string | null;
+    /** See `ReservationVenueAlertVariant`. Always passed explicitly. */
+    variant: ReservationVenueAlertVariant;
 }
 
-/** Alert to the venue: a new reservation request came in. */
+/** Alert to the venue: a new reservation came in. */
 export function buildReservationVenueAlertEmail(
     args: ReservationVenueAlertEmailArgs
 ): ReservationEmailContent {
@@ -288,8 +349,11 @@ export function buildReservationVenueAlertEmail(
         reservationTime,
         partySize,
         notes,
-        dashboardUrl
+        dashboardUrl,
+        variant
     } = args;
+
+    const copy = VENUE_ALERT_COPY[variant];
 
     const eActivityName = escapeHtml(activityName);
     const eCustomerName = escapeHtml(customerName);
@@ -305,22 +369,21 @@ export function buildReservationVenueAlertEmail(
     const safeDashboardUrl =
         dashboardUrl && isSafeHttpUrl(dashboardUrl) ? dashboardUrl : null;
 
-    // The only intentional visual change of this refactor: when the URL is
-    // available, "Accedi alla dashboard" becomes a link (html) and the plain
-    // URL follows the sentence (text). Without it both formats stay exactly
-    // as before.
+    // When the URL is available the dashboard wording becomes a link (html)
+    // and the plain URL follows the sentence (text). Without it both formats
+    // degrade to the bare sentence.
     const dashboardSentenceHtml = safeDashboardUrl
-        ? `<a href="${escapeHtml(safeDashboardUrl)}" style="color:#111827;text-decoration:underline">Accedi alla dashboard</a> per confermarla o rifiutarla.`
-        : "Accedi alla dashboard per confermarla o rifiutarla.";
+        ? `<a href="${escapeHtml(safeDashboardUrl)}" style="color:#111827;text-decoration:underline">${copy.anchorLabel}</a>${copy.htmlTail}`
+        : `${copy.anchorLabel}${copy.htmlTail}`;
     const dashboardSentenceText = safeDashboardUrl
-        ? `Accedi alla dashboard per confermarla o rifiutarla.\n${safeDashboardUrl}\n`
-        : "Accedi alla dashboard per confermarla o rifiutarla.\n";
+        ? `${copy.textSentence}\n${safeDashboardUrl}\n`
+        : `${copy.textSentence}\n`;
 
-    const subject = `Nuova richiesta di prenotazione — ${activityName}`;
+    const subject = copy.subject(activityName);
     const html = renderCard(
         [
-            renderTitle("Nuova richiesta di prenotazione"),
-            `<p ${PARAGRAPH_BODY}>Hai ricevuto una nuova richiesta di prenotazione su <strong>${eActivityName}</strong>. ${dashboardSentenceHtml}</p>`,
+            renderTitle(copy.title),
+            `<p ${PARAGRAPH_BODY}>${copy.htmlLead(eActivityName)}${dashboardSentenceHtml}</p>`,
             renderInfoBlock("Cliente", [
                 `<p style="margin:0;font-size:15px;color:#111827"><strong>${eCustomerName}</strong></p>`,
                 `<p style="margin:0;font-size:14px;color:#374151">${eCustomerEmail}</p>`,
@@ -340,7 +403,7 @@ export function buildReservationVenueAlertEmail(
 
     const notesBlockText = notes ? `Note: ${notes}\n` : "";
     const text =
-        `Nuova richiesta di prenotazione su ${activityName}.\n` +
+        `${copy.textLead(activityName)}\n` +
         dashboardSentenceText +
         `\n` +
         `Cliente\n` +
