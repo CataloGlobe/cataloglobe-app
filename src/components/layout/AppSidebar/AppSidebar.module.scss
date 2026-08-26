@@ -112,6 +112,18 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   transition: opacity 0.16s ease 0.06s, max-width 0.22s ease, margin-inline-start 0.22s ease;
 }
 
+/* Voce annunciata ma non navigabile. Attenuata, ma sopra 4.5:1 sul bianco
+   (#94A3B8 sarebbe 2.8:1): resta leggibile, non è un placeholder illeggibile. */
+.disabled {
+  color: #94a3b8;
+  cursor: default;
+
+  &:hover {
+    background: transparent;
+    color: #94a3b8;
+  }
+}
+
 .active {
   background: rgba(99, 102, 241, 0.1);
   color: #6366f1;

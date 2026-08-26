@@ -5,6 +5,7 @@ import { lazy, Suspense, useEffect } from "react";
 import { supabase } from "@/services/supabase/client";
 import MainLayout from "@layouts/MainLayout/MainLayout";
 import WorkspaceLayout from "@layouts/WorkspaceLayout/WorkspaceLayout";
+import AdminLayout from "@layouts/AdminLayout/AdminLayout";
 import { ProtectedRoute } from "@/components/Routes/ProtectedRoute";
 import { GuestRoute } from "./components/Routes/GuestRoute";
 import { OtpRoute } from "./components/Routes/OtpRoute";
@@ -265,13 +266,16 @@ export default function App() {
 
             {/* Admin (cross-tenant) — gate via platform_admins / is_platform_admin() */}
             <Route
-                path="/admin/status-incidents"
+                path="/admin"
                 element={
                     <AdminRoute>
-                        <StatusIncidentsAdminPage />
+                        <AdminLayout />
                     </AdminRoute>
                 }
-            />
+            >
+                <Route index element={<Navigate to="status-incidents" replace />} />
+                <Route path="status-incidents" element={<StatusIncidentsAdminPage />} />
+            </Route>
 
             {/* CUSTOMER ORDERING — QR bootstrap (DEVE precedere /:slug catch-all) */}
             <Route path="/t/:qrToken" element={<TableEntryPage />} />

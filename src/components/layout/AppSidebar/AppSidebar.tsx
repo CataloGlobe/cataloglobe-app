@@ -25,6 +25,11 @@ export interface AppSidebarNavItem {
     label: string;
     icon: ReactNode;
     end?: boolean;
+    /** Voce annunciata ma non ancora navigabile: resa attenuata e non cliccabile,
+     *  con tooltip esplicativo. Non richiede una route. */
+    disabled?: boolean;
+    /** Testo del tooltip quando `disabled`. Default: "In arrivo". */
+    disabledHint?: string;
 }
 
 export interface AppSidebarNavGroup {
@@ -95,7 +100,28 @@ export function AppSidebar({
                             <Fragment key={i}>
                                 {i > 0 && <div className={styles.groupDivider} role="separator" />}
                                 <ul className={styles.list}>
-                                    {group.items.map(link => (
+                                    {group.items.map(link =>
+                                        link.disabled ? (
+                                            <li key={link.to}>
+                                                <Tooltip
+                                                    content={link.disabledHint ?? "In arrivo"}
+                                                    side="right"
+                                                    sideOffset={!isMobile && collapsed ? 28 : 12}
+                                                >
+                                                    <span
+                                                        className={`${styles.link} ${styles.disabled}`}
+                                                        aria-disabled="true"
+                                                    >
+                                                        <span className={styles.icon}>
+                                                            {link.icon}
+                                                        </span>
+                                                        <span className={styles.label}>
+                                                            {link.label}
+                                                        </span>
+                                                    </span>
+                                                </Tooltip>
+                                            </li>
+                                        ) : (
                                         <li key={link.to}>
                                             <NavLink
                                                 to={link.to}
@@ -127,7 +153,8 @@ export function AppSidebar({
                                                 <span className={styles.label}>{link.label}</span>
                                             </NavLink>
                                         </li>
-                                    ))}
+                                        )
+                                    )}
                                 </ul>
                             </Fragment>
                         ))}
