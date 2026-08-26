@@ -259,6 +259,16 @@
   &[data-state="loading"] {
     background: var(--border);
   }
+
+  /* Stato ignoto: puntino VUOTO, non pieno. "Off" è un'informazione ("la
+     vetrina è spenta"), qui invece non sappiamo — un cerchio cavo lo dice senza
+     aggiungere un colore semantico che prometterebbe una diagnosi che non
+     abbiamo. `currentColor` lo tiene agganciato al testo muted della riga. */
+  &[data-state="unknown"] {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px currentColor;
+    opacity: 0.55;
+  }
 }
 
 .menuName {

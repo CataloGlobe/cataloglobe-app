@@ -2,6 +2,7 @@ import React from "react";
 import { BusinessCard } from "../BusinessCard/BusinessCard";
 import type { BusinessWithCapabilities } from "@/types/Businesses";
 import type { ActiveCatalogMeta } from "@/services/supabase/activeCatalog";
+import type { CatalogFetchStatus } from "@/utils/activeCatalogStatus";
 import styles from "./LocationsGrid.module.scss";
 
 interface LocationsGridProps {
@@ -10,7 +11,7 @@ interface LocationsGridProps {
     onDelete?: (id: string) => void;
     onOpenReviews: (id: string) => void;
     activeCatalogsMap?: Record<string, ActiveCatalogMeta>;
-    catalogsLoading?: boolean;
+    catalogsStatus?: CatalogFetchStatus;
     onManageAvailability?: (id: string, name: string) => void;
 }
 
@@ -20,7 +21,7 @@ export const LocationsGrid: React.FC<LocationsGridProps> = ({
     onDelete,
     onOpenReviews,
     activeCatalogsMap,
-    catalogsLoading,
+    catalogsStatus,
     onManageAvailability
 }) => {
     return (
@@ -33,7 +34,7 @@ export const LocationsGrid: React.FC<LocationsGridProps> = ({
                     onDelete={onDelete}
                     onOpenReviews={onOpenReviews}
                     activeCatalog={activeCatalogsMap?.[business.id]}
-                    catalogsLoading={catalogsLoading}
+                    catalogsStatus={catalogsStatus}
                     onManageAvailability={onManageAvailability}
                 />
             ))}

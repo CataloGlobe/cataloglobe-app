@@ -10,6 +10,7 @@ import {
   DeleteActivityError,
 } from "@/services/supabase/activities";
 import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog";
+import type { CatalogFetchStatus } from "@/utils/activeCatalogStatus";
 import type {
   ActiveCatalogMeta,
   BusinessWithCapabilities,
@@ -104,7 +105,11 @@ export default function Businesses() {
   const [activeCatalogsMap, setActiveCatalogsMap] = useState<
     Record<string, ActiveCatalogMeta>
   >({});
-  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
+  // Esito, non flag: distingue "risolto senza catalogo attivo" da "non siamo
+  // riusciti a risolvere". Prima il catch silenzioso li faceva finire entrambi
+  // su "Nessun catalogo attivo".
+  const [catalogsStatus, setCatalogsStatus] =
+    useState<CatalogFetchStatus>("loading");
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -161,12 +166,19 @@ export default function Businesses() {
 
       // Batch fetch catalogo attivo in parallelo, non bloccante per la lista
       if (data.length > 0) {
+        setCatalogsStatus("loading");
         getActiveCatalogForActivities(data.map((b) => b.id))
-          .then((map) => setActiveCatalogsMap(map))
-          .catch(() => {})
-          .finally(() => setIsLoadingCatalogs(false));
+          .then((map) => {
+            setActiveCatalogsMap(map);
+            setCatalogsStatus("ready");
+          })
+          .catch((error) => {
+            console.error("[Businesses] active catalogs failed:", error);
+            setActiveCatalogsMap({});
+            setCatalogsStatus("error");
+          });
       } else {
-        setIsLoadingCatalogs(false);
+        setCatalogsStatus("ready");
       }
     } catch (error) {
       console.error("Error fetching activities:", error);
@@ -779,7 +791,7 @@ export default function Businesses() {
                     onDelete={canDelete ? handleDelete : undefined}
                     onOpenReviews={handleOpenReviews}
                     activeCatalogsMap={activeCatalogsMap}
-                    catalogsLoading={isLoadingCatalogs}
+                    catalogsStatus={catalogsStatus}
                     onManageAvailability={(id, name) =>
                       setVisibilityDrawerTarget({
                         activityId: id,

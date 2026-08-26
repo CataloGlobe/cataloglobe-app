@@ -14,7 +14,15 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import { getTenantSetupStatus, type TenantSetupStatus } from "@/services/supabase/overviewStats";
 import { getActivities } from "@/services/supabase/activities";
-import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog";
+import { getActiveCatalogForActivities, type ActiveCatalogMeta } from "@/services/supabase/activeCatalog";
+import {
+    ACTIVE_CATALOG_ERROR_LABEL,
+    ACTIVE_CATALOG_NONE_LABEL,
+    activeCatalogDisplayName,
+    deriveActiveCatalogState,
+    type ActiveCatalogState,
+    type CatalogFetchStatus
+} from "@/utils/activeCatalogStatus";
 import { QrCode, type QrCodeHandle } from "@/components/ui/QrCode/QrCode";
 import { Button } from "@/components/ui/Button/Button";
 import { buildPublicUrl } from "@/utils/publicUrl";
@@ -43,7 +51,7 @@ interface Stats {
 }
 
 /** Sede attiva raggiungibile dal pubblico. Il menù attivo NON sta qui: arriva
- *  da una fetch separata e molto più lenta (vedi `catalogNames`). */
+ *  da una fetch separata e molto più lenta (vedi `catalogFetch`). */
 type PublicLocation = {
     id: string;
     name: string;
@@ -51,10 +59,30 @@ type PublicLocation = {
     publicUrl: string;
 };
 
-/** Nome del catalogo risolto ORA, per activity id. Il valore è `null` quando
- *  nessuna regola copre questo istante (es. regola solo serale, guardata di
- *  mattina); la MAPPA è `null` finché la risoluzione è in corso. */
-type CatalogNameByActivity = Record<string, string | null>;
+/**
+ * Esito della risoluzione del menù attivo per l'intero blocco.
+ *
+ * `status` è tenuto separato dai dati proprio per non ricadere nell'inferenza
+ * "mappa vuota = nessun menù": una risoluzione fallita e una vetrina davvero
+ * spenta producevano lo stesso stato, e la pagina dichiarava spento ciò che non
+ * aveva potuto leggere.
+ */
+type CatalogFetchState = {
+    status: CatalogFetchStatus;
+    byActivity: Record<string, ActiveCatalogMeta>;
+};
+
+/**
+ * Larghezza del placeholder, in px assoluti.
+ *
+ * NON in percentuale: `.menuLine` è un flex item senza `flex-grow` né `width`,
+ * quindi la sua larghezza dipende dal contenuto. Una percentuale si risolverebbe
+ * su un contenitore a larghezza indefinita e collasserebbe a 0 — placeholder
+ * invisibile. 110px è la lunghezza tipica del nome di un catalogo (10-16
+ * caratteri a `caption`/`body-sm`), leggermente in difetto: uno skeleton più
+ * corto del testo che arriva non lascia buco, uno più lungo sì.
+ */
+const MENU_SKELETON_WIDTH = "110px";
 
 /**
  * Placeholder della riga "menù attivo", reso DENTRO lo stesso `<Text>` che
@@ -82,21 +110,17 @@ function PublicLocationRow({
     qrSize,
     qrRef,
     onDownload,
-    resolved,
+    menuState,
     menuName,
-    compactStatus,
-    textVariant,
-    skeletonWidth
+    textVariant
 }: {
     location: PublicLocation;
     qrSize: number;
     qrRef: (handle: QrCodeHandle | null) => void;
     onDownload: () => void;
-    resolved: boolean;
+    menuState: ActiveCatalogState;
     menuName: string | null;
-    compactStatus: boolean;
     textVariant: "body-sm" | "caption";
-    skeletonWidth: string;
 }) {
     return (
         <div className={styles.publicRow}>
@@ -122,13 +146,7 @@ function PublicLocationRow({
                 >
                     {location.publicUrl}
                 </a>
-                <MenuStatusLine
-                    variant={textVariant}
-                    resolved={resolved}
-                    menuName={menuName}
-                    skeletonWidth={skeletonWidth}
-                    compact={compactStatus}
-                />
+                <MenuStatusLine variant={textVariant} state={menuState} menuName={menuName} />
             </span>
 
             <span className={styles.publicRowActions}>
@@ -165,37 +183,34 @@ function PublicLocationRow({
  */
 function MenuStatusLine({
     variant,
-    resolved,
-    menuName,
-    skeletonWidth,
-    compact = false
+    state,
+    menuName
 }: {
     variant: "body-sm" | "caption";
-    resolved: boolean;
+    /** Quattro stati distinti: `error` non è `none`. */
+    state: ActiveCatalogState;
+    /** Valorizzato solo a stato `resolved`. */
     menuName: string | null;
-    skeletonWidth: string;
-    /** Nell'elenco basta il nome del menù: ripetere "Ora è visibile" su ogni
-     *  riga è rumore, non informazione. */
-    compact?: boolean;
 }) {
-    const state = !resolved ? "loading" : menuName ? "live" : "off";
+    // Il puntino ha uno stato dedicato per l'errore: riusare "off" (vetrina
+    // spenta) direbbe una cosa falsa col colore, che è il canale letto per primo.
+    const dotState =
+        state === "resolved" ? "live" : state === "none" ? "off" : state === "error" ? "unknown" : "loading";
 
     return (
         <span className={styles.statusLine}>
-            <span className={styles.statusDot} data-state={state} aria-hidden="true" />
+            <span className={styles.statusDot} data-state={dotState} aria-hidden="true" />
             {/* `as="span"`: lo skeleton è un <div>, che dentro un <p> sarebbe
                 HTML invalido (hydration error). */}
             <Text as="span" variant={variant} colorVariant="muted" className={styles.menuLine}>
-                {!resolved ? (
-                    <MenuLineSkeleton width={skeletonWidth} />
-                ) : menuName ? (
-                    compact ? (
-                        <strong className={styles.menuName}>{menuName}</strong>
-                    ) : (
-                        <>Ora è visibile <strong className={styles.menuName}>{menuName}</strong></>
-                    )
+                {state === "loading" ? (
+                    <MenuLineSkeleton width={MENU_SKELETON_WIDTH} />
+                ) : state === "error" ? (
+                    ACTIVE_CATALOG_ERROR_LABEL
+                ) : state === "resolved" ? (
+                    <strong className={styles.menuName}>{menuName}</strong>
                 ) : (
-                    "Nessun menù attivo in questo momento"
+                    ACTIVE_CATALOG_NONE_LABEL
                 )}
             </Text>
         </span>
@@ -225,7 +240,10 @@ export default function OverviewPage() {
     const [setup, setSetup] = useState<TenantSetupStatus | null>(null);
     const [loadingSetup, setLoadingSetup] = useState(true);
     const [publicLocations, setPublicLocations] = useState<PublicLocation[] | null>(null);
-    const [catalogNames, setCatalogNames] = useState<CatalogNameByActivity | null>(null);
+    const [catalogFetch, setCatalogFetch] = useState<CatalogFetchState>({
+        status: "loading",
+        byActivity: {}
+    });
     /** Sedi non pubblicate. Ricavato dalla stessa `getActivities` già chiamata
      *  per le sedi attive: serve solo a spiegare perché il conteggio in alto
      *  non coincide con le righe elencate. */
@@ -255,7 +273,7 @@ export default function OverviewPage() {
         setSetup(null);
         setLoadingSetup(true);
         setPublicLocations(null);
-        setCatalogNames(null);
+        setCatalogFetch({ status: "loading", byActivity: {} });
         setSuspendedCount(0);
         qrRefs.current = {};
     }
@@ -364,7 +382,9 @@ export default function OverviewPage() {
 
                 setPublicLocations(active);
                 if (active.length === 0) {
-                    setCatalogNames({});
+                    // Nessuna sede da risolvere: la fase 2 non parte, ma è
+                    // conclusa — non "in errore" e non "in caricamento".
+                    setCatalogFetch({ status: "ready", byActivity: {} });
                     return;
                 }
             } catch (error) {
@@ -383,18 +403,14 @@ export default function OverviewPage() {
             try {
                 const catalogs = await getActiveCatalogForActivities(active.map(a => a.id));
                 if (cancelled) return;
-
-                const names: CatalogNameByActivity = {};
-                for (const location of active) {
-                    names[location.id] = catalogs[location.id]?.catalogName ?? null;
-                }
-                setCatalogNames(names);
+                setCatalogFetch({ status: "ready", byActivity: catalogs });
             } catch (error) {
                 // La struttura è già a schermo e resta valida: un fallimento qui
-                // toglie solo la riga del menù, non l'intero blocco.
+                // degrada solo la riga del menù, non l'intero blocco. Lo stato
+                // resta `error` — la riga lo dichiara invece di mostrare "spento".
                 console.error("[OverviewPage] active catalogs failed:", error);
                 if (cancelled) return;
-                setCatalogNames({});
+                setCatalogFetch({ status: "error", byActivity: {} });
             }
         }
 
@@ -496,10 +512,14 @@ export default function OverviewPage() {
         && publicLocations != null
         && publicLocations.length > 0;
     const singleLocation = publicLocations?.length === 1 ? publicLocations[0] : null;
-    // Fase 2 conclusa: la riga del menù passa da skeleton a testo. La mappa
-    // vuota conta come risolta (nessuna sede, o risoluzione fallita).
-    const menuIsResolved = catalogNames != null;
-    const singleMenuName = singleLocation ? catalogNames?.[singleLocation.id] ?? null : null;
+    // Stato per-sede: la riga del menù non deriva più dalla sola presenza della
+    // mappa, così "non risolto" e "nessun menù" restano due cose diverse.
+    const menuStateFor = (activityId: string): ActiveCatalogState =>
+        deriveActiveCatalogState(catalogFetch.status, catalogFetch.byActivity[activityId]);
+    const menuNameFor = (activityId: string): string | null =>
+        menuStateFor(activityId) === "resolved"
+            ? activeCatalogDisplayName(catalogFetch.byActivity[activityId])
+            : null;
     const visibleLocations = publicLocations?.slice(0, MAX_VISIBLE_LOCATIONS) ?? [];
     // Rende esplicito lo scarto fra il conteggio sedi dell'intestazione e le
     // righe elencate qui, che sono le sole raggiungibili dal pubblico.
@@ -658,11 +678,9 @@ export default function OverviewPage() {
                             qrSize={104}
                             qrRef={setQrRef(singleLocation.id)}
                             onDownload={() => void qrRefs.current[singleLocation.id]?.downloadPng()}
-                            resolved={menuIsResolved}
-                            menuName={singleMenuName}
-                            compactStatus={false}
+                            menuState={menuStateFor(singleLocation.id)}
+                            menuName={menuNameFor(singleLocation.id)}
                             textVariant="body-sm"
-                            skeletonWidth="62%"
                         />
                     </div>
                 </div>
@@ -683,11 +701,9 @@ export default function OverviewPage() {
                                 qrSize={42}
                                 qrRef={setQrRef(location.id)}
                                 onDownload={() => void qrRefs.current[location.id]?.downloadPng()}
-                                resolved={menuIsResolved}
-                                menuName={catalogNames?.[location.id] ?? null}
-                                compactStatus
+                                menuState={menuStateFor(location.id)}
+                                menuName={menuNameFor(location.id)}
                                 textVariant="caption"
-                                skeletonWidth="52%"
                             />
                         ))}
                     </div>
