@@ -31,6 +31,16 @@ type SetupShellProps = {
     primaryLoading?: boolean;
     /** Usato solo quando `formId` è assente (passo senza form). */
     onPrimaryClick?: () => void;
+    /** Nasconde il primario quando il passo ha un flusso proprio (es. pannello import). */
+    hidePrimary?: boolean;
+    /** Azione secondaria a sinistra del primario (es. "Indietro"). */
+    secondaryLabel?: string;
+    onSecondaryClick?: () => void;
+    /**
+     * Riga aggiuntiva nella conferma di chiusura, per un lavoro in corso che
+     * chiudendo andrebbe perso. Assente → la conferma resta quella standard.
+     */
+    closeWarning?: string;
     /** Uscita confermata: il chiamante decide dove portare l'utente. */
     onExit: () => void;
 };
@@ -46,6 +56,10 @@ export function SetupShell({
     primaryDisabled = false,
     primaryLoading = false,
     onPrimaryClick,
+    hidePrimary = false,
+    secondaryLabel,
+    onSecondaryClick,
+    closeWarning,
     onExit
 }: SetupShellProps) {
     const dialogRef = useRef<HTMLDivElement>(null);
@@ -150,7 +164,12 @@ export function SetupShell({
                             {stepCounter}
                         </Text>
                         <div className={styles.footerActions}>
-                            {formId ? (
+                            {secondaryLabel && (
+                                <Button variant="secondary" onClick={onSecondaryClick}>
+                                    {secondaryLabel}
+                                </Button>
+                            )}
+                            {hidePrimary ? null : formId ? (
                                 <Button
                                     variant="primary"
                                     type="submit"
@@ -194,6 +213,11 @@ export function SetupShell({
                                 Il progresso resta salvato: puoi riprendere da dove hai
                                 interrotto quando vuoi.
                             </Text>
+                            {closeWarning && (
+                                <Text variant="body-sm" colorVariant="warning">
+                                    {closeWarning}
+                                </Text>
+                            )}
                             <div className={styles.confirmActions}>
                                 <Button variant="secondary" onClick={() => setIsConfirmOpen(false)}>
                                     Continua il setup

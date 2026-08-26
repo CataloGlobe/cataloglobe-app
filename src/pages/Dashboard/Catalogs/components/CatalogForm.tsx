@@ -12,7 +12,12 @@ type CatalogFormProps = {
     entityData: V2Catalog | null;
     /** Passato dal chiamante: il form non legge il TenantContext, così resta montabile fuori da /business/:businessId/*. */
     tenantId: string;
-    onSuccess: () => void;
+    /**
+     * Riceve il catalogo salvato (creato o aggiornato): è l'unico punto in cui
+     * il chiamante può conoscerne id e nome, che restano altrimenti nello stato
+     * interno del form. Chi non ne ha bisogno può ignorare l'argomento.
+     */
+    onSuccess: (catalog: V2Catalog) => void;
     onSavingChange: (saving: boolean) => void;
 };
 
@@ -45,14 +50,15 @@ export function CatalogForm({
 
         onSavingChange(true);
         try {
+            let saved: V2Catalog;
             if (mode === "edit" && entityData) {
-                await updateCatalog(entityData.id, tenantId, { name });
+                saved = await updateCatalog(entityData.id, tenantId, { name });
                 showToast({ message: "Catalogo aggiornato con successo.", type: "success" });
             } else {
-                await createCatalog(tenantId, name);
+                saved = await createCatalog(tenantId, name);
                 showToast({ message: "Catalogo creato con successo.", type: "success" });
             }
-            onSuccess();
+            onSuccess(saved);
         } catch (error) {
             console.error("Errore salvataggio catalogo:", error);
             showToast({ message: "Errore durante il salvataggio.", type: "error" });
