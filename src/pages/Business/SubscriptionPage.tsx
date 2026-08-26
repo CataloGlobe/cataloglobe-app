@@ -687,7 +687,7 @@ export default function SubscriptionPage() {
                         </Text>
                         <span className={styles.planLabelRow}>
                             <Text variant="title-sm" weight={700}>
-                                {displayPlanName}
+                                {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"}
                             </Text>
                             {isFounder && <Badge variant="primary">Founder</Badge>}
                         </span>
@@ -737,11 +737,25 @@ export default function SubscriptionPage() {
                             </Text>
                         )}
                     </div>
-                </div>
 
-                <Text variant="body-sm" colorVariant="muted">
-                    {displaySeats} {displaySeats === 1 ? "sede attiva" : "sedi attive"} sul piano {displayPlanName}
-                </Text>
+                    <div className={styles.summaryItem} style={{ gridColumn: "1 / -1" }}>
+                        <Text variant="caption" colorVariant="muted">
+                            Prossimo cambio
+                        </Text>
+                        {subStateLoading ? (
+                            <Skeleton height="1.2em" width="240px" radius="4px" />
+                        ) : pendingBanner ? (
+                            <Text variant="title-sm" weight={700} colorVariant="primary">
+                                {pendingBanner.planName} · {pendingBanner.seats}{" "}
+                                {pendingBanner.seats === 1 ? "sede" : "sedi"} dal {formatDate(pendingBanner.date)}
+                            </Text>
+                        ) : (
+                            <Text variant="title-sm" weight={700}>
+                                Nessuno
+                            </Text>
+                        )}
+                    </div>
+                </div>
 
                 {consumedDiscount && (
                     <div className={styles.consumedNote}>
@@ -752,7 +766,7 @@ export default function SubscriptionPage() {
                     </div>
                 )}
 
-                {cancelAtPeriodEnd ? (
+                {cancelAtPeriodEnd && (
                     <div className={styles.cancelNote}>
                         <AlertTriangle size={16} />
                         <Text variant="body-sm" weight={500}>
@@ -770,16 +784,15 @@ export default function SubscriptionPage() {
                             </Button>
                         )}
                     </div>
-                ) : subStateLoading ? (
-                    <Skeleton height="44px" radius="10px" />
-                ) : pendingBanner && (
-                    <div className={styles.scheduledNote}>
-                        <Info size={16} />
-                        <Text variant="body-sm" weight={500}>
-                            Cambio programmato: passerai a {pendingBanner.planName} · {pendingBanner.seats}{" "}
-                            {pendingBanner.seats === 1 ? "sede" : "sedi"} il {formatDate(pendingBanner.date)}.
-                            {pendingBanner.isBase && " Ordini e prenotazioni da QR verranno disattivati."}
-                        </Text>
+                )}
+
+                {!subStateLoading && pendingBanner && (pendingBanner.isBase || canManageBilling) && (
+                    <div className={styles.contactRow}>
+                        {pendingBanner.isBase && (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Ordini e prenotazioni da QR verranno disattivati al rinnovo.
+                            </Text>
+                        )}
                         {canManageBilling && (
                             <div className={styles.scheduledNoteActions}>
                                 <Button
