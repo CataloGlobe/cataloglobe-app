@@ -7,7 +7,7 @@ import { PageHeaderProvider } from "@/context/PageHeaderProvider";
 import { AppHeaderWorkspace } from "@/components/layout/AppHeader/AppHeaderWorkspace";
 import { PageHeaderSlot } from "@/components/layout/PageHeaderSlot";
 import WorkspaceSidebar from "./WorkspaceSidebar";
-import styles from "./WorkspaceLayout.module.scss";
+import styles from "../shared/layoutShell.module.scss";
 
 export default function WorkspaceLayout() {
     usePageTitle('Workspace');
