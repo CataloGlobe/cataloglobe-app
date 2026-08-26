@@ -481,7 +481,7 @@ serve(async (req: Request) => {
                     customerPhone,
                     notes,
                     // Deep link to the tenant's reservations dashboard. null
-                    // when PUBLIC_SITE_URL is unset → alert still goes out,
+                    // when APP_URL is unset → alert still goes out,
                     // just without the link.
                     dashboardUrl: buildReservationsDashboardUrl(activity.tenant_id),
                     // Same `isAutoConfirmed` that picks the customer template:

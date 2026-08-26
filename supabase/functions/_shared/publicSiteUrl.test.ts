@@ -22,21 +22,21 @@ afterEach(() => {
 describe("getPublicSiteUrl", () => {
     it("returns the configured URL", async () => {
         const { getPublicSiteUrl } = await loadWithEnv({
-            PUBLIC_SITE_URL: "https://cataloglobe.com"
+            APP_URL: "https://cataloglobe.com"
         });
         expect(getPublicSiteUrl()).toBe("https://cataloglobe.com");
     });
 
     it("strips trailing slashes and surrounding whitespace", async () => {
         const { getPublicSiteUrl } = await loadWithEnv({
-            PUBLIC_SITE_URL: "  https://staging.cataloglobe.com///  "
+            APP_URL: "  https://staging.cataloglobe.com///  "
         });
         expect(getPublicSiteUrl()).toBe("https://staging.cataloglobe.com");
     });
 
     it("accepts http as well as https", async () => {
         const { getPublicSiteUrl } = await loadWithEnv({
-            PUBLIC_SITE_URL: "http://localhost:5173"
+            APP_URL: "http://localhost:5173"
         });
         expect(getPublicSiteUrl()).toBe("http://localhost:5173");
     });
@@ -47,26 +47,26 @@ describe("getPublicSiteUrl", () => {
     });
 
     it("returns null when the variable is blank", async () => {
-        const { getPublicSiteUrl } = await loadWithEnv({ PUBLIC_SITE_URL: "   " });
+        const { getPublicSiteUrl } = await loadWithEnv({ APP_URL: "   " });
         expect(getPublicSiteUrl()).toBeNull();
     });
 
     it("rejects a javascript: URL", async () => {
         const { getPublicSiteUrl } = await loadWithEnv({
-            PUBLIC_SITE_URL: "javascript:alert(1)"
+            APP_URL: "javascript:alert(1)"
         });
         expect(getPublicSiteUrl()).toBeNull();
     });
 
     it("rejects a data: URL", async () => {
         const { getPublicSiteUrl } = await loadWithEnv({
-            PUBLIC_SITE_URL: "data:text/html,<script>alert(1)</script>"
+            APP_URL: "data:text/html,<script>alert(1)</script>"
         });
         expect(getPublicSiteUrl()).toBeNull();
     });
 
     it("returns null on an unparsable value", async () => {
-        const { getPublicSiteUrl } = await loadWithEnv({ PUBLIC_SITE_URL: "not a url" });
+        const { getPublicSiteUrl } = await loadWithEnv({ APP_URL: "not a url" });
         expect(getPublicSiteUrl()).toBeNull();
     });
 
@@ -92,7 +92,7 @@ describe("getPublicSiteUrl", () => {
         expect(warn).toHaveBeenCalledTimes(1);
         // No configuration value and no personal data in the log line.
         expect(String(warn.mock.calls[0]?.[0])).toBe(
-            "[publicSiteUrl] PUBLIC_SITE_URL is not set. Emails will be sent without links."
+            "[publicSiteUrl] APP_URL is not set. Emails will be sent without links."
         );
     });
 });
@@ -100,7 +100,7 @@ describe("getPublicSiteUrl", () => {
 describe("buildReservationsDashboardUrl", () => {
     it("builds the /business/:tenantId/reservations URL", async () => {
         const { buildReservationsDashboardUrl } = await loadWithEnv({
-            PUBLIC_SITE_URL: "https://cataloglobe.com"
+            APP_URL: "https://cataloglobe.com"
         });
         expect(buildReservationsDashboardUrl(TENANT_ID)).toBe(
             `https://cataloglobe.com/business/${TENANT_ID}/reservations`
@@ -109,7 +109,7 @@ describe("buildReservationsDashboardUrl", () => {
 
     it("builds on top of a base URL that had a trailing slash", async () => {
         const { buildReservationsDashboardUrl } = await loadWithEnv({
-            PUBLIC_SITE_URL: "https://staging.cataloglobe.com/"
+            APP_URL: "https://staging.cataloglobe.com/"
         });
         expect(buildReservationsDashboardUrl(TENANT_ID)).toBe(
             `https://staging.cataloglobe.com/business/${TENANT_ID}/reservations`
@@ -123,7 +123,7 @@ describe("buildReservationsDashboardUrl", () => {
 
     it("returns null instead of throwing on a null tenant id", async () => {
         const { buildReservationsDashboardUrl } = await loadWithEnv({
-            PUBLIC_SITE_URL: "https://cataloglobe.com"
+            APP_URL: "https://cataloglobe.com"
         });
         expect(() => buildReservationsDashboardUrl(null)).not.toThrow();
         expect(buildReservationsDashboardUrl(null)).toBeNull();
@@ -133,7 +133,7 @@ describe("buildReservationsDashboardUrl", () => {
 
     it("percent-encodes the tenant id", async () => {
         const { buildReservationsDashboardUrl } = await loadWithEnv({
-            PUBLIC_SITE_URL: "https://cataloglobe.com"
+            APP_URL: "https://cataloglobe.com"
         });
         expect(buildReservationsDashboardUrl("a b/../c")).toBe(
             "https://cataloglobe.com/business/a%20b%2F..%2Fc/reservations"

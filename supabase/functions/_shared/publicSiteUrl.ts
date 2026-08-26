@@ -1,4 +1,8 @@
-// Reader for the public base URL of the app (`PUBLIC_SITE_URL`).
+// Reader for the public base URL of the app (`APP_URL`).
+//
+// `APP_URL` is the pre-existing single source of truth for the frontend URL
+// (see the comment in `generate-table-qrs`). Those older consumers still read
+// the env var directly; moving them onto this helper is separate work.
 //
 // Kept OUT of `emailFormat.ts` on purpose: that module is pure and must stay
 // importable from a plain test runner, while this one touches `Deno.env` and
@@ -13,7 +17,7 @@
 // email. Callers degrade to link-less copy. A reservation confirmation must
 // go out even when the deploy is misconfigured.
 
-const ENV_KEY = "PUBLIC_SITE_URL";
+const ENV_KEY = "APP_URL";
 
 let warned = false;
 
