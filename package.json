@@ -34,6 +34,7 @@
     "culori": "^4.0.2",
     "framer-motion": "^12.29.2",
     "i18next": "^26.0.8",
+    "libphonenumber-js": "^1.13.11",
     "lucide-react": "^0.552.0",
     "puppeteer": "^24.40.0",
     "qrcode": "^1.5.4",

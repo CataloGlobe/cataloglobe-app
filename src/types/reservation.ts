@@ -22,6 +22,12 @@ export interface V2Reservation {
     customer_name: string;
     customer_email: string;
     customer_phone: string;
+    // Forma canonica E.164 del telefono (`+393451559558`), calcolata a write
+    // time da `normalizePhoneToE164`. NULL quando il grezzo non è
+    // interpretabile e su tutte le righe precedenti alla migration
+    // 20260827100000 (nessun backfill). Presentazione e `tel:` continuano a
+    // usare `customer_phone`: questa colonna è una chiave, non un'etichetta.
+    customer_phone_e164: string | null;
     notes: string | null;
     status: ReservationStatus;
     source: ReservationSource;
