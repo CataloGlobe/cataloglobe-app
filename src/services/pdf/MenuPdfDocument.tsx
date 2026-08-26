@@ -18,7 +18,6 @@ import {
 } from "@react-pdf/renderer";
 import type {
   MenuPdfCategory,
-  MenuPdfCharacteristic,
   MenuPdfClosingInfo,
   MenuPdfData,
   MenuPdfInfoRow,
@@ -26,11 +25,7 @@ import type {
 } from "./menuPdfTypes";
 import { buildPdfTheme, type PdfTheme } from "./pdfTheme";
 import { resolvePdfFontFamily } from "./pdfFonts";
-import {
-  PdfIcon,
-  allergenIconGeometry,
-  characteristicIconGeometry,
-} from "./pdfIcons";
+import { PdfIcon, allergenIconGeometry } from "./pdfIcons";
 import {
   ALLERGEN_COVERAGE_THRESHOLD,
   ALL_ALLERGENS,
@@ -410,22 +405,23 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       flexBasis: 0,
       minWidth: 0,
     },
-    // Sub-line icone sotto la descrizione: allergeni | caratteristiche,
-    // tutte in primary come sul menu online (Stage 4c: via i numeri inline).
+    // Sub-line sotto la descrizione: i numeri UE degli allergeni, l'unica
+    // nota di servizio che resta sul piatto. L'allergene è un avviso
+    // obbligatorio, e il numero è leggibile anche in bianco e nero.
     productIconsLine: {
       flexDirection: "row",
       alignItems: "center",
       marginTop: 4,
     },
-    productIconGap: {
-      marginRight: 3,
-    },
-    iconSeparator: {
-      width: 1,
-      height: 9,
-      backgroundColor: theme.primarySoft,
-      marginLeft: 3,
-      marginRight: 6,
+    // Numeri UE: stesso corpo della descrizione (9pt) per non sbilanciare la
+    // riga, in bold e in `ink` — a 9pt il muted a stampa sparisce, ed è
+    // esattamente il difetto che i numeri correggono. 700 e non 600: il font
+    // PDF registra solo 400 e 700 (pdfFonts.ts).
+    productAllergenNumbers: {
+      fontFamily,
+      fontWeight: 700,
+      fontSize: 9,
+      color: theme.ink,
     },
     productPrice: {
       fontFamily,
@@ -480,7 +476,7 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       flexShrink: 0,
     },
 
-    // ── Legenda allergeni/caratteristiche (pagina finale, scala media) ──
+    // ── Legenda allergeni (pagina finale, scala media) ─────────────────
     // Griglia "chiave" a 2 colonne: icona (grande) + label. Gap verticale
     // ampio per leggibilità (pagina dedicata, non coda di menù).
     legendGrid: {
@@ -494,22 +490,28 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       marginBottom: 16,
       paddingRight: 12,
     },
+    // Numero UE della legenda: larghezza fissa + allineamento a destra così
+    // le icone restano incolonnate fra numeri a una e a due cifre.
+    legendNumber: {
+      fontFamily,
+      fontWeight: 700,
+      fontSize: 11.5,
+      color: theme.primary,
+      width: 18,
+      textAlign: "right",
+      marginRight: 8,
+    },
     legendLabel: {
       fontFamily,
       fontSize: 11.5,
       color: theme.ink,
       marginLeft: 10,
     },
-    legendLabelMuted: {
-      fontFamily,
-      fontSize: 11.5,
-      color: theme.muted,
-      marginLeft: 10,
-    },
 
-    // ── Pagina finale "Allergeni e caratteristiche" ───────────────────
-    // column + altezza piena: gli spaziatori elastici (finalSpacer) distribuiscono
-    // i blocchi verticalmente — titolo in alto, nota in fondo, contenuto in mezzo.
+    // ── Pagina finale "Allergeni" ─────────────────────────────────────
+    // column + altezza piena: gli spaziatori elastici distribuiscono i blocchi
+    // verticalmente — titolo in alto, nota in fondo, e lo spazio libero
+    // ripartito FRA le sezioni invece di accumularsi tutto in coda.
     finalPage: {
       backgroundColor: theme.pageBg,
       paddingTop: PAGE_MARGIN,
@@ -520,9 +522,9 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
     },
     finalTitleBlock: {
       alignItems: "center",
-      // Stacco titolo → contenuto: il contenuto parte in alto (pagina allineata
-      // in alto, non centrata), l'unico spaziatore elastico è prima della nota.
-      marginBottom: 32,
+      // Stacco minimo garantito testata → contenuto: quando la pagina è piena
+      // gli spaziatori elastici collassano a 0 e resta solo questo margine.
+      marginBottom: 24,
     },
     finalTitle: {
       fontFamily,
@@ -538,14 +540,21 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       backgroundColor: theme.primary,
       borderRadius: theme.radius / 5,
     },
-    finalSpacer: {
+    // Spaziatori elastici della pagina finale. Il rapporto NON è uniforme: lo
+    // stacco fra due blocchi di natura diversa (legenda → contatti) merita più
+    // respiro di quello fra testata e legenda, che sono un discorso solo.
+    // Elastici e non margini fissi: nel caso sfortunato (cautela + contatti
+    // lunghi + 5 fee) collassano a 0 e il contenuto resta compatto, invece di
+    // spingere una seconda pagina causata dai margini stessi.
+    // Rapporto 1 : 2 : 1.5 (testata→legenda : legenda→contatti : contatti→nota).
+    finalSpacerTitle: {
       flexGrow: 1,
     },
-    // Gap fisso tra allergeni e caratteristiche: le due sezioni formano un
-    // gruppo unico centrato dai due finalSpacer (sopra/sotto). Gap fisso (non
-    // elastico) → il baricentro del gruppo resta stabile con e senza caratteristiche.
-    finalCharsBlock: {
-      marginTop: 28,
+    finalSpacerSections: {
+      flexGrow: 2,
+    },
+    finalSpacer: {
+      flexGrow: 1.5,
     },
     finalSubtitle: {
       fontFamily,
@@ -577,8 +586,9 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
       backgroundColor: theme.primarySoft,
       marginTop: 10,
     },
-    // Didascalia sotto il rule: dichiara cosa significa l'evidenziazione della
-    // griglia. Testo variabile per copertura (vedi ALLERGEN_PAGE_TEXT).
+    // Didascalia sotto il rule: dichiara come si legge la griglia (i numeri
+    // stampati accanto ai piatti). Testo variabile per copertura (vedi
+    // ALLERGEN_PAGE_TEXT).
     // maxWidth: senza vincolo la riga più lunga correva da margine a margine
     // mentre quella sopra restava corta — due elementi scollegati invece di un
     // blocco. Stessa gabbia per entrambe le righe.
@@ -714,28 +724,17 @@ function ProductRow({
   /** Cella a metà larghezza dentro una griglia compatta (menù compatto). */
   half?: boolean;
 }) {
-  // Icone risolte a monte: servono i conteggi per decidere il separatore.
-  const allergenIcons = [...product.allergens]
-    .sort((a, b) => a.euNumber - b.euNumber)
-    .map((a) => ({ key: a.code, geometry: allergenIconGeometry(a.code) }))
-    .filter(
-      (
-        x,
-      ): x is {
-        key: string;
-        geometry: NonNullable<ReturnType<typeof allergenIconGeometry>>;
-      } => x.geometry !== null,
-    );
-  const characteristicIcons = product.characteristics
-    .map((c) => ({ key: c.code, geometry: characteristicIconGeometry(c.icon) }))
-    .filter(
-      (
-        x,
-      ): x is {
-        key: string;
-        geometry: NonNullable<ReturnType<typeof characteristicIconGeometry>>;
-      } => x.geometry !== null,
-    );
+  // Allergeni come numeri UE crescenti ("1 · 3 · 7 · 12"): compatti anche con
+  // quattro allergeni, leggibili senza colore, e la convenzione dei menù
+  // italiani stampati. Le icone restano, ma solo nella legenda finale.
+  //
+  // Le caratteristiche NON entrano nel PDF: su carta perdono la funzione (non
+  // filtrano nulla) e molte datano il documento ("Nuovo", "Più richiesto").
+  // `product.characteristics` resta nel dato, semplicemente non consumato qui.
+  const allergenNumbersLabel = [...product.allergens]
+    .map((a) => a.euNumber)
+    .sort((a, b) => a - b)
+    .join(" · ");
 
   // Cover-crop centrato sul focal point salvato quando presente (fedeltà
   // piena zoom/fillMode di FramedMedia rimandata — v1 esperimento).
@@ -763,30 +762,12 @@ function ProductRow({
           <Text style={styles.formatPrice}>{format.priceLabel}</Text>
         </View>
       ))}
-      {/* Allergeni/caratteristiche = nota di servizio → sempre per ultimi. */}
-      {allergenIcons.length > 0 || characteristicIcons.length > 0 ? (
+      {/* Numeri allergeni = nota di servizio → sempre per ultimi. */}
+      {allergenNumbersLabel ? (
         <View style={styles.productIconsLine}>
-          {allergenIcons.map((icon) => (
-            <View key={`al-${icon.key}`} style={styles.productIconGap}>
-              <PdfIcon
-                geometry={icon.geometry}
-                size={9}
-                color={theme.primary}
-              />
-            </View>
-          ))}
-          {allergenIcons.length > 0 && characteristicIcons.length > 0 ? (
-            <View style={styles.iconSeparator} />
-          ) : null}
-          {characteristicIcons.map((icon) => (
-            <View key={`ch-${icon.key}`} style={styles.productIconGap}>
-              <PdfIcon
-                geometry={icon.geometry}
-                size={9}
-                color={theme.primary}
-              />
-            </View>
-          ))}
+          <Text style={styles.productAllergenNumbers}>
+            {allergenNumbersLabel}
+          </Text>
         </View>
       ) : null}
     </>
@@ -904,27 +885,6 @@ function CategorySection({
           : block.products.map((product) => renderRow(product, false)),
       )}
     </View>
-  );
-}
-
-/** Caratteristiche usate nel menù (prodotti + varianti), dedup per code. */
-function collectUsedCharacteristics(
-  data: MenuPdfData,
-): MenuPdfCharacteristic[] {
-  const byCode = new Map<string, MenuPdfCharacteristic>();
-  for (const category of data.categories) {
-    for (const product of category.products) {
-      for (const characteristic of [
-        ...product.characteristics,
-        ...product.variants.flatMap((v) => v.characteristics),
-      ]) {
-        if (!byCode.has(characteristic.code))
-          byCode.set(characteristic.code, characteristic);
-      }
-    }
-  }
-  return Array.from(byCode.values()).sort((a, b) =>
-    a.label.localeCompare(b.label),
   );
 }
 
@@ -1093,15 +1053,19 @@ function ClosingInfoBlock({
  * Testi della pagina finale, in un punto solo: sono in revisione legale e vanno
  * sostituiti qui senza toccare il render.
  *
- * `captionNoData` è la formulazione per copertura zero — con nessun allergene
- * assegnato la griglia non può dire "questi sono presenti", quindi dichiara solo
- * cosa sta elencando. `caption` è la formulazione normale.
+ * `captionNoData` è la formulazione per copertura zero — senza nemmeno un
+ * numero stampato nel menù la griglia non può rimandare ai numeri, quindi
+ * dichiara solo cosa sta elencando. `caption` è la formulazione normale.
  */
 const ALLERGEN_PAGE_TEXT = {
-  caption: "Gli allergeni evidenziati sono presenti in almeno un piatto di questo menù.",
+  caption:
+    "I numeri accanto a ogni piatto corrispondono agli allergeni elencati qui sotto.",
   captionNoData: "Elenco dei 14 allergeni previsti dal Regolamento UE 1169/2011.",
-  // Nessun rimando al personale: lo fa già la nota di rito in fondo pagina.
-  lowCoverageCaution: "Gli allergeni non evidenziati non sono stati segnalati per questo menù.",
+  // Parla dei piatti, non degli allergeni "non evidenziati": dopo il passaggio
+  // ai numeri UE l'evidenziazione in griglia non esiste più, mentre l'assenza
+  // di numeri accanto al piatto è ciò che il lettore ha davanti.
+  lowCoverageCaution:
+    "I piatti senza numeri non hanno allergeni segnalati: per informazioni rivolgersi al personale di sala.",
   staffNote:
     "In caso di allergie o intolleranze si prega di informare il personale di sala.",
   askInRoom:
@@ -1114,20 +1078,23 @@ type LegendEntry = {
   geometry: ReturnType<typeof allergenIconGeometry>;
   iconColor: string;
   labelStyle: Styles["legendLabel"];
+  /** Numero UE mostrato prima dell'icona. */
+  euNumber?: number | null;
 };
 
 /** Numero di voci per riga della griglia legenda (legendItem = width 50%). */
 const LEGEND_COLUMNS = 2;
 
 /**
- * Sezione della pagina finale: sottotitolo + griglia a 2 colonne (icona +
- * label). Usata sia dagli allergeni sia dalle caratteristiche.
+ * Sezione della pagina finale: sottotitolo + griglia a 2 colonne (numero +
+ * icona + label).
  *
  * Impaginazione — il gruppo NON è indivisibile. Un unico `wrap={false}` su
  * tutta la sezione faceva scattare `!fitsInsidePage && !canWrap` in
  * @react-pdf/layout: il blocco veniva disegnato oltre il bordo pagina e i
- * fratelli (spaziatore, nota) sbalzati alla pagina dopo. Con 26 caratteristiche
- * succedeva davvero. Il wrap è quindi riportato a granularità fine:
+ * fratelli (spaziatore, nota) sbalzati alla pagina dopo. Succedeva davvero
+ * quando la pagina finale ospitava anche le caratteristiche (poi rimosse dal
+ * PDF). Il wrap resta quindi a granularità fine:
  *
  * - `wrap={false}` sul singolo item → una voce non si spezza mai tra icona e label;
  * - `wrap={false}` su sottotitolo + PRIMA riga → il sottotitolo non resta orfano
@@ -1142,18 +1109,19 @@ function LegendSection({
   subtitle,
   items,
   styles,
-  blockStyle,
 }: {
   subtitle: string;
   items: LegendEntry[];
   styles: Styles;
-  blockStyle?: Styles["finalCharsBlock"];
 }) {
   const firstRow = items.slice(0, LEGEND_COLUMNS);
   const restRows = items.slice(LEGEND_COLUMNS);
 
   const renderItem = (item: LegendEntry) => (
     <View key={item.key} style={styles.legendItem} wrap={false}>
+      {item.euNumber != null ? (
+        <Text style={styles.legendNumber}>{item.euNumber}</Text>
+      ) : null}
       {item.geometry ? (
         <PdfIcon geometry={item.geometry} size={20} color={item.iconColor} />
       ) : null}
@@ -1162,7 +1130,7 @@ function LegendSection({
   );
 
   return (
-    <View style={blockStyle}>
+    <View>
       <View wrap={false}>
         <Text style={styles.finalSubtitle}>{subtitle}</Text>
         <View style={styles.legendGrid}>{firstRow.map(renderItem)}</View>
@@ -1175,16 +1143,17 @@ function LegendSection({
 }
 
 /**
- * Ultima pagina del menù: pagina dedicata "Allergeni e caratteristiche".
- * Titolo di pagina + rule + didascalia, i 14 allergeni UE (presenti evidenziati
- * / assenti attenuati, con icone a scala media), le caratteristiche presenti
- * (condizionale) e la nota di rito in fondo. Nessun footer/numero (come la
+ * Ultima pagina del menù: pagina dedicata "Allergeni". Titolo di pagina +
+ * rule + didascalia, i 14 allergeni UE come LEGENDA dei numeri stampati
+ * accanto ai piatti (numero + icona + nome, tutti allo stesso peso) e la nota
+ * di rito in fondo. Le caratteristiche NON compaiono nel PDF: su carta non
+ * filtrano nulla e molte datano il documento. Nessun footer/numero (come la
  * copertina). Contenuto distribuito verticalmente dagli spaziatori elastici.
  *
- * Il testo si adatta alla copertura del dato: senza allergeni assegnati
- * l'attenuato non significa "assente dal locale" ma "non compilato", e la
- * pagina non può lasciarlo intendere. Layout, colori e griglia sono identici
- * nei tre casi — cambia solo il testo.
+ * Il testo si adatta alla copertura del dato: senza nemmeno un numero nel
+ * menù la didascalia sui numeri sarebbe assurda, quindi si ricade su quella
+ * normativa. Layout, colori e griglia sono identici nei tre casi — cambia
+ * solo il testo.
  */
 function AllergensPage({
   data,
@@ -1195,9 +1164,6 @@ function AllergensPage({
   styles: Styles;
   theme: PdfTheme;
 }) {
-  const usedCharacteristics = collectUsedCharacteristics(data);
-  const presentAllergenCodes = new Set(data.allergenLegend.map((a) => a.code));
-
   const { productsTotal, productsWithAllergens } = data.allergenCoverage;
   const hasNoAllergenData = productsWithAllergens === 0;
   // productsTotal > 0: un catalogo senza prodotti stampabili non deve dividere
@@ -1210,7 +1176,7 @@ function AllergensPage({
   return (
     <Page size="A4" style={styles.finalPage}>
       <View style={styles.finalTitleBlock}>
-        <Text style={styles.finalTitle}>Allergeni e caratteristiche</Text>
+        <Text style={styles.finalTitle}>Allergeni</Text>
         <View style={styles.finalRule} />
         <Text style={styles.finalCaption}>
           {hasNoAllergenData
@@ -1237,43 +1203,27 @@ function AllergensPage({
         </View>
       ) : null}
 
-      {/* Contenuto allineato in alto (subito sotto il titolo): allergeni +
-          (caratteristiche con gap fisso). Nessuno spaziatore sopra.
-          NB: nessun wrap={false} sul gruppo — con molte caratteristiche
-          sfondava il bordo pagina invece di impaginarsi (vedi LegendSection). */}
+      {/* NB: nessun wrap={false} sul gruppo — un blocco più alto della pagina
+          sfonderebbe il bordo invece di impaginarsi (vedi LegendSection). */}
+      <View style={styles.finalSpacerTitle} />
+
       <LegendSection
         subtitle="Allergeni"
         styles={styles}
-        // Tutti e 14 gli allergeni UE: presenti nel menù evidenziati, assenti
-        // attenuati. Nessun numero visibile.
-        items={ALL_ALLERGENS.map((allergen) => {
-          const isPresent = presentAllergenCodes.has(allergen.code);
-          return {
-            key: allergen.code,
-            label: allergen.label,
-            geometry: allergenIconGeometry(allergen.code),
-            iconColor: isPresent ? theme.primary : theme.muted,
-            labelStyle: isPresent
-              ? styles.legendLabel
-              : styles.legendLabelMuted,
-          };
-        })}
+        // Tutti e 14 gli allergeni UE con lo stesso peso: è una legenda che
+        // spiega i numeri stampati accanto ai piatti, non una dichiarazione di
+        // cosa il locale serve. Nessuna dicotomia presente/attenuato.
+        items={ALL_ALLERGENS.map((allergen) => ({
+          key: allergen.code,
+          label: allergen.label,
+          euNumber: allergen.euNumber,
+          geometry: allergenIconGeometry(allergen.code),
+          iconColor: theme.muted,
+          labelStyle: styles.legendLabel,
+        }))}
       />
 
-      {usedCharacteristics.length > 0 ? (
-        <LegendSection
-          subtitle="Caratteristiche"
-          styles={styles}
-          blockStyle={styles.finalCharsBlock}
-          items={usedCharacteristics.map((characteristic) => ({
-            key: characteristic.code,
-            label: characteristic.label,
-            geometry: characteristicIconGeometry(characteristic.icon),
-            iconColor: theme.primary,
-            labelStyle: styles.legendLabel,
-          }))}
-        />
-      ) : null}
+      <View style={styles.finalSpacerSections} />
 
       {/* Contatti + costi di servizio, in coda alle sezioni legenda. */}
       <ClosingInfoBlock
@@ -1282,8 +1232,9 @@ function AllergensPage({
         theme={theme}
       />
 
-      {/* Spaziatore sotto il gruppo: nota ancorata in fondo. Resta anche nel
-          caso senza nota — con nulla sotto, tiene il contenuto in alto. */}
+      {/* Ultimo spaziatore: la nota resta ancorata in fondo (sotto di lei non
+          c'è altro che il padding pagina). Resta anche nel caso senza nota —
+          con nulla sotto, evita che i contatti si incollino al margine. */}
       <View style={styles.finalSpacer} />
 
       {/* Nota di rito in fondo, sopra un divider sottile. Assente a copertura
@@ -1405,8 +1356,7 @@ export function MenuPdfDocument({
         </View>
       </Page>
 
-      {/* Pagina finale "Allergeni e caratteristiche".
-          Nessun footer/numero, come la copertina. */}
+      {/* Pagina finale "Allergeni". Nessun footer/numero, come la copertina. */}
       <AllergensPage data={data} styles={styles} theme={theme} />
     </Document>
   );
