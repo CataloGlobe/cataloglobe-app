@@ -401,7 +401,10 @@ export default function OverviewPage() {
             // Batch: una sola chiamata per tutte le sedi, mai una per sede.
             // Riusa il resolver frontend, nessuna logica duplicata qui.
             try {
-                const catalogs = await getActiveCatalogForActivities(active.map(a => a.id));
+                const catalogs = await getActiveCatalogForActivities(
+                    tenantId!,
+                    active.map(a => a.id)
+                );
                 if (cancelled) return;
                 setCatalogFetch({ status: "ready", byActivity: catalogs });
             } catch (error) {

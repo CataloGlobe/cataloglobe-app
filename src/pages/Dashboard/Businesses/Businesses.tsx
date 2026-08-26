@@ -167,7 +167,10 @@ export default function Businesses() {
       // Batch fetch catalogo attivo in parallelo, non bloccante per la lista
       if (data.length > 0) {
         setCatalogsStatus("loading");
-        getActiveCatalogForActivities(data.map((b) => b.id))
+        getActiveCatalogForActivities(
+          tenantId,
+          data.map((b) => b.id)
+        )
           .then((map) => {
             setActiveCatalogsMap(map);
             setCatalogsStatus("ready");

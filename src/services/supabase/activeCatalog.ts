@@ -116,11 +116,17 @@ export function formatOverrideSummary(
 /**
  * Batch fetch of active catalog metadata for multiple activities.
  *
- * Uses Promise.all to resolve all activities in parallel, fetches catalog
- * names in a single query, and fetches hidden/unavailable override counts
- * in a single additional query — mai una query per sede.
+ * Risolve tutte le sedi in parallelo e affianca, in una sola query batch, i
+ * conteggi hidden/unavailable — mai una query per sede.
+ *
+ * `tenantId` non è un dettaglio di comodo: senza, il resolver deve chiedere al
+ * DB a quale tenant appartiene ogni sede prima di poter cominciare
+ * (`resolveActivityCatalogs`, pre-flight su `activities`), e quell'andata e
+ * ritorno è SERIALE — blocca l'intera catena, una volta per sede. Entrambi i
+ * chiamanti il tenant lo conoscono già, quindi la domanda era inutile.
  */
 export async function getActiveCatalogForActivities(
+    tenantId: string,
     activityIds: string[]
 ): Promise<Record<string, ActiveCatalogMeta>> {
     if (activityIds.length === 0) return {};
@@ -133,49 +139,32 @@ export async function getActiveCatalogForActivities(
         Promise.all(
             activityIds.map(async activityId => {
                 try {
-                    const resolved = await resolveActivityCatalogs(activityId, now);
-                    // The resolver returns the catalog data if there is an active catalog.
-                    // We only need the catalogId — extract it from the returned structure.
-                    const catalogId = (resolved as { catalog?: { id?: string } }).catalog?.id ?? null;
-                    return { activityId, catalogId };
+                    const resolved = await resolveActivityCatalogs(activityId, now, tenantId);
+                    // Il catalogo risolto porta con sé il proprio nome
+                    // (`ResolvedCatalog.name`): leggerlo qui evita di richiederlo
+                    // di nuovo al DB per un dato che abbiamo già in memoria.
+                    return {
+                        activityId,
+                        catalogId: resolved.catalog?.id ?? null,
+                        catalogName: resolved.catalog?.name ?? null
+                    };
                 } catch {
-                    return { activityId, catalogId: null };
+                    return { activityId, catalogId: null, catalogName: null };
                 }
             })
         ),
         getOverrideCountsForActivities(activityIds)
     ]);
 
-    // ── Step 2: Collect distinct non-null catalogIds ───────────────────────
-    const catalogIds = Array.from(
-        new Set(resolvedList.map(r => r.catalogId).filter((id): id is string => id !== null))
-    );
-
-    // ── Step 3: Fetch catalog names in a single query ──────────────────────
-    const catalogNameById: Record<string, string> = {};
-
-    if (catalogIds.length > 0) {
-        const { data, error } = await supabase
-            .from("catalogs")
-            .select("id, name")
-            .in("id", catalogIds);
-
-        if (!error && data) {
-            for (const row of data as Array<{ id: string; name: string }>) {
-                catalogNameById[row.id] = row.name;
-            }
-        }
-    }
-
-    // ── Step 4: Build result map ────────────────────────────────────────────
+    // ── Step 2: Build result map ────────────────────────────────────────────
     const result: Record<string, ActiveCatalogMeta> = {};
 
-    for (const { activityId, catalogId } of resolvedList) {
+    for (const { activityId, catalogId, catalogName } of resolvedList) {
         const counts = overrideCounts[activityId];
         result[activityId] = {
             activityId,
             catalogId,
-            catalogName: catalogId ? (catalogNameById[catalogId] ?? null) : null,
+            catalogName,
             hasActiveCatalog: catalogId !== null,
             hiddenCount: counts?.hiddenCount ?? 0,
             unavailableCount: counts?.unavailableCount ?? 0
