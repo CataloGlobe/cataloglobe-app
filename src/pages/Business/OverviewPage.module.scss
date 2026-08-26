@@ -201,45 +201,69 @@
 }
 
 /* ===== Section 2b — Tutto pronto: pagine pubbliche ===== */
-.publicCard {
+.publicHeader {
   display: flex;
-  align-items: flex-start;
-  gap: 1.25rem;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
   flex-wrap: wrap;
 }
 
-.publicQr {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
+/* Cornice del QR: il codice ha bisogno di quiet zone bianca per essere
+   leggibile, quindi il riquadro resta chiaro anche in dark. */
+.qrFrame,
+.qrFrameSm {
+  display: inline-flex;
+  background: #ffffff;
+  border: 1px solid var(--border);
   flex-shrink: 0;
 }
 
-.publicInfo {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 6px;
-  min-width: 0;
-  flex: 1 1 240px;
+.qrFrame {
+  padding: 8px;
+  border-radius: 8px;
 }
 
-.publicUrl {
-  font-size: 13px;
-  color: var(--brand-primary);
-  text-decoration: none;
-  word-break: break-all;
+.qrFrameSm {
+  padding: 4px;
+  border-radius: 6px;
+}
 
-  &:hover {
-    text-decoration: underline;
+/* Stato del menù: puntino + testo. Il colore non porta mai da solo
+   l'informazione (regola DESIGN.md sugli stati semantici). */
+.statusLine {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  min-width: 0;
+  width: 100%;
+}
+
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  flex-shrink: 0;
+  /* Allinea il punto all'altezza della x invece che alla baseline. */
+  transform: translateY(-1px);
+
+  &[data-state="live"] {
+    background: var(--color-green-500);
+  }
+
+  &[data-state="off"] {
+    background: var(--border);
+    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
+  }
+
+  &[data-state="loading"] {
+    background: var(--border);
   }
 }
 
-.publicActions {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
+.menuName {
+  font-weight: 600;
+  color: var(--text);
 }
 
 /* Riga "menù attivo". Resa con `as="span"` perché ospita il placeholder, che è
@@ -258,27 +282,22 @@
   vertical-align: middle;
 }
 
+/* Righe separate da un filo, non da blocchi pieni: la lista è densa e il grigio
+   ripetuto su ogni riga pesa più dell'informazione che porta. */
 .publicList {
   display: flex;
   flex-direction: column;
-  gap: 6px;
 }
 
 .publicRow {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: #f8fafc;
-  text-decoration: none;
-  color: inherit;
-  transition: background 0.15s, border-color 0.15s;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
 
-  &:hover {
-    background: #f1f5f9;
-    border-color: #e2e8f0;
+  &:first-child {
+    border-top: none;
   }
 }
 
@@ -287,12 +306,42 @@
   flex-direction: column;
   gap: 2px;
   min-width: 0;
+  flex: 1 1 auto;
 }
 
 .publicRowUrl {
   font-size: 12px;
   color: var(--brand-primary);
-  word-break: break-all;
+  text-decoration: none;
+  /* Gli slug lunghi troncano invece di mandare a capo la riga. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.publicRowActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .publicRow {
+    flex-wrap: wrap;
+  }
+
+  /* Le azioni scendono sotto le informazioni, a tutta larghezza. */
+  .publicRowActions {
+    margin-left: 0;
+    width: 100%;
+  }
 }
 
 .publicMore {

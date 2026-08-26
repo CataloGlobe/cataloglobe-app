@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, Circle, Plus, ChevronRight, ExternalLink } from "lucide-react";
+import { CheckCircle2, Circle, Plus, ChevronRight, ExternalLink, Download } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { usePageHeader } from "@/context/usePageHeader";
@@ -15,7 +15,7 @@ import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import { getTenantSetupStatus, type TenantSetupStatus } from "@/services/supabase/overviewStats";
 import { getActivities } from "@/services/supabase/activities";
 import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog";
-import { QrCode } from "@/components/ui/QrCode/QrCode";
+import { QrCode, type QrCodeHandle } from "@/components/ui/QrCode/QrCode";
 import { Button } from "@/components/ui/Button/Button";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { SUBTYPE_LABELS, VERTICAL_LABELS } from "@/constants/verticalTypes";
@@ -69,6 +69,139 @@ function MenuLineSkeleton({ width }: { width: string }) {
     return <Skeleton height="1em" width={width} radius="6px" className={styles.menuLineSkeleton} />;
 }
 
+/**
+ * Riga di una pagina pubblica: QR · info · azioni.
+ *
+ * Usata da ENTRAMBE le varianti del blocco (sede singola ed elenco): l'unica
+ * differenza ammessa è la dimensione del QR. Tenerle in un solo componente
+ * rende il disallineamento impossibile per costruzione invece che per
+ * disciplina — etichette, ordine e stile delle azioni non possono divergere.
+ */
+function PublicLocationRow({
+    location,
+    qrSize,
+    qrRef,
+    onDownload,
+    resolved,
+    menuName,
+    compactStatus,
+    textVariant,
+    skeletonWidth
+}: {
+    location: PublicLocation;
+    qrSize: number;
+    qrRef: (handle: QrCodeHandle | null) => void;
+    onDownload: () => void;
+    resolved: boolean;
+    menuName: string | null;
+    compactStatus: boolean;
+    textVariant: "body-sm" | "caption";
+    skeletonWidth: string;
+}) {
+    return (
+        <div className={styles.publicRow}>
+            <span className={qrSize > 60 ? styles.qrFrame : styles.qrFrameSm}>
+                <QrCode
+                    ref={qrRef}
+                    value={location.publicUrl}
+                    size={qrSize}
+                    level={qrSize > 60 ? "H" : "M"}
+                    fileName={`${location.slug}-qr`}
+                />
+            </span>
+
+            <span className={styles.publicRowBody}>
+                <Text variant={qrSize > 60 ? "title-sm" : "body-sm"} weight={600}>
+                    {location.name}
+                </Text>
+                <a
+                    className={styles.publicRowUrl}
+                    href={location.publicUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >
+                    {location.publicUrl}
+                </a>
+                <MenuStatusLine
+                    variant={textVariant}
+                    resolved={resolved}
+                    menuName={menuName}
+                    skeletonWidth={skeletonWidth}
+                    compact={compactStatus}
+                />
+            </span>
+
+            <span className={styles.publicRowActions}>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<Download size={13} />}
+                    onClick={onDownload}
+                >
+                    Scarica QR
+                </Button>
+                <Button
+                    variant="secondary"
+                    size="sm"
+                    leftIcon={<ExternalLink size={13} />}
+                    onClick={() =>
+                        window.open(location.publicUrl, "_blank", "noopener,noreferrer")
+                    }
+                >
+                    Apri la pagina
+                </Button>
+            </span>
+        </div>
+    );
+}
+
+/**
+ * Riga di stato del menù: puntino + testo, mai il colore da solo.
+ *
+ * `DESIGN.md` fissa la regola per gli stati semantici ("color is always paired
+ * with a dot + label") e la misura del puntino (6px); qui è applicata inline
+ * invece che con `StatusBadge`, perché una pill sopra ogni riga dell'elenco
+ * peserebbe più dell'informazione che porta.
+ */
+function MenuStatusLine({
+    variant,
+    resolved,
+    menuName,
+    skeletonWidth,
+    compact = false
+}: {
+    variant: "body-sm" | "caption";
+    resolved: boolean;
+    menuName: string | null;
+    skeletonWidth: string;
+    /** Nell'elenco basta il nome del menù: ripetere "Ora è visibile" su ogni
+     *  riga è rumore, non informazione. */
+    compact?: boolean;
+}) {
+    const state = !resolved ? "loading" : menuName ? "live" : "off";
+
+    return (
+        <span className={styles.statusLine}>
+            <span className={styles.statusDot} data-state={state} aria-hidden="true" />
+            {/* `as="span"`: lo skeleton è un <div>, che dentro un <p> sarebbe
+                HTML invalido (hydration error). */}
+            <Text as="span" variant={variant} colorVariant="muted" className={styles.menuLine}>
+                {!resolved ? (
+                    <MenuLineSkeleton width={skeletonWidth} />
+                ) : menuName ? (
+                    compact ? (
+                        <strong className={styles.menuName}>{menuName}</strong>
+                    ) : (
+                        <>Ora è visibile <strong className={styles.menuName}>{menuName}</strong></>
+                    )
+                ) : (
+                    "Nessun menù attivo in questo momento"
+                )}
+            </Text>
+        </span>
+    );
+}
+
 type SetupStep = {
     id: string;
     done: boolean;
@@ -93,6 +226,20 @@ export default function OverviewPage() {
     const [loadingSetup, setLoadingSetup] = useState(true);
     const [publicLocations, setPublicLocations] = useState<PublicLocation[] | null>(null);
     const [catalogNames, setCatalogNames] = useState<CatalogNameByActivity | null>(null);
+    /** Sedi non pubblicate. Ricavato dalla stessa `getActivities` già chiamata
+     *  per le sedi attive: serve solo a spiegare perché il conteggio in alto
+     *  non coincide con le righe elencate. */
+    const [suspendedCount, setSuspendedCount] = useState(0);
+
+    // Un handle per sede: ogni QR scarica il proprio file. La mappa è un ref,
+    // non uno state — cambiarla non deve far ri-renderizzare la lista.
+    const qrRefs = useRef<Record<string, QrCodeHandle | null>>({});
+    const setQrRef = useCallback(
+        (id: string) => (handle: QrCodeHandle | null) => {
+            qrRefs.current[id] = handle;
+        },
+        []
+    );
 
     // Reset sincrono al cambio tenant, prima del paint. Gli effect girano DOPO
     // il render: senza questo, il primo render sul tenant nuovo rende ancora i
@@ -109,6 +256,8 @@ export default function OverviewPage() {
         setLoadingSetup(true);
         setPublicLocations(null);
         setCatalogNames(null);
+        setSuspendedCount(0);
+        qrRefs.current = {};
     }
 
     usePageHeader({ title: "Panoramica", sticky: true });
@@ -200,6 +349,8 @@ export default function OverviewPage() {
             try {
                 const activities = await getActivities(tenantId!);
                 if (cancelled) return;
+
+                setSuspendedCount(activities.filter(a => a.status !== "active").length);
 
                 active = activities
                     .filter(activity => activity.status === "active")
@@ -350,6 +501,15 @@ export default function OverviewPage() {
     const menuIsResolved = catalogNames != null;
     const singleMenuName = singleLocation ? catalogNames?.[singleLocation.id] ?? null : null;
     const visibleLocations = publicLocations?.slice(0, MAX_VISIBLE_LOCATIONS) ?? [];
+    // Rende esplicito lo scarto fra il conteggio sedi dell'intestazione e le
+    // righe elencate qui, che sono le sole raggiungibili dal pubblico.
+    const publishedCount = publicLocations?.length ?? 0;
+    const locationsSummary = [
+        `${publishedCount} sedi pubblicate`,
+        suspendedCount > 0 ? `${suspendedCount} ${suspendedCount === 1 ? "sospesa" : "sospese"}` : null
+    ]
+        .filter(Boolean)
+        .join(" · ");
     const hiddenLocationsCount = Math.max(
         (publicLocations?.length ?? 0) - MAX_VISIBLE_LOCATIONS,
         0
@@ -487,103 +647,57 @@ export default function OverviewPage() {
             {/* ===== Section 2b — Tutto pronto: pagine pubbliche ===== */}
             {showPublicBlock && singleLocation && (
                 <div className={styles.section}>
-                    <div className={styles.publicCard}>
-                        <div className={styles.publicQr}>
-                            <QrCode
-                                value={singleLocation.publicUrl}
-                                size={132}
-                                fileName={`${singleLocation.slug}-qr`}
-                                showActions
-                            />
-                        </div>
-                        <div className={styles.publicInfo}>
-                            <Badge variant={singleMenuName ? "success" : "secondary"}>
-                                {menuIsResolved
-                                    ? (singleMenuName ? "Menù online" : "Nessun menù attivo")
-                                    : "Pagina pubblica"}
-                            </Badge>
-                            <Text variant="title-sm" weight={600}>{singleLocation.name}</Text>
-                            <a
-                                className={styles.publicUrl}
-                                href={singleLocation.publicUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                {singleLocation.publicUrl}
-                            </a>
-                            {/* `as="span"`: il placeholder è un <div>, che dentro
-                                un <p> sarebbe HTML invalido. */}
-                            <Text
-                                as="span"
-                                variant="body-sm"
-                                colorVariant="muted"
-                                className={styles.menuLine}
-                            >
-                                {menuIsResolved ? (
-                                    singleMenuName
-                                        ? `Il menù ${singleMenuName} è visibile adesso.`
-                                        : "Nessun menù attivo in questo momento."
-                                ) : (
-                                    <MenuLineSkeleton width="70%" />
-                                )}
-                            </Text>
-                            <div className={styles.publicActions}>
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    leftIcon={<ExternalLink size={14} />}
-                                    onClick={() =>
-                                        window.open(singleLocation.publicUrl, "_blank", "noopener,noreferrer")
-                                    }
-                                >
-                                    Apri la pagina
-                                </Button>
-                            </div>
-                        </div>
+                    <div className={styles.publicHeader}>
+                        <Text variant="title-sm" weight={600}>La tua pagina pubblica</Text>
+                        <Text variant="caption" colorVariant="muted">Aggiornata in tempo reale</Text>
+                    </div>
+
+                    <div className={styles.publicList}>
+                        <PublicLocationRow
+                            location={singleLocation}
+                            qrSize={104}
+                            qrRef={setQrRef(singleLocation.id)}
+                            onDownload={() => void qrRefs.current[singleLocation.id]?.downloadPng()}
+                            resolved={menuIsResolved}
+                            menuName={singleMenuName}
+                            compactStatus={false}
+                            textVariant="body-sm"
+                            skeletonWidth="62%"
+                        />
                     </div>
                 </div>
             )}
 
             {showPublicBlock && !singleLocation && (
                 <div className={styles.section}>
-                    <Text variant="title-sm" weight={600}>Le tue pagine pubbliche</Text>
+                    <div className={styles.publicHeader}>
+                        <Text variant="title-sm" weight={600}>Le tue pagine pubbliche</Text>
+                        <Text variant="caption" colorVariant="muted">{locationsSummary}</Text>
+                    </div>
+
                     <div className={styles.publicList}>
                         {visibleLocations.map(location => (
-                            <a
+                            <PublicLocationRow
                                 key={location.id}
-                                className={styles.publicRow}
-                                href={location.publicUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                            >
-                                <span className={styles.publicRowBody}>
-                                    <Text variant="body-sm" weight={600}>{location.name}</Text>
-                                    <span className={styles.publicRowUrl}>{location.publicUrl}</span>
-                                    <Text
-                                        as="span"
-                                        variant="caption"
-                                        colorVariant="muted"
-                                        className={styles.menuLine}
-                                    >
-                                        {menuIsResolved ? (
-                                            catalogNames?.[location.id]
-                                                ? `Il menù ${catalogNames[location.id]} è visibile adesso.`
-                                                : "Nessun menù attivo in questo momento."
-                                        ) : (
-                                            <MenuLineSkeleton width="60%" />
-                                        )}
-                                    </Text>
-                                </span>
-                                <ExternalLink size={14} className={styles.configArrow} />
-                            </a>
+                                location={location}
+                                qrSize={42}
+                                qrRef={setQrRef(location.id)}
+                                onDownload={() => void qrRefs.current[location.id]?.downloadPng()}
+                                resolved={menuIsResolved}
+                                menuName={catalogNames?.[location.id] ?? null}
+                                compactStatus
+                                textVariant="caption"
+                                skeletonWidth="52%"
+                            />
                         ))}
                     </div>
+
                     {hiddenLocationsCount > 0 && (
                         <button
                             className={styles.publicMore}
                             onClick={() => navigate(`${b}/locations`)}
                         >
-                            {`Vedi tutte le sedi (+${hiddenLocationsCount})`}
+                            Vedi tutte le sedi
                             <ChevronRight size={14} />
                         </button>
                     )}
