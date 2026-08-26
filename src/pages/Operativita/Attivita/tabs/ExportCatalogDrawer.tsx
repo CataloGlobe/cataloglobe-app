@@ -47,6 +47,9 @@ export function ExportCatalogDrawer({
   const [isLoadingStyles, setIsLoadingStyles] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [includePhotos, setIncludePhotos] = useState(false);
+  // Menù compatto: default off. Il PDF va in stampa — nessuno deve ritrovarsi
+  // l'impaginato cambiato senza averlo chiesto.
+  const [compactMenu, setCompactMenu] = useState(false);
   // Toggle cover mostrato solo se la sede ha un'immagine di copertina.
   const [hasCoverImage, setHasCoverImage] = useState(false);
   const [includeCoverImage, setIncludeCoverImage] = useState(true);
@@ -75,6 +78,7 @@ export function ExportCatalogDrawer({
     setCurrentStyleId(null);
     setFileName("");
     setIncludePhotos(false);
+    setCompactMenu(false);
     setHasCoverImage(false);
     setIncludeCoverImage(true);
     setAllergenCoverage(null);
@@ -259,6 +263,9 @@ export function ExportCatalogDrawer({
       const blob = await renderMenuPdfBlob(data, {
         includePhotos,
         includeCoverImage,
+        // Ridondante col gate a valle nel documento, ma tiene l'intenzione
+        // esplicita anche nel payload: con le foto attive niente affiancamento.
+        compact: compactMenu && !includePhotos,
       });
 
       const base =
@@ -396,6 +403,20 @@ export function ExportCatalogDrawer({
             checked={includePhotos}
             onChange={setIncludePhotos}
             disabled={isDownloading}
+          />
+          <Switch
+            label="Menù compatto"
+            // Con le foto attive l'affiancamento non si applica (la miniatura
+            // riserva il gutter su ogni riga): il toggle si spegne e lo dice,
+            // invece di restare acceso e inerte.
+            helperText={
+              includePhotos
+                ? "Non disponibile con le foto: la miniatura occupa lo spazio della seconda colonna."
+                : "Affianca su due colonne i piatti senza descrizione. Utile per liste di bevande, contorni e simili."
+            }
+            checked={compactMenu && !includePhotos}
+            onChange={setCompactMenu}
+            disabled={isDownloading || includePhotos}
           />
         </div>
       </DrawerLayout>

@@ -21,6 +21,10 @@ export type RenderMenuPdfOptions = {
     /** Immagine di copertina in prima pagina. Default TRUE. Se false salta pure
      *  il prefetch della cover (coverDataUrl null → copertina tipografica). */
     includeCoverImage?: boolean;
+    /** Menù compatto: affianca su due colonne le sequenze di voci senza
+     *  descrizione. Default FALSE. Inerte con includePhotos attivo — il
+     *  documento fa vincere photoMode (vedi CategorySection). */
+    compact?: boolean;
     /** Override asset già pronti (test/control render). Salta il pre-fetch. */
     assets?: MenuPdfAssets;
 };
@@ -83,7 +87,7 @@ export async function renderMenuPdfBlob(
     // documentato per componenti wrapper che RITORNANO un <Document>.
     const element = createElement(
         MenuPdfDocument,
-        { data, assets }
+        { data, assets, compact: options?.compact ?? false }
     ) as unknown as ReactElement<DocumentProps>;
     return pdf(element).toBlob();
 }

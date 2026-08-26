@@ -47,7 +47,16 @@ function textOf(node: unknown): string {
     return "";
 }
 
-/** Righe (View flexDirection row) i cui figli Text contengono `label`. */
+/**
+ * Righe (View flexDirection row) i cui figli Text contengono `label`.
+ *
+ * I container di griglia (`flexWrap: "wrap"` — legendGrid, e la griglia del
+ * menù compatto) sono esclusi: sono anch'essi `flexDirection: "row"` e
+ * conterrebbero il testo cercato, ma il visitatore incontra il PARENT per
+ * primo, quindi `out[0]` sarebbe il wrapper invece della riga vera e
+ * `childrenOf` non troverebbe più label/dots/prezzo. Il wrap è il
+ * discriminante: una riga prodotto non wrappa mai i propri figli.
+ */
 function findRowsContaining(node: unknown, label: string, out: El[]): void {
     if (Array.isArray(node)) {
         node.forEach(n => findRowsContaining(n, label, out));
@@ -55,7 +64,12 @@ function findRowsContaining(node: unknown, label: string, out: El[]): void {
     }
     if (!isEl(node)) return;
     const st = styleOf(node);
-    if (node.type === View && st?.flexDirection === "row" && textOf(node).includes(label)) {
+    if (
+        node.type === View &&
+        st?.flexDirection === "row" &&
+        st?.flexWrap !== "wrap" &&
+        textOf(node).includes(label)
+    ) {
         out.push(node);
     }
     findRowsContaining(node.props?.children, label, out);

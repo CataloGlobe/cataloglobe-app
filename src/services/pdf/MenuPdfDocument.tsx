@@ -35,6 +35,7 @@ import {
   ALLERGEN_COVERAGE_THRESHOLD,
   ALL_ALLERGENS,
 } from "./allergenEuNumbers";
+import { COMPACT_COLUMNS, buildCategoryBlocks } from "./compactMenuLayout";
 
 /** Asset immagine già pre-fetchati come data-URL (o null): il documento non
  *  fa MAI fetch a runtime — pipeline in renderMenuPdf/prefetchPdfImage. */
@@ -316,6 +317,24 @@ function createStyles(theme: PdfTheme, fontFamily: string) {
 
     productRow: {
       marginBottom: 12,
+    },
+    // Menù compatto: contenitore di una sequenza di voci nude affiancate.
+    // Stesso meccanismo di `legendGrid` (row + wrap, item a width 50%).
+    //
+    // NESSUN wrap={false} qui: un blocco indivisibile più alto della pagina fa
+    // scattare `!fitsInsidePage && !canWrap` in @react-pdf/layout e viene
+    // disegnato oltre il bordo, sbalzando i fratelli (stesso difetto già
+    // corretto sulla legenda). L'indivisibilità sta sulla singola cella.
+    compactGrid: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+    },
+    // Cella della griglia compatta. paddingRight = gutter fra le colonne,
+    // applicato anche alla colonna destra (come `legendItem`) così le due
+    // celle restano esattamente della stessa larghezza.
+    productRowHalf: {
+      width: "50%",
+      paddingRight: 14,
     },
     // photoMode: colonna gutter fissa su OGNI riga (thumb o vuota) cosi il
     // bordo sinistro del contenuto e' identico riga per riga.
@@ -685,12 +704,15 @@ function ProductRow({
   theme,
   thumbSrc,
   photoMode,
+  half = false,
 }: {
   product: MenuPdfProduct;
   styles: Styles;
   theme: PdfTheme;
   thumbSrc: string | null;
   photoMode: boolean;
+  /** Cella a metà larghezza dentro una griglia compatta (menù compatto). */
+  half?: boolean;
 }) {
   // Icone risolte a monte: servono i conteggi per decidere il separatore.
   const allergenIcons = [...product.allergens]
@@ -771,7 +793,10 @@ function ProductRow({
   );
 
   return (
-    <View style={styles.productRow} wrap={false}>
+    <View
+      style={half ? [styles.productRow, styles.productRowHalf] : styles.productRow}
+      wrap={false}
+    >
       {photoMode ? (
         <View style={styles.productRowPhotoMode}>
           {thumbSrc ? (
@@ -801,20 +826,58 @@ function CategorySection({
   theme,
   productImages,
   photoMode,
+  compact,
 }: {
   category: MenuPdfCategory;
   styles: Styles;
   theme: PdfTheme;
   productImages: Record<string, string>;
   photoMode: boolean;
+  compact: boolean;
 }) {
   const isSubCategory = category.level > 0;
-  const [firstProduct, ...restProducts] = category.products;
+  // photoMode vince sempre: ogni riga riserva 62pt di gutter per la miniatura,
+  // a metà larghezza resterebbero ~180pt per nome, prezzo e descrizione.
+  const blocks = buildCategoryBlocks(category.products, compact && !photoMode);
+
+  const renderRow = (product: MenuPdfProduct, half: boolean) => (
+    <ProductRow
+      key={product.id}
+      product={product}
+      styles={styles}
+      theme={theme}
+      thumbSrc={productImages[product.id] ?? null}
+      photoMode={photoMode}
+      half={half}
+    />
+  );
+
+  const renderGrid = (items: MenuPdfProduct[], key: string) => (
+    <View key={key} style={styles.compactGrid}>
+      {items.map((product) => renderRow(product, true))}
+    </View>
+  );
+
+  // Il PRIMO blocco è spezzato in due: la sua prima riga VISIVA sale nel blocco
+  // indivisibile con l'header, il resto scorre libero.
+  //
+  // L'invariante da preservare è che l'header non resti mai solo a fine pagina
+  // (minPresenceAhead non regge per categorie a prodotto singolo — fix Stage
+  // 3c). Con una griglia in testa "prima riga visiva" non è più un prodotto ma
+  // le prime COMPACT_COLUMNS celle, isolate in un container proprio: contenendo
+  // esattamente due celle a width 50%, la griglia che segue riparte allineata
+  // (stesso accorgimento di LegendSection).
+  const [headBlock, ...restBlocks] = blocks;
+  const headIsGrid = headBlock?.kind === "grid";
+  const headFirst = headIsGrid
+    ? headBlock.products.slice(0, COMPACT_COLUMNS)
+    : (headBlock?.products.slice(0, 1) ?? []);
+  const headRest = headIsGrid
+    ? headBlock.products.slice(COMPACT_COLUMNS)
+    : (headBlock?.products.slice(1) ?? []);
+
   return (
     <View style={styles.categorySection}>
-      {/* Header + PRIMO prodotto in un blocco indivisibile: l'header non
-                può mai restare orfano a fine pagina (minPresenceAhead non regge
-                per categorie a prodotto singolo — fix Stage 3c). */}
       <View wrap={false}>
         <View style={styles.categoryHeader}>
           <Text
@@ -824,26 +887,22 @@ function CategorySection({
           </Text>
           {!isSubCategory ? <View style={styles.categoryRule} /> : null}
         </View>
-        {firstProduct ? (
-          <ProductRow
-            product={firstProduct}
-            styles={styles}
-            theme={theme}
-            thumbSrc={productImages[firstProduct.id] ?? null}
-            photoMode={photoMode}
-          />
-        ) : null}
+        {headFirst.length > 0
+          ? headIsGrid
+            ? renderGrid(headFirst, "head")
+            : renderRow(headFirst[0], false)
+          : null}
       </View>
-      {restProducts.map((product) => (
-        <ProductRow
-          key={product.id}
-          product={product}
-          styles={styles}
-          theme={theme}
-          thumbSrc={productImages[product.id] ?? null}
-          photoMode={photoMode}
-        />
-      ))}
+      {headRest.length > 0
+        ? headIsGrid
+          ? renderGrid(headRest, "head-rest")
+          : headRest.map((product) => renderRow(product, false))
+        : null}
+      {restBlocks.map((block, blockIndex) =>
+        block.kind === "grid"
+          ? renderGrid(block.products, `grid-${blockIndex}`)
+          : block.products.map((product) => renderRow(product, false)),
+      )}
     </View>
   );
 }
@@ -1242,9 +1301,13 @@ function AllergensPage({
 export function MenuPdfDocument({
   data,
   assets = EMPTY_ASSETS,
+  compact = false,
 }: {
   data: MenuPdfData;
   assets?: MenuPdfAssets;
+  /** Menù compatto: affianca su due colonne le sequenze di voci senza
+   *  descrizione. Default FALSE — il layout storico resta lo status quo. */
+  compact?: boolean;
 }) {
   const theme = buildPdfTheme(data.brand.tokens);
   const fontFamily = resolvePdfFontFamily(theme.fontFamily);
@@ -1313,6 +1376,7 @@ export function MenuPdfDocument({
             theme={theme}
             productImages={productImages}
             photoMode={photoMode}
+            compact={compact}
           />
         ))}
 
