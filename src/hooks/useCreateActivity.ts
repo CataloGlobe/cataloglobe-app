@@ -22,6 +22,7 @@ import { generateSlug, sanitizeSlugForSave } from "@/utils/slugify";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { isValidCapIT, isValidProvinciaIT } from "@/utils/addressValidators";
 import { RESERVED_SLUGS } from "@/constants/reservedSlugs";
+import type { V2Activity } from "@/types/activity";
 import type { BusinessFormValues, SlugInlineState } from "@/types/Businesses";
 import type { ToastOptions } from "@/types/toast";
 import { useDebounce } from "./useDebounce";
@@ -110,8 +111,13 @@ export interface UseCreateActivityOptions {
     beforeCreate?: () => boolean;
     /** Feedback utente (toast) prodotto dal flusso di creazione. */
     onNotify?: (options: ToastOptions) => void;
-    /** Eseguito dentro il try dopo la creazione (es. reload lista). */
-    onSuccess?: () => void | Promise<void>;
+    /**
+     * Eseguito dentro il try dopo la creazione (es. reload lista). Riceve la
+     * riga appena inserita: è l'unico punto in cui l'entità è disponibile,
+     * perché `values` a quel punto è già stato resettato. I chiamanti che non
+     * ne hanno bisogno possono ignorare l'argomento.
+     */
+    onSuccess?: (activity: V2Activity) => void | Promise<void>;
     /** Eseguito nel finally del submit (es. chiusura drawer). */
     onSettled?: () => void;
 }
@@ -321,7 +327,7 @@ export function useCreateActivity({
                 setCoverFile(null);
                 setSlugTouched(false);
 
-                await onSuccess?.();
+                await onSuccess?.(newActivity);
             } catch (err) {
                 console.error("Errore aggiunta business:", err);
                 const message =

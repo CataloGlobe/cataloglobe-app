@@ -49,6 +49,9 @@ const WorkspaceSettingsPage = lazy(() => import("./pages/Workspace/WorkspaceSett
 const CreateBusiness = lazy(() => import("./pages/Onboarding/CreateBusiness"));
 const ActivateTrial = lazy(() => import("./pages/Onboarding/ActivateTrial"));
 
+// Setup guidato — lazy (percorso a schermo pieno, fuori da MainLayout)
+const SetupWizardPage = lazy(() => import("./pages/Setup/SetupWizardPage"));
+
 // Business pages — lazy (solo utenti autenticati con tenant selezionato)
 const Overview = lazy(() => import("@/pages/Business/OverviewPage"));
 const Businesses = lazy(() => import("./pages/Dashboard/Businesses/Businesses"));
@@ -186,6 +189,21 @@ export default function App() {
                 }
             />
             <Route path="/select-business" element={<Navigate to="/workspace" replace />} />
+
+            {/* Setup guidato — stessi provider dell'area business, senza MainLayout:
+                percorso a schermo pieno, niente sidebar né AppHeader. */}
+            <Route
+                path="/business/:businessId/setup"
+                element={
+                    <ProtectedRoute>
+                        <TenantProvider>
+                            <PermissionsProvider>
+                                <SetupWizardPage />
+                            </PermissionsProvider>
+                        </TenantProvider>
+                    </ProtectedRoute>
+                }
+            />
 
             {/* Business-level area */}
             <Route

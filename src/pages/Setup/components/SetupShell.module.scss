@@ -1,0 +1,295 @@
+/* ----------------------------------------------------
+   BACKDROP — percorso a schermo pieno, fondo scuro sfocato
+---------------------------------------------------- */
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(2px);
+}
+
+/* ----------------------------------------------------
+   DIALOG
+---------------------------------------------------- */
+.dialog {
+    position: relative;
+    display: grid;
+    grid-template-columns: 296px 1fr;
+
+    width: min(1000px, 100%);
+    height: min(660px, 100%);
+
+    overflow: hidden;
+    outline: none;
+
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+/* ----------------------------------------------------
+   SIDEBAR
+---------------------------------------------------- */
+.sidebar {
+    display: flex;
+    flex-direction: column;
+    gap: 32px;
+    padding: 28px 24px;
+    overflow-y: auto;
+
+    background: var(--hover-bg);
+    border-right: 1px solid var(--border);
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+}
+
+.stepper {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.step {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+}
+
+.stepMarker {
+    flex: 0 0 auto;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 12px;
+    font-weight: 600;
+
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text);
+    opacity: 0.6;
+}
+
+.stepText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    opacity: 0.6;
+}
+
+.step[data-state="current"] {
+    .stepMarker {
+        background: var(--brand-primary);
+        border-color: var(--brand-primary);
+        color: #fff;
+        opacity: 1;
+    }
+
+    .stepText {
+        opacity: 1;
+    }
+}
+
+.step[data-state="done"] {
+    .stepMarker {
+        background: var(--brand-primary-soft);
+        border-color: var(--brand-primary);
+        color: var(--brand-primary);
+        opacity: 1;
+    }
+
+    .stepText {
+        opacity: 0.85;
+    }
+}
+
+.sidebarFooter {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.closeLink {
+    padding: 0;
+    border: none;
+    background: none;
+    cursor: pointer;
+
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--brand-primary);
+
+    &:hover {
+        color: var(--brand-primary-hover);
+    }
+}
+
+/* ----------------------------------------------------
+   MAIN — contenuto scrollabile + footer fisso
+---------------------------------------------------- */
+.main {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+}
+
+.content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 28px 32px;
+
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.contentHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.footer {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 16px 32px;
+
+    background: var(--card-bg);
+    border-top: 1px solid var(--border);
+}
+
+.footerActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+/* ----------------------------------------------------
+   CONFERMA DI CHIUSURA
+---------------------------------------------------- */
+.confirmBackdrop {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+
+    background: rgba(0, 0, 0, 0.45);
+}
+
+.confirm {
+    width: min(420px, 100%);
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 24px;
+
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+}
+
+.confirmActions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+/* ----------------------------------------------------
+   RESPONSIVE — sotto 860px: schermo intero, stepper orizzontale
+---------------------------------------------------- */
+@media (max-width: 860px) {
+    .backdrop {
+        padding: 0;
+    }
+
+    .dialog {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+
+        width: 100%;
+        height: 100%;
+
+        border: none;
+        border-radius: 0;
+        box-shadow: none;
+    }
+
+    .sidebar {
+        gap: 16px;
+        padding: 16px 20px;
+        overflow-x: auto;
+
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .stepper {
+        flex-direction: row;
+        gap: 12px;
+    }
+
+    .step {
+        flex: 1 1 0;
+        min-width: 0;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* Compatto: nella riga resta la sola voce, il sottotitolo torna da 860px. */
+    .stepText > :last-child {
+        display: none;
+    }
+
+    .sidebarFooter {
+        display: none;
+    }
+
+    .content {
+        padding: 20px;
+    }
+
+    .footer {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        padding: 16px 20px;
+    }
+
+    .footerActions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+}
