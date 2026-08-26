@@ -263,7 +263,7 @@ export default function App() {
             {/* Status page pubblica — DEVE stare prima del catch-all /:slug */}
             <Route path="/status" element={<StatusPage />} />
 
-            {/* Admin (cross-tenant) — gate via VITE_ADMIN_EMAIL */}
+            {/* Admin (cross-tenant) — gate via platform_admins / is_platform_admin() */}
             <Route
                 path="/admin/status-incidents"
                 element={

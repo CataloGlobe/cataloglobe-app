@@ -6,9 +6,10 @@
  * tenant_id qui — i dati sono globali della piattaforma CataloGlobe.
  *
  * Le scritture di incident passano per l'endpoint Vercel
- * `/api/admin/status-incidents` (vedi sezione `admin/` qui sotto), che valida
- * JWT email vs `ADMIN_EMAIL` server-side. Il frontend gate è in
- * `AdminRoute.tsx` e usa `VITE_ADMIN_EMAIL`.
+ * `/api/admin/status-incidents` (vedi sezione `admin/` qui sotto): valida il
+ * JWT server-side e verifica l'appartenenza a `platform_admins`. Lì sta
+ * l'autorizzazione reale. Il gate frontend in `AdminRoute.tsx` è cosmetico e
+ * usa la RPC `is_platform_admin()`.
  */
 
 import { supabase } from "./client";
