@@ -1,93 +1,10 @@
-.page {
-    min-height: 100vh;
-    background: var(--bg);
-    color: var(--text);
-    display: flex;
-    flex-direction: column;
-}
-
-.header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 1rem 2rem;
-    border-bottom: 1px solid var(--border);
-    background: var(--bg);
-
-    @media (max-width: 640px) {
-        padding: 0.875rem 1.25rem;
-    }
-}
-
-.headerLeft {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    min-width: 0;
-}
-
-.headerRight {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    flex-shrink: 0;
-}
-
-.logoLink {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 6px 0 6px 6px;
-    border-radius: 8px;
-    cursor: pointer;
-    text-decoration: none;
-    color: inherit;
-    transition: background 0.1s;
-
-    &:hover {
-        background: #f8fafc;
-    }
-
-    &:focus-visible {
-        outline: 2px solid #a5b4fc;
-        outline-offset: 2px;
-    }
-}
-
-.logoImage {
-    height: 24px;
-    width: auto;
-    display: block;
-    flex-shrink: 0;
-}
-
-.separator {
-    font-size: 18px;
-    color: #e5e7eb;
-    font-weight: 300;
-    user-select: none;
-    margin: 0 -2px;
-}
-
-.contextLabel {
-    font-size: 13px;
-    font-weight: 600;
-    color: #0f172a;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
+/* La pagina vive dentro `AdminLayout`: sfondo, altezza e padding esterno sono
+   del layout. Qui resta solo la misura di lettura della colonna. */
 .main {
     flex: 1;
     width: 100%;
     max-width: 1080px;
     margin: 0 auto;
-    padding: 2rem;
-
-    @media (max-width: 640px) {
-        padding: 1.25rem;
-    }
 }
 
 .toolbar {
@@ -223,6 +140,14 @@
         opacity: 0.5;
         cursor: not-allowed;
     }
+}
+
+/* `.btn` applicato a un <a>: annulla la sottolineatura e allinea il testo
+   come nel <button>. Sostituisce lo stile inline che stava nel JSX. */
+.linkBtn {
+    display: inline-flex;
+    align-items: center;
+    text-decoration: none;
 }
 
 .btn_primary {
