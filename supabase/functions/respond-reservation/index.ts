@@ -2,7 +2,12 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4";
-import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/company-config.ts";
+import { COMPANY } from "../_shared/company-config.ts";
+import {
+    buildReservationConfirmedEmail,
+    buildReservationOutcomeEmail,
+    type ReservationEmailContent
+} from "../_shared/reservationEmails.ts";
 
 // =============================================================================
 // respond-reservation
@@ -81,35 +86,6 @@ function jsonResponse(req: Request, body: Record<string, unknown>, status: numbe
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-// --- Validation / formatting helpers (mirrored from submit-reservation) ------
-
-function escapeHtml(s: string): string {
-    return s
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-}
-
-function formatDateIt(isoDate: string): string {
-    const [y, m, d] = isoDate.split("-").map(n => parseInt(n, 10));
-    const dt = new Date(y, (m ?? 1) - 1, d ?? 1);
-    return new Intl.DateTimeFormat("it-IT", {
-        day: "numeric",
-        month: "long",
-        year: "numeric"
-    }).format(dt);
-}
-
-function formatTimeIt(time: string): string {
-    return time.slice(0, 5);
-}
-
-function reservationOutcomeReason(activityName: string): string {
-    return `Hai ricevuto questa email perché hai richiesto una prenotazione presso ${activityName} tramite CataloGlobe.`;
-}
-
 function extractBearerJwt(req: Request): string | null {
     const h = req.headers.get("Authorization") ?? req.headers.get("authorization");
     if (!h || !h.toLowerCase().startsWith("bearer ")) return null;
@@ -138,72 +114,24 @@ const ACTION_EXPECTS: Record<Action, ReservationStatus> = {
 
 // --- Email builder ----------------------------------------------------------
 
-interface OutcomeEmailArgs {
+// Templates live in `_shared/reservationEmails.ts` (shared with
+// submit-reservation). This wrapper only maps the admin action onto the right
+// builder: `confirm` reuses the confirmation template with the "manual"
+// variant (the diner DID send a request that sat in `pending`), while
+// `decline` / `cancel` share the outcome template.
+function buildActionEmail(args: {
+    action: Action;
     activityName: string;
     customerName: string;
     reservationDate: string;
     reservationTime: string;
     partySize: number;
-    action: Action;
-}
-
-function buildOutcomeEmail(args: OutcomeEmailArgs): { subject: string; html: string; text: string } {
-    const { activityName, customerName, reservationDate, reservationTime, partySize, action } = args;
-
-    const eActivityName = escapeHtml(activityName);
-    const eCustomerName = escapeHtml(customerName);
-    const dateIt = formatDateIt(reservationDate);
-    const timeIt = formatTimeIt(reservationTime);
-    const eDate = escapeHtml(dateIt);
-    const eTime = escapeHtml(timeIt);
-
-    const titles: Record<Action, string> = {
-        confirm: "Prenotazione confermata",
-        decline: "Prenotazione non confermata",
-        cancel:  "Prenotazione annullata"
-    };
-    const bodies: Record<Action, { html: string; text: string }> = {
-        confirm: {
-            html: `Buone notizie! La tua richiesta di prenotazione presso <strong>${eActivityName}</strong> è stata <strong>confermata</strong>. Ti aspettiamo.`,
-            text: `Buone notizie! La tua richiesta di prenotazione presso ${activityName} è stata confermata. Ti aspettiamo.`
-        },
-        decline: {
-            html: `Ci dispiace, la tua richiesta di prenotazione presso <strong>${eActivityName}</strong> <strong>non è stata confermata</strong>. Puoi provare con una data o un orario diverso.`,
-            text: `Ci dispiace, la tua richiesta di prenotazione presso ${activityName} non è stata confermata. Puoi provare con una data o un orario diverso.`
-        },
-        cancel: {
-            html: `La tua prenotazione presso <strong>${eActivityName}</strong> è stata <strong>annullata</strong>. Se ritieni che ci sia stato un errore, contatta direttamente la sede.`,
-            text: `La tua prenotazione presso ${activityName} è stata annullata. Se ritieni che ci sia stato un errore, contatta direttamente la sede.`
-        }
-    };
-
-    const subject = `${titles[action]} — ${activityName}`;
-    const reason = reservationOutcomeReason(activityName);
-
-    const html = `
-<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
-    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-        <h1 style="margin:0 0 16px;font-size:22px;color:#111827">${titles[action]}</h1>
-        <p style="margin:0 0 8px;font-size:15px;color:#374151">Ciao ${eCustomerName},</p>
-        <p style="margin:0 0 16px;font-size:15px;color:#374151">${bodies[action].html}</p>
-        <div style="margin:0 0 24px;padding:16px;background:#f3f4f6;border-radius:8px">
-            <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Dettagli</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>Data:</strong> ${eDate}</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>Ora:</strong> ${eTime}</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>Persone:</strong> ${partySize}</p>
-        </div>
-        ${getEmailFooterHtml(reason)}
-    </div>
-</div>`;
-    const text =
-        `Ciao ${customerName},\n\n` +
-        `${bodies[action].text}\n\n` +
-        `Dettagli\n` +
-        `Data: ${dateIt}\n` +
-        `Ora: ${timeIt}\n` +
-        `Persone: ${partySize}\n\n` +
-        `${getEmailFooterText(reason)}`;
-    return { subject, html, text };
+}): ReservationEmailContent {
+    const { action, ...rest } = args;
+    if (action === "confirm") {
+        return buildReservationConfirmedEmail({ ...rest, variant: "manual" });
+    }
+    return buildReservationOutcomeEmail({ ...rest, action });
 }
 
 // --- Handler ----------------------------------------------------------------
@@ -343,7 +271,7 @@ serve(async (req: Request) => {
 
         // ── Outcome email (best-effort) ─────────────────────────────
         try {
-            const email = buildOutcomeEmail({
+            const email = buildActionEmail({
                 activityName,
                 customerName: updated.customer_name as string,
                 reservationDate: updated.reservation_date as string,
