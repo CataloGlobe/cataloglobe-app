@@ -16,6 +16,16 @@ export interface BusinessFormValues {
     coverPreview: string | null;
 }
 
+/**
+ * Stato inline del campo slug nei form sede (create + edit).
+ * - warning: solo edit, slug diverso dall'originale
+ * - conflict: slug già usato, con suggerimenti alternativi verificati
+ */
+export type SlugInlineState =
+    | { type: "idle" }
+    | { type: "warning" }
+    | { type: "conflict"; suggestions: string[] };
+
 export interface BusinessCardProps {
     business: BusinessWithCapabilities;
     onEdit: (business: BusinessWithCapabilities) => void;
