@@ -10,6 +10,7 @@ import { ExternalLink, Link, FileText, Edit, Trash2, MapPin, AlertTriangle } fro
 import { Button } from "@/components/ui/Button/Button";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { formatOverrideSummary } from "@/services/supabase/activeCatalog";
+import { buildPublicUrl } from "@/utils/publicUrl";
 import { useNavigate, useParams } from "react-router-dom";
 
 export const BusinessList: React.FC<BusinessListProps> = ({
@@ -135,7 +136,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 width: "56px",
                 align: "right",
                 cell: (_, business) => {
-                    const publicUrl = `${window.location.origin}/${business.slug}`;
+                    const publicUrl = buildPublicUrl(business.slug);
 
                     return (
                         <TableRowActions

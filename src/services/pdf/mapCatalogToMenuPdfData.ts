@@ -6,6 +6,7 @@
 //   e `isDisabled` emesso sempre false;
 // - nessun prezzo barrato: `originalPriceLabel` sempre null.
 
+import { formatCurrency } from "@/utils/formatCurrency";
 import { formatPriceSummary } from "@/utils/formatPriceSummary";
 import type { PriceSummary } from "@/utils/priceSummary";
 import { euNumberForCode } from "./allergenEuNumbers";
@@ -86,7 +87,7 @@ function formatAddonValue(
         typeof value.absolute_price === "number" &&
         value.absolute_price !== 0
     ) {
-        return `${value.name} € ${value.absolute_price.toFixed(2)}`;
+        return `${value.name} ${formatCurrency(value.absolute_price)}`;
     }
 
     if (
@@ -95,7 +96,7 @@ function formatAddonValue(
         value.price_modifier !== 0
     ) {
         const sign = value.price_modifier > 0 ? "+" : "-";
-        return `${value.name} ${sign}€ ${Math.abs(value.price_modifier).toFixed(2)}`;
+        return `${value.name} ${sign}${formatCurrency(Math.abs(value.price_modifier))}`;
     }
 
     return value.name;

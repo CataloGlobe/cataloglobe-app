@@ -2,13 +2,14 @@
 // introspezione degli elementi React: i componenti icona del sito (fill-only
 // `<path>` + viewBox, audit 4a) vengono chiamati come funzioni e i loro path
 // rimappati sui primitivi <Svg>/<Path> di react-pdf. Nessuna duplicazione di
-// path-data: riuso read-only di ALLERGEN_ICON_MAP e
-// CUSTOM_CHARACTERISTIC_ICON_MAP. Niente react-dom/server né DOMParser: deve
-// girare anche nel control render Node.
+// path-data: riuso read-only di ALLERGEN_ICON_MAP. Niente react-dom/server né
+// DOMParser: deve girare anche nel control render Node.
+//
+// Solo allergeni: le caratteristiche non compaiono nel PDF (le loro icone
+// restano al sito, via CharacteristicIcon).
 import { isValidElement, type FC, type ReactNode } from "react";
 import { Path, Svg } from "@react-pdf/renderer";
 import { ALLERGEN_ICON_MAP } from "@/components/icons/allergens";
-import { CUSTOM_CHARACTERISTIC_ICON_MAP } from "@/components/icons/characteristics";
 
 export type PdfIconGeometry = {
     viewBox: string;
@@ -75,20 +76,6 @@ export function extractIconGeometry(Icon: IconComponent): PdfIconGeometry | null
 
 export function allergenIconGeometry(code: string): PdfIconGeometry | null {
     const Icon = ALLERGEN_ICON_MAP[code];
-    return Icon ? extractIconGeometry(Icon) : null;
-}
-
-/**
- * `product_characteristics.icon` usa la convenzione `<prefix>:<name>`.
- * Solo `custom:` ha un'icona vettoriale nel set del sito; i prefissi legacy
- * (`lucide:`, `badge:`) non risolvono → il chiamante tiene la sola label.
- */
-export function characteristicIconGeometry(icon: string): PdfIconGeometry | null {
-    const colonIndex = icon.indexOf(":");
-    if (colonIndex === -1) return null;
-    const prefix = icon.slice(0, colonIndex);
-    if (prefix !== "custom") return null;
-    const Icon = CUSTOM_CHARACTERISTIC_ICON_MAP[icon.slice(colonIndex + 1)];
     return Icon ? extractIconGeometry(Icon) : null;
 }
 

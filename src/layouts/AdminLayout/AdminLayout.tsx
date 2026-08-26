@@ -4,13 +4,24 @@ import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
 import { PageHeaderProvider } from "@/context/PageHeaderProvider";
-import { AppHeaderWorkspace } from "@/components/layout/AppHeader/AppHeaderWorkspace";
+import { AppHeaderAdmin } from "@/components/layout/AppHeader/AppHeaderAdmin";
 import { PageHeaderSlot } from "@/components/layout/PageHeaderSlot";
-import WorkspaceSidebar from "./WorkspaceSidebar";
+import AdminSidebar from "./AdminSidebar";
 import styles from "../shared/layoutShell.module.scss";
 
-export default function WorkspaceLayout() {
-    usePageTitle('Workspace');
+/**
+ * Layout dell'area admin di piattaforma (`/admin/*`).
+ *
+ * CLAUDE.md vieta di creare nuovi layout: questa è un'eccezione motivata.
+ * `MainLayout` e `WorkspaceLayout` presuppongono entrambi un contesto tenant
+ * (tenant pill, notifiche account, `PermissionsProvider`), mentre `/admin` è
+ * un'area di piattaforma con un modello di autorizzazione proprio
+ * (`platform_admins` / `is_platform_admin()`), cross-tenant e senza tenant
+ * selezionato. Il guscio (shell SCSS, sidebar) resta condiviso: la divergenza
+ * è solo header e navigazione.
+ */
+export default function AdminLayout() {
+    usePageTitle("Area admin");
     const contentRef = useRef<HTMLDivElement>(null);
     const { pathname } = useLocation();
 
@@ -42,12 +53,12 @@ export default function WorkspaceLayout() {
             <BreadcrumbProvider>
                 <PageHeaderProvider>
                     <header className={styles.globalHeader}>
-                        <AppHeaderWorkspace
+                        <AppHeaderAdmin
                             onOpenMobileSidebar={isMobile ? () => setMobileSidebarOpen(true) : undefined}
                         />
                     </header>
                     <div className={styles.body}>
-                        <WorkspaceSidebar
+                        <AdminSidebar
                             isMobile={isMobile}
                             mobileOpen={mobileSidebarOpen}
                             collapsed={!isMobile && sidebarCollapsed}

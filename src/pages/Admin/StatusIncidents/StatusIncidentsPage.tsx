@@ -1,8 +1,7 @@
-import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { Logo } from "@/components/ui/Logo/Logo";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { usePageHeader } from "@/context/usePageHeader";
 import {
     addIncidentUpdate,
     deleteIncident,
@@ -129,7 +128,7 @@ function AddUpdateBlock({
 }
 
 export default function StatusIncidentsPage() {
-    usePageTitle("Status incidents");
+    usePageTitle("Incidenti");
 
     const [incidents, setIncidents] = useState<StatusIncident[]>([]);
     const [loading, setLoading] = useState(true);
@@ -183,11 +182,40 @@ export default function StatusIncidentsPage() {
         }
     }
 
-    function openCreate() {
+    const openCreate = useCallback(() => {
         setDrawerMode("create");
         setDrawerIncident(null);
         setDrawerOpen(true);
-    }
+    }, []);
+
+    const headerActions = useMemo(
+        () => (
+            <>
+                <a
+                    href="/status"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`${styles.btn} ${styles.linkBtn}`}
+                >
+                    Vedi /status
+                </a>
+                <button
+                    type="button"
+                    className={`${styles.btn} ${styles.btn_primary}`}
+                    onClick={openCreate}
+                >
+                    + Nuovo incidente
+                </button>
+            </>
+        ),
+        [openCreate]
+    );
+
+    usePageHeader({
+        title: "Incidenti",
+        subtitle: "Pubblica un incidente per comunicare disservizi ai clienti.",
+        actions: headerActions
+    });
 
     function openEdit(inc: StatusIncident) {
         setDrawerMode("edit");
@@ -196,53 +224,15 @@ export default function StatusIncidentsPage() {
     }
 
     return (
-        <div className={styles.page}>
-            <header className={styles.header}>
-                <div className={styles.headerLeft}>
-                    <Link
-                        to="/"
-                        className={styles.logoLink}
-                        title="CataloGlobe — Home"
-                        aria-label="CataloGlobe — Home"
-                    >
-                        <Logo variant="icon" color="auto" size={24} alt="" className={styles.logoImage} />
-                    </Link>
-                    <span className={styles.separator} aria-hidden="true">
-                        /
-                    </span>
-                    <span className={styles.contextLabel}>Status incidents (admin)</span>
-                </div>
-                <div className={styles.headerRight}>
-                    <Link to="/dashboard" className={styles.btn} style={{ textDecoration: "none" }}>
-                        ← Torna alla dashboard
-                    </Link>
-                    <a
-                        href="/status"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className={styles.btn}
-                        style={{ textDecoration: "none" }}
-                    >
-                        Vedi /status
-                    </a>
-                </div>
-            </header>
-
+        <>
             <main className={styles.main}>
                 <div className={styles.toolbar}>
                     <div>
-                        <div className={styles.heading}>Incident</div>
+                        <div className={styles.heading}>Incidenti</div>
                         <div className={styles.subheading}>
-                            Pubblica un incident per comunicare disservizi ai clienti.
+                            Pubblica un incidente per comunicare disservizi ai clienti.
                         </div>
                     </div>
-                    <button
-                        type="button"
-                        className={`${styles.btn} ${styles.btn_primary}`}
-                        onClick={openCreate}
-                    >
-                        + Nuovo incident
-                    </button>
                 </div>
 
                 {loadError && (
@@ -252,7 +242,7 @@ export default function StatusIncidentsPage() {
                 )}
 
                 {!loading && incidents.length === 0 && !loadError && (
-                    <div className={styles.empty}>Nessun incident pubblicato.</div>
+                    <div className={styles.empty}>Nessun incidente pubblicato.</div>
                 )}
 
                 <div className={styles.list}>
@@ -341,7 +331,7 @@ export default function StatusIncidentsPage() {
                 onClose={() => setPendingResolveId(null)}
                 onConfirm={confirmResolve}
                 title="Marcare come risolto"
-                message="Confermi di marcare questo incident come risolto?"
+                message="Confermi di marcare questo incidente come risolto?"
                 confirmLabel="Risolvi"
                 confirmVariant="primary"
             />
@@ -350,11 +340,11 @@ export default function StatusIncidentsPage() {
                 isOpen={pendingDeleteId !== null}
                 onClose={() => setPendingDeleteId(null)}
                 onConfirm={confirmDelete}
-                title="Elimina incident"
-                message="Eliminare definitivamente questo incident? L'azione non può essere annullata."
+                title="Elimina incidente"
+                message="Eliminare definitivamente questo incidente? L'azione non può essere annullata."
                 confirmLabel="Elimina"
                 confirmVariant="danger"
             />
-        </div>
+        </>
     );
 }

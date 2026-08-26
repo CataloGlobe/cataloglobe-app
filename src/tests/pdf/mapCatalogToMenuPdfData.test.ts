@@ -76,12 +76,12 @@ function context(): MapCatalogContext {
 }
 
 describe("mapCatalogToMenuPdfData — prezzi", () => {
-    it("prezzo singolo → '€ X.XX'", () => {
+    it("prezzo singolo → '€ X,XX'", () => {
         const data = mapCatalogToMenuPdfData(
             catalog([category("c1", [product("p1", { price: 10 })])]),
             context()
         );
-        expect(data.categories[0].products[0].priceLabel).toBe("€ 10.00");
+        expect(data.categories[0].products[0].priceLabel).toBe("€ 10,00");
     });
 
     it("multi-formato → SOLO elenco formats, priceLabel soppresso (niente 'da € X' ridondante)", () => {
@@ -114,8 +114,8 @@ describe("mapCatalogToMenuPdfData — prezzi", () => {
         // priceLabel soppresso quando c'è l'elenco formati (no ridondanza header + lista).
         expect(p.priceLabel).toBeNull();
         expect(p.formats).toEqual([
-            { name: "Piccola", priceLabel: "€ 8.00" },
-            { name: "Grande", priceLabel: "€ 12.00" }
+            { name: "Piccola", priceLabel: "€ 8,00" },
+            { name: "Grande", priceLabel: "€ 12,00" }
         ]);
     });
 

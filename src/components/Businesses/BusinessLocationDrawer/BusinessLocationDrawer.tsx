@@ -20,7 +20,6 @@ type Props = {
     values: BusinessFormValues | null;
     errors?: Partial<Record<keyof BusinessFormValues, string>>;
     loading: boolean;
-    previewBaseUrl: string;
 
     onFieldChange: <K extends keyof BusinessFormValues>(
         field: K,
@@ -42,7 +41,6 @@ export const BusinessLocationDrawer: React.FC<Props> = React.memo(
         values,
         errors,
         loading,
-        previewBaseUrl,
         onFieldChange,
         onCoverChange,
         slugState,
@@ -106,7 +104,6 @@ export const BusinessLocationDrawer: React.FC<Props> = React.memo(
                         onFieldChange={onFieldChange}
                         onCoverChange={onCoverChange}
                         onSubmit={onSubmit}
-                        previewBaseUrl={previewBaseUrl}
                         slugState={slugState}
                         onPickSlugSuggestion={onPickSlugSuggestion}
                         namePlaceholder={

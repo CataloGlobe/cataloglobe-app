@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, User } from "lucide-react";
+import { LogOut, Shield, User } from "lucide-react";
 import { useAuth } from "@/context/useAuth";
 import { Menu } from "@/components/ui/Menu";
 import { Avatar } from "@/components/ui/Avatar";
 import { getProfile } from "@/services/supabase/profile";
+import { isPlatformAdmin } from "@/services/supabase/platformAdmin";
 import type { Profile } from "@/types/database";
 import { supabase } from "@/services/supabase/client";
 import styles from "./AppHeader.module.scss";
@@ -19,6 +20,7 @@ export function HeaderUserMenu() {
     const { user, signOut } = useAuth();
     const navigate = useNavigate();
     const [profile, setProfile] = useState<Profile | null>(null);
+    const [showAdminEntry, setShowAdminEntry] = useState(false);
 
     const fetchProfile = useCallback(() => {
         if (!user?.id) return;
@@ -35,6 +37,25 @@ export function HeaderUserMenu() {
         window.addEventListener("profile:updated", fetchProfile);
         return () => window.removeEventListener("profile:updated", fetchProfile);
     }, [fetchProfile]);
+
+    /* Voce "Area admin": una sola chiamata per mount del menu. Il componente
+       resta montato attraverso i cambi di route (vive nell'header del layout),
+       quindi la RPC non riparte a ogni navigazione. `user?.id` in deps copre il
+       cambio di utente, non la navigazione. `isPlatformAdmin` è fail-closed:
+       errore o chiamata in volo → voce assente, mai un menu che aspetta. */
+    useEffect(() => {
+        if (!user?.id) {
+            setShowAdminEntry(false);
+            return;
+        }
+        let cancelled = false;
+        void isPlatformAdmin().then(result => {
+            if (!cancelled) setShowAdminEntry(result);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [user?.id]);
 
     const avatarUrl = useMemo(() => {
         if (!profile?.avatar_url) return undefined;
@@ -73,6 +94,11 @@ export function HeaderUserMenu() {
             <Menu.Item icon={User} onSelect={() => navigate("/workspace/settings")}>
                 Il mio account
             </Menu.Item>
+            {showAdminEntry && (
+                <Menu.Item icon={Shield} onSelect={() => navigate("/admin")}>
+                    Area admin
+                </Menu.Item>
+            )}
             <Menu.Separator />
             <Menu.Item icon={LogOut} onSelect={() => void signOut()}>
                 Esci

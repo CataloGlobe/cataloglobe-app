@@ -7,6 +7,7 @@ import styles from "./BusinessCreateCard.module.scss";
 import { FileInput } from "@/components/ui/Input/FileInput";
 import { InfoTooltip } from "@/components/ui/Tooltip/InfoTooltip";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete/AddressAutocomplete";
+import { buildPublicUrl } from "@/utils/publicUrl";
 
 interface BusinessCreateCardProps {
     values: BusinessFormValues;
@@ -17,7 +18,6 @@ interface BusinessCreateCardProps {
     ) => void;
     onCoverChange: (file: File | null) => void;
     onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
-    previewBaseUrl: string;
     formId?: string;
     slugState: SlugInlineState;
     onPickSlugSuggestion: (slug: string) => void;
@@ -36,7 +36,6 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
     onFieldChange,
     onCoverChange,
     onSubmit,
-    previewBaseUrl,
     formId,
     slugState,
     onPickSlugSuggestion,
@@ -44,7 +43,11 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
     mode = "create"
 }) => {
     const isCreate = mode === "create";
-    const finalUrl = `${previewBaseUrl}/${values.slug || "<slug>"}`;
+    // Il dominio pubblico può differire da quello del backoffice: comporre
+    // l'anteprima da `window.location.origin` mostrava un indirizzo che il
+    // cliente non userà mai (in dev, localhost). Lo slug vuoto resta un
+    // placeholder, così l'anteprima è leggibile prima che l'utente scriva.
+    const finalUrl = buildPublicUrl(values.slug || "<slug>");
 
     return (
         <section className={styles.createCard} aria-label="Aggiungi nuova sede">

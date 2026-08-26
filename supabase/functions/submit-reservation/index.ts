@@ -2,8 +2,15 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4";
-import { COMPANY, getEmailFooterHtml, getEmailFooterText } from "../_shared/company-config.ts";
+import { COMPANY } from "../_shared/company-config.ts";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { formatDateIt, formatTimeIt } from "../_shared/emailFormat.ts";
+import { buildReservationsDashboardUrl } from "../_shared/publicSiteUrl.ts";
+import {
+    buildReservationConfirmedEmail,
+    buildReservationReceiptEmail,
+    buildReservationVenueAlertEmail
+} from "../_shared/reservationEmails.ts";
 
 // ── Rate limit policy ───────────────────────────────────────────────────────
 // Public endpoint (verify_jwt=false) → abuse vector for spam emails / DB
@@ -128,46 +135,9 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/;
 
-// Escape user-controlled text before injecting it into the HTML email body.
-// Without this an attacker could submit `<a href="phish">...` in customer_name
-// or notes and phish the venue admin who receives the alert email.
-function escapeHtml(s: string): string {
-    return s
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;")
-        .replace(/'/g, "&#39;");
-}
-
 function todayUtcIsoDate(): string {
     const d = new Date();
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-}
-
-// "YYYY-MM-DD" → "15 giugno 2026" (Italian long date).
-function formatDateIt(isoDate: string): string {
-    // Parse as local-zone date (no UTC shift) so "2026-06-15" stays June 15.
-    const [y, m, d] = isoDate.split("-").map(n => parseInt(n, 10));
-    const dt = new Date(y, (m ?? 1) - 1, d ?? 1);
-    return new Intl.DateTimeFormat("it-IT", {
-        day: "numeric",
-        month: "long",
-        year: "numeric"
-    }).format(dt);
-}
-
-// "HH:MM:SS" or "HH:MM" → "HH:MM".
-function formatTimeIt(time: string): string {
-    return time.slice(0, 5);
-}
-
-function reservationReceiptReason(activityName: string): string {
-    return `Hai ricevuto questa email perché hai richiesto una prenotazione presso ${activityName} tramite CataloGlobe.`;
-}
-
-function reservationVenueAlertReason(activityName: string): string {
-    return `Hai ricevuto questa email perché gestisci ${activityName} su CataloGlobe.`;
 }
 
 // --- Recipient resolution (isolated block — future priority 1 plugs in here) -
@@ -232,172 +202,6 @@ async function resolveAlertRecipients(
     if (!ownerEmail) return null;
 
     return { emails: [ownerEmail], source: "owner" };
-}
-
-// --- Email bodies ------------------------------------------------------------
-
-function buildCustomerReceiptEmail(args: {
-    activityName: string;
-    date: string;
-    time: string;
-    partySize: number;
-    customerName: string;
-}): { subject: string; html: string; text: string } {
-    const { activityName, date, time, partySize, customerName } = args;
-    const eActivityName = escapeHtml(activityName);
-    const eCustomerName = escapeHtml(customerName);
-    const dateIt = formatDateIt(date);
-    const timeIt = formatTimeIt(time);
-    const eDate = escapeHtml(dateIt);
-    const eTime = escapeHtml(timeIt);
-    const reason = reservationReceiptReason(activityName);
-    const subject = `Abbiamo ricevuto la tua richiesta di prenotazione — ${activityName}`;
-    const html = `
-<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
-    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-        <h1 style="margin:0 0 16px;font-size:22px;color:#111827">Richiesta di prenotazione ricevuta</h1>
-        <p style="margin:0 0 8px;font-size:15px;color:#374151">Ciao ${eCustomerName},</p>
-        <p style="margin:0 0 16px;font-size:15px;color:#374151">
-            abbiamo ricevuto la tua richiesta di prenotazione presso <strong>${eActivityName}</strong>.
-            Riceverai una conferma via email non appena verrà approvata dal locale.
-        </p>
-        <div style="margin:0 0 24px;padding:16px;background:#f3f4f6;border-radius:8px">
-            <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Dettagli</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>Data:</strong> ${eDate}</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>Ora:</strong> ${eTime}</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>Persone:</strong> ${partySize}</p>
-        </div>
-        <p style="margin:0;font-size:13px;color:#6b7280">
-            Questo non è ancora una conferma. La prenotazione è in attesa di approvazione.
-        </p>
-        ${getEmailFooterHtml(reason)}
-    </div>
-</div>`;
-    const text =
-        `Ciao ${customerName},\n\n` +
-        `abbiamo ricevuto la tua richiesta di prenotazione presso ${activityName}.\n` +
-        `Riceverai una conferma via email non appena verrà approvata dal locale.\n\n` +
-        `Dettagli\n` +
-        `Data: ${dateIt}\n` +
-        `Ora: ${timeIt}\n` +
-        `Persone: ${partySize}\n\n` +
-        `Questo non è ancora una conferma. La prenotazione è in attesa di approvazione.\n\n` +
-        `${getEmailFooterText(reason)}`;
-    return { subject, html, text };
-}
-
-function buildVenueAlertEmail(args: {
-    activityName: string;
-    date: string;
-    time: string;
-    partySize: number;
-    customerName: string;
-    customerEmail: string;
-    customerPhone: string;
-    notes: string | null;
-}): { subject: string; html: string; text: string } {
-    const { activityName, date, time, partySize, customerName, customerEmail, customerPhone, notes } = args;
-    const eActivityName = escapeHtml(activityName);
-    const eCustomerName = escapeHtml(customerName);
-    const eCustomerEmail = escapeHtml(customerEmail);
-    const eCustomerPhone = escapeHtml(customerPhone);
-    const dateIt = formatDateIt(date);
-    const timeIt = formatTimeIt(time);
-    const eDate = escapeHtml(dateIt);
-    const eTime = escapeHtml(timeIt);
-    const eNotes = notes ? escapeHtml(notes) : null;
-    const reason = reservationVenueAlertReason(activityName);
-    const subject = `Nuova richiesta di prenotazione — ${activityName}`;
-    const notesBlockHtml = eNotes
-        ? `<p style="margin:8px 0 0;font-size:15px;color:#111827"><strong>Note:</strong> ${eNotes}</p>`
-        : "";
-    const notesBlockText = notes ? `Note: ${notes}\n` : "";
-    const html = `
-<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
-    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-        <h1 style="margin:0 0 16px;font-size:22px;color:#111827">Nuova richiesta di prenotazione</h1>
-        <p style="margin:0 0 16px;font-size:15px;color:#374151">
-            Hai ricevuto una nuova richiesta di prenotazione su <strong>${eActivityName}</strong>.
-            Accedi alla dashboard per confermarla o rifiutarla.
-        </p>
-        <div style="margin:0 0 24px;padding:16px;background:#f3f4f6;border-radius:8px">
-            <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Cliente</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>${eCustomerName}</strong></p>
-            <p style="margin:0;font-size:14px;color:#374151">${eCustomerEmail}</p>
-            <p style="margin:0;font-size:14px;color:#374151">${eCustomerPhone}</p>
-        </div>
-        <div style="margin:0 0 24px;padding:16px;background:#f3f4f6;border-radius:8px">
-            <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Prenotazione</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>Data:</strong> ${eDate}</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>Ora:</strong> ${eTime}</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>Persone:</strong> ${partySize}</p>
-            ${notesBlockHtml}
-        </div>
-        ${getEmailFooterHtml(reason)}
-    </div>
-</div>`;
-    const text =
-        `Nuova richiesta di prenotazione su ${activityName}.\n` +
-        `Accedi alla dashboard per confermarla o rifiutarla.\n\n` +
-        `Cliente\n` +
-        `${customerName}\n` +
-        `${customerEmail}\n` +
-        `${customerPhone}\n\n` +
-        `Prenotazione\n` +
-        `Data: ${dateIt}\n` +
-        `Ora: ${timeIt}\n` +
-        `Persone: ${partySize}\n` +
-        notesBlockText +
-        `\n${getEmailFooterText(reason)}`;
-    return { subject, html, text };
-}
-
-// Auto-confirmation customer email. Mirrors the "confirm" branch of
-// respond-reservation's `buildOutcomeEmail` (we don't import to avoid
-// touching that file). Both functions speak Italian and use the same
-// CataloGlobe footer.
-function buildCustomerAutoConfirmedEmail(args: {
-    activityName: string;
-    date: string;
-    time: string;
-    partySize: number;
-    customerName: string;
-}): { subject: string; html: string; text: string } {
-    const { activityName, date, time, partySize, customerName } = args;
-    const eActivityName = escapeHtml(activityName);
-    const eCustomerName = escapeHtml(customerName);
-    const dateIt = formatDateIt(date);
-    const timeIt = formatTimeIt(time);
-    const eDate = escapeHtml(dateIt);
-    const eTime = escapeHtml(timeIt);
-    const reason = reservationReceiptReason(activityName);
-    const subject = `Prenotazione confermata — ${activityName}`;
-    const html = `
-<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
-    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-        <h1 style="margin:0 0 16px;font-size:22px;color:#111827">Prenotazione confermata</h1>
-        <p style="margin:0 0 8px;font-size:15px;color:#374151">Ciao ${eCustomerName},</p>
-        <p style="margin:0 0 16px;font-size:15px;color:#374151">
-            Buone notizie! La tua prenotazione presso <strong>${eActivityName}</strong> è stata <strong>confermata</strong>. Ti aspettiamo.
-        </p>
-        <div style="margin:0 0 24px;padding:16px;background:#f3f4f6;border-radius:8px">
-            <p style="margin:0 0 4px;font-size:13px;color:#6b7280">Dettagli</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>Data:</strong> ${eDate}</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>Ora:</strong> ${eTime}</p>
-            <p style="margin:0;font-size:15px;color:#111827"><strong>Persone:</strong> ${partySize}</p>
-        </div>
-        ${getEmailFooterHtml(reason)}
-    </div>
-</div>`;
-    const text =
-        `Ciao ${customerName},\n\n` +
-        `Buone notizie! La tua prenotazione presso ${activityName} è stata confermata. Ti aspettiamo.\n\n` +
-        `Dettagli\n` +
-        `Data: ${dateIt}\n` +
-        `Ora: ${timeIt}\n` +
-        `Persone: ${partySize}\n\n` +
-        `${getEmailFooterText(reason)}`;
-    return { subject, html, text };
 }
 
 // --- Handler -----------------------------------------------------------------
@@ -620,17 +424,19 @@ serve(async (req: Request) => {
         // standard "Richiesta ricevuta" receipt covers the pending path
         // (manuale or auto+soft-over).
         const customerEmailBody = isAutoConfirmed
-            ? buildCustomerAutoConfirmedEmail({
+            ? buildReservationConfirmedEmail({
                   activityName: activity.name,
-                  date: reservationDate,
-                  time: reservationTime,
+                  reservationDate,
+                  reservationTime,
                   partySize,
-                  customerName
+                  customerName,
+                  // Auto-confirm: the diner never had a pending request.
+                  variant: "auto"
               })
-            : buildCustomerReceiptEmail({
+            : buildReservationReceiptEmail({
                   activityName: activity.name,
-                  date: reservationDate,
-                  time: reservationTime,
+                  reservationDate,
+                  reservationTime,
                   partySize,
                   customerName
               });
@@ -665,15 +471,22 @@ serve(async (req: Request) => {
                 console.log(
                     `[submit-reservation] alert resolved (reservation_id=${reservationId}, source=${recipients.source}, count=${recipients.emails.length}).`
                 );
-                const venueBody = buildVenueAlertEmail({
+                const venueBody = buildReservationVenueAlertEmail({
                     activityName: activity.name,
-                    date: reservationDate,
-                    time: reservationTime,
+                    reservationDate,
+                    reservationTime,
                     partySize,
                     customerName,
                     customerEmail,
                     customerPhone,
-                    notes
+                    notes,
+                    // Deep link to the tenant's reservations dashboard. null
+                    // when APP_URL is unset → alert still goes out,
+                    // just without the link.
+                    dashboardUrl: buildReservationsDashboardUrl(activity.tenant_id),
+                    // Same `isAutoConfirmed` that picks the customer template:
+                    // on the auto path there is nothing to confirm or decline.
+                    variant: isAutoConfirmed ? "autoConfirmed" : "request"
                 });
                 const results = await Promise.allSettled(
                     recipients.emails.map(to =>

@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { Document, Image, Link, Page, Path, Svg, Text, View } from "@react-pdf/renderer";
 
 import { MenuPdfDocument, type MenuPdfAssets } from "@/services/pdf/MenuPdfDocument";
+import { ALL_ALLERGENS } from "@/services/pdf/allergenEuNumbers";
 import { DEFAULT_STYLE_TOKENS } from "@/pages/Dashboard/Styles/Editor/StyleTokenModel";
 import type {
     MenuPdfAllergenCoverage,
@@ -88,24 +89,40 @@ function stringsOf(node: unknown): string[] {
     return out;
 }
 
-/** Conta gli spaziatori elastici finalSpacer = esattamente { flexGrow: 1 }. */
-function countElasticSpacers(node: unknown): number {
-    if (Array.isArray(node)) return node.reduce((n, c) => n + countElasticSpacers(c), 0);
-    if (!isEl(node)) return 0;
+/**
+ * Spaziatori elastici della pagina finale = View il cui UNICO stile è un
+ * flexGrow. Non filtra su `=== 1`: i tre spaziatori hanno pesi diversi
+ * (1 : 2 : 1.5) per ripartire lo spazio fra le sezioni invece di accumularlo
+ * in coda. Ritorna i pesi in ordine di documento.
+ */
+function elasticSpacerWeights(node: unknown): number[] {
+    if (Array.isArray(node)) return node.flatMap(c => elasticSpacerWeights(c));
+    if (!isEl(node)) return [];
     const st = node.props?.style;
+    const rec =
+        st && typeof st === "object" && !Array.isArray(st)
+            ? (st as Record<string, unknown>)
+            : null;
     const isSpacer =
-        st &&
-        typeof st === "object" &&
-        !Array.isArray(st) &&
-        (st as Record<string, unknown>).flexGrow === 1 &&
-        Object.keys(st as Record<string, unknown>).length === 1;
-    return (isSpacer ? 1 : 0) + countElasticSpacers(node.props?.children);
+        rec !== null && typeof rec.flexGrow === "number" && Object.keys(rec).length === 1;
+    return [
+        ...(isSpacer ? [rec.flexGrow as number] : []),
+        ...elasticSpacerWeights(node.props?.children)
+    ];
 }
+
+function countElasticSpacers(node: unknown): number {
+    return elasticSpacerWeights(node).length;
+}
+
+/** Numeri UE della riga prodotto: "1" oppure "1 · 3 · 7". */
+const EU_NUMBERS_RE = /^\d+( · \d+)*$/;
 
 /**
  * Sequenza DFS dei marker della riga prodotto: "fmt" per una riga formato
- * (Text col nome formato), "icon" per la sub-line allergeni/caratteristiche
- * (Svg via PdfIcon). Serve a verificare l'ordine formati → allergeni.
+ * (Text col nome formato), "al" per i numeri UE degli allergeni (Text) e
+ * "icon" per un'icona (Svg via PdfIcon — dopo il passaggio ai numeri restano
+ * solo le caratteristiche). Serve a verificare l'ordine formati → allergeni.
  */
 function orderedRowMarkers(node: unknown, formatNames: Set<string>): string[] {
     if (Array.isArray(node)) return node.flatMap(n => orderedRowMarkers(n, formatNames));
@@ -114,6 +131,7 @@ function orderedRowMarkers(node: unknown, formatNames: Set<string>): string[] {
     if (node.type === Text) {
         const txt = stringsOf(node).join("");
         if (formatNames.has(txt)) return ["fmt"];
+        if (EU_NUMBERS_RE.test(txt)) return ["al"];
         return [];
     }
     return orderedRowMarkers(node.props?.children, formatNames);
@@ -225,17 +243,18 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
         expect(pages).toHaveLength(3);
     });
 
-    it("pagina finale = allergeni, caratteristiche e contatti (no colophon, no orari)", () => {
+    it("pagina finale = allergeni e contatti (no caratteristiche, no colophon, no orari)", () => {
         const { pages } = renderPages(buildData("San Pietro", "Indirizzo", SAN_PIETRO));
         const [, products, final] = pages;
-        // Allergeni/caratteristiche non più in pagina prodotti
+        // Legenda allergeni non in pagina prodotti (là ci sono solo i numeri).
         expect(stringsOf(products)).not.toContain("Allergeni");
         const s = stringsOf(final);
-        expect(s).toContain("Allergeni e caratteristiche"); // titolo pagina
-        expect(s).toContain("Allergeni"); // sotto-intestazione
-        expect(s).toContain("Caratteristiche");
-        expect(s).toContain("Latte"); // allergene presente
-        expect(s).toContain("Vegano"); // caratteristica presente
+        expect(s).toContain("Allergeni"); // titolo pagina = sotto-intestazione
+        expect(s).toContain("Latte"); // allergene in legenda
+        // Le caratteristiche sono uscite dal PDF: su carta non filtrano nulla
+        // e molte datano il documento.
+        expect(s).not.toContain("Caratteristiche");
+        expect(s).not.toContain("Vegano");
         expect(s).toContain(NOTE); // nota di rito
         // Contatti: resi dallo Step 2 (prima erano volutamente assenti).
         expect(s).toContain("Contatti");
@@ -260,7 +279,7 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
         expect(cover).not.toContain("Lun–Ven");
     });
 
-    it("Sede TEST: nessun orario in copertina; caratteristiche presenti in finale", () => {
+    it("Sede TEST: nessun orario in copertina; nessuna caratteristica in finale", () => {
         const { pages } = renderPages(
             buildData("Sede TEST AI", "Piazza XX Settembre, 12 — 23900 Lecco (LC)", SEDE_TEST)
         );
@@ -268,32 +287,33 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
         expect(cover).not.toContain("Chiuso");
         expect(cover).not.toContain("09:00");
         const final = stringsOf(pages[2]);
-        expect(final).toContain("Caratteristiche");
-        expect(final).toContain("Vegano");
+        expect(final).not.toContain("Caratteristiche");
+        expect(final).not.toContain("Vegano");
     });
 
-    it("zero caratteristiche: sezione 'Caratteristiche' assente, pagina comunque resa", () => {
+    it("caratteristiche assegnate o meno: pagina finale identica", () => {
+        const withChars = renderPages(buildData("Con Car", "Via Y, 2", SAN_PIETRO)).pages[2];
         const data = buildData("Senza Car", "Via Y, 2", SAN_PIETRO);
         data.categories[0].products[0].characteristics = [];
-        const final = renderPages(data).pages[2];
-        const s = stringsOf(final);
-        expect(s).toContain("Allergeni e caratteristiche");
+        const without = renderPages(data).pages[2];
+
+        expect(stringsOf(without)).toEqual(stringsOf(withChars));
+        const s = stringsOf(without);
         expect(s).toContain("Allergeni");
         expect(s).not.toContain("Caratteristiche");
         expect(s).toContain(NOTE);
-        // Allineato in alto: 1 solo spacer (prima della nota) anche senza caratteristiche
-        // → contenuto in alto, nota ancorata in fondo (niente centraggio).
-        expect(countElasticSpacers(final)).toBe(1);
+        // Allineato in alto: 1 solo spacer (prima della nota) → contenuto in
+        // alto, nota ancorata in fondo (niente centraggio).
+        expect(countElasticSpacers(without)).toBe(3);
     });
 
     it("contenuto allineato in alto: 1 spaziatore prima della nota, nota in fondo", () => {
         const { pages } = renderPages(buildData("San Pietro", "Indirizzo", SAN_PIETRO));
         const final = pages[2];
-        // Con caratteristiche: stesso singolo spacer → contenuto in alto, nota in fondo.
-        expect(countElasticSpacers(final)).toBe(1);
+        expect(countElasticSpacers(final)).toBe(3);
         const s = stringsOf(final);
         // Ordine: titolo in alto, nota in fondo.
-        expect(s.indexOf("Allergeni e caratteristiche")).toBeLessThan(s.indexOf(NOTE));
+        expect(s.indexOf("Allergeni")).toBeLessThan(s.indexOf(NOTE));
     });
 
     it("copertina: ordine nome sede → indirizzo → titolo menù", () => {
@@ -340,11 +360,12 @@ describe("MenuPdfDocument — pagina finale allergeni", () => {
 });
 
 describe("MenuPdfDocument — pagina finale, testo per copertura allergeni", () => {
-    const CAPTION = "Gli allergeni evidenziati sono presenti in almeno un piatto di questo menù.";
+    const CAPTION =
+        "I numeri accanto a ogni piatto corrispondono agli allergeni elencati qui sotto.";
     const CAPTION_NO_DATA = "Elenco dei 14 allergeni previsti dal Regolamento UE 1169/2011.";
     // Frammento e non frase intera: i testi sono in revisione legale, e la
-    // riga di cautela è già stata accorciata una volta.
-    const CAUTION_FRAGMENT = "non sono stati segnalati";
+    // riga di cautela è già stata riformulata due volte.
+    const CAUTION_FRAGMENT = "I piatti senza numeri";
     const ASK_IN_ROOM =
         "Le informazioni su ingredienti e allergeni di ogni piatto sono disponibili in sala su richiesta.";
 
@@ -378,13 +399,11 @@ describe("MenuPdfDocument — pagina finale, testo per copertura allergeni", () 
         expect(final.indexOf(ASK_IN_ROOM)).toBeLessThan(final.indexOf("Latte"));
     });
 
-    it("copertura zero: griglia, caratteristiche e struttura invariate", () => {
+    it("copertura zero: griglia e struttura invariate", () => {
         const final = finalPageStrings({ productsTotal: 12, productsWithAllergens: 0 });
-        expect(final).toContain("Allergeni e caratteristiche");
         expect(final).toContain("Allergeni");
-        expect(final).toContain("Caratteristiche");
         expect(final).toContain("Latte"); // i 14 restano tutti elencati
-        expect(final).toContain("Vegano");
+        expect(final).not.toContain("Caratteristiche");
     });
 
     it("copertura sotto soglia: didascalia + riga di cautela", () => {
@@ -423,7 +442,7 @@ describe("MenuPdfDocument — pagina finale, testo per copertura allergeni", () 
         ];
         for (const coverage of cases) {
             const final = renderPages(buildData("Sede", "Indirizzo", SAN_PIETRO, coverage)).pages[2];
-            expect(countElasticSpacers(final)).toBe(1);
+            expect(countElasticSpacers(final)).toBe(3);
         }
     });
 });
@@ -535,7 +554,7 @@ describe("MenuPdfDocument — contatti e costi di servizio (Step 2)", () => {
         expect(s).not.toContain("Contatti");
         expect(s).not.toContain(FEES_TITLE);
         // Il resto della pagina è intatto.
-        expect(s).toContain("Allergeni e caratteristiche");
+        expect(s).toContain("Allergeni");
         expect(s).toContain(NOTE);
     });
 
@@ -547,7 +566,7 @@ describe("MenuPdfDocument — contatti e costi di servizio (Step 2)", () => {
     });
 });
 
-describe("MenuPdfDocument — pagina finale con molte caratteristiche", () => {
+describe("MenuPdfDocument — pagina finale, wrap granulare della legenda", () => {
     /** N caratteristiche distinte sul prodotto della fixture. */
     function dataWithCharacteristics(count: number): MenuPdfData {
         const data = buildData("Sede", "Indirizzo", SAN_PIETRO);
@@ -555,10 +574,8 @@ describe("MenuPdfDocument — pagina finale con molte caratteristiche", () => {
             { length: count },
             (_, i) => ({
                 code: `char-${i}`,
-                // Label lunga come le più lunghe del seed di piattaforma
-                // ("Può contenere ingredienti surgelati", 35 caratteri).
                 label: `Caratteristica numero ${String(i).padStart(2, "0")}`,
-                icon: "lucide:leaf"
+                icon: "custom:organic-leaf"
             })
         );
         return data;
@@ -572,16 +589,18 @@ describe("MenuPdfDocument — pagina finale con molte caratteristiche", () => {
         return self + countUnwrappableNodes(node.props?.children);
     }
 
+    // Le caratteristiche sono uscite dal PDF: quante ne abbia il catalogo non
+    // cambia una virgola della pagina finale. Era il caso che sfondava il
+    // bordo pagina (26 e 31 voci); ora semplicemente non esiste.
     for (const count of [26, 31]) {
-        it(`${count} caratteristiche: nessun contenuto perso, nota una sola volta`, () => {
-            const data = dataWithCharacteristics(count);
-            const { tree, pages } = renderPages(data);
+        it(`${count} caratteristiche assegnate: nessuna finisce nel PDF`, () => {
+            const { tree, pages } = renderPages(dataWithCharacteristics(count));
             const final = stringsOf(pages[2]);
 
-            // Tutte le voci presenti nell'albero: nessuna scartata dal render.
             for (let i = 0; i < count; i += 1) {
-                expect(final).toContain(`Caratteristica numero ${String(i).padStart(2, "0")}`);
+                expect(final).not.toContain(`Caratteristica numero ${String(i).padStart(2, "0")}`);
             }
+            expect(final).not.toContain("Caratteristiche");
             // I 14 allergeni restano al loro posto.
             expect(final).toContain("Latte");
             expect(final).toContain("Molluschi");
@@ -590,27 +609,22 @@ describe("MenuPdfDocument — pagina finale con molte caratteristiche", () => {
         });
     }
 
-    it("il gruppo legenda non è più un unico blocco indivisibile", () => {
-        // Il wrap={false} sopravvive solo a granularità fine (item singolo e
-        // sottotitolo+prima riga), mai sull'intera sezione: un blocco più alto
-        // della pagina verrebbe disegnato oltre il bordo invece di impaginarsi.
-        const withMany = renderPages(dataWithCharacteristics(31)).pages[2];
-        const withFew = renderPages(dataWithCharacteristics(2)).pages[2];
-        const many = countUnwrappableNodes(withMany);
-        const few = countUnwrappableNodes(withFew);
-        // Cresce con le voci → è per-item, non un contenitore unico.
-        expect(many).toBeGreaterThan(few);
-        // 14 allergeni + 31 caratteristiche + 2 header di sezione + il blocco
-        // contatti/costi (unico e indivisibile, Step 2) = 48.
-        expect(many).toBe(14 + 31 + 2 + 1);
+    it("il wrap={false} resta a granularità fine, mai sull'intero gruppo", () => {
+        // Un blocco indivisibile più alto della pagina verrebbe disegnato oltre
+        // il bordo invece di impaginarsi: il wrap sta sul singolo item e su
+        // sottotitolo+prima riga, mai sulla sezione.
+        const final = renderPages(dataWithCharacteristics(31)).pages[2];
+        // 14 allergeni + 1 header di sezione + il blocco contatti/costi
+        // (unico e indivisibile, Step 2) = 16.
+        expect(countUnwrappableNodes(final)).toBe(14 + 1 + 1);
     });
 
-    it("poche caratteristiche: struttura invariata (spaziatore + nota in fondo)", () => {
+    it("struttura invariata: spaziatore + nota in fondo", () => {
         const final = renderPages(dataWithCharacteristics(2)).pages[2];
-        expect(countElasticSpacers(final)).toBe(1);
+        expect(countElasticSpacers(final)).toBe(3);
         const s = stringsOf(final);
         expect(s).toContain(NOTE);
-        expect(s.indexOf("Caratteristiche")).toBeLessThan(s.indexOf(NOTE));
+        expect(s.indexOf("Allergeni")).toBeLessThan(s.indexOf(NOTE));
     });
 });
 
@@ -645,19 +659,20 @@ describe("MenuPdfDocument — ordine riga prodotto (allergeni per ultimi)", () =
 
     it("multi-formato + allergene: formati PRIMA, allergeni per ultimi", () => {
         const m = markers(rowData({ formats: FORMATS, allergens: [MILK] }));
-        expect(m).toEqual(["fmt", "fmt", "icon"]);
-        expect(m.lastIndexOf("fmt")).toBeLessThan(m.indexOf("icon"));
+        expect(m).toEqual(["fmt", "fmt", "al"]);
+        expect(m.lastIndexOf("fmt")).toBeLessThan(m.indexOf("al"));
     });
 
     it("multi-formato senza allergeni: nessuna sub-line icone", () => {
         const m = markers(rowData({ formats: FORMATS }));
         expect(m).toEqual(["fmt", "fmt"]);
+        expect(m).not.toContain("al");
         expect(m).not.toContain("icon");
     });
 
-    it("prezzo singolo + allergene: nessun formato, sub-line icone presente", () => {
-        const m = markers(rowData({ priceLabel: "€ 10.00", allergens: [MILK] }));
-        expect(m).toEqual(["icon"]);
+    it("prezzo singolo + allergene: nessun formato, sub-line numeri presente", () => {
+        const m = markers(rowData({ priceLabel: "€ 10,00", allergens: [MILK] }));
+        expect(m).toEqual(["al"]);
     });
 
     it("photoMode: stesso ordine formati → allergeni", () => {
@@ -669,6 +684,170 @@ describe("MenuPdfDocument — ordine riga prodotto (allergeni per ultimi)", () =
             qrDataUrl: null,
             productImages: { p1: "data:image/png;base64,AAAA" }
         };
-        expect(markers(data, assets)).toEqual(["fmt", "fmt", "icon"]);
+        expect(markers(data, assets)).toEqual(["fmt", "fmt", "al"]);
+    });
+});
+
+describe("MenuPdfDocument — allergeni come numeri UE nella riga prodotto", () => {
+    const MILK = { code: "milk", label: "Latte", euNumber: 7 };
+    const GLUTEN = { code: "gluten", label: "Glutine", euNumber: 1 };
+    const SULPHITES = { code: "sulphites", label: "Solfiti", euNumber: 12 };
+    const EGGS = { code: "eggs", label: "Uova", euNumber: 3 };
+    // Icona risolvibile davvero: characteristicIconGeometry accetta solo il
+    // prefisso "custom:" + una chiave di CUSTOM_CHARACTERISTIC_ICON_MAP,
+    // altrimenti torna null e la caratteristica non renderizza nulla.
+    const VEGAN = { code: "vegan", label: "Vegano", icon: "custom:organic-leaf" };
+
+    function rowData(over: Partial<MenuPdfProduct>): MenuPdfData {
+        const data = buildData("Sede", "Indirizzo", SAN_PIETRO);
+        data.categories[0].products[0] = {
+            ...data.categories[0].products[0],
+            name: "Piatto",
+            priceLabel: null,
+            formats: [],
+            allergens: [],
+            characteristics: [],
+            ...over
+        };
+        return data;
+    }
+
+    /** Sub-line della riga prodotto (productIconsLine): l'unica View marginTop 4. */
+    function iconsLine(data: MenuPdfData): El | null {
+        const tree = expand(MenuPdfDocument({ data, assets: EMPTY_ASSETS }));
+        const pages: El[] = [];
+        findPages(tree, pages);
+        const found: El[] = [];
+        const walk = (node: unknown) => {
+            if (Array.isArray(node)) return node.forEach(walk);
+            if (!isEl(node)) return;
+            const st = node.props?.style;
+            if (
+                st &&
+                typeof st === "object" &&
+                !Array.isArray(st) &&
+                (st as Record<string, unknown>).marginTop === 4 &&
+                (st as Record<string, unknown>).flexDirection === "row"
+            ) {
+                found.push(node);
+            }
+            walk(node.props?.children);
+        };
+        walk(pages[1]);
+        return found[0] ?? null;
+    }
+
+    /** Icone (Svg) dentro la sub-line. */
+    function countIcons(node: unknown): number {
+        if (Array.isArray(node)) return node.reduce<number>((n, c) => n + countIcons(c), 0);
+        if (!isEl(node)) return 0;
+        if (node.type === Svg) return 1;
+        return countIcons(node.props?.children);
+    }
+
+    it("numeri ordinati crescenti e uniti da ' · '", () => {
+        // Volutamente disordinati in ingresso: l'ordinamento è del render.
+        const line = iconsLine(rowData({ allergens: [SULPHITES, GLUTEN, MILK, EGGS] }));
+        expect(stringsOf(line)).toContain("1 · 3 · 7 · 12");
+    });
+
+    it("un solo allergene: numero secco, nessun separatore di lista", () => {
+        expect(stringsOf(iconsLine(rowData({ allergens: [MILK] })))).toContain("7");
+    });
+
+    // Le caratteristiche non entrano nel PDF: né icone, né barra separatrice.
+    it("allergeni + caratteristiche: solo i numeri, nessuna icona", () => {
+        const line = iconsLine(rowData({ allergens: [MILK], characteristics: [VEGAN] }));
+        expect(stringsOf(line)).toEqual(["7"]);
+        expect(countIcons(line)).toBe(0);
+    });
+
+    it("solo caratteristiche: nessuna sub-line", () => {
+        expect(iconsLine(rowData({ characteristics: [VEGAN] }))).toBeNull();
+    });
+
+    it("né allergeni né caratteristiche: nessuna sub-line", () => {
+        expect(iconsLine(rowData({}))).toBeNull();
+    });
+});
+
+describe("MenuPdfDocument — pagina finale, respiro distribuito", () => {
+    function finalPage(coverage?: MenuPdfAllergenCoverage): El {
+        return renderPages(buildData("Sede", "Indirizzo", SEDE_TEST, coverage)).pages[2];
+    }
+
+    // 1 : 2 : 1.5 — testata→legenda, legenda→contatti, contatti→nota. Lo stacco
+    // fra blocchi di natura diversa pesa più di quello dentro un discorso solo.
+    it("tre spaziatori elastici in rapporto 1 : 2 : 1.5", () => {
+        expect(elasticSpacerWeights(finalPage())).toEqual([1, 2, 1.5]);
+    });
+
+    it("stessa distribuzione nei tre casi di copertura", () => {
+        const cases: MenuPdfAllergenCoverage[] = [
+            { productsTotal: 12, productsWithAllergens: 0 },
+            { productsTotal: 10, productsWithAllergens: 3 },
+            { productsTotal: 10, productsWithAllergens: 8 }
+        ];
+        for (const coverage of cases) {
+            expect(elasticSpacerWeights(finalPage(coverage))).toEqual([1, 2, 1.5]);
+        }
+    });
+
+    // Il difetto già corretto una volta: un blocco indivisibile più alto della
+    // pagina viene disegnato oltre il bordo invece di impaginarsi.
+    it("nessun wrap={false} sulla Page né su un contenitore dell'intera legenda", () => {
+        const page = finalPage();
+        expect(page.props?.wrap).not.toBe(false);
+
+        // Quanti nomi di allergene stanno sotto un nodo indivisibile: il wrap
+        // fine-grained ne racchiude al massimo LEGEND_COLUMNS (sottotitolo +
+        // prima riga). Di più = un contenitore dell'intero gruppo.
+        const LABELS = new Set(ALL_ALLERGENS.map(a => a.label));
+        const worst = (node: unknown): number => {
+            if (Array.isArray(node)) return Math.max(0, ...node.map(worst));
+            if (!isEl(node)) return 0;
+            const deeper = worst(node.props?.children);
+            if (node.props?.wrap !== false) return deeper;
+            const own = stringsOf(node).filter(t => LABELS.has(t)).length;
+            return Math.max(own, deeper);
+        };
+        expect(worst(page)).toBeLessThanOrEqual(2);
+    });
+});
+
+describe("MenuPdfDocument — pagina finale come legenda dei numeri", () => {
+    function finalPage(coverage?: MenuPdfAllergenCoverage): El {
+        return renderPages(buildData("Sede", "Indirizzo", SAN_PIETRO, coverage)).pages[2];
+    }
+
+    it("tutti e 14 gli allergeni con il proprio numero UE", () => {
+        const s = stringsOf(finalPage());
+        for (const allergen of ALL_ALLERGENS) {
+            expect(s).toContain(allergen.label);
+            expect(s).toContain(String(allergen.euNumber));
+        }
+    });
+
+    // La legenda spiega i numeri, non dichiara cosa il locale serve: nessuna
+    // differenza di peso fra allergeni presenti nel menù (Latte) e assenti.
+    it("nessuna dicotomia presente/attenuato: label e icone tutte allo stesso peso", () => {
+        const styleKeys = (node: unknown, acc: Set<string>): Set<string> => {
+            if (Array.isArray(node)) {
+                node.forEach(n => styleKeys(n, acc));
+                return acc;
+            }
+            if (!isEl(node)) return acc;
+            const st = node.props?.style;
+            if (st && typeof st === "object" && !Array.isArray(st)) {
+                const rec = st as Record<string, unknown>;
+                if (rec.fontSize === 11.5 && rec.marginLeft === 10) {
+                    acc.add(String(rec.color));
+                }
+            }
+            styleKeys(node.props?.children, acc);
+            return acc;
+        };
+        // Un solo colore label su tutta la pagina finale: niente muted/ink misti.
+        expect(styleKeys(finalPage(), new Set<string>()).size).toBe(1);
     });
 });
