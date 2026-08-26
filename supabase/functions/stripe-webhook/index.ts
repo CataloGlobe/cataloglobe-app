@@ -3,6 +3,11 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
+import {
+    getInvoiceSubscriptionId,
+    mapStripeStatus,
+    syncSubscriptionStatus
+} from "../_shared/subscriptionStatusSync.ts";
 
 // Note: this endpoint is called server-to-server by Stripe. CORS headers
 // not needed — never call from a browser.
@@ -225,31 +230,9 @@ async function computePlanMonthlyValueCents(
     }
 }
 
-/**
- * Map Stripe subscription status to our DB status values.
- * Stripe statuses: trialing, active, past_due, canceled, incomplete, incomplete_expired, unpaid, paused
- * Our statuses:    trialing, active, past_due, suspended, canceled
- */
-function mapStripeStatus(stripeStatus: string): string {
-    switch (stripeStatus) {
-        case "trialing":
-            return "trialing";
-        case "active":
-            return "active";
-        case "past_due":
-            return "past_due";
-        case "canceled":
-        case "incomplete_expired":
-            return "canceled";
-        case "incomplete":
-        case "unpaid":
-        case "paused":
-            return "suspended";
-        default:
-            console.warn(`stripe-webhook: Unknown Stripe status '${stripeStatus}', mapping to 'suspended'`);
-            return "suspended";
-    }
-}
+// `mapStripeStatus` now lives in ../_shared/subscriptionStatusSync.ts — the
+// single writer for tenants.subscription_status. Nothing in this file may write
+// that column from an event type; go through syncSubscriptionStatus instead.
 
 serve(async req => {
     // Stripe sends only POST; no OPTIONS preflight needed (server-to-server).
@@ -373,6 +356,10 @@ serve(async req => {
                     stripe_customer_id: stripeCustomerId,
                     stripe_subscription_id: stripeSubscriptionId,
                     subscription_status: subscriptionStatus,
+                    // Baseline for the ordering guard used by syncSubscriptionStatus:
+                    // the status written here comes from the live subscription we
+                    // just retrieved, so it is as authoritative as a synced one.
+                    subscription_status_event_at: new Date((event.created ?? 0) * 1000).toISOString(),
                     paid_seats: paidSeats,
                     current_period_end: currentPeriodEnd,
                     current_period_start: currentPeriodStart
@@ -407,41 +394,46 @@ serve(async req => {
             case "customer.subscription.updated": {
                 const subscription = event.data.object as Stripe.Subscription;
                 const stripeCustomerId = subscription.customer as string;
-                const newStatus = mapStripeStatus(subscription.status);
-                const paidSeats = getSubscriptionQuantity(subscription);
-                const trialUntil = toIsoTimestamp(subscription.trial_end);
-                const currentPeriodEnd = getSubscriptionCurrentPeriodEnd(subscription);
-                const currentPeriodStart = getSubscriptionCurrentPeriodStart(subscription);
-                const planMonthlyValueCents = await computePlanMonthlyValueCents(stripe, subscription);
-                // Priorità al metadata; se assente/non valido (es. cambio piano via
-                // subscriptions.update o subscription schedule senza metadata),
-                // deriva il piano dal price ID (source of truth in `plans`).
-                let planCode = getSubscriptionPlanCode(subscription);
-                if (!planCode) {
-                    planCode = await lookupPlanCodeByPriceId(admin, subscription);
-                }
 
-                const updates: Record<string, unknown> = {
-                    subscription_status: newStatus,
-                    paid_seats: paidSeats,
-                    current_period_end: currentPeriodEnd,
-                    current_period_start: currentPeriodStart
-                };
-                if (planCode) updates.plan = planCode;
-                // Only write when computed — a transient Stripe API failure must
-                // never wipe a previously good contractual value.
-                if (planMonthlyValueCents !== null) updates.plan_monthly_value_cents = planMonthlyValueCents;
-                // Only write trial_until when present — never wipe an existing
-                // value on a payload that simply omits trial_end.
-                if (trialUntil !== null) updates.trial_until = trialUntil;
+                // Routed through the same helper as the invoice events: one
+                // ordering guard, one source of truth. The companion fields are
+                // computed from the LIVE subscription the helper retrieves, not
+                // from the (possibly stale/redelivered) event payload.
+                await syncSubscriptionStatus({
+                    admin,
+                    stripe,
+                    event,
+                    stripeCustomerId,
+                    subscriptionId: subscription.id,
+                    buildExtraUpdates: async liveSub => {
+                        const paidSeats = getSubscriptionQuantity(liveSub);
+                        const trialUntil = toIsoTimestamp(liveSub.trial_end);
+                        const currentPeriodEnd = getSubscriptionCurrentPeriodEnd(liveSub);
+                        const currentPeriodStart = getSubscriptionCurrentPeriodStart(liveSub);
+                        const planMonthlyValueCents = await computePlanMonthlyValueCents(stripe, liveSub);
+                        // Priorità al metadata; se assente/non valido (es. cambio piano via
+                        // subscriptions.update o subscription schedule senza metadata),
+                        // deriva il piano dal price ID (source of truth in `plans`).
+                        let planCode = getSubscriptionPlanCode(liveSub);
+                        if (!planCode) {
+                            planCode = await lookupPlanCodeByPriceId(admin, liveSub);
+                        }
 
-                const result = await updateTenantStatus(admin, stripeCustomerId, updates);
-
-                if (result.ok && result.rowsAffected > 0) {
-                    console.log(`stripe-webhook: Subscription updated → status=${newStatus}, plan=${planCode ?? "unchanged"}, seats=${paidSeats}, period_end=${currentPeriodEnd ?? "null"} for customer ${stripeCustomerId} (event ${event.id})`);
-                } else if (result.ok && result.rowsAffected === 0) {
-                    console.warn(`stripe-webhook: NO TENANT MATCHED customer ${stripeCustomerId} for event ${event.id} (${event.type}). Possibile causa: evento da ambiente diverso o tenant eliminato.`);
-                }
+                        const extras: Record<string, unknown> = {
+                            paid_seats: paidSeats,
+                            current_period_end: currentPeriodEnd,
+                            current_period_start: currentPeriodStart
+                        };
+                        if (planCode) extras.plan = planCode;
+                        // Only write when computed — a transient Stripe API failure must
+                        // never wipe a previously good contractual value.
+                        if (planMonthlyValueCents !== null) extras.plan_monthly_value_cents = planMonthlyValueCents;
+                        // Only write trial_until when present — never wipe an existing
+                        // value on a payload that simply omits trial_end.
+                        if (trialUntil !== null) extras.trial_until = trialUntil;
+                        return extras;
+                    }
+                });
                 break;
             }
 
@@ -466,44 +458,24 @@ serve(async req => {
                 break;
             }
 
-            case "invoice.payment_failed": {
-                const invoice = event.data.object as Stripe.Invoice;
-                const stripeCustomerId = invoice.customer as string;
-
-                const result = await updateTenantStatus(admin, stripeCustomerId, {
-                    subscription_status: "past_due"
-                });
-
-                if (result.ok && result.rowsAffected > 0) {
-                    console.log(`stripe-webhook: Payment failed → past_due for customer ${stripeCustomerId} (event ${event.id})`);
-                } else if (result.ok && result.rowsAffected === 0) {
-                    console.warn(`stripe-webhook: NO TENANT MATCHED customer ${stripeCustomerId} for event ${event.id} (${event.type}). Possibile causa: evento da ambiente diverso o tenant eliminato.`);
-                }
-                break;
-            }
-
+            // Invoice events are a TRIGGER to resync, never a source of truth for
+            // the status: a failed/paid invoice may be a one-off charge (seat
+            // delta) that says nothing about the subscription's health. The
+            // helper re-reads the live subscription and writes its real status.
+            case "invoice.payment_failed":
             case "invoice.payment_succeeded": {
                 const invoice = event.data.object as Stripe.Invoice;
                 const stripeCustomerId = invoice.customer as string;
 
-                // Only move to 'active' if currently trialing or past_due
-                // (avoid overwriting 'canceled' if a final invoice pays)
-                const { data: tenant } = await admin
-                    .from("tenants")
-                    .select("subscription_status")
-                    .eq("stripe_customer_id", stripeCustomerId)
-                    .maybeSingle();
-
-                if (tenant && (tenant.subscription_status === "trialing" || tenant.subscription_status === "past_due")) {
-                    const result = await updateTenantStatus(admin, stripeCustomerId, {
-                        subscription_status: "active"
-                    });
-                    if (result.ok && result.rowsAffected > 0) {
-                        console.log(`stripe-webhook: Payment succeeded → active for customer ${stripeCustomerId} (event ${event.id})`);
-                    } else if (result.ok && result.rowsAffected === 0) {
-                        console.warn(`stripe-webhook: NO TENANT MATCHED customer ${stripeCustomerId} for event ${event.id} (${event.type}). Possibile causa: evento da ambiente diverso o tenant eliminato.`);
-                    }
-                }
+                await syncSubscriptionStatus({
+                    admin,
+                    stripe,
+                    event,
+                    stripeCustomerId,
+                    // Invoice-bound subscription when present; the helper falls
+                    // back to the tenant's own subscription for one-off invoices.
+                    subscriptionId: getInvoiceSubscriptionId(invoice)
+                });
                 break;
             }
 
