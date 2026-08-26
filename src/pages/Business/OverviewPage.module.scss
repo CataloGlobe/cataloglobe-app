@@ -200,6 +200,120 @@
   align-self: center;
 }
 
+/* ===== Section 2b — Tutto pronto: pagine pubbliche ===== */
+.publicCard {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  flex-wrap: wrap;
+}
+
+.publicQr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.publicInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  min-width: 0;
+  flex: 1 1 240px;
+}
+
+.publicUrl {
+  font-size: 13px;
+  color: var(--brand-primary);
+  text-decoration: none;
+  word-break: break-all;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+.publicActions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* Riga "menù attivo". Resa con `as="span"` perché ospita il placeholder, che è
+   un <div> e dentro un <p> sarebbe HTML invalido; `display: block` le ridà il
+   comportamento di riga che aveva come paragrafo. */
+.menuLine {
+  display: block;
+}
+
+/* Placeholder della riga. Inline-block, così l'altezza resta governata dallo
+   strut della riga (il line-height della variante tipografica) e non dal
+   placeholder: nessuna misura in px da tenere allineata a mano se `body-sm` o
+   `caption` cambiano. */
+.menuLineSkeleton {
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.publicList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.publicRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: #f8fafc;
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: #f1f5f9;
+    border-color: #e2e8f0;
+  }
+}
+
+.publicRowBody {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.publicRowUrl {
+  font-size: 12px;
+  color: var(--brand-primary);
+  word-break: break-all;
+}
+
+.publicMore {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--brand-primary);
+  cursor: pointer;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
 /* ===== Section 3 — Quick Stats ===== */
 .kpiGrid {
   display: grid;

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, Circle, Plus, ChevronRight } from "lucide-react";
+import { CheckCircle2, Circle, Plus, ChevronRight, ExternalLink } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { usePageHeader } from "@/context/usePageHeader";
@@ -13,6 +13,11 @@ import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import { getTenantSetupStatus, type TenantSetupStatus } from "@/services/supabase/overviewStats";
+import { getActivities } from "@/services/supabase/activities";
+import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog";
+import { QrCode } from "@/components/ui/QrCode/QrCode";
+import { Button } from "@/components/ui/Button/Button";
+import { buildPublicUrl } from "@/utils/publicUrl";
 import { SUBTYPE_LABELS, VERTICAL_LABELS } from "@/constants/verticalTypes";
 import styles from "./OverviewPage.module.scss";
 
@@ -37,6 +42,33 @@ interface Stats {
     schedules: number;
 }
 
+/** Sede attiva raggiungibile dal pubblico. Il menù attivo NON sta qui: arriva
+ *  da una fetch separata e molto più lenta (vedi `catalogNames`). */
+type PublicLocation = {
+    id: string;
+    name: string;
+    slug: string;
+    publicUrl: string;
+};
+
+/** Nome del catalogo risolto ORA, per activity id. Il valore è `null` quando
+ *  nessuna regola copre questo istante (es. regola solo serale, guardata di
+ *  mattina); la MAPPA è `null` finché la risoluzione è in corso. */
+type CatalogNameByActivity = Record<string, string | null>;
+
+/**
+ * Placeholder della riga "menù attivo", reso DENTRO lo stesso `<Text>` che
+ * ospiterà il testo finale.
+ *
+ * L'altezza non è mai in px: lo skeleton è inline-block alto `1em`, quindi
+ * l'altezza della riga resta quella dello strut del paragrafo — il line-height
+ * della variante tipografica. Cambiando `body-sm` o `caption` l'allineamento
+ * segue da sé, senza costanti da riallineare a mano.
+ */
+function MenuLineSkeleton({ width }: { width: string }) {
+    return <Skeleton height="1em" width={width} radius="6px" className={styles.menuLineSkeleton} />;
+}
+
 type SetupStep = {
     id: string;
     done: boolean;
@@ -59,6 +91,25 @@ export default function OverviewPage() {
     const [loadingStats, setLoadingStats] = useState(true);
     const [setup, setSetup] = useState<TenantSetupStatus | null>(null);
     const [loadingSetup, setLoadingSetup] = useState(true);
+    const [publicLocations, setPublicLocations] = useState<PublicLocation[] | null>(null);
+    const [catalogNames, setCatalogNames] = useState<CatalogNameByActivity | null>(null);
+
+    // Reset sincrono al cambio tenant, prima del paint. Gli effect girano DOPO
+    // il render: senza questo, il primo render sul tenant nuovo rende ancora i
+    // dati del precedente — nome sede, URL pubblico e variante del blocco di un
+    // altro tenant. Azzerare dentro l'effect non basterebbe, lascerebbe comunque
+    // un frame con i dati sbagliati.
+    // Pattern React "adjusting state when a prop changes".
+    const [loadedTenantId, setLoadedTenantId] = useState<string | null>(tenantId);
+    if (tenantId !== loadedTenantId) {
+        setLoadedTenantId(tenantId);
+        setStats(null);
+        setLoadingStats(true);
+        setSetup(null);
+        setLoadingSetup(true);
+        setPublicLocations(null);
+        setCatalogNames(null);
+    }
 
     usePageHeader({ title: "Panoramica", sticky: true });
 
@@ -124,6 +175,81 @@ export default function OverviewPage() {
         loadSetup();
         return () => { cancelled = true; };
     }, [tenantId, canSeeSetup, showToast]);
+
+    // Il setup completo è il prerequisito: finché la checklist ha voci aperte
+    // questo blocco non si vede, quindi non ne paghiamo il costo.
+    const setupIsComplete = setup != null
+        && setup.hasActiveLocation
+        && setup.hasProducts
+        && setup.hasPopulatedCatalog
+        && setup.hasActiveLayoutRule;
+
+    useEffect(() => {
+        if (!tenantId || !canSeeSetup || !setupIsComplete) return;
+        let cancelled = false;
+
+        // Due fasi indipendenti, non incatenate: `getActivities` è una query
+        // secca e porta già tutto ciò che serve a rendere QR, nome e URL, mentre
+        // `getActiveCatalogForActivities` risolve le regole di ogni sede e costa
+        // ~1,5s. Attendere la seconda per mostrare la prima terrebbe il blocco
+        // vuoto senza motivo.
+        async function loadPublicLocations() {
+            let active: PublicLocation[];
+
+            // ── Fase 1: struttura ────────────────────────────────────────────
+            try {
+                const activities = await getActivities(tenantId!);
+                if (cancelled) return;
+
+                active = activities
+                    .filter(activity => activity.status === "active")
+                    .sort((a, b) => a.name.localeCompare(b.name, "it"))
+                    .map(activity => ({
+                        id: activity.id,
+                        name: activity.name,
+                        slug: activity.slug,
+                        publicUrl: buildPublicUrl(activity.slug)
+                    }));
+
+                setPublicLocations(active);
+                if (active.length === 0) {
+                    setCatalogNames({});
+                    return;
+                }
+            } catch (error) {
+                console.error("[OverviewPage] public locations failed:", error);
+                if (cancelled) return;
+                showToast({
+                    message: "Non è stato possibile caricare le pagine pubbliche.",
+                    type: "error"
+                });
+                return;
+            }
+
+            // ── Fase 2: menù attivo per sede ─────────────────────────────────
+            // Batch: una sola chiamata per tutte le sedi, mai una per sede.
+            // Riusa il resolver frontend, nessuna logica duplicata qui.
+            try {
+                const catalogs = await getActiveCatalogForActivities(active.map(a => a.id));
+                if (cancelled) return;
+
+                const names: CatalogNameByActivity = {};
+                for (const location of active) {
+                    names[location.id] = catalogs[location.id]?.catalogName ?? null;
+                }
+                setCatalogNames(names);
+            } catch (error) {
+                // La struttura è già a schermo e resta valida: un fallimento qui
+                // toglie solo la riga del menù, non l'intero blocco.
+                console.error("[OverviewPage] active catalogs failed:", error);
+                if (cancelled) return;
+                setCatalogNames({});
+            }
+        }
+
+        loadPublicLocations();
+        return () => { cancelled = true; };
+    }, [tenantId, canSeeSetup, setupIsComplete, showToast]);
 
     if (tenantLoading || !selectedTenant) {
         return (
@@ -201,8 +327,33 @@ export default function OverviewPage() {
             : null;
 
     // Il blocco compare solo a owner/admin, solo a dati caricati e solo finché
-    // c'è qualcosa da fare. Lo stato "tutto pronto" arriverà a parte.
+    // c'è qualcosa da fare: a configurazione completa cede il posto al blocco
+    // delle pagine pubbliche.
     const showSetupBlock = canSeeSetup && (loadingSetup || !setupComplete);
+
+    // Con una sola sede la card porta il QR; con più sedi diventa un elenco,
+    // perché non esiste una sede "principale" da cui prendere il QR.
+    const MAX_VISIBLE_LOCATIONS = 6;
+    // `setupIsComplete` (non `setupComplete`) è la stessa condizione che governa
+    // la fetch: usarla qui evita che il blocco compaia in una combinazione di
+    // stato che l'effect non ha ancora coperto. `!loadingSetup` chiude il caso
+    // del ricaricamento della checklist su un tenant appena selezionato.
+    const showPublicBlock =
+        canSeeSetup
+        && !loadingSetup
+        && setupIsComplete
+        && publicLocations != null
+        && publicLocations.length > 0;
+    const singleLocation = publicLocations?.length === 1 ? publicLocations[0] : null;
+    // Fase 2 conclusa: la riga del menù passa da skeleton a testo. La mappa
+    // vuota conta come risolta (nessuna sede, o risoluzione fallita).
+    const menuIsResolved = catalogNames != null;
+    const singleMenuName = singleLocation ? catalogNames?.[singleLocation.id] ?? null : null;
+    const visibleLocations = publicLocations?.slice(0, MAX_VISIBLE_LOCATIONS) ?? [];
+    const hiddenLocationsCount = Math.max(
+        (publicLocations?.length ?? 0) - MAX_VISIBLE_LOCATIONS,
+        0
+    );
 
     const quickActions = [
         { label: "Nuovo prodotto", to: `${b}/products` },
@@ -329,6 +480,112 @@ export default function OverviewPage() {
                                 })}
                             </div>
                         </>
+                    )}
+                </div>
+            )}
+
+            {/* ===== Section 2b — Tutto pronto: pagine pubbliche ===== */}
+            {showPublicBlock && singleLocation && (
+                <div className={styles.section}>
+                    <div className={styles.publicCard}>
+                        <div className={styles.publicQr}>
+                            <QrCode
+                                value={singleLocation.publicUrl}
+                                size={132}
+                                fileName={`${singleLocation.slug}-qr`}
+                                showActions
+                            />
+                        </div>
+                        <div className={styles.publicInfo}>
+                            <Badge variant={singleMenuName ? "success" : "secondary"}>
+                                {menuIsResolved
+                                    ? (singleMenuName ? "Menù online" : "Nessun menù attivo")
+                                    : "Pagina pubblica"}
+                            </Badge>
+                            <Text variant="title-sm" weight={600}>{singleLocation.name}</Text>
+                            <a
+                                className={styles.publicUrl}
+                                href={singleLocation.publicUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                {singleLocation.publicUrl}
+                            </a>
+                            {/* `as="span"`: il placeholder è un <div>, che dentro
+                                un <p> sarebbe HTML invalido. */}
+                            <Text
+                                as="span"
+                                variant="body-sm"
+                                colorVariant="muted"
+                                className={styles.menuLine}
+                            >
+                                {menuIsResolved ? (
+                                    singleMenuName
+                                        ? `Il menù ${singleMenuName} è visibile adesso.`
+                                        : "Nessun menù attivo in questo momento."
+                                ) : (
+                                    <MenuLineSkeleton width="70%" />
+                                )}
+                            </Text>
+                            <div className={styles.publicActions}>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    leftIcon={<ExternalLink size={14} />}
+                                    onClick={() =>
+                                        window.open(singleLocation.publicUrl, "_blank", "noopener,noreferrer")
+                                    }
+                                >
+                                    Apri la pagina
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {showPublicBlock && !singleLocation && (
+                <div className={styles.section}>
+                    <Text variant="title-sm" weight={600}>Le tue pagine pubbliche</Text>
+                    <div className={styles.publicList}>
+                        {visibleLocations.map(location => (
+                            <a
+                                key={location.id}
+                                className={styles.publicRow}
+                                href={location.publicUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <span className={styles.publicRowBody}>
+                                    <Text variant="body-sm" weight={600}>{location.name}</Text>
+                                    <span className={styles.publicRowUrl}>{location.publicUrl}</span>
+                                    <Text
+                                        as="span"
+                                        variant="caption"
+                                        colorVariant="muted"
+                                        className={styles.menuLine}
+                                    >
+                                        {menuIsResolved ? (
+                                            catalogNames?.[location.id]
+                                                ? `Il menù ${catalogNames[location.id]} è visibile adesso.`
+                                                : "Nessun menù attivo in questo momento."
+                                        ) : (
+                                            <MenuLineSkeleton width="60%" />
+                                        )}
+                                    </Text>
+                                </span>
+                                <ExternalLink size={14} className={styles.configArrow} />
+                            </a>
+                        ))}
+                    </div>
+                    {hiddenLocationsCount > 0 && (
+                        <button
+                            className={styles.publicMore}
+                            onClick={() => navigate(`${b}/locations`)}
+                        >
+                            {`Vedi tutte le sedi (+${hiddenLocationsCount})`}
+                            <ChevronRight size={14} />
+                        </button>
                     )}
                 </div>
             )}
