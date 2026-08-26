@@ -8,6 +8,7 @@ import { Button } from "@/components/ui";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { formatInactiveReason } from "@/utils/activityStatus";
 import { formatOverrideSummary } from "@/services/supabase/activeCatalog";
+import { buildPublicUrl } from "@/utils/publicUrl";
 import { useNavigate, useParams } from "react-router-dom";
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
@@ -18,7 +19,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     catalogsLoading,
     onManageAvailability
 }) => {
-    const publicUrl = `${window.location.origin}/${business.slug}`;
+    const publicUrl = buildPublicUrl(business.slug);
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
 

@@ -57,9 +57,6 @@ import ModalLayout, {
   ModalLayoutHeader,
 } from "@/components/ui/ModalLayout/ModalLayout";
 
-// valore statico → performance migliore
-const previewBaseUrl = window.location.origin;
-
 type SlugInlineState =
   | { type: "idle" }
   | { type: "warning" } // solo edit: slug diverso dall’originale
@@ -1021,7 +1018,6 @@ export default function Businesses() {
                 values={createForm}
                 errors={createErrors}
                 loading={isCreating}
-                previewBaseUrl={previewBaseUrl}
                 onFieldChange={handleCreateFieldChange}
                 onCoverChange={handleCreateCoverChange}
                 slugState={createSlugState}
@@ -1043,7 +1039,6 @@ export default function Businesses() {
                 values={editForm}
                 errors={editErrors}
                 loading={isEditing}
-                previewBaseUrl={previewBaseUrl}
                 onFieldChange={handleEditFieldChange}
                 onCoverChange={handleEditCoverChange}
                 slugState={editSlugState}
