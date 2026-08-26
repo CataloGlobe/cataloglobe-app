@@ -334,6 +334,147 @@ EXCEPTION WHEN others THEN
 END $$;
 
 -- =============================================================================
+-- CASI l / m / n — la RPC public.create_support_ticket (20260827120000).
+--
+-- SECURITY INVOKER: gira come chiamante, quindi entrambe le INSERT passano
+-- dalle stesse policy dei casi precedenti. Cio' che questi tre casi provano IN
+-- PIU' e' l'ATOMICITA': su fallimento non deve restare un ticket senza
+-- messaggi. E' l'intera ragione per cui la RPC esiste invece di due
+-- `.insert()` sequenziali dal frontend.
+--
+-- ── Onesta' sul metodo ──────────────────────────────────────────────────────
+-- Il blocco EXCEPTION di plpgsql apre una SOTTOtransazione: al RAISE, Postgres
+-- torna al savepoint e le scritture parziali della RPC spariscono. In una vera
+-- chiamata PostgREST la funzione E' la transazione, quindi il fallimento
+-- annulla tutto allo stesso modo. Il meccanismo che osserviamo qui e' il
+-- medesimo (rollback a savepoint), non un surrogato piu' debole — ma va detto
+-- che il test lo esercita attraverso un handler, non attraverso l'abort del
+-- transaction block.
+--
+-- I conteggi si fanno da `postgres` (dopo RESET ROLE), non da A: servono i
+-- fatti del DB, non la vista filtrata da RLS. Un ticket orfano creato sul
+-- tenant di B sarebbe invisibile ad A e il test lo mancherebbe.
+-- =============================================================================
+
+CREATE TEMP TABLE _conta (k text primary key, n bigint) ON COMMIT DROP;
+
+-- ── CASO l — A apre un ticket via RPC sul proprio tenant ────────────────────
+-- Atteso: ritorna il ticket · 1 messaggio 'customer' collegato ·
+--         created_by e author_user_id = uid di A benche' NON passati.
+RESET ROLE;
+SET LOCAL request.jwt.claims = '{"sub":"b1f8bed2-0d66-4217-af78-6cfe3a43cbf3","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+DECLARE
+    v_ticket   public.support_tickets;
+    n_msg      int;
+    v_author   uuid;
+    v_kind     text;
+    v_status   text;
+    v_last     timestamptz;
+BEGIN
+    v_ticket := public.create_support_ticket(
+        '7bab4e9d-63a9-41da-b90e-a3d7fb734d8a',
+        'TEST RLS — ticket aperto via RPC',
+        NULL,                                  -- p_activity_id: ticket di account
+        'Primo messaggio scritto dalla RPC.');
+
+    SELECT count(*) INTO n_msg
+      FROM public.support_messages WHERE ticket_id = v_ticket.id;
+
+    SELECT author_user_id, author_kind INTO v_author, v_kind
+      FROM public.support_messages WHERE ticket_id = v_ticket.id;
+
+    -- Riletti dal DB, non da v_ticket: il ritorno della RPC e' lo snapshot
+    -- PRE-trigger, mentre l'AFTER INSERT ha nel frattempo aggiornato
+    -- last_message_at sulla riga vera.
+    SELECT status, last_message_at INTO v_status, v_last
+      FROM public.support_tickets WHERE id = v_ticket.id;
+
+    INSERT INTO _esiti VALUES (14, 'l — A apre un ticket via RPC',
+        'ticket ritornato · 1 messaggio customer · created_by=A · author_user_id=A · open',
+        format('id_non_null=%s · n_messaggi=%s · kind=%s · created_by_ok=%s · author_ok=%s · %s · last_message_at≈now=%s',
+               (v_ticket.id IS NOT NULL), n_msg, v_kind,
+               (v_ticket.created_by = auth.uid()),
+               (v_author = auth.uid()),
+               v_status,
+               (v_last > now() - interval '1 minute')));
+EXCEPTION WHEN others THEN
+    INSERT INTO _esiti VALUES (14, 'l — A apre un ticket via RPC',
+        'ticket ritornato', format('FALLITO: %s %s', SQLSTATE, SQLERRM));
+END $$;
+
+-- ── CASO m — A chiama la RPC sul tenant di B ────────────────────────────────
+-- Atteso: 42501 E nessun ticket orfano (delta conteggi = 0).
+RESET ROLE;
+DELETE FROM _conta;
+INSERT INTO _conta VALUES ('ticket', (SELECT count(*) FROM public.support_tickets));
+INSERT INTO _conta VALUES ('msg',    (SELECT count(*) FROM public.support_messages));
+
+SET LOCAL request.jwt.claims = '{"sub":"b1f8bed2-0d66-4217-af78-6cfe3a43cbf3","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+BEGIN
+    PERFORM public.create_support_ticket(
+        'f89f8777-daf6-4006-aeda-4314f2921860',   -- tenant di B
+        'TEST RLS — RPC cross-tenant',
+        NULL,
+        'Non deve esistere.');
+    INSERT INTO _esiti VALUES (15, 'm — A chiama la RPC sul tenant di B',
+        '42501', 'RPC RIUSCITA ← FUGA CROSS-TENANT');
+EXCEPTION WHEN insufficient_privilege THEN
+    INSERT INTO _esiti VALUES (15, 'm — A chiama la RPC sul tenant di B',
+        '42501', '42501 respinto');
+WHEN others THEN
+    INSERT INTO _esiti VALUES (15, 'm — A chiama la RPC sul tenant di B',
+        '42501', format('altro errore: %s %s', SQLSTATE, SQLERRM));
+END $$;
+
+RESET ROLE;
+INSERT INTO _esiti
+SELECT 16, 'm — nessun orfano dopo il fallimento cross-tenant', 'delta 0 · 0',
+       format('delta_ticket=%s · delta_messaggi=%s',
+              (SELECT count(*) FROM public.support_tickets) - (SELECT n FROM _conta WHERE k='ticket'),
+              (SELECT count(*) FROM public.support_messages) - (SELECT n FROM _conta WHERE k='msg'));
+
+-- ── CASO n — A chiama la RPC con una sede di B ──────────────────────────────
+-- Il tenant e' il suo, ma p_activity_id punta a una sede altrui: lo blocca
+-- l'EXISTS nella WITH CHECK dell'INSERT. Atteso: 42501, nessun orfano.
+RESET ROLE;
+DELETE FROM _conta;
+INSERT INTO _conta VALUES ('ticket', (SELECT count(*) FROM public.support_tickets));
+INSERT INTO _conta VALUES ('msg',    (SELECT count(*) FROM public.support_messages));
+
+SET LOCAL request.jwt.claims = '{"sub":"b1f8bed2-0d66-4217-af78-6cfe3a43cbf3","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+BEGIN
+    PERFORM public.create_support_ticket(
+        '7bab4e9d-63a9-41da-b90e-a3d7fb734d8a',   -- tenant proprio
+        'TEST RLS — RPC con sede altrui',
+        'd02b594c-4f51-4fd1-8849-2b87496764da',   -- sede di B
+        'Non deve esistere.');
+    INSERT INTO _esiti VALUES (17, 'n — A chiama la RPC con activity_id di B',
+        '42501', 'RPC RIUSCITA ← activity cross-tenant accettata');
+EXCEPTION WHEN insufficient_privilege THEN
+    INSERT INTO _esiti VALUES (17, 'n — A chiama la RPC con activity_id di B',
+        '42501', '42501 respinto');
+WHEN others THEN
+    INSERT INTO _esiti VALUES (17, 'n — A chiama la RPC con activity_id di B',
+        '42501', format('altro errore: %s %s', SQLSTATE, SQLERRM));
+END $$;
+
+RESET ROLE;
+INSERT INTO _esiti
+SELECT 18, 'n — nessun orfano dopo il fallimento su activity', 'delta 0 · 0',
+       format('delta_ticket=%s · delta_messaggi=%s',
+              (SELECT count(*) FROM public.support_tickets) - (SELECT n FROM _conta WHERE k='ticket'),
+              (SELECT count(*) FROM public.support_messages) - (SELECT n FROM _conta WHERE k='msg'));
+
+-- =============================================================================
 -- RISULTATI
 -- =============================================================================
 RESET ROLE;

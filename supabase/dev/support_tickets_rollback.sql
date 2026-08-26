@@ -4,7 +4,7 @@
 -- NON e' una migration. Non vive in supabase/migrations/ e non viene applicato
 -- da `supabase db push`. Si esegue A MANO in Supabase Studio SQL editor (o
 -- psql) e SOLO per annullare l'introduzione del supporto
--- (migration 20260827100000 → 20260827100005).
+-- (migration 20260827100000 → 20260827100005 e 20260827120000 → 20260827120001).
 --
 -- ATTENZIONE — DISTRUTTIVO. Il DROP TABLE porta via tutti i ticket e tutti i
 -- messaggi. Non c'e' soft-delete: se le conversazioni servono ancora,
@@ -17,6 +17,13 @@
 -- =============================================================================
 
 -- Drop in ordine inverso rispetto all'applicazione.
+
+-- 20260827120000 (RPC) + 20260827120001 (ACL).
+-- Il DROP FUNCTION porta via anche i GRANT. Va PRIMA del DROP TABLE: la
+-- funzione dichiara `RETURNS public.support_tickets`, quindi dipende dal tipo
+-- composito della tabella e il DROP TABLE fallirebbe (o la trascinerebbe via
+-- solo con CASCADE, che qui non si usa).
+DROP FUNCTION IF EXISTS public.create_support_ticket(uuid, text, uuid, text);
 
 -- 20260827100005 — trigger BEFORE INSERT. Il DROP TABLE li porterebbe via
 -- comunque; qui espliciti per simmetria con la migration.
