@@ -395,6 +395,54 @@
   flex-shrink: 0;
 }
 
+/* Coda delle sedi sospese. Il distacco dal gruppo delle pubblicate è dato dallo
+   spazio prima del filo, non da un filo più spesso: separare due gruppi con un
+   bordo pesante li mette sullo stesso piano gerarchico, mentre qui il secondo è
+   una postilla al primo. Larghezza allineata ai separatori delle righe. */
+.suspendedList {
+  display: flex;
+  flex-direction: column;
+  margin-inline: -12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.suspendedRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+/* Neutro, non ambra: la sede è ferma, non in allarme. Stessa scelta dello
+   `StatusBadge variant="neutral"` usato per "Sospesa" nelle card sede — e la
+   regola No-Color-On-Inactive di DESIGN.md dice esattamente questo. */
+.suspendedIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text);
+  opacity: 0.45;
+}
+
+.suspendedText {
+  min-width: 0;
+  /* Nomi lunghi troncano invece di spingere il bottone fuori dalla riga. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suspendedName {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.suspendedRow > *:last-child {
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
 .publicMore {
   display: inline-flex;
   align-items: center;

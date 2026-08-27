@@ -7,7 +7,8 @@ import {
     ChevronRight,
     Download,
     Link as LinkIcon,
-    Image as ImageIcon
+    Image as ImageIcon,
+    PauseCircle
 } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
@@ -22,6 +23,8 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import { getTenantSetupStatus, type TenantSetupStatus } from "@/services/supabase/overviewStats";
 import { getActivities } from "@/services/supabase/activities";
+import type { V2Activity } from "@/types/activity";
+import { formatInactiveReason } from "@/utils/activityStatus";
 import { getActiveCatalogForActivities, type ActiveCatalogMeta } from "@/services/supabase/activeCatalog";
 import {
     ACTIVE_CATALOG_ERROR_LABEL,
@@ -33,6 +36,7 @@ import {
 } from "@/utils/activeCatalogStatus";
 import { QrCode, type QrCodeHandle } from "@/components/ui/QrCode/QrCode";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { Button } from "@/components/ui/Button/Button";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { SUBTYPE_LABELS, VERTICAL_LABELS } from "@/constants/verticalTypes";
 import styles from "./OverviewPage.module.scss";
@@ -65,6 +69,21 @@ type PublicLocation = {
     name: string;
     slug: string;
     publicUrl: string;
+};
+
+/**
+ * Sede sospesa: esiste, ma adesso non ha una pagina pubblica.
+ *
+ * Niente `slug` né `publicUrl` nel tipo, di proposito: un QR o un link qui
+ * porterebbero a una pagina che non risponde, e il blocco starebbe promettendo
+ * una vetrina chiusa.
+ */
+type SuspendedLocation = {
+    id: string;
+    name: string;
+    /** Valore grezzo dal DB: `null` quando la sospensione non dichiara un
+     *  motivo. Formattato solo al momento di renderlo. */
+    reason: V2Activity["inactive_reason"];
 };
 
 /**
@@ -241,6 +260,44 @@ function PublicLocationRow({
 }
 
 /**
+ * Riga di una sede sospesa.
+ *
+ * Deliberatamente più povera della riga pubblicata: niente QR, niente URL,
+ * nessun click sull'intera riga. Una sede sospesa non ha una pagina pubblica —
+ * darle gli stessi appigli significherebbe offrire di scaricare il QR di una
+ * vetrina chiusa. L'unica azione è esplicita e porta dove si risolve il
+ * problema, cioè al dettaglio della sede.
+ */
+function SuspendedLocationRow({
+    location,
+    onOpen
+}: {
+    location: SuspendedLocation;
+    onOpen: () => void;
+}) {
+    // `formatInactiveReason(null)` risponde "Sospesa": usarlo qui produrrebbe
+    // "Bar Porto è sospesa · Sospesa". Il motivo si formatta solo se esiste.
+    const reason = location.reason ? formatInactiveReason(location.reason) : null;
+
+    return (
+        <div className={styles.suspendedRow}>
+            <span className={styles.suspendedIcon} aria-hidden="true">
+                <PauseCircle size={16} strokeWidth={2} />
+            </span>
+
+            <Text variant="body-sm" colorVariant="muted" className={styles.suspendedText}>
+                <strong className={styles.suspendedName}>{location.name}</strong> è sospesa
+                {reason ? ` · ${reason}` : ""}
+            </Text>
+
+            <Button variant="secondary" size="sm" onClick={onOpen}>
+                Apri sede
+            </Button>
+        </div>
+    );
+}
+
+/**
  * Riga di stato del menù: puntino + testo, mai il colore da solo.
  *
  * `DESIGN.md` fissa la regola per gli stati semantici ("color is always paired
@@ -311,10 +368,11 @@ export default function OverviewPage() {
         status: "loading",
         byActivity: {}
     });
-    /** Sedi non pubblicate. Ricavato dalla stessa `getActivities` già chiamata
-     *  per le sedi attive: serve solo a spiegare perché il conteggio in alto
-     *  non coincide con le righe elencate. */
-    const [suspendedCount, setSuspendedCount] = useState(0);
+    /** Sedi non pubblicate. Ricavate dalla stessa `getActivities` già chiamata
+     *  per le sedi attive — `select("*")`, quindi il motivo arriva senza una
+     *  query in più. Prima qui viveva solo un contatore: un numero dice che
+     *  qualcosa è fermo, non quale sede né perché. */
+    const [suspendedLocations, setSuspendedLocations] = useState<SuspendedLocation[]>([]);
 
     // Un handle per sede: ogni QR scarica il proprio file. La mappa è un ref,
     // non uno state — cambiarla non deve far ri-renderizzare la lista.
@@ -361,7 +419,7 @@ export default function OverviewPage() {
         setLoadingSetup(true);
         setPublicLocations(null);
         setCatalogFetch({ status: "loading", byActivity: {} });
-        setSuspendedCount(0);
+        setSuspendedLocations([]);
         qrRefs.current = {};
     }
 
@@ -455,7 +513,16 @@ export default function OverviewPage() {
                 const activities = await getActivities(tenantId!);
                 if (cancelled) return;
 
-                setSuspendedCount(activities.filter(a => a.status !== "active").length);
+                setSuspendedLocations(
+                    activities
+                        .filter(activity => activity.status !== "active")
+                        .sort((a, b) => a.name.localeCompare(b.name, "it"))
+                        .map(activity => ({
+                            id: activity.id,
+                            name: activity.name,
+                            reason: activity.inactive_reason
+                        }))
+                );
 
                 active = activities
                     .filter(activity => activity.status === "active")
@@ -611,19 +678,43 @@ export default function OverviewPage() {
             ? activeCatalogDisplayName(catalogFetch.byActivity[activityId])
             : null;
     const visibleLocations = publicLocations?.slice(0, MAX_VISIBLE_LOCATIONS) ?? [];
-    // Rende esplicito lo scarto fra il conteggio sedi dell'intestazione e le
-    // righe elencate qui, che sono le sole raggiungibili dal pubblico.
+    // Solo le pubblicate: le sospese non sono più un numero qui, sono righe con
+    // un nome e un motivo in fondo al blocco. Ripeterne il conteggio a due
+    // righe di distanza sarebbe la stessa notizia data due volte, peggio.
     const publishedCount = publicLocations?.length ?? 0;
-    const locationsSummary = [
-        `${publishedCount} sedi pubblicate`,
-        suspendedCount > 0 ? `${suspendedCount} ${suspendedCount === 1 ? "sospesa" : "sospese"}` : null
-    ]
-        .filter(Boolean)
-        .join(" · ");
+    const locationsSummary =
+        publishedCount === 1 ? "1 sede pubblicata" : `${publishedCount} sedi pubblicate`;
     const hiddenLocationsCount = Math.max(
         (publicLocations?.length ?? 0) - MAX_VISIBLE_LOCATIONS,
         0
     );
+
+    /**
+     * Coda del blocco, identica nelle due varianti: un tenant con una sola sede
+     * pubblicata e una sospesa deve vedere la seconda esattamente come chi ne
+     * ha dieci.
+     *
+     * Nessun gate di permesso sull'azione: l'intero blocco è già dietro
+     * `canSeeSetup` (`isOwnerOrAdmin`), quindi chi legge questa riga ha scope
+     * tenant-wide e la pagina sede non ha un gate di lettura proprio — le sue
+     * azioni si proteggono da sole con `activity.manage`. Aggiungerne uno qui
+     * sarebbe una guardia che non può mai scattare.
+     *
+     * Nessun cap: le sospese sono normalmente una o due, e da quando l'header
+     * non le conta più, troncarle in silenzio le farebbe sparire del tutto.
+     */
+    const suspendedBlock =
+        suspendedLocations.length > 0 ? (
+            <div className={styles.suspendedList}>
+                {suspendedLocations.map(location => (
+                    <SuspendedLocationRow
+                        key={location.id}
+                        location={location}
+                        onOpen={() => navigate(`${b}/locations/${location.id}`)}
+                    />
+                ))}
+            </div>
+        ) : null;
 
     const quickActions = [
         { label: "Nuovo prodotto", to: `${b}/products` },
@@ -777,6 +868,8 @@ export default function OverviewPage() {
                             menuName={menuNameFor(singleLocation.id)}
                         />
                     </div>
+
+                    {suspendedBlock}
                 </div>
             )}
 
@@ -803,6 +896,8 @@ export default function OverviewPage() {
                             />
                         ))}
                     </div>
+
+                    {suspendedBlock}
 
                     {hiddenLocationsCount > 0 && (
                         <button
