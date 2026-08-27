@@ -1,14 +1,17 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import Text from "@/components/ui/Text/Text";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useTenantId } from "@/context/useTenantId";
 import { useAiImportSession, type AiImportOutcome } from "@/hooks/useAiImportSession";
+import { createLayoutRule } from "@/services/supabase/layoutScheduling";
+import { listStyles } from "@/services/supabase/styles";
+import { buildPublicUrl } from "@/utils/publicUrl";
 import type { V2Activity } from "@/types/activity";
 import type { V2Catalog } from "@/services/supabase/catalogs";
 import { SetupShell, type SetupStepDefinition } from "./components/SetupShell";
 import { SetupActivityStep } from "./steps/SetupActivityStep";
 import { SetupCatalogStep, type CatalogBranch } from "./steps/SetupCatalogStep";
+import { SetupPublishStep, type SetupRuleStatus } from "./steps/SetupPublishStep";
 
 const STEPS: SetupStepDefinition[] = [
     { id: "activity", label: "La tua sede", hint: "Dove i clienti ti trovano" },
@@ -21,8 +24,15 @@ const CATALOG_FORM_ID = "setup-catalog-form";
 
 /** Sottoinsieme della sede creata che i passi successivi consumano. */
 type CreatedActivity = Pick<V2Activity, "id" | "name" | "slug">;
-/** Menù creato al passo 2, da uno dei due rami. */
-type CreatedCatalog = { id: string; name: string };
+/**
+ * Menù creato al passo 2. `hasProducts` viene dal ramo di provenienza, non da
+ * una query: l'import salva solo con almeno un prodotto selezionato, il ramo
+ * manuale crea per definizione un contenitore vuoto.
+ */
+type CreatedCatalog = { id: string; name: string; hasProducts: boolean };
+
+/** Regola creata dal wizard: nome fisso, nessuna finestra temporale. */
+const RULE_NAME = "Menù principale";
 
 const STEP_COPY = [
     {
@@ -36,10 +46,17 @@ const STEP_COPY = [
             "Serve un menù perché la pagina pubblica funzioni. Puoi riempirlo subito o con calma."
     },
     {
-        title: "Pubblica e stampa il QR",
-        subtitle: "L'ultimo passo del setup guidato."
+        title: "Il tuo menù è online",
+        subtitle:
+            "Inquadra il codice col telefono: è esattamente quello che vedranno i tuoi clienti."
     }
 ];
+
+/** Copy alternativo del passo 3 quando il menù è stato creato vuoto. */
+const EMPTY_MENU_COPY = {
+    title: "Manca un ultimo passo: i piatti",
+    subtitle: "Sede, menù e regola sono a posto. Il tuo indirizzo pubblico funziona già."
+};
 
 export default function SetupWizardPage() {
     usePageTitle("Setup guidato");
@@ -55,6 +72,11 @@ export default function SetupWizardPage() {
     const [catalogBranch, setCatalogBranch] = useState<CatalogBranch | null>(null);
     const [createdCatalog, setCreatedCatalog] = useState<CreatedCatalog | null>(null);
 
+    const [ruleStatus, setRuleStatus] = useState<SetupRuleStatus>("creating");
+    // La creazione parte da un effect: una sola volta per percorso, anche se il
+    // passo 3 si ri-renderizza.
+    const ruleRequestedRef = useRef(false);
+
     const handleCatalogReady = useCallback((catalog: CreatedCatalog) => {
         setCreatedCatalog(catalog);
         setStepIndex(2);
@@ -64,7 +86,11 @@ export default function SetupWizardPage() {
     // catalogo risolto dalla RPC (che nel ramo "nuovo" lo ha appena creato).
     const handleImported = useCallback(
         (outcome: AiImportOutcome) => {
-            handleCatalogReady({ id: outcome.catalogId, name: outcome.catalogName });
+            handleCatalogReady({
+                id: outcome.catalogId,
+                name: outcome.catalogName,
+                hasProducts: true
+            });
         },
         [handleCatalogReady]
     );
@@ -83,6 +109,56 @@ export default function SetupWizardPage() {
         }
     }, [catalogBranch, importSession.isOpen]);
 
+    // Regola che collega menù e sede: senza, la pagina pubblica resterebbe vuota.
+    // Target la sede specifica e mai "tutte le sedi": una regola tenant-wide
+    // farebbe comparire questo menù su locali creati in futuro senza che nessuno
+    // l'abbia deciso.
+    useEffect(() => {
+        if (stepIndex !== 2) return;
+        if (!tenantId || !createdActivity || !createdCatalog) return;
+        if (ruleRequestedRef.current) return;
+        ruleRequestedRef.current = true;
+
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const styles = await listStyles(tenantId);
+                const systemStyle = styles.find(style => style.is_system && style.is_active);
+                if (!systemStyle) {
+                    throw new Error("SYSTEM_STYLE_NOT_FOUND");
+                }
+
+                await createLayoutRule({
+                    tenantId,
+                    name: RULE_NAME,
+                    targetType: "activity",
+                    targetId: createdActivity.id,
+                    catalogId: createdCatalog.id,
+                    styleId: systemStyle.id,
+                    priorityLevel: "medium",
+                    displayOrder: 0,
+                    enabled: true,
+                    timeMode: "always",
+                    daysOfWeek: null,
+                    timeFrom: null,
+                    timeTo: null
+                });
+
+                if (!cancelled) setRuleStatus("ready");
+            } catch (error) {
+                console.error("Errore creazione regola setup:", error);
+                // Sede e catalogo esistono già: non si torna indietro, il passo 3
+                // resta raggiungibile e spiega cosa manca.
+                if (!cancelled) setRuleStatus("failed");
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [stepIndex, tenantId, createdActivity, createdCatalog]);
+
     const handleExitToOverview = useCallback(() => {
         navigate(`/business/${businessId}/overview`);
     }, [navigate, businessId]);
@@ -98,7 +174,7 @@ export default function SetupWizardPage() {
 
     const handleCatalogCreated = useCallback(
         (catalog: V2Catalog) => {
-            handleCatalogReady({ id: catalog.id, name: catalog.name });
+            handleCatalogReady({ id: catalog.id, name: catalog.name, hasProducts: false });
         },
         [handleCatalogReady]
     );
@@ -111,6 +187,17 @@ export default function SetupWizardPage() {
         [importSession]
     );
 
+    // Passo 3: con prodotti si apre la pagina pubblica in una nuova scheda, senza
+    // si porta l'utente dove i piatti si aggiungono.
+    const handlePublishPrimary = useCallback(() => {
+        if (!createdActivity) return;
+        if (createdCatalog?.hasProducts) {
+            window.open(buildPublicUrl(createdActivity.slug), "_blank", "noopener");
+            return;
+        }
+        navigate(`/business/${businessId}/products`);
+    }, [createdActivity, createdCatalog, navigate, businessId]);
+
     // Il pannello import si chiude da sé anche dopo un salvataggio riuscito: in
     // quel caso lo step è già avanzato, quindi qui resta solo l'annullamento →
     // torna al bivio con la scelta azzerata, nessun catalogo creato.
@@ -121,9 +208,13 @@ export default function SetupWizardPage() {
         setCatalogBranch(null);
     }, [importSession]);
 
-    const copy = STEP_COPY[stepIndex];
     const isActivityStep = stepIndex === 0;
     const isCatalogStep = stepIndex === 1;
+    const isPublishStep = stepIndex === 2;
+    const hasProducts = createdCatalog?.hasProducts ?? false;
+
+    // Al passo 3 il copy cambia in base a cosa c'è dentro il menù.
+    const copy = isPublishStep && !hasProducts ? EMPTY_MENU_COPY : STEP_COPY[stepIndex];
     const isImportPanelOpen = isCatalogStep && importSession.isOpen;
     const isAnalyzing = importSession.status === "analyzing" || importSession.status === "creating";
 
@@ -140,9 +231,16 @@ export default function SetupWizardPage() {
             title={copy.title}
             subtitle={copy.subtitle}
             formId={formId}
-            primaryLabel="Continua"
+            primaryLabel={
+                isPublishStep
+                    ? hasProducts
+                        ? "Apri la mia pagina"
+                        : "Aggiungi i primi piatti"
+                    : "Continua"
+            }
             primaryLoading={isSaving}
-            primaryDisabled={formId === undefined || isSaving}
+            primaryDisabled={!isPublishStep && (formId === undefined || isSaving)}
+            onPrimaryClick={isPublishStep ? handlePublishPrimary : undefined}
             hidePrimary={isImportPanelOpen}
             secondaryLabel={isCatalogStep ? "Indietro" : undefined}
             onSecondaryClick={handleBackFromCatalog}
@@ -174,12 +272,15 @@ export default function SetupWizardPage() {
                 />
             )}
 
-            {stepIndex === 2 && (
-                <Text variant="body-sm" colorVariant="muted">
-                    In arrivo
-                    {createdCatalog ? `: il menù «${createdCatalog.name}»` : ""}
-                    {createdActivity ? ` per ${createdActivity.name}` : ""}.
-                </Text>
+            {isPublishStep && createdActivity && createdCatalog && (
+                <SetupPublishStep
+                    businessId={businessId ?? ""}
+                    activityName={createdActivity.name}
+                    activitySlug={createdActivity.slug}
+                    catalogName={createdCatalog.name}
+                    hasProducts={hasProducts}
+                    ruleStatus={ruleStatus}
+                />
             )}
         </SetupShell>
     );
