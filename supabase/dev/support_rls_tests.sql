@@ -629,12 +629,203 @@ EXCEPTION WHEN others THEN
         'in_progress · closed_at NULL', format('FALLITO: %s %s', SQLSTATE, SQLERRM));
 END $$;
 
+-- =============================================================================
+-- CASI t → w — customer_last_read_at + last_message_kind (20260827140000+)
+-- =============================================================================
+
+-- ── CASO t — A marca letto un PROPRIO ticket ───────────────────────────────
+-- La RPC e' SECURITY DEFINER: gira come owner e scavalca RLS, quindi qui si
+-- verifica che il doppio vincolo nel corpo (tenant + support.read) LASCI
+-- PASSARE il caso legittimo. Il valore deve venire da now() del server.
+RESET ROLE;
+SET LOCAL request.jwt.claims = '{"sub":"b1f8bed2-0d66-4217-af78-6cfe3a43cbf3","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+DECLARE v_read timestamptz;
+BEGIN
+    PERFORM public.mark_support_ticket_read('aaaa0000-0000-4000-8000-000000000001');
+
+    SELECT customer_last_read_at INTO v_read
+      FROM public.support_tickets WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    INSERT INTO _esiti VALUES (23, 't — A marca letto un proprio ticket',
+        'customer_last_read_at ≈ now',
+        format('valorizzato=%s · e_now=%s',
+               (v_read IS NOT NULL),
+               (v_read > now() - interval '1 minute')));
+EXCEPTION WHEN others THEN
+    INSERT INTO _esiti VALUES (23, 't — A marca letto un proprio ticket',
+        'customer_last_read_at ≈ now', format('FALLITO: %s %s', SQLSTATE, SQLERRM));
+END $$;
+
+-- ── CASO u — A marca letto un ticket di B ──────────────────────────────────
+-- Il caso che giustifica il ricontrollo dentro la funzione. Atteso: NESSUN
+-- errore (non si rivela l'esistenza di ticket altrui) e ZERO righe aggiornate,
+-- cioe' customer_last_read_at ancora NULL sul ticket di B.
+--
+-- Setup come B, che il proprio ticket puo' crearlo.
+RESET ROLE;
+SET LOCAL request.jwt.claims = '{"sub":"9c40f5c7-cde3-44ee-a01e-c58cb8ef0d66","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+BEGIN
+    INSERT INTO public.support_tickets (id, tenant_id, subject, created_by)
+    VALUES ('bbbb0000-0000-4000-8000-000000000001',
+            'f89f8777-daf6-4006-aeda-4314f2921860',
+            'TEST RLS — ticket di B per il caso u',
+            auth.uid());
+EXCEPTION WHEN others THEN
+    -- Nessun esito nel percorso normale: questo e' setup, non un'asserzione.
+    -- Emette una riga SOLO se il setup fallisce, e con lo stesso `ordine` del
+    -- caso u, cosi' compare accanto a quello che ha invalidato invece di
+    -- occupare una posizione propria che in una run verde resterebbe vuota.
+    INSERT INTO _esiti VALUES (24, 'u — SETUP FALLITO (ticket di B non creato)',
+        'insert ok', format('%s %s — il caso u sotto non e'' significativo',
+                            SQLSTATE, SQLERRM));
+END $$;
+
+RESET ROLE;
+SET LOCAL request.jwt.claims = '{"sub":"b1f8bed2-0d66-4217-af78-6cfe3a43cbf3","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+DECLARE v_errore text := 'nessuno';
+BEGIN
+    BEGIN
+        PERFORM public.mark_support_ticket_read('bbbb0000-0000-4000-8000-000000000001');
+    EXCEPTION WHEN others THEN
+        v_errore := format('%s %s', SQLSTATE, SQLERRM);
+    END;
+
+    INSERT INTO _esiti VALUES (24, 'u — A marca letto un ticket di B',
+        'nessun errore · 0 righe aggiornate',
+        format('errore=%s · (lettura del risultato nel caso u-bis)', v_errore));
+END $$;
+
+-- Verifica dell'effetto da `postgres` (bypassrls): A non puo' leggere il
+-- ticket di B, quindi l'asserzione non e' esprimibile dal suo ruolo.
+RESET ROLE;
+INSERT INTO _esiti
+SELECT 25, 'u-bis — il ticket di B e'' rimasto non letto', 'customer_last_read_at NULL',
+       format('null=%s',
+              (SELECT customer_last_read_at IS NULL FROM public.support_tickets
+                WHERE id='bbbb0000-0000-4000-8000-000000000001'));
+
+-- ── CASO v — la RPC non tocca status / closed_at / subject ─────────────────
+-- La SET della funzione nomina una sola colonna, ma sulla UPDATE scattano due
+-- BEFORE UPDATE (derive_closed_at, set_updated_at): serve la prova che nessuno
+-- dei due alteri il resto della riga. `updated_at` SI' cambia, ed e' atteso:
+-- la riga e' stata davvero modificata.
+--
+-- Setup da platform admin: porta il ticket a 'closed' cosi' il ramo verificato
+-- di derive_closed_at e' quello che CONSERVA closed_at (il caso interessante:
+-- su un ticket aperto closed_at e' NULL sia prima sia dopo, e il test non
+-- distinguerebbe "preservato" da "azzerato").
+RESET ROLE;
+SET LOCAL request.jwt.claims = '{"sub":"3009c324-b37d-4ae9-ac95-7560b34a4a4c","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+UPDATE public.support_tickets SET status='closed'
+ WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+RESET ROLE;
+SET LOCAL request.jwt.claims = '{"sub":"b1f8bed2-0d66-4217-af78-6cfe3a43cbf3","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+DECLARE
+    v_s_prima text; v_c_prima timestamptz; v_sub_prima text; v_upd_prima timestamptz;
+    v_s_dopo  text; v_c_dopo  timestamptz; v_sub_dopo  text; v_upd_dopo  timestamptz;
+BEGIN
+    SELECT status, closed_at, subject, updated_at
+      INTO v_s_prima, v_c_prima, v_sub_prima, v_upd_prima
+      FROM public.support_tickets WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    PERFORM public.mark_support_ticket_read('aaaa0000-0000-4000-8000-000000000001');
+
+    SELECT status, closed_at, subject, updated_at
+      INTO v_s_dopo, v_c_dopo, v_sub_dopo, v_upd_dopo
+      FROM public.support_tickets WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    INSERT INTO _esiti VALUES (26, 'v — la RPC non altera status/closed_at/subject',
+        'status = · closed_at = · subject = · updated_at avanzato (atteso)',
+        format('status_uguale=%s · closed_at_uguale=%s · subject_uguale=%s · updated_at_avanzato=%s',
+               (v_s_dopo   IS NOT DISTINCT FROM v_s_prima),
+               (v_c_dopo   IS NOT DISTINCT FROM v_c_prima),
+               (v_sub_dopo IS NOT DISTINCT FROM v_sub_prima),
+               (v_upd_dopo >= v_upd_prima)));
+EXCEPTION WHEN others THEN
+    INSERT INTO _esiti VALUES (26, 'v — la RPC non altera status/closed_at/subject',
+        'nessuna colonna alterata', format('FALLITO: %s %s', SQLSTATE, SQLERRM));
+END $$;
+
+-- ── CASO w — last_message_kind segue l'ultimo messaggio ────────────────────
+-- Il predicato "risposta non letta" e' la congiunzione delle due colonne:
+-- questo caso verifica che il trigger aggiornato (20260827140001) scriva il
+-- lato giusto, e che una risposta della piattaforma renda il ticket non letto
+-- DOPO che il cliente l'aveva marcato letto nel caso v.
+-- ⚠️ RIGA NECESSARIA, NON UN TRUCCO PER FAR PASSARE IL TEST.
+--
+-- `now()` restituisce l'ora di INIZIO TRANSAZIONE ed e' costante per tutto lo
+-- script (verificato: dopo `pg_sleep(0.3)` `clock_timestamp()` avanza di
+-- ~300ms mentre `now()` resta identico). `mark_support_ticket_read` scrive
+-- `customer_last_read_at = now()` e il trigger scrive `last_message_at =
+-- now()`: dentro questo unico BEGIN…ROLLBACK i due valori sono lo STESSO
+-- istante, quindi `last_message_at > customer_last_read_at` e' falso perche'
+-- sono UGUALI — non perche' il predicato sbagli. In produzione la lettura e la
+-- risposta successiva stanno in transazioni diverse e i due istanti
+-- differiscono.
+--
+-- Retrodatare la lettura di un minuto ricrea qui la separazione temporale che
+-- la realta' ha di suo, e rende il caso capace di distinguere un predicato
+-- corretto da uno rotto. Senza, il caso w sarebbe rosso a codice giusto.
+--
+-- Da `postgres` e non da un ruolo impersonato: e' una UPDATE diretta su
+-- support_tickets, che nessun cliente puo' fare (policy UPDATE =
+-- is_platform_admin()). E' manipolazione dell'ambiente di test, non un
+-- passaggio del flusso sotto esame.
+RESET ROLE;
+UPDATE public.support_tickets
+   SET customer_last_read_at = customer_last_read_at - interval '1 minute'
+ WHERE id = 'aaaa0000-0000-4000-8000-000000000001';
+
+SET LOCAL request.jwt.claims = '{"sub":"3009c324-b37d-4ae9-ac95-7560b34a4a4c","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+DECLARE v_kind text; v_unread boolean; v_read timestamptz; v_msg timestamptz;
+BEGIN
+    INSERT INTO public.support_messages (ticket_id, body, author_user_id, author_kind)
+    VALUES ('aaaa0000-0000-4000-8000-000000000001',
+            'TEST RLS — risposta della piattaforma', auth.uid(), 'platform');
+
+    SELECT last_message_kind,
+           customer_last_read_at,
+           last_message_at,
+           (last_message_kind = 'platform'
+            AND (customer_last_read_at IS NULL OR last_message_at > customer_last_read_at))
+      INTO v_kind, v_read, v_msg, v_unread
+      FROM public.support_tickets WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    -- I due istanti sono stampati, non solo confrontati: se questo caso
+    -- tornasse rosso, la prima domanda e' se differiscono davvero.
+    INSERT INTO _esiti VALUES (27, 'w — risposta platform → last_message_kind + non letto',
+        'platform · non_letto=true · msg > read',
+        format('%s · non_letto=%s · read=%s · msg=%s · delta_ok=%s',
+               v_kind, v_unread, v_read, v_msg, (v_msg > v_read)));
+EXCEPTION WHEN others THEN
+    INSERT INTO _esiti VALUES (27, 'w — risposta platform → last_message_kind',
+        'platform · non_letto=true', format('FALLITO: %s %s', SQLSTATE, SQLERRM));
+END $$;
+
 -- ── CASO s — invariante globale ────────────────────────────────────────────
 -- Da `postgres` (bypassrls): serve lo stato di TUTTI i ticket, non la vista
 -- filtrata di un ruolo. Include quelli creati dai casi a/l su tenant diversi.
 RESET ROLE;
 INSERT INTO _esiti
-SELECT 23, 's — invariante closed_at IS NOT NULL <=> status=closed', '0 violazioni',
+SELECT 28, 's — invariante closed_at IS NOT NULL <=> status=closed', '0 violazioni',
        format('%s violazioni su %s ticket',
               (SELECT count(*) FROM public.support_tickets
                 WHERE (closed_at IS NOT NULL) <> (status = 'closed')),

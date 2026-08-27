@@ -4,8 +4,8 @@
 -- NON e' una migration. Non vive in supabase/migrations/ e non viene applicato
 -- da `supabase db push`. Si esegue A MANO in Supabase Studio SQL editor (o
 -- psql) e SOLO per annullare l'introduzione del supporto
--- (migration 20260827100000 → 20260827100005, 20260827120000 → 20260827120001
---  e 20260827130000 → 20260827130001).
+-- (migration 20260827100000 → 20260827100005, 20260827120000 → 20260827120001,
+--  20260827130000 → 20260827130001 e 20260827140000 → 20260827140003).
 --
 -- ATTENZIONE — DISTRUTTIVO. Il DROP TABLE porta via tutti i ticket e tutti i
 -- messaggi. Non c'e' soft-delete: se le conversazioni servono ancora,
@@ -18,6 +18,10 @@
 -- =============================================================================
 
 -- Drop in ordine inverso rispetto all'applicazione.
+
+-- 20260827140002 (RPC) + 20260827140003 (ACL).
+-- Il DROP FUNCTION porta via anche i GRANT.
+DROP FUNCTION IF EXISTS public.mark_support_ticket_read(uuid);
 
 -- 20260827120000 (RPC) + 20260827120001 (ACL).
 -- Il DROP FUNCTION porta via anche i GRANT. Va PRIMA del DROP TABLE: la
@@ -45,6 +49,29 @@ DROP TRIGGER IF EXISTS support_messages_touch_ticket ON public.support_messages;
 -- 20260827100001 (funzione) + 20260827100002 / 20260827100005 (ACL).
 -- Il DROP FUNCTION porta via anche i REVOKE/GRANT.
 DROP FUNCTION IF EXISTS public.support_touch_ticket_on_message();
+
+-- 20260827140000 — colonne del segnale "risposta non letta".
+-- Ridondanti rispetto al DROP TABLE che segue (l'indice e il CHECK cadono con
+-- la tabella), ma esplicite per lo stesso motivo delle policy qui sotto: se il
+-- rollback dovesse fermarsi prima del DROP TABLE — tabelle conservate, solo
+-- questa feature annullata — queste sono le righe da tenere.
+--
+-- 20260827140001 ha rimpiazzato il corpo di support_touch_ticket_on_message
+-- per scrivere anche last_message_kind. Non serve una CREATE OR REPLACE di
+-- ritorno alla versione precedente: la funzione viene comunque droppata piu'
+-- sotto. Se invece si volesse annullare SOLO questa feature lasciando in piedi
+-- il supporto, va prima riapplicato il corpo di 20260827100001 — altrimenti il
+-- trigger scriverebbe su una colonna che questo blocco sta per eliminare.
+DROP INDEX IF EXISTS public.idx_support_tickets_tenant_unread;
+
+ALTER TABLE IF EXISTS public.support_tickets
+  DROP CONSTRAINT IF EXISTS support_tickets_last_message_kind_check;
+
+ALTER TABLE IF EXISTS public.support_tickets
+  DROP COLUMN IF EXISTS last_message_kind;
+
+ALTER TABLE IF EXISTS public.support_tickets
+  DROP COLUMN IF EXISTS customer_last_read_at;
 
 -- 20260827100000 — policy RLS.
 -- Ridondante rispetto al DROP TABLE che segue, ma esplicito: se in futuro il
@@ -82,6 +109,7 @@ WHERE id IN ('support.read', 'support.write');
 --   (SELECT count(*) FROM information_schema.tables
 --     WHERE table_schema='public' AND table_name IN ('support_tickets','support_messages')) AS tabelle,
 --   (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
---     WHERE n.nspname='public' AND p.proname LIKE 'support!_%' ESCAPE '!')                 AS funzioni,
+--     WHERE n.nspname='public' AND (p.proname LIKE 'support!_%' ESCAPE '!'
+--                               OR p.proname = 'mark_support_ticket_read'))               AS funzioni,
 --   (SELECT count(*) FROM public.permissions WHERE id LIKE 'support.%')                    AS permessi,
 --   (SELECT count(*) FROM public.role_permissions WHERE permission_id LIKE 'support.%')    AS mapping;
