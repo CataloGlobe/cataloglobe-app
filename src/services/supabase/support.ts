@@ -194,6 +194,54 @@ export async function postCustomerMessage(
     return data as V2SupportMessage;
 }
 
+/**
+ * Marca letto il thread dal lato cliente.
+ *
+ * Passa dalla RPC `mark_support_ticket_read` e non da un `.update()`: sul
+ * ticket il cliente non ha UPDATE (la sola policy è `is_platform_admin()`), e
+ * un update diretto toccherebbe zero righe **senza errore** — un no-op
+ * silenzioso, il modo peggiore di fallire. La RPC è SECURITY DEFINER e
+ * ricontrolla nel corpo appartenenza al tenant + `support.read`.
+ *
+ * Non ritorna nulla e non lancia su ticket altrui o inesistente: la RPC
+ * aggiorna zero righe e tace, per non rivelare l'esistenza di ticket di altre
+ * aziende. Il timestamp è `now()` del server, non un parametro.
+ *
+ * Chiamarla più volte è innocuo: sposta solo `customer_last_read_at` in avanti.
+ */
+export async function markTicketRead(ticketId: string): Promise<void> {
+    const { error } = await supabase.rpc("mark_support_ticket_read", {
+        p_ticket_id: ticketId
+    });
+
+    if (error) throwMappedSupportError(error);
+}
+
+/**
+ * Il ticket ha una risposta della piattaforma che il cliente non ha ancora
+ * letto? Helper puro: legge solo colonne già presenti sulla riga, nessuna
+ * query. È il predicato del pallino nella voce Assistenza e nelle righe della
+ * lista.
+ *
+ * Due condizioni, entrambe necessarie:
+ *   1. l'ultimo messaggio è della piattaforma. Senza, il ticket risulterebbe
+ *      "non letto" subito dopo che è stato il cliente a scrivere:
+ *      `last_message_at` avanza a ogni messaggio, anche ai suoi.
+ *   2. quel messaggio è arrivato dopo l'ultima lettura — o non c'è mai stata
+ *      una lettura (`customer_last_read_at` NULL: mai aperto).
+ *
+ * Il confronto fra timestamp è fra stringhe ISO 8601 UTC come arrivano da
+ * PostgREST: lessicograficamente ordinate come cronologicamente, quindi
+ * `new Date()` non aggiungerebbe nulla se non allocazioni. Entrambi i valori
+ * vengono dallo stesso orologio (il server), quindi il confronto è fra
+ * grandezze omogenee.
+ */
+export function hasUnreadReply(ticket: V2SupportTicket): boolean {
+    if (ticket.last_message_kind !== "platform") return false;
+    if (ticket.customer_last_read_at === null) return true;
+    return ticket.last_message_at > ticket.customer_last_read_at;
+}
+
 // ─── LATO PIATTAFORMA ───────────────────────────────────────────────────────
 // Nessun filtro tenant: queste query servono l'area /admin, dove il punto è
 // vedere tutti i tenant. La visibilità la concede `is_platform_admin()` nella

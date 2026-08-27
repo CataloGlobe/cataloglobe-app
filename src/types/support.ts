@@ -54,6 +54,24 @@ export interface V2SupportTicket {
      * garantita a DB: `closed_at IS NOT NULL` ⟺ `status === "closed"`.
      */
     closed_at: string | null;
+    /**
+     * Ultima apertura del thread dal lato cliente. NULL = mai letto — è lo
+     * stato di ogni ticket appena aperto e di tutti quelli precedenti alla
+     * migration 20260827140000, che di proposito non ha un default.
+     *
+     * Scritta solo dalla RPC `mark_support_ticket_read`: sul ticket il cliente
+     * non ha UPDATE, e questo commit non ha allentato quella policy.
+     */
+    customer_last_read_at: string | null;
+    /**
+     * `author_kind` dell'ultimo messaggio, denormalizzato dal trigger
+     * `support_touch_ticket_on_message` insieme a `last_message_at`.
+     *
+     * Esiste perché il solo confronto fra timestamp segnalerebbe come "non
+     * letto" anche il messaggio appena scritto dal cliente stesso. NULL solo
+     * per un ticket senza messaggi (non producibile da `createTicket`).
+     */
+    last_message_kind: SupportAuthorKind | null;
 }
 
 export interface V2SupportMessage {
