@@ -475,6 +475,172 @@ SELECT 18, 'n — nessun orfano dopo il fallimento su activity', 'delta 0 · 0',
               (SELECT count(*) FROM public.support_messages) - (SELECT n FROM _conta WHERE k='msg'));
 
 -- =============================================================================
+-- CASI o / p / q / r / s — closed_at derivato dal trigger BEFORE UPDATE
+-- support_tickets_derive_closed_at (20260827130000).
+--
+-- `closed_at` non e' piu' scritto dal service: e' SEMPRE ricalcolato dallo
+-- status e mai letto dal payload. Invariante attesa:
+--
+--     closed_at IS NOT NULL  ⟺  status = 'closed'
+--
+-- ── Attenzione alla sequenza ────────────────────────────────────────────────
+-- Arrivati qui il ticket aaaa…0001 e' CHIUSO (caso k lo ha chiuso e il
+-- messaggio platform non lo ha riaperto). Chiuderlo di nuovo colpirebbe il
+-- ramo intermedio (`resta chiuso → OLD.closed_at`), non quello del now(): il
+-- caso `o` riapre prima, altrimenti misurerebbe l'opposto di cio' che vuole
+-- verificare.
+-- =============================================================================
+
+-- ── CASO o — chiusura: il closed_at del client viene ignorato ───────────────
+-- Atteso: closed_at ≈ now(), NON il 2020 passato nell'UPDATE.
+RESET ROLE;
+SET LOCAL request.jwt.claims = '{"sub":"3009c324-b37d-4ae9-ac95-7560b34a4a4c","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+DECLARE v_closed timestamptz; v_status text;
+BEGIN
+    -- Setup: riporta il ticket ad aperto, cosi' la chiusura sotto e' una
+    -- transizione vera (non-closed → closed) e non un "resta chiuso".
+    UPDATE public.support_tickets SET status='open'
+     WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    UPDATE public.support_tickets
+       SET status='closed', closed_at='2020-01-01T00:00:00Z'   -- backdate tentato
+     WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    SELECT status, closed_at INTO v_status, v_closed
+      FROM public.support_tickets WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    INSERT INTO _esiti VALUES (19, 'o — P chiude passando closed_at del 2020',
+        'closed · closed_at≈now · backdate ignorato',
+        format('%s · closed_at_e_now=%s · non_e_2020=%s',
+               v_status,
+               (v_closed > now() - interval '1 minute'),
+               (v_closed > timestamptz '2021-01-01')));
+EXCEPTION WHEN others THEN
+    INSERT INTO _esiti VALUES (19, 'o — P chiude passando closed_at del 2020',
+        'closed_at≈now', format('FALLITO: %s %s', SQLSTATE, SQLERRM));
+END $$;
+
+-- ── CASO p — riapertura: il messaggio del cliente azzera closed_at ──────────
+RESET ROLE;
+SET LOCAL request.jwt.claims = '{"sub":"b1f8bed2-0d66-4217-af78-6cfe3a43cbf3","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+DECLARE v_status text; v_closed timestamptz;
+BEGIN
+    INSERT INTO public.support_messages (ticket_id, body, author_user_id, author_kind)
+    VALUES ('aaaa0000-0000-4000-8000-000000000001',
+            'Riapro: il problema persiste.', auth.uid(), 'customer');
+
+    SELECT status, closed_at INTO v_status, v_closed
+      FROM public.support_tickets WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    INSERT INTO _esiti VALUES (20, 'p — riapertura da messaggio cliente',
+        'open · closed_at NULL',
+        format('%s · closed_at_null=%s', v_status, (v_closed IS NULL)));
+EXCEPTION WHEN others THEN
+    INSERT INTO _esiti VALUES (20, 'p — riapertura da messaggio cliente',
+        'open · closed_at NULL', format('FALLITO: %s %s', SQLSTATE, SQLERRM));
+END $$;
+
+-- ── CASO q — messaggio platform su ticket chiuso: closed_at NON si sposta ───
+-- E' il caso che il ramo intermedio protegge. Senza di quello, la UPDATE che
+-- support_touch_ticket_on_message fa per aggiornare last_message_at
+-- riscriverebbe closed_at a now(), spostando in avanti la data di chiusura a
+-- ogni risposta del supporto.
+--
+-- ⚠️ LIMITE NOTO DI QUESTO CASO, da non sopravvalutare.
+-- `now()` restituisce l'ora di INIZIO TRANSAZIONE ed e' costante per tutto lo
+-- script. Se il ramo intermedio fosse rotto e riscrivesse `now()`, otterrebbe
+-- lo stesso identico valore della chiusura fatta poche righe sopra — dentro
+-- la stessa transazione — e questo confronto passerebbe verde col bug
+-- presente.
+--
+-- Cio' che il caso q verifica DAVVERO: che closed_at non venga azzerato,
+-- clobberato dal payload del client, o alterato in altro modo da un messaggio
+-- platform, e che il ticket resti 'closed'. Non e' poco, ma NON e' la prova
+-- del ramo intermedio.
+--
+-- Per provare quel ramo servono due transazioni distinte. Fuori da questo
+-- script, a mano:
+--     -- transazione 1
+--     BEGIN; UPDATE public.support_tickets SET status='closed' WHERE id='…';
+--     SELECT closed_at; COMMIT;   -- annota il valore
+--     -- attendere qualche secondo, poi transazione 2
+--     BEGIN; INSERT INTO public.support_messages (…author_kind='platform');
+--     SELECT closed_at; ROLLBACK; -- deve essere lo STESSO valore di prima
+-- Da eseguire su staging e su un ticket usa-e-getta.
+RESET ROLE;
+SET LOCAL request.jwt.claims = '{"sub":"3009c324-b37d-4ae9-ac95-7560b34a4a4c","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+DECLARE v_prima timestamptz; v_dopo timestamptz; v_status text; v_last timestamptz;
+BEGIN
+    UPDATE public.support_tickets SET status='closed'
+     WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    SELECT closed_at INTO v_prima
+      FROM public.support_tickets WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    INSERT INTO public.support_messages (ticket_id, body, author_user_id, author_kind)
+    VALUES ('aaaa0000-0000-4000-8000-000000000001',
+            'Risposta del supporto a ticket chiuso.', auth.uid(), 'platform');
+
+    SELECT status, closed_at, last_message_at INTO v_status, v_dopo, v_last
+      FROM public.support_tickets WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    INSERT INTO _esiti VALUES (21, 'q — messaggio platform su ticket chiuso (vedi limite in commento)',
+        'closed · closed_at invariato · last_message_at aggiornato',
+        format('%s · closed_at_invariato=%s · last_message_at_non_null=%s',
+               v_status, (v_dopo IS NOT DISTINCT FROM v_prima), (v_last IS NOT NULL)));
+EXCEPTION WHEN others THEN
+    INSERT INTO _esiti VALUES (21, 'q — messaggio platform su ticket chiuso',
+        'closed_at invariato', format('FALLITO: %s %s', SQLSTATE, SQLERRM));
+END $$;
+
+-- ── CASO r — open → in_progress con closed_at valorizzato dal client ────────
+-- E' il buco che una derivazione condizionale ("tocca closed_at solo sulle
+-- transizioni che coinvolgono 'closed'") lascerebbe aperto: qui nessuno dei
+-- due status e' 'closed', quindi un ramo condizionale non scriverebbe nulla e
+-- il valore del client sopravvivrebbe. Atteso: NULL.
+DO $$
+DECLARE v_status text; v_closed timestamptz;
+BEGIN
+    -- Setup: porta il ticket ad aperto (non asserito).
+    UPDATE public.support_tickets SET status='open'
+     WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    UPDATE public.support_tickets
+       SET status='in_progress', closed_at='2020-01-01T00:00:00Z'
+     WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    SELECT status, closed_at INTO v_status, v_closed
+      FROM public.support_tickets WHERE id='aaaa0000-0000-4000-8000-000000000001';
+
+    INSERT INTO _esiti VALUES (22, 'r — open → in_progress con closed_at dal client',
+        'in_progress · closed_at NULL',
+        format('%s · closed_at_null=%s', v_status, (v_closed IS NULL)));
+EXCEPTION WHEN others THEN
+    INSERT INTO _esiti VALUES (22, 'r — open → in_progress con closed_at dal client',
+        'in_progress · closed_at NULL', format('FALLITO: %s %s', SQLSTATE, SQLERRM));
+END $$;
+
+-- ── CASO s — invariante globale ────────────────────────────────────────────
+-- Da `postgres` (bypassrls): serve lo stato di TUTTI i ticket, non la vista
+-- filtrata di un ruolo. Include quelli creati dai casi a/l su tenant diversi.
+RESET ROLE;
+INSERT INTO _esiti
+SELECT 23, 's — invariante closed_at IS NOT NULL <=> status=closed', '0 violazioni',
+       format('%s violazioni su %s ticket',
+              (SELECT count(*) FROM public.support_tickets
+                WHERE (closed_at IS NOT NULL) <> (status = 'closed')),
+              (SELECT count(*) FROM public.support_tickets));
+
+-- =============================================================================
 -- RISULTATI
 -- =============================================================================
 RESET ROLE;
