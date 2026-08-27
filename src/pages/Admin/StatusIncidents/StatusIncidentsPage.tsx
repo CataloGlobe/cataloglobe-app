@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePageHeader } from "@/context/usePageHeader";
+import { formatDateTimeIt } from "@/utils/formatDateTime";
 import {
     addIncidentUpdate,
     deleteIncident,
@@ -14,17 +15,6 @@ import {
 } from "@/services/supabase/statusPage";
 import { IncidentDrawer } from "./IncidentDrawer";
 import styles from "./StatusIncidentsPage.module.scss";
-
-function formatAbsolute(iso: string | null | undefined): string {
-    if (!iso) return "—";
-    return new Date(iso).toLocaleString("it-IT", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-    });
-}
 
 const SEVERITY_LABEL: Record<StatusIncident["severity"], string> = {
     minor: "Minore",
@@ -256,9 +246,9 @@ export default function StatusIncidentsPage() {
                                 </div>
                             </div>
                             <div className={styles.meta}>
-                                Iniziato {formatAbsolute(inc.started_at)}
+                                Iniziato {formatDateTimeIt(inc.started_at)}
                                 {inc.resolved_at &&
-                                    ` · Risolto ${formatAbsolute(inc.resolved_at)}`}
+                                    ` · Risolto ${formatDateTimeIt(inc.resolved_at)}`}
                             </div>
                             {inc.affected_services.length > 0 && (
                                 <div className={styles.services}>
@@ -302,7 +292,7 @@ export default function StatusIncidentsPage() {
                                     {[...inc.updates].reverse().map((u, i) => (
                                         <div key={i} className={styles.updateItem}>
                                             <span className={styles.updateTime}>
-                                                {formatAbsolute(u.timestamp)}
+                                                {formatDateTimeIt(u.timestamp)}
                                                 {u.status ? ` · ${formatIncidentStatus(u.status)}` : ""}
                                             </span>
                                             {u.message}

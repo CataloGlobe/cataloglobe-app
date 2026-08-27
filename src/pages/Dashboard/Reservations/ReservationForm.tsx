@@ -196,14 +196,22 @@ export function ReservationForm({
         const trimmedTime = reservationTime.trim();
         if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) return null;
         if (!/^\d{2}:\d{2}/.test(trimmedTime)) return null;
-        const rows: CapacityReservation[] = allReservations.map(r => ({
-            id: r.id,
-            activity_id: r.activity_id,
-            reservation_date: r.reservation_date,
-            reservation_time: r.reservation_time,
-            party_size: r.party_size,
-            status: r.status
-        }));
+        // `no_show` non è un valore che il motore di capienza conosce: conta
+        // solo pending + confirmed, quindi le righe non attive vengono scartate
+        // qui invece di allargare il tipo del motore (che resta invariato).
+        const rows: CapacityReservation[] = allReservations
+            .filter(
+                (r): r is V2Reservation & { status: CapacityReservation["status"] } =>
+                    r.status === "pending" || r.status === "confirmed"
+            )
+            .map(r => ({
+                id: r.id,
+                activity_id: r.activity_id,
+                reservation_date: r.reservation_date,
+                reservation_time: r.reservation_time,
+                party_size: r.party_size,
+                status: r.status
+            }));
         const result = canAccept(
             { capacity: cap, durationMin: dur },
             rows,

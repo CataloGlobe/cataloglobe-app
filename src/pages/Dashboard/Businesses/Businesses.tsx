@@ -4,17 +4,18 @@ import { useTenant } from "@/context/useTenant";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   getActivities,
-  createActivity,
   updateActivity,
   uploadActivityCover,
   deleteActivityAtomic,
   DeleteActivityError,
 } from "@/services/supabase/activities";
 import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog";
+import type { CatalogFetchStatus } from "@/utils/activeCatalogStatus";
 import type {
   ActiveCatalogMeta,
   BusinessWithCapabilities,
   BusinessFormValues,
+  SlugInlineState,
 } from "@/types/Businesses";
 
 import Text from "@components/ui/Text/Text";
@@ -34,13 +35,16 @@ import { ActivityVisibilityDrawer } from "@/pages/Operativita/Attivita/component
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityGroupsSection } from "@/components/Businesses/ActivityGroupsSection/ActivityGroupsSection";
 
-import { useDebounce } from "@/hooks/useDebounce";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import {
+  useCreateActivity,
+  getSlugSuggestions,
+  isReservedSlug,
+  validateBusinessForm,
+} from "@/hooks/useCreateActivity";
 
-import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
-import { generateSlug, sanitizeSlugForSave } from "@/utils/slugify";
+import { sanitizeSlugForSave } from "@/utils/slugify";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
-import { isValidCapIT, isValidProvinciaIT } from "@/utils/addressValidators";
 
 // Tipi importati da "@/types/Businesses"
 
@@ -50,21 +54,11 @@ import { BusinessLocationDrawer } from "@/components/Businesses/BusinessLocation
 import { Button } from "@/components/ui";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { RESERVED_SLUGS } from "@/constants/reservedSlugs";
 import ModalLayout, {
   ModalLayoutContent,
   ModalLayoutFooter,
   ModalLayoutHeader,
 } from "@/components/ui/ModalLayout/ModalLayout";
-
-type SlugInlineState =
-  | { type: "idle" }
-  | { type: "warning" } // solo edit: slug diverso dall’originale
-  | { type: "conflict"; suggestions: string[] }; // slug già usato
-
-function isReservedSlug(slug: string) {
-  return RESERVED_SLUGS.has(slug);
-}
 
 // ==========================================
 // COMPONENT
@@ -111,30 +105,11 @@ export default function Businesses() {
   const [activeCatalogsMap, setActiveCatalogsMap] = useState<
     Record<string, ActiveCatalogMeta>
   >({});
-  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true);
-
-  // ======================================
-  // STATE: form creazione business
-  // (ora unificato, molto più pulito)
-  // ======================================
-  const [createForm, setCreateForm] = useState<BusinessFormValues>({
-    name: "",
-    city: "",
-    address: "",
-    street_number: "",
-    postal_code: "",
-    province: "",
-    slug: "",
-    coverPreview: null,
-  });
-  const [createErrors, setCreateErrors] = useState<
-    Partial<Record<keyof BusinessFormValues, string>>
-  >({});
-
-  const [createCoverFile, setCreateCoverFile] = useState<File | null>(null);
-  const [isCreating, setIsCreating] = useState(false);
-  const [createSlugTouched, setCreateSlugTouched] = useState(false);
-  const debouncedName = useDebounce(createForm.name, 500);
+  // Esito, non flag: distingue "risolto senza catalogo attivo" da "non siamo
+  // riusciti a risolvere". Prima il catch silenzioso li faceva finire entrambi
+  // su "Nessun catalogo attivo".
+  const [catalogsStatus, setCatalogsStatus] =
+    useState<CatalogFetchStatus>("loading");
 
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -159,9 +134,6 @@ export default function Businesses() {
   // ======================================
   // SLUGS
   // ======================================
-  const [createSlugState, setCreateSlugState] = useState<SlugInlineState>({
-    type: "idle",
-  });
   const [editSlugState, setEditSlugState] = useState<SlugInlineState>({
     type: "idle",
   });
@@ -179,6 +151,119 @@ export default function Businesses() {
     setViewMode(v);
     localStorage.setItem("businesses_view_mode", v);
   }, []);
+
+  // ======================================
+  // FETCH BUSINESS
+  // ======================================
+  const refreshBusinesses = useCallback(async () => {
+    if (!tenantId) return;
+
+    setIsLoadingBusinesses(true);
+
+    try {
+      const data = await getActivities(tenantId);
+      setBusinesses(data as BusinessWithCapabilities[]);
+
+      // Batch fetch catalogo attivo in parallelo, non bloccante per la lista
+      if (data.length > 0) {
+        setCatalogsStatus("loading");
+        getActiveCatalogForActivities(
+          tenantId,
+          data.map((b) => b.id)
+        )
+          .then((map) => {
+            setActiveCatalogsMap(map);
+            setCatalogsStatus("ready");
+          })
+          .catch((error) => {
+            console.error("[Businesses] active catalogs failed:", error);
+            setActiveCatalogsMap({});
+            setCatalogsStatus("error");
+          });
+      } else {
+        setCatalogsStatus("ready");
+      }
+    } catch (error) {
+      console.error("Error fetching activities:", error);
+    } finally {
+      setIsLoadingBusinesses(false);
+    }
+  }, [tenantId]);
+
+  useEffect(() => {
+    refreshBusinesses();
+  }, [refreshBusinesses]);
+
+  // ======================================
+  // CREAZIONE SEDE (logica nel hook, gate di pagina qui)
+  // ======================================
+  const guardSubscriptionActive = useCallback(() => {
+    if (!canEdit) {
+      showToast({ message: subscriptionInactiveMessage(), type: "error" });
+      return false;
+    }
+    return true;
+  }, [canEdit, showToast, subscriptionInactiveMessage]);
+
+  // Seat limit safety net (dialog at click should pre-empt this)
+  const guardSeatLimit = useCallback(() => {
+    if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
+      const paidSeats = selectedTenant.paid_seats;
+      const seatsLabel = paidSeats === 1 ? "una sede" : `${paidSeats} sedi`;
+      if (isOwner(userRole)) {
+        showToast({
+          message: `Hai raggiunto il limite di sedi. Il tuo piano include ${seatsLabel}. Apri la pagina abbonamento per espandere.`,
+          type: "error",
+          duration: 4000,
+        });
+        navigate(`/business/${businessId}/subscription`);
+      } else if (isAdmin(userRole)) {
+        showToast({
+          message: `Hai raggiunto il limite di sedi. Il piano include ${seatsLabel}. Solo il proprietario può espandere l'abbonamento.`,
+          type: "error",
+          duration: 4000,
+        });
+      } else {
+        showToast({
+          message: `Hai raggiunto il limite di sedi. Il piano include ${seatsLabel}. Contatta il proprietario.`,
+          type: "error",
+          duration: 4000,
+        });
+      }
+      return false;
+    }
+    return true;
+  }, [
+    selectedTenant,
+    businesses.length,
+    userRole,
+    showToast,
+    navigate,
+    businessId,
+  ]);
+
+  const closeCreateDrawer = useCallback(() => setIsCreateOpen(false), []);
+
+  const {
+    values: createForm,
+    errors: createErrors,
+    isCreating,
+    slugState: createSlugState,
+    setSlugState: setCreateSlugState,
+    handleFieldChange: handleCreateFieldChange,
+    handleCoverChange: handleCreateCoverChange,
+    handlePickSlugSuggestion: handleCreatePickSlugSuggestion,
+    handleSubmit: handleAdd,
+    reset: resetCreateState,
+  } = useCreateActivity({
+    tenantId,
+    activityType: selectedTenant?.vertical_type ?? null,
+    canSubmit: guardSubscriptionActive,
+    beforeCreate: guardSeatLimit,
+    onNotify: showToast,
+    onSuccess: refreshBusinesses,
+    onSettled: closeCreateDrawer,
+  });
 
   // ======================================
   // HEADER BAND: leading (tab line) + actions (search + toggle + CTA)
@@ -303,6 +388,7 @@ export default function Businesses() {
     searchTerm,
     viewMode,
     handleViewChange,
+    setCreateSlugState,
   ]);
 
   usePageHeader({
@@ -310,297 +396,6 @@ export default function Businesses() {
     actions: headerActions,
     sticky: true,
   });
-
-  // ======================================
-  // FETCH BUSINESS
-  // ======================================
-  const refreshBusinesses = useCallback(async () => {
-    if (!tenantId) return;
-
-    setIsLoadingBusinesses(true);
-
-    try {
-      const data = await getActivities(tenantId);
-      setBusinesses(data as BusinessWithCapabilities[]);
-
-      // Batch fetch catalogo attivo in parallelo, non bloccante per la lista
-      if (data.length > 0) {
-        getActiveCatalogForActivities(data.map((b) => b.id))
-          .then((map) => setActiveCatalogsMap(map))
-          .catch(() => {})
-          .finally(() => setIsLoadingCatalogs(false));
-      } else {
-        setIsLoadingCatalogs(false);
-      }
-    } catch (error) {
-      console.error("Error fetching activities:", error);
-    } finally {
-      setIsLoadingBusinesses(false);
-    }
-  }, [tenantId]);
-
-  useEffect(() => {
-    refreshBusinesses();
-  }, [refreshBusinesses]);
-
-  // GENERAZIONE SLUG AUTOMATICA CON DEBOUNCE
-  useEffect(() => {
-    if (!debouncedName.trim()) {
-      setCreateForm((prev) => ({ ...prev, slug: "" }));
-      return;
-    }
-    if (createSlugTouched) return; // l’utente ha modificato manualmente lo slug → non aggiorniamo più
-    if (!tenantId) return;
-
-    async function compute() {
-      const unique = await ensureUniqueBusinessSlug(debouncedName);
-      if (isReservedSlug(unique)) return;
-      setCreateForm((prev) => ({ ...prev, slug: unique }));
-    }
-
-    compute();
-  }, [debouncedName, createSlugTouched, tenantId]);
-
-  // ======================================
-  // CALLBACK: campo form create
-  // ======================================
-  const handleCreateFieldChange = useCallback(
-    <K extends keyof BusinessFormValues>(
-      field: K,
-      value: BusinessFormValues[K],
-    ) => {
-      // se l'utente tocca lo slug, da qui in avanti non lo aggiorniamo più automaticamente
-      if (field === "slug") {
-        setCreateSlugTouched(true);
-      }
-
-      setCreateForm((prev) => {
-        // cambio del NOME
-        if (field === "name") {
-          const newName = value as string;
-
-          if (!createSlugTouched) {
-            // slugify istantaneo on-keystroke per feedback immediato.
-            // useEffect debounced rifinisce con suffisso anti-collisione.
-            return {
-              ...prev,
-              name: newName,
-              slug: generateSlug(newName),
-            };
-          }
-
-          // se lo slug è stato toccato, cambiamo solo il name
-          return {
-            ...prev,
-            name: newName,
-          };
-        }
-
-        // cambio dello SLUG (campo editabile)
-        if (field === "slug") {
-          setCreateSlugState({ type: "idle" });
-          return { ...prev, slug: value as string };
-        }
-
-        // tutti gli altri campi
-        return {
-          ...prev,
-          [field]: value,
-        };
-      });
-    },
-    [createSlugTouched],
-  );
-
-  function validateCreateForm(values: BusinessFormValues) {
-    const errors: Partial<Record<keyof BusinessFormValues, string>> = {};
-
-    if (!values.name.trim()) errors.name = "Il nome è obbligatorio.";
-    if (!values.city.trim()) errors.city = "La città è obbligatoria.";
-    if (!values.address.trim()) errors.address = "L'indirizzo è obbligatorio.";
-    if (!values.slug.trim()) errors.slug = "Lo slug è obbligatorio.";
-    if (!values.street_number.trim())
-      errors.street_number = "Inserisci il numero civico";
-    if (!isValidCapIT(values.postal_code))
-      errors.postal_code = "Inserisci un CAP valido (5 cifre)";
-    if (!isValidProvinciaIT(values.province))
-      errors.province = "Inserisci una sigla provincia valida (es. MI)";
-
-    return errors;
-  }
-
-  // ======================================
-  // CALLBACK: cover create
-  // ======================================
-  const handleCreateCoverChange = useCallback((file: File | null) => {
-    setCreateForm((prev) => {
-      if (prev.coverPreview?.startsWith("blob:")) {
-        URL.revokeObjectURL(prev.coverPreview);
-      }
-      return prev;
-    });
-
-    if (!file) {
-      setCreateCoverFile(null);
-      setCreateForm((prev) => ({ ...prev, coverPreview: null }));
-      return;
-    }
-
-    setCreateCoverFile(file);
-    const url = URL.createObjectURL(file);
-    setCreateForm((prev) => ({ ...prev, coverPreview: url }));
-  }, []);
-
-  // ======================================
-  // CALLBACK: add business
-  // ======================================
-  const handleAdd = useCallback(
-    async (e: React.FormEvent) => {
-      e.preventDefault();
-
-      if (!canEdit) {
-        showToast({ message: subscriptionInactiveMessage(), type: "error" });
-        return;
-      }
-
-      const errors = validateCreateForm(createForm);
-      setCreateErrors(errors);
-
-      if (Object.keys(errors).length > 0) {
-        showToast({
-          message: "Compila tutti i campi obbligatori.",
-          type: "info",
-          duration: 2500,
-        });
-        return;
-      }
-
-      if (!tenantId) return;
-
-      // 1. Sanitizziamo lo slug manuale dell’utente
-      const baseSlug = sanitizeSlugForSave(createForm.slug || createForm.name);
-
-      if (isReservedSlug(baseSlug)) {
-        setCreateErrors((prev) => ({
-          ...prev,
-          slug: "Questo slug è riservato. Scegline un altro.",
-        }));
-        showToast({
-          message: "Slug riservato: scegli un altro valore.",
-          type: "error",
-          duration: 2500,
-        });
-        return;
-      }
-
-      // 2. Calcoliamo lo slug univoco
-      const uniqueSlug = await ensureUniqueBusinessSlug(baseSlug);
-
-      // 3. Se è diverso → significa che lo slug scelto ESISTE GIÀ
-      if (uniqueSlug !== baseSlug) {
-        const suggestions = await getSlugSuggestions(baseSlug, createForm.city);
-        setCreateSlugState({ type: "conflict", suggestions });
-        return;
-      }
-
-      // --- Seat limit safety net (dialog at click should pre-empt this) ---
-      if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
-        const paidSeats = selectedTenant.paid_seats;
-        const seatsLabel = paidSeats === 1 ? "una sede" : `${paidSeats} sedi`;
-        if (isOwner(userRole)) {
-          showToast({
-            message: `Hai raggiunto il limite di sedi. Il tuo piano include ${seatsLabel}. Apri la pagina abbonamento per espandere.`,
-            type: "error",
-            duration: 4000,
-          });
-          navigate(`/business/${businessId}/subscription`);
-        } else if (isAdmin(userRole)) {
-          showToast({
-            message: `Hai raggiunto il limite di sedi. Il piano include ${seatsLabel}. Solo il proprietario può espandere l'abbonamento.`,
-            type: "error",
-            duration: 4000,
-          });
-        } else {
-          showToast({
-            message: `Hai raggiunto il limite di sedi. Il piano include ${seatsLabel}. Contatta il proprietario.`,
-            type: "error",
-            duration: 4000,
-          });
-        }
-        return;
-      }
-
-      setIsCreating(true);
-      try {
-        const newActivity = await createActivity(tenantId, {
-          name: createForm.name,
-          city: createForm.city,
-          address: createForm.address,
-          street_number: createForm.street_number || null,
-          postal_code: createForm.postal_code || null,
-          province: createForm.province || null,
-          slug: uniqueSlug,
-          activity_type: selectedTenant?.vertical_type ?? null,
-        });
-
-        if (createCoverFile) {
-          const compressedCover = await compressImage(
-            createCoverFile,
-            COMPRESS_PROFILES.cover,
-          );
-          await uploadActivityCover(
-            {
-              id: newActivity.id,
-              slug: newActivity.slug,
-              tenant_id: newActivity.tenant_id,
-            },
-            compressedCover,
-          );
-        }
-
-        // reset
-        setCreateForm({
-          name: "",
-          city: "",
-          address: "",
-          street_number: "",
-          postal_code: "",
-          province: "",
-          slug: "",
-          coverPreview: null,
-        });
-        setCreateCoverFile(null);
-        setCreateSlugTouched(false);
-
-        await refreshBusinesses();
-      } catch (e) {
-        console.error("Errore aggiunta business:", e);
-        const message =
-          e instanceof Error && e.message === "SLUG_CONFLICT"
-            ? "Indirizzo web già in uso. Scegli un indirizzo diverso."
-            : "Errore durante la creazione della sede.";
-        showToast({ message, type: "error" });
-      } finally {
-        setIsCreating(false);
-        setIsCreateOpen(false);
-        setCreateSlugState({ type: "idle" });
-      }
-    },
-    [
-      tenantId,
-      createForm,
-      createCoverFile,
-      refreshBusinesses,
-      showToast,
-      canEdit,
-      selectedTenant,
-      businesses,
-      navigate,
-      businessId,
-      userRole,
-      subscriptionInactiveMessage,
-    ],
-  );
 
   // ======================================
   // CALLBACK: delete business
@@ -744,23 +539,6 @@ export default function Businesses() {
     [editingBusiness],
   );
 
-  function validateEditForm(values: BusinessFormValues) {
-    const errors: Partial<Record<keyof BusinessFormValues, string>> = {};
-
-    if (!values.name.trim()) errors.name = "Il nome è obbligatorio.";
-    if (!values.city.trim()) errors.city = "La città è obbligatoria.";
-    if (!values.address.trim()) errors.address = "L'indirizzo è obbligatorio.";
-    if (!values.slug.trim()) errors.slug = "Lo slug è obbligatorio.";
-    if (!values.street_number.trim())
-      errors.street_number = "Inserisci il numero civico";
-    if (!isValidCapIT(values.postal_code))
-      errors.postal_code = "Inserisci un CAP valido (5 cifre)";
-    if (!isValidProvinciaIT(values.province))
-      errors.province = "Inserisci una sigla provincia valida (es. MI)";
-
-    return errors;
-  }
-
   const handleEditCoverChange = useCallback((file: File | null) => {
     if (!file) {
       setEditCoverFile(null);
@@ -780,7 +558,7 @@ export default function Businesses() {
 
       if (!editingId || !editForm || !editingBusiness) return;
 
-      const errors = validateEditForm(editForm);
+      const errors = validateBusinessForm(editForm);
       setEditErrors(errors);
 
       if (Object.keys(errors).length > 0) {
@@ -887,66 +665,6 @@ export default function Businesses() {
     ],
   );
 
-  const resetCreateState = useCallback(() => {
-    setCreateErrors({});
-    setCreateForm({
-      name: "",
-      city: "",
-      address: "",
-      street_number: "",
-      postal_code: "",
-      province: "",
-      slug: "",
-      coverPreview: null,
-    });
-    setCreateCoverFile(null);
-    setCreateSlugTouched(false);
-  }, []);
-
-  async function getSlugSuggestions(
-    base: string,
-    city?: string,
-  ): Promise<string[]> {
-    const baseSlug = sanitizeSlugForSave(base);
-    const year = new Date().getFullYear().toString();
-
-    const candidates: string[] = [];
-
-    // 1. {baseSlug}-{city} se disponibile
-    if (city?.trim()) {
-      const citySlug = sanitizeSlugForSave(city.trim());
-      if (citySlug) candidates.push(`${baseSlug}-${citySlug}`);
-    }
-
-    // 2. suffissi numerici leggibili
-    candidates.push(`${baseSlug}-01`, `${baseSlug}-02`, `${baseSlug}-03`);
-
-    // 3. suffissi semantici
-    candidates.push(
-      `${baseSlug}-locale`,
-      `${baseSlug}-store`,
-      `${baseSlug}-hub`,
-    );
-
-    // 4. anno come fallback
-    candidates.push(`${baseSlug}-${year}`);
-
-    // Deduplica, poi verifica disponibilità per ciascuno (max 4)
-    const seen = new Set<string>();
-    const verified: string[] = [];
-    for (const candidate of candidates) {
-      if (verified.length >= 4) break;
-      if (seen.has(candidate)) continue;
-      seen.add(candidate);
-      const result = await ensureUniqueBusinessSlug(candidate);
-      if (result === candidate) {
-        verified.push(candidate);
-      }
-    }
-
-    return verified;
-  }
-
   function BusinessCardSkeleton() {
     return (
       <div className={styles.skeletonCard}>
@@ -1021,10 +739,7 @@ export default function Businesses() {
                 onFieldChange={handleCreateFieldChange}
                 onCoverChange={handleCreateCoverChange}
                 slugState={createSlugState}
-                onPickSlugSuggestion={(slug) => {
-                  setCreateForm((prev) => ({ ...prev, slug }));
-                  setCreateSlugState({ type: "idle" });
-                }}
+                onPickSlugSuggestion={handleCreatePickSlugSuggestion}
                 onSubmit={handleAdd}
                 onClose={() => {
                   setIsCreateOpen(false);
@@ -1079,7 +794,7 @@ export default function Businesses() {
                     onDelete={canDelete ? handleDelete : undefined}
                     onOpenReviews={handleOpenReviews}
                     activeCatalogsMap={activeCatalogsMap}
-                    catalogsLoading={isLoadingCatalogs}
+                    catalogsStatus={catalogsStatus}
                     onManageAvailability={(id, name) =>
                       setVisibilityDrawerTarget({
                         activityId: id,

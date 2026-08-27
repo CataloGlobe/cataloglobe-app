@@ -80,6 +80,12 @@ export interface ExistingImportPlan {
  */
 export type AiImportStatus = "idle" | "analyzing" | "error" | "review" | "creating" | "done";
 
+/** Esito di un import committato: catalogo di destinazione risolto dalla RPC. */
+export interface AiImportOutcome {
+    catalogId: string;
+    catalogName: string;
+}
+
 /**
  * Sessione import AI sollevata a livello di `MainLayout` (montata una sola volta,
  * stesso pattern di `useTranslationCoverage`). Lo stato e la richiesta vivono qui,
@@ -197,7 +203,16 @@ export function useAiImportSession(
      * (successo o blocco quota) così il chiamante aggiorna lo stato quota AI
      * (pill/sezione). Non chiamato su abort intenzionale.
      */
-    onConsumed?: () => void
+    onConsumed?: () => void,
+    /**
+     * Opzionale: invocato una sola volta a import committato, con il catalogo
+     * di destinazione risolto dalla RPC. Esiste perché un chiamante che deve
+     * *reagire* all'esito (es. il setup guidato, che avanza di passo) non debba
+     * dedurlo osservando `importRefreshKey`, che è un segnale di reload e non
+     * porta con sé il risultato. Invocato in coda all'auto-close, così l'esito
+     * arriva quando il pannello ha finito di mostrarsi.
+     */
+    onImported?: (outcome: AiImportOutcome) => void
 ): AiImportSession {
     const { showToast } = useToast();
 
@@ -276,6 +291,14 @@ export function useAiImportSession(
     useEffect(() => {
         statusRef.current = status;
     }, [status]);
+
+    // Callback d'esito tenuta in ref: `submitManifest` la invoca da dentro un
+    // timeout e non deve ricrearsi (né catturare una closure stale) quando il
+    // chiamante passa una lambda inline.
+    const onImportedRef = useRef(onImported);
+    useEffect(() => {
+        onImportedRef.current = onImported;
+    }, [onImported]);
 
     // Ri-aggancia una sessione attiva (mostra la vista corrente al rimount del
     // wizard); riparte pulito solo se idle o done (import già salvato).
@@ -524,7 +547,12 @@ export function useAiImportSession(
                 existingCategories: ExistingManifestCategory[];
                 decisions: ProductImportDecision[];
             },
-            target: { catalogId: string | null; newCatalogName: string | null },
+            target: {
+                catalogId: string | null;
+                newCatalogName: string | null;
+                /** Nome del catalogo di destinazione, per l'esito notificato al chiamante. */
+                displayName: string;
+            },
             totalOps: number
         ) => {
             if (!tenantId) return;
@@ -560,6 +588,10 @@ export function useAiImportSession(
                     });
                     setImportRefreshKey(k => k + 1);
                     setIsOpen(false);
+                    onImportedRef.current?.({
+                        catalogId: summary.catalog_id,
+                        catalogName: target.displayName
+                    });
                 }, 1500);
             } catch (err) {
                 console.error("[AiMenuImport] import error:", err);
@@ -611,7 +643,11 @@ export function useAiImportSession(
                 existingCategories: [],
                 decisions
             },
-            { catalogId: null, newCatalogName: menuName.trim() },
+            {
+                catalogId: null,
+                newCatalogName: menuName.trim(),
+                displayName: menuName.trim()
+            },
             selectedProducts.length
         );
     }, [tenantId, menuName, selectedProducts, categoryNames, submitManifest]);
@@ -633,7 +669,11 @@ export function useAiImportSession(
                 existingCategories: plan.existingCategories,
                 decisions: plan.decisions
             },
-            { catalogId: plan.catalogId, newCatalogName: null },
+            {
+                catalogId: plan.catalogId,
+                newCatalogName: null,
+                displayName: plan.catalogName
+            },
             plan.createCount + plan.reuseCount
         );
     }, [tenantId, submitManifest]);

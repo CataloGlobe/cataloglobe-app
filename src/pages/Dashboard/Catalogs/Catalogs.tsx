@@ -20,8 +20,6 @@ import { Loader } from "@/components/ui/Loader/Loader";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import {
     listCatalogs,
-    createCatalog,
-    updateCatalog,
     deleteCatalog,
     getCatalogStatsMap,
     type V2Catalog,
@@ -31,10 +29,12 @@ import { CatalogCard } from "@/components/Catalogs/CatalogCard/CatalogCard";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
-import { TextInput } from "@/components/ui/Input/TextInput";
 import { CatalogDeleteDrawer } from "./CatalogDeleteDrawer";
+import { CatalogForm } from "./components/CatalogForm";
 import { isPostgrestFKError } from "@/utils/supabaseErrors";
 import styles from "./Catalogs.module.scss";
+
+const FORM_ID = "catalog-form";
 
 export default function Catalogs() {
     const currentTenantId = useTenantId();
@@ -59,7 +59,6 @@ export default function Catalogs() {
     // Drawer state
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [editingCatalog, setEditingCatalog] = useState<V2Catalog | null>(null);
-    const [name, setName] = useState("");
     const [isSaving, setIsSaving] = useState(false);
 
     // AI Import: sessione sollevata in MainLayout. La pagina apre il drawer via
@@ -112,7 +111,6 @@ export default function Catalogs() {
     const handleOpenCreate = useCallback(() => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setEditingCatalog(null);
-        setName("");
         setIsDrawerOpen(true);
     }, [canEdit, showToast]);
 
@@ -186,7 +184,6 @@ export default function Catalogs() {
     const handleOpenEdit = (catalog: V2Catalog) => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setEditingCatalog(catalog);
-        setName(catalog.name);
         setIsDrawerOpen(true);
     };
 
@@ -201,31 +198,9 @@ export default function Catalogs() {
         setIsDeleteOpen(true);
     };
 
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!currentTenantId) return;
-        if (!name.trim()) {
-            showToast({ message: "Il nome è obbligatorio", type: "error" });
-            return;
-        }
-
-        setIsSaving(true);
-        try {
-            if (editingCatalog) {
-                await updateCatalog(editingCatalog.id, currentTenantId, { name });
-                showToast({ message: "Catalogo aggiornato con successo.", type: "success" });
-            } else {
-                await createCatalog(currentTenantId, name);
-                showToast({ message: "Catalogo creato con successo.", type: "success" });
-            }
-            setIsDrawerOpen(false);
-            loadData();
-        } catch (error) {
-            console.error("Errore salvataggio catalogo:", error);
-            showToast({ message: "Errore durante il salvataggio.", type: "error" });
-        } finally {
-            setIsSaving(false);
-        }
+    const handleFormSuccess = () => {
+        setIsDrawerOpen(false);
+        loadData();
     };
 
     const handleDeleteClose = () => {
@@ -444,7 +419,7 @@ export default function Catalogs() {
                             <Button
                                 variant="primary"
                                 type="submit"
-                                form="catalog-form"
+                                form={FORM_ID}
                                 loading={isSaving}
                             >
                                 {editingCatalog ? "Salva Modifiche" : `Crea ${verticalConfig.catalogLabel}`}
@@ -452,15 +427,14 @@ export default function Catalogs() {
                         </>
                     }
                 >
-                    <form id="catalog-form" onSubmit={handleSave} className={styles.form}>
-                        <TextInput
-                            label="Nome del Catalogo"
-                            required
-                            value={name}
-                            onChange={e => setName(e.target.value)}
-                            placeholder="Es: Menu Cena, Asporto, Cantina dei Vini..."
-                        />
-                    </form>
+                    <CatalogForm
+                        formId={FORM_ID}
+                        mode={editingCatalog ? "edit" : "create"}
+                        entityData={editingCatalog}
+                        tenantId={currentTenantId ?? ""}
+                        onSuccess={handleFormSuccess}
+                        onSavingChange={setIsSaving}
+                    />
                 </DrawerLayout>
             </SystemDrawer>
 

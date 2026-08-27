@@ -1,0 +1,17 @@
+/* ----------------------------------------------------
+   GATE — attesa della verifica di configurazione.
+   Stesso fondo del backdrop di SetupShell: se il percorso si apre non c'è
+   stacco visivo, se si viene reindirizzati resta una schermata neutra.
+---------------------------------------------------- */
+.gate {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(2px);
+}

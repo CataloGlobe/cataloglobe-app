@@ -17,6 +17,7 @@
 
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
+import { normalizePhoneToE164 } from "@/utils/phoneNormalize";
 import type { V2Reservation } from "@/types/reservation";
 
 /**
@@ -107,6 +108,11 @@ export async function createReservation(
             customer_name: input.customer_name,
             customer_email: input.customer_email,
             customer_phone: input.customer_phone,
+            // Forma canonica a fianco del grezzo. Una prenotazione presa al
+            // telefono è quella di un cliente abituale come le altre: se non
+            // la normalizziamo qui, il profilo ospite nasce monco. null
+            // quando il numero non è interpretabile — il grezzo resta.
+            customer_phone_e164: normalizePhoneToE164(input.customer_phone),
             notes: input.notes ?? null,
             status: "confirmed",
             source: "manual"
@@ -140,6 +146,10 @@ export async function updateReservation(
             customer_name: input.customer_name,
             customer_email: input.customer_email,
             customer_phone: input.customer_phone,
+            // Ricalcolata a ogni edit: il grezzo può cambiare, la canonica
+            // deve seguirlo (o tornare null se il nuovo valore non è
+            // interpretabile — mai lasciare la canonica di un altro numero).
+            customer_phone_e164: normalizePhoneToE164(input.customer_phone),
             notes: input.notes ?? null,
             updated_at: new Date().toISOString()
         })
@@ -238,12 +248,17 @@ export async function submitReservation(
 
 // ─── ADMIN-SIDE (edge function `respond-reservation`, authenticated) ────────
 
-export type RespondReservationAction = "confirm" | "decline" | "cancel";
+export type RespondReservationAction =
+    | "confirm"
+    | "decline"
+    | "cancel"
+    | "mark_no_show"
+    | "undo_no_show";
 
 export interface RespondReservationResult {
     success: true;
     reservation_id: string;
-    status: "confirmed" | "declined" | "cancelled";
+    status: "confirmed" | "declined" | "cancelled" | "no_show";
 }
 
 /**

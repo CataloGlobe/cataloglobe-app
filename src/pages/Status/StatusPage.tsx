@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Logo } from "@/components/ui/Logo/Logo";
 import { usePageTitle } from "@/hooks/usePageTitle";
+import { formatDateTimeIt } from "@/utils/formatDateTime";
 import {
     deriveOverallStatus,
     formatIncidentStatus,
@@ -66,18 +67,6 @@ function formatRelativeFromMs(thenMs: number | null, nowMs: number): string {
     return `${Math.floor(sec / 86400)}g fa`;
 }
 
-function formatAbsolute(iso: string | null | undefined): string {
-    if (!iso) return "—";
-    const d = new Date(iso);
-    return d.toLocaleString("it-IT", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit"
-    });
-}
-
 function SeverityBadge({ severity }: { severity: StatusIncident["severity"] }) {
     const label =
         severity === "minor" ? "Minore" : severity === "major" ? "Importante" : "Critico";
@@ -104,8 +93,8 @@ function IncidentBlock({ incident }: { incident: StatusIncident }) {
             <div className={styles.incidentMeta}>
                 <IncidentStatusLabel status={incident.status} />
                 {" · Iniziato "}
-                {formatAbsolute(incident.started_at)}
-                {incident.resolved_at && ` · Risolto ${formatAbsolute(incident.resolved_at)}`}
+                {formatDateTimeIt(incident.started_at)}
+                {incident.resolved_at && ` · Risolto ${formatDateTimeIt(incident.resolved_at)}`}
             </div>
             {incident.description && (
                 <p className={styles.incidentDesc}>{incident.description}</p>
@@ -115,7 +104,7 @@ function IncidentBlock({ incident }: { incident: StatusIncident }) {
                     {[...incident.updates].reverse().map((u, i) => (
                         <div key={i} className={styles.incidentUpdate}>
                             <span className={styles.incidentUpdateTime}>
-                                {formatAbsolute(u.timestamp)}
+                                {formatDateTimeIt(u.timestamp)}
                                 {u.status ? ` · ${formatIncidentStatus(u.status)}` : ""}
                             </span>
                             {u.message}

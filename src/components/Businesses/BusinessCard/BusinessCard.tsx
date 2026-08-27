@@ -8,6 +8,13 @@ import { Button } from "@/components/ui";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { formatInactiveReason } from "@/utils/activityStatus";
 import { formatOverrideSummary } from "@/services/supabase/activeCatalog";
+import {
+    ACTIVE_CATALOG_ERROR_LABEL,
+    ACTIVE_CATALOG_NONE_SHORT_LABEL,
+    activeCatalogDisplayName,
+    deriveActiveCatalogState
+} from "@/utils/activeCatalogStatus";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -16,10 +23,11 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     onEdit,
     onDelete,
     activeCatalog,
-    catalogsLoading,
+    catalogsStatus = "loading",
     onManageAvailability
 }) => {
     const publicUrl = buildPublicUrl(business.slug);
+    const catalogState = deriveActiveCatalogState(catalogsStatus, activeCatalog);
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
 
@@ -155,44 +163,56 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
 
                 <div className={styles.divider} />
 
-                {catalogsLoading ? (
-                    <div className={styles.catalogFooter}>
-                        <div className={styles.catalogFooterMain}>
-                            <div className={styles.catalogFooterLeft}>
-                                <span className={styles.catalogIcon}>
-                                    <Clock size={14} strokeWidth={2} />
-                                </span>
-                                <div className={styles.catalogText}>
-                                    <Text variant="caption" className={styles.catalogFooterLabel}>
-                                        Menu attivo ora
-                                    </Text>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Caricamento...
-                                    </Text>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                ) : activeCatalog?.hasActiveCatalog ? (
-                    <div className={styles.catalogFooter}>
-                        <div className={styles.catalogFooterMain}>
-                            <div className={styles.catalogFooterLeft}>
-                                <span className={styles.catalogIcon}>
-                                    <Clock size={14} strokeWidth={2} />
-                                </span>
-                                <div className={styles.catalogText}>
-                                    <Text variant="caption" className={styles.catalogFooterLabel}>
-                                        Menu attivo ora
-                                    </Text>
+                {/* Un solo blocco per tutti e quattro gli stati: la variante è
+                    il testo, non la struttura. L'icona 26px fissa l'altezza
+                    della riga, quindi skeleton, nome, "nessuno" ed errore
+                    occupano lo stesso spazio — la card non salta quando il dato
+                    arriva. */}
+                <div className={styles.catalogFooter} data-state={catalogState}>
+                    <div className={styles.catalogFooterMain}>
+                        <div className={styles.catalogFooterLeft}>
+                            <span className={styles.catalogIcon}>
+                                <Clock size={14} strokeWidth={2} />
+                            </span>
+                            <div className={styles.catalogText}>
+                                <Text variant="caption" className={styles.catalogFooterLabel}>
+                                    Menu attivo ora
+                                </Text>
+                                {catalogState === "loading" ? (
+                                    <Skeleton
+                                        height="13px"
+                                        width="118px"
+                                        radius="6px"
+                                        className={styles.catalogValueSkeleton}
+                                    />
+                                ) : catalogState === "resolved" ? (
                                     <Text
                                         variant="caption"
                                         weight={600}
                                         className={styles.catalogName}
                                     >
-                                        {activeCatalog.catalogName}
+                                        {activeCatalogDisplayName(activeCatalog)}
                                     </Text>
-                                </div>
+                                ) : (
+                                    <Text
+                                        variant="caption"
+                                        colorVariant="muted"
+                                        className={styles.catalogName}
+                                    >
+                                        {catalogState === "error"
+                                            ? ACTIVE_CATALOG_ERROR_LABEL
+                                            : ACTIVE_CATALOG_NONE_SHORT_LABEL}
+                                    </Text>
+                                )}
                             </div>
+                        </div>
+                        {/* Anche a stato ignoto: il drawer riceve solo
+                            `activityId` e risolve il catalogo per conto suo,
+                            quindi negare l'accesso su una risoluzione fallita
+                            toglierebbe un'azione che funziona. Nascosta invece
+                            a `loading` e `none`, dove non c'è nulla su cui
+                            operare. */}
+                        {(catalogState === "resolved" || catalogState === "error") && (
                             <Button
                                 variant="primary"
                                 size="sm"
@@ -203,32 +223,29 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
                             >
                                 Gestisci
                             </Button>
-                        </div>
-                        {(() => {
-                            const overrideSummary = formatOverrideSummary(
-                                activeCatalog.hiddenCount,
-                                activeCatalog.unavailableCount
-                            );
-                            if (!overrideSummary) return null;
-                            return (
-                                <div className={styles.catalogWarningRow}>
-                                    <AlertTriangle
-                                        size={12}
-                                        strokeWidth={2}
-                                        className={styles.catalogWarningIcon}
-                                    />
-                                    <Text variant="caption" colorVariant="muted">
-                                        {overrideSummary}
-                                    </Text>
-                                </div>
-                            );
-                        })()}
+                        )}
                     </div>
-                ) : (
-                    <div className={styles.catalogInfo}>
-                        <span className={styles.noCatalog}>Nessun catalogo attivo</span>
-                    </div>
-                )}
+                    {(() => {
+                        if (catalogState !== "resolved" || !activeCatalog) return null;
+                        const overrideSummary = formatOverrideSummary(
+                            activeCatalog.hiddenCount,
+                            activeCatalog.unavailableCount
+                        );
+                        if (!overrideSummary) return null;
+                        return (
+                            <div className={styles.catalogWarningRow}>
+                                <AlertTriangle
+                                    size={12}
+                                    strokeWidth={2}
+                                    className={styles.catalogWarningIcon}
+                                />
+                                <Text variant="caption" colorVariant="muted">
+                                    {overrideSummary}
+                                </Text>
+                            </div>
+                        );
+                    })()}
+                </div>
             </div>
         </article>
     );

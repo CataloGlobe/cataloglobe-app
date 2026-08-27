@@ -10,6 +10,13 @@ import { ExternalLink, Link, FileText, Edit, Trash2, MapPin, AlertTriangle } fro
 import { Button } from "@/components/ui/Button/Button";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { formatOverrideSummary } from "@/services/supabase/activeCatalog";
+import {
+    ACTIVE_CATALOG_ERROR_LABEL,
+    ACTIVE_CATALOG_NONE_SHORT_LABEL,
+    activeCatalogDisplayName,
+    deriveActiveCatalogState
+} from "@/utils/activeCatalogStatus";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -20,7 +27,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
     onDelete,
     onOpenReviews,
     activeCatalogsMap,
-    catalogsLoading,
+    catalogsStatus = "loading",
     onManageAvailability,
     onCreateClick,
     hasActiveFilter = false
@@ -74,24 +81,40 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 header: "Menu attivo ora",
                 width: "1.5fr",
                 cell: (_, business) => {
-                    if (catalogsLoading) {
+                    const activeCatalog = activeCatalogsMap?.[business.id];
+                    const state = deriveActiveCatalogState(catalogsStatus, activeCatalog);
+
+                    if (state === "loading") {
+                        // Stesso trattamento della card: un placeholder della
+                        // riga, non la parola "Caricamento" — che occupa la
+                        // colonna come se fosse un valore.
+                        return (
+                            <div className={styles.catalogCell}>
+                                <Skeleton height="14px" width="60%" radius="6px" />
+                            </div>
+                        );
+                    }
+
+                    if (state !== "resolved" || !activeCatalog) {
                         return (
                             <div className={styles.catalogCell}>
                                 <Text variant="body-sm" colorVariant="muted">
-                                    Caricamento...
+                                    {state === "none"
+                                        ? ACTIVE_CATALOG_NONE_SHORT_LABEL
+                                        : ACTIVE_CATALOG_ERROR_LABEL}
                                 </Text>
                             </div>
                         );
                     }
-                    const activeCatalog = activeCatalogsMap?.[business.id];
-                    const overrideSummary = activeCatalog
-                        ? formatOverrideSummary(activeCatalog.hiddenCount, activeCatalog.unavailableCount, {
-                              abbreviate: true
-                          })
-                        : null;
+
+                    const overrideSummary = formatOverrideSummary(
+                        activeCatalog.hiddenCount,
+                        activeCatalog.unavailableCount,
+                        { abbreviate: true }
+                    );
                     return (
                         <div className={styles.catalogCell}>
-                            <Text variant="body-sm">{activeCatalog?.catalogName ?? "—"}</Text>
+                            <Text variant="body-sm">{activeCatalogDisplayName(activeCatalog)}</Text>
                             {overrideSummary && (
                                 <div className={styles.catalogWarningRow}>
                                     <AlertTriangle
@@ -114,8 +137,16 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 width: "110px",
                 align: "right",
                 cell: (_, business) => {
+                    // Anche a stato ignoto: il drawer riceve solo `activityId`
+                    // e risolve il catalogo per conto suo, quindi negare
+                    // l'accesso su una risoluzione fallita toglierebbe
+                    // un'azione che funziona. Nascosta invece a `loading` e
+                    // `none`, dove non c'è nulla su cui operare.
                     const activeCatalog = activeCatalogsMap?.[business.id];
-                    if (!activeCatalog) return null;
+                    const state = deriveActiveCatalogState(catalogsStatus, activeCatalog);
+                    if (state !== "resolved" && state !== "error") {
+                        return null;
+                    }
                     return (
                         <Button
                             variant="outline"
@@ -176,7 +207,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 }
             }
         ],
-        [activeCatalogsMap, catalogsLoading, onManageAvailability, onEdit, onDelete, navigate]
+        [activeCatalogsMap, catalogsStatus, onManageAvailability, onEdit, onDelete, navigate]
     );
 
     const handleBulkDelete = (selectedIds: string[]) => {
@@ -228,7 +259,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
             onDelete={onDelete}
             onOpenReviews={onOpenReviews}
             activeCatalogsMap={activeCatalogsMap}
-            catalogsLoading={catalogsLoading}
+            catalogsStatus={catalogsStatus}
             onManageAvailability={onManageAvailability}
         />
     );

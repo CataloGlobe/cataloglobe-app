@@ -58,6 +58,7 @@ function statusInfo(status: V2Reservation["status"]): {
         case "confirmed": return { variant: "success", label: "Confermata" };
         case "declined":  return { variant: "neutral", label: "Rifiutata" };
         case "cancelled": return { variant: "neutral", label: "Annullata" };
+        case "no_show":   return { variant: "neutral", label: "Non presentato" };
     }
 }
 
@@ -78,6 +79,21 @@ function formatDateIt(isoDate: string): string {
 
 function formatTimeIt(time: string): string {
     return time.slice(0, 5);
+}
+
+/**
+ * True quando data+ora della prenotazione sono già passate.
+ *
+ * Gate dell'azione "Segna non presentato": su una prenotazione di domani il
+ * bottone sarebbe solo rumore — nessuno può ancora non essersi presentato.
+ * Wall-clock locale, coerente con come sono salvati date e ora (nessuna
+ * aritmetica di fuso: `reservation_time` è TIME senza timezone).
+ */
+function isInThePast(reservation: V2Reservation, now: Date = new Date()): boolean {
+    const [y, m, d] = reservation.reservation_date.split("-").map(n => parseInt(n, 10));
+    const [hh, mm] = reservation.reservation_time.split(":").map(n => parseInt(n, 10));
+    if (!y || !m || !d || !Number.isFinite(hh) || !Number.isFinite(mm)) return false;
+    return new Date(y, m - 1, d, hh, mm).getTime() < now.getTime();
 }
 
 export default function ReservationDetailDrawer({
@@ -104,14 +120,22 @@ export default function ReservationDetailDrawer({
     // without the "/ capienza" comparison.
     const capacityCallout = useMemo(() => {
         if (!reservation) return null;
-        const rows: CapacityReservation[] = allReservations.map(r => ({
-            id: r.id,
-            activity_id: r.activity_id,
-            reservation_date: r.reservation_date,
-            reservation_time: r.reservation_time,
-            party_size: r.party_size,
-            status: r.status
-        }));
+        // `no_show` non è un valore che il motore di capienza conosce: conta
+        // solo pending + confirmed, quindi le righe non attive vengono scartate
+        // qui invece di allargare il tipo del motore (che resta invariato).
+        const rows: CapacityReservation[] = allReservations
+            .filter(
+                (r): r is V2Reservation & { status: CapacityReservation["status"] } =>
+                    r.status === "pending" || r.status === "confirmed"
+            )
+            .map(r => ({
+                id: r.id,
+                activity_id: r.activity_id,
+                reservation_date: r.reservation_date,
+                reservation_time: r.reservation_time,
+                party_size: r.party_size,
+                status: r.status
+            }));
         const result = canAccept(
             { capacity: activityCapacity, durationMin },
             rows,
@@ -152,6 +176,7 @@ export default function ReservationDetailDrawer({
     };
 
     const st = statusInfo(reservation.status);
+    const isPast = isInThePast(reservation);
     const canEdit =
         canManage &&
         onEdit !== undefined &&
@@ -184,8 +209,23 @@ export default function ReservationDetailDrawer({
                             Modifica
                         </Button>
                     )}
+                    {/* Solo su prenotazioni già passate: prima non ha senso. */}
+                    {isPast && (
+                        <Button variant="outline" onClick={() => handleAction("mark_no_show")}>
+                            Segna non presentato
+                        </Button>
+                    )}
                     <Button variant="danger" onClick={() => handleAction("cancel")}>
                         Annulla
+                    </Button>
+                </>
+            ) : reservation.status === "no_show" ? (
+                <>
+                    <p className={styles.drawerFooterHint}>
+                        Il cliente non si è presentato.
+                    </p>
+                    <Button variant="primary" onClick={() => handleAction("undo_no_show")}>
+                        Annulla non presentato
                     </Button>
                 </>
             ) : (

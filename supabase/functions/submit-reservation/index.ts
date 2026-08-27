@@ -6,6 +6,7 @@ import { COMPANY } from "../_shared/company-config.ts";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { formatDateIt, formatTimeIt } from "../_shared/emailFormat.ts";
 import { buildReservationsDashboardUrl } from "../_shared/publicSiteUrl.ts";
+import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";
 import {
     buildReservationConfirmedEmail,
     buildReservationReceiptEmail,
@@ -417,6 +418,41 @@ serve(async (req: Request) => {
 
         const reservationId = placement.reservation_id as string;
         const isAutoConfirmed = placementStatus === "confirmed";
+
+        // ── Canonical phone, E.164 (best-effort) ─────────────────────────
+        // `place_online_reservation` owns the INSERT and is deliberately left
+        // untouched, so the canonical value is written right after with a
+        // targeted UPDATE of that single column. `customer_phone` keeps the
+        // raw string; this is the lookup key for the future guest profile.
+        //
+        // A failure here NEVER fails the reservation and never propagates:
+        // the E.164 value is recomputable from the raw phone, a lost booking
+        // is not. Logs carry the reservation id and the DB message only —
+        // never the number itself.
+        try {
+            const phoneE164 = normalizePhoneToE164(customerPhone);
+            if (phoneE164) {
+                const { error: phoneUpdateError } = await supabase
+                    .from("reservations")
+                    .update({ customer_phone_e164: phoneE164 })
+                    .eq("id", reservationId);
+                if (phoneUpdateError) {
+                    console.error(
+                        `[submit-reservation] phone canonicalisation failed (reservation_id=${reservationId}):`,
+                        phoneUpdateError.message
+                    );
+                }
+            } else {
+                console.log(
+                    `[submit-reservation] phone not canonicalisable (reservation_id=${reservationId}). Leaving customer_phone_e164 NULL.`
+                );
+            }
+        } catch (phoneErr) {
+            console.error(
+                `[submit-reservation] phone canonicalisation threw (reservation_id=${reservationId}):`,
+                phoneErr instanceof Error ? phoneErr.message : "unknown error"
+            );
+        }
 
         // ── Best-effort emails (failures NEVER fail the reservation) ─────────
         // Auto-confirmed path uses the "Prenotazione confermata" template,

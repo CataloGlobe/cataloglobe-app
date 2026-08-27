@@ -1,5 +1,6 @@
 import type { V2Activity } from "./activity";
 import type { ActiveCatalogMeta } from "@/services/supabase/activeCatalog";
+import type { CatalogFetchStatus } from "@/utils/activeCatalogStatus";
 
 export type { ActiveCatalogMeta, V2Activity };
 
@@ -16,13 +17,28 @@ export interface BusinessFormValues {
     coverPreview: string | null;
 }
 
+/**
+ * Stato inline del campo slug nei form sede (create + edit).
+ * - warning: solo edit, slug diverso dall'originale
+ * - conflict: slug già usato, con suggerimenti alternativi verificati
+ */
+export type SlugInlineState =
+    | { type: "idle" }
+    | { type: "warning" }
+    | { type: "conflict"; suggestions: string[] };
+
 export interface BusinessCardProps {
     business: BusinessWithCapabilities;
     onEdit: (business: BusinessWithCapabilities) => void;
     onDelete?: (id: string) => void;
     onOpenReviews: (businessId: string) => void;
     activeCatalog?: ActiveCatalogMeta | null;
-    catalogsLoading?: boolean;
+    /**
+     * Esito della risoluzione batch, non un semplice flag di attesa: senza
+     * distinguere `error` da `ready`, un fallimento verrebbe mostrato come
+     * "Nessun catalogo attivo" — una diagnosi che non abbiamo.
+     */
+    catalogsStatus?: CatalogFetchStatus;
     onManageAvailability?: (id: string, name: string) => void;
 }
 
@@ -33,7 +49,8 @@ export interface BusinessListProps {
     onDelete?: (id: string) => void;
     onOpenReviews: (id: string) => void;
     activeCatalogsMap?: Record<string, ActiveCatalogMeta>;
-    catalogsLoading?: boolean;
+    /** Vedi `BusinessCardProps.catalogsStatus`. */
+    catalogsStatus?: CatalogFetchStatus;
     onManageAvailability?: (id: string, name: string) => void;
     onCreateClick?: () => void;
     /**

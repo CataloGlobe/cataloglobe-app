@@ -8,6 +8,14 @@ import {
     buildReservationOutcomeEmail,
     type ReservationEmailContent
 } from "../_shared/reservationEmails.ts";
+import {
+    ACTION_EXPECTS,
+    ACTION_TO_STATUS,
+    isReservationAction,
+    sendsCustomerEmail,
+    type ReservationAction,
+    type ReservationEmailAction
+} from "../_shared/reservationTransitions.ts";
 
 // =============================================================================
 // respond-reservation
@@ -15,7 +23,9 @@ import {
 //
 // Authenticated POST endpoint. An admin (a member of the venue's tenant with
 // `reservations.manage` permission scoped to the reservation's activity)
-// confirms / declines / cancels a pending reservation. The state transition
+// confirms / declines / cancels a reservation, or flags it as a no-show
+// (and undoes that flag). The state machine lives in
+// `_shared/reservationTransitions.ts`. The state transition
 // runs under the caller's JWT through a user-scoped Supabase client, so the
 // RLS policy `Roles can update reservations` is the SINGLE gate.
 //
@@ -24,8 +34,9 @@ import {
 // "reservation not found" to avoid leaking authorization state.
 //
 // On a successful state transition the function fires (best-effort) an email
-// to the customer with the outcome. Email failure never fails the state
-// transition: the row is already updated.
+// to the customer with the outcome — EXCEPT for the no-show pair, which is
+// silent by design (see `sendsCustomerEmail`). Email failure never fails the
+// state transition: the row is already updated.
 // =============================================================================
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -93,25 +104,6 @@ function extractBearerJwt(req: Request): string | null {
     return jwt.length > 0 ? jwt : null;
 }
 
-// --- Action → target status table -------------------------------------------
-
-type Action = "confirm" | "decline" | "cancel";
-type ReservationStatus = "pending" | "confirmed" | "declined" | "cancelled";
-
-const ACTION_TO_STATUS: Record<Action, ReservationStatus> = {
-    confirm: "confirmed",
-    decline: "declined",
-    cancel:  "cancelled"
-};
-
-// Precondition on current status for each action. Prevents duplicate outcome
-// emails and backwards/sideways transitions (e.g. confirming a cancelled row).
-const ACTION_EXPECTS: Record<Action, ReservationStatus> = {
-    confirm: "pending",
-    decline: "pending",
-    cancel:  "confirmed"
-};
-
 // --- Email builder ----------------------------------------------------------
 
 // Templates live in `_shared/reservationEmails.ts` (shared with
@@ -119,8 +111,11 @@ const ACTION_EXPECTS: Record<Action, ReservationStatus> = {
 // builder: `confirm` reuses the confirmation template with the "manual"
 // variant (the diner DID send a request that sat in `pending`), while
 // `decline` / `cancel` share the outcome template.
+//
+// The parameter type is `ReservationEmailAction`, NOT `ReservationAction`: the
+// no-show pair is structurally unable to reach this function.
 function buildActionEmail(args: {
-    action: Action;
+    action: ReservationEmailAction;
     activityName: string;
     customerName: string;
     reservationDate: string;
@@ -177,11 +172,12 @@ serve(async (req: Request) => {
         return errorResponse(req, "INVALID_PAYLOAD", 400, { field: "reservation_id" });
     }
 
-    const action = typeof body.action === "string" ? body.action.trim() : "";
-    if (action !== "confirm" && action !== "decline" && action !== "cancel") {
+    const rawAction = typeof body.action === "string" ? body.action.trim() : "";
+    if (!isReservationAction(rawAction)) {
         return errorResponse(req, "INVALID_ACTION", 400);
     }
-    const newStatus = ACTION_TO_STATUS[action as Action];
+    const action: ReservationAction = rawAction;
+    const newStatus = ACTION_TO_STATUS[action];
 
     // ── SELECT-then-UPDATE under user RLS ──────────────────────────
     // RLS policies on `reservations`:
@@ -198,7 +194,7 @@ serve(async (req: Request) => {
     //    concurrent admin transitioning the same row can't race us into
     //    duplicate outcome emails.
     try {
-        const expectedFrom = ACTION_EXPECTS[action as Action];
+        const expectedFrom = ACTION_EXPECTS[action];
 
         const { data: current, error: selectErr } = await supabaseUser
             .from("reservations")
@@ -251,44 +247,56 @@ serve(async (req: Request) => {
             });
         }
 
-        // Resolve activity name (also under user RLS — read gated by
-        // activity.read, granted to every role that has reservations.manage).
-        let activityName = "la sede";
-        const { data: activityRow, error: activityErr } = await supabaseUser
-            .from("activities")
-            .select("name")
-            .eq("id", updated.activity_id)
-            .maybeSingle();
-        if (!activityErr && activityRow?.name) {
-            activityName = activityRow.name as string;
-        } else if (activityErr) {
-            // Read denial → fall back to generic copy; do NOT fail the response.
-            console.warn(
-                `[respond-reservation] activity read failed for ${updated.activity_id}:`,
-                activityErr
+        // ── Outcome email (best-effort, and NOT for every action) ───
+        // `sendsCustomerEmail` is the single gate. The no-show pair is silent
+        // by design: nothing is built, nothing is sent, and the activity name
+        // is not even looked up — there is no copy to put it in. Writing
+        // "you did not show up" to a diner is aggressive and pointless.
+        if (!sendsCustomerEmail(action)) {
+            console.log(
+                `[respond-reservation] silent transition (action=${action}, reservation_id=${updated.id}). No customer email.`
             );
-        }
+        } else {
+            // Resolve activity name (also under user RLS — read gated by
+            // activity.read, granted to every role that has reservations.manage).
+            let activityName = "la sede";
+            const { data: activityRow, error: activityErr } = await supabaseUser
+                .from("activities")
+                .select("name")
+                .eq("id", updated.activity_id)
+                .maybeSingle();
+            if (!activityErr && activityRow?.name) {
+                activityName = activityRow.name as string;
+            } else if (activityErr) {
+                // Read denial → fall back to generic copy; do NOT fail the response.
+                console.warn(
+                    `[respond-reservation] activity read failed for ${updated.activity_id}:`,
+                    activityErr
+                );
+            }
 
-        // ── Outcome email (best-effort) ─────────────────────────────
-        try {
-            const email = buildActionEmail({
-                activityName,
-                customerName: updated.customer_name as string,
-                reservationDate: updated.reservation_date as string,
-                reservationTime: updated.reservation_time as string,
-                partySize: updated.party_size as number,
-                action: action as Action
-            });
-            await resend.emails.send({
-                from: COMPANY.email.sender,
-                reply_to: COMPANY.contact.support,
-                to: updated.customer_email as string,
-                subject: email.subject,
-                html: email.html,
-                text: email.text
-            });
-        } catch (mailErr) {
-            console.error("[respond-reservation] outcome email failed:", mailErr);
+            try {
+                const email = buildActionEmail({
+                    activityName,
+                    customerName: updated.customer_name as string,
+                    reservationDate: updated.reservation_date as string,
+                    reservationTime: updated.reservation_time as string,
+                    partySize: updated.party_size as number,
+                    // Narrowed by `sendsCustomerEmail`: the no-show pair cannot
+                    // reach this branch.
+                    action: action as ReservationEmailAction
+                });
+                await resend.emails.send({
+                    from: COMPANY.email.sender,
+                    reply_to: COMPANY.contact.support,
+                    to: updated.customer_email as string,
+                    subject: email.subject,
+                    html: email.html,
+                    text: email.text
+                });
+            } catch (mailErr) {
+                console.error("[respond-reservation] outcome email failed:", mailErr);
+            }
         }
 
         return jsonResponse(

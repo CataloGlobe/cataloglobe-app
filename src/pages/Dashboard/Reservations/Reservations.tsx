@@ -43,9 +43,11 @@ function nowHmm(): string {
 }
 
 const ACTION_LABEL: Record<DeferredAction, string> = {
-    confirm: "Prenotazione confermata.",
-    decline: "Prenotazione rifiutata.",
-    cancel:  "Prenotazione annullata."
+    confirm:      "Prenotazione confermata.",
+    decline:      "Prenotazione rifiutata.",
+    cancel:       "Prenotazione annullata.",
+    mark_no_show: "Segnata come non presentato.",
+    undo_no_show: "Non presentato annullato."
 };
 
 export default function Reservations() {

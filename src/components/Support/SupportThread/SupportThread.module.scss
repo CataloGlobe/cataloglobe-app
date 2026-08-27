@@ -1,0 +1,91 @@
+// Thread di supporto — lista a larghezza piena, un blocco per messaggio.
+// Solo token di _theme.scss: il componente vive in due aree con temi
+// commutabili (business e admin) e non deve portarsi dietro colori propri.
+
+.thread {
+  // Contenitore di scroll. Richiede un padre flex column con altezza
+  // limitata: senza `min-height: 0` un flex item non si comprime sotto il
+  // proprio contenuto e a scorrere finisce la pagina invece del thread.
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.message {
+  padding: 16px 0;
+
+  // Separatore fra i messaggi, non attorno: nessuna linea in cima al primo
+  // né in fondo all'ultimo, dove toccherebbe il bordo del contenitore.
+  & + .message {
+    border-top: 1px solid var(--border, #e2e8f0);
+  }
+}
+
+.header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.author {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+// Badge della piattaforma. Assolve una funzione di sicurezza, non decorativa:
+// è il segno che distingue una risposta ufficiale da un messaggio scritto da
+// un membro dell'azienda, e per questo non è replicabile lato cliente
+// (`author_kind` è vincolato dalle policy INSERT).
+.badge {
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 3px 7px;
+  border-radius: 999px;
+  color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+  white-space: nowrap;
+}
+
+.role {
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.6;
+}
+
+// Spinta a destra: la colonna sinistra dell'header resta l'identità di chi
+// scrive, che è ciò che si scorre leggendo.
+.time {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+.body {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--text);
+
+  // I ritorni a capo dell'utente sono contenuto: un messaggio di supporto
+  // contiene elenchi, passaggi numerati, log incollati.
+  white-space: pre-wrap;
+
+  // Un URL lungo o uno stack trace senza spazi sfonderebbe il contenitore e
+  // farebbe comparire uno scroll orizzontale sull'intero drawer.
+  overflow-wrap: anywhere;
+}

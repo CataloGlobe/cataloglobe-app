@@ -97,6 +97,15 @@
   gap: 6px;
 }
 
+/* Riga di chiusura del blocco: allineata a sinistra come le voci, staccata
+   dall'elenco da un filetto per leggersi come alternativa e non come quinto
+   passo della sequenza. */
+.setupGuidedRow {
+  display: flex;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
 .configItem {
   display: flex;
   align-items: flex-start;
@@ -259,6 +268,16 @@
   &[data-state="loading"] {
     background: var(--border);
   }
+
+  /* Stato ignoto: puntino VUOTO, non pieno. "Off" è un'informazione ("la
+     vetrina è spenta"), qui invece non sappiamo — un cerchio cavo lo dice senza
+     aggiungere un colore semantico che prometterebbe una diagnosi che non
+     abbiamo. `currentColor` lo tiene agganciato al testo muted della riga. */
+  &[data-state="unknown"] {
+    background: transparent;
+    box-shadow: inset 0 0 0 1px currentColor;
+    opacity: 0.55;
+  }
 }
 
 .menuName {
@@ -289,15 +308,66 @@
   flex-direction: column;
 }
 
+/* La riga intera apre la pagina pubblica.
+   Il fondo dell'hover esce dal bordo del testo (`margin-inline` negativo
+   compensato dal padding): senza quel respiro la superficie evidenziata
+   combacia con le lettere e sembra una selezione di testo, non un bersaglio.
+   Il separatore segue la stessa larghezza, così le due geometrie coincidono. */
 .publicRow {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 0;
+  padding: 12px;
+  margin-inline: -12px;
+  border-radius: 8px;
   border-top: 1px solid var(--border);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 
   &:first-child {
     border-top: none;
+  }
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  /* Il focus vive sul link del nome, ma l'anello lo prende la riga: chi arriva
+     con Tab deve vedere QUALE sede sta per aprire, non due parole in grassetto.
+     `outline` invece di `box-shadow` perché segue il border-radius e
+     sopravvive alla forced-colors mode. */
+  &:has(.publicRowName:focus-visible) {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+    background: var(--hover-bg);
+  }
+}
+
+/* Il nome della sede è il collegamento alla pagina pubblica, ma non deve
+   sembrare un link: la riga intera lo è già, e due colori di link accostati
+   (nome + URL) trasformerebbero la riga in un elenco di appigli. */
+.publicRowName {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* Browser senza `:has()`: l'anello resta, solo più stretto attorno al nome.
+   Meglio un focus meno bello che un focus invisibile. */
+@supports not selector(:has(*)) {
+  .publicRowName:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .publicRow {
+    transition: none;
   }
 }
 
@@ -324,24 +394,62 @@
   }
 }
 
+/* Un solo trigger ⋯, sempre visibile. Prima qui stavano due bottoni con
+   etichetta, che su schermo stretto dovevano scendere sotto le informazioni:
+   ora la riga tiene la sua forma a ogni larghezza, niente wrap da gestire. */
 .publicRowActions {
   display: flex;
   align-items: center;
-  gap: 6px;
   margin-left: auto;
   flex-shrink: 0;
 }
 
-@media (max-width: 600px) {
-  .publicRow {
-    flex-wrap: wrap;
-  }
+/* Coda delle sedi sospese. Il distacco dal gruppo delle pubblicate è dato dallo
+   spazio prima del filo, non da un filo più spesso: separare due gruppi con un
+   bordo pesante li mette sullo stesso piano gerarchico, mentre qui il secondo è
+   una postilla al primo. Larghezza allineata ai separatori delle righe. */
+.suspendedList {
+  display: flex;
+  flex-direction: column;
+  margin-inline: -12px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
 
-  /* Le azioni scendono sotto le informazioni, a tutta larghezza. */
-  .publicRowActions {
-    margin-left: 0;
-    width: 100%;
-  }
+.suspendedRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+}
+
+/* Neutro, non ambra: la sede è ferma, non in allarme. Stessa scelta dello
+   `StatusBadge variant="neutral"` usato per "Sospesa" nelle card sede — e la
+   regola No-Color-On-Inactive di DESIGN.md dice esattamente questo. */
+.suspendedIcon {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--text);
+  opacity: 0.45;
+}
+
+.suspendedText {
+  min-width: 0;
+  /* Nomi lunghi troncano invece di spingere il bottone fuori dalla riga. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.suspendedName {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.suspendedRow > *:last-child {
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
 .publicMore {
