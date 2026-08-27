@@ -5,13 +5,16 @@ import { useTenantId } from "@/context/useTenantId";
 import { useAiImportSession, type AiImportOutcome } from "@/hooks/useAiImportSession";
 import { createLayoutRule } from "@/services/supabase/layoutScheduling";
 import { listStyles } from "@/services/supabase/styles";
+import { getTenantSetupStatus } from "@/services/supabase/overviewStats";
 import { buildPublicUrl } from "@/utils/publicUrl";
+import { Loader } from "@/components/ui/Loader/Loader";
 import type { V2Activity } from "@/types/activity";
 import type { V2Catalog } from "@/services/supabase/catalogs";
 import { SetupShell, type SetupStepDefinition } from "./components/SetupShell";
 import { SetupActivityStep } from "./steps/SetupActivityStep";
 import { SetupCatalogStep, type CatalogBranch } from "./steps/SetupCatalogStep";
 import { SetupPublishStep, type SetupRuleStatus } from "./steps/SetupPublishStep";
+import styles from "./SetupWizardPage.module.scss";
 
 const STEPS: SetupStepDefinition[] = [
     { id: "activity", label: "La tua sede", hint: "Dove i clienti ti trovano" },
@@ -76,6 +79,62 @@ export default function SetupWizardPage() {
     // La creazione parte da un effect: una sola volta per percorso, anche se il
     // passo 3 si ri-renderizza.
     const ruleRequestedRef = useRef(false);
+
+    // Il percorso è raggiungibile da due ingressi (ritorno da Stripe e azione
+    // della Panoramica): finché non sappiamo se c'è ancora qualcosa da
+    // configurare non si mostra nulla, altrimenti il passo 1 lampeggerebbe prima
+    // del redirect.
+    //
+    // Il wizard presume di partire da zero: il passo 1 è sempre in creazione e
+    // non sa riprendere una sede esistente. Su un tenant che ne ha già una
+    // creerebbe una seconda sede indesiderata (con un seat consumato) e la
+    // regola finale punterebbe a quella nuova e vuota. Finché la ripresa dal
+    // punto giusto non è progettata, l'accesso è riservato ai tenant senza
+    // sedi: negli altri casi si torna alla Panoramica, dove i link dei singoli
+    // passi restano disponibili.
+    const [gate, setGate] = useState<"checking" | "open">("checking");
+
+    useEffect(() => {
+        if (!tenantId) return;
+
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const status = await getTenantSetupStatus(tenantId);
+                if (cancelled) return;
+
+                // Stessi criteri della checklist della Panoramica: il wizard non
+                // ha una nozione propria di "configurato".
+                const isComplete =
+                    status.hasActiveLocation &&
+                    status.hasProducts &&
+                    status.hasPopulatedCatalog &&
+                    status.hasActiveLayoutRule;
+
+                // `hasAnyLocation` copre l'accesso diretto via URL: l'azione
+                // della Panoramica è già nascosta a chi ha una sede, ma il link
+                // resta digitabile. Meglio un redirect che una seconda sede.
+                if (isComplete || status.hasAnyLocation) {
+                    // `replace`: il percorso guidato non deve restare nella
+                    // cronologia, il "indietro" del browser ci ritornerebbe.
+                    navigate(`/business/${businessId}/overview`, { replace: true });
+                    return;
+                }
+
+                setGate("open");
+            } catch (error) {
+                console.error("[SetupWizardPage] verifica setup fallita:", error);
+                // Un errore di lettura non deve chiudere l'unico ingresso al
+                // percorso: si apre il wizard, che è comunque interrompibile.
+                if (!cancelled) setGate("open");
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+        };
+    }, [tenantId, businessId, navigate]);
 
     const handleCatalogReady = useCallback((catalog: CreatedCatalog) => {
         setCreatedCatalog(catalog);
@@ -223,6 +282,16 @@ export default function SetupWizardPage() {
         : isCatalogStep && catalogBranch === "manual" && !importSession.isOpen
           ? CATALOG_FORM_ID
           : undefined;
+
+    // Dopo tutti gli hook: a configurazione completa il redirect è già partito,
+    // qui non deve comparire nemmeno un fotogramma del passo 1.
+    if (gate === "checking") {
+        return (
+            <div className={styles.gate}>
+                <Loader size="lg" />
+            </div>
+        );
+    }
 
     return (
         <SetupShell

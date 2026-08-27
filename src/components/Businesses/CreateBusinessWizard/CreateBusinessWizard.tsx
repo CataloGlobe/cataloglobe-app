@@ -468,7 +468,13 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                 planCode: selectedPlan.code,
                 quantity: seats,
                 promotionCode: promotionCode.trim() || undefined,
-                successUrl: `${window.location.origin}/business/${tenantId}/overview`,
+                // Ritorno da Stripe sul setup guidato, non sulla Panoramica: qui
+                // l'abbonamento è già valido, quindi il QR mostrato dal passo 3
+                // risolve davvero. Entrando prima del pagamento
+                // `resolve-public-catalog` risponderebbe `subscription_inactive`.
+                // Chi ha già sede, menù e regola viene rimandato alla Panoramica
+                // dal wizard stesso.
+                successUrl: `${window.location.origin}/business/${tenantId}/setup`,
                 cancelUrl: `${window.location.origin}/workspace`,
             });
 

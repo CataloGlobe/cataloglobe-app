@@ -840,6 +840,27 @@ export default function OverviewPage() {
                                     );
                                 })}
                             </div>
+
+                            {/* Alternativa all'elenco, non sostituzione: chi
+                                preferisce fare un passo alla volta continua a
+                                usare le voci qui sopra. Azione secondaria in
+                                fondo, per non competere con la voce `next`.
+
+                                Solo a zero sedi: il percorso guidato parte
+                                sempre dalla creazione di una sede e non sa
+                                riprenderne una esistente, quindi a chi ne ha già
+                                una ne farebbe creare una seconda. */}
+                            {!setup.hasAnyLocation && (
+                                <div className={styles.setupGuidedRow}>
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => navigate(`${b}/setup`)}
+                                    >
+                                        Configura con la procedura guidata
+                                    </Button>
+                                </div>
+                            )}
                         </>
                     )}
                 </div>

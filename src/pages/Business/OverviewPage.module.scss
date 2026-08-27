@@ -97,6 +97,15 @@
   gap: 6px;
 }
 
+/* Riga di chiusura del blocco: allineata a sinistra come le voci, staccata
+   dall'elenco da un filetto per leggersi come alternativa e non come quinto
+   passo della sequenza. */
+.setupGuidedRow {
+  display: flex;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
+
 .configItem {
   display: flex;
   align-items: flex-start;
