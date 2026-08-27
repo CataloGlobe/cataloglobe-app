@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CheckCircle2, Circle, Plus, ChevronRight, ExternalLink, Download } from "lucide-react";
+import {
+    CheckCircle2,
+    Circle,
+    Plus,
+    ChevronRight,
+    Download,
+    Link as LinkIcon,
+    Image as ImageIcon
+} from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { usePageHeader } from "@/context/usePageHeader";
@@ -24,7 +32,7 @@ import {
     type CatalogFetchStatus
 } from "@/utils/activeCatalogStatus";
 import { QrCode, type QrCodeHandle } from "@/components/ui/QrCode/QrCode";
-import { Button } from "@/components/ui/Button/Button";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { SUBTYPE_LABELS, VERTICAL_LABELS } from "@/constants/verticalTypes";
 import styles from "./OverviewPage.module.scss";
@@ -98,45 +106,113 @@ function MenuLineSkeleton({ width }: { width: string }) {
 }
 
 /**
+ * Le due forme della riga pubblica: scheda (sede unica) ed elenco (più sedi).
+ *
+ * Prima queste differenze erano dedotte da `qrSize > 60` sparso in tre punti
+ * del JSX: una misura in px usata come nome in codice della variante. Qui la
+ * variante è dichiarata e le differenze discendono da lei, così aggiungerne una
+ * quarta non richiede di ricordarsi della soglia.
+ */
+const PUBLIC_ROW_VARIANTS = {
+    card: {
+        qrSize: 104,
+        // QR grande: la correzione alta regge un logo sovrapposto e la stampa.
+        qrLevel: "H",
+        nameVariant: "title-sm",
+        statusVariant: "body-sm"
+    },
+    list: {
+        qrSize: 42,
+        // A 42px la ridondanza di livello H mangerebbe i moduli: 'M' resta
+        // leggibile a schermo, che è l'unico uso di questa taglia.
+        qrLevel: "M",
+        nameVariant: "body-sm",
+        statusVariant: "caption"
+    }
+} as const;
+
+type PublicRowVariant = keyof typeof PUBLIC_ROW_VARIANTS;
+
+/** Elementi che gestiscono il proprio click: la riga non deve rubarglielo.
+ *  Stesso elenco di `DataTable` — l'`a` dell'URL e il trigger del menu ⋯
+ *  restano quindi indipendenti senza bisogno di `stopPropagation` sparsi. */
+const NESTED_INTERACTIVE_SELECTOR =
+    'button, a, input, select, textarea, [role="menuitem"], [data-row-click-ignore="true"]';
+
+/**
  * Riga di una pagina pubblica: QR · info · azioni.
  *
- * Usata da ENTRAMBE le varianti del blocco (sede singola ed elenco): l'unica
- * differenza ammessa è la dimensione del QR. Tenerle in un solo componente
- * rende il disallineamento impossibile per costruzione invece che per
- * disciplina — etichette, ordine e stile delle azioni non possono divergere.
+ * Usata da ENTRAMBE le varianti del blocco. La differenza è una sola prop
+ * (`variant`), da cui discendono taglia del QR, cornice, livello di correzione
+ * e scala tipografica: tenerle in un solo componente rende il disallineamento
+ * impossibile per costruzione invece che per disciplina — etichette, ordine e
+ * stile delle azioni non possono divergere.
+ *
+ * L'intera riga apre la pagina pubblica. È l'azione che il gestore compie ogni
+ * volta: chiederle un bersaglio da 100px quando la riga intera è disponibile
+ * sarebbe avarizia di superficie, soprattutto su telefono.
  */
 function PublicLocationRow({
     location,
-    qrSize,
+    variant,
     qrRef,
-    onDownload,
+    onOpen,
+    onCopyLink,
+    onDownloadPng,
+    onDownloadSvg,
     menuState,
-    menuName,
-    textVariant
+    menuName
 }: {
     location: PublicLocation;
-    qrSize: number;
+    variant: PublicRowVariant;
     qrRef: (handle: QrCodeHandle | null) => void;
-    onDownload: () => void;
+    onOpen: () => void;
+    onCopyLink: () => void;
+    onDownloadPng: () => void;
+    onDownloadSvg: () => void;
     menuState: ActiveCatalogState;
     menuName: string | null;
-    textVariant: "body-sm" | "caption";
 }) {
+    const v = PUBLIC_ROW_VARIANTS[variant];
+
     return (
-        <div className={styles.publicRow}>
-            <span className={qrSize > 60 ? styles.qrFrame : styles.qrFrameSm}>
+        // Il click di riga è una comodità per il mouse; la tastiera passa dal
+        // link vero sul nome. `DataTable` non offriva un pattern da riusare: la
+        // sua riga cliccabile è solo `onClick`, quindi muta per chi non ha un
+        // mouse. Un `role="link"` sul contenitore avrebbe annidato un `<a>` e un
+        // `<button>` dentro un collegamento — ARIA finto con dentro interattivi
+        // veri, la cosa peggiore delle due.
+        <div
+            className={styles.publicRow}
+            data-variant={variant}
+            onClick={event => {
+                const target = event.target as HTMLElement | null;
+                if (target?.closest(NESTED_INTERACTIVE_SELECTOR)) return;
+                onOpen();
+            }}
+        >
+            <span className={variant === "card" ? styles.qrFrame : styles.qrFrameSm}>
                 <QrCode
                     ref={qrRef}
                     value={location.publicUrl}
-                    size={qrSize}
-                    level={qrSize > 60 ? "H" : "M"}
+                    size={v.qrSize}
+                    level={v.qrLevel}
                     fileName={`${location.slug}-qr`}
                 />
             </span>
 
             <span className={styles.publicRowBody}>
-                <Text variant={qrSize > 60 ? "title-sm" : "body-sm"} weight={600}>
-                    {location.name}
+                <Text variant={v.nameVariant} weight={600}>
+                    {/* Il nome È il collegamento: Tab lo raggiunge, Invio lo
+                        apre, il ring di focus lo prende la riga intera. */}
+                    <a
+                        className={styles.publicRowName}
+                        href={location.publicUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >
+                        {location.name}
+                    </a>
                 </Text>
                 <a
                     className={styles.publicRowUrl}
@@ -146,28 +222,19 @@ function PublicLocationRow({
                 >
                     {location.publicUrl}
                 </a>
-                <MenuStatusLine variant={textVariant} state={menuState} menuName={menuName} />
+                <MenuStatusLine variant={v.statusVariant} state={menuState} menuName={menuName} />
             </span>
 
             <span className={styles.publicRowActions}>
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<Download size={13} />}
-                    onClick={onDownload}
-                >
-                    Scarica QR
-                </Button>
-                <Button
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<ExternalLink size={13} />}
-                    onClick={() =>
-                        window.open(location.publicUrl, "_blank", "noopener,noreferrer")
-                    }
-                >
-                    Apri la pagina
-                </Button>
+                {/* Trigger sempre visibile, mai on-hover: su telefono l'hover
+                    non esiste, e un'azione che non si trova non esiste. */}
+                <TableRowActions
+                    actions={[
+                        { label: "Copia link", icon: LinkIcon, onClick: onCopyLink },
+                        { label: "Scarica QR (PNG)", icon: ImageIcon, onClick: onDownloadPng },
+                        { label: "Scarica QR (SVG)", icon: Download, onClick: onDownloadSvg }
+                    ]}
+                />
             </span>
         </div>
     );
@@ -257,6 +324,26 @@ export default function OverviewPage() {
             qrRefs.current[id] = handle;
         },
         []
+    );
+
+    const handleOpenPublicPage = useCallback((url: string) => {
+        window.open(url, "_blank", "noopener,noreferrer");
+    }, []);
+
+    /** La copia negli appunti non lascia traccia visibile: senza conferma il
+     *  gestore non sa se è successo e ripete il gesto. Il toast è la ricevuta.
+     *  `writeText` rifiuta in contesti non sicuri o senza permesso — il catch
+     *  non è teorico. */
+    const handleCopyPublicUrl = useCallback(
+        async (url: string) => {
+            try {
+                await navigator.clipboard.writeText(url);
+                showToast({ message: "Link copiato negli appunti.", type: "success" });
+            } catch {
+                showToast({ message: "Impossibile copiare il link.", type: "error" });
+            }
+        },
+        [showToast]
     );
 
     // Reset sincrono al cambio tenant, prima del paint. Gli effect girano DOPO
@@ -678,12 +765,16 @@ export default function OverviewPage() {
                     <div className={styles.publicList}>
                         <PublicLocationRow
                             location={singleLocation}
-                            qrSize={104}
+                            variant="card"
                             qrRef={setQrRef(singleLocation.id)}
-                            onDownload={() => void qrRefs.current[singleLocation.id]?.downloadPng()}
+                            onOpen={() => handleOpenPublicPage(singleLocation.publicUrl)}
+                            onCopyLink={() => void handleCopyPublicUrl(singleLocation.publicUrl)}
+                            onDownloadPng={() =>
+                                void qrRefs.current[singleLocation.id]?.downloadPng()
+                            }
+                            onDownloadSvg={() => qrRefs.current[singleLocation.id]?.downloadSvg()}
                             menuState={menuStateFor(singleLocation.id)}
                             menuName={menuNameFor(singleLocation.id)}
-                            textVariant="body-sm"
                         />
                     </div>
                 </div>
@@ -701,12 +792,14 @@ export default function OverviewPage() {
                             <PublicLocationRow
                                 key={location.id}
                                 location={location}
-                                qrSize={42}
+                                variant="list"
                                 qrRef={setQrRef(location.id)}
-                                onDownload={() => void qrRefs.current[location.id]?.downloadPng()}
+                                onOpen={() => handleOpenPublicPage(location.publicUrl)}
+                                onCopyLink={() => void handleCopyPublicUrl(location.publicUrl)}
+                                onDownloadPng={() => void qrRefs.current[location.id]?.downloadPng()}
+                                onDownloadSvg={() => qrRefs.current[location.id]?.downloadSvg()}
                                 menuState={menuStateFor(location.id)}
                                 menuName={menuNameFor(location.id)}
-                                textVariant="caption"
                             />
                         ))}
                     </div>

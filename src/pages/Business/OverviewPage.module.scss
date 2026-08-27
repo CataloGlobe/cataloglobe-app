@@ -299,15 +299,66 @@
   flex-direction: column;
 }
 
+/* La riga intera apre la pagina pubblica.
+   Il fondo dell'hover esce dal bordo del testo (`margin-inline` negativo
+   compensato dal padding): senza quel respiro la superficie evidenziata
+   combacia con le lettere e sembra una selezione di testo, non un bersaglio.
+   Il separatore segue la stessa larghezza, così le due geometrie coincidono. */
 .publicRow {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 12px 0;
+  padding: 12px;
+  margin-inline: -12px;
+  border-radius: 8px;
   border-top: 1px solid var(--border);
+  cursor: pointer;
+  transition: background-color 0.15s ease;
 
   &:first-child {
     border-top: none;
+  }
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  /* Il focus vive sul link del nome, ma l'anello lo prende la riga: chi arriva
+     con Tab deve vedere QUALE sede sta per aprire, non due parole in grassetto.
+     `outline` invece di `box-shadow` perché segue il border-radius e
+     sopravvive alla forced-colors mode. */
+  &:has(.publicRowName:focus-visible) {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+    background: var(--hover-bg);
+  }
+}
+
+/* Il nome della sede è il collegamento alla pagina pubblica, ma non deve
+   sembrare un link: la riga intera lo è già, e due colori di link accostati
+   (nome + URL) trasformerebbero la riga in un elenco di appigli. */
+.publicRowName {
+  color: inherit;
+  text-decoration: none;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* Browser senza `:has()`: l'anello resta, solo più stretto attorno al nome.
+   Meglio un focus meno bello che un focus invisibile. */
+@supports not selector(:has(*)) {
+  .publicRowName:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+    border-radius: 3px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .publicRow {
+    transition: none;
   }
 }
 
@@ -334,24 +385,14 @@
   }
 }
 
+/* Un solo trigger ⋯, sempre visibile. Prima qui stavano due bottoni con
+   etichetta, che su schermo stretto dovevano scendere sotto le informazioni:
+   ora la riga tiene la sua forma a ogni larghezza, niente wrap da gestire. */
 .publicRowActions {
   display: flex;
   align-items: center;
-  gap: 6px;
   margin-left: auto;
   flex-shrink: 0;
-}
-
-@media (max-width: 600px) {
-  .publicRow {
-    flex-wrap: wrap;
-  }
-
-  /* Le azioni scendono sotto le informazioni, a tutta larghezza. */
-  .publicRowActions {
-    margin-left: 0;
-    width: 100%;
-  }
 }
 
 .publicMore {
