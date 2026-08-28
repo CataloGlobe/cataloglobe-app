@@ -11,9 +11,10 @@ import {
 import {
     ACTION_EXPECTS,
     ACTION_TO_STATUS,
-    isReservationAction,
+    isAdminAction,
+    isTransitionAllowed,
     sendsCustomerEmail,
-    type ReservationAction,
+    type AdminReservationAction,
     type ReservationEmailAction
 } from "../_shared/reservationTransitions.ts";
 
@@ -173,10 +174,13 @@ serve(async (req: Request) => {
     }
 
     const rawAction = typeof body.action === "string" ? body.action.trim() : "";
-    if (!isReservationAction(rawAction)) {
+    // `isAdminAction`, not `isReservationAction`: the matrix also holds
+    // `cancel_by_customer`, which is driven by a signed email link and accepts
+    // a source state no admin action does. It must never be reachable here.
+    if (!isAdminAction(rawAction)) {
         return errorResponse(req, "INVALID_ACTION", 400);
     }
-    const action: ReservationAction = rawAction;
+    const action: AdminReservationAction = rawAction;
     const newStatus = ACTION_TO_STATUS[action];
 
     // ── SELECT-then-UPDATE under user RLS ──────────────────────────
@@ -190,9 +194,12 @@ serve(async (req: Request) => {
     //    authorization state.
     // 2. Status precondition check (server side) → 409 INVALID_TRANSITION
     //    with current_status in details.
-    // 3. UPDATE with `.eq("status", expected)` as optimistic lock so a
+    // 3. UPDATE with `.in("status", expected)` as optimistic lock so a
     //    concurrent admin transitioning the same row can't race us into
-    //    duplicate outcome emails.
+    //    duplicate outcome emails. `expected` is a list because the shared
+    //    matrix now carries multi-source actions; every admin action here
+    //    still has exactly one accepted source, so the predicate is
+    //    `status IN ('x')` — identical to the previous equality.
     try {
         const expectedFrom = ACTION_EXPECTS[action];
 
@@ -211,7 +218,7 @@ serve(async (req: Request) => {
             return errorResponse(req, "RESERVATION_NOT_FOUND", 404);
         }
 
-        if (current.status !== expectedFrom) {
+        if (!isTransitionAllowed(current.status, action)) {
             return errorResponse(req, "INVALID_TRANSITION", 409, {
                 current_status: current.status,
                 expected_status: expectedFrom,
@@ -223,7 +230,7 @@ serve(async (req: Request) => {
             .from("reservations")
             .update({ status: newStatus })
             .eq("id", reservationId)
-            .eq("status", expectedFrom)
+            .in("status", expectedFrom)
             .select(
                 "id, activity_id, customer_email, customer_name, reservation_date, reservation_time, party_size, status"
             )
