@@ -52,6 +52,14 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
     return (
         <section className={styles.createCard} aria-label="Aggiungi nuova sede">
             <form id={formId} onSubmit={onSubmit} className={styles.formContainer}>
+                {/* ⚠️ L'ORDINE DI QUESTI CAMPI È PORTANTE (mode="create").
+                    Il setup guidato dispone questo stesso form su due colonne
+                    dall'esterno, con `order` e `grid-column` applicati ai figli
+                    diretti per posizione (`:nth-child`) — vedi
+                    `src/pages/Setup/steps/SetupActivityStep.module.scss`.
+                    Riordinare o inserire un campo qui non rompe questa pagina,
+                    ma scompagina il passo 1 del setup in silenzio: aggiornare
+                    anche quel file nello stesso commit. */}
                 {/* Nome */}
                 <TextInput
                     label="Nome sede"
