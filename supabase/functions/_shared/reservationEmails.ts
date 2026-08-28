@@ -7,19 +7,32 @@
 // stay testable and the caller owns the fail-safe.
 //
 // The card layout (outer wrapper, white panel, info blocks, footer) lives in
-// the private `render*` helpers below, so a future shared block (cancellation
-// link, reminder) is added in ONE place instead of four.
+// `emailLayout.ts`, shared with the other transactional domains. What stays
+// here is what only a reservation email says: the footer reason lines, the
+// Data / Ora / Persone triplet, the cancellation sentence.
 //
 // User-facing copy is Italian, as before. Code and comments are English.
 
-import { getEmailFooterHtml, getEmailFooterText } from "./company-config.ts";
+import { getEmailFooterText } from "./company-config.ts";
 import { escapeHtml, formatDateIt, formatTimeIt } from "./emailFormat.ts";
+import {
+    PARAGRAPH_BODY,
+    PARAGRAPH_LEAD,
+    PARAGRAPH_NOTE,
+    isSafeHttpUrl,
+    renderCard,
+    renderDetailRow,
+    renderInfoBlock,
+    renderTitle,
+    type EmailContent
+} from "./emailLayout.ts";
 
-export interface ReservationEmailContent {
-    subject: string;
-    html: string;
-    text: string;
-}
+/**
+ * Kept as a domain-named alias of the shared shape rather than dropped: the
+ * builders' call sites and tests import it by this name, and the indirection
+ * costs nothing.
+ */
+export type ReservationEmailContent = EmailContent;
 
 /** Data every customer-facing reservation email needs. */
 export interface ReservationEmailBase {
@@ -55,58 +68,7 @@ function reservationVenueAlertReason(activityName: string): string {
     return `Hai ricevuto questa email perché gestisci ${activityName} su CataloGlobe.`;
 }
 
-// --- Layout primitives -------------------------------------------------------
-
-const PARAGRAPH_LEAD = 'style="margin:0 0 8px;font-size:15px;color:#374151"';
-const PARAGRAPH_BODY = 'style="margin:0 0 16px;font-size:15px;color:#374151"';
-const PARAGRAPH_NOTE = 'style="margin:0;font-size:13px;color:#6b7280"';
-
-/**
- * Wrap the card sections in the shared shell and append the footer.
- * `sections` are already-rendered HTML fragments, one per visual block.
- */
-function renderCard(sections: readonly string[], reason: string): string {
-    const body = sections.filter(s => s.length > 0).join("\n        ");
-    return `
-<div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
-    <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
-        ${body}
-        ${getEmailFooterHtml(reason)}
-    </div>
-</div>`;
-}
-
-function renderTitle(title: string): string {
-    return `<h1 style="margin:0 0 16px;font-size:22px;color:#111827">${title}</h1>`;
-}
-
-/** Grey rounded block with a small caption and a list of rendered rows. */
-function renderInfoBlock(caption: string, rows: readonly string[]): string {
-    const inner = rows.filter(r => r.length > 0).join("\n            ");
-    return `<div style="margin:0 0 24px;padding:16px;background:#f3f4f6;border-radius:8px">
-            <p style="margin:0 0 4px;font-size:13px;color:#6b7280">${caption}</p>
-            ${inner}
-        </div>`;
-}
-
-/**
- * Whether a URL is safe to put in an `href`. `escapeHtml` neutralises an
- * attribute breakout but says nothing about the scheme, so a `javascript:` or
- * `data:` value would survive it. Defence in depth: the only caller today
- * validates the scheme upstream, but this module must not depend on that.
- */
-function isSafeHttpUrl(url: string): boolean {
-    try {
-        const { protocol } = new URL(url);
-        return protocol === "http:" || protocol === "https:";
-    } catch {
-        return false;
-    }
-}
-
-function renderDetailRow(label: string, value: string | number): string {
-    return `<p style="margin:0;font-size:15px;color:#111827"><strong>${label}:</strong> ${value}</p>`;
-}
+// --- Reservation-specific blocks ---------------------------------------------
 
 /** The Data / Ora / Persone triplet shared by every customer email. */
 function renderReservationDetails(dateIt: string, timeIt: string, partySize: number): string {
