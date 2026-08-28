@@ -1,0 +1,48 @@
+-- =============================================================================
+-- CataloGlobe V2 — Rollback: lettura di tenants e activities per platform admin
+--
+-- NON e' una migration. Non vive in supabase/migrations/ e non viene applicato
+-- da `supabase db push`. Si esegue A MANO in Supabase Studio SQL editor (o
+-- psql) e SOLO per annullare la migration 20260828130000.
+--
+-- ── Perche' un file DEDICATO e non una riga in support_tickets_rollback ─────
+-- Queste due policy vivono su `tenants` e `activities`, tabelle centrali del
+-- prodotto che esistono da molto prima del supporto e che sopravvivrebbero a
+-- una sua rimozione. Metterle nel rollback del supporto significherebbe che
+-- "annullo la feature supporto" cambia in silenzio la visibilita' di due
+-- tabelle core — un effetto collaterale che nessuno si aspetta leggendo il
+-- nome di quello script.
+--
+-- C'e' anche una ragione di prospettiva: l'area /admin ha gia' in programma
+-- una sezione Tenant (voce presente in AdminSidebar, oggi `disabled`). Quando
+-- arrivera', dipendera' da queste stesse policy senza avere nulla a che
+-- vedere col supporto. A quel punto il rollback del supporto NON dovra'
+-- portarsele via.
+--
+-- ATTENZIONE — dopo aver eseguito questo script la coda /admin/supporto
+-- mostrera' i ticket SENZA il nome dell'azienda: l'embed PostgREST su una
+-- risorsa non leggibile non erra, restituisce null. Nessun errore in console,
+-- solo colonne vuote. Rimuovere prima la UI che dipende da quel dato, o
+-- accettare consapevolmente il degrado.
+-- =============================================================================
+
+DROP POLICY IF EXISTS "Platform admins can read tenants"    ON public.tenants;
+DROP POLICY IF EXISTS "Platform admins can read activities" ON public.activities;
+
+-- =============================================================================
+-- Verifica post-rollback — deve restituire 0 su entrambe le righe.
+-- =============================================================================
+-- SELECT
+--   (SELECT count(*) FROM pg_policies
+--     WHERE schemaname='public' AND tablename='tenants'
+--       AND policyname='Platform admins can read tenants')     AS policy_tenants,
+--   (SELECT count(*) FROM pg_policies
+--     WHERE schemaname='public' AND tablename='activities'
+--       AND policyname='Platform admins can read activities')  AS policy_activities;
+--
+-- E che le policy PREESISTENTI siano ancora tutte al loro posto:
+--   SELECT tablename, policyname, cmd FROM pg_policies
+--    WHERE schemaname='public' AND tablename IN ('tenants','activities')
+--    ORDER BY tablename, cmd, policyname;
+--   -- attese: tenants 3 (SELECT/INSERT/UPDATE), activities 3 SELECT + le altre
+-- =============================================================================
