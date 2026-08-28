@@ -118,3 +118,59 @@ export function buildReservationCancelUrl(
     if (cleanSlug.length === 0 || cleanToken.length === 0) return null;
     return `${base}${RESERVATION_CANCEL_ROUTE(encodeURIComponent(cleanSlug))}?token=${encodeURIComponent(cleanToken)}`;
 }
+
+// Support thread routes, from `src/App.tsx`. Two of them because the two sides
+// of a ticket live in two different areas of the app:
+//   business  → <Route path="support"><Route path=":ticketId" /></Route>
+//               nested under /business/:businessId, where businessId IS the
+//               tenant id (same as the reservations dashboard above).
+//   platform  → <Route path="supporto"><Route path=":ticketId" /></Route>
+//               nested under /admin, gated by `is_platform_admin()`. No tenant
+//               in the path: a platform admin is not scoped to one.
+// The Italian segment on the admin side and the English one on the business
+// side are how the routes are actually declared — not a typo to be fixed here.
+const SUPPORT_TICKET_ROUTE = (tenantId: string, ticketId: string) =>
+    `/business/${tenantId}/support/${ticketId}`;
+const SUPPORT_ADMIN_TICKET_ROUTE = (ticketId: string) => `/admin/supporto/${ticketId}`;
+
+/**
+ * Absolute URL of a support thread in the business dashboard, or null when the
+ * base URL is unconfigured or either id is missing/blank.
+ *
+ * Never throws, same fail-safe as the two builders above: the notification
+ * email goes out without a link rather than not going out. The ids are
+ * percent-encoded even though both are UUIDs with nothing to escape — the
+ * encoding is this function's guarantee, not the caller's promise.
+ */
+export function buildSupportTicketUrl(
+    tenantId: string | null | undefined,
+    ticketId: string | null | undefined
+): string | null {
+    const base = getPublicSiteUrl();
+    if (!base) return null;
+    if (typeof tenantId !== "string" || typeof ticketId !== "string") return null;
+    const cleanTenantId = tenantId.trim();
+    const cleanTicketId = ticketId.trim();
+    if (cleanTenantId.length === 0 || cleanTicketId.length === 0) return null;
+    return `${base}${SUPPORT_TICKET_ROUTE(
+        encodeURIComponent(cleanTenantId),
+        encodeURIComponent(cleanTicketId)
+    )}`;
+}
+
+/**
+ * Absolute URL of a support thread in the platform admin area, or null when
+ * the base URL is unconfigured or the ticket id is missing/blank.
+ *
+ * No tenant argument by design: `/admin` is not tenant-scoped.
+ */
+export function buildSupportAdminTicketUrl(
+    ticketId: string | null | undefined
+): string | null {
+    const base = getPublicSiteUrl();
+    if (!base) return null;
+    if (typeof ticketId !== "string") return null;
+    const cleanTicketId = ticketId.trim();
+    if (cleanTicketId.length === 0) return null;
+    return `${base}${SUPPORT_ADMIN_TICKET_ROUTE(encodeURIComponent(cleanTicketId))}`;
+}

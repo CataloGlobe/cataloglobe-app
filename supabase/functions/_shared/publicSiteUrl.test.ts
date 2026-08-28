@@ -193,3 +193,100 @@ describe("buildReservationCancelUrl", () => {
         );
     });
 });
+
+describe("buildSupportTicketUrl", () => {
+    const TICKET_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+    it("builds the business-side thread URL", async () => {
+        const { buildSupportTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildSupportTicketUrl(TENANT_ID, TICKET_ID)).toBe(
+            `https://cataloglobe.com/business/${TENANT_ID}/support/${TICKET_ID}`
+        );
+    });
+
+    it("builds on top of a base URL that had a trailing slash", async () => {
+        const { buildSupportTicketUrl } = await loadWithEnv({
+            APP_URL: "https://staging.cataloglobe.com/"
+        });
+        expect(buildSupportTicketUrl(TENANT_ID, TICKET_ID)).toBe(
+            `https://staging.cataloglobe.com/business/${TENANT_ID}/support/${TICKET_ID}`
+        );
+    });
+
+    it("returns null when the base URL is unconfigured", async () => {
+        const { buildSupportTicketUrl } = await loadWithEnv({});
+        expect(buildSupportTicketUrl(TENANT_ID, TICKET_ID)).toBeNull();
+    });
+
+    it("returns null instead of throwing on missing arguments", async () => {
+        const { buildSupportTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        for (const [tenantId, ticketId] of [
+            [null, TICKET_ID],
+            [undefined, TICKET_ID],
+            ["   ", TICKET_ID],
+            [TENANT_ID, null],
+            [TENANT_ID, undefined],
+            [TENANT_ID, "  "]
+        ] as const) {
+            expect(() => buildSupportTicketUrl(tenantId, ticketId)).not.toThrow();
+            expect(buildSupportTicketUrl(tenantId, ticketId)).toBeNull();
+        }
+    });
+
+    it("percent-encodes both ids", async () => {
+        const { buildSupportTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildSupportTicketUrl("a b/../c", "x?y#z")).toBe(
+            "https://cataloglobe.com/business/a%20b%2F..%2Fc/support/x%3Fy%23z"
+        );
+    });
+});
+
+describe("buildSupportAdminTicketUrl", () => {
+    const TICKET_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+    it("builds the /admin/supporto thread URL", async () => {
+        const { buildSupportAdminTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildSupportAdminTicketUrl(TICKET_ID)).toBe(
+            `https://cataloglobe.com/admin/supporto/${TICKET_ID}`
+        );
+    });
+
+    it("takes no tenant: /admin is not tenant-scoped", async () => {
+        const { buildSupportAdminTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildSupportAdminTicketUrl(TICKET_ID)).not.toContain("/business/");
+    });
+
+    it("returns null when the base URL is unconfigured", async () => {
+        const { buildSupportAdminTicketUrl } = await loadWithEnv({});
+        expect(buildSupportAdminTicketUrl(TICKET_ID)).toBeNull();
+    });
+
+    it("returns null instead of throwing on a missing ticket id", async () => {
+        const { buildSupportAdminTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        for (const ticketId of [null, undefined, "   "] as const) {
+            expect(() => buildSupportAdminTicketUrl(ticketId)).not.toThrow();
+            expect(buildSupportAdminTicketUrl(ticketId)).toBeNull();
+        }
+    });
+
+    it("percent-encodes the ticket id", async () => {
+        const { buildSupportAdminTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildSupportAdminTicketUrl("x?y#z")).toBe(
+            "https://cataloglobe.com/admin/supporto/x%3Fy%23z"
+        );
+    });
+});
