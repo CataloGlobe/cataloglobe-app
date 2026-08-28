@@ -22,9 +22,25 @@
     position: relative;
     display: grid;
     grid-template-columns: 296px 1fr;
+    /* Con `height: auto` la riga si dimensionerebbe sul contenuto ignorando il
+       massimo del dialogo: il footer finiva fuori dal bordo (tagliato da
+       `overflow: hidden`). `minmax(0, 1fr)` la lascia crescere col contenuto ma
+       la vincola al massimo, restituendo lo scroll all'area contenuto. */
+    grid-template-rows: minmax(0, 1fr);
 
     width: min(1000px, 100%);
-    height: min(660px, 100%);
+    /* Altezza adattiva: al bivio del passo 2 l'altezza fissa lasciava due terzi
+       di vuoto sotto le due card, al passo 3 staccava il footer dal contenuto.
+       Il dialogo cresce con quel che contiene e si ferma al massimo, oltre il
+       quale scorre la sola area contenuto. */
+    height: auto;
+    max-height: min(760px, 100%);
+
+    /* Ramo import: cornice ceduta al figlio, che vuole tutta l'altezza —
+       resta l'altezza fissa di prima (commit 05304900 invariato). */
+    &[data-chromeless] {
+        height: min(660px, 100%);
+    }
 
     overflow: hidden;
     outline: none;
@@ -122,6 +138,12 @@
     }
 }
 
+/* Nota di contesto del passo: sta qui, non in coda al form, dove la colonna
+   destra è densa e questa colonna resterebbe vuota per due terzi. */
+.sidebarNote {
+    max-width: 30ch;
+}
+
 .sidebarFooter {
     margin-top: auto;
     display: flex;
@@ -157,10 +179,10 @@
 }
 
 .content {
-    flex: 1;
+    flex: 1 1 auto;
     min-height: 0;
     overflow-y: auto;
-    padding: 28px 32px;
+    padding: 20px 32px 28px;
 
     display: flex;
     flex-direction: column;
@@ -176,10 +198,13 @@
     overflow: hidden;
 }
 
+/* Fuori dall'area che scorre: resta visibile come il footer. */
 .contentHeader {
+    flex: 0 0 auto;
     display: flex;
     flex-direction: column;
     gap: 6px;
+    padding: 28px 32px 0;
 }
 
 .footer {
@@ -244,12 +269,14 @@
         padding: 0;
     }
 
-    .dialog {
+    .dialog,
+    .dialog[data-chromeless] {
         grid-template-columns: 1fr;
         grid-template-rows: auto 1fr;
 
         width: 100%;
         height: 100%;
+        max-height: 100%;
 
         border: none;
         border-radius: 0;
@@ -282,12 +309,19 @@
         display: none;
     }
 
+    /* La colonna diventa una barra orizzontale: nota e piè di pagina della
+       sidebar la ingrosserebbero rubando spazio al passo. */
+    .sidebarNote,
     .sidebarFooter {
         display: none;
     }
 
+    .contentHeader {
+        padding: 20px 20px 0;
+    }
+
     .content {
-        padding: 20px;
+        padding: 12px 20px 20px;
     }
 
     .footer {

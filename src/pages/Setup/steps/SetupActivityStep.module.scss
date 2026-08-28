@@ -4,6 +4,49 @@
     gap: 12px;
 }
 
-.note {
-    display: block;
+/* ----------------------------------------------------
+   FORM SU DUE COLONNE
+
+   Il layout è imposto qui, dal lato del wizard: `BusinessCreateCard` è
+   condiviso con la pagina Sedi e non si tocca. Da lì arriva un `<form>` con
+   i campi come figli diretti in colonna singola; qui diventa una griglia a
+   due colonne, così il passo 1 sta in altezza senza scorrere.
+
+   ⚠️ L'ordine dei figli rispecchia quello del form sorgente:
+     1 Nome · 2 Ricerca indirizzo · 3 Via · 4 Civico/CAP/Provincia ·
+     5 Città · 6 Slug · 7 Foto copertina
+   Cambiando l'ordine dei campi in BusinessCreateCard va rivisto anche qui.
+---------------------------------------------------- */
+.step form {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+}
+
+/* Via e Città salgono accanto ai rispettivi vicini; i blocchi larghi
+   (terzina indirizzo, slug con anteprima URL, copertina) restano interi. */
+.step form > *:nth-child(3) {
+    order: 3;
+}
+
+.step form > *:nth-child(5) {
+    order: 4;
+}
+
+.step form > *:nth-child(4) {
+    order: 5;
+    grid-column: 1 / -1;
+}
+
+.step form > *:nth-child(6),
+.step form > *:nth-child(7) {
+    order: 6;
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 860px) {
+    .step form {
+        grid-template-columns: 1fr;
+    }
 }

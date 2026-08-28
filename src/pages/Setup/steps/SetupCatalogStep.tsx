@@ -29,7 +29,9 @@ const CHOICES: {
 }[] = [
     {
         id: "import",
-        title: "Ho il menù in PDF o in foto",
+        // Stesso nome dell'intestazione del pannello che si apre: due nomi per
+        // la stessa cosa facevano dubitare di essere finiti altrove.
+        title: "Importa menù con AI",
         description:
             "Lo leggo io e ti preparo categorie, piatti e prezzi già pronti da controllare.",
         icon: FileText

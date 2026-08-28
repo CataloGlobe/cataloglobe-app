@@ -1,5 +1,4 @@
 import { useEffect } from "react";
-import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenant } from "@/context/useTenant";
 import { useCreateActivity } from "@/hooks/useCreateActivity";
@@ -63,11 +62,6 @@ export function SetupActivityStep({
                         : undefined
                 }
             />
-
-            <Text variant="caption" colorVariant="muted" className={styles.note}>
-                Se gestisci più locali, inizia da uno: gli altri li aggiungi dopo in pochi
-                clic, riusando lo stesso menù o creandone di diversi.
-            </Text>
         </div>
     );
 }

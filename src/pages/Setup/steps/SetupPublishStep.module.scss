@@ -27,9 +27,8 @@
     border-radius: 12px;
 }
 
-.qrNote {
+.styleNote {
     display: block;
-    text-align: center;
 }
 
 .details {
@@ -90,21 +89,25 @@
     }
 }
 
+/* Contesto, non richiamo: un filetto a sinistra invece del riquadro pieno, che
+   pesava quanto l'avviso ambra accanto — ed è l'ambra ciò che va letto adesso.
+   Il caso "collegamento fallito" resta un riquadro: lì c'è un problema. */
 .ruleBox {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 6px;
-    padding: 12px;
+    padding: 2px 0 2px 12px;
 
-    background: var(--hover-bg);
-    border: 1px solid var(--border);
-    border-radius: 12px;
+    border-left: 2px solid var(--border);
 
     &[data-tone="warn"] {
+        padding: 12px;
+
         color: var(--color-warning-700);
         background: var(--color-warning-50);
-        border-color: var(--color-warning-200);
+        border: 1px solid var(--color-warning-200);
+        border-radius: 12px;
     }
 }
 

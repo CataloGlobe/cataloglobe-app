@@ -40,6 +40,12 @@ type SetupShellProps = {
      * dialogo, che senza intestazione visibile non avrebbe più un nome.
      */
     chromeless?: boolean;
+    /**
+     * Testo di supporto nella colonna sinistra, sotto lo stepper. Serve alle
+     * note di contesto del passo che nell'area destra finirebbero in coda al
+     * form, dove nessuno le legge, mentre la colonna sinistra resta vuota.
+     */
+    sidebarNote?: ReactNode;
     /** Azione secondaria a sinistra del primario (es. "Indietro"). */
     secondaryLabel?: string;
     onSecondaryClick?: () => void;
@@ -64,6 +70,7 @@ export function SetupShell({
     primaryLoading = false,
     onPrimaryClick,
     chromeless = false,
+    sidebarNote,
     secondaryLabel,
     onSecondaryClick,
     closeWarning,
@@ -100,6 +107,10 @@ export function SetupShell({
             <div
                 ref={dialogRef}
                 className={styles.dialog}
+                // Il pannello di import porta la propria cornice a tutta altezza:
+                // lì il dialogo resta di altezza fissa come prima, l'adattiva
+                // vale per i passi con cornice della shell.
+                data-chromeless={chromeless || undefined}
                 role="dialog"
                 aria-modal="true"
                 // Senza intestazione visibile non c'è un elemento da referenziare:
@@ -145,6 +156,8 @@ export function SetupShell({
                         })}
                     </ol>
 
+                    {sidebarNote && <div className={styles.sidebarNote}>{sidebarNote}</div>}
+
                     <div className={styles.sidebarFooter}>
                         <Text variant="caption" colorVariant="muted">
                             Puoi interrompere quando vuoi: il progresso resta salvato.
@@ -156,18 +169,21 @@ export function SetupShell({
                 </aside>
 
                 <div className={styles.main}>
-                    <div className={styles.content} data-chromeless={chromeless || undefined}>
-                        {!chromeless && (
-                            <header className={styles.contentHeader}>
-                                <Text as="h1" id="setup-step-title" variant="title-md" weight={700}>
-                                    {title}
-                                </Text>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    {subtitle}
-                                </Text>
-                            </header>
-                        )}
+                    {/* Fuori dall'area che scorre: scorrendo il form del passo 1
+                        il titolo spariva e non si sapeva più a che passo si era.
+                        Scorre solo il contenuto; intestazione e footer restano. */}
+                    {!chromeless && (
+                        <header className={styles.contentHeader}>
+                            <Text as="h1" id="setup-step-title" variant="title-md" weight={700}>
+                                {title}
+                            </Text>
+                            <Text variant="body-sm" colorVariant="muted">
+                                {subtitle}
+                            </Text>
+                        </header>
+                    )}
 
+                    <div className={styles.content} data-chromeless={chromeless || undefined}>
                         {children}
                     </div>
 

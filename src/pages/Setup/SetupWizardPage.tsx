@@ -8,6 +8,7 @@ import { listStyles } from "@/services/supabase/styles";
 import { getTenantSetupStatus } from "@/services/supabase/overviewStats";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { Loader } from "@/components/ui/Loader/Loader";
+import Text from "@/components/ui/Text/Text";
 import type { V2Activity } from "@/types/activity";
 import type { V2Catalog } from "@/services/supabase/catalogs";
 import { SetupShell, type SetupStepDefinition } from "./components/SetupShell";
@@ -315,6 +316,15 @@ export default function SetupWizardPage() {
             // "Indietro" non manca a nessuno — "Annulla" e "Ricomincia" del
             // pannello riportano già al bivio.
             chromeless={isImportPanelOpen}
+            // In coda al form, dopo la copertina, non la leggeva nessuno.
+            sidebarNote={
+                isActivityStep ? (
+                    <Text variant="caption" colorVariant="muted">
+                        Se gestisci più locali, inizia da uno: gli altri li aggiungi dopo in
+                        pochi clic, riusando lo stesso menù o creandone di diversi.
+                    </Text>
+                ) : undefined
+            }
             secondaryLabel={isCatalogStep ? "Indietro" : undefined}
             onSecondaryClick={handleBackFromCatalog}
             closeWarning={
