@@ -275,6 +275,24 @@ $footer-padding-x-expanded: $scroll-padding-x + $nav-padding-x + $item-padding-x
   opacity: 1;
 }
 
+/* ===== Support unread dot =====
+   Pallino "risposta di supporto non letta" sulla voce Assistenza. Stesso
+   ancoraggio assoluto di .translationBadge, per la stessa ragione: resta
+   visibile anche a sidebar collassata, dove la label sparisce ma il segnale
+   deve restare. Nessun numero — quante siano non cambia cosa fai, e un
+   conteggio chiederebbe una query in più per essere preciso su un dettaglio
+   che non serve. */
+.unreadDot {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+}
+
 /* ===== Translation pending badge =====
    Indicatore globale "traduzioni in corso" sulla voce Lingue. Posizionato in
    alto a destra del link → resta visibile sia espanso che collassato (non

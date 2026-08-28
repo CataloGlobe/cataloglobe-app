@@ -73,6 +73,8 @@ const Highlights = lazy(() => import("./pages/Dashboard/Highlights/Highlights"))
 const FeaturedContentDetailPage = lazy(() => import("./pages/Dashboard/Highlights/FeaturedContentDetailPage"));
 const Stories = lazy(() => import("./pages/Dashboard/Stories/Stories"));
 const StoryDetailPage = lazy(() => import("./pages/Dashboard/Stories/StoryDetailPage"));
+const Support = lazy(() => import("./pages/Dashboard/Support/Support"));
+const SupportTicketPage = lazy(() => import("./pages/Dashboard/Support/SupportTicketPage"));
 const Styles = lazy(() => import("./pages/Dashboard/Styles/Styles"));
 const StyleEditorPage = lazy(() => import("./pages/Dashboard/Styles/StyleEditorPage"));
 const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/ActivityDetailPage"));
@@ -257,6 +259,11 @@ export default function App() {
                 <Route path="languages" element={<SettingsLanguages />} />
 
                 <Route path="attributes" element={<Navigate to="../products?tab=attributes" replace />} />
+
+                <Route path="support">
+                    <Route index element={<Support />} />
+                    <Route path=":ticketId" element={<SupportTicketPage />} />
+                </Route>
 
                 <Route path="reviews" element={<Reviews />} />
                 <Route path="analytics" element={<AnalyticsPage />} />

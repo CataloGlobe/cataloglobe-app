@@ -16,6 +16,7 @@ import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
 import { useAiImportSession } from "@/hooks/useAiImportSession";
 import { useAiUsage } from "@/hooks/useAiUsage";
 import { AiMenuImportDrawer } from "@/pages/Dashboard/Catalogs/AiMenuImport/AiMenuImportDrawer";
+import { hasUnreadReply, listMyTickets } from "@/services/supabase/support";
 import type { BusinessOutletContext } from "./outletContext";
 
 import styles from "./MainLayout.module.scss";
@@ -136,6 +137,35 @@ export default function MainLayout() {
     // Booleano largo per la pillola sidebar: cambia solo alle transizioni di
     // status (non a ogni tick di createProgress) → niente rerender per tick.
     const importInProgress = aiImport.status === "analyzing" || aiImport.status === "creating";
+
+    // ── Pallino "risposta di supporto non letta" ───────────────────────────
+    // Fonte UNICA, montata qui come coverage traduzioni e quota AI: la sidebar
+    // è renderizzata su OGNI pagina, quindi non deve interrogare il DB da sé.
+    // Un solo fetch al mount dell'area business, nessun polling; il dettaglio
+    // richiesta chiama `refreshSupportUnread` dopo markTicketRead o l'invio di
+    // un messaggio, che sono gli unici due eventi locali che lo cambiano.
+    //
+    // Un errore lascia il pallino spento: se non riusciamo a sapere se ci sono
+    // risposte non lette, meglio non segnalarne di inesistenti. La pagina
+    // Assistenza resta comunque raggiungibile.
+    const [supportUnread, setSupportUnread] = useState(false);
+    const [supportRefreshKey, setSupportRefreshKey] = useState(0);
+    const refreshSupportUnread = useCallback(() => setSupportRefreshKey(k => k + 1), []);
+    useEffect(() => {
+        if (!tenantId) return;
+        let cancelled = false;
+        void listMyTickets(tenantId)
+            .then(rows => {
+                if (!cancelled) setSupportUnread(rows.some(hasUnreadReply));
+            })
+            .catch(() => {
+                if (!cancelled) setSupportUnread(false);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [tenantId, supportRefreshKey]);
+
     const outletContext = useMemo<BusinessOutletContext>(
         () => ({
             translationCoverage,
@@ -144,7 +174,8 @@ export default function MainLayout() {
             importRefreshKey: aiImport.importRefreshKey,
             importStatus: aiImport.status,
             aiUsage: aiUsage.usage,
-            refreshAiUsage: aiUsage.refresh
+            refreshAiUsage: aiUsage.refresh,
+            refreshSupportUnread
         }),
         [
             translationCoverage,
@@ -153,7 +184,8 @@ export default function MainLayout() {
             aiImport.importRefreshKey,
             aiImport.status,
             aiUsage.usage,
-            aiUsage.refresh
+            aiUsage.refresh,
+            refreshSupportUnread
         ]
     );
 
@@ -203,6 +235,7 @@ export default function MainLayout() {
                                 onToggleCollapse={() => setSidebarCollapsed(v => !v)}
                                 translationPendingCount={translationPendingCount}
                                 importInProgress={importInProgress}
+                                supportUnread={supportUnread}
                             />
 
                             <main className={styles.main}>
