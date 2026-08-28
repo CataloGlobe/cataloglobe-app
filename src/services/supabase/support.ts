@@ -34,11 +34,21 @@ import { supabase } from "@/services/supabase/client";
 import type {
     SupportTicketStatus,
     V2SupportMessage,
-    V2SupportTicket
+    V2SupportTicket,
+    V2SupportTicketWithContext
 } from "@/types/support";
 
 const TICKETS = "support_tickets";
 const MESSAGES = "support_messages";
+
+/**
+ * Riga del ticket più il contesto risolto via embed. `tenants` e `activities`
+ * sono LEFT JOIN filtrati da RLS: tornano `null` quando la riga non è
+ * leggibile da chi chiede, senza errore. Per il platform admin sono leggibili
+ * grazie alle policy della migration 20260828130000; per il cliente lo sono
+ * per il proprio tenant.
+ */
+const TICKET_CONTEXT_SELECT = "*, tenants(name), activities(name)";
 
 /**
  * Traduce il rifiuto di RLS in un errore di dominio.
@@ -100,10 +110,14 @@ export async function listMyTickets(tenantId: string): Promise<V2SupportTicket[]
  * indistinguibili — è RLS che li rende tali, e va bene così: la differenza
  * rivelerebbe l'esistenza di ticket altrui.
  */
-export async function getTicket(ticketId: string): Promise<V2SupportTicket> {
+export async function getTicket(ticketId: string): Promise<V2SupportTicketWithContext> {
     const { data, error } = await supabase
         .from(TICKETS)
-        .select("*")
+        // Stesso embed della coda: il dettaglio ha bisogno di intestare la
+        // pagina con azienda e sede. Per il cliente i due embed risolvono il
+        // proprio tenant (e la sede, se il suo ruolo la vede); per il platform
+        // admin qualunque tenant, via le policy di 20260828130000.
+        .select(TICKET_CONTEXT_SELECT)
         .eq("id", ticketId)
         .maybeSingle();
 
@@ -113,7 +127,7 @@ export async function getTicket(ticketId: string): Promise<V2SupportTicket> {
         (notFound as unknown as { code: string }).code = "PGRST116";
         throw notFound;
     }
-    return data as V2SupportTicket;
+    return data as unknown as V2SupportTicketWithContext;
 }
 
 /**
@@ -260,8 +274,15 @@ export interface ListAllTicketsFilters {
  */
 export async function listAllTickets(
     filters?: ListAllTicketsFilters
-): Promise<V2SupportTicket[]> {
-    let query = supabase.from(TICKETS).select("*");
+): Promise<V2SupportTicketWithContext[]> {
+    // Embed di tenants/activities: chi risponde ha bisogno di sapere QUALE
+    // azienda scrive, e quel dato non è sul ticket. Una query sola invece di
+    // una risoluzione per tenant.
+    //
+    // Funziona solo grazie alle due policy SELECT per platform admin della
+    // migration 20260828130000: prima l'embed tornava `null` senza errore, e
+    // la coda avrebbe mostrato ticket senza mittente in silenzio.
+    let query = supabase.from(TICKETS).select(`${TICKET_CONTEXT_SELECT}`);
 
     if (filters?.status) {
         query = query.eq("status", filters.status);
@@ -270,7 +291,7 @@ export async function listAllTickets(
     const { data, error } = await query.order("last_message_at", { ascending: true });
 
     if (error) throwMappedSupportError(error);
-    return (data ?? []) as V2SupportTicket[];
+    return (data ?? []) as unknown as V2SupportTicketWithContext[];
 }
 
 /**

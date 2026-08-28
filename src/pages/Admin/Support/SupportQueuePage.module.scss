@@ -1,0 +1,81 @@
+// Coda di supporto della piattaforma. Solo token di _theme.scss.
+
+.list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+// `button` e non `div[onClick]`: la riga è interattiva e deve essere
+// raggiungibile da tastiera e annunciata come tale.
+.row {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--card-bg);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+}
+
+// Riga in attesa di risposta (ultimo messaggio del cliente).
+//
+// L'evidenza è portata dalla pill "In attesa" più il peso dell'oggetto, non da
+// un fondo colorato né da un bordo laterale d'accento. Due ragioni: su una
+// coda dove la maggioranza delle righe è in attesa, una colorazione diffusa
+// diventa rumore uniforme e smette di segnalare; e il peso tipografico è lo
+// stesso segnale già usato per il non letto nella lista cliente, quindi non
+// introduce un secondo vocabolario visivo per la stessa idea.
+.row[data-waiting] .subject {
+  font-weight: 600;
+}
+
+.rowMain {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.subject {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Etichetta testuale accanto al badge di stato: l'evidenza non è affidata al
+// solo bordo colorato, che da solo escluderebbe chi non distingue i colori.
+.waitingTag {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 4px 8px;
+  border-radius: 999px;
+  color: var(--brand-primary);
+  background: var(--brand-primary-soft);
+  white-space: nowrap;
+}

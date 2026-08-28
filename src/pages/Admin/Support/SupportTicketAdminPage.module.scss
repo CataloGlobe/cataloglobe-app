@@ -1,0 +1,42 @@
+// Dettaglio richiesta lato piattaforma: thread scrollabile + composer.
+// Solo token di _theme.scss.
+
+// Contratto di scroll di SupportThread: il padre deve essere un flex column
+// con altezza limitata. `min-height: 0` è ciò che permette al thread di
+// comprimersi sotto il proprio contenuto invece di spingere il composer fuori
+// dallo schermo.
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  height: 100%;
+}
+
+.notFound {
+  margin: 0 0 16px;
+  font-size: 14px;
+  color: var(--text);
+  opacity: 0.7;
+}
+
+// `flex: 0 0 auto`: il composer non si comprime. Se lo facesse, un thread
+// lungo lo schiaccerebbe proprio quando serve rispondere.
+.composer {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 16px;
+  border-top: 1px solid var(--border);
+}
+
+.composerActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-warning-700);
+}

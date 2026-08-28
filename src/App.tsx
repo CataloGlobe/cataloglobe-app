@@ -39,6 +39,10 @@ import StatusPage from "./pages/Status/StatusPage";
 const StatusIncidentsAdminPage = lazy(
     () => import("./pages/Admin/StatusIncidents/StatusIncidentsPage")
 );
+const SupportQueuePage = lazy(() => import("./pages/Admin/Support/SupportQueuePage"));
+const SupportTicketAdminPage = lazy(
+    () => import("./pages/Admin/Support/SupportTicketAdminPage")
+);
 
 // Workspace — lazy (solo utenti autenticati)
 const WorkspacePage = lazy(() => import("./pages/Workspace/WorkspacePage"));
@@ -300,6 +304,10 @@ export default function App() {
             >
                 <Route index element={<Navigate to="status-incidents" replace />} />
                 <Route path="status-incidents" element={<StatusIncidentsAdminPage />} />
+                <Route path="supporto">
+                    <Route index element={<SupportQueuePage />} />
+                    <Route path=":ticketId" element={<SupportTicketAdminPage />} />
+                </Route>
             </Route>
 
             {/* CUSTOMER ORDERING — QR bootstrap (DEVE precedere /:slug catch-all) */}
