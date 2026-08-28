@@ -29,7 +29,7 @@ import type {
     ResolvedProductAttribute
 } from "@/types/resolvedCollections";
 
-import type { ReadyPageData } from "./derivePageState";
+import type { CatalogRenderData } from "./derivePageState";
 import pageStyles from "./PublicCollectionPage.module.scss";
 
 /**
@@ -301,7 +301,9 @@ function CollectionViewWithCustomerSession(
 
 export type PublicCatalogReadyProps = {
     slug: string;
-    data: ReadyPageData;
+    /** `ready` (catalogo con contenuti) oppure `empty` (sede pubblicata senza
+     *  menù ancora pubblicato): stessa resa, cambia solo il corpo centrale. */
+    data: CatalogRenderData;
     /** Derivato page-level (router state / URL param / payload), iniettato. */
     orderingMaintenance: { reason: OrderingStateReason; message: string } | null;
     /** Per StaleDataBanner (richiesto dal suo contratto props). */
@@ -384,10 +386,23 @@ export default function PublicCatalogReady({
 
     const sectionGroups = mapCatalogToSectionGroups(resolved);
     const catalogCharacteristics = collectCatalogCharacteristics(resolved.catalog);
+    // Menù non ancora pubblicato: messaggio sobrio, nessuna azione. Chi arriva
+    // da un QR non ha un "indietro" utile e non è di fronte a un errore.
+    // defaultValue inline: le chiavi non sono ancora nei bundle locale.
     const emptyState =
-        sectionGroups.length === 0
-            ? { title: t("page.empty_catalog") }
-            : undefined;
+        data.status === "empty"
+            ? {
+                  title: t("page.menu_unavailable_title", {
+                      defaultValue: "Il menù non è ancora disponibile"
+                  }),
+                  description: t("page.menu_unavailable_description", {
+                      defaultValue:
+                          "Questo locale non ha ancora pubblicato il suo menù. Riprova più tardi."
+                  })
+              }
+            : sectionGroups.length === 0
+              ? { title: t("page.empty_catalog") }
+              : undefined;
 
     const allFeaturedContents = [
         ...(resolved.featured?.before_catalog ?? []),
