@@ -119,11 +119,16 @@ export async function createProductOptionGroup(data: {
             throw new Error("Esiste già un gruppo che definisce il prezzo per questo prodotto");
         }
 
-        // Side effect: nullify base_price and set product_type = 'formats'.
-        // Formats are authoritative — base_price is cleared to prevent dual-pricing.
+        // Side effect: solo product_type = 'formats'.
+        // NON azzerare `base_price`: resta valore dormiente. Invariante —
+        // il gruppo PRIMARY_PRICE, quando ha valori, ha gia' precedenza su
+        // base_price in TUTTI i consumatori (resolveActivityCatalogs,
+        // validateOrderItems, resolveFeaturedDisplayPrice), quindi non c'e'
+        // dual-pricing; azzerarlo faceva perdere il prezzo unico al primo
+        // ritorno indietro dal toggle "Prezzo per formato".
         const { error: updateErr } = await supabase
             .from("products")
-            .update({ base_price: null, product_type: "formats" })
+            .update({ product_type: "formats" })
             .eq("id", data.product_id)
             .eq("tenant_id", data.tenant_id);
         if (updateErr) throw updateErr;

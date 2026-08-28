@@ -27,6 +27,7 @@ import {
     getProductOptions
 } from "@/services/supabase/productOptions";
 import { OptionValueList } from "./components/OptionValueList/OptionValueList";
+import { resolvePriceMode, shouldConfirmRevertToUnico, type PriceMode } from "./priceMode";
 import { getDisplayPrice } from "@/utils/priceDisplay";
 import { resolvePriceSummary } from "@/utils/priceSummary";
 import styles from "./PrezziOpzioniTab.module.scss";
@@ -183,15 +184,16 @@ function ChoiceRulesEditor({
 }
 
 interface PriceModeToggleProps {
-    mode: "unico" | "formato";
+    mode: PriceMode;
     onSelectUnico: () => void;
     onSelectFormato: () => void;
     disabled?: boolean;
 }
 
 /** Toggle Prezzo unico / Prezzo per formato — lo stato deriva dai dati
- * (esiste un gruppo PRIMARY_PRICE?), il click esegue la transizione reale
- * (crea/elimina il gruppo), non è solo UI. */
+ * (esiste un gruppo PRIMARY_PRICE?) con override locale finché il primo
+ * formato non è stato inserito. Il passaggio a "per formato" NON scrive
+ * nulla: il gruppo nasce insieme al suo primo valore. */
 function PriceModeToggle({ mode, onSelectUnico, onSelectFormato, disabled }: PriceModeToggleProps) {
     return (
         <div className={styles.priceModeToggle}>
@@ -289,9 +291,11 @@ export default function PrezziOpzioniTab({
     };
 
     // ── Card Prezzo — toggle Unico ⇄ Per formato ────────────────────────
-    // Il gruppo "Formato" (PRIMARY_PRICE) è creato/eliminato dal toggle
-    // stesso: l'utente non vede mai il meccanismo di gruppo/valori.
-    const [switchingToFormato, setSwitchingToFormato] = useState(false);
+    // Il gruppo "Formato" (PRIMARY_PRICE) è un dettaglio implementativo:
+    // nasce col primo formato inserito (creazione lazy, mai gruppo vuoto) e
+    // viene eliminato tornando a prezzo unico. `base_price` NON viene mai
+    // azzerato: resta dormiente e riemerge al ritorno indietro.
+    const [modeOverride, setModeOverride] = useState<PriceMode | null>(null);
     const [revertingToUnico, setRevertingToUnico] = useState(false);
     const [confirmRevertToUnico, setConfirmRevertToUnico] = useState(false);
     // One-shot: precompila la riga di aggiunta del primo formato col vecchio
@@ -299,27 +303,13 @@ export default function PrezziOpzioniTab({
     const [justSwitchedToFormato, setJustSwitchedToFormato] = useState(false);
     const [pendingFormatPrice, setPendingFormatPrice] = useState<number | null>(null);
 
-    const handleSwitchToFormato = async () => {
-        const priceToMigrate = product.base_price;
-        setSwitchingToFormato(true);
-        try {
-            await createProductOptionGroup({
-                tenant_id: tenantId,
-                product_id: productId,
-                name: "Formato",
-                is_required: true,
-                max_selectable: 1,
-                group_kind: "PRIMARY_PRICE",
-                pricing_mode: "ABSOLUTE"
-            });
-            setPendingFormatPrice(priceToMigrate);
-            setJustSwitchedToFormato(true);
-            await onRefreshOptions();
-        } catch {
-            showToast({ message: "Errore nel passaggio a prezzo per formato", type: "error" });
-        } finally {
-            setSwitchingToFormato(false);
-        }
+    const priceMode = resolvePriceMode(modeOverride, hasPrimaryGroup);
+
+    /** Solo UI: nessuna scrittura finché non arriva il primo formato. */
+    const handleSelectFormato = () => {
+        setPendingFormatPrice(product.base_price);
+        setJustSwitchedToFormato(true);
+        setModeOverride("formato");
     };
 
     const handleConfirmRevertToUnico = async (): Promise<boolean> => {
@@ -328,8 +318,16 @@ export default function PrezziOpzioniTab({
             setRevertingToUnico(true);
             await deleteProductOptionGroup(primaryPriceGroup.id, tenantId);
             await onRefreshOptions();
-            setBasePriceInput("");
-            setEditingBasePrice(true);
+            setModeOverride(null);
+            setJustSwitchedToFormato(false);
+            setPendingFormatPrice(null);
+            // Nessun forzamento dell'editing: se il prezzo unico dormiente
+            // esiste lo si mostra in sola lettura. L'input vuoto serve solo
+            // ai prodotti nati "formats" (es. import AI), senza base_price.
+            if (product.base_price === null) {
+                setBasePriceInput("");
+                setEditingBasePrice(true);
+            }
             showToast({ message: "Tornato a prezzo unico", type: "success" });
             return true;
         } catch {
@@ -338,6 +336,24 @@ export default function PrezziOpzioniTab({
         } finally {
             setRevertingToUnico(false);
         }
+    };
+
+    const handleSelectUnico = () => {
+        // Modale solo se ci sono formati da perdere.
+        if (shouldConfirmRevertToUnico(primaryPriceGroup)) {
+            setConfirmRevertToUnico(true);
+            return;
+        }
+        // Gruppo esistente ma vuoto (dati legacy): niente da perdere, si
+        // elimina senza chiedere — altrimenti la derivazione dal DB
+        // riporterebbe subito la card in "per formato".
+        if (primaryPriceGroup !== null) {
+            void handleConfirmRevertToUnico();
+            return;
+        }
+        setModeOverride(null);
+        setJustSwitchedToFormato(false);
+        setPendingFormatPrice(null);
     };
 
     // Variante senza prezzo proprio e senza gruppo → eredita dal padre.
@@ -460,12 +476,27 @@ export default function PrezziOpzioniTab({
     const variantsParentFromPrice = computeFromPrice(parentGroup, product.base_price);
 
     // Value CRUD sul gruppo Formato (PRIMARY_PRICE) — salvataggio immediato.
+    // Creazione lazy: il gruppo PRIMARY_PRICE nasce insieme al suo primo
+    // valore. Mai un gruppo vuoto in DB — è lo stato che rendeva il prodotto
+    // "per formato" senza prezzo e faceva comparire il modale a vuoto.
     const handleCreateFormatValue = async (name: string, price: number) => {
-        if (!primaryPriceGroup) return;
         try {
+            let groupId = primaryPriceGroup?.id ?? null;
+            if (groupId === null) {
+                const created = await createProductOptionGroup({
+                    tenant_id: tenantId,
+                    product_id: productId,
+                    name: "Formato",
+                    is_required: true,
+                    max_selectable: 1,
+                    group_kind: "PRIMARY_PRICE",
+                    pricing_mode: "ABSOLUTE"
+                });
+                groupId = created.id;
+            }
             await createOptionValue({
                 tenant_id: tenantId,
-                option_group_id: primaryPriceGroup.id,
+                option_group_id: groupId,
                 name,
                 price_modifier: null,
                 absolute_price: price
@@ -473,7 +504,11 @@ export default function PrezziOpzioniTab({
             await onRefreshOptions();
             setJustSwitchedToFormato(false);
             setPendingFormatPrice(null);
+            // Dati reali aggiornati → la derivazione dal DB torna autoritativa.
+            setModeOverride(null);
         } catch (err) {
+            // `modeOverride` resta "formato": l'utente non perde il contesto
+            // e può ritentare dalla stessa riga.
             showToast({ message: "Errore nell'aggiunta del formato", type: "error" });
             throw err;
         }
@@ -777,13 +812,13 @@ export default function PrezziOpzioniTab({
                 ) : (
                     <div className={styles.priceSection}>
                         <PriceModeToggle
-                            mode={hasPrimaryGroup ? "formato" : "unico"}
-                            onSelectUnico={() => setConfirmRevertToUnico(true)}
-                            onSelectFormato={handleSwitchToFormato}
-                            disabled={switchingToFormato || revertingToUnico}
+                            mode={priceMode}
+                            onSelectUnico={handleSelectUnico}
+                            onSelectFormato={handleSelectFormato}
+                            disabled={revertingToUnico}
                         />
 
-                        {hasPrimaryGroup ? (
+                        {priceMode === "formato" ? (
                             <div className={styles.formatMode}>
                                 {isVariant && (
                                     <Text variant="body-sm" colorVariant="muted">
@@ -791,7 +826,7 @@ export default function PrezziOpzioniTab({
                                     </Text>
                                 )}
                                 <OptionValueList
-                                    values={primaryPriceGroup.values}
+                                    values={primaryPriceGroup?.values ?? []}
                                     priceMode="absolute"
                                     emptyTitle="Nessun formato"
                                     namePlaceholder="Nome (es. Bottiglia)"
@@ -808,7 +843,7 @@ export default function PrezziOpzioniTab({
                                     }
                                     onDelete={handleDeleteValue}
                                 />
-                                {formatPricePreview(primaryPriceGroup) && (
+                                {primaryPriceGroup && formatPricePreview(primaryPriceGroup) && (
                                     <Text variant="body-sm" colorVariant="muted">
                                         {formatPricePreview(primaryPriceGroup)}
                                     </Text>
