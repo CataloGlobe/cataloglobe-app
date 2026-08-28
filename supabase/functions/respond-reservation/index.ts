@@ -8,12 +8,15 @@ import {
     buildReservationOutcomeEmail,
     type ReservationEmailContent
 } from "../_shared/reservationEmails.ts";
+import { buildReservationCancelUrl } from "../_shared/publicSiteUrl.ts";
+import { signReservationToken } from "../_shared/reservationToken.ts";
 import {
     ACTION_EXPECTS,
     ACTION_TO_STATUS,
-    isReservationAction,
+    isAdminAction,
+    isTransitionAllowed,
     sendsCustomerEmail,
-    type ReservationAction,
+    type AdminReservationAction,
     type ReservationEmailAction
 } from "../_shared/reservationTransitions.ts";
 
@@ -121,11 +124,15 @@ function buildActionEmail(args: {
     reservationDate: string;
     reservationTime: string;
     partySize: number;
+    /** Only meaningful for `confirm`; see below. */
+    cancelUrl: string | null;
 }): ReservationEmailContent {
-    const { action, ...rest } = args;
+    const { action, cancelUrl, ...rest } = args;
     if (action === "confirm") {
-        return buildReservationConfirmedEmail({ ...rest, variant: "manual" });
+        return buildReservationConfirmedEmail({ ...rest, variant: "manual", cancelUrl });
     }
+    // `decline` and `cancel` end the reservation: there is nothing left to
+    // cancel, so the link is deliberately not passed on.
     return buildReservationOutcomeEmail({ ...rest, action });
 }
 
@@ -173,10 +180,13 @@ serve(async (req: Request) => {
     }
 
     const rawAction = typeof body.action === "string" ? body.action.trim() : "";
-    if (!isReservationAction(rawAction)) {
+    // `isAdminAction`, not `isReservationAction`: the matrix also holds
+    // `cancel_by_customer`, which is driven by a signed email link and accepts
+    // a source state no admin action does. It must never be reachable here.
+    if (!isAdminAction(rawAction)) {
         return errorResponse(req, "INVALID_ACTION", 400);
     }
-    const action: ReservationAction = rawAction;
+    const action: AdminReservationAction = rawAction;
     const newStatus = ACTION_TO_STATUS[action];
 
     // ── SELECT-then-UPDATE under user RLS ──────────────────────────
@@ -190,9 +200,12 @@ serve(async (req: Request) => {
     //    authorization state.
     // 2. Status precondition check (server side) → 409 INVALID_TRANSITION
     //    with current_status in details.
-    // 3. UPDATE with `.eq("status", expected)` as optimistic lock so a
+    // 3. UPDATE with `.in("status", expected)` as optimistic lock so a
     //    concurrent admin transitioning the same row can't race us into
-    //    duplicate outcome emails.
+    //    duplicate outcome emails. `expected` is a list because the shared
+    //    matrix now carries multi-source actions; every admin action here
+    //    still has exactly one accepted source, so the predicate is
+    //    `status IN ('x')` — identical to the previous equality.
     try {
         const expectedFrom = ACTION_EXPECTS[action];
 
@@ -211,7 +224,7 @@ serve(async (req: Request) => {
             return errorResponse(req, "RESERVATION_NOT_FOUND", 404);
         }
 
-        if (current.status !== expectedFrom) {
+        if (!isTransitionAllowed(current.status, action)) {
             return errorResponse(req, "INVALID_TRANSITION", 409, {
                 current_status: current.status,
                 expected_status: expectedFrom,
@@ -223,7 +236,7 @@ serve(async (req: Request) => {
             .from("reservations")
             .update({ status: newStatus })
             .eq("id", reservationId)
-            .eq("status", expectedFrom)
+            .in("status", expectedFrom)
             .select(
                 "id, activity_id, customer_email, customer_name, reservation_date, reservation_time, party_size, status"
             )
@@ -260,19 +273,40 @@ serve(async (req: Request) => {
             // Resolve activity name (also under user RLS — read gated by
             // activity.read, granted to every role that has reservations.manage).
             let activityName = "la sede";
+            let activitySlug: string | null = null;
             const { data: activityRow, error: activityErr } = await supabaseUser
                 .from("activities")
-                .select("name")
+                .select("name, slug")
                 .eq("id", updated.activity_id)
                 .maybeSingle();
             if (!activityErr && activityRow?.name) {
                 activityName = activityRow.name as string;
+                // Serve al link di disdetta nell'email di conferma. Se la
+                // lettura fallisce resta null e la frase perde il link.
+                activitySlug = (activityRow.slug as string | null) ?? null;
             } else if (activityErr) {
                 // Read denial → fall back to generic copy; do NOT fail the response.
                 console.warn(
                     `[respond-reservation] activity read failed for ${updated.activity_id}:`,
                     activityErr
                 );
+            }
+
+            // Link di disdetta, solo per la conferma. Best-effort: segreto
+            // mancante o slug non letto → l'email parte senza link.
+            let cancelUrl: string | null = null;
+            if (action === "confirm" && activitySlug) {
+                try {
+                    cancelUrl = buildReservationCancelUrl(
+                        activitySlug,
+                        await signReservationToken(updated.id as string)
+                    );
+                } catch (tokenErr) {
+                    console.error(
+                        `[respond-reservation] cancellation token minting failed (reservation_id=${updated.id}):`,
+                        tokenErr instanceof Error ? tokenErr.message : "unknown error"
+                    );
+                }
             }
 
             try {
@@ -284,7 +318,8 @@ serve(async (req: Request) => {
                     partySize: updated.party_size as number,
                     // Narrowed by `sendsCustomerEmail`: the no-show pair cannot
                     // reach this branch.
-                    action: action as ReservationEmailAction
+                    action: action as ReservationEmailAction,
+                    cancelUrl
                 });
                 await resend.emails.send({
                     from: COMPANY.email.sender,

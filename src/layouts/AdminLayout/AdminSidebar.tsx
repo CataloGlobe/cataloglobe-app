@@ -32,8 +32,7 @@ const GROUPS: AppSidebarNavGroup[] = [
             {
                 to: "/admin/supporto",
                 label: "Supporto",
-                icon: <LifeBuoy size={18} />,
-                disabled: true
+                icon: <LifeBuoy size={18} />
             },
             {
                 to: "/admin/lead",

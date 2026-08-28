@@ -45,6 +45,14 @@ export interface BusinessOutletContext {
     aiUsage: AiUsageCycle | null;
     /** Refetch immediato dello stato quota (dopo un'operazione AI / apertura pagina). */
     refreshAiUsage: () => void;
+    /**
+     * Rivaluta il pallino "risposta di supporto non letta" sulla voce
+     * Assistenza. Chiamato dal dettaglio richiesta dopo `markTicketRead` e dopo
+     * l'invio di un messaggio: entrambi cambiano lo stato di lettura, e senza
+     * questo il pallino resterebbe acceso fino al prossimo mount dell'area
+     * business. Stesso ruolo di `wakeTranslations`.
+     */
+    refreshSupportUnread: () => void;
 }
 
 /**

@@ -832,6 +832,101 @@ SELECT 28, 's — invariante closed_at IS NOT NULL <=> status=closed', '0 violaz
               (SELECT count(*) FROM public.support_tickets));
 
 -- =============================================================================
+-- CASI x / y / z — lettura di tenants/activities per il platform admin
+-- (migration 20260828130000).
+--
+-- Due policy SELECT permissive NUOVE, `USING (is_platform_admin())`, aggiunte
+-- accanto a quelle esistenti senza toccarle. Servono al nome dell'azienda
+-- nella coda /admin/supporto: senza, l'embed PostgREST restituisce null in
+-- silenzio e la coda mostra ticket senza mittente.
+--
+-- Il caso che conta davvero e' y, non x. Che la nuova policy funzioni si vede
+-- subito; che NON abbia allargato nulla per gli utenti normali e' la cosa che
+-- un OR fra permissive puo' rompere senza dare segno, ed e' l'unica ragione
+-- per cui questi tre casi esistono.
+-- =============================================================================
+
+-- ── CASO x — P legge il nome di un tenant di cui non è né owner né membro ───
+RESET ROLE;
+SET LOCAL request.jwt.claims = '{"sub":"3009c324-b37d-4ae9-ac95-7560b34a4a4c","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+DECLARE v_nome text; v_sedi int;
+BEGIN
+    SELECT name INTO v_nome
+      FROM public.tenants WHERE id = '7bab4e9d-63a9-41da-b90e-a3d7fb734d8a';
+
+    SELECT count(*) INTO v_sedi
+      FROM public.activities WHERE tenant_id = '7bab4e9d-63a9-41da-b90e-a3d7fb734d8a';
+
+    INSERT INTO _esiti VALUES (29, 'x — P legge tenant/activities di un''azienda non sua',
+        'nome valorizzato · almeno 1 sede visibile',
+        format('nome_letto=%s · sedi_viste=%s', (v_nome IS NOT NULL), v_sedi));
+EXCEPTION WHEN others THEN
+    INSERT INTO _esiti VALUES (29, 'x — P legge tenant/activities di un''azienda non sua',
+        'nome valorizzato', format('FALLITO: %s %s', SQLSTATE, SQLERRM));
+END $$;
+
+-- ── CASO y — A resta cieco sul tenant di B ─────────────────────────────────
+-- IL CASO CHE CONTA. Se la nuova policy fosse scritta male — per esempio con
+-- `USING (true)` o con una condizione che non dipende da is_platform_admin() —
+-- si sommerebbe in OR a quella esistente e aprirebbe `tenants` a chiunque sia
+-- autenticato. Qui A è un cliente normale, non platform admin: deve vedere
+-- zero righe del tenant di B, esattamente come prima della migration.
+RESET ROLE;
+SET LOCAL request.jwt.claims = '{"sub":"b1f8bed2-0d66-4217-af78-6cfe3a43cbf3","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+DECLARE v_tenant int; v_act int; v_proprio int;
+BEGIN
+    SELECT count(*) INTO v_tenant
+      FROM public.tenants WHERE id = 'f89f8777-daf6-4006-aeda-4314f2921860';
+
+    SELECT count(*) INTO v_act
+      FROM public.activities WHERE tenant_id = 'f89f8777-daf6-4006-aeda-4314f2921860';
+
+    -- Controprova: A deve continuare a vedere il PROPRIO tenant. Un risultato
+    -- "0 · 0 · 0" significherebbe che stiamo misurando una regressione
+    -- generale, non l'isolamento.
+    SELECT count(*) INTO v_proprio
+      FROM public.tenants WHERE id = '7bab4e9d-63a9-41da-b90e-a3d7fb734d8a';
+
+    INSERT INTO _esiti VALUES (30, 'y — A (cliente) legge tenant/sedi di B',
+        '0 · 0 · e vede ancora il proprio (1)',
+        format('tenant_di_B=%s · sedi_di_B=%s · proprio_tenant=%s',
+               v_tenant, v_act, v_proprio));
+END $$;
+
+-- ── CASO z — P tenta UPDATE su tenants ─────────────────────────────────────
+-- La migration concede SELECT e nient'altro. Nessuna policy UPDATE contempla
+-- il platform admin, quindi la USING di "Tenant can update own tenants"
+-- (owner_user_id = auth.uid()) non seleziona alcuna riga: zero righe, nessun
+-- errore. Se un giorno comparisse un 1 qui, qualcuno ha concesso più del
+-- dovuto.
+RESET ROLE;
+SET LOCAL request.jwt.claims = '{"sub":"3009c324-b37d-4ae9-ac95-7560b34a4a4c","role":"authenticated"}';
+SET LOCAL ROLE authenticated;
+
+DO $$
+DECLARE n_upd int; v_errore text := 'nessuno';
+BEGIN
+    BEGIN
+        UPDATE public.tenants SET name = 'TEST RLS — non deve passare'
+         WHERE id = '7bab4e9d-63a9-41da-b90e-a3d7fb734d8a';
+        GET DIAGNOSTICS n_upd = ROW_COUNT;
+    EXCEPTION WHEN insufficient_privilege THEN
+        n_upd := 0;
+        v_errore := '42501';
+    END;
+
+    INSERT INTO _esiti VALUES (31, 'z — P tenta UPDATE su tenants',
+        '0 righe (o 42501)',
+        format('righe=%s · errore=%s', n_upd, v_errore));
+END $$;
+
+-- =============================================================================
 -- RISULTATI
 -- =============================================================================
 RESET ROLE;

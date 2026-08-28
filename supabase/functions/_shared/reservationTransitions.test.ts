@@ -4,7 +4,9 @@ import { describe, it, expect } from "vitest";
 import {
     ACTION_EXPECTS,
     ACTION_TO_STATUS,
+    ADMIN_ACTIONS,
     RESERVATION_ACTIONS,
+    isAdminAction,
     isReservationAction,
     isTransitionAllowed,
     sendsCustomerEmail,
@@ -66,32 +68,98 @@ describe("transizioni preesistenti invariate", () => {
         ["decline", "pending", "declined"],
         ["cancel", "confirmed", "cancelled"]
     ] as const)("%s: %s → %s", (action, from, to) => {
-        expect(ACTION_EXPECTS[action]).toBe(from);
+        expect(ACTION_EXPECTS[action]).toEqual([from]);
         expect(ACTION_TO_STATUS[action]).toBe(to);
         expect(isTransitionAllowed(from, action)).toBe(true);
+    });
+
+    it("le cinque azioni admin restano a sorgente singola", () => {
+        for (const action of ADMIN_ACTIONS) {
+            expect(ACTION_EXPECTS[action]).toHaveLength(1);
+        }
+    });
+});
+
+describe("cancel_by_customer — disdetta dal link firmato", () => {
+    it.each(["pending", "confirmed"] as const)("ammessa da %s", status => {
+        expect(isTransitionAllowed(status, "cancel_by_customer")).toBe(true);
+    });
+
+    it.each(["declined", "cancelled", "seated", "no_show", "completed"] as const)(
+        "rifiutata da %s",
+        status => {
+            expect(isTransitionAllowed(status, "cancel_by_customer")).toBe(false);
+        }
+    );
+
+    it("porta a cancelled", () => {
+        expect(ACTION_TO_STATUS.cancel_by_customer).toBe("cancelled");
+    });
+
+    it("è l'unica azione con più di uno stato di partenza", () => {
+        const multiSource = RESERVATION_ACTIONS.filter(a => ACTION_EXPECTS[a].length > 1);
+        expect(multiSource).toEqual(["cancel_by_customer"]);
+    });
+
+    it("accetta uno stato (pending) che nessuna cancellazione admin accetta", () => {
+        expect(isTransitionAllowed("pending", "cancel")).toBe(false);
+        expect(isTransitionAllowed("pending", "cancel_by_customer")).toBe(true);
+    });
+});
+
+describe("separazione admin / cliente", () => {
+    it("cancel_by_customer NON è un'azione admin", () => {
+        expect(isAdminAction("cancel_by_customer")).toBe(false);
+        expect(ADMIN_ACTIONS).not.toContain("cancel_by_customer");
+    });
+
+    it.each(ADMIN_ACTIONS)("%s resta accettata dall'endpoint admin", action => {
+        expect(isAdminAction(action)).toBe(true);
+    });
+
+    it("ADMIN_ACTIONS è esattamente RESERVATION_ACTIONS meno cancel_by_customer", () => {
+        expect([...ADMIN_ACTIONS].sort()).toEqual(
+            RESERVATION_ACTIONS.filter(a => a !== "cancel_by_customer").sort()
+        );
+    });
+
+    it("isAdminAction rifiuta valori non-azione", () => {
+        for (const value of ["", "CANCEL_BY_CUSTOMER", "cancel_by_customer ", null, 42, {}]) {
+            expect(isAdminAction(value)).toBe(false);
+        }
     });
 });
 
 describe("compare-and-set", () => {
-    it("ACTION_EXPECTS copre ogni azione (è il valore passato a .eq('status', …))", () => {
+    it("ACTION_EXPECTS copre ogni azione (è la lista passata a .in('status', …))", () => {
         for (const action of RESERVATION_ACTIONS) {
-            expect(ALL_STATUSES).toContain(ACTION_EXPECTS[action]);
+            expect(ACTION_EXPECTS[action].length).toBeGreaterThan(0);
+            for (const status of ACTION_EXPECTS[action]) {
+                expect(ALL_STATUSES).toContain(status);
+            }
         }
     });
 
-    it("rifiuta ogni stato di partenza diverso da quello atteso", () => {
+    it("rifiuta ogni stato di partenza fuori dalla lista attesa", () => {
         for (const action of RESERVATION_ACTIONS) {
             for (const status of ALL_STATUSES) {
                 expect(isTransitionAllowed(status, action)).toBe(
-                    status === ACTION_EXPECTS[action]
+                    (ACTION_EXPECTS[action] as readonly string[]).includes(status)
                 );
             }
         }
     });
 
-    it("nessuna azione è un no-op (stato di arrivo ≠ stato atteso)", () => {
+    it("nessuna azione è un no-op (stato di arrivo mai tra quelli attesi)", () => {
         for (const action of RESERVATION_ACTIONS) {
-            expect(ACTION_TO_STATUS[action]).not.toBe(ACTION_EXPECTS[action]);
+            expect(ACTION_EXPECTS[action]).not.toContain(ACTION_TO_STATUS[action]);
+        }
+    });
+
+    it("nessuna lista di stati attesi contiene duplicati", () => {
+        for (const action of RESERVATION_ACTIONS) {
+            const expects = ACTION_EXPECTS[action];
+            expect(new Set(expects).size).toBe(expects.length);
         }
     });
 });
@@ -132,9 +200,15 @@ describe("email — la coppia no-show è silenziosa", () => {
         expect(withEmail).toEqual(["confirm", "decline", "cancel"]);
     });
 
+    it("cancel_by_customer non produce email al cliente", () => {
+        expect(sendsCustomerEmail("cancel_by_customer")).toBe(false);
+    });
+
     it("ogni azione che scrive no_show o lo annulla è silenziosa", () => {
         const noShowRelated: ReservationAction[] = RESERVATION_ACTIONS.filter(
-            a => ACTION_TO_STATUS[a] === "no_show" || ACTION_EXPECTS[a] === "no_show"
+            a =>
+                ACTION_TO_STATUS[a] === "no_show" ||
+                (ACTION_EXPECTS[a] as readonly string[]).includes("no_show")
         );
         expect(noShowRelated.sort()).toEqual(["mark_no_show", "undo_no_show"]);
         for (const action of noShowRelated) {
@@ -171,5 +245,25 @@ describe("respond-reservation — il gate email è cablato nell'handler", () => 
         expect(source.indexOf("if (!sendsCustomerEmail(action))")).toBeLessThan(
             source.indexOf("buildActionEmail({")
         );
+    });
+
+    // La guardia che tiene `cancel_by_customer` fuori dall'endpoint admin è
+    // una riga sola, e una riga sola si toglie per sbaglio. Se sparisce,
+    // questi test devono rompersi: il rifiuto non è un dettaglio di stile, è
+    // ciò che impedisce a un admin autenticato di cancellare una prenotazione
+    // `pending` per una strada che nessuno ha rivisto.
+    it("valida l'azione con isAdminAction, non con isReservationAction", () => {
+        expect(source).toContain("if (!isAdminAction(rawAction))");
+        expect(source).not.toMatch(/isReservationAction\(/);
+    });
+
+    it("non nomina mai cancel_by_customer come azione ammessa", () => {
+        expect(source).not.toContain('"cancel_by_customer"');
+        expect(source).not.toContain("'cancel_by_customer'");
+    });
+
+    it("il compare-and-set usa .in('status', …) sulla lista attesa", () => {
+        expect(source).toContain('.in("status", expectedFrom)');
+        expect(source).not.toContain('.eq("status", expectedFrom)');
     });
 });

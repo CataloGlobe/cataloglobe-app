@@ -45,9 +45,6 @@ export function SetupPublishStep({
                         showActions
                         className={styles.qr}
                     />
-                    <Text variant="caption" colorVariant="muted" className={styles.qrNote}>
-                        Il menù usa i colori predefiniti — puoi cambiarli quando vuoi.
-                    </Text>
                 </div>
 
                 <div className={styles.details}>
@@ -125,6 +122,12 @@ export function SetupPublishStep({
                             </Button>
                         </div>
                     )}
+
+                    {/* Sotto il blocco della regola, non sotto il QR: lì sembrava
+                        riferirsi al codice invece che al menù. */}
+                    <Text variant="caption" colorVariant="muted" className={styles.styleNote}>
+                        Il menù usa i colori predefiniti — puoi cambiarli quando vuoi.
+                    </Text>
                 </div>
             </div>
 
@@ -132,12 +135,9 @@ export function SetupPublishStep({
                 <Text variant="body-sm" weight={600}>
                     Quando vuoi
                 </Text>
+                {/* Elenco di cose facoltative: i piatti non lo sono, restano
+                    l'azione primaria del footer. */}
                 <ul className={styles.laterLinks}>
-                    {!hasProducts && (
-                        <li>
-                            <Link to={`/business/${businessId}/products`}>Aggiungi i piatti</Link>
-                        </li>
-                    )}
                     <li>
                         <Link to={`/business/${businessId}/styles`}>
                             Personalizza colori e stile

@@ -484,6 +484,31 @@
         "no_times": "No hay horarios disponibles para la fecha seleccionada.",
         "time_slot_group": "Franja horaria",
         "select_time": "Selecciona la hora",
-        "soldout_tag": "agotado"
+        "soldout_tag": "agotado",
+        "cancel": {
+            "doc_title": "{{brand}} · Anular la reserva",
+            "title": "Anular la reserva",
+            "loading": "Cargando…",
+            "invalid_title": "Enlace no válido",
+            "invalid_text": "Este enlace no es válido o ya no se puede usar. Para anular una reserva, contacta directamente con el local.",
+            "error_title": "La operación no se ha completado",
+            "error_text": "Inténtalo de nuevo en un momento.",
+            "rate_limited_text": "Demasiados intentos. Inténtalo de nuevo en unos minutos.",
+            "confirm_title": "¿Quieres anular la reserva?",
+            "confirm_text": "Revisa los datos de abajo. La anulación es definitiva: para volver tendrás que reservar de nuevo.",
+            "confirm_button": "Sí, anular la reserva",
+            "confirming": "Anulando…",
+            "keep_button": "No, mantener la reserva",
+            "done_title": "Reserva anulada",
+            "done_text": "Hemos avisado al local. Gracias por decírnoslo.",
+            "already_title": "Reserva ya anulada",
+            "already_text": "Esta reserva ya está anulada. No tienes que hacer nada más.",
+            "closed_title": "Es tarde para anular en línea",
+            "closed_text": "Falta poco para la hora reservada.",
+            "closed_call": "Llama al local para anular.",
+            "closed_contact": "Contacta directamente con el local para anular.",
+            "not_cancellable_title": "Reserva no anulable",
+            "not_cancellable_text": "Esta reserva no se puede anular desde aquí."
+        }
     }
 }

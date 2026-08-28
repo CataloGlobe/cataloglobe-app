@@ -74,6 +74,27 @@ export interface V2SupportTicket {
     last_message_kind: SupportAuthorKind | null;
 }
 
+/**
+ * Contesto del ticket risolto via embed PostgREST (`tenants(name)` /
+ * `activities(name)`), non colonne della riga.
+ *
+ * Serve alla coda `/admin/supporto`: chi risponde ha bisogno di sapere QUALE
+ * azienda scrive, e quel dato non è sul ticket. Sbloccato dalle due policy
+ * SELECT per platform admin della migration 20260828130000 — prima l'embed
+ * tornava `null` in silenzio.
+ *
+ * Entrambi i campi restano opzionali e nullable perché l'embed è un
+ * `LEFT JOIN` filtrato da RLS: `null` significa "sede non indicata" oppure
+ * "riga non leggibile da chi sta chiedendo", e la UI non può distinguerli.
+ */
+export interface SupportTicketContext {
+    tenants?: { name: string } | null;
+    activities?: { name: string } | null;
+}
+
+/** Ticket con il contesto già risolto. */
+export type V2SupportTicketWithContext = V2SupportTicket & SupportTicketContext;
+
 export interface V2SupportMessage {
     id: string;
     ticket_id: string;

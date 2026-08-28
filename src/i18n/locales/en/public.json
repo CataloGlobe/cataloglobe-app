@@ -484,6 +484,31 @@
         "no_times": "No times available for the selected date.",
         "time_slot_group": "Time slot",
         "select_time": "Select the time",
-        "soldout_tag": "sold out"
+        "soldout_tag": "sold out",
+        "cancel": {
+            "doc_title": "{{brand}} · Cancel booking",
+            "title": "Cancel booking",
+            "loading": "Loading…",
+            "invalid_title": "Invalid link",
+            "invalid_text": "This link is not valid or can no longer be used. To cancel a booking, please contact the venue directly.",
+            "error_title": "Something went wrong",
+            "error_text": "Please try again in a moment.",
+            "rate_limited_text": "Too many attempts. Please try again in a few minutes.",
+            "confirm_title": "Cancel this booking?",
+            "confirm_text": "Check the details below. Cancelling is final: to come back you will have to book again.",
+            "confirm_button": "Yes, cancel the booking",
+            "confirming": "Cancelling…",
+            "keep_button": "No, keep the booking",
+            "done_title": "Booking cancelled",
+            "done_text": "We have let the venue know. Thanks for telling us.",
+            "already_title": "Booking already cancelled",
+            "already_text": "This booking is already cancelled. There is nothing left to do.",
+            "closed_title": "Too late to cancel online",
+            "closed_text": "Your booking time is close.",
+            "closed_call": "Call the venue to cancel.",
+            "closed_contact": "Contact the venue directly to cancel.",
+            "not_cancellable_title": "Booking cannot be cancelled",
+            "not_cancellable_text": "This booking cannot be cancelled from here."
+        }
     }
 }

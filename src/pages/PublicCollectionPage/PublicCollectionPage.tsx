@@ -158,7 +158,9 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     }, []);
 
     // Dinamic head tags (title, description, OG) — only when ready.
-    const headBusiness = state.status === "ready" ? state.business : null;
+    // Anche con menù vuoto la pagina è quella della sede: title/OG col suo nome.
+    const headBusiness =
+        state.status === "ready" || state.status === "empty" ? state.business : null;
     const headLang = state.status === "ready" ? state.effectiveLanguage : undefined;
     const menuLabel = t("page.menu_label", { defaultValue: "Menu" });
     const headTitle = headBusiness ? `${headBusiness.name} · ${menuLabel}` : undefined;
@@ -512,9 +514,9 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         return <NotFound variant="subscription-inactive" />;
     }
 
-    if (state.status === "empty") {
-        return <NotFound variant="business-empty" />;
-    }
+    // NB: `empty` (sede pubblicata, menù non ancora pubblicato) NON è un errore
+    // e NON passa da NotFound: cade nel render sotto, che mostra intestazione +
+    // messaggio sobrio senza azioni. Il 404 vero resta `domain_error`.
 
     // Lingua di destinazione: già nell'URL quando il refetch inizia.
     // Fallback a baseLanguage se si torna alla lingua base (URL senza /lang).

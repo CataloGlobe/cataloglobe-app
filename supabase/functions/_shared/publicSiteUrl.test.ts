@@ -140,3 +140,56 @@ describe("buildReservationsDashboardUrl", () => {
         );
     });
 });
+
+describe("buildReservationCancelUrl", () => {
+    const TOKEN = "v1.eyJyaWQiOiJ4In0.c2ln";
+
+    it("builds the /:slug/prenotazione/annulla URL with the token in query", async () => {
+        const { buildReservationCancelUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildReservationCancelUrl("trattoria-da-ciro", TOKEN)).toBe(
+            `https://cataloglobe.com/trattoria-da-ciro/prenotazione/annulla?token=${TOKEN}`
+        );
+    });
+
+    it("builds on top of a base URL that had a trailing slash", async () => {
+        const { buildReservationCancelUrl } = await loadWithEnv({
+            APP_URL: "https://staging.cataloglobe.com/"
+        });
+        expect(buildReservationCancelUrl("ciro", TOKEN)).toBe(
+            `https://staging.cataloglobe.com/ciro/prenotazione/annulla?token=${TOKEN}`
+        );
+    });
+
+    it("returns null when the base URL is unconfigured", async () => {
+        const { buildReservationCancelUrl } = await loadWithEnv({});
+        expect(buildReservationCancelUrl("ciro", TOKEN)).toBeNull();
+    });
+
+    it("returns null instead of throwing on missing arguments", async () => {
+        const { buildReservationCancelUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        for (const [slug, token] of [
+            [null, TOKEN],
+            [undefined, TOKEN],
+            ["   ", TOKEN],
+            ["ciro", null],
+            ["ciro", undefined],
+            ["ciro", "  "]
+        ] as const) {
+            expect(() => buildReservationCancelUrl(slug, token)).not.toThrow();
+            expect(buildReservationCancelUrl(slug, token)).toBeNull();
+        }
+    });
+
+    it("percent-encodes slug and token", async () => {
+        const { buildReservationCancelUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildReservationCancelUrl("a b/../c", "x y&z=1")).toBe(
+            "https://cataloglobe.com/a%20b%2F..%2Fc/prenotazione/annulla?token=x%20y%26z%3D1"
+        );
+    });
+});

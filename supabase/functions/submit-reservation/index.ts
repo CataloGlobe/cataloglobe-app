@@ -5,7 +5,12 @@ import { Resend } from "npm:resend@4";
 import { COMPANY } from "../_shared/company-config.ts";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
 import { formatDateIt, formatTimeIt } from "../_shared/emailFormat.ts";
-import { buildReservationsDashboardUrl } from "../_shared/publicSiteUrl.ts";
+import {
+    buildReservationCancelUrl,
+    buildReservationsDashboardUrl
+} from "../_shared/publicSiteUrl.ts";
+import { resolveAlertRecipients } from "../_shared/reservationAlertRecipients.ts";
+import { signReservationToken } from "../_shared/reservationToken.ts";
 import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";
 import {
     buildReservationConfirmedEmail,
@@ -139,70 +144,6 @@ const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/;
 function todayUtcIsoDate(): string {
     const d = new Date();
     return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-}
-
-// --- Recipient resolution (isolated block — future priority 1 plugs in here) -
-
-type RecipientSource = "per_site" | "owner";
-
-interface ResolvedRecipients {
-    emails: string[];
-    source: RecipientSource;
-}
-
-/**
- * Resolve the venue alert recipients in priority order:
- *
- *   1. `activities.reservation_notification_emails` — when non-empty, the
- *      caller sends one separate email per recipient (no BCC) so they do
- *      not see each other.
- *   2. Tenant owner email via `tenants.owner_user_id` → `auth.users`.
- *
- * Returns null when no recipient is resolvable. Caller skips the alert and
- * logs a warning.
- */
-async function resolveAlertRecipients(
-    supabase: ReturnType<typeof createClient>,
-    activity: { tenant_id: string; reservation_notification_emails: string[] | null }
-): Promise<ResolvedRecipients | null> {
-    // 1. Per-site explicit list. Trim, drop empties, dedup case-insensitive.
-    const rawList = activity.reservation_notification_emails ?? [];
-    const seen = new Set<string>();
-    const cleaned: string[] = [];
-    for (const raw of rawList) {
-        const trimmed = (raw ?? "").trim();
-        if (trimmed.length === 0) continue;
-        const key = trimmed.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        cleaned.push(trimmed);
-    }
-    if (cleaned.length > 0) return { emails: cleaned, source: "per_site" };
-
-    // 2. Tenant owner email via service_role admin API.
-    const { data: tenant, error: tenantError } = await supabase
-        .from("tenants")
-        .select("owner_user_id")
-        .eq("id", activity.tenant_id)
-        .maybeSingle();
-
-    if (tenantError) {
-        console.error("[submit-reservation] tenant lookup failed:", tenantError);
-        return null;
-    }
-    if (!tenant?.owner_user_id) return null;
-
-    const { data: ownerData, error: ownerError } = await supabase.auth.admin.getUserById(
-        tenant.owner_user_id
-    );
-    if (ownerError) {
-        console.error("[submit-reservation] owner lookup failed:", ownerError);
-        return null;
-    }
-    const ownerEmail = ownerData?.user?.email;
-    if (!ownerEmail) return null;
-
-    return { emails: [ownerEmail], source: "owner" };
 }
 
 // --- Handler -----------------------------------------------------------------
@@ -459,6 +400,29 @@ serve(async (req: Request) => {
         // mirrors the wording of respond-reservation's confirm outcome. The
         // standard "Richiesta ricevuta" receipt covers the pending path
         // (manuale or auto+soft-over).
+        // Signed self-service cancellation link. Best-effort like everything
+        // else in this block: if the secret is missing the email loses the
+        // link, it does not lose the email. The token has no expiry — what
+        // gates the cancellation is the reservation status and the venue
+        // cutoff, both checked server side on every call.
+        let cancelUrl: string | null = null;
+        try {
+            cancelUrl = buildReservationCancelUrl(
+                slug,
+                await signReservationToken(reservationId)
+            );
+            if (!cancelUrl) {
+                console.warn(
+                    `[submit-reservation] cancellation link unavailable (reservation_id=${reservationId}). Email sent without it.`
+                );
+            }
+        } catch (tokenErr) {
+            console.error(
+                `[submit-reservation] cancellation token minting failed (reservation_id=${reservationId}):`,
+                tokenErr instanceof Error ? tokenErr.message : "unknown error"
+            );
+        }
+
         const customerEmailBody = isAutoConfirmed
             ? buildReservationConfirmedEmail({
                   activityName: activity.name,
@@ -467,14 +431,16 @@ serve(async (req: Request) => {
                   partySize,
                   customerName,
                   // Auto-confirm: the diner never had a pending request.
-                  variant: "auto"
+                  variant: "auto",
+                  cancelUrl
               })
             : buildReservationReceiptEmail({
                   activityName: activity.name,
                   reservationDate,
                   reservationTime,
                   partySize,
-                  customerName
+                  customerName,
+                  cancelUrl
               });
 
         // Customer receipt
@@ -495,10 +461,14 @@ serve(async (req: Request) => {
         // never see each other. allSettled isolates failures: a single
         // bounced address does not block the others.
         try {
-            const recipients = await resolveAlertRecipients(supabase, {
-                tenant_id: activity.tenant_id,
-                reservation_notification_emails: activity.reservation_notification_emails
-            });
+            const recipients = await resolveAlertRecipients(
+                supabase,
+                {
+                    tenant_id: activity.tenant_id,
+                    reservation_notification_emails: activity.reservation_notification_emails
+                },
+                "submit-reservation"
+            );
             if (!recipients) {
                 console.warn(
                     `[submit-reservation] no alert recipient resolvable (reservation_id=${reservationId}, activity_id=${activity.id}). Skipping alert.`

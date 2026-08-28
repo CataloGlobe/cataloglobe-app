@@ -8,6 +8,7 @@ import {
     Store,
     ClipboardList,
     CalendarCheck,
+    LifeBuoy,
     Settings,
     Calendar,
     BookOpen,
@@ -64,6 +65,13 @@ interface NavItem {
      * Lingue, senza numero). Alimentato dalla prop `importInProgress`.
      */
     showImportBadge?: boolean;
+    /**
+     * Mostra un pallino (senza numero) quando c'è una risposta del supporto non
+     * ancora letta. Alimentato dalla prop `supportUnread`, calcolata una volta
+     * in MainLayout: la sidebar è montata su ogni pagina e non deve interrogare
+     * il DB per conto proprio.
+     */
+    showUnreadDot?: boolean;
 }
 
 interface NavGroup {
@@ -153,6 +161,22 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
                     label: "Impostazioni",
                     icon: <Settings size={18} />,
                     end: true
+                },
+                // "Assistenza" e non "Aiuto": "Aiuto" fa pensare alla
+                // documentazione, questo è un canale verso una persona.
+                //
+                // Gate su `canDoOnTenant` e non su `canDoOnAnyActivity`,
+                // deliberatamente più largo di RLS: un manager senza sedi
+                // assegnate possiede support.read ma has_permission_any_activity
+                // non lo ammette, quindi la lista gli tornerà vuota. Deve
+                // comunque poter raggiungere la pagina — è lì che trova
+                // l'indirizzo email con cui chiedere aiuto lo stesso.
+                {
+                    to: `${b}/support`,
+                    label: "Assistenza",
+                    icon: <LifeBuoy size={18} />,
+                    permission: perms => canDoOnTenant(perms, "support.read"),
+                    showUnreadDot: true
                 }
             ]
         }
@@ -169,6 +193,12 @@ interface SidebarProps {
     translationPendingCount?: number;
     /** Import AI in volo (analyzing|creating). Accende la pillola loader su Cataloghi. */
     importInProgress?: boolean;
+    /**
+     * Almeno una richiesta di supporto ha una risposta non letta. Calcolato una
+     * volta in MainLayout (fonte unica, come translationPendingCount): la
+     * sidebar è montata su ogni pagina e non deve interrogare il DB da sé.
+     */
+    supportUnread?: boolean;
 }
 
 export default function Sidebar({
@@ -178,7 +208,8 @@ export default function Sidebar({
     onRequestClose,
     onToggleCollapse,
     translationPendingCount = 0,
-    importInProgress = false
+    importInProgress = false,
+    supportUnread = false
 }: SidebarProps) {
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { t } = useTranslation("admin");
@@ -243,6 +274,8 @@ export default function Sidebar({
                                                 !!link.showTranslationBadge && translationPendingCount > 0;
                                             const showImportBadge =
                                                 !!link.showImportBadge && importInProgress;
+                                            const showUnreadDot =
+                                                !!link.showUnreadDot && supportUnread;
                                             return (
                                             <li key={link.to}>
                                                 <NavLink
@@ -301,6 +334,14 @@ export default function Sidebar({
                                                                 ? "99+"
                                                                 : translationPendingCount}
                                                         </span>
+                                                    )}
+
+                                                    {showUnreadDot && (
+                                                        <span
+                                                            className={styles.unreadDot}
+                                                            title="Hai una risposta non letta"
+                                                            aria-label="Hai una risposta non letta"
+                                                        />
                                                     )}
 
                                                     {showImportBadge && (

@@ -21,46 +21,50 @@ import type { OpeningHoursEntry, UpcomingClosure } from "@/components/PublicColl
  *     risultato fetch nel chiamante, non a questa funzione.
  */
 
+/**
+ * Dati di pagina condivisi da `ready` e `empty`. I due stati differiscono solo
+ * per la presenza di contenuto da mostrare: la sede, il suo brand e le sue
+ * lingue esistono in entrambi i casi — un menù vuoto NON è un errore, quindi
+ * la pagina si renderizza comunque (intestazione + messaggio sobrio), non un
+ * 404. Vedi `PublicCatalogReady`.
+ */
+type CatalogPageData = {
+    business: PublicBusiness;
+    resolved: ResolvedCollections;
+    tenantLogoUrl: string | null;
+    openingHours?: OpeningHoursEntry[];
+    upcomingClosures?: UpcomingClosure[];
+    allergens: Allergen[] | null;
+    effectiveLanguage: string;
+    baseLanguage: string;
+    availableLanguages: AvailableLanguage[];
+    /** Gate del tab "storia" (has_story dal catalogo). */
+    hasStory: boolean;
+    isRefetching?: boolean;
+    /** True quando il payload corrente è "stale":
+        - proviene dalla cache localStorage (fallback offline), OPPURE
+        - proviene da snapshot Redis lato server (header
+          `x-cataloglobe-source: stale`).
+        In entrambi i casi il banner ambra è mostrato. */
+    isStale?: boolean;
+    /** Codice lingua richiesto da un cambio-lingua fallito (Supabase down
+        + nessuna cache localStorage per quella lingua). Quando valorizzato
+        la pagina RESTA sul contenuto già visibile (questo stato `ready`,
+        non toccato) e mostra `LanguageFallbackBanner`. Null/undefined =
+        nessun degrado attivo. Distinto da `isStale`: qui il contenuto è
+        fresco, solo il *cambio* verso un'altra lingua non è riuscito.
+        Vedi PublicCollectionPage ramo `network_error`. */
+    langSwitchFailed?: string | null;
+};
+
 export type PageState =
     | { status: "loading" }
     | { status: "error"; messageKey: string }
     | { status: "domain_error"; code: string }
     | { status: "inactive" }
     | { status: "subscription_inactive" }
-    | {
-          status: "ready";
-          business: PublicBusiness;
-          resolved: ResolvedCollections;
-          tenantLogoUrl: string | null;
-          openingHours?: OpeningHoursEntry[];
-          upcomingClosures?: UpcomingClosure[];
-          allergens: Allergen[] | null;
-          effectiveLanguage: string;
-          baseLanguage: string;
-          availableLanguages: AvailableLanguage[];
-          /** Gate del tab "storia" (has_story dal catalogo). */
-          hasStory: boolean;
-          isRefetching?: boolean;
-          /** True quando il payload corrente è "stale":
-              - proviene dalla cache localStorage (fallback offline), OPPURE
-              - proviene da snapshot Redis lato server (header
-                `x-cataloglobe-source: stale`).
-              In entrambi i casi il banner ambra è mostrato. */
-          isStale?: boolean;
-          /** Codice lingua richiesto da un cambio-lingua fallito (Supabase down
-              + nessuna cache localStorage per quella lingua). Quando valorizzato
-              la pagina RESTA sul contenuto già visibile (questo stato `ready`,
-              non toccato) e mostra `LanguageFallbackBanner`. Null/undefined =
-              nessun degrado attivo. Distinto da `isStale`: qui il contenuto è
-              fresco, solo il *cambio* verso un'altra lingua non è riuscito.
-              Vedi PublicCollectionPage ramo `network_error`. */
-          langSwitchFailed?: string | null;
-      }
-    | {
-          status: "empty";
-          business: PublicBusiness;
-          tenantLogoUrl: string | null;
-      };
+    | ({ status: "ready" } & CatalogPageData)
+    | ({ status: "empty" } & CatalogPageData);
 
 /** Sottoinsieme di PageState producibile da un payload di successo. */
 export type DerivedPageState = Extract<
@@ -70,6 +74,12 @@ export type DerivedPageState = Extract<
 
 /** Stato "ready" completo — prop `data` di PublicCatalogReady. */
 export type ReadyPageData = Extract<PageState, { status: "ready" }>;
+
+/** Sede pubblicata senza contenuti da mostrare — stessa prop `data`. */
+export type EmptyPageData = Extract<PageState, { status: "empty" }>;
+
+/** Unione renderizzabile da PublicCatalogReady (catalogo pieno o vuoto). */
+export type CatalogRenderData = ReadyPageData | EmptyPageData;
 
 export type ResolveRedirectOpts = {
     /** Payload da cache localStorage: i redirect sono già stati risolti
@@ -139,13 +149,16 @@ export function derivePageState(
         return { status: "inactive" };
     }
 
-    if (
+    // Sede pubblicata ma senza nulla da mostrare (nessun catalogo risolto —
+    // regola assente, oppure catalogo collegato ma senza prodotti renderabili,
+    // che il resolver scarta via hasRenderableItems — e nessun featured).
+    // Non è un errore: è lo stato normale di chi ha appena finito il setup.
+    // Stessi dati dello stato `ready`, solo senza contenuto: la pagina rende
+    // intestazione + messaggio, mai un 404.
+    const isEmpty =
         !resolved.catalog &&
         (!resolved.featured?.before_catalog || resolved.featured.before_catalog.length === 0) &&
-        (!resolved.featured?.after_catalog || resolved.featured.after_catalog.length === 0)
-    ) {
-        return { status: "empty", business, tenantLogoUrl };
-    }
+        (!resolved.featured?.after_catalog || resolved.featured.after_catalog.length === 0);
 
     const baseLang = base_language_code ?? "it";
     const effectiveLang = effective_language ?? baseLang;
@@ -163,7 +176,7 @@ export function derivePageState(
     const menuHoursVisible = business.hours_public === true;
 
     return {
-        status: "ready",
+        status: isEmpty ? "empty" : "ready",
         business,
         resolved,
         tenantLogoUrl,

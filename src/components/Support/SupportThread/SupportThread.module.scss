@@ -1,4 +1,4 @@
-// Thread di supporto — lista a larghezza piena, un blocco per messaggio.
+// Thread di supporto — bolle allineate per parte, una per messaggio.
 // Solo token di _theme.scss: il componente vive in due aree con temi
 // commutabili (business e admin) e non deve portarsi dietro colori propri.
 
@@ -10,32 +10,114 @@
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+
+  // Padding asimmetrico, e non è una svista: i quattro lati hanno vicini
+  // diversi, quindi imporgli lo stesso numero darebbe distanze APPARENTI
+  // diverse.
+  //
+  //   sinistra 0  — non c'è niente da cui staccarsi. La bolla si appoggia al
+  //                 bordo, che è la stessa colonna dove iniziano titolo e
+  //                 sottotitolo della pagina: allineata al resto invece che
+  //                 rientrata di un valore arbitrario.
+  //   destra  12px — qui invece un vicino c'è, la scrollbar. Vive nel border
+  //                 box, fuori dal padding, quindi 12px è la distanza reale
+  //                 fra la bolla e la barra.
+  //   sopra    4px — filo di respiro sotto l'intestazione della pagina.
+  //   sotto   14px — il composer ha già 16px di padding-top oltre al suo
+  //                 border-top: con 4px l'ultima bolla gli restava appiccicata
+  //                 mentre lo spazio sotto la linea era il quadruplo.
+  padding: 4px 12px 14px 0;
+
+  // `stable` e NON `both-edges`: quest'ultimo riservava il posto della barra
+  // anche a SINISTRA, dove una barra non comparirà mai — il risultato erano
+  // ~15px di gutter fantasma sommati al padding, cioè il doppio di spazio
+  // rispetto a destra. Era la causa dello sbilanciamento.
+  //
+  // `stable` resta perché evita il salto laterale di tutte le bolle nel momento
+  // in cui il thread supera l'altezza disponibile e la barra compare.
+  scrollbar-gutter: stable;
 }
 
+// Il gap è l'unico separatore fra i messaggi: nessuna linea divisoria, che
+// sarebbe ridondante ora che ogni bolla ha una superficie propria — tinta la
+// propria parte, chiara con bordo l'altra.
+//
+// Regge anche il caso peggiore, due messaggi di fila dallo stesso lato e dello
+// stesso autore: hanno bordi arrotondati, un fondo distinto dalla pagina e
+// un'intestazione in grassetto ciascuno, quindi il confine si vede senza
+// bisogno di alternanza. Il gap (14px) è deliberatamente maggiore del padding
+// verticale interno (10px): lo spazio FRA due messaggi deve battere quello
+// DENTRO un messaggio, altrimenti il raggruppamento si legge al contrario.
 .list {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
+  gap: 14px;
 }
 
+// La bolla. `max-width: 76%` e non larghezza piena: la riga corta è ciò che
+// rende leggibile l'alternanza dei lati — a larghezza piena l'allineamento non
+// si vedrebbe affatto.
+//
+// `align-self` è il solo meccanismo di posizionamento: la lista è già un flex
+// column, quindi non serve un wrapper per riga.
 .message {
-  padding: 16px 0;
+  max-width: 76%;
+  align-self: flex-start;
+  padding: 10px 14px;
 
-  // Separatore fra i messaggi, non attorno: nessuna linea in cima al primo
-  // né in fondo all'ultimo, dove toccherebbe il bordo del contenitore.
-  & + .message {
-    border-top: 1px solid var(--border, #e2e8f0);
-  }
+  // Angolo vivo verso la propria parte, come nel mockup B. 3px e non 0: uno
+  // spigolo netto stona con gli altri tre arrotondati, mentre 3px legge come
+  // "puntato verso" senza diventare una punta. È il raggio già usato dai badge
+  // in DESIGN.md, quindi resta dentro la scala.
+  border-radius: 12px 12px 12px 3px;
 }
 
+// ── VARIANTE IN PROVA: il tono segue il LATO, non l'autore ──────────────────
+// La propria parte tinta e a destra, l'altra chiara e a sinistra, su entrambi
+// i lati. È la convenzione che tutti riconoscono da qualunque app di messaggi,
+// e il layout diventa perfettamente speculare fra cliente e piattaforma.
+//
+// Il costo, dichiarato: il tono ora RIPETE la posizione invece di aggiungere
+// informazione. Nella versione precedente il colore seguiva l'autore, quindi
+// un messaggio del supporto restava tinto da entrambe le viste e diceva
+// qualcosa che la posizione non diceva. Qui non più.
+//
+// A reggere la distinzione resta il NOME che apre ogni messaggio ("Supporto"
+// oppure il nome della persona): è quello il canale che non dipende né dal
+// colore né dall'allineamento, e nessuno dei due viene annunciato da uno
+// screen reader.
+//
+// PER TORNARE INDIETRO: sostituire i due selettori qui sotto con
+// `[data-author="platform"]` e `[data-author="customer"]`. Nient'altro cambia.
+.message[data-side="own"] {
+  align-self: flex-end;
+  border-radius: 12px 12px 3px 12px;
+  background: var(--brand-primary-soft);
+
+  // Bordo trasparente e non assente: la bolla dell'altra parte ne ha uno da
+  // 1px, e senza questo le due forme avrebbero altezze e larghezze diverse a
+  // parità di contenuto.
+  border: 1px solid transparent;
+}
+
+// `--card-bg` più un filo di `--border`: stacca dallo sfondo della pagina in
+// entrambi i temi, dove un fondo trasparente lascerebbe una bolla senza forma.
+.message[data-side="other"] {
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+}
+
+// Una riga sola: nome · orario. `flex-wrap` resta per le larghezze strette,
+// dove l'orario va a capo invece di comprimere il nome.
 .header {
   display: flex;
   align-items: baseline;
   flex-wrap: wrap;
-  gap: 8px;
-  margin-bottom: 6px;
+  gap: 6px;
+  margin-bottom: 4px;
 }
 
 .author {
@@ -44,35 +126,46 @@
   color: var(--text);
 }
 
-// Badge della piattaforma. Assolve una funzione di sicurezza, non decorativa:
-// è il segno che distingue una risposta ufficiale da un messaggio scritto da
-// un membro dell'azienda, e per questo non è replicabile lato cliente
-// (`author_kind` è vincolato dalle policy INSERT).
-.badge {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  padding: 3px 7px;
-  border-radius: 999px;
-  color: var(--brand-primary);
-  background: var(--brand-primary-soft);
-  white-space: nowrap;
-}
-
 .role {
   font-size: 12px;
   color: var(--text);
   opacity: 0.6;
 }
 
-// Spinta a destra: la colonna sinistra dell'header resta l'identità di chi
-// scrive, che è ciò che si scorre leggendo.
+// "tu" fra i propri colleghi. Stesso trattamento muted del resto
+// dell'intestazione: è un chiarimento, non un'enfasi — chi scrive lo sa già,
+// serve a chi legge per orientarsi fra più nomi della stessa azienda.
+// Il punto mediano sta in `::before` come per l'orario, così l'intestazione
+// resta una sequenza uniforme `Nome · tu · ora`.
+.you {
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.6;
+
+  &::before {
+    content: "·";
+    margin-right: 6px;
+  }
+}
+
+// Accanto al nome, non spinto a destra: su una colonna larga l'orario finiva a
+// mezzo schermo dall'autore e smetteva di appartenere al messaggio.
+//
+// Il punto mediano è in `::before` e non nel markup: è un separatore
+// tipografico, e uno screen reader che lo leggesse ad alta voce fra il nome e
+// l'ora aggiungerebbe rumore. Stessa forma dei metadati in linea già usati nel
+// repo (`Iniziato … · Risolto …` in StatusPage, `azienda · sede · data` nella
+// coda supporto).
 .time {
-  margin-left: auto;
   font-size: 12px;
   color: var(--text);
   opacity: 0.6;
   white-space: nowrap;
+
+  &::before {
+    content: "·";
+    margin-right: 6px;
+  }
 }
 
 .body {

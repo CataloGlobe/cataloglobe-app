@@ -484,6 +484,31 @@
         "no_times": "Keine Uhrzeiten für das ausgewählte Datum verfügbar.",
         "time_slot_group": "Zeitfenster",
         "select_time": "Uhrzeit auswählen",
-        "soldout_tag": "ausgebucht"
+        "soldout_tag": "ausgebucht",
+        "cancel": {
+            "doc_title": "{{brand}} · Reservierung stornieren",
+            "title": "Reservierung stornieren",
+            "loading": "Wird geladen…",
+            "invalid_title": "Ungültiger Link",
+            "invalid_text": "Dieser Link ist ungültig oder nicht mehr nutzbar. Um eine Reservierung zu stornieren, kontaktieren Sie den Standort direkt.",
+            "error_title": "Vorgang fehlgeschlagen",
+            "error_text": "Bitte versuchen Sie es gleich noch einmal.",
+            "rate_limited_text": "Zu viele Versuche. Bitte versuchen Sie es in einigen Minuten erneut.",
+            "confirm_title": "Reservierung stornieren?",
+            "confirm_text": "Prüfen Sie die Angaben unten. Die Stornierung ist endgültig: für einen neuen Termin müssen Sie erneut reservieren.",
+            "confirm_button": "Ja, Reservierung stornieren",
+            "confirming": "Wird storniert…",
+            "keep_button": "Nein, Reservierung behalten",
+            "done_title": "Reservierung storniert",
+            "done_text": "Wir haben den Standort benachrichtigt. Danke für die Nachricht.",
+            "already_title": "Reservierung bereits storniert",
+            "already_text": "Diese Reservierung ist bereits storniert. Sie müssen nichts weiter tun.",
+            "closed_title": "Zu spät für eine Online-Stornierung",
+            "closed_text": "Die reservierte Uhrzeit ist nah.",
+            "closed_call": "Rufen Sie den Standort an, um zu stornieren.",
+            "closed_contact": "Kontaktieren Sie den Standort direkt, um zu stornieren.",
+            "not_cancellable_title": "Reservierung nicht stornierbar",
+            "not_cancellable_text": "Diese Reservierung kann hier nicht storniert werden."
+        }
     }
 }

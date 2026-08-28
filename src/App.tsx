@@ -39,6 +39,10 @@ import StatusPage from "./pages/Status/StatusPage";
 const StatusIncidentsAdminPage = lazy(
     () => import("./pages/Admin/StatusIncidents/StatusIncidentsPage")
 );
+const SupportQueuePage = lazy(() => import("./pages/Admin/Support/SupportQueuePage"));
+const SupportTicketAdminPage = lazy(
+    () => import("./pages/Admin/Support/SupportTicketAdminPage")
+);
 
 // Workspace — lazy (solo utenti autenticati)
 const WorkspacePage = lazy(() => import("./pages/Workspace/WorkspacePage"));
@@ -73,6 +77,8 @@ const Highlights = lazy(() => import("./pages/Dashboard/Highlights/Highlights"))
 const FeaturedContentDetailPage = lazy(() => import("./pages/Dashboard/Highlights/FeaturedContentDetailPage"));
 const Stories = lazy(() => import("./pages/Dashboard/Stories/Stories"));
 const StoryDetailPage = lazy(() => import("./pages/Dashboard/Stories/StoryDetailPage"));
+const Support = lazy(() => import("./pages/Dashboard/Support/Support"));
+const SupportTicketPage = lazy(() => import("./pages/Dashboard/Support/SupportTicketPage"));
 const Styles = lazy(() => import("./pages/Dashboard/Styles/Styles"));
 const StyleEditorPage = lazy(() => import("./pages/Dashboard/Styles/StyleEditorPage"));
 const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/ActivityDetailPage"));
@@ -258,6 +264,11 @@ export default function App() {
 
                 <Route path="attributes" element={<Navigate to="../products?tab=attributes" replace />} />
 
+                <Route path="support">
+                    <Route index element={<Support />} />
+                    <Route path=":ticketId" element={<SupportTicketPage />} />
+                </Route>
+
                 <Route path="reviews" element={<Reviews />} />
                 <Route path="analytics" element={<AnalyticsPage />} />
 
@@ -293,6 +304,10 @@ export default function App() {
             >
                 <Route index element={<Navigate to="status-incidents" replace />} />
                 <Route path="status-incidents" element={<StatusIncidentsAdminPage />} />
+                <Route path="supporto">
+                    <Route index element={<SupportQueuePage />} />
+                    <Route path=":ticketId" element={<SupportTicketAdminPage />} />
+                </Route>
             </Route>
 
             {/* CUSTOMER ORDERING — QR bootstrap (DEVE precedere /:slug catch-all) */}
