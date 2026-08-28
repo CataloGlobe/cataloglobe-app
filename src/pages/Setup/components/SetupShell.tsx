@@ -31,8 +31,15 @@ type SetupShellProps = {
     primaryLoading?: boolean;
     /** Usato solo quando `formId` è assente (passo senza form). */
     onPrimaryClick?: () => void;
-    /** Nasconde il primario quando il passo ha un flusso proprio (es. pannello import). */
-    hidePrimary?: boolean;
+    /**
+     * Il passo monta un componente che porta intestazione e azioni proprie (il
+     * pannello di import AI): la shell cede la cornice invece di raddoppiarla.
+     * Spariscono titolo, sottotitolo e footer; l'area contenuto perde padding e
+     * gap e cede lo scroll al figlio, che riceve così tutta l'altezza del
+     * dialogo. `title` resta richiesto: diventa l'etichetta accessibile del
+     * dialogo, che senza intestazione visibile non avrebbe più un nome.
+     */
+    chromeless?: boolean;
     /** Azione secondaria a sinistra del primario (es. "Indietro"). */
     secondaryLabel?: string;
     onSecondaryClick?: () => void;
@@ -56,7 +63,7 @@ export function SetupShell({
     primaryDisabled = false,
     primaryLoading = false,
     onPrimaryClick,
-    hidePrimary = false,
+    chromeless = false,
     secondaryLabel,
     onSecondaryClick,
     closeWarning,
@@ -95,7 +102,10 @@ export function SetupShell({
                 className={styles.dialog}
                 role="dialog"
                 aria-modal="true"
-                aria-labelledby="setup-step-title"
+                // Senza intestazione visibile non c'è un elemento da referenziare:
+                // il nome del dialogo passa dal titolo del passo.
+                aria-labelledby={chromeless ? undefined : "setup-step-title"}
+                aria-label={chromeless ? title : undefined}
                 tabIndex={-1}
             >
                 <aside className={styles.sidebar}>
@@ -146,51 +156,55 @@ export function SetupShell({
                 </aside>
 
                 <div className={styles.main}>
-                    <div className={styles.content}>
-                        <header className={styles.contentHeader}>
-                            <Text as="h1" id="setup-step-title" variant="title-md" weight={700}>
-                                {title}
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                {subtitle}
-                            </Text>
-                        </header>
+                    <div className={styles.content} data-chromeless={chromeless || undefined}>
+                        {!chromeless && (
+                            <header className={styles.contentHeader}>
+                                <Text as="h1" id="setup-step-title" variant="title-md" weight={700}>
+                                    {title}
+                                </Text>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    {subtitle}
+                                </Text>
+                            </header>
+                        )}
 
                         {children}
                     </div>
 
-                    <footer className={styles.footer}>
-                        <Text variant="caption" colorVariant="muted">
-                            {stepCounter}
-                        </Text>
-                        <div className={styles.footerActions}>
-                            {secondaryLabel && (
-                                <Button variant="secondary" onClick={onSecondaryClick}>
-                                    {secondaryLabel}
-                                </Button>
-                            )}
-                            {hidePrimary ? null : formId ? (
-                                <Button
-                                    variant="primary"
-                                    type="submit"
-                                    form={formId}
-                                    loading={primaryLoading}
-                                    disabled={primaryDisabled}
-                                >
-                                    {primaryLabel}
-                                </Button>
-                            ) : (
-                                <Button
-                                    variant="primary"
-                                    onClick={onPrimaryClick}
-                                    loading={primaryLoading}
-                                    disabled={primaryDisabled}
-                                >
-                                    {primaryLabel}
-                                </Button>
-                            )}
-                        </div>
-                    </footer>
+                    {!chromeless && (
+                        <footer className={styles.footer}>
+                            <Text variant="caption" colorVariant="muted">
+                                {stepCounter}
+                            </Text>
+                            <div className={styles.footerActions}>
+                                {secondaryLabel && (
+                                    <Button variant="secondary" onClick={onSecondaryClick}>
+                                        {secondaryLabel}
+                                    </Button>
+                                )}
+                                {formId ? (
+                                    <Button
+                                        variant="primary"
+                                        type="submit"
+                                        form={formId}
+                                        loading={primaryLoading}
+                                        disabled={primaryDisabled}
+                                    >
+                                        {primaryLabel}
+                                    </Button>
+                                ) : (
+                                    <Button
+                                        variant="primary"
+                                        onClick={onPrimaryClick}
+                                        loading={primaryLoading}
+                                        disabled={primaryDisabled}
+                                    >
+                                        {primaryLabel}
+                                    </Button>
+                                )}
+                            </div>
+                        </footer>
+                    )}
                 </div>
 
                 {isConfirmOpen && (

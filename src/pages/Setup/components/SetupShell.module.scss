@@ -167,6 +167,15 @@
     gap: 20px;
 }
 
+/* Il passo porta una cornice propria: l'area contenuto si fa da parte e gli
+   passa tutta l'altezza del dialogo. Lo scroll torna al figlio — averlo qui
+   significherebbe due barre annidate, e la sua intestazione scorrerebbe via. */
+.content[data-chromeless] {
+    padding: 0;
+    gap: 0;
+    overflow: hidden;
+}
+
 .contentHeader {
     display: flex;
     flex-direction: column;

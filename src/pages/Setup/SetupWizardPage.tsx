@@ -310,7 +310,11 @@ export default function SetupWizardPage() {
             primaryLoading={isSaving}
             primaryDisabled={!isPublishStep && (formId === undefined || isSaving)}
             onPrimaryClick={isPublishStep ? handlePublishPrimary : undefined}
-            hidePrimary={isImportPanelOpen}
+            // Il pannello di import porta intestazione, indicatore di fase e
+            // azioni proprie: la shell cede la cornice invece di raddoppiarla.
+            // "Indietro" non manca a nessuno — "Annulla" e "Ricomincia" del
+            // pannello riportano già al bivio.
+            chromeless={isImportPanelOpen}
             secondaryLabel={isCatalogStep ? "Indietro" : undefined}
             onSecondaryClick={handleBackFromCatalog}
             closeWarning={
