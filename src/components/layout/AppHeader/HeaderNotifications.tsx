@@ -26,6 +26,19 @@ function resolveTargetPath(notification: Notification, fallbackTenantId: string 
             notification.tenant_id ?? fallbackTenantId;
         if (tenantId) return `/business/${tenantId}/reservations`;
     }
+    // Risposta del supporto: qui il deep link al singolo thread serve davvero
+    // — a differenza delle prenotazioni, la lista non mostra il contenuto, e
+    // il messaggio da leggere è dentro la conversazione.
+    if (notification.event_type === "support.reply") {
+        const tenantId = notification.tenant_id ?? fallbackTenantId;
+        const ticketId = notification.data?.ticket_id;
+        if (tenantId && typeof ticketId === "string" && ticketId.length > 0) {
+            return `/business/${tenantId}/support/${ticketId}`;
+        }
+        // `data` malformato o ticket_id assente: si ripiega sulla lista, che
+        // è comunque il posto giusto. Meglio di un click che non fa nulla.
+        if (tenantId) return `/business/${tenantId}/support`;
+    }
     return null;
 }
 
