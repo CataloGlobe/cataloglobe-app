@@ -1,6 +1,12 @@
 // @ts-nocheck
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { Resend } from "npm:resend@4";
+import { COMPANY } from "../_shared/company-config.ts";
+import { formatDateIt, formatTimeIt } from "../_shared/emailFormat.ts";
+import { buildReservationsDashboardUrl } from "../_shared/publicSiteUrl.ts";
+import { resolveAlertRecipients } from "../_shared/reservationAlertRecipients.ts";
+import { buildReservationCancelledByCustomerEmail } from "../_shared/reservationEmails.ts";
 import {
     checkRateLimit,
     extractClientIp,
@@ -55,6 +61,8 @@ const RATE_LIMIT_CANCEL_PER_TOKEN = 5;
 const RATE_LIMIT_CANCEL_WINDOW_SECONDS = 300;
 const RATE_LIMIT_IP_PER_HOUR = 60;
 const RATE_LIMIT_IP_WINDOW_SECONDS = 3600;
+
+const resend = new Resend(Deno.env.get("RESEND_API_KEY")!);
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -126,6 +134,160 @@ function publicPhoneOf(activity: { phone?: string | null; phone_public?: boolean
     if (activity.phone_public !== true) return null;
     const phone = typeof activity.phone === "string" ? activity.phone.trim() : "";
     return phone.length > 0 ? phone : null;
+}
+
+interface VenueNotificationArgs {
+    reservationId: string;
+    activity: {
+        id: string;
+        tenant_id: string;
+        name: string;
+        reservation_notification_emails: string[] | null;
+    };
+    customerName: string;
+    reservationDate: string;
+    reservationTime: string;
+    partySize: number;
+}
+
+/**
+ * Tells the venue that a diner cancelled: email to the alert recipients plus
+ * an in-app notification to everyone with `reservations.manage` on the site.
+ *
+ * Same two channels, same recipients and same best-effort contract as the
+ * new-booking alert in `submit-reservation` — a cancellation that only some of
+ * them hear about would be worse than useless during service.
+ *
+ * Never throws. Every failure is logged; the caller has already committed the
+ * cancellation and must return success regardless.
+ */
+async function notifyVenueOfCancellation(
+    supabase: ReturnType<typeof createClient>,
+    args: VenueNotificationArgs
+): Promise<void> {
+    const { reservationId, activity, customerName, reservationDate, reservationTime, partySize } =
+        args;
+
+    // Email agli stessi destinatari dell'avviso di nuova prenotazione.
+    try {
+        const recipients = await resolveAlertRecipients(
+            supabase,
+            {
+                tenant_id: activity.tenant_id,
+                reservation_notification_emails: activity.reservation_notification_emails
+            },
+            "cancel-reservation-public"
+        );
+        if (!recipients) {
+            console.warn(
+                `[cancel-reservation-public] no alert recipient resolvable (reservation_id=${reservationId}, activity_id=${activity.id}). Skipping email.`
+            );
+        } else {
+            const emailBody = buildReservationCancelledByCustomerEmail({
+                activityName: activity.name,
+                customerName,
+                reservationDate,
+                reservationTime,
+                partySize,
+                dashboardUrl: buildReservationsDashboardUrl(activity.tenant_id)
+            });
+            const results = await Promise.allSettled(
+                recipients.emails.map(to =>
+                    resend.emails.send({
+                        from: COMPANY.email.sender,
+                        reply_to: COMPANY.contact.support,
+                        to,
+                        subject: emailBody.subject,
+                        html: emailBody.html,
+                        text: emailBody.text
+                    })
+                )
+            );
+            results.forEach((r, i) => {
+                if (r.status === "rejected") {
+                    console.error(
+                        `[cancel-reservation-public] venue email failed for ${recipients.emails[i]}:`,
+                        r.reason
+                    );
+                }
+            });
+        }
+    } catch (mailErr) {
+        console.error("[cancel-reservation-public] venue email step failed:", mailErr);
+    }
+
+    // Notifica in-app: stessa risoluzione destinatari di submit-reservation.
+    try {
+        const { data: recipientIds, error: rpcError } = await supabase.rpc(
+            "get_users_with_activity_permission",
+            { p_permission_id: "reservations.manage", p_activity_id: activity.id }
+        );
+
+        if (rpcError) {
+            console.error(
+                "[cancel-reservation-public] notification recipient lookup failed:",
+                rpcError
+            );
+            return;
+        }
+
+        const userIds: string[] = Array.isArray(recipientIds)
+            ? (recipientIds as unknown[])
+                  .map(v =>
+                      typeof v === "string"
+                          ? v
+                          : v && typeof v === "object" && "user_id" in v
+                              ? String((v as { user_id: unknown }).user_id)
+                              : ""
+                  )
+                  .filter(v => v.length > 0)
+            : [];
+
+        if (userIds.length === 0) {
+            console.log(
+                `[cancel-reservation-public] no notification recipients (reservation_id=${reservationId}, activity_id=${activity.id}).`
+            );
+            return;
+        }
+
+        const dateIt = formatDateIt(reservationDate);
+        const timeIt = formatTimeIt(reservationTime);
+        const rows = userIds.map(uid => ({
+            user_id: uid,
+            tenant_id: activity.tenant_id,
+            event_type: "reservation.cancelled_by_customer",
+            // `warning`, non `info`: un tavolo che si libera durante il
+            // servizio è qualcosa su cui la sala deve agire, non una riga
+            // da leggere con calma.
+            type: "warning",
+            title: "Prenotazione annullata dal cliente",
+            message: `${customerName} · ${dateIt} ${timeIt} · ${partySize} p.`,
+            data: {
+                reservation_id: reservationId,
+                activity_id: activity.id,
+                activity_name: activity.name,
+                customer_name: customerName,
+                reservation_date: reservationDate,
+                reservation_time: reservationTime,
+                party_size: partySize,
+                cancelled_by: "customer"
+            }
+        }));
+
+        const { error: insertNotifError } = await supabase.from("notifications").insert(rows);
+        if (insertNotifError) {
+            console.error(
+                "[cancel-reservation-public] notification fan-out insert failed:",
+                insertNotifError
+            );
+        } else {
+            console.log(
+                `[cancel-reservation-public] notification fan-out (reservation_id=${reservationId}, count=${rows.length}).`
+            );
+        }
+    } catch (notifErr) {
+        console.error("[cancel-reservation-public] notification fan-out failed:", notifErr);
+    }
 }
 
 serve(async (req: Request) => {
@@ -214,7 +376,8 @@ serve(async (req: Request) => {
             .from("reservations")
             .select(
                 "id, status, reservation_date, reservation_time, party_size, customer_name, " +
-                "activity:activities!inner(name, phone, phone_public, reservation_cancellation_cutoff_minutes)"
+                "activity:activities!inner(id, tenant_id, name, slug, phone, phone_public, " +
+                "reservation_cancellation_cutoff_minutes, reservation_notification_emails)"
             )
             .eq("id", reservationId)
             .maybeSingle();
@@ -231,10 +394,14 @@ serve(async (req: Request) => {
         }
 
         const activity = reservation.activity as {
+            id: string;
+            tenant_id: string;
             name: string;
+            slug: string | null;
             phone: string | null;
             phone_public: boolean | null;
             reservation_cancellation_cutoff_minutes: number | null;
+            reservation_notification_emails: string[] | null;
         };
 
         // ── Cutoff, computed from the DB row ───────────────────────────
@@ -323,6 +490,25 @@ serve(async (req: Request) => {
         console.log(
             `[cancel-reservation-public] reservation ${updated.id} cancelled by customer.`
         );
+
+        // ── Avviso alla sede ───────────────────────────────────────────
+        // La pagina dice al cliente "Abbiamo avvisato la sede", e quella
+        // frase deve essere vera. Due canali, entrambi tentati, entrambi
+        // best-effort: il tavolo è già libero e la disdetta è già scritta,
+        // quindi un guasto di Resend non deve trasformarsi in un errore
+        // mostrato a chi ha appena fatto la cosa giusta.
+        //
+        // Vale solo per l'annullamento appena avvenuto: il ramo idempotente
+        // sopra ritorna prima, perché la sede era già stata avvisata la
+        // prima volta e un secondo click non è una seconda notizia.
+        await notifyVenueOfCancellation(supabase, {
+            reservationId: updated.id as string,
+            activity,
+            customerName: reservation.customer_name as string,
+            reservationDate: reservation.reservation_date as string,
+            reservationTime: reservation.reservation_time as string,
+            partySize: reservation.party_size as number
+        });
 
         return jsonResponse(
             {

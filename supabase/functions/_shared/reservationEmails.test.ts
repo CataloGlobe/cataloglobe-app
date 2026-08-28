@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+    buildReservationCancelledByCustomerEmail,
     buildReservationConfirmedEmail,
     buildReservationOutcomeEmail,
     buildReservationReceiptEmail,
@@ -23,6 +24,11 @@ const XSS_NAME = `<script>alert("x")</script> & 'Mario'`;
 // Shape produced by buildReservationsDashboardUrl(tenantId).
 const DASHBOARD_URL =
     "https://cataloglobe.com/business/11111111-2222-3333-4444-555555555555/reservations";
+
+/** Corpo della card, escluso il footer condiviso (che ha i link di CataloGlobe). */
+function cardBody(html: string): string {
+    return html.split("border-top")[0];
+}
 
 function expectNonEmptyContent(email: ReservationEmailContent): void {
     expect(email.subject.length).toBeGreaterThan(0);
@@ -62,6 +68,33 @@ const ALL_BUILDERS: ReadonlyArray<[string, (over?: Partial<ReservationEmailBase>
                 dashboardUrl: DASHBOARD_URL,
                 variant: "autoConfirmed"
             })
+    ],
+    [
+        "cancelledByCustomer",
+        over =>
+            buildReservationCancelledByCustomerEmail({
+                ...BASE,
+                ...over,
+                dashboardUrl: DASHBOARD_URL
+            })
+    ]
+];
+
+const CANCEL_URL =
+    "https://cataloglobe.com/trattoria-da-ciro/prenotazione/annulla?token=v1.abc.def";
+
+/** I due soli builder che portano il link di disdetta al cliente. */
+const CANCEL_LINK_BUILDERS: ReadonlyArray<
+    [string, (cancelUrl: string | null | undefined) => ReservationEmailContent]
+> = [
+    ["receipt", cancelUrl => buildReservationReceiptEmail({ ...BASE, cancelUrl })],
+    [
+        "confirmed:auto",
+        cancelUrl => buildReservationConfirmedEmail({ ...BASE, cancelUrl, variant: "auto" })
+    ],
+    [
+        "confirmed:manual",
+        cancelUrl => buildReservationConfirmedEmail({ ...BASE, cancelUrl, variant: "manual" })
     ]
 ];
 
@@ -281,6 +314,103 @@ describe("reservation email builders (_shared)", () => {
             const email = venue(null, "<b>urgente</b>");
             expect(email.html).not.toContain("<b>urgente</b>");
             expect(email.html).toContain("&lt;b&gt;urgente&lt;/b&gt;");
+        });
+    });
+
+    describe("link di disdetta al cliente", () => {
+        describe.each(CANCEL_LINK_BUILDERS)("%s", (_name, build) => {
+            it("rende un'ancora quando l'URL è disponibile", () => {
+                const email = build(CANCEL_URL);
+                expect(email.html).toContain(`href="${CANCEL_URL}"`);
+                expect(email.html).toContain("Annulla la prenotazione");
+                expect(email.text).toContain(CANCEL_URL);
+            });
+
+            it.each([
+                ["null", null],
+                ["undefined", undefined]
+            ])("senza URL (%s) resta una frase, e l'email parte comunque", (_label, value) => {
+                const email = build(value);
+                expect(cardBody(email.html)).not.toContain("<a href");
+                expect(email.html).toContain("Contatta direttamente la sede");
+                expect(email.text).toContain("Contatta direttamente la sede");
+                expectNonEmptyContent(email);
+            });
+
+            it.each([
+                "javascript:alert(1)",
+                "data:text/html,<script>alert(1)</script>",
+                "ftp://example.com/x",
+                "non-un-url"
+            ])("rifiuta lo schema non http(s) %j e degrada a testo", value => {
+                const email = build(value);
+                expect(cardBody(email.html)).not.toContain("<a href");
+                expect(email.html).not.toContain(value);
+                expect(email.html).toContain("Contatta direttamente la sede");
+            });
+
+            it("nessun vicolo cieco: senza link dice comunque cosa fare", () => {
+                const email = build(null);
+                expect(email.text).toMatch(/Contatta direttamente la sede per annullare/);
+            });
+        });
+
+        it("le email di esito negativo NON portano il link", () => {
+            // `decline` e `cancel` chiudono la prenotazione: non c'è più nulla
+            // da annullare, e un link vivo sarebbe solo confusione.
+            for (const action of ["decline", "cancel"] as const) {
+                const email = buildReservationOutcomeEmail({ ...BASE, action });
+                expect(email.html).not.toContain("Annulla la prenotazione");
+                expect(email.html).not.toContain("prenotazione/annulla");
+            }
+        });
+    });
+
+    describe("email alla sede — annullamento del cliente", () => {
+        const build = (dashboardUrl: string | null = DASHBOARD_URL) =>
+            buildReservationCancelledByCustomerEmail({ ...BASE, dashboardUrl });
+
+        it("dice chi ha annullato e che il tavolo torna disponibile", () => {
+            const email = build();
+            expect(email.subject).toContain("Prenotazione annullata dal cliente");
+            expect(email.subject).toContain(BASE.activityName);
+            expect(email.html).toContain("Mario Rossi");
+            expect(email.html).toContain("Il tavolo torna disponibile");
+            expect(email.text).toContain("Il tavolo torna disponibile");
+        });
+
+        it("riporta i dettagli della prenotazione annullata", () => {
+            const email = build();
+            expect(email.html).toContain("<strong>Data:</strong> 15 giugno 2026");
+            expect(email.html).toContain("<strong>Ora:</strong> 20:30");
+            expect(email.html).toContain("<strong>Persone:</strong> 4");
+        });
+
+        it("collega la dashboard quando l'URL c'è, e degrada quando manca", () => {
+            expect(build().html).toContain(`href="${DASHBOARD_URL}"`);
+            const without = build(null);
+            expect(cardBody(without.html)).not.toContain("<a href");
+            expect(without.text).toContain("Vedi il dettaglio nella dashboard.");
+            expectNonEmptyContent(without);
+        });
+
+        it("non espone i contatti del cliente", () => {
+            // Il builder non li riceve nemmeno come argomento: si verifica che
+            // non compaiano indirizzi o numeri nel corpo (il footer condiviso
+            // ha i recapiti di CataloGlobe, ed è un'altra cosa).
+            const body = cardBody(build().html);
+            expect(body).not.toContain("@");
+            expect(body).not.toMatch(/\+\d/);
+        });
+
+        it("escapa i metacaratteri nel nome del cliente", () => {
+            const email = buildReservationCancelledByCustomerEmail({
+                ...BASE,
+                customerName: XSS_NAME,
+                dashboardUrl: DASHBOARD_URL
+            });
+            expect(email.html).not.toContain("<script>");
+            expect(email.html).toContain("&lt;script&gt;");
         });
     });
 });

@@ -88,3 +88,33 @@ export function buildReservationsDashboardUrl(
     if (id.length === 0) return null;
     return `${base}${RESERVATIONS_ROUTE(encodeURIComponent(id))}`;
 }
+
+// Public route of the customer cancellation page, from
+// `src/routes/publicRoutes.tsx`: `/:slug/prenotazione/annulla`, token in the
+// query string. The language-aware variant is not used here — the email is
+// composed server side and does not know which language the diner reads; the
+// page falls back to the tenant's base language, as `/:slug/prenota` does.
+const RESERVATION_CANCEL_ROUTE = (slug: string) => `/${slug}/prenotazione/annulla`;
+
+/**
+ * Absolute URL of the self-service cancellation page for one reservation, or
+ * null when the base URL is unconfigured or either argument is missing.
+ *
+ * Never throws, for the same reason as the dashboard URL above: a missing
+ * datum degrades the email to link-less copy, it does not stop it from going
+ * out. The token is percent-encoded even though the format is base64url and
+ * has nothing to escape — the encoding is the caller's guarantee, not the
+ * format's.
+ */
+export function buildReservationCancelUrl(
+    slug: string | null | undefined,
+    token: string | null | undefined
+): string | null {
+    const base = getPublicSiteUrl();
+    if (!base) return null;
+    if (typeof slug !== "string" || typeof token !== "string") return null;
+    const cleanSlug = slug.trim();
+    const cleanToken = token.trim();
+    if (cleanSlug.length === 0 || cleanToken.length === 0) return null;
+    return `${base}${RESERVATION_CANCEL_ROUTE(encodeURIComponent(cleanSlug))}?token=${encodeURIComponent(cleanToken)}`;
+}

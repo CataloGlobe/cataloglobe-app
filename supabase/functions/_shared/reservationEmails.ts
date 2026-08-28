@@ -30,6 +30,16 @@ export interface ReservationEmailBase {
     /** "HH:MM" or "HH:MM:SS". */
     reservationTime: string;
     partySize: number;
+    /**
+     * Absolute URL of the signed self-service cancellation page, or null when
+     * unavailable (base URL unconfigured, token not mintable).
+     *
+     * Optional and null-tolerant on purpose: exactly like `dashboardUrl` in
+     * the venue alert, a misconfigured deploy degrades the sentence to plain
+     * text and the email still goes out. Nobody's booking confirmation is
+     * withheld because a link could not be built.
+     */
+    cancelUrl?: string | null;
 }
 
 // --- Footer reason lines -----------------------------------------------------
@@ -112,6 +122,31 @@ function renderDetailsText(dateIt: string, timeIt: string, partySize: number): s
     return `Dettagli\nData: ${dateIt}\nOra: ${timeIt}\nPersone: ${partySize}\n`;
 }
 
+// --- Self-service cancellation sentence --------------------------------------
+//
+// Shared by the two customer emails that can carry it (receipt and
+// confirmation). Same fail-safe as the venue alert's dashboard link: a null or
+// non-http URL degrades to a plain sentence with no anchor, and the email is
+// sent regardless. The diner is told to contact the venue in that case, so the
+// paragraph is never a dead end.
+
+const CANCEL_SENTENCE_LEAD = "Non puoi più venire? ";
+
+function renderCancelSentenceHtml(cancelUrl: string | null | undefined): string {
+    const safe = typeof cancelUrl === "string" && isSafeHttpUrl(cancelUrl) ? cancelUrl : null;
+    const body = safe
+        ? `<a href="${escapeHtml(safe)}" style="color:#111827;text-decoration:underline">Annulla la prenotazione</a> in un clic.`
+        : "Contatta direttamente la sede per annullare la prenotazione.";
+    return `<p ${PARAGRAPH_NOTE}>${CANCEL_SENTENCE_LEAD}${body}</p>`;
+}
+
+function renderCancelSentenceText(cancelUrl: string | null | undefined): string {
+    const safe = typeof cancelUrl === "string" && isSafeHttpUrl(cancelUrl) ? cancelUrl : null;
+    return safe
+        ? `${CANCEL_SENTENCE_LEAD}Annulla la prenotazione da qui:\n${safe}\n`
+        : `${CANCEL_SENTENCE_LEAD}Contatta direttamente la sede per annullare la prenotazione.\n`;
+}
+
 // --- Builders ----------------------------------------------------------------
 
 /**
@@ -119,7 +154,7 @@ function renderDetailsText(dateIt: string, timeIt: string, partySize: number): s
  * `pending`. Explicitly NOT a confirmation.
  */
 export function buildReservationReceiptEmail(args: ReservationEmailBase): ReservationEmailContent {
-    const { activityName, customerName, reservationDate, reservationTime, partySize } = args;
+    const { activityName, customerName, reservationDate, reservationTime, partySize, cancelUrl } = args;
     const eActivityName = escapeHtml(activityName);
     const eCustomerName = escapeHtml(customerName);
     const dateIt = formatDateIt(reservationDate);
@@ -133,7 +168,8 @@ export function buildReservationReceiptEmail(args: ReservationEmailBase): Reserv
             `<p ${PARAGRAPH_LEAD}>Ciao ${eCustomerName},</p>`,
             `<p ${PARAGRAPH_BODY}>abbiamo ricevuto la tua richiesta di prenotazione presso <strong>${eActivityName}</strong>. Riceverai una conferma via email non appena verrà approvata dal locale.</p>`,
             renderReservationDetails(dateIt, timeIt, partySize),
-            `<p ${PARAGRAPH_NOTE}>Questo non è ancora una conferma. La prenotazione è in attesa di approvazione.</p>`
+            `<p ${PARAGRAPH_NOTE}>Questo non è ancora una conferma. La prenotazione è in attesa di approvazione.</p>`,
+            renderCancelSentenceHtml(cancelUrl)
         ],
         reason
     );
@@ -144,6 +180,8 @@ export function buildReservationReceiptEmail(args: ReservationEmailBase): Reserv
         renderDetailsText(dateIt, timeIt, partySize) +
         `\n` +
         `Questo non è ancora una conferma. La prenotazione è in attesa di approvazione.\n\n` +
+        renderCancelSentenceText(cancelUrl) +
+        `\n` +
         `${getEmailFooterText(reason)}`;
 
     return { subject, html, text };
@@ -172,7 +210,8 @@ export interface ReservationConfirmedEmailArgs extends ReservationEmailBase {
 export function buildReservationConfirmedEmail(
     args: ReservationConfirmedEmailArgs
 ): ReservationEmailContent {
-    const { activityName, customerName, reservationDate, reservationTime, partySize, variant } = args;
+    const { activityName, customerName, reservationDate, reservationTime, partySize, variant, cancelUrl } =
+        args;
     const eActivityName = escapeHtml(activityName);
     const eCustomerName = escapeHtml(customerName);
     const dateIt = formatDateIt(reservationDate);
@@ -188,7 +227,8 @@ export function buildReservationConfirmedEmail(
             renderTitle("Prenotazione confermata"),
             `<p ${PARAGRAPH_LEAD}>Ciao ${eCustomerName},</p>`,
             `<p ${PARAGRAPH_BODY}>Buone notizie! La tua ${subjectNoun} presso <strong>${eActivityName}</strong> è stata <strong>confermata</strong>. Ti aspettiamo.</p>`,
-            renderReservationDetails(dateIt, timeIt, partySize)
+            renderReservationDetails(dateIt, timeIt, partySize),
+            renderCancelSentenceHtml(cancelUrl)
         ],
         reason
     );
@@ -196,6 +236,8 @@ export function buildReservationConfirmedEmail(
         `Ciao ${customerName},\n\n` +
         `Buone notizie! La tua ${subjectNoun} presso ${activityName} è stata confermata. Ti aspettiamo.\n\n` +
         renderDetailsText(dateIt, timeIt, partySize) +
+        `\n` +
+        renderCancelSentenceText(cancelUrl) +
         `\n` +
         `${getEmailFooterText(reason)}`;
 
@@ -415,6 +457,80 @@ export function buildReservationVenueAlertEmail(
         `Ora: ${timeIt}\n` +
         `Persone: ${partySize}\n` +
         notesBlockText +
+        `\n${getEmailFooterText(reason)}`;
+
+    return { subject, html, text };
+}
+
+export interface ReservationCancelledByCustomerEmailArgs {
+    activityName: string;
+    customerName: string;
+    /** "YYYY-MM-DD". */
+    reservationDate: string;
+    /** "HH:MM" or "HH:MM:SS". */
+    reservationTime: string;
+    partySize: number;
+    /** See `buildReservationVenueAlertEmail`: null degrades to plain text. */
+    dashboardUrl: string | null;
+}
+
+/**
+ * Alert to the venue: the diner cancelled from the link in their email.
+ *
+ * A table freeing up is operational information, and the venue has no other
+ * way to learn it in time — nobody watches the dashboard continuously during
+ * service. This is the email that makes the cancellation page's "Abbiamo
+ * avvisato la sede" a statement of fact.
+ *
+ * Deliberately terse compared to the new-booking alert: no customer email or
+ * phone. Nobody is meant to call the diner back to discuss a cancellation, and
+ * the contact details are one click away in the dashboard for the rare case
+ * where they are.
+ */
+export function buildReservationCancelledByCustomerEmail(
+    args: ReservationCancelledByCustomerEmailArgs
+): ReservationEmailContent {
+    const { activityName, customerName, reservationDate, reservationTime, partySize, dashboardUrl } =
+        args;
+
+    const eActivityName = escapeHtml(activityName);
+    const eCustomerName = escapeHtml(customerName);
+    const dateIt = formatDateIt(reservationDate);
+    const timeIt = formatTimeIt(reservationTime);
+    const reason = reservationVenueAlertReason(activityName);
+
+    const safeDashboardUrl = dashboardUrl && isSafeHttpUrl(dashboardUrl) ? dashboardUrl : null;
+    const dashboardSentenceHtml = safeDashboardUrl
+        ? `Il tavolo torna disponibile. Vedi il dettaglio <a href="${escapeHtml(safeDashboardUrl)}" style="color:#111827;text-decoration:underline">nella dashboard</a>.`
+        : "Il tavolo torna disponibile. Vedi il dettaglio nella dashboard.";
+    const dashboardSentenceText = safeDashboardUrl
+        ? `Il tavolo torna disponibile. Vedi il dettaglio nella dashboard.\n${safeDashboardUrl}\n`
+        : `Il tavolo torna disponibile. Vedi il dettaglio nella dashboard.\n`;
+
+    const subject = `Prenotazione annullata dal cliente — ${activityName}`;
+    const html = renderCard(
+        [
+            renderTitle("Prenotazione annullata dal cliente"),
+            `<p ${PARAGRAPH_BODY}><strong>${eCustomerName}</strong> ha annullato la prenotazione presso <strong>${eActivityName}</strong>. ${dashboardSentenceHtml}</p>`,
+            renderInfoBlock("Prenotazione annullata", [
+                renderDetailRow("Cliente", eCustomerName),
+                renderDetailRow("Data", escapeHtml(dateIt)),
+                renderDetailRow("Ora", escapeHtml(timeIt)),
+                renderDetailRow("Persone", String(partySize))
+            ])
+        ],
+        reason
+    );
+
+    const text =
+        `${customerName} ha annullato la prenotazione presso ${activityName}.\n` +
+        dashboardSentenceText +
+        `\n` +
+        `Prenotazione annullata\n` +
+        `Cliente: ${customerName}\n` +
+        `Data: ${dateIt}\n` +
+        `Ora: ${timeIt}\n` +
+        `Persone: ${partySize}\n` +
         `\n${getEmailFooterText(reason)}`;
 
     return { subject, html, text };
