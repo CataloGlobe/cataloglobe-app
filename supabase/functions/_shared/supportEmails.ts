@@ -84,7 +84,10 @@ function renderExcerptBlock(caption: string, excerpt: string): string {
     ]);
 }
 
-const REPLY_HERE_SENTENCE = "Rispondi dal pannello: le risposte a questa email non vengono lette.";
+// The limit is stated as ours, not as the reader's message going nowhere:
+// "non possiamo risponderti" and "non vengono lette" carry the same
+// information, but only one of them is something you would say out loud.
+const REPLY_HERE_SENTENCE = "Rispondi dal pannello: da questa email non possiamo risponderti.";
 
 /**
  * Call to action plus the sentence that keeps the conversation in one place.

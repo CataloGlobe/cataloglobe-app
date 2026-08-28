@@ -132,10 +132,10 @@ describe("support email builders — shared guarantees", () => {
             it("tells the reader to answer from the panel, in both formats", () => {
                 const email = build();
                 expect(email.html).toContain(
-                    "Rispondi dal pannello: le risposte a questa email non vengono lette."
+                    "Rispondi dal pannello: da questa email non possiamo risponderti."
                 );
                 expect(email.text).toContain(
-                    "Rispondi dal pannello: le risposte a questa email non vengono lette."
+                    "Rispondi dal pannello: da questa email non possiamo risponderti."
                 );
             });
 
