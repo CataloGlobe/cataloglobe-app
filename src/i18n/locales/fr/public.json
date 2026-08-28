@@ -484,6 +484,31 @@
     "no_times": "Aucun horaire disponible pour la date sélectionnée.",
     "time_slot_group": "Créneau horaire",
     "select_time": "Sélectionnez l'heure",
-    "soldout_tag": "complet"
+    "soldout_tag": "complet",
+    "cancel": {
+      "doc_title": "{{brand}} · Annuler la réservation",
+      "title": "Annuler la réservation",
+      "loading": "Chargement…",
+      "invalid_title": "Lien invalide",
+      "invalid_text": "Ce lien n'est pas valide ou n'est plus utilisable. Pour annuler une réservation, contactez directement l'établissement.",
+      "error_title": "L'opération a échoué",
+      "error_text": "Réessayez dans un instant.",
+      "rate_limited_text": "Trop de tentatives. Réessayez dans quelques minutes.",
+      "confirm_title": "Annuler la réservation ?",
+      "confirm_text": "Vérifiez les informations ci-dessous. L'annulation est définitive : pour revenir, il faudra réserver à nouveau.",
+      "confirm_button": "Oui, annuler la réservation",
+      "confirming": "Annulation en cours…",
+      "keep_button": "Non, conserver la réservation",
+      "done_title": "Réservation annulée",
+      "done_text": "Nous avons prévenu l'établissement. Merci de nous l'avoir signalé.",
+      "already_title": "Réservation déjà annulée",
+      "already_text": "Cette réservation est déjà annulée. Vous n'avez rien à faire.",
+      "closed_title": "Trop tard pour annuler en ligne",
+      "closed_text": "L'heure réservée approche.",
+      "closed_call": "Appelez l'établissement pour annuler.",
+      "closed_contact": "Contactez directement l'établissement pour annuler.",
+      "not_cancellable_title": "Réservation non annulable",
+      "not_cancellable_text": "Cette réservation ne peut pas être annulée ici."
+    }
   }
 }

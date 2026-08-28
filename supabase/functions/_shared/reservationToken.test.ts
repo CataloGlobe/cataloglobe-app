@@ -1,9 +1,19 @@
+import { webcrypto } from "node:crypto";
 import { describe, it, expect, afterEach } from "vitest";
 import {
     InvalidReservationTokenError,
     signReservationToken,
     verifyReservationToken
 } from "./reservationToken.ts";
+
+// Il modulo gira su Deno, dove `crypto` è sempre globale. Node 18 lo espone
+// solo nel realm principale e non dentro il contesto vm in cui vitest esegue i
+// test, quindi qui va fornito a mano: senza, l'esito dipenderebbe dalla
+// versione di Node della macchina, ed è il tipo di test che passa in locale e
+// cade in CI (o viceversa).
+if (typeof globalThis.crypto === "undefined") {
+    Object.defineProperty(globalThis, "crypto", { value: webcrypto, configurable: true });
+}
 
 // The module reads RESERVATION_TOKEN_SECRET lazily on every call, so stubbing
 // `globalThis.Deno` per test is enough — no module reset needed.

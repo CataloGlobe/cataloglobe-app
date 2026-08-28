@@ -63,47 +63,8 @@
     max-width: 380px;
 }
 
-.recap {
-    width: 100%;
-    margin-top: 4px;
-    padding: 18px 18px 16px;
-    background: color-mix(in srgb, var(--pub-text) 3%, var(--pub-surface));
-    border: 1px solid color-mix(in srgb, var(--pub-text) 8%, transparent);
-    border-radius: var(--pub-btn-radius, 10px);
-    text-align: left;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.row {
-    display: grid;
-    grid-template-columns: 92px 1fr;
-    gap: 12px;
-    align-items: baseline;
-    font-size: 13px;
-    line-height: 1.4;
-}
-
-.rowLabel {
-    color: var(--pub-text-muted);
-    font-weight: 500;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    font-size: 11px;
-}
-
-.rowValue {
-    color: var(--pub-text);
-    font-weight: 500;
-    word-break: break-word;
-}
-
-.divider {
-    height: 1px;
-    background: color-mix(in srgb, var(--pub-text) 8%, transparent);
-    margin: 4px -2px;
-}
+/* Le righe di riepilogo vivono in ReservationRecap.module.scss: sono condivise
+   con la pagina di disdetta. */
 
 .statusLine {
     display: inline-flex;

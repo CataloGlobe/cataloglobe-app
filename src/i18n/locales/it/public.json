@@ -485,6 +485,31 @@
         "no_times": "Nessun orario disponibile per la data selezionata.",
         "time_slot_group": "Fascia oraria",
         "select_time": "Seleziona l'orario",
-        "soldout_tag": "esaurito"
+        "soldout_tag": "esaurito",
+        "cancel": {
+            "doc_title": "{{brand}} · Annulla prenotazione",
+            "title": "Annulla prenotazione",
+            "loading": "Caricamento…",
+            "invalid_title": "Link non valido",
+            "invalid_text": "Questo link non è valido o non è più utilizzabile. Se devi annullare una prenotazione, contatta direttamente la sede.",
+            "error_title": "Operazione non riuscita",
+            "error_text": "Riprova tra qualche istante.",
+            "rate_limited_text": "Troppi tentativi. Riprova tra qualche minuto.",
+            "confirm_title": "Vuoi annullare la prenotazione?",
+            "confirm_text": "Controlla i dati qui sotto. L'annullamento è definitivo: per tornare dovrai prenotare di nuovo.",
+            "confirm_button": "Sì, annulla la prenotazione",
+            "confirming": "Annullamento in corso…",
+            "keep_button": "No, mantieni la prenotazione",
+            "done_title": "Prenotazione annullata",
+            "done_text": "Abbiamo avvisato la sede. Grazie per averlo fatto sapere.",
+            "already_title": "Prenotazione già annullata",
+            "already_text": "Questa prenotazione risulta già annullata. Non devi fare altro.",
+            "closed_title": "Troppo tardi per annullare online",
+            "closed_text": "Manca poco all'orario prenotato.",
+            "closed_call": "Chiama la sede per annullare.",
+            "closed_contact": "Contatta direttamente la sede per annullare.",
+            "not_cancellable_title": "Prenotazione non annullabile",
+            "not_cancellable_text": "Questa prenotazione non può essere annullata da qui."
+        }
     }
 }

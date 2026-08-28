@@ -246,6 +246,117 @@ export async function submitReservation(
     return data;
 }
 
+// ─── CUSTOMER-SIDE (edge `cancel-reservation-public`, link firmato) ─────────
+
+/** Riepilogo mostrato al cliente sulla pagina di disdetta.
+ *  Volutamente ristretto: nessuna nota, nessun id di sistema, nessun contatto. */
+export interface ReservationCancellationSummary {
+    venue_name: string;
+    reservation_date: string;
+    reservation_time: string;
+    party_size: number;
+    customer_name: string;
+    status: "pending" | "confirmed" | "declined" | "cancelled" | "seated" | "no_show" | "completed";
+    can_cancel: boolean;
+    cutoff_minutes: number;
+    /** Popolato solo quando `can_cancel` è false E la sede pubblica il numero. */
+    venue_phone: string | null;
+}
+
+export interface ReadReservationCancellationResult {
+    success: true;
+    reservation: ReservationCancellationSummary;
+}
+
+export interface CancelReservationByCustomerResult {
+    success: true;
+    status: "cancelled";
+    /** true quando la prenotazione era già annullata: esito idempotente, non errore. */
+    already_cancelled: boolean;
+    reservation: ReservationCancellationSummary;
+}
+
+/**
+ * Legge il riepilogo della prenotazione a partire dal token firmato.
+ *
+ * Sola lettura: non annulla nulla e non tocca la riga. È l'operazione che i
+ * client di posta possono invocare da soli quando generano l'anteprima del
+ * link, quindi non deve avere alcun effetto.
+ *
+ * Errori (`.code` su Error):
+ *   INVALID_LINK  → 404, token non valido O prenotazione inesistente. I due
+ *                   casi sono indistinguibili per scelta: nessun oracolo.
+ *   RATE_LIMITED  → 429
+ *   SERVER_ERROR  → 500 / rete / fallback
+ */
+export async function readReservationCancellation(
+    token: string
+): Promise<ReadReservationCancellationResult> {
+    return await invokeReservationCancellation<ReadReservationCancellationResult>(token, "read");
+}
+
+/**
+ * Annulla la prenotazione dal link firmato.
+ *
+ * Il limite temporale viene ricalcolato server-side dai dati della riga: il
+ * `can_cancel` ottenuto da `readReservationCancellation` serve solo a decidere
+ * cosa disegnare, non è un input della decisione.
+ *
+ * Errori (`.code` su Error):
+ *   INVALID_LINK                → 404, come sopra
+ *   CANCELLATION_WINDOW_CLOSED  → 409, oltre il cutoff
+ *                                 (details.venue_phone, details.cutoff_minutes)
+ *   NOT_CANCELLABLE             → 409, stato non annullabile
+ *                                 (details.current_status quando disponibile)
+ *   RATE_LIMITED                → 429
+ *   SERVER_ERROR                → 500 / rete / fallback
+ */
+export async function cancelReservationByCustomer(
+    token: string
+): Promise<CancelReservationByCustomerResult> {
+    return await invokeReservationCancellation<CancelReservationByCustomerResult>(token, "cancel");
+}
+
+async function invokeReservationCancellation<T>(
+    token: string,
+    action: "read" | "cancel"
+): Promise<T> {
+    const { data, error } = await supabase.functions.invoke<T>("cancel-reservation-public", {
+        body: { token, action }
+    });
+
+    if (error) {
+        let code = "SERVER_ERROR";
+        let message: string | undefined;
+        let details: unknown;
+        if (error instanceof FunctionsHttpError) {
+            try {
+                const body = (await error.context.clone().json()) as {
+                    error_code?: unknown;
+                    message?: unknown;
+                    details?: unknown;
+                };
+                if (typeof body?.error_code === "string") code = body.error_code;
+                if (typeof body?.message === "string") message = body.message;
+                details = body?.details;
+            } catch {
+                // body not JSON → keep defaults
+            }
+        }
+        const err = new Error(message ?? code);
+        (err as Error & { code?: string; details?: unknown }).code = code;
+        (err as Error & { code?: string; details?: unknown }).details = details;
+        throw err;
+    }
+
+    if (!data) {
+        const err = new Error("Risposta vuota dal server");
+        (err as unknown as { code: string }).code = "SERVER_ERROR";
+        throw err;
+    }
+    return data;
+}
+
 // ─── ADMIN-SIDE (edge function `respond-reservation`, authenticated) ────────
 
 export type RespondReservationAction =

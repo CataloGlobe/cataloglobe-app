@@ -34,6 +34,11 @@ import PublicCollectionPage, {
 // bundle di hydration del catalogo (critico per LCP — lo paga ogni scansione).
 const ReservationPage = lazy(() => import("@pages/ReservationPage/ReservationPage"));
 
+// Idem per la disdetta: ci si arriva dal link in un'email, mai dal menu.
+const ReservationCancelPage = lazy(
+    () => import("@pages/ReservationPage/ReservationCancelPage")
+);
+
 type PublicRoutesOptions = {
     /**
      * Payload inlinato dalla shell SSR, passato solo da `entry-client.tsx`.
@@ -57,10 +62,28 @@ export function publicRoutes({ initialPayload }: PublicRoutesOptions = {}) {
         </PublicErrorBoundary>
     );
 
+    const reservationCancelElement = (
+        <PublicErrorBoundary>
+            <Suspense fallback={<AppLoader intent="public" />}>
+                <ReservationCancelPage />
+            </Suspense>
+        </PublicErrorBoundary>
+    );
+
     return [
         // Più specifiche del catch-all catalogo grazie al segmento literal.
         <Route key="/:slug/prenota" path="/:slug/prenota" element={reservationElement} />,
         <Route key="/:slug/:lang/prenota" path="/:slug/:lang/prenota" element={reservationElement} />,
+        <Route
+            key="/:slug/prenotazione/annulla"
+            path="/:slug/prenotazione/annulla"
+            element={reservationCancelElement}
+        />,
+        <Route
+            key="/:slug/:lang/prenotazione/annulla"
+            path="/:slug/:lang/prenotazione/annulla"
+            element={reservationCancelElement}
+        />,
         <Route
             key="/:slug/:lang?"
             path="/:slug/:lang?"
