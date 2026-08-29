@@ -4,6 +4,7 @@ import {
     buildReservationConfirmedEmail,
     buildReservationOutcomeEmail,
     buildReservationReceiptEmail,
+    buildReservationReminderEmail,
     buildReservationVenueAlertEmail,
     type ReservationEmailBase,
     type ReservationEmailContent,
@@ -41,6 +42,7 @@ const ALL_BUILDERS: ReadonlyArray<[string, (over?: Partial<ReservationEmailBase>
     ["receipt", over => buildReservationReceiptEmail({ ...BASE, ...over })],
     ["confirmed:auto", over => buildReservationConfirmedEmail({ ...BASE, ...over, variant: "auto" })],
     ["confirmed:manual", over => buildReservationConfirmedEmail({ ...BASE, ...over, variant: "manual" })],
+    ["reminder", over => buildReservationReminderEmail({ ...BASE, ...over })],
     ["outcome:decline", over => buildReservationOutcomeEmail({ ...BASE, ...over, action: "decline" })],
     ["outcome:cancel", over => buildReservationOutcomeEmail({ ...BASE, ...over, action: "cancel" })],
     [
@@ -95,7 +97,8 @@ const CANCEL_LINK_BUILDERS: ReadonlyArray<
     [
         "confirmed:manual",
         cancelUrl => buildReservationConfirmedEmail({ ...BASE, cancelUrl, variant: "manual" })
-    ]
+    ],
+    ["reminder", cancelUrl => buildReservationReminderEmail({ ...BASE, cancelUrl })]
 ];
 
 describe("reservation email builders (_shared)", () => {
@@ -363,6 +366,27 @@ describe("reservation email builders (_shared)", () => {
                 expect(email.html).not.toContain("Annulla la prenotazione");
                 expect(email.html).not.toContain("prenotazione/annulla");
             }
+        });
+    });
+
+    describe("promemoria della sera prima", () => {
+        it("annuncia il giorno dopo, non genericamente la prenotazione", () => {
+            const email = buildReservationReminderEmail({ ...BASE, cancelUrl: CANCEL_URL });
+            expect(email.subject).toBe("Ci vediamo domani — Trattoria da Ciro");
+            expect(email.html).toContain("prenotazione di domani");
+            expect(email.text).toContain("prenotazione di domani");
+        });
+
+        it("non si spaccia per una conferma né per una ricevuta", () => {
+            const email = buildReservationReminderEmail({ ...BASE, cancelUrl: CANCEL_URL });
+            expect(email.html).not.toContain("Richiesta di prenotazione ricevuta");
+            expect(email.html).not.toContain("è stata <strong>confermata</strong>");
+        });
+
+        it("porta il link di disdetta: è metà del motivo per cui esiste", () => {
+            const email = buildReservationReminderEmail({ ...BASE, cancelUrl: CANCEL_URL });
+            expect(email.html).toContain(`href="${CANCEL_URL}"`);
+            expect(email.text).toContain(CANCEL_URL);
         });
     });
 

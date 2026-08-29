@@ -358,7 +358,9 @@ serve(async (req: Request) => {
         // ── Token ──────────────────────────────────────────────────────
         let reservationId: string;
         try {
-            ({ reservationId } = await verifyReservationToken(rawToken));
+            // "cancel" esplicito: un token di conferma presenza non deve
+            // annullare nulla, nemmeno se qualcuno lo incolla qui.
+            ({ reservationId } = await verifyReservationToken(rawToken, "cancel"));
         } catch (tokenErr) {
             if (tokenErr instanceof InvalidReservationTokenError) {
                 // Reason logged, never returned.

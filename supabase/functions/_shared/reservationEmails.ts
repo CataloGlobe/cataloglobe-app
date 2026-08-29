@@ -206,6 +206,47 @@ export function buildReservationConfirmedEmail(
     return { subject, html, text };
 }
 
+/**
+ * Reminder sent the evening before, to a `confirmed` reservation.
+ *
+ * The point is not to inform — the diner knows they booked — but to give them
+ * a moment where cancelling is easier than forgetting. So the cancellation
+ * sentence is not a footnote here: it is half of why the email exists.
+ *
+ * Fase D adds the "confermo che vengo" button; today the email carries the
+ * recap and the cancellation link only.
+ */
+export function buildReservationReminderEmail(args: ReservationEmailBase): ReservationEmailContent {
+    const { activityName, customerName, reservationDate, reservationTime, partySize, cancelUrl } = args;
+    const eActivityName = escapeHtml(activityName);
+    const eCustomerName = escapeHtml(customerName);
+    const dateIt = formatDateIt(reservationDate);
+    const timeIt = formatTimeIt(reservationTime);
+    const reason = reservationCustomerReason(activityName);
+
+    const subject = `Ci vediamo domani — ${activityName}`;
+    const html = renderCard(
+        [
+            renderTitle("Ci vediamo domani"),
+            `<p ${PARAGRAPH_LEAD}>Ciao ${eCustomerName},</p>`,
+            `<p ${PARAGRAPH_BODY}>ti ricordiamo la tua prenotazione di domani presso <strong>${eActivityName}</strong>.</p>`,
+            renderReservationDetails(dateIt, timeIt, partySize),
+            renderCancelSentenceHtml(cancelUrl)
+        ],
+        reason
+    );
+    const text =
+        `Ciao ${customerName},\n\n` +
+        `ti ricordiamo la tua prenotazione di domani presso ${activityName}.\n\n` +
+        renderDetailsText(dateIt, timeIt, partySize) +
+        `\n` +
+        renderCancelSentenceText(cancelUrl) +
+        `\n` +
+        `${getEmailFooterText(reason)}`;
+
+    return { subject, html, text };
+}
+
 /** Non-confirming outcomes an admin can trigger from the dashboard. */
 export type ReservationOutcomeAction = "decline" | "cancel";
 

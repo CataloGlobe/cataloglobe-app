@@ -316,3 +316,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/notify-support/index.ts"
+
+[functions.send-reservation-reminders]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/send-reservation-reminders/index.ts"
