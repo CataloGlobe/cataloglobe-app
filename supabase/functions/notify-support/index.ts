@@ -238,15 +238,33 @@ serve(async (req: Request) => {
             for (const row of customerMessages ?? []) {
                 if (row.author_user_id) recipientIds.add(row.author_user_id);
             }
+            const involvedCount = recipientIds.size;
+
             // Never the author of the message being announced. Here it is a
             // platform admin, who is not in the set anyway — the deletion is
             // the invariant, not a guess about who happens to be inside.
+            //
+            // Except when it is. A user who is BOTH a platform admin and the
+            // only person involved on the customer side — one of us running a
+            // real company on the platform, or any single-account test —
+            // empties the set by replying to themselves, and gets no
+            // notification. That is intended: not sending someone the email of
+            // what they have just written is worth more than this edge case,
+            // and it holds even when a colleague answers, because that user
+            // stays the only one involved. The fix for whoever runs a real
+            // company here is two separate accounts, not a looser rule.
             if (authorUserId) recipientIds.delete(authorUserId);
 
             const recipients = [...recipientIds];
             if (recipients.length === 0) {
+                // Two different causes, and telling them apart is the whole
+                // point of the log line: one sends you looking for a deleted
+                // user, the other for a second account. Naming the wrong one
+                // costs an afternoon.
                 console.warn(
-                    `[notify-support] no customer recipient (ticket_id=${ticketId}). Ticket created_by is null and no customer message has a surviving author.`
+                    involvedCount === 0
+                        ? `[notify-support] no customer recipient (ticket_id=${ticketId}): ticket created_by is null and no customer message has a surviving author.`
+                        : `[notify-support] no customer recipient (ticket_id=${ticketId}): the only person involved is the author of this message (user_id=${authorUserId}), who is never notified of their own message.`
                 );
             }
 
