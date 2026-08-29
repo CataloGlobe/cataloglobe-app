@@ -17,9 +17,19 @@ export type { AiProduct } from "@/hooks/useAiImportSession";
 interface AiMenuImportWizardProps {
     /** Sessione import sollevata in MainLayout (stato + azioni). */
     session: AiImportSession;
+    /**
+     * Import in un contesto dove cataloghi esistenti non ce ne sono (il setup
+     * guidato: il tenant è appena nato). Nella revisione sparisce il selettore
+     * Nuovo/Esistente e la destinazione resta il nuovo catalogo. Default
+     * `false` — la pagina Cataloghi non cambia.
+     */
+    forceNewCatalog?: boolean;
 }
 
-export function AiMenuImportWizard({ session }: AiMenuImportWizardProps) {
+export function AiMenuImportWizard({
+    session,
+    forceNewCatalog = false
+}: AiMenuImportWizardProps) {
     const {
         step,
         files,
@@ -193,6 +203,7 @@ export function AiMenuImportWizard({ session }: AiMenuImportWizardProps) {
                         onSetExistingPlan={setExistingImportPlan}
                         initialCatalogId={initialCatalogId}
                         initialCatalogName={initialCatalogName}
+                        forceNewCatalog={forceNewCatalog}
                     />
                 )}
 

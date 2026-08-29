@@ -29,6 +29,14 @@ interface ReviewStepProps {
     // Scorciatoia kebab (FASE 2C-5): destinazione bloccata su un catalogo.
     initialCatalogId: string | null;
     initialCatalogName: string | null;
+    /**
+     * Chiamante che importa in un contesto senza cataloghi esistenti (il setup
+     * guidato: il tenant è appena nato). Il selettore Nuovo/Esistente sparisce
+     * — la seconda opzione sarebbe vuota per costruzione — e il ramo resta
+     * "nuovo catalogo" a prescindere da `importMode`. Default `false`: la
+     * pagina Cataloghi continua a mostrare il selettore.
+     */
+    forceNewCatalog?: boolean;
 }
 
 export function ReviewStep({
@@ -46,9 +54,15 @@ export function ReviewStep({
     onImportModeChange,
     onSetExistingPlan,
     initialCatalogId,
-    initialCatalogName
+    initialCatalogName,
+    forceNewCatalog = false
 }: ReviewStepProps) {
     const [search, setSearch] = useState("");
+
+    // Il ramo mostrato: con `forceNewCatalog` non dipende più da `importMode`,
+    // così una sessione ri-agganciata in modalità "existing" non può comunque
+    // portare l'utente su un ramo che qui non ha destinazioni possibili.
+    const effectiveMode: ImportMode = forceNewCatalog ? "new" : importMode;
 
     // Prodotti raggruppati per categoria AI (ordine di prima apparizione).
     const groups = useMemo<ImportProductGroup[]>(() => {
@@ -82,7 +96,7 @@ export function ReviewStep({
         <div className={styles.reviewContainer}>
             {/* Destinazione: banner di contesto bloccato (scorciatoia kebab) vs
                 selettore Nuovo/Esistente (apertura standard). */}
-            {initialCatalogId ? (
+            {forceNewCatalog ? null : initialCatalogId ? (
                 <div className={existingStyles.contextBanner}>
                     <Info size={18} className={existingStyles.contextBannerIcon} />
                     <div className={existingStyles.contextBannerText}>
@@ -116,7 +130,7 @@ export function ReviewStep({
                 </div>
             )}
 
-            {importMode === "existing" ? (
+            {effectiveMode === "existing" ? (
                 <ExistingImportReview
                     tenantId={tenantId}
                     products={products}
