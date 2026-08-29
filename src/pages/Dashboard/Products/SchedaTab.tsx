@@ -419,6 +419,7 @@ export function SchedaTab({
                                 ingredients={ingredients.available}
                                 selectedIds={ingredients.draftIds}
                                 onToggle={ingredients.toggle}
+                                onReorder={ingredients.reorder}
                                 onCreate={ingredients.handleCreate}
                                 isLoadingIngredients={false}
                             />

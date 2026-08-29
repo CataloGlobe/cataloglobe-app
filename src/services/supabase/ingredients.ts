@@ -9,6 +9,12 @@ export type V2Ingredient = {
     tenant_id: string;
     name: string;
     created_at: string;
+    /**
+     * DORMIENTE — unità di misura predefinita per il futuro modulo food cost.
+     * Nessuna UI la scrive, nessuna logica la legge, fuori dal sistema
+     * traduzioni per scelta esplicita. Resta NULL finché il modulo non esiste.
+     */
+    default_unit: string | null;
 };
 
 export type V2ProductIngredient = {
@@ -16,7 +22,36 @@ export type V2ProductIngredient = {
     product_id: string;
     ingredient_id: string;
     created_at: string;
+    /** Ordine dell'ingrediente dentro il prodotto (0-based). */
+    sort_order: number;
+    /** DORMIENTE — food cost. Vedi `V2Ingredient.default_unit`. */
+    quantity: number | null;
+    /** DORMIENTE — food cost. Vedi `V2Ingredient.default_unit`. */
+    unit: string | null;
 };
+
+/**
+ * Elemento del payload jsonb di `replace_product_ingredients`.
+ * Il modulo food cost aggiungera' qui `quantity`/`unit` come chiavi opzionali,
+ * senza cambiare la firma della RPC.
+ */
+export type ProductIngredientOrderItem = {
+    ingredient_id: string;
+    sort_order: number;
+};
+
+/**
+ * L'ordine dell'array E' l'ordine voluto: `sort_order` = posizione.
+ * Funzione pura, estratta per essere testabile senza toccare il DB.
+ */
+export function buildProductIngredientsPayload(
+    ingredientIds: string[]
+): ProductIngredientOrderItem[] {
+    return ingredientIds.map((ingredient_id, index) => ({
+        ingredient_id,
+        sort_order: index
+    }));
+}
 
 // =========================================
 // INGREDIENTS
@@ -140,22 +175,30 @@ export async function listProductIngredientPairs(
     const { data, error } = await supabase
         .from("product_ingredients")
         .select("product_id, ingredient_id")
-        .eq("tenant_id", tenantId);
+        .eq("tenant_id", tenantId)
+        .order("sort_order", { ascending: true });
 
     if (error) throw error;
     return data || [];
 }
 
+/** Legami del prodotto, già ordinati: l'ordine dell'array è `sort_order`. */
 export async function getProductIngredients(productId: string): Promise<V2ProductIngredient[]> {
     const { data, error } = await supabase
         .from("product_ingredients")
         .select("*")
-        .eq("product_id", productId);
+        .eq("product_id", productId)
+        .order("sort_order", { ascending: true });
 
     if (error) throw error;
     return data || [];
 }
 
+/**
+ * Sostituisce i legami del prodotto. L'ORDINE dell'array è significativo:
+ * diventa `sort_order` (0-based) e determina l'ordine mostrato sulla pagina
+ * pubblica.
+ */
 export async function setProductIngredients(
     tenantId: string,
     productId: string,
@@ -164,7 +207,7 @@ export async function setProductIngredients(
     const { error } = await supabase.rpc("replace_product_ingredients", {
         p_tenant_id: tenantId,
         p_product_id: productId,
-        p_ingredient_ids: ingredientIds
+        p_ingredients: buildProductIngredientsPayload(ingredientIds)
     });
 
     if (error) {

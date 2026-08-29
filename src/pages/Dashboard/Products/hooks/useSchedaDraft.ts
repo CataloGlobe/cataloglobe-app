@@ -42,6 +42,16 @@ function arraysEqualUnordered<T>(a: T[], b: T[]): boolean {
 }
 
 /**
+ * Confronto posizionale: per gli ingredienti l'ordine È un dato persistito
+ * (`product_ingredients.sort_order`), quindi un puro riordino deve marcare il
+ * draft come sporco.
+ */
+function arraysEqualOrdered<T>(a: T[], b: T[]): boolean {
+    if (a.length !== b.length) return false;
+    return a.every((v, i) => v === b[i]);
+}
+
+/**
  * Draft a livello pagina per la tab Scheda — sollevato da `SchedaTab` così
  * sopravvive allo smontaggio del componente al cambio tab (mount condizionale
  * in `ProductPage`). I load girano una sola volta al mount della pagina, non
@@ -337,7 +347,7 @@ export function useSchedaDraft(
     const [isSavingIngredients, setIsSavingIngredients] = useState(false);
 
     const isIngredientsDirty = useMemo(
-        () => !arraysEqualUnordered(draftIngredientIds, savedIngredientIds),
+        () => !arraysEqualOrdered(draftIngredientIds, savedIngredientIds),
         [draftIngredientIds, savedIngredientIds]
     );
 
@@ -368,6 +378,15 @@ export function useSchedaDraft(
         setDraftIngredientIds(prev =>
             prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
         );
+    }, []);
+
+    /**
+     * Riordino drag & drop: sostituisce l'intera sequenza. Il nuovo ordine
+     * resta nel draft finché non parte il salvataggio unico dell'header
+     * (nessun save immediato sul drag).
+     */
+    const reorderIngredients = useCallback((nextIds: string[]) => {
+        setDraftIngredientIds(nextIds);
     }, []);
 
     const handleCreateIngredient = useCallback(
@@ -713,6 +732,7 @@ export function useSchedaDraft(
             isSaving: isSavingIngredients,
             isDirty: isIngredientsDirty,
             toggle: toggleIngredient,
+            reorder: reorderIngredients,
             handleCreate: handleCreateIngredient,
             handleCancel: handleCancelIngredients,
             handleSave: handleSaveIngredients

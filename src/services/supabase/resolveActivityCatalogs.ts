@@ -250,12 +250,25 @@ type RawCharacteristicRow = {
     } | null;
 };
 
-type RawIngredientRow = {
+export type RawIngredientRow = {
+    /** `product_ingredients.sort_order` — NULL solo per righe pre-migration. */
+    sort_order: number | null;
     ingredient: {
         id: string;
         name: string;
     } | null;
 };
+
+/**
+ * Ordina le righe di join `product_ingredients` per `sort_order` crescente.
+ * Unico punto che decide l'ordine degli ingredienti mostrato in pagina
+ * pubblica, quindi esportato e non inline: e' testabile in isolamento.
+ * `sort` e' stabile → a parita' di `sort_order` resta l'ordine del DB.
+ * `sort_order` assente vale 0.
+ */
+export function sortIngredientRows(rows: RawIngredientRow[]): RawIngredientRow[] {
+    return [...rows].sort((a, b) => (a.sort_order ?? 0) - (b.sort_order ?? 0));
+}
 
 type RawAttributeDefRow = {
     code: string;
@@ -526,7 +539,7 @@ export function normalizeCatalog(
                     .sort((a, b) => a.sort_order - b.sort_order);
 
             const mapIngredients = (rows: RawIngredientRow[] | RawIngredientRow | null): ResolvedIngredient[] =>
-                normalizeMany(rows)
+                sortIngredientRows(normalizeMany(rows))
                     .map((row: RawIngredientRow) => {
                         const ingredient = normalizeOne(row.ingredient);
                         return ingredient
@@ -930,6 +943,7 @@ export async function loadCatalogById(catalogId: string, tenantId: string): Prom
                         )
                     ),
                     ingredients:product_ingredients(
+                        sort_order,
                         ingredient:ingredients(
                             id,
                             name
@@ -971,6 +985,7 @@ export async function loadCatalogById(catalogId: string, tenantId: string): Prom
                       )
                   ),
                   ingredients:product_ingredients(
+                      sort_order,
                       ingredient:ingredients(
                           id,
                           name

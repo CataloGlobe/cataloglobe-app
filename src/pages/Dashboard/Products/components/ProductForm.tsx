@@ -1901,6 +1901,7 @@ export function ProductForm({
                                 ingredients={systemIngredients}
                                 selectedIds={selectedIngredients}
                                 onToggle={handleIngredientToggle}
+                                onReorder={setSelectedIngredients}
                                 onCreate={handleCreateIngredientInline}
                                 isLoadingIngredients={isLoadingIngredients}
                             />
@@ -2075,6 +2076,7 @@ export function ProductForm({
                         ingredients={systemIngredients}
                         selectedIds={selectedIngredients}
                         onToggle={handleIngredientToggle}
+                        onReorder={setSelectedIngredients}
                         onCreate={handleCreateIngredientInline}
                         isLoadingIngredients={isLoadingIngredients}
                     />
