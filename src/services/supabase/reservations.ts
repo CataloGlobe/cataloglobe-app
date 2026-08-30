@@ -357,6 +357,101 @@ async function invokeReservationCancellation<T>(
     return data;
 }
 
+// ─── CUSTOMER-SIDE (edge `confirm-reservation-attendance`, link firmato) ────
+
+/** Riepilogo mostrato al cliente sulla pagina di conferma presenza. */
+export interface ReservationAttendanceSummary {
+    venue_name: string;
+    reservation_date: string;
+    reservation_time: string;
+    party_size: number;
+    customer_name: string;
+    status: "pending" | "confirmed" | "declined" | "cancelled" | "seated" | "no_show" | "completed";
+    /** ISO timestamp della PRIMA conferma, o null se non ha ancora risposto. */
+    guest_confirmed_at: string | null;
+    can_confirm: boolean;
+}
+
+export interface ReadReservationAttendanceResult {
+    success: true;
+    reservation: ReservationAttendanceSummary;
+}
+
+export interface ConfirmReservationAttendanceResult {
+    success: true;
+    /** true quando aveva già confermato: esito idempotente, non errore. */
+    already_confirmed: boolean;
+    reservation: ReservationAttendanceSummary;
+}
+
+/**
+ * Legge il riepilogo per la pagina di conferma presenza. Sola lettura.
+ *
+ * Il token richiesto porta `act: "confirm"`: un link di disdetta qui non vale.
+ *
+ * Errori (`.code`): INVALID_LINK (404, token non valido o prenotazione
+ * inesistente — indistinguibili per scelta), RATE_LIMITED, SERVER_ERROR.
+ */
+export async function readReservationAttendance(
+    token: string
+): Promise<ReadReservationAttendanceResult> {
+    return await invokeAttendance<ReadReservationAttendanceResult>(token, "read");
+}
+
+/**
+ * Registra che il cliente ha confermato la presenza.
+ *
+ * NON cambia lo stato della prenotazione: resta `confirmed`, si valorizza solo
+ * `guest_confirmed_at`. Idempotente: premere due volte non è un errore e non
+ * sovrascrive il timestamp originale.
+ *
+ * Errori (`.code`): INVALID_LINK, NOT_CONFIRMABLE (409, con
+ * `details.current_status`), RATE_LIMITED, SERVER_ERROR.
+ */
+export async function confirmReservationAttendance(
+    token: string
+): Promise<ConfirmReservationAttendanceResult> {
+    return await invokeAttendance<ConfirmReservationAttendanceResult>(token, "confirm");
+}
+
+async function invokeAttendance<T>(token: string, action: "read" | "confirm"): Promise<T> {
+    const { data, error } = await supabase.functions.invoke<T>(
+        "confirm-reservation-attendance",
+        { body: { token, action } }
+    );
+
+    if (error) {
+        let code = "SERVER_ERROR";
+        let message: string | undefined;
+        let details: unknown;
+        if (error instanceof FunctionsHttpError) {
+            try {
+                const body = (await error.context.clone().json()) as {
+                    error_code?: unknown;
+                    message?: unknown;
+                    details?: unknown;
+                };
+                if (typeof body?.error_code === "string") code = body.error_code;
+                if (typeof body?.message === "string") message = body.message;
+                details = body?.details;
+            } catch {
+                // body not JSON → keep defaults
+            }
+        }
+        const err = new Error(message ?? code);
+        (err as Error & { code?: string; details?: unknown }).code = code;
+        (err as Error & { code?: string; details?: unknown }).details = details;
+        throw err;
+    }
+
+    if (!data) {
+        const err = new Error("Risposta vuota dal server");
+        (err as unknown as { code: string }).code = "SERVER_ERROR";
+        throw err;
+    }
+    return data;
+}
+
 // ─── ADMIN-SIDE (edge function `respond-reservation`, authenticated) ────────
 
 export type RespondReservationAction =

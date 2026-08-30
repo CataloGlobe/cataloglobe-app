@@ -450,6 +450,15 @@
     margin-top: 12px;
 }
 
+/* Evening-before reminder toggle, shown under the reservations switch when
+   activity.enable_reservations === true. Same separator treatment as the
+   recipients field below it, so the sub-settings read as one stack. */
+.reservationsReminderField {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border, #e5e7eb);
+}
+
 /* Per-site notification recipients field (chip multi-email) shown under the
    reservations toggle when activity.enable_reservations === true. */
 .reservationsEmailsField {

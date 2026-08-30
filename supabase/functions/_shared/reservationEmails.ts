@@ -102,6 +102,32 @@ function renderCancelSentenceHtml(cancelUrl: string | null | undefined): string 
     return `<p ${PARAGRAPH_NOTE}>${CANCEL_SENTENCE_LEAD}${body}</p>`;
 }
 
+// --- Attendance confirmation button ------------------------------------------
+//
+// The only real button in these emails, because it is the only place we ask
+// the diner to DO something. Rendered as a table cell rather than a styled
+// anchor: Outlook ignores padding on inline elements, and a confirmation
+// button that collapses into a bare link in the most common corporate client
+// is a button nobody presses.
+//
+// Absent URL renders nothing at all — no orphan sentence explaining a button
+// that is not there.
+
+function renderConfirmButtonHtml(confirmUrl: string | null | undefined): string {
+    const safe = typeof confirmUrl === "string" && isSafeHttpUrl(confirmUrl) ? confirmUrl : null;
+    if (!safe) return "";
+    return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px">
+            <tr><td style="background:#111827;border-radius:8px">
+                <a href="${escapeHtml(safe)}" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none">Confermo che vengo</a>
+            </td></tr>
+        </table>`;
+}
+
+function renderConfirmButtonText(confirmUrl: string | null | undefined): string {
+    const safe = typeof confirmUrl === "string" && isSafeHttpUrl(confirmUrl) ? confirmUrl : null;
+    return safe ? `Confermi che vieni? Basta un tocco:\n${safe}\n\n` : "";
+}
+
 function renderCancelSentenceText(cancelUrl: string | null | undefined): string {
     const safe = typeof cancelUrl === "string" && isSafeHttpUrl(cancelUrl) ? cancelUrl : null;
     return safe
@@ -206,18 +232,38 @@ export function buildReservationConfirmedEmail(
     return { subject, html, text };
 }
 
+export interface ReservationReminderEmailArgs extends ReservationEmailBase {
+    /**
+     * Absolute URL of the attendance-confirmation page, or null when
+     * unavailable. Signed with a token whose `act` claim is "confirm": it is a
+     * DIFFERENT token from `cancelUrl`, and neither can perform the other's
+     * operation. The two links sit one under the other in this email, which is
+     * exactly where a mix-up would go unnoticed.
+     */
+    confirmUrl?: string | null;
+}
+
 /**
  * Reminder sent the evening before, to a `confirmed` reservation.
  *
  * The point is not to inform — the diner knows they booked — but to give them
- * a moment where cancelling is easier than forgetting. So the cancellation
- * sentence is not a footnote here: it is half of why the email exists.
- *
- * Fase D adds the "confermo che vengo" button; today the email carries the
- * recap and the cancellation link only.
+ * a moment where answering is easier than forgetting. Both answers are on
+ * offer: confirming costs one tap and tells the floor the table is real,
+ * cancelling frees it while there is still a day to refill it. Neither is
+ * buried: they are the reason the email exists.
  */
-export function buildReservationReminderEmail(args: ReservationEmailBase): ReservationEmailContent {
-    const { activityName, customerName, reservationDate, reservationTime, partySize, cancelUrl } = args;
+export function buildReservationReminderEmail(
+    args: ReservationReminderEmailArgs
+): ReservationEmailContent {
+    const {
+        activityName,
+        customerName,
+        reservationDate,
+        reservationTime,
+        partySize,
+        cancelUrl,
+        confirmUrl
+    } = args;
     const eActivityName = escapeHtml(activityName);
     const eCustomerName = escapeHtml(customerName);
     const dateIt = formatDateIt(reservationDate);
@@ -231,6 +277,7 @@ export function buildReservationReminderEmail(args: ReservationEmailBase): Reser
             `<p ${PARAGRAPH_LEAD}>Ciao ${eCustomerName},</p>`,
             `<p ${PARAGRAPH_BODY}>ti ricordiamo la tua prenotazione di domani presso <strong>${eActivityName}</strong>.</p>`,
             renderReservationDetails(dateIt, timeIt, partySize),
+            renderConfirmButtonHtml(confirmUrl),
             renderCancelSentenceHtml(cancelUrl)
         ],
         reason
@@ -240,6 +287,7 @@ export function buildReservationReminderEmail(args: ReservationEmailBase): Reser
         `ti ricordiamo la tua prenotazione di domani presso ${activityName}.\n\n` +
         renderDetailsText(dateIt, timeIt, partySize) +
         `\n` +
+        renderConfirmButtonText(confirmUrl) +
         renderCancelSentenceText(cancelUrl) +
         `\n` +
         `${getEmailFooterText(reason)}`;

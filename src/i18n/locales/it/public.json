@@ -510,6 +510,26 @@
             "closed_contact": "Contatta direttamente la sede per annullare.",
             "not_cancellable_title": "Prenotazione non annullabile",
             "not_cancellable_text": "Questa prenotazione non può essere annullata da qui."
+        },
+        "confirm": {
+            "doc_title": "{{brand}} · Conferma la presenza",
+            "title": "Conferma la presenza",
+            "loading": "Caricamento…",
+            "invalid_title": "Link non valido",
+            "invalid_text": "Questo link non è valido o non è più utilizzabile. Se hai dubbi sulla tua prenotazione, contatta direttamente la sede.",
+            "error_title": "Operazione non riuscita",
+            "error_text": "Riprova tra qualche istante.",
+            "rate_limited_text": "Troppi tentativi. Riprova tra qualche minuto.",
+            "ready_title": "Ci sarai?",
+            "ready_text": "Un tocco e la sede sa che il tavolo è confermato.",
+            "confirm_button": "Sì, ci sarò",
+            "confirming": "Conferma in corso…",
+            "done_title": "Grazie, ci vediamo!",
+            "done_text": "Abbiamo avvisato la sede che ci sarai.",
+            "already_title": "Presenza già confermata",
+            "already_text": "Avevi già confermato: la sede lo sa. Non devi fare altro.",
+            "not_confirmable_title": "Prenotazione non attiva",
+            "not_confirmable_text": "Questa prenotazione non risulta più attiva, quindi non c'è nulla da confermare. Se pensi ci sia un errore, contatta direttamente la sede."
         }
     }
 }

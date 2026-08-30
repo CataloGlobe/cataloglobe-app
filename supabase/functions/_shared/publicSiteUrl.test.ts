@@ -141,6 +141,57 @@ describe("buildReservationsDashboardUrl", () => {
     });
 });
 
+describe("buildReservationConfirmUrl", () => {
+    const TOKEN = "v1.eyJyaWQiOiJ4In0.c2ln";
+
+    it("builds the /:slug/prenotazione/conferma URL", async () => {
+        const { buildReservationConfirmUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildReservationConfirmUrl("trattoria-da-ciro", TOKEN)).toBe(
+            `https://cataloglobe.com/trattoria-da-ciro/prenotazione/conferma?token=${TOKEN}`
+        );
+    });
+
+    it("is a different path from the cancellation page", async () => {
+        const { buildReservationCancelUrl, buildReservationConfirmUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildReservationConfirmUrl("ciro", TOKEN)).not.toBe(
+            buildReservationCancelUrl("ciro", TOKEN)
+        );
+    });
+
+    it("returns null when the base URL is unconfigured", async () => {
+        const { buildReservationConfirmUrl } = await loadWithEnv({});
+        expect(buildReservationConfirmUrl("ciro", TOKEN)).toBeNull();
+    });
+
+    it("returns null instead of throwing on missing arguments", async () => {
+        const { buildReservationConfirmUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        for (const [slug, token] of [
+            [null, TOKEN],
+            ["ciro", null],
+            ["  ", TOKEN],
+            ["ciro", "  "]
+        ] as const) {
+            expect(() => buildReservationConfirmUrl(slug, token)).not.toThrow();
+            expect(buildReservationConfirmUrl(slug, token)).toBeNull();
+        }
+    });
+
+    it("percent-encodes slug and token", async () => {
+        const { buildReservationConfirmUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildReservationConfirmUrl("a b/../c", "x y&z=1")).toBe(
+            "https://cataloglobe.com/a%20b%2F..%2Fc/prenotazione/conferma?token=x%20y%26z%3D1"
+        );
+    });
+});
+
 describe("buildReservationCancelUrl", () => {
     const TOKEN = "v1.eyJyaWQiOiJ4In0.c2ln";
 

@@ -46,6 +46,25 @@ export interface V2Reservation {
     // "manual"` inserts and to NULL for online inserts (RPC runs as
     // service_role). Read-only from the frontend perspective.
     created_by_user_id: string | null;
+    /**
+     * Quando è partito il promemoria della sera prima. NULL = non ancora
+     * inviato. Scritto solo dall'Edge `send-reservation-reminders`, che lo usa
+     * come lucchetto contro il doppio invio (migration 20260829120000).
+     */
+    reminder_sent_at: string | null;
+    /**
+     * Quando il cliente ha confermato la presenza dal link nel promemoria.
+     *
+     * NULL significa SILENZIO, non "non viene": la maggior parte dei clienti
+     * non premerà nulla, e l'interfaccia deve trattarlo come normale. Un
+     * indicatore di allarme sui NULL riempirebbe la sera di venti allarmi per
+     * il comportamento più comune che esista.
+     *
+     * Azzerato dal trigger `reservations_reset_reminder_on_reschedule` quando
+     * la prenotazione viene spostata: una conferma vale per l'orario che il
+     * cliente ha visto, non per un altro.
+     */
+    guest_confirmed_at: string | null;
     created_at: string;
     updated_at: string;
 }

@@ -15,6 +15,7 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
+import GuestConfirmedMark from "./GuestConfirmedMark";
 import {
     canAccept,
     type CapacityReservation
@@ -261,6 +262,18 @@ export default function ReservationDetailDrawer({
                                 {formatDateIt(reservation.reservation_date)}
                             </span>
                         </div>
+
+                        {/* Conferma del cliente, per esteso con data e ora.
+                            Compare solo se ha risposto: chi tace non produce
+                            alcun segno (vedi GuestConfirmedMark). */}
+                        {reservation.guest_confirmed_at && (
+                            <div className={styles.drawerHeroConfirmed}>
+                                <GuestConfirmedMark
+                                    guestConfirmedAt={reservation.guest_confirmed_at}
+                                    variant="labelled"
+                                />
+                            </div>
+                        )}
 
                         <div className={styles.drawerHeroMeta}>
                             <span className={styles.drawerHeroMetaItem}>

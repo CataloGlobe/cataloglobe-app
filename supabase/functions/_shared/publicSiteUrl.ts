@@ -110,13 +110,40 @@ export function buildReservationCancelUrl(
     slug: string | null | undefined,
     token: string | null | undefined
 ): string | null {
+    return buildTokenPageUrl(RESERVATION_CANCEL_ROUTE, slug, token);
+}
+
+// Public route of the attendance-confirmation page, from
+// `src/routes/publicRoutes.tsx`: `/:slug/prenotazione/conferma`.
+const RESERVATION_CONFIRM_ROUTE = (slug: string) => `/${slug}/prenotazione/conferma`;
+
+/**
+ * Absolute URL of the attendance-confirmation page for one reservation, or
+ * null when the base URL is unconfigured or either argument is missing.
+ *
+ * The token behind this URL carries `act: "confirm"` and cannot cancel
+ * anything — see `_shared/reservationToken.ts`.
+ */
+export function buildReservationConfirmUrl(
+    slug: string | null | undefined,
+    token: string | null | undefined
+): string | null {
+    return buildTokenPageUrl(RESERVATION_CONFIRM_ROUTE, slug, token);
+}
+
+/** Shared body of the two builders above: same guards, same encoding. */
+function buildTokenPageUrl(
+    route: (slug: string) => string,
+    slug: string | null | undefined,
+    token: string | null | undefined
+): string | null {
     const base = getPublicSiteUrl();
     if (!base) return null;
     if (typeof slug !== "string" || typeof token !== "string") return null;
     const cleanSlug = slug.trim();
     const cleanToken = token.trim();
     if (cleanSlug.length === 0 || cleanToken.length === 0) return null;
-    return `${base}${RESERVATION_CANCEL_ROUTE(encodeURIComponent(cleanSlug))}?token=${encodeURIComponent(cleanToken)}`;
+    return `${base}${route(encodeURIComponent(cleanSlug))}?token=${encodeURIComponent(cleanToken)}`;
 }
 
 // Support thread routes, from `src/App.tsx`. Two of them because the two sides

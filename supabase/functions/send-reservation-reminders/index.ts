@@ -2,7 +2,10 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { Resend } from "npm:resend@4";
 import { COMPANY } from "../_shared/company-config.ts";
-import { buildReservationCancelUrl } from "../_shared/publicSiteUrl.ts";
+import {
+    buildReservationCancelUrl,
+    buildReservationConfirmUrl
+} from "../_shared/publicSiteUrl.ts";
 import { buildReservationReminderEmail } from "../_shared/reservationEmails.ts";
 import { signReservationToken } from "../_shared/reservationToken.ts";
 import { tomorrowIsoDate } from "../_shared/romeCalendar.ts";
@@ -189,17 +192,27 @@ Deno.serve(async (req: Request) => {
                     continue;
                 }
 
-                // Link di disdetta. Best-effort come altrove: se il segreto o
-                // l'APP_URL mancano l'email parte senza link, non salta.
+                // Due link, due token DISTINTI: `act` diverso, quindi nessuno
+                // dei due puo' fare l'operazione dell'altro. Stanno uno sotto
+                // l'altro nella stessa email, ed e' proprio li' che uno scambio
+                // passerebbe inosservato.
+                //
+                // Best-effort come altrove: se il segreto o l'APP_URL mancano
+                // l'email parte senza link, non salta.
                 let cancelUrl: string | null = null;
+                let confirmUrl: string | null = null;
                 try {
                     cancelUrl = buildReservationCancelUrl(
                         activity.slug,
                         await signReservationToken(reservation.id, "cancel")
                     );
+                    confirmUrl = buildReservationConfirmUrl(
+                        activity.slug,
+                        await signReservationToken(reservation.id, "confirm")
+                    );
                 } catch (tokenErr) {
                     console.error(
-                        `[send-reservation-reminders] cancellation token minting failed (reservation_id=${reservation.id}):`,
+                        `[send-reservation-reminders] token minting failed (reservation_id=${reservation.id}):`,
                         tokenErr instanceof Error ? tokenErr.message : "unknown error"
                     );
                 }
@@ -210,7 +223,8 @@ Deno.serve(async (req: Request) => {
                     reservationDate: reservation.reservation_date,
                     reservationTime: reservation.reservation_time,
                     partySize: reservation.party_size,
-                    cancelUrl
+                    cancelUrl,
+                    confirmUrl
                 });
 
                 await resend.emails.send({
