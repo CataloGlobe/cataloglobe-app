@@ -764,6 +764,8 @@ function friendlyErrorMessage(code: string): string {
         case "checkout_failed":
         case "checkout_url_missing":
             return "Errore durante la creazione del checkout. Riprova tra qualche istante.";
+        case "stripe_customer_create_failed":
+            return "Non è stato possibile avviare il pagamento. Controlla i dati di fatturazione dell'azienda e riprova.";
         case "tenant_align_failed":
             return "Impossibile finalizzare la scelta del piano. Riprova oppure contatta l'assistenza.";
         default:
