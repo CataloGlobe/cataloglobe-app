@@ -9,6 +9,7 @@ import {
     type ReservationEmailContent
 } from "../_shared/reservationEmails.ts";
 import { buildReservationCancelUrl } from "../_shared/publicSiteUrl.ts";
+import { buildReservationIcsAttachment } from "../_shared/reservationIcs.ts";
 import { signReservationToken } from "../_shared/reservationToken.ts";
 import {
     ACTION_EXPECTS,
@@ -274,9 +275,16 @@ serve(async (req: Request) => {
             // activity.read, granted to every role that has reservations.manage).
             let activityName = "la sede";
             let activitySlug: string | null = null;
+            // Colonne aggiuntive per l'allegato calendario. Sono tutte
+            // nullable: se mancano, l'ICS degrada (indirizzo omesso, durata di
+            // default) e in ultima istanza l'allegato sparisce. Mai un errore.
+            let activityRowForIcs: Record<string, unknown> | null = null;
             const { data: activityRow, error: activityErr } = await supabaseUser
                 .from("activities")
-                .select("name, slug")
+                .select(
+                    "name, slug, reservation_duration_minutes, " +
+                    "address, street_number, postal_code, city, province"
+                )
                 .eq("id", updated.activity_id)
                 .maybeSingle();
             if (!activityErr && activityRow?.name) {
@@ -284,6 +292,7 @@ serve(async (req: Request) => {
                 // Serve al link di disdetta nell'email di conferma. Se la
                 // lettura fallisce resta null e la frase perde il link.
                 activitySlug = (activityRow.slug as string | null) ?? null;
+                activityRowForIcs = activityRow as Record<string, unknown>;
             } else if (activityErr) {
                 // Read denial → fall back to generic copy; do NOT fail the response.
                 console.warn(
@@ -321,13 +330,33 @@ serve(async (req: Request) => {
                     action: action as ReservationEmailAction,
                     cancelUrl
                 });
+                // Allegato calendario SOLO sulla conferma: mettere in agenda
+                // una prenotazione rifiutata o annullata darebbe al cliente un
+                // appuntamento fantasma.
+                const attachments =
+                    action === "confirm" && activityRowForIcs
+                        ? buildReservationIcsAttachment({
+                              reservationId: updated.id as string,
+                              venueName: activityName,
+                              reservationDate: updated.reservation_date as string,
+                              reservationTime: updated.reservation_time as string,
+                              partySize: updated.party_size as number,
+                              durationMinutes:
+                                  activityRowForIcs.reservation_duration_minutes as number | null,
+                              address: activityRowForIcs,
+                              cancelUrl,
+                              now: new Date()
+                          })
+                        : undefined;
+
                 await resend.emails.send({
                     from: COMPANY.email.sender,
                     reply_to: COMPANY.contact.support,
                     to: updated.customer_email as string,
                     subject: email.subject,
                     html: email.html,
-                    text: email.text
+                    text: email.text,
+                    ...(attachments ? { attachments } : {})
                 });
             } catch (mailErr) {
                 console.error("[respond-reservation] outcome email failed:", mailErr);

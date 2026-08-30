@@ -10,6 +10,7 @@ import {
     buildReservationsDashboardUrl
 } from "../_shared/publicSiteUrl.ts";
 import { resolveAlertRecipients } from "../_shared/reservationAlertRecipients.ts";
+import { buildReservationIcsAttachment } from "../_shared/reservationIcs.ts";
 import { signReservationToken } from "../_shared/reservationToken.ts";
 import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";
 import {
@@ -265,7 +266,8 @@ serve(async (req: Request) => {
             .from("activities")
             .select(
                 "id, tenant_id, name, slug, status, enable_reservations, " +
-                "reservation_notification_emails"
+                "reservation_notification_emails, reservation_duration_minutes, " +
+                "address, street_number, postal_code, city, province"
             )
             .eq("slug", slug)
             .maybeSingle();
@@ -443,6 +445,24 @@ serve(async (req: Request) => {
                   cancelUrl
               });
 
+        // Allegato calendario SOLO quando la prenotazione e' gia' confermata.
+        // Sulla ricevuta no: e' una RICHIESTA che il locale non ha ancora
+        // accettato, e se poi viene rifiutata il cliente si ritrova un
+        // appuntamento fantasma in agenda.
+        const icsAttachments = isAutoConfirmed
+            ? buildReservationIcsAttachment({
+                  reservationId,
+                  venueName: activity.name,
+                  reservationDate,
+                  reservationTime,
+                  partySize,
+                  durationMinutes: activity.reservation_duration_minutes,
+                  address: activity,
+                  cancelUrl,
+                  now: new Date()
+              })
+            : undefined;
+
         // Customer receipt
         try {
             await resend.emails.send({
@@ -451,7 +471,8 @@ serve(async (req: Request) => {
                 to: customerEmail,
                 subject: customerEmailBody.subject,
                 html: customerEmailBody.html,
-                text: customerEmailBody.text
+                text: customerEmailBody.text,
+                ...(icsAttachments ? { attachments: icsAttachments } : {})
             });
         } catch (mailErr) {
             console.error("[submit-reservation] customer receipt email failed:", mailErr);
