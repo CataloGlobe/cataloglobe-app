@@ -9,6 +9,7 @@ import {
     updateProduct
 } from "@/services/supabase/products";
 import { uploadProductImage } from "@/services/supabase/upload";
+import { loadNaturalAspectRatio } from "../components/productImageFraming";
 import type { MediaFraming } from "@components/ui/ImageReframeEditor/types";
 import {
     type V2SystemAllergen,
@@ -187,9 +188,18 @@ export function useSchedaDraft(
                 nextFraming = pendingFraming;
                 nextAspectRatio = pendingAspectRatio;
             } else if (pendingFraming) {
-                // Ri-inquadratura di un'immagine esistente: solo framing, URL e
-                // ratio naturale invariati.
+                // Ri-inquadratura di un'immagine esistente: URL invariato, ma il
+                // ratio naturale va colmato se manca. Sui prodotti con immagine
+                // caricata prima della migration 20260716120000 è NULL, e con ratio
+                // NULL FramedMedia resta sul path legacy cover → lo zoom scelto qui
+                // verrebbe scartato in silenzio. Il valore si legge dall'immagine
+                // (DOM), NON dalla costante 16/9 passata all'editor: quella è il
+                // ratio di AUTHORING (il riquadro di inquadratura), mentre il path
+                // parametrico ha bisogno del ratio dell'immagine SORGENTE.
                 nextFraming = pendingFraming;
+                if (nextAspectRatio == null && nextUrl) {
+                    nextAspectRatio = await loadNaturalAspectRatio(nextUrl);
+                }
             }
             const updated = await updateProduct(productId, tenantId, {
                 image_url: nextUrl,

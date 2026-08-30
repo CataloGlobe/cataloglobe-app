@@ -158,7 +158,7 @@ export const IMAGE_UPLOAD_PRESETS = {
         drawerTitle: "Modifica immagine",
         requiresConfirm: false,
         status: "documentary",
-        note: "Ratio da decidere nella fase Product (Card 4:3 / List quadrata / Compatto senza img). Default 4:3 provvisorio; strada consigliata FASE 1 = singolo storage + focal point via FramedMedia."
+        note: "Ratio di authoring in uso: 16:9 (SchedaTab). Singolo storage + framing metadata (products.image_framing / image_aspect_ratio) riapplicato per-contenitore da FramedMedia: Card·List 1:1, Card·Grid 4:3, ItemDetail 16:9, Compatto senza immagine."
     },
     featured: {
         aspectRatio: 16 / 9,

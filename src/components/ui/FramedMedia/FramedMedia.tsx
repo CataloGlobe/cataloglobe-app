@@ -1,6 +1,7 @@
 import { type CSSProperties, useEffect, useRef, useState } from "react";
 import { framePercent, offset, hasBands } from "@components/ui/ImageReframeEditor/reframeGeometry";
 import type { MediaFraming } from "@components/ui/ImageReframeEditor/types";
+import { shouldUseLegacyCoverPath } from "./framedMediaPath";
 import styles from "./FramedMedia.module.scss";
 
 // Neutral band fill when fillColor is null (e.g. dominant not extracted).
@@ -47,8 +48,11 @@ export function FramedMedia({ source, framing, aspectRatio, alt, ariaHidden, eag
 
     const { focalX: fx, focalY: fy, zoom, fillMode, fillColor } = framing;
 
-    // Legacy / cover path.
-    if (aspectRatio == null || Math.abs(zoom - 1) < 1e-4) {
+    // Legacy / cover path (predicato in ./framedMediaPath.ts, testato). Il ratio
+    // sopravvive solo sul ramo parametrico, dove è per costruzione non-null.
+    const parametricRatio = shouldUseLegacyCoverPath(aspectRatio, zoom) ? null : aspectRatio;
+
+    if (parametricRatio == null) {
         return (
             <img
                 ref={imgRef}
@@ -64,7 +68,7 @@ export function FramedMedia({ source, framing, aspectRatio, alt, ariaHidden, eag
     }
 
     // Parametric path.
-    const { widthPct, heightPct } = framePercent(frameRatio, aspectRatio, zoom);
+    const { widthPct, heightPct } = framePercent(frameRatio, parametricRatio, zoom);
     const { ox, oy } = offset(100, 100, widthPct, heightPct, fx, fy);
     const bands = hasBands(100, 100, widthPct, heightPct);
     const resolvedFill = fillColor ?? FILL_FALLBACK;
