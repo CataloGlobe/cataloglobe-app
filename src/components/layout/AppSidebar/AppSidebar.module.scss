@@ -230,3 +230,20 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 .sidebar[data-collapsed="true"] .toggleIconCollapsed {
   opacity: 1;
 }
+
+/* ===== Nav dot =====
+   Pallino senza numero su una voce di nav. Stesso trattamento del pallino
+   "risposta non letta" della sidebar business (`Sidebar.module.scss`):
+   ancoraggio assoluto dentro `.link` (già `position: relative`), così resta
+   visibile anche a sidebar collassata, dove `.label` sparisce ma il segnale
+   deve restare. Nessun numero: quanti siano non cambia cosa fai. */
+.navDot {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+}

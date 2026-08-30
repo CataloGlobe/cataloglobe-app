@@ -30,6 +30,14 @@ export interface AppSidebarNavItem {
     disabled?: boolean;
     /** Testo del tooltip quando `disabled`. Default: "In arrivo". */
     disabledHint?: string;
+    /**
+     * Pallino senza numero sulla voce. Il valore arriva già calcolato dal
+     * layout che costruisce i gruppi: questo guscio è renderizzato su ogni
+     * pagina e non interroga il DB per conto proprio.
+     */
+    showDot?: boolean;
+    /** Testo accessibile del pallino. Obbligatorio di fatto quando `showDot`. */
+    dotLabel?: string;
 }
 
 export interface AppSidebarNavGroup {
@@ -151,6 +159,14 @@ export function AppSidebar({
                                                 )}
 
                                                 <span className={styles.label}>{link.label}</span>
+
+                                                {link.showDot && (
+                                                    <span
+                                                        className={styles.navDot}
+                                                        title={link.dotLabel}
+                                                        aria-label={link.dotLabel}
+                                                    />
+                                                )}
                                             </NavLink>
                                         </li>
                                         )
