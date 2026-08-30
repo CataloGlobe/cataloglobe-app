@@ -223,6 +223,22 @@ serve(async (req: Request) => {
             notes = trimmed.length > 0 ? trimmed : null;
         }
 
+        // Lingua in cui il cliente stava leggendo la pagina pubblica.
+        //
+        // MAI un errore di validazione: un valore assente, malformato o di una
+        // lingua che non sappiamo rendere non deve costare una prenotazione.
+        // Qui si controlla solo la FORMA (minuscolo, 2-5 lettere, stesso
+        // criterio di `isValidLangFormat` lato frontend); tutto il resto
+        // diventa NULL. La riconduzione a italiano di una lingua non
+        // supportata avviene quando si compone l'email, non qui: 'pt' salvato
+        // e' un dato onesto — dice che qualcuno ha prenotato leggendo in
+        // portoghese, anche se l'email che ha ricevuto era in italiano.
+        const customerLanguage: string | null = (() => {
+            if (typeof body.language !== "string") return null;
+            const normalized = body.language.trim().toLowerCase();
+            return /^[a-z]{2,5}$/.test(normalized) ? normalized : null;
+        })();
+
         // ── Supabase client (service_role) ──────────────────────────
         const supabase = createClient(
             Deno.env.get("SUPABASE_URL")!,
@@ -397,6 +413,38 @@ serve(async (req: Request) => {
             );
         }
 
+        // ── Lingua del cliente (best-effort) ─────────────────────────────
+        // Stesso schema del telefono canonico e per la stessa ragione:
+        // `place_online_reservation` possiede l'INSERT e resta intatta, quindi
+        // il valore si scrive subito dopo con un UPDATE mirato di quella sola
+        // colonna.
+        //
+        // UPDATE separato da quello del telefono di proposito: sono due fatti
+        // indipendenti, e un fallimento sull'uno non deve portarsi via l'altro.
+        //
+        // Un fallimento qui non fallisce mai la prenotazione e non propaga: la
+        // colonna resta NULL e l'email parte in italiano. Nessuno perde un
+        // tavolo per la lingua in cui l'ha prenotato.
+        if (customerLanguage !== null) {
+            try {
+                const { error: languageUpdateError } = await supabase
+                    .from("reservations")
+                    .update({ customer_language: customerLanguage })
+                    .eq("id", reservationId);
+                if (languageUpdateError) {
+                    console.error(
+                        `[submit-reservation] language persistence failed (reservation_id=${reservationId}):`,
+                        languageUpdateError.message
+                    );
+                }
+            } catch (languageErr) {
+                console.error(
+                    `[submit-reservation] language persistence threw (reservation_id=${reservationId}):`,
+                    languageErr instanceof Error ? languageErr.message : "unknown error"
+                );
+            }
+        }
+
         // ── Best-effort emails (failures NEVER fail the reservation) ─────────
         // Auto-confirmed path uses the "Prenotazione confermata" template,
         // mirrors the wording of respond-reservation's confirm outcome. The
@@ -434,7 +482,8 @@ serve(async (req: Request) => {
                   customerName,
                   // Auto-confirm: the diner never had a pending request.
                   variant: "auto",
-                  cancelUrl
+                  cancelUrl,
+                  language: customerLanguage
               })
             : buildReservationReceiptEmail({
                   activityName: activity.name,
@@ -442,7 +491,8 @@ serve(async (req: Request) => {
                   reservationTime,
                   partySize,
                   customerName,
-                  cancelUrl
+                  cancelUrl,
+                  language: customerLanguage
               });
 
         // Allegato calendario SOLO quando la prenotazione e' gia' confermata.
@@ -459,6 +509,7 @@ serve(async (req: Request) => {
                   durationMinutes: activity.reservation_duration_minutes,
                   address: activity,
                   cancelUrl,
+                  language: customerLanguage,
                   now: new Date()
               })
             : undefined;

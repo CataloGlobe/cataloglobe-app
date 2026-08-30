@@ -36,13 +36,21 @@ export const PARAGRAPH_NOTE = 'style="margin:0;font-size:13px;color:#6b7280"';
  * Wrap the card sections in the shared shell and append the footer.
  * `sections` are already-rendered HTML fragments, one per visual block.
  */
-export function renderCard(sections: readonly string[], reason: string): string {
+export function renderCard(
+    sections: readonly string[],
+    reason: string,
+    /**
+     * Lingua delle due frasi nostre nel footer legale. Omessa → italiano,
+     * quindi i chiamanti che scrivono al ristoratore restano invariati.
+     */
+    lang?: string | null
+): string {
     const body = sections.filter(s => s.length > 0).join("\n        ");
     return `
 <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;background:#f9fafb;padding:40px">
     <div style="max-width:520px;margin:0 auto;background:#ffffff;border-radius:12px;padding:32px">
         ${body}
-        ${getEmailFooterHtml(reason)}
+        ${getEmailFooterHtml(reason, lang)}
     </div>
 </div>`;
 }

@@ -34,7 +34,7 @@ export default function ReservationForm({
     onSuccess,
     onResolveErrorCode
 }: Props) {
-    const { t } = useTranslation("public");
+    const { t, i18n } = useTranslation("public");
     const [form, setForm] = useState<FormFields>(EMPTY_FORM);
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
     const [submitError, setSubmitError] = useState<string | null>(null);
@@ -142,6 +142,11 @@ export default function ReservationForm({
                     customer_name: form.customer_name.trim(),
                     customer_email: form.customer_email.trim(),
                     customer_phone: form.customer_phone.trim(),
+                    // Lingua in cui il cliente ha appena letto il form. È il
+                    // solo momento in cui la sappiamo con certezza: da qui in
+                    // poi le email partono da un cron o da un'azione
+                    // dell'admin, dove nessun browser è più in ascolto.
+                    language: i18n.language,
                     ...(form.notes.trim() ? { notes: form.notes.trim() } : {})
                 });
                 onSuccess(form, result.status);

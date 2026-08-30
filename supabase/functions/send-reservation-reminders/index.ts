@@ -107,6 +107,7 @@ Deno.serve(async (req: Request) => {
             .from("reservations")
             .select(
                 "id, reservation_date, reservation_time, party_size, customer_name, customer_email, " +
+                "customer_language, " +
                 "activity:activities!inner(id, name, slug, status, reservation_reminder_enabled, " +
                 "reservation_duration_minutes, address, street_number, postal_code, city, province, " +
                 "tenant:tenants!inner(id, subscription_status))"
@@ -226,7 +227,8 @@ Deno.serve(async (req: Request) => {
                     reservationTime: reservation.reservation_time,
                     partySize: reservation.party_size,
                     cancelUrl,
-                    confirmUrl
+                    confirmUrl,
+                    language: reservation.customer_language
                 });
 
                 // Allegato calendario. Chi riceve il promemoria e' gia'
@@ -242,6 +244,7 @@ Deno.serve(async (req: Request) => {
                     durationMinutes: activity.reservation_duration_minutes,
                     address: activity,
                     cancelUrl,
+                    language: reservation.customer_language,
                     now: new Date()
                 });
 

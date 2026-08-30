@@ -178,6 +178,16 @@ export interface SubmitReservationInput {
     customer_email: string;
     customer_phone: string;
     notes?: string;
+    /**
+     * Lingua corrente della pagina pubblica (`i18n.language`) al momento del
+     * submit. L'Edge la valida di forma e la persiste su
+     * `reservations.customer_language`: è ciò che decide in che lingua il
+     * cliente riceverà ricevuta, conferma, promemoria ed esito.
+     *
+     * Omesso → colonna NULL, email in italiano. Mai un errore di validazione:
+     * nessuna prenotazione si perde per la lingua in cui è stata presa.
+     */
+    language?: string;
 }
 
 export type SubmitReservationStatus = "pending" | "confirmed";

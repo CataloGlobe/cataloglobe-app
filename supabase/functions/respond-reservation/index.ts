@@ -127,6 +127,11 @@ function buildActionEmail(args: {
     partySize: number;
     /** Only meaningful for `confirm`; see below. */
     cancelUrl: string | null;
+    /**
+     * `reservations.customer_language`: the language the diner booked in.
+     * NULL (manual insert, or a row older than the column) → Italian.
+     */
+    language: string | null;
 }): ReservationEmailContent {
     const { action, cancelUrl, ...rest } = args;
     if (action === "confirm") {
@@ -239,7 +244,7 @@ serve(async (req: Request) => {
             .eq("id", reservationId)
             .in("status", expectedFrom)
             .select(
-                "id, activity_id, customer_email, customer_name, reservation_date, reservation_time, party_size, status"
+                "id, activity_id, customer_email, customer_name, reservation_date, reservation_time, party_size, status, customer_language"
             )
             .maybeSingle();
 
@@ -328,7 +333,8 @@ serve(async (req: Request) => {
                     // Narrowed by `sendsCustomerEmail`: the no-show pair cannot
                     // reach this branch.
                     action: action as ReservationEmailAction,
-                    cancelUrl
+                    cancelUrl,
+                    language: (updated.customer_language as string | null) ?? null
                 });
                 // Allegato calendario SOLO sulla conferma: mettere in agenda
                 // una prenotazione rifiutata o annullata darebbe al cliente un
@@ -345,6 +351,7 @@ serve(async (req: Request) => {
                                   activityRowForIcs.reservation_duration_minutes as number | null,
                               address: activityRowForIcs,
                               cancelUrl,
+                              language: (updated.customer_language as string | null) ?? null,
                               now: new Date()
                           })
                         : undefined;

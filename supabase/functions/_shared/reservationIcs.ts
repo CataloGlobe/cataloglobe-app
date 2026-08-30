@@ -34,7 +34,14 @@
 //   - escaping TEXT: `\` `;` `,` e a capo. I due punti NON si escapano;
 //   - campi obbligatori: VERSION, PRODID, e nel VEVENT UID, DTSTAMP, DTSTART.
 
+// ── Lingua ──────────────────────────────────────────────────────────────────
+// Le stringhe NOSTRE del file (SUMMARY, la descrizione, il nome dell'allegato)
+// seguono la lingua della prenotazione, come le email. I DATI no: nome della
+// sede, indirizzo e link restano quello che sono. `null`, lingua ignota o
+// lingua che non copriamo → italiano, esattamente come nelle email.
+
 import { wallClockToInstant } from "./reservationCancellation.ts";
+import { reservationCopyFor } from "./reservationEmailCopy.ts";
 
 /**
  * Dominio dell'UID. NON cambiarlo: l'UID identifica l'evento nel calendario
@@ -72,6 +79,11 @@ export interface ReservationIcsInput {
     address?: ReservationIcsAddress | null;
     /** Link di disdetta, finisce nella descrizione. Opzionale. */
     cancelUrl?: string | null;
+    /**
+     * Valore grezzo di `reservations.customer_language`. Decide la lingua delle
+     * stringhe nostre; assente o non supportata → italiano. Non fallisce mai.
+     */
+    language?: string | null;
     /** Istante di generazione, per DTSTAMP. Iniettato per i test. */
     now: Date;
 }
@@ -201,8 +213,11 @@ export function buildReservationIcs(input: ReservationIcsInput): string | null {
         durationMinutes,
         address,
         cancelUrl,
+        language,
         now
     } = input;
+
+    const copy = reservationCopyFor(language);
 
     if (typeof reservationId !== "string" || reservationId.trim().length === 0) return null;
     if (typeof venueName !== "string" || venueName.trim().length === 0) return null;
@@ -224,13 +239,11 @@ export function buildReservationIcs(input: ReservationIcsInput): string | null {
         : venueName.trim();
 
     const peopleLine =
-        Number.isInteger(partySize) && partySize >= 1
-            ? `${partySize} ${partySize === 1 ? "persona" : "persone"}`
-            : null;
+        Number.isInteger(partySize) && partySize >= 1 ? copy.icsPeople(partySize) : null;
     const descriptionParts = [
         peopleLine,
         typeof cancelUrl === "string" && cancelUrl.trim().length > 0
-            ? `Non puoi più venire? Annulla la prenotazione: ${cancelUrl.trim()}`
+            ? copy.icsCancelLine(cancelUrl.trim())
             : null
     ].filter((p): p is string => p !== null);
 
@@ -247,7 +260,7 @@ export function buildReservationIcs(input: ReservationIcsInput): string | null {
         `DTSTAMP:${toIcsUtc(now)}`,
         `DTSTART:${toIcsUtc(start)}`,
         `DTEND:${toIcsUtc(end)}`,
-        `SUMMARY:${escapeText(`Prenotazione — ${venueName.trim()}`)}`,
+        `SUMMARY:${escapeText(copy.icsSummary(venueName.trim()))}`,
         `LOCATION:${escapeText(location)}`
     ];
 
@@ -274,7 +287,14 @@ export function reservationIcsToBase64(ics: string): string {
     return btoa(binary);
 }
 
-/** Nome del file allegato. Uguale per tutte le email: e' lo stesso evento. */
+/**
+ * Nome del file allegato in italiano.
+ *
+ * Il nome segue la lingua della prenotazione (`copy.icsFilename`): e' la prima
+ * cosa che il cliente legge dell'allegato, e "prenotazione.ics" in fondo a
+ * un'email tedesca stona quanto una frase non tradotta. Questa costante resta
+ * come valore italiano di riferimento per i chiamanti che non hanno una lingua.
+ */
 export const RESERVATION_ICS_FILENAME = "prenotazione.ics";
 
 export interface ResendAttachment {
@@ -301,7 +321,8 @@ export function buildReservationIcsAttachment(
     try {
         const ics = buildReservationIcs(input);
         if (ics === null) return undefined;
-        return [{ filename: RESERVATION_ICS_FILENAME, content: reservationIcsToBase64(ics) }];
+        const filename = reservationCopyFor(input.language).icsFilename;
+        return [{ filename, content: reservationIcsToBase64(ics) }];
     } catch (err) {
         console.error(
             "[reservationIcs] attachment build failed:",
