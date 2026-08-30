@@ -1,5 +1,22 @@
-import React, { useEffect, useId, useRef, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { IconPlus } from "@tabler/icons-react";
+import {
+    DndContext,
+    closestCenter,
+    KeyboardSensor,
+    PointerSensor,
+    useSensor,
+    useSensors,
+    type DragEndEvent
+} from "@dnd-kit/core";
+import {
+    arrayMove,
+    SortableContext,
+    sortableKeyboardCoordinates,
+    rectSortingStrategy,
+    useSortable
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Pill } from "@/components/ui/Pill/Pill";
 import { useToast } from "@/context/Toast/ToastContext";
 import { V2Ingredient } from "@/services/supabase/ingredients";
@@ -7,18 +24,59 @@ import styles from "./IngredientCombobox.module.scss";
 
 type IngredientComboboxProps = {
     ingredients: V2Ingredient[];
+    /** Ordinati: la posizione nell'array è l'ordine mostrato in pagina pubblica. */
     selectedIds: string[];
     onToggle: (id: string) => void;
     onCreate: (name: string) => Promise<string>;
     isLoadingIngredients: boolean;
+    /**
+     * Riordino drag & drop delle pill già selezionate. Se assente le pill
+     * restano statiche (call site che non gestisce l'ordine).
+     * Entra nel draft del parent: nessun salvataggio immediato sul drag.
+     */
+    onReorder?: (nextIds: string[]) => void;
 };
+
+/**
+ * Pill trascinabile. Il `transform` inline arriva da dnd-kit ed è stato di
+ * drag, non styling: la resa statica vive tutta in Pill + `.selectedPills`.
+ */
+function SortableIngredientPill({
+    id,
+    label,
+    onRemove
+}: {
+    id: string;
+    label: string;
+    onRemove: () => void;
+}) {
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
+        useSortable({ id });
+
+    return (
+        <div
+            ref={setNodeRef}
+            style={{
+                transform: CSS.Transform.toString(transform),
+                transition,
+                opacity: isDragging ? 0.55 : undefined,
+                touchAction: "none"
+            }}
+            {...attributes}
+            {...listeners}
+        >
+            <Pill label={label} active onClick={onRemove} />
+        </div>
+    );
+}
 
 export function IngredientCombobox({
     ingredients,
     selectedIds,
     onToggle,
     onCreate,
-    isLoadingIngredients
+    isLoadingIngredients,
+    onReorder
 }: IngredientComboboxProps) {
     const listboxId = useId();
     const containerRef = useRef<HTMLDivElement>(null);
@@ -134,7 +192,34 @@ export function IngredientCombobox({
         }
     };
 
-    const selectedIngredients = ingredients.filter(i => selectedIds.includes(i.id));
+    // Ordine dettato da `selectedIds` (= ordine del draft, poi `sort_order`),
+    // NON dall'ordine alfabetico di `ingredients`.
+    const selectedIngredients = useMemo(
+        () =>
+            selectedIds
+                .map(id => ingredients.find(i => i.id === id))
+                .filter((i): i is V2Ingredient => i !== undefined),
+        [selectedIds, ingredients]
+    );
+
+    const sensors = useSensors(
+        // distance: 5 — sotto quella soglia il gesto resta un click, così la
+        // pill continua a rimuovere l'ingrediente invece di iniziare un drag.
+        useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+
+    const handleDragEnd = (event: DragEndEvent) => {
+        if (!onReorder) return;
+        const { active, over } = event;
+        if (!over || active.id === over.id) return;
+        const oldIndex = selectedIds.indexOf(String(active.id));
+        const newIndex = selectedIds.indexOf(String(over.id));
+        if (oldIndex < 0 || newIndex < 0) return;
+        // Nessun save qui: l'ordine entra nel draft del parent e viene
+        // persistito dall'azione Salva unica dell'header.
+        onReorder(arrayMove(selectedIds, oldIndex, newIndex));
+    };
 
     const activeDescendant =
         activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined;
@@ -206,18 +291,41 @@ export function IngredientCombobox({
                 </ul>
             )}
 
-            {selectedIngredients.length > 0 && (
-                <div className={styles.selectedPills}>
-                    {selectedIngredients.map(ingredient => (
-                        <Pill
-                            key={ingredient.id}
-                            label={ingredient.name}
-                            active
-                            onClick={() => onToggle(ingredient.id)}
-                        />
-                    ))}
-                </div>
-            )}
+            {selectedIngredients.length > 0 &&
+                (onReorder ? (
+                    <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={handleDragEnd}
+                    >
+                        <SortableContext
+                            items={selectedIngredients.map(i => i.id)}
+                            strategy={rectSortingStrategy}
+                        >
+                            <div className={styles.selectedPills}>
+                                {selectedIngredients.map(ingredient => (
+                                    <SortableIngredientPill
+                                        key={ingredient.id}
+                                        id={ingredient.id}
+                                        label={ingredient.name}
+                                        onRemove={() => onToggle(ingredient.id)}
+                                    />
+                                ))}
+                            </div>
+                        </SortableContext>
+                    </DndContext>
+                ) : (
+                    <div className={styles.selectedPills}>
+                        {selectedIngredients.map(ingredient => (
+                            <Pill
+                                key={ingredient.id}
+                                label={ingredient.name}
+                                active
+                                onClick={() => onToggle(ingredient.id)}
+                            />
+                        ))}
+                    </div>
+                ))}
         </div>
     );
 }

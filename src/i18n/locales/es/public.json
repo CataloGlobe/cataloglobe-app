@@ -509,6 +509,26 @@
             "closed_contact": "Contacta directamente con el local para anular.",
             "not_cancellable_title": "Reserva no anulable",
             "not_cancellable_text": "Esta reserva no se puede anular desde aquí."
+        },
+        "confirm": {
+            "doc_title": "{{brand}} · Confirmar la asistencia",
+            "title": "Confirmar la asistencia",
+            "loading": "Cargando…",
+            "invalid_title": "Enlace no válido",
+            "invalid_text": "Este enlace no es válido o ya no se puede usar. Si tienes dudas sobre tu reserva, contacta directamente con el local.",
+            "error_title": "La operación no se ha completado",
+            "error_text": "Inténtalo de nuevo en un momento.",
+            "rate_limited_text": "Demasiados intentos. Inténtalo de nuevo en unos minutos.",
+            "ready_title": "¿Vendrás?",
+            "ready_text": "Un toque y el local sabe que la mesa está confirmada.",
+            "confirm_button": "Sí, allí estaré",
+            "confirming": "Confirmando…",
+            "done_title": "¡Gracias, nos vemos!",
+            "done_text": "Hemos avisado al local de que vendrás.",
+            "already_title": "Asistencia ya confirmada",
+            "already_text": "Ya lo habías confirmado y el local lo sabe. No tienes que hacer nada más.",
+            "not_confirmable_title": "Reserva no activa",
+            "not_confirmable_text": "Esta reserva ya no está activa, así que no hay nada que confirmar. Si crees que es un error, contacta directamente con el local."
         }
     }
 }

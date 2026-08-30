@@ -6,6 +6,7 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
 import type { V2Reservation } from "@/types/reservation";
 import ChannelMark from "./ChannelMark";
+import GuestConfirmedMark from "./GuestConfirmedMark";
 import styles from "./Reservations.module.scss";
 
 interface Props {
@@ -301,6 +302,7 @@ export default function ReservationsAgenda({
                     )}
                 </span>
                 <span className={styles.timelineMeta}>
+                    <GuestConfirmedMark guestConfirmedAt={r.guest_confirmed_at} />
                     <StatusBadge variant={badge.variant} label={badge.label} />
                 </span>
             </button>

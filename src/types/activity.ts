@@ -59,6 +59,12 @@ export interface V2Activity {
      *   - `soft` → insert `pending`, capienza solo informativa.
      */
     reservation_overbooking_form: "hard" | "soft";
+    /**
+     * Se true, le prenotazioni confermate di questa sede ricevono il
+     * promemoria alle 18:00 del giorno prima (job `send-reservation-reminders`,
+     * migration 20260829120001). Default true.
+     */
+    reservation_reminder_enabled: boolean;
     qr_fg_color: string | null;
     qr_bg_color: string | null;
     google_review_url: string | null;

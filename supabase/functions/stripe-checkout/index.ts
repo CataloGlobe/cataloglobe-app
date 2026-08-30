@@ -3,6 +3,12 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
+import {
+    clampForStripe,
+    clampMetadata,
+    STRIPE_CUSTOMER_DESCRIPTION_MAX,
+    STRIPE_CUSTOMER_NAME_MAX
+} from "../_shared/stripeLimits.ts";
 
 const ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -304,6 +310,17 @@ serve(async req => {
         const customerMetadata = buildCustomerMetadata(tenantId, fiscal);
         const customerDescription = buildCustomerDescription(fiscal);
 
+        // Clamp ai limiti Stripe: un campo fiscale troppo lungo (ragione sociale
+        // incollata male) farebbe fallire create/update con 400 e bloccherebbe
+        // il pagamento. Il DB resta la fonte di verita', Stripe ha il pre-fill.
+        const stripeCustomerName = customerName
+            ? clampForStripe(customerName, STRIPE_CUSTOMER_NAME_MAX, "customer.name")
+            : undefined;
+        const stripeCustomerDescription = customerDescription
+            ? clampForStripe(customerDescription, STRIPE_CUSTOMER_DESCRIPTION_MAX, "customer.description")
+            : undefined;
+        const stripeCustomerMetadata = clampMetadata(customerMetadata);
+
         // Create or reuse Stripe Customer, pre-filling name + address from the tenant.
         let stripeCustomerId = tenantData.stripe_customer_id;
 
@@ -312,16 +329,17 @@ serve(async req => {
             try {
                 customer = await stripe.customers.create({
                     email: userEmail,
-                    name: customerName,
+                    name: stripeCustomerName,
                     address: customerAddress,
-                    description: customerDescription,
+                    description: stripeCustomerDescription,
                     preferred_locales: ["it"],
-                    metadata: { ...customerMetadata, user_id: userId }
+                    metadata: { ...stripeCustomerMetadata, user_id: userId }
                 });
             } catch (err) {
-                // Log only the error class — Stripe messages can echo the submitted value.
+                // Log only the error class + il parametro rifiutato — mai `message`,
+                // che echeggia il valore inviato (P.IVA, indirizzo, ragione sociale).
                 console.error(
-                    `stripe-checkout: customer create failed: code=${(err as any)?.code} type=${(err as any)?.type} status=${(err as any)?.statusCode}`
+                    `stripe-checkout: customer create failed: code=${(err as any)?.code} type=${(err as any)?.type} status=${(err as any)?.statusCode} param=${(err as any)?.raw?.param} request_id=${(err as any)?.requestId}`
                 );
                 return json(req, 502, { error: "stripe_customer_create_failed" });
             }
@@ -337,21 +355,21 @@ serve(async req => {
                 return json(req, 500, { error: "db_update_failed" });
             }
         } else if (
-            customerName ||
+            stripeCustomerName ||
             customerAddress ||
-            customerDescription ||
-            Object.keys(customerMetadata).length > 1
+            stripeCustomerDescription ||
+            Object.keys(stripeCustomerMetadata).length > 1
         ) {
             // Reuse path: refresh profile on the existing customer. Best-effort —
             // a failed update must not block checkout (we still have the data our side).
             // Stripe merges metadata (unspecified keys, e.g. user_id, are preserved).
             try {
                 await stripe.customers.update(stripeCustomerId, {
-                    name: customerName,
+                    name: stripeCustomerName,
                     address: customerAddress,
-                    description: customerDescription,
+                    description: stripeCustomerDescription,
                     preferred_locales: ["it"],
-                    metadata: customerMetadata
+                    metadata: stripeCustomerMetadata
                 });
             } catch (err) {
                 // Log only the error class — Stripe messages can echo the submitted value.

@@ -509,6 +509,26 @@
             "closed_contact": "Kontaktieren Sie den Standort direkt, um zu stornieren.",
             "not_cancellable_title": "Reservierung nicht stornierbar",
             "not_cancellable_text": "Diese Reservierung kann hier nicht storniert werden."
+        },
+        "confirm": {
+            "doc_title": "{{brand}} · Reservierung bestätigen",
+            "title": "Reservierung bestätigen",
+            "loading": "Wird geladen…",
+            "invalid_title": "Ungültiger Link",
+            "invalid_text": "Dieser Link ist ungültig oder nicht mehr nutzbar. Bei Fragen zu Ihrer Reservierung kontaktieren Sie bitte den Standort direkt.",
+            "error_title": "Vorgang fehlgeschlagen",
+            "error_text": "Bitte versuchen Sie es gleich noch einmal.",
+            "rate_limited_text": "Zu viele Versuche. Bitte versuchen Sie es in einigen Minuten erneut.",
+            "ready_title": "Kommen Sie?",
+            "ready_text": "Ein Tippen genügt, und der Standort weiß, dass der Tisch bestätigt ist.",
+            "confirm_button": "Ja, ich komme",
+            "confirming": "Wird bestätigt…",
+            "done_title": "Danke, bis bald!",
+            "done_text": "Wir haben dem Standort mitgeteilt, dass Sie kommen.",
+            "already_title": "Bereits bestätigt",
+            "already_text": "Sie hatten bereits bestätigt, der Standort weiß Bescheid. Sie müssen nichts weiter tun.",
+            "not_confirmable_title": "Reservierung nicht mehr aktiv",
+            "not_confirmable_text": "Diese Reservierung ist nicht mehr aktiv, es gibt also nichts zu bestätigen. Falls das ein Fehler ist, kontaktieren Sie bitte den Standort direkt."
         }
     }
 }

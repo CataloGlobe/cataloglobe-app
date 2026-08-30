@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Globe, Building2, Users, AlertCircle, FileText, Loader2, Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
@@ -41,6 +41,7 @@ import {
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
 import { RuleRow } from "./components/RuleRow";
+import { HowItWorksLink, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import { CalendarView } from "./components/CalendarView";
 import {
     resolveRulesForActivity,
@@ -279,6 +280,8 @@ export default function Programming() {
     const [isLoading, setIsLoading] = useState(true);
     const [isCreating, setIsCreating] = useState(false);
     const [isSimulatorDrawerOpen, setIsSimulatorDrawerOpen] = useState(false);
+    // Spiegazione "Come funziona": puramente on-demand, nessuno stato persistito.
+    const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
     const [updatingRules, setUpdatingRules] = useState<Set<string>>(new Set());
@@ -298,11 +301,22 @@ export default function Programming() {
     const handleRuleTypeFilterChange = useCallback((next: RuleTypeFilter) => {
         setRuleTypeFilter(next);
         setSelectedRuleIds(new Set());
+        setIsHelpModalOpen(false);
         setSearchParams(prev => {
             prev.set("type", next);
             return prev;
         }, { replace: true });
     }, [setSearchParams]);
+
+    /* Un solo link "Come funziona" è montato per volta (sopra la lista, oppure
+       in uno dei due empty state): un ref solo basta per restituirgli il focus. */
+    const helpTriggerRef = useRef<HTMLButtonElement | null>(null);
+    const [returnHelpFocus, setReturnHelpFocus] = useState(true);
+
+    const openHelpModal = useCallback(() => {
+        setReturnHelpFocus(true);
+        setIsHelpModalOpen(true);
+    }, []);
 
     const [simActivityId, setSimActivityId] = useState("");
     const [simDateTime, setSimDateTime] = useState(() => toDateTimeLocalValue(new Date()));
@@ -1140,6 +1154,11 @@ export default function Programming() {
                             <Text variant="body-sm" colorVariant="muted">
                                 {RULE_TYPE_TAB_OPTIONS.find(o => o.value === ruleTypeFilter)?.description}
                             </Text>
+                            <HowItWorksLink
+                                ref={helpTriggerRef}
+                                ruleType={ruleTypeFilter}
+                                onClick={openHelpModal}
+                            />
                         </div>
                     )}
 
@@ -1159,6 +1178,13 @@ export default function Programming() {
                                             ? "Nessuna regola per questa sede."
                                             : "Nessuna regola corrisponde alla ricerca."
                                     }
+                                    action={
+                                        <HowItWorksLink
+                                            ref={helpTriggerRef}
+                                            ruleType={ruleTypeFilter}
+                                            onClick={openHelpModal}
+                                        />
+                                    }
                                 />
                             ) : (
                                 <EmptyState
@@ -1166,46 +1192,55 @@ export default function Programming() {
                                     title={EMPTY_STATE_COPY[ruleTypeFilter].title}
                                     description={EMPTY_STATE_COPY[ruleTypeFilter].description}
                                     action={
-                                        canWrite ? (
-                                            ruleTypeFilter === "all" ? (
-                                                <div className={styles.newRuleDropdown}>
-                                                    <Menu
-                                                        trigger={
-                                                            <Button
-                                                                variant="primary"
-                                                                disabled={!currentTenantId || isCreating || !canEdit}
-                                                                loading={isCreating}
-                                                            >
-                                                                {isCreating ? "Creazione..." : "Crea la prima regola"}
-                                                            </Button>
-                                                        }
-                                                        align="start"
+                                        /* Ordine di lettura: cos'è questa cosa (titolo +
+                                           descrizione) → come funziona → creane una. */
+                                        <div className={styles.emptyStateActions}>
+                                            <HowItWorksLink
+                                                ref={helpTriggerRef}
+                                                ruleType={ruleTypeFilter}
+                                                onClick={openHelpModal}
+                                            />
+                                            {canWrite && (
+                                                ruleTypeFilter === "all" ? (
+                                                    <div className={styles.newRuleDropdown}>
+                                                        <Menu
+                                                            trigger={
+                                                                <Button
+                                                                    variant="primary"
+                                                                    disabled={!currentTenantId || isCreating || !canEdit}
+                                                                    loading={isCreating}
+                                                                >
+                                                                    {isCreating ? "Creazione..." : "Crea la prima regola"}
+                                                                </Button>
+                                                            }
+                                                            align="start"
+                                                        >
+                                                            <Menu.Item onSelect={() => void handleCreateRule("layout")}>
+                                                                Layout
+                                                            </Menu.Item>
+                                                            <Menu.Item onSelect={() => void handleCreateRule("featured")}>
+                                                                In evidenza
+                                                            </Menu.Item>
+                                                            <Menu.Item onSelect={() => void handleCreateRule("price")}>
+                                                                Prezzi
+                                                            </Menu.Item>
+                                                            <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
+                                                                Disponibilità
+                                                            </Menu.Item>
+                                                        </Menu>
+                                                    </div>
+                                                ) : (
+                                                    <Button
+                                                        variant="primary"
+                                                        onClick={() => void handleCreateRule()}
+                                                        disabled={isCreating || !canEdit}
+                                                        loading={isCreating}
                                                     >
-                                                        <Menu.Item onSelect={() => void handleCreateRule("layout")}>
-                                                            Layout
-                                                        </Menu.Item>
-                                                        <Menu.Item onSelect={() => void handleCreateRule("featured")}>
-                                                            In evidenza
-                                                        </Menu.Item>
-                                                        <Menu.Item onSelect={() => void handleCreateRule("price")}>
-                                                            Prezzi
-                                                        </Menu.Item>
-                                                        <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
-                                                            Disponibilità
-                                                        </Menu.Item>
-                                                    </Menu>
-                                                </div>
-                                            ) : (
-                                                <Button
-                                                    variant="primary"
-                                                    onClick={() => void handleCreateRule()}
-                                                    disabled={isCreating || !canEdit}
-                                                    loading={isCreating}
-                                                >
-                                                    Crea la prima regola
-                                                </Button>
-                                            )
-                                        ) : undefined
+                                                        Crea la prima regola
+                                                    </Button>
+                                                )
+                                            )}
+                                        </div>
                                     }
                                 />
                             )
@@ -1658,6 +1693,20 @@ export default function Programming() {
                     </div>
                 </DrawerLayout>
             </SystemDrawer>
+            <RuleTypeHelpModal
+                isOpen={isHelpModalOpen}
+                ruleType={ruleTypeFilter}
+                triggerRef={helpTriggerRef}
+                returnFocusOnClose={returnHelpFocus}
+                onClose={() => setIsHelpModalOpen(false)}
+                onSimulate={() => {
+                    /* Il focus va al simulatore che si apre, non indietro
+                       al link che ha aperto la spiegazione. */
+                    setReturnHelpFocus(false);
+                    setIsHelpModalOpen(false);
+                    setIsSimulatorDrawerOpen(true);
+                }}
+            />
             <ModalLayout
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}

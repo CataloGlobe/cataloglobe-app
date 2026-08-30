@@ -39,6 +39,11 @@ const ReservationCancelPage = lazy(
     () => import("@pages/ReservationPage/ReservationCancelPage")
 );
 
+// Conferma di presenza, dal pulsante nel promemoria della sera prima.
+const ReservationConfirmPage = lazy(
+    () => import("@pages/ReservationPage/ReservationConfirmPage")
+);
+
 type PublicRoutesOptions = {
     /**
      * Payload inlinato dalla shell SSR, passato solo da `entry-client.tsx`.
@@ -70,6 +75,14 @@ export function publicRoutes({ initialPayload }: PublicRoutesOptions = {}) {
         </PublicErrorBoundary>
     );
 
+    const reservationConfirmElement = (
+        <PublicErrorBoundary>
+            <Suspense fallback={<AppLoader intent="public" />}>
+                <ReservationConfirmPage />
+            </Suspense>
+        </PublicErrorBoundary>
+    );
+
     return [
         // Più specifiche del catch-all catalogo grazie al segmento literal.
         <Route key="/:slug/prenota" path="/:slug/prenota" element={reservationElement} />,
@@ -83,6 +96,16 @@ export function publicRoutes({ initialPayload }: PublicRoutesOptions = {}) {
             key="/:slug/:lang/prenotazione/annulla"
             path="/:slug/:lang/prenotazione/annulla"
             element={reservationCancelElement}
+        />,
+        <Route
+            key="/:slug/prenotazione/conferma"
+            path="/:slug/prenotazione/conferma"
+            element={reservationConfirmElement}
+        />,
+        <Route
+            key="/:slug/:lang/prenotazione/conferma"
+            path="/:slug/:lang/prenotazione/conferma"
+            element={reservationConfirmElement}
         />,
         <Route
             key="/:slug/:lang?"

@@ -509,6 +509,26 @@
       "closed_contact": "Contactez directement l'établissement pour annuler.",
       "not_cancellable_title": "Réservation non annulable",
       "not_cancellable_text": "Cette réservation ne peut pas être annulée ici."
+    },
+    "confirm": {
+      "doc_title": "{{brand}} · Confirmer votre présence",
+      "title": "Confirmer votre présence",
+      "loading": "Chargement…",
+      "invalid_title": "Lien invalide",
+      "invalid_text": "Ce lien n'est pas valide ou n'est plus utilisable. En cas de doute sur votre réservation, contactez directement l'établissement.",
+      "error_title": "L'opération a échoué",
+      "error_text": "Réessayez dans un instant.",
+      "rate_limited_text": "Trop de tentatives. Réessayez dans quelques minutes.",
+      "ready_title": "Vous serez là ?",
+      "ready_text": "Un geste suffit : l'établissement saura que la table est confirmée.",
+      "confirm_button": "Oui, je serai là",
+      "confirming": "Confirmation en cours…",
+      "done_title": "Merci, à bientôt !",
+      "done_text": "Nous avons prévenu l'établissement de votre venue.",
+      "already_title": "Présence déjà confirmée",
+      "already_text": "Vous aviez déjà confirmé et l'établissement le sait. Vous n'avez rien à faire.",
+      "not_confirmable_title": "Réservation inactive",
+      "not_confirmable_text": "Cette réservation n'est plus active, il n'y a donc rien à confirmer. Si vous pensez qu'il s'agit d'une erreur, contactez directement l'établissement."
     }
   }
 }

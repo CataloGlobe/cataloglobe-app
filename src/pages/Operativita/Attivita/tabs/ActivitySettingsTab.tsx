@@ -671,6 +671,29 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         [activity.id, tenantId, onReload, showToast]
     );
 
+    const handleReservationReminderToggle = useCallback(
+        async (checked: boolean) => {
+            try {
+                await updateActivity(activity.id, tenantId, {
+                    reservation_reminder_enabled: checked
+                });
+                showToast({
+                    message: checked
+                        ? "Promemoria attivato."
+                        : "Promemoria disattivato.",
+                    type: "success"
+                });
+                await onReload();
+            } catch {
+                showToast({
+                    message: "Impossibile aggiornare il promemoria.",
+                    type: "error"
+                });
+            }
+        },
+        [activity.id, tenantId, onReload, showToast]
+    );
+
     // ── Handlers: URL / QR / PDF ─────────────────────────────────────────────
     const handleCopyLink = useCallback(async () => {
         try {
@@ -1115,6 +1138,21 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                     </InlineBanner>
                                 </div>
                             )}
+
+                        {/* Promemoria: sotto l'interruttore principale e
+                            visibile solo quando le prenotazioni sono attive —
+                            un promemoria per prenotazioni che non si ricevono
+                            non vuol dire niente. */}
+                        {activity.enable_reservations && (
+                            <div className={styles.reservationsReminderField}>
+                                <Switch
+                                    checked={activity.reservation_reminder_enabled}
+                                    onChange={handleReservationReminderToggle}
+                                    label="Promemoria il giorno prima"
+                                    description="Alle 18:00 del giorno prima, chi ha una prenotazione confermata riceve un'email che gliela ricorda, con un pulsante per confermare che verrà e il link per disdire."
+                                />
+                            </div>
+                        )}
 
                         {activity.enable_reservations && (
                             <div className={styles.reservationsEmailsField}>

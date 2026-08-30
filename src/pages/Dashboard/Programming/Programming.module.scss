@@ -407,6 +407,25 @@
   background: var(--brand-primary);
 }
 
+/* Sottotitolo della tab attiva + link "Come funziona", sulla stessa riga:
+   il link è la continuazione della frase, non un'azione a sé. */
+.tabDescription {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+
+  padding: 12px 16px 0;
+}
+
+/* Empty state: ordine di lettura descrizione → "Come funziona" → crea. */
+.emptyStateActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
 .emptyState {
   text-align: center;
   padding: 60px 24px;

@@ -509,6 +509,26 @@
             "closed_contact": "Contact the venue directly to cancel.",
             "not_cancellable_title": "Booking cannot be cancelled",
             "not_cancellable_text": "This booking cannot be cancelled from here."
+        },
+        "confirm": {
+            "doc_title": "{{brand}} · Confirm your booking",
+            "title": "Confirm your booking",
+            "loading": "Loading…",
+            "invalid_title": "Invalid link",
+            "invalid_text": "This link is not valid or can no longer be used. If you have doubts about your booking, please contact the venue directly.",
+            "error_title": "Something went wrong",
+            "error_text": "Please try again in a moment.",
+            "rate_limited_text": "Too many attempts. Please try again in a few minutes.",
+            "ready_title": "Will you be there?",
+            "ready_text": "One tap and the venue knows the table is confirmed.",
+            "confirm_button": "Yes, I'll be there",
+            "confirming": "Confirming…",
+            "done_title": "Thanks, see you soon!",
+            "done_text": "We have let the venue know you are coming.",
+            "already_title": "Already confirmed",
+            "already_text": "You had already confirmed and the venue knows. There is nothing left to do.",
+            "not_confirmable_title": "Booking no longer active",
+            "not_confirmable_text": "This booking is no longer active, so there is nothing to confirm. If you think this is a mistake, please contact the venue directly."
         }
     }
 }

@@ -82,6 +82,55 @@ async function requireCurrentUserId(): Promise<string> {
     return userId;
 }
 
+/**
+ * Avvisa chi è coinvolto nel ticket che è arrivato un messaggio.
+ *
+ * Fire-and-forget deliberato. Il messaggio è già salvato quando questa parte:
+ * l'email e la notifica in-app sono un effetto collaterale, e un effetto
+ * collaterale non può far fallire — né far attendere — l'azione che l'ha
+ * prodotto. Chi scrive vede il proprio messaggio comparire nel thread senza
+ * aspettare Resend.
+ *
+ * Non ritorna una Promise di proposito: restituirla inviterebbe un chiamante
+ * ad aggiungere `await`, e il primo che lo facesse reintrodurrebbe l'attesa
+ * che questa firma esiste per impedire.
+ *
+ * I fallimenti però si LOGGANO. Un fire-and-forget muto è il modo perfetto per
+ * non accorgersi che le notifiche hanno smesso di partire: nessuno segnala
+ * un'email che non ha ricevuto perché non sa che sarebbe dovuta arrivare.
+ *
+ * `messageId` è opzionale perché `createTicket` non ce l'ha: la RPC
+ * `create_support_ticket` ritorna la sola riga del ticket. Senza, l'edge
+ * function prende l'ultimo messaggio del ticket — che lì è il primo.
+ *
+ * Nota su cosa NON garantisce: la richiesta parte dal browser, quindi una
+ * navigazione immediata può annullarla. Il messaggio resta salvato in ogni
+ * caso; a saltare è solo l'avviso.
+ */
+function notifySupport(ticketId: string, messageId?: string): void {
+    void supabase.functions
+        .invoke("notify-support", {
+            body: {
+                ticket_id: ticketId,
+                ...(messageId ? { message_id: messageId } : {})
+            }
+        })
+        .then(({ error }) => {
+            if (error) {
+                console.error(
+                    `[support] notifica non inviata (ticket_id=${ticketId}):`,
+                    error
+                );
+            }
+        })
+        .catch(err => {
+            console.error(
+                `[support] invocazione notify-support fallita (ticket_id=${ticketId}):`,
+                err
+            );
+        });
+}
+
 // ─── LATO CLIENTE ───────────────────────────────────────────────────────────
 
 /**
@@ -179,7 +228,11 @@ export async function createTicket(
     });
 
     if (error) throwMappedSupportError(error);
-    return data as V2SupportTicket;
+
+    const ticket = data as V2SupportTicket;
+    // Senza message_id: la RPC ritorna il ticket, non il messaggio.
+    notifySupport(ticket.id);
+    return ticket;
 }
 
 /**
@@ -205,7 +258,10 @@ export async function postCustomerMessage(
         .single();
 
     if (error) throwMappedSupportError(error);
-    return data as V2SupportMessage;
+
+    const created = data as V2SupportMessage;
+    notifySupport(ticketId, created.id);
+    return created;
 }
 
 /**
@@ -321,7 +377,10 @@ export async function postPlatformMessage(
         .single();
 
     if (error) throwMappedSupportError(error);
-    return data as V2SupportMessage;
+
+    const created = data as V2SupportMessage;
+    notifySupport(ticketId, created.id);
+    return created;
 }
 
 /**

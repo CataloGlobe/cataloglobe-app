@@ -141,6 +141,57 @@ describe("buildReservationsDashboardUrl", () => {
     });
 });
 
+describe("buildReservationConfirmUrl", () => {
+    const TOKEN = "v1.eyJyaWQiOiJ4In0.c2ln";
+
+    it("builds the /:slug/prenotazione/conferma URL", async () => {
+        const { buildReservationConfirmUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildReservationConfirmUrl("trattoria-da-ciro", TOKEN)).toBe(
+            `https://cataloglobe.com/trattoria-da-ciro/prenotazione/conferma?token=${TOKEN}`
+        );
+    });
+
+    it("is a different path from the cancellation page", async () => {
+        const { buildReservationCancelUrl, buildReservationConfirmUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildReservationConfirmUrl("ciro", TOKEN)).not.toBe(
+            buildReservationCancelUrl("ciro", TOKEN)
+        );
+    });
+
+    it("returns null when the base URL is unconfigured", async () => {
+        const { buildReservationConfirmUrl } = await loadWithEnv({});
+        expect(buildReservationConfirmUrl("ciro", TOKEN)).toBeNull();
+    });
+
+    it("returns null instead of throwing on missing arguments", async () => {
+        const { buildReservationConfirmUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        for (const [slug, token] of [
+            [null, TOKEN],
+            ["ciro", null],
+            ["  ", TOKEN],
+            ["ciro", "  "]
+        ] as const) {
+            expect(() => buildReservationConfirmUrl(slug, token)).not.toThrow();
+            expect(buildReservationConfirmUrl(slug, token)).toBeNull();
+        }
+    });
+
+    it("percent-encodes slug and token", async () => {
+        const { buildReservationConfirmUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildReservationConfirmUrl("a b/../c", "x y&z=1")).toBe(
+            "https://cataloglobe.com/a%20b%2F..%2Fc/prenotazione/conferma?token=x%20y%26z%3D1"
+        );
+    });
+});
+
 describe("buildReservationCancelUrl", () => {
     const TOKEN = "v1.eyJyaWQiOiJ4In0.c2ln";
 
@@ -190,6 +241,103 @@ describe("buildReservationCancelUrl", () => {
         });
         expect(buildReservationCancelUrl("a b/../c", "x y&z=1")).toBe(
             "https://cataloglobe.com/a%20b%2F..%2Fc/prenotazione/annulla?token=x%20y%26z%3D1"
+        );
+    });
+});
+
+describe("buildSupportTicketUrl", () => {
+    const TICKET_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+    it("builds the business-side thread URL", async () => {
+        const { buildSupportTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildSupportTicketUrl(TENANT_ID, TICKET_ID)).toBe(
+            `https://cataloglobe.com/business/${TENANT_ID}/support/${TICKET_ID}`
+        );
+    });
+
+    it("builds on top of a base URL that had a trailing slash", async () => {
+        const { buildSupportTicketUrl } = await loadWithEnv({
+            APP_URL: "https://staging.cataloglobe.com/"
+        });
+        expect(buildSupportTicketUrl(TENANT_ID, TICKET_ID)).toBe(
+            `https://staging.cataloglobe.com/business/${TENANT_ID}/support/${TICKET_ID}`
+        );
+    });
+
+    it("returns null when the base URL is unconfigured", async () => {
+        const { buildSupportTicketUrl } = await loadWithEnv({});
+        expect(buildSupportTicketUrl(TENANT_ID, TICKET_ID)).toBeNull();
+    });
+
+    it("returns null instead of throwing on missing arguments", async () => {
+        const { buildSupportTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        for (const [tenantId, ticketId] of [
+            [null, TICKET_ID],
+            [undefined, TICKET_ID],
+            ["   ", TICKET_ID],
+            [TENANT_ID, null],
+            [TENANT_ID, undefined],
+            [TENANT_ID, "  "]
+        ] as const) {
+            expect(() => buildSupportTicketUrl(tenantId, ticketId)).not.toThrow();
+            expect(buildSupportTicketUrl(tenantId, ticketId)).toBeNull();
+        }
+    });
+
+    it("percent-encodes both ids", async () => {
+        const { buildSupportTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildSupportTicketUrl("a b/../c", "x?y#z")).toBe(
+            "https://cataloglobe.com/business/a%20b%2F..%2Fc/support/x%3Fy%23z"
+        );
+    });
+});
+
+describe("buildSupportAdminTicketUrl", () => {
+    const TICKET_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+    it("builds the /admin/supporto thread URL", async () => {
+        const { buildSupportAdminTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildSupportAdminTicketUrl(TICKET_ID)).toBe(
+            `https://cataloglobe.com/admin/supporto/${TICKET_ID}`
+        );
+    });
+
+    it("takes no tenant: /admin is not tenant-scoped", async () => {
+        const { buildSupportAdminTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildSupportAdminTicketUrl(TICKET_ID)).not.toContain("/business/");
+    });
+
+    it("returns null when the base URL is unconfigured", async () => {
+        const { buildSupportAdminTicketUrl } = await loadWithEnv({});
+        expect(buildSupportAdminTicketUrl(TICKET_ID)).toBeNull();
+    });
+
+    it("returns null instead of throwing on a missing ticket id", async () => {
+        const { buildSupportAdminTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        for (const ticketId of [null, undefined, "   "] as const) {
+            expect(() => buildSupportAdminTicketUrl(ticketId)).not.toThrow();
+            expect(buildSupportAdminTicketUrl(ticketId)).toBeNull();
+        }
+    });
+
+    it("percent-encodes the ticket id", async () => {
+        const { buildSupportAdminTicketUrl } = await loadWithEnv({
+            APP_URL: "https://cataloglobe.com"
+        });
+        expect(buildSupportAdminTicketUrl("x?y#z")).toBe(
+            "https://cataloglobe.com/admin/supporto/x%3Fy%23z"
         );
     });
 });

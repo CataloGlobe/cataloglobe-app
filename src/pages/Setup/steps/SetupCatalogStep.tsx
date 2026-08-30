@@ -62,7 +62,9 @@ export function SetupCatalogStep({
     if (importSession.isOpen) {
         return (
             <div className={styles.importPanel}>
-                <AiMenuImportWizard session={importSession} />
+                {/* Qui il tenant è appena nato: cataloghi esistenti non ce ne
+                    sono, quindi niente selettore Nuovo/Esistente. */}
+                <AiMenuImportWizard session={importSession} forceNewCatalog />
             </div>
         );
     }

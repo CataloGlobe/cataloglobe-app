@@ -9,6 +9,7 @@ import {
     SupportThread,
     type SupportThreadMessage
 } from "@/components/Support/SupportThread/SupportThread";
+import { useAdminOutletContext } from "@/layouts/AdminLayout/outletContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePollingRefresh } from "@/hooks/usePollingRefresh";
@@ -87,6 +88,9 @@ export default function SupportTicketAdminPage() {
     const { ticketId = "" } = useParams<{ ticketId: string }>();
     const navigate = useNavigate();
     usePageTitle("Supporto");
+    // Optional-chained: il context esiste solo dentro l'Outlet di AdminLayout.
+    // Stessa forma di `refreshSupportUnread` nel dettaglio lato cliente.
+    const refreshSupportPending = useAdminOutletContext()?.refreshSupportPending;
 
     const [ticket, setTicket] = useState<V2SupportTicketWithContext | null>(null);
     const [messages, setMessages] = useState<V2SupportMessage[]>([]);
@@ -169,13 +173,16 @@ export default function SupportTicketAdminPage() {
                 // deriva un trigger BEFORE UPDATE, quindi il valore vero lo
                 // conosce solo il database.
                 await loadThread({ silent: true });
+                // Chiudere o riaprire una richiesta la toglie o la rimette
+                // nella coda di chi aspetta: il pallino in sidebar va rivalutato.
+                refreshSupportPending?.();
             } catch {
                 setActionError("Non è stato possibile cambiare lo stato.");
             } finally {
                 setIsChangingStatus(false);
             }
         },
-        [ticket, ticketId, loadThread]
+        [ticket, ticketId, loadThread, refreshSupportPending]
     );
 
     const handleSend = useCallback(async () => {
@@ -189,12 +196,16 @@ export default function SupportTicketAdminPage() {
             // Ricarica: il trigger aggiorna `last_message_kind` e
             // `last_message_at` sul ticket, che l'header e la coda leggono.
             await loadThread({ silent: true });
+            // Rispondere sposta `last_message_kind` a 'platform': questa
+            // richiesta non aspetta più, e il pallino in sidebar si spegne se
+            // era l'ultima.
+            refreshSupportPending?.();
         } catch {
             setActionError("Non è stato possibile inviare il messaggio.");
         } finally {
             setIsSending(false);
         }
-    }, [draft, isSending, ticketId, loadThread]);
+    }, [draft, isSending, ticketId, loadThread, refreshSupportPending]);
 
     // MEMOIZZATI. `usePageHeader` confronta `actions` e `leading` per
     // reference: un nodo JSX inline scatena un loop di setConfig che blocca

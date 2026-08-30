@@ -51,11 +51,103 @@ async function signRawPayload(payload: unknown, secret = SECRET): Promise<string
     return `${body}.${toBase64Url(new Uint8Array(sig))}`;
 }
 
+describe("claim act — separazione delle due operazioni", () => {
+    it("un token cancel verifica come cancel", async () => {
+        setSecret(SECRET);
+        const token = await signReservationToken(RID, "cancel");
+        await expect(verifyReservationToken(token, "cancel")).resolves.toEqual({
+            reservationId: RID,
+            action: "cancel"
+        });
+    });
+
+    it("un token confirm verifica come confirm", async () => {
+        setSecret(SECRET);
+        const token = await signReservationToken(RID, "confirm");
+        await expect(verifyReservationToken(token, "confirm")).resolves.toEqual({
+            reservationId: RID,
+            action: "confirm"
+        });
+    });
+
+    it("un token CANCEL è rifiutato dall'operazione di conferma", async () => {
+        setSecret(SECRET);
+        const token = await signReservationToken(RID, "cancel");
+        await expect(verifyReservationToken(token, "confirm")).rejects.toBeInstanceOf(
+            InvalidReservationTokenError
+        );
+        await expect(verifyReservationToken(token, "confirm")).rejects.toThrow(/act mismatch/);
+    });
+
+    it("un token CONFIRM è rifiutato dalla disdetta", async () => {
+        setSecret(SECRET);
+        const token = await signReservationToken(RID, "confirm");
+        await expect(verifyReservationToken(token, "cancel")).rejects.toBeInstanceOf(
+            InvalidReservationTokenError
+        );
+        await expect(verifyReservationToken(token, "cancel")).rejects.toThrow(/act mismatch/);
+    });
+
+    it("i due token della stessa prenotazione sono stringhe diverse", async () => {
+        setSecret(SECRET);
+        const cancel = await signReservationToken(RID, "cancel");
+        const confirm = await signReservationToken(RID, "confirm");
+        expect(cancel).not.toBe(confirm);
+    });
+
+    it("retrocompatibilità: payload SENZA act vale come cancel", async () => {
+        setSecret(SECRET);
+        // Forma esatta dei token gia' spediti prima che il claim esistesse.
+        const legacy = await signRawPayload({ rid: RID });
+        await expect(verifyReservationToken(legacy, "cancel")).resolves.toEqual({
+            reservationId: RID,
+            action: "cancel"
+        });
+    });
+
+    it("retrocompatibilità: un token legacy NON vale come conferma", async () => {
+        setSecret(SECRET);
+        const legacy = await signRawPayload({ rid: RID });
+        await expect(verifyReservationToken(legacy, "confirm")).rejects.toThrow(/act mismatch/);
+    });
+
+    it("act nullo vale come cancel, act ignoto viene rifiutato", async () => {
+        setSecret(SECRET);
+        await expect(
+            verifyReservationToken(await signRawPayload({ rid: RID, act: null }), "cancel")
+        ).resolves.toMatchObject({ action: "cancel" });
+
+        for (const bogus of ["delete", "CANCEL", "", 1, {}]) {
+            await expect(
+                verifyReservationToken(await signRawPayload({ rid: RID, act: bogus }), "cancel")
+            ).rejects.toThrow(/unknown act/);
+        }
+    });
+
+    it("l'operazione attesa di default è cancel", async () => {
+        setSecret(SECRET);
+        const confirmToken = await signReservationToken(RID, "confirm");
+        // Chi dimentica il secondo argomento ottiene il significato storico,
+        // non un passaggio libero.
+        await expect(verifyReservationToken(confirmToken)).rejects.toThrow(/act mismatch/);
+    });
+
+    it("la firma rifiuta un'operazione non prevista", async () => {
+        setSecret(SECRET);
+        await expect(
+            signReservationToken(RID, "delete" as unknown as "cancel")
+        ).rejects.toThrow(/unknown action/);
+    });
+});
+
 describe("token valido", () => {
     it("firma e verifica restituiscono lo stesso reservation id", async () => {
         setSecret(SECRET);
         const token = await signReservationToken(RID);
-        await expect(verifyReservationToken(token)).resolves.toEqual({ reservationId: RID });
+        await expect(verifyReservationToken(token)).resolves.toEqual({
+            reservationId: RID,
+            action: "cancel"
+        });
     });
 
     it("ha il formato v1.<payload>.<firma>", async () => {
@@ -78,7 +170,10 @@ describe("token valido", () => {
     it("normalizza l'id a minuscolo", async () => {
         setSecret(SECRET);
         const token = await signReservationToken(RID.toUpperCase());
-        await expect(verifyReservationToken(token)).resolves.toEqual({ reservationId: RID });
+        await expect(verifyReservationToken(token)).resolves.toEqual({
+            reservationId: RID,
+            action: "cancel"
+        });
     });
 
     it("token diversi per prenotazioni diverse", async () => {

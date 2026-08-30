@@ -619,7 +619,11 @@ export default function ItemDetail({
                             </div>
                         )}
 
-                        {/* INGREDIENTI */}
+                        {/* INGREDIENTI — l'ordine dell'array È l'ordine voluto:
+                            il resolver ordina per `product_ingredients.sort_order`
+                            (drag & drop admin) prima di emettere il payload, che
+                            non trasporta il campo. Nessun sort qui: ri-ordinare
+                            localmente vorrebbe dire duplicare quella regola. */}
                         {displayItem.ingredients && displayItem.ingredients.length > 0 && (
                             <div className={styles.ingredientSection}>
                                 <Text variant="body-sm" weight={700} className={styles.ingredientSectionLabel} color="var(--pub-surface-text)">

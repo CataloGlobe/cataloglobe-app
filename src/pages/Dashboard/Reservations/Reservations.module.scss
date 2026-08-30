@@ -1058,3 +1058,43 @@
   line-height: 1.3;
   color: var(--color-red-900);
 }
+
+/* ── Conferma di presenza del cliente ──────────────────────────────────────
+   Segnale positivo e discreto: compare SOLO su chi ha confermato. Il silenzio
+   non ha un suo segno, di proposito — vedi la nota in GuestConfirmedMark.tsx.
+   Tono verde tenue, nessun riempimento pieno: non deve competere con lo
+   StatusBadge che gli sta accanto, che resta il dato principale della riga. */
+.guestConfirmedMark {
+  display: inline-flex;
+  align-items: center;
+  color: var(--color-green-900);
+  flex-shrink: 0;
+}
+
+.guestConfirmedLabelled {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.3;
+  color: var(--color-green-900);
+}
+
+/* Etichetta per screen reader: il `title` non è raggiungibile da tastiera. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Riga della conferma cliente nell'hero del drawer di dettaglio. */
+.drawerHeroConfirmed {
+  margin-top: 6px;
+}

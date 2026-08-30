@@ -4,6 +4,7 @@ import { Select, type SelectOption } from "@/components/ui/Select/Select";
 import { AddressAutocomplete, type AddressResult } from "@/components/ui/AddressAutocomplete/AddressAutocomplete";
 import { isValidPartitaIva, isValidCodiceFiscale } from "@/utils/fiscalValidators";
 import { isValidCapIT, isValidProvinciaIT } from "@/utils/addressValidators";
+import { BILLING_FIELD_MAX, billingLengthError } from "./billingLimits";
 import type { LegalEntityType } from "@/types/tenant";
 import styles from "../CreateBusinessWizard.module.scss";
 
@@ -74,6 +75,15 @@ export function StepBilling({
             ? "Codice fiscale non valido."
             : undefined;
 
+    const legalNameError = billingLengthError(legalName, BILLING_FIELD_MAX.legalName);
+    const firstNameError = billingLengthError(firstName, BILLING_FIELD_MAX.firstName);
+    const lastNameError = billingLengthError(lastName, BILLING_FIELD_MAX.lastName);
+    const codiceDestinatarioError = billingLengthError(
+        codiceDestinatario,
+        BILLING_FIELD_MAX.codiceDestinatario
+    );
+    const pecError = billingLengthError(pec, BILLING_FIELD_MAX.pec);
+
     const isSocieta = entityType === "societa";
     const isProfessionista = entityType === "professionista";
     const isAssociazione = entityType === "associazione";
@@ -113,6 +123,7 @@ export function StepBilling({
                             placeholder="es. Mario"
                             disabled={disabled}
                             required
+                            error={firstNameError}
                         />
                         <TextInput
                             label="Cognome"
@@ -121,6 +132,7 @@ export function StepBilling({
                             placeholder="es. Rossi"
                             disabled={disabled}
                             required
+                            error={lastNameError}
                         />
                     </div>
                 )}
@@ -133,6 +145,7 @@ export function StepBilling({
                         placeholder="es. Trattoria Da Mario S.r.l."
                         disabled={disabled}
                         required
+                        error={legalNameError}
                     />
                 )}
 
@@ -143,6 +156,7 @@ export function StepBilling({
                         onChange={e => onLegalNameChange(e.target.value)}
                         placeholder="es. Studio Rossi"
                         disabled={disabled}
+                        error={legalNameError}
                     />
                 )}
 
@@ -194,6 +208,7 @@ export function StepBilling({
                             disabled={disabled}
                             required
                             containerClassName={styles.addressFull}
+                            error={billingLengthError(addr.address, BILLING_FIELD_MAX.address)}
                         />
                         <TextInput
                             label="Civico (opzionale)"
@@ -201,6 +216,7 @@ export function StepBilling({
                             onChange={e => setAddrField("street_number", e.target.value)}
                             placeholder="es. 12"
                             disabled={disabled}
+                            error={billingLengthError(addr.street_number, BILLING_FIELD_MAX.streetNumber)}
                         />
                         <TextInput
                             label="CAP"
@@ -224,6 +240,7 @@ export function StepBilling({
                             disabled={disabled}
                             required
                             containerClassName={styles.addressFull}
+                            error={billingLengthError(addr.city, BILLING_FIELD_MAX.city)}
                         />
                         <TextInput
                             label="Provincia"
@@ -256,6 +273,7 @@ export function StepBilling({
                             onChange={e => onCodiceDestinatarioChange(e.target.value)}
                             placeholder="7 caratteri"
                             disabled={disabled}
+                            error={codiceDestinatarioError}
                         />
                         <TextInput
                             label="PEC"
@@ -264,6 +282,7 @@ export function StepBilling({
                             onChange={e => onPecChange(e.target.value)}
                             placeholder="es. nome@pec.it"
                             disabled={disabled}
+                            error={pecError}
                         />
                     </div>
                 </div>
