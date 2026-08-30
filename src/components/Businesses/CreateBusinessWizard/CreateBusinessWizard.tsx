@@ -26,6 +26,7 @@ import { isValidCapIT, isValidProvinciaIT } from "@/utils/addressValidators";
 import { Step1Info } from "./steps/Step1Info";
 import { Step2PlanSeats } from "./steps/Step2PlanSeats";
 import { StepBilling } from "./steps/StepBilling";
+import { BILLING_FIELD_MAX } from "./steps/billingLimits";
 import { Step3Summary } from "./steps/Step3Summary";
 
 import styles from "./CreateBusinessWizard.module.scss";
@@ -232,8 +233,21 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         billingAddress.city.trim().length > 0 &&
         isValidProvinciaIT(billingAddress.province);
 
+    // I campi fiscali a testo libero finiscono su `customer.name` / `description`
+    // / `metadata` di Stripe: oltre i limiti il checkout fallisce con 502.
+    const billingLengthsOk =
+        legalName.trim().length <= BILLING_FIELD_MAX.legalName &&
+        firstName.trim().length <= BILLING_FIELD_MAX.firstName &&
+        lastName.trim().length <= BILLING_FIELD_MAX.lastName &&
+        codiceDestinatario.trim().length <= BILLING_FIELD_MAX.codiceDestinatario &&
+        pec.trim().length <= BILLING_FIELD_MAX.pec &&
+        (billingAddress?.address.trim().length ?? 0) <= BILLING_FIELD_MAX.address &&
+        (billingAddress?.street_number.trim().length ?? 0) <= BILLING_FIELD_MAX.streetNumber &&
+        (billingAddress?.city.trim().length ?? 0) <= BILLING_FIELD_MAX.city;
+
     const canProceedFromStepBilling = useMemo(() => {
         if (!billingAddressComplete) return false;
+        if (!billingLengthsOk) return false;
 
         const vatFilled = vatNumber.trim().length > 0;
         const cfFilled = fiscalCode.trim().length > 0;
@@ -257,7 +271,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             default:
                 return false;
         }
-    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, billingAddressComplete]);
+    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, billingAddressComplete, billingLengthsOk]);
 
     const isDirty = resumeMode
         ? (
@@ -724,22 +738,49 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
 /**
  * True when the tenant already carries the fiscal identity required for its
  * entity type. Drives whether the billing step is shown in resume flow.
+ *
+ * Un campo oltre `BILLING_FIELD_MAX` conta come dato MANCANTE, non come dato
+ * presente: quei valori fanno rifiutare il customer da Stripe e bloccano il
+ * checkout, quindi il resume deve ripassare da StepBilling (precompilato) e
+ * obbligare l'utente a correggerli.
  */
 function tenantHasFiscalData(t: V2Tenant): boolean {
     if (!t.legal_entity_type) return false;
-    const has = (v?: string | null) => !!v && v.trim().length > 0;
+    // Presente E entro il limite: fuori limite equivale ad assente.
+    const has = (v: string | null | undefined, max: number) => {
+        const trimmed = v?.trim() ?? "";
+        return trimmed.length > 0 && trimmed.length <= max;
+    };
+    const within = (v: string | null | undefined, max: number) => (v?.trim().length ?? 0) <= max;
 
     // Identity without a minimal legal address is incomplete for invoicing.
-    const addressOk = has(t.address) && has(t.postal_code) && has(t.city) && has(t.province);
+    const addressOk =
+        has(t.address, BILLING_FIELD_MAX.address) &&
+        !!t.postal_code?.trim() &&
+        has(t.city, BILLING_FIELD_MAX.city) &&
+        !!t.province?.trim() &&
+        within(t.street_number, BILLING_FIELD_MAX.streetNumber);
     if (!addressOk) return false;
+
+    // Campi facoltativi: se valorizzati devono comunque stare nei limiti.
+    const optionalsOk =
+        within(t.codice_destinatario, BILLING_FIELD_MAX.codiceDestinatario) &&
+        within(t.pec, BILLING_FIELD_MAX.pec);
+    if (!optionalsOk) return false;
 
     switch (t.legal_entity_type) {
         case "societa":
-            return has(t.vat_number) && has(t.legal_name);
+            return !!t.vat_number?.trim() && has(t.legal_name, BILLING_FIELD_MAX.legalName);
         case "professionista":
-            return has(t.vat_number) && has(t.fiscal_code) && has(t.first_name) && has(t.last_name);
+            return (
+                !!t.vat_number?.trim() &&
+                !!t.fiscal_code?.trim() &&
+                has(t.first_name, BILLING_FIELD_MAX.firstName) &&
+                has(t.last_name, BILLING_FIELD_MAX.lastName) &&
+                within(t.legal_name, BILLING_FIELD_MAX.legalName)
+            );
         case "associazione":
-            return has(t.fiscal_code) && has(t.legal_name);
+            return !!t.fiscal_code?.trim() && has(t.legal_name, BILLING_FIELD_MAX.legalName);
         default:
             return false;
     }
