@@ -46,6 +46,12 @@ type SetupShellProps = {
      * form, dove nessuno le legge, mentre la colonna sinistra resta vuota.
      */
     sidebarNote?: ReactNode;
+    /**
+     * Il passo 1 ha campi compilati non ancora salvati. Al passo 1 nulla
+     * raggiunge il DB prima del submit: senza campi compilati un'uscita non
+     * perde niente.
+     */
+    isStepOneDirty?: boolean;
     /** Azione secondaria a sinistra del primario (es. "Indietro"). */
     secondaryLabel?: string;
     onSecondaryClick?: () => void;

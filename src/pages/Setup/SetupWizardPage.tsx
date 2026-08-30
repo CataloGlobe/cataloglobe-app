@@ -70,6 +70,9 @@ export default function SetupWizardPage() {
 
     const [stepIndex, setStepIndex] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
+    // Campi compilati al passo 1: nulla raggiunge il DB prima del submit, quindi
+    // è l'unico stato del wizard che un'uscita può perdere.
+    const [isStepOneDirty, setIsStepOneDirty] = useState(false);
     // Sede creata al passo 1: l'id serve al passo 2 per collegare il menù, slug
     // e nome al passo 3 per comporre URL pubblico e QR.
     const [createdActivity, setCreatedActivity] = useState<CreatedActivity | null>(null);
@@ -325,6 +328,7 @@ export default function SetupWizardPage() {
                     </Text>
                 ) : undefined
             }
+            isStepOneDirty={isStepOneDirty}
             secondaryLabel={isCatalogStep ? "Indietro" : undefined}
             onSecondaryClick={handleBackFromCatalog}
             closeWarning={
@@ -339,6 +343,7 @@ export default function SetupWizardPage() {
                     formId={ACTIVITY_FORM_ID}
                     tenantId={tenantId}
                     onSavingChange={setIsSaving}
+                    onDirtyChange={setIsStepOneDirty}
                     onCreated={handleActivityCreated}
                 />
             )}
