@@ -329,6 +329,10 @@ export default function SetupWizardPage() {
                 ) : undefined
             }
             isStepOneDirty={isStepOneDirty}
+            // Dalla sede, non da `stepIndex`: se `createActivity` riesce e
+            // l'upload della copertina fallisce, la sede esiste ma il passo non
+            // è avanzato. È la sede a dire cosa è stato davvero salvato.
+            hasCreatedActivity={createdActivity !== null}
             secondaryLabel={isCatalogStep ? "Indietro" : undefined}
             onSecondaryClick={handleBackFromCatalog}
             closeWarning={
