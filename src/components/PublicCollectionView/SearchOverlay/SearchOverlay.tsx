@@ -253,8 +253,15 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
             </div>
 
             {/* Risultati */}
+            {/* La catena si decide su debouncedQuery, NON su query: groupedResults
+                deriva dal debounce, quindi scegliere il ramo sul valore immediato
+                aprirebbe una finestra di ~100ms in cui si mostra un vuoto pur
+                avendo risultati validi (sfarfallio + salto di layout, marcato sul
+                vuoto filtrato che è alto). Allineate le due fonti, durante il
+                debounce resta visibile il risultato precedente. L'input resta
+                legato a `query`: la digitazione non deve avere lag. */}
             <div className={styles.results}>
-                {query.trim() === "" ? (
+                {debouncedQuery.trim() === "" ? (
                     <p className={styles.hint}>{t("search.hint")}</p>
                 ) : groupedResults.length === 0 && activeFilterCount > 0 ? (
                     // Zero risultati CON filtro attivo: `sections` arriva già
