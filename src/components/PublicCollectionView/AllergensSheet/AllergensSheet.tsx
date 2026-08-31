@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { AlertCircle, Check } from "lucide-react";
 import PublicSheet from "../PublicSheet/PublicSheet";
+import AllergenFilterBody from "../AllergenFilterBody/AllergenFilterBody";
 import AllergenIcon from "@components/ui/AllergenIcon/AllergenIcon";
 import Text from "@components/ui/Text/Text";
 import type { Allergen } from "@services/supabase/allergens";
@@ -105,46 +105,17 @@ export default function AllergensSheet(props: Props) {
                 ) : undefined
             }
         >
-            <div className={styles.body}>
-                {isFilter && (
-                    <Text variant="body-sm" className={styles.filterIntro} color="var(--pub-surface-text-muted)">
-                        {t("allergens.filter_intro")}
-                    </Text>
-                )}
-
-                {isFilter && props.allergens.length === 0 ? (
-                    <div className={styles.filterEmpty}>
-                        <Text variant="body-sm" color="var(--pub-surface-text-muted)">
-                            {t("allergens.filter_empty")}
-                        </Text>
-                    </div>
-                ) : isFilter ? (
-                    <ul className={styles.list}>
-                        {props.allergens.map(a => {
-                            const selected = draft.includes(a.id);
-                            return (
-                                <li key={a.id}>
-                                    <button
-                                        type="button"
-                                        onClick={() => toggle(a.id)}
-                                        className={`${styles.filterRow} ${selected ? styles.filterRowSelected : ""}`}
-                                        aria-pressed={selected}
-                                    >
-                                        <span className={styles.iconWrap} aria-hidden>
-                                            <AllergenIcon code={a.code} size={20} variant="bare" />
-                                        </span>
-                                        <span className={styles.label}>
-                                            {a.label}
-                                        </span>
-                                        <span className={styles.checkbox} aria-hidden>
-                                            {selected && <Check size={12} strokeWidth={3} />}
-                                        </span>
-                                    </button>
-                                </li>
-                            );
-                        })}
-                    </ul>
-                ) : (
+            {props.mode === "filter" ? (
+                // Il corpo del filtro vive in un componente puro: qui resta solo
+                // il chrome della sheet (header, footer Azzera/Applica) e il draft.
+                <AllergenFilterBody
+                    className={styles.body}
+                    allergens={props.allergens}
+                    selectedIds={draft}
+                    onToggle={toggle}
+                />
+            ) : (
+                <div className={styles.body}>
                     <ul className={styles.list}>
                         {props.allergens.map(a => (
                             <li key={a.id} className={styles.item}>
@@ -157,23 +128,12 @@ export default function AllergensSheet(props: Props) {
                             </li>
                         ))}
                     </ul>
-                )}
 
-                {isFilter && props.allergens.length > 0 && (
-                    <div className={styles.filterDisclaimer}>
-                        <AlertCircle size={14} aria-hidden />
-                        <Text variant="caption-xs" color="var(--pub-surface-text-muted)">
-                            {t("allergens.filter_disclaimer")}
-                        </Text>
-                    </div>
-                )}
-
-                {!isFilter && (
                     <Text variant="caption-xs" className={styles.disclaimer} color="var(--pub-surface-text-muted)">
                         {t("allergens.disclaimer")}
                     </Text>
-                )}
-            </div>
+                </div>
+            )}
         </PublicSheet>
     );
 }
