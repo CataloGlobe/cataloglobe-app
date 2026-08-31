@@ -279,6 +279,11 @@ export default function SetupWizardPage() {
     // Al passo 3 il copy cambia in base a cosa c'è dentro il menù.
     const copy = isPublishStep && !hasProducts ? EMPTY_MENU_COPY : STEP_COPY[stepIndex];
     const isImportPanelOpen = isCatalogStep && importSession.isOpen;
+    // "Indietro" riporta al bivio azzerando il ramo scelto: sul bivio stesso non
+    // ha nulla a cui tornare e il click non produceva alcun effetto visibile.
+    // Nascosto e non disabilitato: un pulsante spento direbbe "puoi tornare
+    // indietro ma non ora", che qui è falso — un indietro non esiste proprio.
+    const canGoBackToBranchChoice = isCatalogStep && (catalogBranch !== null || importSession.isOpen);
     const isAnalyzing = importSession.status === "analyzing" || importSession.status === "creating";
 
     const formId = isActivityStep
@@ -333,7 +338,7 @@ export default function SetupWizardPage() {
             // l'upload della copertina fallisce, la sede esiste ma il passo non
             // è avanzato. È la sede a dire cosa è stato davvero salvato.
             hasCreatedActivity={createdActivity !== null}
-            secondaryLabel={isCatalogStep ? "Indietro" : undefined}
+            secondaryLabel={canGoBackToBranchChoice ? "Indietro" : undefined}
             onSecondaryClick={handleBackFromCatalog}
             closeWarning={
                 isAnalyzing
