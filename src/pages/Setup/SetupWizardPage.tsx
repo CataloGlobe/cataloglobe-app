@@ -285,6 +285,15 @@ export default function SetupWizardPage() {
     // indietro ma non ora", che qui è falso — un indietro non esiste proprio.
     const canGoBackToBranchChoice = isCatalogStep && (catalogBranch !== null || importSession.isOpen);
     const isAnalyzing = importSession.status === "analyzing" || importSession.status === "creating";
+    // File scelti ma non ancora analizzati: vivono solo nello state della
+    // sessione e non hanno ancora toccato la rete, quindi chiudere il setup li
+    // perderebbe in silenzio. `step === "upload"` distingue questo caso dalla
+    // revisione, dove i file ci sono ancora ma l'analisi è già avvenuta.
+    // Pannello aperto senza file: niente da perdere, nessun avviso.
+    const hasUnanalyzedFiles =
+        importSession.isOpen &&
+        importSession.step === "upload" &&
+        importSession.files.length > 0;
 
     const formId = isActivityStep
         ? ACTIVITY_FORM_ID
@@ -340,10 +349,14 @@ export default function SetupWizardPage() {
             hasCreatedActivity={createdActivity !== null}
             secondaryLabel={canGoBackToBranchChoice ? "Indietro" : undefined}
             onSecondaryClick={handleBackFromCatalog}
+            // Due perdite diverse, due testi diversi: l'analisi in volo è lavoro
+            // già avviato, i file scelti sono lavoro non ancora partito.
             closeWarning={
                 isAnalyzing
                     ? "L'analisi del menù è ancora in corso: chiudendo ora andrà persa e dovrai ricaricare il file."
-                    : undefined
+                    : hasUnanalyzedFiles
+                      ? "Il menù che hai caricato non è ancora stato analizzato: chiudendo ora andrà perso e dovrai ricaricarlo."
+                      : undefined
             }
             onExit={handleExitToOverview}
         >
