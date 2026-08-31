@@ -294,6 +294,13 @@ export default function SetupWizardPage() {
         importSession.isOpen &&
         importSession.step === "upload" &&
         importSession.files.length > 0;
+    // Analisi finita, prodotti in attesa di revisione: esistono solo nello state
+    // della sessione. Il primo write arriva con la RPC del submit, quindi qui
+    // non c'è nulla su DB — si perde il risultato dell'analisi, che per rifarlo
+    // costa un'altra chiamata AI. Nessun requisito sul pannello aperto, a
+    // differenza dei file scelti: questo è lavoro già svolto e già pagato, non
+    // una selezione locale che l'utente può rifare a costo zero.
+    const hasAnalyzedProducts = importSession.status === "review";
 
     const formId = isActivityStep
         ? ACTIVITY_FORM_ID
@@ -349,14 +356,17 @@ export default function SetupWizardPage() {
             hasCreatedActivity={createdActivity !== null}
             secondaryLabel={canGoBackToBranchChoice ? "Indietro" : undefined}
             onSecondaryClick={handleBackFromCatalog}
-            // Due perdite diverse, due testi diversi: l'analisi in volo è lavoro
-            // già avviato, i file scelti sono lavoro non ancora partito.
+            // Tre perdite diverse, tre testi diversi: l'analisi in volo è lavoro
+            // già avviato, i prodotti da rivedere sono lavoro già fatto e mai
+            // salvato, i file scelti sono lavoro non ancora partito.
             closeWarning={
                 isAnalyzing
                     ? "L'analisi del menù è ancora in corso: chiudendo ora andrà persa e dovrai ricaricare il file."
-                    : hasUnanalyzedFiles
-                      ? "Il menù che hai caricato non è ancora stato analizzato: chiudendo ora andrà perso e dovrai ricaricarlo."
-                      : undefined
+                    : hasAnalyzedProducts
+                      ? "Il menù analizzato non è ancora stato salvato: chiudendo ora andrà perso e dovrai ricaricare il file e rifare l'analisi."
+                      : hasUnanalyzedFiles
+                        ? "Il menù che hai caricato non è ancora stato analizzato: chiudendo ora andrà perso e dovrai ricaricarlo."
+                        : undefined
             }
             onExit={handleExitToOverview}
         >
