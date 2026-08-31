@@ -263,15 +263,18 @@ export default function ItemDetail({
                     {/* IMMAGINE — mostrata solo se showImage=true; placeholder se immagine assente */}
                     {showImage && (
                         shouldShowImage ? (
-                            // 16:9 stabile = ratio di authoring → path parametrico
-                            // completo (zoom + fasce onorati). Fallback default per
-                            // image_framing NULL → legacy cover, identico all'odierno.
+                            // 4:3 stabile = ratio di authoring (SchedaTab) → path
+                            // parametrico completo (zoom + fasce onorati). Il valore
+                            // è gemello di `aspect-ratio` in .imageFrame: vanno
+                            // cambiati insieme, o il riquadro e la geometria
+                            // divergono. Fallback default per image_framing NULL →
+                            // legacy cover, identico all'odierno.
                             <div className={styles.imageFrame}>
                                 <FramedMedia
                                     source={displayItem.image!}
                                     framing={displayItem.image_framing ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
                                     aspectRatio={displayItem.image_aspect_ratio ?? null}
-                                    frameRatio={16 / 9}
+                                    frameRatio={4 / 3}
                                     alt={displayItem.name}
                                     eager
                                 />

@@ -353,10 +353,16 @@ function ProductRowInner({
                             />
                         </div>
                     ) : (
-                        // Card·List (1:1) e Card·Grid (4:3) condividono questo elemento
-                        // (container query). FramedMedia con aspectRatio=null usa il
-                        // path legacy cover → object-position dal focal point, ratio-
-                        // agnostico. Fallback default center/cover per image_framing NULL.
+                        // Un solo elemento, due ratio: 1:1 (96px, 80px mobile) con
+                        // collection stretta, 4:3 sopra i 1024px. Non è uno stile
+                        // scelto dall'utente — l'orientamento è automatico via
+                        // @container sulla larghezza della collection, quindi qui
+                        // il ratio del riquadro NON è noto a runtime e nessun
+                        // frameRatio sarebbe corretto in entrambi i casi.
+                        // FramedMedia con aspectRatio=null usa il path legacy cover
+                        // → object-position dal focal point, ratio-agnostico (lo
+                        // zoom resta quindi inapplicato sulle card). Fallback
+                        // default center/cover per image_framing NULL.
                         <div className={styles.rowImageFrame}>
                             <FramedMedia
                                 source={image}

@@ -158,7 +158,7 @@ export const IMAGE_UPLOAD_PRESETS = {
         drawerTitle: "Modifica immagine",
         requiresConfirm: false,
         status: "documentary",
-        note: "Ratio di authoring in uso: 16:9 (SchedaTab). Singolo storage + framing metadata (products.image_framing / image_aspect_ratio) riapplicato per-contenitore da FramedMedia: Card·List 1:1, Card·Grid 4:3, ItemDetail 16:9, Compatto senza immagine."
+        note: "Ratio di authoring in uso: 4:3, allineato a SchedaTab e a ItemDetail (stesso valore, non collegato: resta documentario). Scelto come media geometrica dei contenitori pubblici reali — card 1:1 sotto 1024px, card 4:3 sopra, ItemDetail 4:3 — per minimizzare lo scarto peggiore. Singolo storage + framing metadata (products.image_framing / image_aspect_ratio) riapplicato per-contenitore da FramedMedia; lo stile Compatto non ha immagine. NB: compressLongEdge qui è 1000, SchedaTab usa 1280."
     },
     featured: {
         aspectRatio: 16 / 9,
