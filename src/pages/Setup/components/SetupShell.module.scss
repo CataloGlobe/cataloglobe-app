@@ -1,3 +1,7 @@
+/* Colonna sinistra: la usano la traccia del grid e il pannello di conferma,
+   che deve ricoprirla esattamente. */
+$sidebar-width: 296px;
+
 /* ----------------------------------------------------
    BACKDROP — percorso a schermo pieno, fondo scuro sfocato
 ---------------------------------------------------- */
@@ -21,7 +25,7 @@
 .dialog {
     position: relative;
     display: grid;
-    grid-template-columns: 296px 1fr;
+    grid-template-columns: $sidebar-width 1fr;
     /* Con `height: auto` la riga si dimensionerebbe sul contenuto ignorando il
        massimo del dialogo: il footer finiva fuori dal bordo (tagliato da
        `overflow: hidden`). `minmax(0, 1fr)` la lascia crescere col contenuto ma
@@ -235,35 +239,38 @@
 /* ----------------------------------------------------
    CONFERMA DI CHIUSURA
 ---------------------------------------------------- */
+/* Da 860px la conferma prende il posto della sola colonna sinistra, quella da
+   cui parte l'azione: la domanda resta sul piano in cui l'utente ha cliccato e
+   il passo a destra rimane leggibile, invece di due superfici sovrapposte con
+   il wizard spento dietro. Niente backdrop, niente dim. */
 .confirmBackdrop {
     position: absolute;
-    inset: 0;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: $sidebar-width;
     z-index: 1;
 
     display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
+    /* In basso: titolo e azioni cadono dove stava il link "Chiudi il setup". */
+    align-items: stretch;
+    justify-content: flex-end;
+    flex-direction: column;
 
-    background: rgba(0, 0, 0, 0.45);
+    background: var(--card-bg);
+    border-right: 1px solid var(--border);
 }
 
 .confirm {
-    width: min(420px, 100%);
     display: flex;
     flex-direction: column;
     gap: 10px;
-    padding: 24px;
-
-    background: var(--card-bg);
-    border: 1px solid var(--border);
-    border-radius: 16px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+    padding: 28px 24px;
 }
 
 .confirmActions {
     display: flex;
-    justify-content: flex-end;
+    flex-direction: column;
     gap: 8px;
     margin-top: 6px;
 }
@@ -344,5 +351,30 @@
     .footerActions {
         flex-direction: column;
         align-items: stretch;
+    }
+
+    /* Qui la sidebar è una barra orizzontale senza piè di pagina: non esiste
+       una colonna a cui ancorare la conferma. Ramo esplicito, non una
+       degradazione della variante desktop: torna il dialogo centrato. */
+    .confirmBackdrop {
+        inset: 0;
+        width: auto;
+
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+
+        background: rgba(0, 0, 0, 0.45);
+        border-right: none;
+    }
+
+    .confirm {
+        width: min(420px, 100%);
+        padding: 24px;
+
+        background: var(--card-bg);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
     }
 }

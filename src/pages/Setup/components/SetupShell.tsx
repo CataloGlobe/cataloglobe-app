@@ -370,18 +370,21 @@ export function SetupShell({
                                 </Text>
                             )}
                             {/* Restare nel setup è l'esito atteso: è quello il
-                                primario, a destra. L'uscita resta a portata di
-                                mano, ma non è più l'azione suggerita. */}
+                                primario, in testa alla pila. L'uscita resta a
+                                portata di mano, ma non è l'azione suggerita. */}
                             <div className={styles.confirmActions}>
-                                <Button variant="secondary" onClick={onExit}>
-                                    {confirmCopy.exitLabel}
-                                </Button>
                                 <Button
                                     ref={confirmPrimaryRef}
                                     variant="primary"
+                                    fullWidth
                                     onClick={() => setIsConfirmOpen(false)}
                                 >
                                     Continua il setup
+                                </Button>
+                                {/* Quieta, senza riempimento: resta a portata
+                                    di mano senza competere con il primario. */}
+                                <Button variant="ghost" fullWidth onClick={onExit}>
+                                    {confirmCopy.exitLabel}
                                 </Button>
                             </div>
                         </div>
