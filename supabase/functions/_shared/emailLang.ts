@@ -19,6 +19,43 @@ export type EmailLang = (typeof EMAIL_LANGS)[number];
 export const DEFAULT_EMAIL_LANG: EmailLang = "it";
 
 /**
+ * Forma ammessa per il valore in ARRIVO dal client, prima di scriverlo su
+ * `reservations.customer_language`: un tag lingua con eventuali sottotag
+ * (`de`, `de-DE`, `pt-BR`, `zh-Hans-CN`), separatore `-` o `_`.
+ *
+ * Volutamente PIU' LARGA delle cinque lingue che sappiamo scrivere: qui si
+ * decide cosa e' un tag lingua plausibile, non cosa sappiamo tradurre. Chi
+ * decide la seconda cosa e' `resolveEmailLang`, al momento di comporre
+ * l'email.
+ */
+const LANGUAGE_TAG_RE = /^[a-z]{2,5}(?:[-_][a-z0-9]{2,8}){0,2}$/i;
+
+/**
+ * Valida il valore grezzo che arriva dal client e lo restituisce COSI' COM'E'
+ * (solo `trim`), oppure `null` se non e' un tag lingua plausibile.
+ *
+ * ── Perche' accetta anche le forme con regione ──────────────────────────────
+ * Prima questa regola era `/^[a-z]{2,5}$/` e viveva dentro `submit-reservation`,
+ * mentre `resolveEmailLang` sapeva gia' ridurre `de-AT` a `de`. Le due regole
+ * non concordavano: un `de-DE` sarebbe stato scartato in scrittura e la colonna
+ * sarebbe rimasta NULL, cioe' il silenzio piu' difficile da inseguire — nessun
+ * errore, nessun log, solo un'email in italiano. Oggi la lingua arriva dal
+ * segmento URL (`de`) e il caso non si presenta; il giorno che arrivasse da
+ * `i18n.language` o da un header `Accept-Language`, si presenterebbe.
+ *
+ * ── Perche' NON normalizza ──────────────────────────────────────────────────
+ * `de-DE` resta `de-DE` nella colonna. Ridurre a lingua base e' una decisione
+ * di PRESENTAZIONE (la prende `resolveEmailLang`, che scrive l'email in
+ * tedesco in entrambi i casi), non di archiviazione. Il giorno che servisse
+ * distinguere un austriaco da un tedesco, il dato c'e' ancora.
+ */
+export function normalizeCustomerLanguageInput(raw: unknown): string | null {
+    if (typeof raw !== "string") return null;
+    const trimmed = raw.trim();
+    return LANGUAGE_TAG_RE.test(trimmed) ? trimmed : null;
+}
+
+/**
  * Riconduce un valore grezzo (tipicamente `reservations.customer_language`) a
  * una lingua che sappiamo scrivere.
  *

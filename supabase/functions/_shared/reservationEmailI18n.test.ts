@@ -16,6 +16,7 @@ import {
     type EmailLang,
     type ReservationEmailCopy
 } from "./reservationEmailCopy.ts";
+import { normalizeCustomerLanguageInput } from "./emailLang.ts";
 import {
     buildReservationConfirmedEmail,
     buildReservationOutcomeEmail,
@@ -184,6 +185,56 @@ describe("resolveEmailLang", () => {
         for (const raw of [null, undefined, "", "   ", "pt", "xx", "zzzzz", "1", "🇩🇪"]) {
             expect(resolveEmailLang(raw as string | null | undefined)).toBe("it");
         }
+    });
+});
+
+describe("normalizeCustomerLanguageInput — cosa finisce in colonna", () => {
+    it("accetta i tag lingua semplici e li lascia intatti", () => {
+        for (const raw of ["it", "en", "fr", "de", "es", "pt", "zh"]) {
+            expect(normalizeCustomerLanguageInput(raw)).toBe(raw);
+        }
+    });
+
+    // Il caso che ha motivato l'allineamento: prima queste forme venivano
+    // scartate in scrittura (colonna NULL, nessun errore) mentre
+    // `resolveEmailLang` sapeva gia' leggerle.
+    it("accetta le forme con regione e script, senza normalizzarle", () => {
+        expect(normalizeCustomerLanguageInput("de-DE")).toBe("de-DE");
+        expect(normalizeCustomerLanguageInput("en-GB")).toBe("en-GB");
+        expect(normalizeCustomerLanguageInput("pt-BR")).toBe("pt-BR");
+        expect(normalizeCustomerLanguageInput("es_MX")).toBe("es_MX");
+        expect(normalizeCustomerLanguageInput("zh-Hans-CN")).toBe("zh-Hans-CN");
+    });
+
+    it("toglie solo gli spazi ai bordi, maiuscole comprese", () => {
+        expect(normalizeCustomerLanguageInput("  de-AT  ")).toBe("de-AT");
+        expect(normalizeCustomerLanguageInput("DE")).toBe("DE");
+    });
+
+    it("scarta cio' che non e' un tag lingua plausibile", () => {
+        for (const raw of ["", "   ", "d", "-de", "de-", "de--DE", "it;drop", "🇩🇪", "a".repeat(6)]) {
+            expect(normalizeCustomerLanguageInput(raw), `"${raw}" doveva essere scartato`).toBeNull();
+        }
+        for (const raw of [null, undefined, 42, {}, ["de"]]) {
+            expect(normalizeCustomerLanguageInput(raw)).toBeNull();
+        }
+    });
+
+    // Le due regole devono concordare: tutto cio' che la scrittura accetta,
+    // la lettura deve saperlo interpretare senza lanciare. È la garanzia che
+    // chiude il NULL silenzioso.
+    it("tutto cio' che passa la scrittura e' leggibile da resolveEmailLang", () => {
+        const accepted = ["it", "de-DE", "en-GB", "pt-BR", "es_MX", "zh-Hans-CN", "DE", "fr-CA"];
+        for (const raw of accepted) {
+            const stored = normalizeCustomerLanguageInput(raw);
+            expect(stored).not.toBeNull();
+            expect(() => resolveEmailLang(stored)).not.toThrow();
+        }
+        expect(resolveEmailLang(normalizeCustomerLanguageInput("de-DE"))).toBe("de");
+        expect(resolveEmailLang(normalizeCustomerLanguageInput("en-GB"))).toBe("en");
+        expect(resolveEmailLang(normalizeCustomerLanguageInput("es_MX"))).toBe("es");
+        // Lingua fuori dalle cinque: si salva, si legge, si scrive in italiano.
+        expect(resolveEmailLang(normalizeCustomerLanguageInput("pt-BR"))).toBe("it");
     });
 });
 

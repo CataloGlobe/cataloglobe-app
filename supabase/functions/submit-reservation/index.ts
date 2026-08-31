@@ -13,6 +13,7 @@ import { resolveAlertRecipients } from "../_shared/reservationAlertRecipients.ts
 import { buildReservationIcsAttachment } from "../_shared/reservationIcs.ts";
 import { signReservationToken } from "../_shared/reservationToken.ts";
 import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";
+import { normalizeCustomerLanguageInput } from "../_shared/emailLang.ts";
 import {
     buildReservationConfirmedEmail,
     buildReservationReceiptEmail,
@@ -227,17 +228,13 @@ serve(async (req: Request) => {
         //
         // MAI un errore di validazione: un valore assente, malformato o di una
         // lingua che non sappiamo rendere non deve costare una prenotazione.
-        // Qui si controlla solo la FORMA (minuscolo, 2-5 lettere, stesso
-        // criterio di `isValidLangFormat` lato frontend); tutto il resto
-        // diventa NULL. La riconduzione a italiano di una lingua non
-        // supportata avviene quando si compone l'email, non qui: 'pt' salvato
-        // e' un dato onesto — dice che qualcuno ha prenotato leggendo in
-        // portoghese, anche se l'email che ha ricevuto era in italiano.
-        const customerLanguage: string | null = (() => {
-            if (typeof body.language !== "string") return null;
-            const normalized = body.language.trim().toLowerCase();
-            return /^[a-z]{2,5}$/.test(normalized) ? normalized : null;
-        })();
+        // Si controlla solo la FORMA, con la stessa regola che
+        // `resolveEmailLang` usa per leggere la colonna — le due DEVONO
+        // concordare, altrimenti un `de-DE` passerebbe la lettura ma non la
+        // scrittura, e la colonna resterebbe NULL senza un errore da nessuna
+        // parte. Il valore si salva com'e': 'pt' e 'de-DE' sono dati onesti,
+        // la riduzione a lingua base avviene quando si compone l'email.
+        const customerLanguage = normalizeCustomerLanguageInput(body.language);
 
         // ── Supabase client (service_role) ──────────────────────────
         const supabase = createClient(
