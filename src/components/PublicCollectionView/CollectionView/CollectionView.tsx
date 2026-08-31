@@ -1109,6 +1109,12 @@ export default function CollectionView({
     const allFiltered =
         allergenFilterIds.length > 0 && displaySectionGroups.length === 0;
 
+    // Azzera il filtro allergeni. La persistenza segue dall'effect di persist
+    // sopra: il suo guard è un flag one-shot di sequenza (consumato al mount),
+    // NON un test su ids.length → con [] scrive davvero "[]" in sessionStorage.
+    // Nessuna scrittura diretta qui, nessun clearAllergenPreferences necessario.
+    const clearAllergenFilter = useCallback(() => setAllergenFilterIds([]), []);
+
     // ── Selezione prodotti ──────────────────────────────────────────────────
     const selectionStorageKey = activityId ? `catalogobe-selection-${activityId}` : null;
 
@@ -1191,10 +1197,22 @@ export default function CollectionView({
     // (sub-fase 7 introdurrà l'anteprima) → tab semplicemente nascosto in preview.
     const showStoryTab = hasStory === true;
 
-    // Array piatto di tutte le sezioni (L1+L2+L3) — usato da SearchOverlay
+    // Array piatto di TUTTE le sezioni (L1+L2+L3), pre-filtro allergeni.
+    // Usato dall'analytics di openItemDetail per risolvere la categoria: il
+    // prodotto può arrivare da sorgenti che non passano dal filtro (abbinamenti,
+    // storia, upsell) e la category va risolta comunque.
     const sections = useMemo(
         () => sectionGroups.flatMap(g => [g.root, ...g.children]),
         [sectionGroups]
+    );
+
+    // Sezioni cercabili: stessa forma di `sections` ma post-filtro allergeni.
+    // La ricerca deve mostrare solo ciò che la lista del menù mostra — altrimenti
+    // un piatto escluso resta trovabile per nome e il tap atterra su un nodo che
+    // non esiste nel DOM (early-return silenzioso in scrollToProductAndHighlight).
+    const searchableSections = useMemo(
+        () => displaySectionGroups.flatMap(g => [g.root, ...g.children]),
+        [displaySectionGroups]
     );
 
     // Solo le sezioni L1 (root dei gruppi) — usato per scroll tracking e nav
@@ -2508,7 +2526,9 @@ export default function CollectionView({
                                 key="search"
                                 isOpen={isSearchOpen}
                                 onClose={handleCloseSearch}
-                                sections={sections}
+                                sections={searchableSections}
+                                activeFilterCount={allergenFilterIds.length}
+                                onClearFilters={clearAllergenFilter}
                                 scrollContainerEl={scrollContainerEl}
                                 mode={mode}
                                 activityId={activityId}
