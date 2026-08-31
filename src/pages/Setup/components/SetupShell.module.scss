@@ -34,6 +34,13 @@
        Il dialogo cresce con quel che contiene e si ferma al massimo, oltre il
        quale scorre la sola area contenuto. */
     height: auto;
+    /* Soglia, non altezza fissa: il passo 1 (form sede) è alto, il bivio del
+       passo 2 è basso, e sidebar e footer saltavano a ogni transizione. Sotto
+       la soglia il dialogo non si restringe più; sopra continua a crescere,
+       perché il ramo import supera comunque il passo 1.
+       `min(…, 100%)`: su viewport basse la soglia cederebbe al `max-height`
+       (in CSS `min-height` vince) e il dialogo sborderebbe dallo schermo. */
+    min-height: min(560px, 100%);
     max-height: min(760px, 100%);
 
     /* Ramo import: cornice ceduta al figlio, che vuole tutta l'altezza —
@@ -276,6 +283,9 @@
 
         width: 100%;
         height: 100%;
+        /* La soglia desktop non ha senso qui: a schermo intero l'altezza è già
+           quella del viewport, e un valore in px rischierebbe di sforarlo. */
+        min-height: 0;
         max-height: 100%;
 
         border: none;
