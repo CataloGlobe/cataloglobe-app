@@ -359,16 +359,15 @@ export function SetupShell({
                                 {confirmCopy.title}
                             </Text>
                             {/* Il lavoro in corso prevale: descrive una perdita
-                                più immediata di quella della variante. */}
-                            {closeWarning ? (
-                                <Text variant="body-sm" colorVariant="warning">
-                                    {closeWarning}
-                                </Text>
-                            ) : (
-                                <Text variant="body-sm" colorVariant="muted">
-                                    {confirmCopy.body}
-                                </Text>
-                            )}
+                                più immediata di quella della variante. Stesso
+                                trattamento per tutte e cinque — hanno lo stesso
+                                ruolo, dire cosa succede chiudendo, e colorarne
+                                tre suggeriva una gerarchia inesistente. In un
+                                pannello che esiste perché qualcosa è a rischio,
+                                il testo basta da solo. */}
+                            <Text variant="body-sm" colorVariant="muted">
+                                {closeWarning ?? confirmCopy.body}
+                            </Text>
                             {/* Restare nel setup è l'esito atteso: è quello il
                                 primario, in testa alla pila. L'uscita resta a
                                 portata di mano, ma non è l'azione suggerita. */}
