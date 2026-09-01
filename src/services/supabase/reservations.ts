@@ -212,6 +212,15 @@ export interface SubmitReservationResult {
  *   CAPACITY_FULL            → 409, capienza superata con overbooking_form='hard'
  *                             (details.capacity, details.peak_with_candidate,
  *                              details.duration_minutes disponibili)
+ *   PACING_FULL              → 409, tetto di pacing della fascia oraria
+ *                             raggiunto. Fatto DIVERSO da CAPACITY_FULL: il
+ *                             locale non è pieno, è quell'orario ad avere già
+ *                             troppi arrivi — un orario vicino è probabilmente
+ *                             libero, e la UI deve dirlo.
+ *                             `details.reason` distingue 'pacing_covers' da
+ *                             'pacing_bookings' (le due leve sono
+ *                             indipendenti); `details.peak_with_candidate` è
+ *                             null su questo ramo.
  *   INVALID_DATE / DATE_IN_PAST / INVALID_TIME / INVALID_EMAIL /
  *   INVALID_PARTY_SIZE / NOTES_TOO_LONG / INVALID_PAYLOAD → 400
  *   SERVER_ERROR             → 500 / network / fallback

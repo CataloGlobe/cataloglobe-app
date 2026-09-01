@@ -430,6 +430,7 @@
         "back_to_menu": "Zurück zum Menü",
         "back_button": "Menü",
         "err_capacity_full": "Keine Plätze mehr für die gewählte Uhrzeit. Versuchen Sie eine andere Uhrzeit.",
+        "err_pacing_full": "Zu dieser Uhrzeit sind bereits zu viele Reservierungen geplant. Versuchen Sie eine etwas frühere oder spätere Uhrzeit – oft ist sie verfügbar.",
         "err_submit": "Ein Fehler ist aufgetreten. Bitte versuchen Sie es gleich erneut.",
         "submitting": "Wird gesendet…",
         "submit": "Anfrage senden",

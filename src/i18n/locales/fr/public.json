@@ -430,6 +430,7 @@
     "back_to_menu": "Retour au menu",
     "back_button": "Menu",
     "err_capacity_full": "Plus de places pour l'horaire choisi. Essayez un autre horaire.",
+    "err_pacing_full": "Trop de réservations sont déjà prévues à cet horaire. Essayez un horaire un peu plus tôt ou plus tard : il est souvent disponible.",
     "err_submit": "Une erreur s'est produite. Réessayez dans un instant.",
     "submitting": "Envoi en cours…",
     "submit": "Envoyer la demande",

@@ -430,6 +430,7 @@
         "back_to_menu": "Back to menu",
         "back_button": "Menu",
         "err_capacity_full": "No more spots for the selected time. Try another time.",
+        "err_pacing_full": "Too many bookings are already expected at this time. Try a slightly earlier or later time — it's often available.",
         "err_submit": "Something went wrong. Please try again in a moment.",
         "submitting": "Sending…",
         "submit": "Send request",

@@ -29,6 +29,9 @@ interface FormActivity {
     name: V2Activity["name"];
     reservation_capacity: number | null;
     reservation_duration_minutes: number;
+    reservation_pacing_slot_minutes: V2Activity["reservation_pacing_slot_minutes"];
+    reservation_pacing_max_covers: V2Activity["reservation_pacing_max_covers"];
+    reservation_pacing_max_bookings: V2Activity["reservation_pacing_max_bookings"];
 }
 
 interface ReservationFormProps {
@@ -226,6 +229,78 @@ export function ReservationForm({
         );
         if (result.ok) return null;
         return `Questa prenotazione porta a ${result.peakWithCandidate} / ${cap} coperti, oltre la capienza. Salvabile, ma in overbooking.`;
+    }, [
+        activeActivity,
+        allReservations,
+        entityData?.id,
+        reservationDate,
+        reservationTime,
+        partySize
+    ]);
+
+    // Avviso di pacing, non bloccante come quello di capienza. Il ristoratore
+    // conosce la sua sala meglio del software: online il limite chiude lo slot,
+    // qui informa e basta. Deve dire DI QUANTO si sfora e QUALE tetto, altrimenti
+    // l'host non sa se sta aggiungendo un tavolo di troppo o cinque.
+    //
+    // Stessa aggregazione della RPC (`place_online_reservation`): solo gli
+    // ARRIVI nella fascia, stessa data, stati attivi. Nessuna fetch aggiuntiva —
+    // `allReservations` è già in memoria.
+    const pacingWarning = useMemo<string | null>(() => {
+        if (!activeActivity) return null;
+        const maxCovers = activeActivity.reservation_pacing_max_covers;
+        const maxBookings = activeActivity.reservation_pacing_max_bookings;
+        if (maxCovers === null && maxBookings === null) return null;
+
+        const step = activeActivity.reservation_pacing_slot_minutes ?? 15;
+        if (!Number.isFinite(step) || step <= 0) return null;
+
+        const partyNum = parseInt(partySize, 10);
+        if (!Number.isFinite(partyNum) || partyNum <= 0) return null;
+        const trimmedDate = reservationDate.trim();
+        const trimmedTime = reservationTime.trim();
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) return null;
+        if (!/^\d{2}:\d{2}/.test(trimmedTime)) return null;
+
+        const toMinutes = (t: string): number =>
+            parseInt(t.slice(0, 2), 10) * 60 + parseInt(t.slice(3, 5), 10);
+        const candidateBucket = Math.floor(toMinutes(trimmedTime) / step);
+
+        let bucketCovers = 0;
+        let bucketBookings = 0;
+        for (const r of allReservations) {
+            if (r.activity_id !== activeActivity.id) continue;
+            if (r.status !== "pending" && r.status !== "confirmed") continue;
+            if (r.reservation_date !== trimmedDate) continue;
+            if (r.party_size <= 0) continue;
+            // In modifica la riga stessa non va contata due volte.
+            if (entityData?.id && r.id === entityData.id) continue;
+            if (Math.floor(toMinutes(r.reservation_time) / step) !== candidateBucket) {
+                continue;
+            }
+            bucketCovers += r.party_size;
+            bucketBookings += 1;
+        }
+
+        const slotStart = candidateBucket * step;
+        const fmt = (min: number): string =>
+            `${String(Math.floor(min / 60) % 24).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+        const slotLabel = `${fmt(slotStart)}–${fmt(slotStart + step)}`;
+
+        const messages: string[] = [];
+        if (maxCovers !== null && bucketCovers + partyNum > maxCovers) {
+            messages.push(
+                `${bucketCovers + partyNum} persone contro un limite di ${maxCovers} (${bucketCovers + partyNum - maxCovers} in più)`
+            );
+        }
+        if (maxBookings !== null && bucketBookings + 1 > maxBookings) {
+            messages.push(
+                `${bucketBookings + 1} prenotazioni contro un limite di ${maxBookings} (${bucketBookings + 1 - maxBookings} in più)`
+            );
+        }
+        if (messages.length === 0) return null;
+
+        return `Nella fascia ${slotLabel} questa prenotazione porta a ${messages.join(" e ")}. Salvabile: il limite vale solo per le prenotazioni online.`;
     }, [
         activeActivity,
         allReservations,
@@ -465,6 +540,12 @@ export function ReservationForm({
             {overCapacityWarning && (
                 <p role="alert" className={styles.capacityWarning}>
                     {overCapacityWarning}
+                </p>
+            )}
+
+            {pacingWarning && (
+                <p role="alert" className={styles.capacityWarning}>
+                    {pacingWarning}
                 </p>
             )}
         </form>

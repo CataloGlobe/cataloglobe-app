@@ -126,6 +126,11 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         durationMinutes: string;     // text input, defaults to 120
         overbookingForm: "hard" | "soft";
         confirmationMode: "manuale" | "auto";
+        // Pacing: stringa vuota = nessun limite, coerente con `capacity`.
+        // Mai "0" — il CHECK a schema lo rifiuterebbe, ed è voluto.
+        pacingSlotMinutes: string;
+        pacingMaxCovers: string;
+        pacingMaxBookings: string;
     };
     const savedCapacity: CapacityDraft = useMemo(() => ({
         capacity: activity.reservation_capacity == null
@@ -133,12 +138,22 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
             : String(activity.reservation_capacity),
         durationMinutes: String(activity.reservation_duration_minutes ?? 120),
         overbookingForm: activity.reservation_overbooking_form ?? "hard",
-        confirmationMode: activity.reservation_confirmation_mode ?? "manuale"
+        confirmationMode: activity.reservation_confirmation_mode ?? "manuale",
+        pacingSlotMinutes: String(activity.reservation_pacing_slot_minutes ?? 15),
+        pacingMaxCovers: activity.reservation_pacing_max_covers == null
+            ? ""
+            : String(activity.reservation_pacing_max_covers),
+        pacingMaxBookings: activity.reservation_pacing_max_bookings == null
+            ? ""
+            : String(activity.reservation_pacing_max_bookings)
     }), [
         activity.reservation_capacity,
         activity.reservation_duration_minutes,
         activity.reservation_overbooking_form,
-        activity.reservation_confirmation_mode
+        activity.reservation_confirmation_mode,
+        activity.reservation_pacing_slot_minutes,
+        activity.reservation_pacing_max_covers,
+        activity.reservation_pacing_max_bookings
     ]);
     const [capacityDraft, setCapacityDraft] = useState<CapacityDraft>(savedCapacity);
     // Default open: the rest-state has no fill, so a closed header reads as a
@@ -157,7 +172,10 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
             newSaved.capacity === prevSaved.capacity &&
             newSaved.durationMinutes === prevSaved.durationMinutes &&
             newSaved.overbookingForm === prevSaved.overbookingForm &&
-            newSaved.confirmationMode === prevSaved.confirmationMode
+            newSaved.confirmationMode === prevSaved.confirmationMode &&
+            newSaved.pacingSlotMinutes === prevSaved.pacingSlotMinutes &&
+            newSaved.pacingMaxCovers === prevSaved.pacingMaxCovers &&
+            newSaved.pacingMaxBookings === prevSaved.pacingMaxBookings
         ) {
             return;
         }
@@ -166,7 +184,10 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                 prev.capacity === prevSaved.capacity &&
                 prev.durationMinutes === prevSaved.durationMinutes &&
                 prev.overbookingForm === prevSaved.overbookingForm &&
-                prev.confirmationMode === prevSaved.confirmationMode;
+                prev.confirmationMode === prevSaved.confirmationMode &&
+                prev.pacingSlotMinutes === prevSaved.pacingSlotMinutes &&
+                prev.pacingMaxCovers === prevSaved.pacingMaxCovers &&
+                prev.pacingMaxBookings === prevSaved.pacingMaxBookings;
             return isDraftEqualToOldSaved ? newSaved : prev;
         });
         lastSavedCapacityRef.current = newSaved;
@@ -176,7 +197,10 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         capacityDraft.capacity !== savedCapacity.capacity ||
         capacityDraft.durationMinutes !== savedCapacity.durationMinutes ||
         capacityDraft.overbookingForm !== savedCapacity.overbookingForm ||
-        capacityDraft.confirmationMode !== savedCapacity.confirmationMode;
+        capacityDraft.confirmationMode !== savedCapacity.confirmationMode ||
+        capacityDraft.pacingSlotMinutes !== savedCapacity.pacingSlotMinutes ||
+        capacityDraft.pacingMaxCovers !== savedCapacity.pacingMaxCovers ||
+        capacityDraft.pacingMaxBookings !== savedCapacity.pacingMaxBookings;
     // Team members loaded lazily (only when reservations are enabled AND the
     // user holds `team.read`). Owner email surfaces here for the auto-fill
     // on toggle-activation and for the "+ Aggiungi dal team" quick-pick.
@@ -620,13 +644,50 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
             });
             return;
         }
+        // Pacing: campo vuoto → NULL (nessun limite). Lo zero non è un modo
+        // per disattivare — il CHECK a schema lo rifiuta — quindi va
+        // intercettato qui con un messaggio che spiega come si disattiva.
+        const parsePacingCap = (raw: string, label: string): number | null | "error" => {
+            const trimmed = raw.trim();
+            if (trimmed.length === 0) return null;
+            const parsed = parseInt(trimmed, 10);
+            if (!Number.isFinite(parsed) || parsed <= 0) {
+                showToast({
+                    message: `${label}: inserisci un numero maggiore di zero, oppure lascia il campo vuoto per non avere limiti.`,
+                    type: "error"
+                });
+                return "error";
+            }
+            return parsed;
+        };
+        const pacingCoversValue = parsePacingCap(
+            capacityDraft.pacingMaxCovers,
+            "Persone per fascia"
+        );
+        if (pacingCoversValue === "error") return;
+        const pacingBookingsValue = parsePacingCap(
+            capacityDraft.pacingMaxBookings,
+            "Tavoli per fascia"
+        );
+        if (pacingBookingsValue === "error") return;
+        const pacingSlotParsed = parseInt(capacityDraft.pacingSlotMinutes, 10);
+        if (![15, 30, 60].includes(pacingSlotParsed)) {
+            showToast({
+                message: "L'ampiezza della fascia deve essere 15, 30 o 60 minuti.",
+                type: "error"
+            });
+            return;
+        }
         setIsSavingCapacity(true);
         try {
             await updateActivity(activity.id, tenantId, {
                 reservation_capacity: capacityValue,
                 reservation_duration_minutes: durationParsed,
                 reservation_overbooking_form: capacityDraft.overbookingForm,
-                reservation_confirmation_mode: capacityDraft.confirmationMode
+                reservation_confirmation_mode: capacityDraft.confirmationMode,
+                reservation_pacing_slot_minutes: pacingSlotParsed,
+                reservation_pacing_max_covers: pacingCoversValue,
+                reservation_pacing_max_bookings: pacingBookingsValue
             });
             await onReload();
             showToast({ message: "Capacità salvata.", type: "success" });
@@ -1427,6 +1488,125 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                             </div>
                                         );
                                     })()}
+
+                                    {/* ── Pacing per fascia oraria ─────────────────
+                                        Leva distinta dalla capienza e va detto in
+                                        chiaro: chi non coglie la differenza ne
+                                        imposta uno a caso. Ogni campo dichiara cosa
+                                        succede da vuoto, altrimenti sembrano
+                                        obbligatori. */}
+                                    <div className={styles.capacityField}>
+                                        <span className={styles.capacityLabel}>
+                                            Ritmo degli arrivi
+                                        </span>
+                                        <p className={styles.capacityHint}>
+                                            La capienza limita quante persone stanno nel
+                                            locale. Questo limita quante ne{" "}
+                                            <strong>arrivano insieme</strong>: quattro
+                                            tavoli tutti alle 20:00 mandano in coda la
+                                            cucina anche a sala mezza vuota. Lascia i
+                                            campi vuoti per non avere limiti.
+                                        </p>
+                                    </div>
+
+                                    <div className={styles.capacityField}>
+                                        <span className={styles.capacityLabel}>
+                                            Ampiezza della fascia
+                                        </span>
+                                        <div className={styles.capacityRadioGroup}>
+                                            {([15, 30, 60] as const).map(minutes => (
+                                                <label
+                                                    key={minutes}
+                                                    className={`${styles.capacityRadio} ${
+                                                        capacityDraft.pacingSlotMinutes === String(minutes)
+                                                            ? styles.capacityRadioSelected
+                                                            : ""
+                                                    }`}
+                                                >
+                                                    <input
+                                                        type="radio"
+                                                        name="reservation_pacing_slot_minutes"
+                                                        value={minutes}
+                                                        className={styles.capacityRadioInput}
+                                                        checked={
+                                                            capacityDraft.pacingSlotMinutes === String(minutes)
+                                                        }
+                                                        onChange={() =>
+                                                            setCapacityDraft(d => ({
+                                                                ...d,
+                                                                pacingSlotMinutes: String(minutes)
+                                                            }))
+                                                        }
+                                                        disabled={isSavingCapacity}
+                                                    />
+                                                    <span className={styles.capacityRadioText}>
+                                                        <span className={styles.capacityRadioLabel}>
+                                                            {minutes} minuti
+                                                        </span>
+                                                    </span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                        <p className={styles.capacityHint}>
+                                            I limiti qui sotto valgono per ogni fascia di
+                                            questa ampiezza. Con 30 minuti, una
+                                            prenotazione alle 20:15 rientra nella fascia
+                                            20:00–20:30.
+                                        </p>
+                                    </div>
+
+                                    <div className={styles.capacityRow}>
+                                        <div className={styles.capacityField}>
+                                            <NumberInput
+                                                label="Persone per fascia"
+                                                placeholder="Nessun limite"
+                                                min={1}
+                                                value={capacityDraft.pacingMaxCovers}
+                                                onChange={e =>
+                                                    setCapacityDraft(d => ({
+                                                        ...d,
+                                                        pacingMaxCovers: e.target.value
+                                                    }))
+                                                }
+                                                disabled={isSavingCapacity}
+                                            />
+                                            <p className={styles.capacityHint}>
+                                                Quanti coperti al massimo possono arrivare
+                                                nella stessa fascia. Vuoto: nessun limite.
+                                            </p>
+                                        </div>
+                                        <div className={styles.capacityField}>
+                                            <NumberInput
+                                                label="Tavoli per fascia"
+                                                placeholder="Nessun limite"
+                                                min={1}
+                                                value={capacityDraft.pacingMaxBookings}
+                                                onChange={e =>
+                                                    setCapacityDraft(d => ({
+                                                        ...d,
+                                                        pacingMaxBookings: e.target.value
+                                                    }))
+                                                }
+                                                disabled={isSavingCapacity}
+                                            />
+                                            <p className={styles.capacityHint}>
+                                                Quante prenotazioni al massimo, a
+                                                prescindere da quante persone sono. Vuoto:
+                                                nessun limite.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div className={styles.capacityField}>
+                                        <p className={styles.capacityHint}>
+                                            Un tavolo da 8 e quattro tavoli da 2 fanno gli
+                                            stessi coperti ma un lavoro di sala diverso:
+                                            per questo i due limiti sono separati. Se li
+                                            imposti entrambi, vale il più restrittivo.
+                                            Valgono solo per le prenotazioni online — a
+                                            mano puoi sempre inserirle, con un avviso.
+                                        </p>
+                                    </div>
                                 </ConfigAccordionSection>
                             </div>
                         )}

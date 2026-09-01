@@ -89,6 +89,13 @@ const ERROR_MESSAGES: Record<string, string> = {
     RESERVATIONS_DISABLED:     "La sede non accetta prenotazioni online",
     FEATURE_NOT_AVAILABLE:     "Le prenotazioni non sono disponibili per questa attività",
     CAPACITY_FULL:             "Non ci sono più posti per l'orario scelto",
+    // Fatto diverso da CAPACITY_FULL: il locale non è pieno, è l'orario ad
+    // avere già troppi arrivi. Un orario vicino è probabilmente libero, e il
+    // messaggio deve dirlo — altrimenti il cliente abbandona credendo che sia
+    // tutto esaurito. Il testo che vede l'utente arriva dal dizionario
+    // pubblico (`reservation.err_pacing_full`, 5 lingue); questo è il
+    // fallback IT per chi chiama l'endpoint direttamente.
+    PACING_FULL:               "A quest'ora sono già attese troppe prenotazioni. Prova un orario poco prima o poco dopo",
     RATE_LIMITED:              "Troppe richieste. Riprova più tardi.",
     SERVER_ERROR:              "Errore durante l'invio della richiesta"
 };
@@ -340,7 +347,15 @@ serve(async (req: Request) => {
         // Return contract (single row):
         //   status='confirmed' → auto-confirmed (auto + capacity set + under)
         //   status='pending'   → admin will decide (manuale, or auto+soft over)
-        //   status='full'      → caller surfaces 409 CAPACITY_FULL
+        //   status='full'      → nessuna riga inserita; `reason` dice perché:
+        //                        'capacity'        → 409 CAPACITY_FULL
+        //                        'pacing_covers'   → 409 PACING_FULL
+        //                        'pacing_bookings' → 409 PACING_FULL
+        //
+        // I due motivi di pacing collassano su un unico codice: al cliente non
+        // interessa se ha sforato il tetto dei coperti o quello delle
+        // prenotazioni, gli interessa che l'orario è saturo e un altro no. La
+        // distinzione resta nei `details` per la diagnosi lato admin.
         const { data: placement, error: placementError } = await supabase
             .rpc("place_online_reservation", {
                 p_activity_id:      activity.id,
@@ -364,10 +379,21 @@ serve(async (req: Request) => {
         const placementStatus = placement.status as "confirmed" | "pending" | "full";
         const placementPeak = placement.peak as number | null;
         const placementCapacity = placement.capacity as number | null;
+        const placementReason = placement.reason as
+            | "capacity"
+            | "pacing_covers"
+            | "pacing_bookings"
+            | null;
 
         if (placementStatus === "full") {
-            return errorResponse("CAPACITY_FULL", 409, {
+            const isPacing =
+                placementReason === "pacing_covers" ||
+                placementReason === "pacing_bookings";
+            return errorResponse(isPacing ? "PACING_FULL" : "CAPACITY_FULL", 409, {
+                reason: placementReason,
                 capacity: placementCapacity,
+                // NULL sul ramo pacing: il picco è l'output del motore di
+                // capienza, che lì non viene eseguito.
                 peak_with_candidate: placementPeak
             });
         }

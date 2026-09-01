@@ -38,9 +38,14 @@ export default function ReservationForm({
     const [form, setForm] = useState<FormFields>(EMPTY_FORM);
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
     const [submitError, setSubmitError] = useState<string | null>(null);
-    const [capacityFullSnapshot, setCapacityFullSnapshot] = useState<{
+    // Rifiuto server-side sull'orario appena inviato. `kind` distingue i due
+    // fatti: il locale è pieno (capienza) oppure quell'orario ha già troppi
+    // arrivi (pacing). Sono cose diverse e portano a due messaggi diversi —
+    // nel secondo caso un orario vicino è probabilmente libero.
+    const [slotFullSnapshot, setSlotFullSnapshot] = useState<{
         date: string;
         time: string;
+        kind: "capacity" | "pacing";
     } | null>(null);
     const [phase, setPhase] = useState<Phase>("form");
 
@@ -53,18 +58,22 @@ export default function ReservationForm({
 
     // Merge availability errors with format-level fieldErrors.
     // Priority: format error first (e.g. "Inserisci una data valida.") then
-    // capacity-full (server-side rejection from the latest submit) then
-    // availability ("Il locale è chiuso…"). Capacity-full sticks to the
+    // slot-full (server-side rejection from the latest submit) then
+    // availability ("Il locale è chiuso…"). Slot-full sticks to the
     // exact (date,time) pair the user submitted; any edit to either field
     // clears the snapshot via the change handler.
     const effectiveErrors: FieldErrors = useMemo(() => {
         const out: FieldErrors = { ...fieldErrors };
-        const isCapFullStillRelevant =
-            capacityFullSnapshot !== null &&
-            capacityFullSnapshot.date === form.reservation_date &&
-            capacityFullSnapshot.time === form.reservation_time;
-        if (!out.reservation_time && isCapFullStillRelevant) {
-            out.reservation_time = t("reservation.err_capacity_full");
+        const isSlotFullStillRelevant =
+            slotFullSnapshot !== null &&
+            slotFullSnapshot.date === form.reservation_date &&
+            slotFullSnapshot.time === form.reservation_time;
+        if (!out.reservation_time && isSlotFullStillRelevant) {
+            out.reservation_time = t(
+                slotFullSnapshot.kind === "pacing"
+                    ? "reservation.err_pacing_full"
+                    : "reservation.err_capacity_full"
+            );
         }
         if (!out.reservation_date && availability.dateError) {
             out.reservation_date = availability.dateError;
@@ -73,7 +82,7 @@ export default function ReservationForm({
             out.reservation_time = availability.timeError;
         }
         return out;
-    }, [fieldErrors, availability, capacityFullSnapshot, form.reservation_date, form.reservation_time, t]);
+    }, [fieldErrors, availability, slotFullSnapshot, form.reservation_date, form.reservation_time, t]);
 
     const handleChange = useCallback(
         (name: keyof FormFields, value: string) => {
@@ -84,11 +93,11 @@ export default function ReservationForm({
                 delete next[name];
                 return next;
             });
-            // Editing date or time invalidates a previous CAPACITY_FULL
-            // snapshot — the inline error stops being relevant the moment
-            // the user changes either field.
+            // Editing date or time invalidates a previous CAPACITY_FULL /
+            // PACING_FULL snapshot — the inline error stops being relevant
+            // the moment the user changes either field.
             if (name === "reservation_date" || name === "reservation_time") {
-                setCapacityFullSnapshot(null);
+                setSlotFullSnapshot(null);
             }
         },
         []
@@ -165,14 +174,15 @@ export default function ReservationForm({
                     return;
                 }
 
-                if (code === "CAPACITY_FULL") {
+                if (code === "CAPACITY_FULL" || code === "PACING_FULL") {
                     // Inline error on the time field. Keep the form filled —
                     // the user only needs to pick a different time. Snapshot
                     // uses the normalized time so the inline error matches
                     // even if snap altered the value at submit.
-                    setCapacityFullSnapshot({
+                    setSlotFullSnapshot({
                         date: form.reservation_date.trim(),
-                        time: normalizedTime
+                        time: normalizedTime,
+                        kind: code === "PACING_FULL" ? "pacing" : "capacity"
                     });
                     setSubmitError(null);
                     setPhase("form");

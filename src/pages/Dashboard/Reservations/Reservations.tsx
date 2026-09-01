@@ -181,7 +181,15 @@ export default function Reservations() {
                     id: a.id,
                     name: a.name,
                     reservation_capacity: a.reservation_capacity ?? null,
-                    reservation_duration_minutes: a.reservation_duration_minutes ?? 120
+                    reservation_duration_minutes: a.reservation_duration_minutes ?? 120,
+                    // Pacing: `?? null` è "nessun limite", non un default di
+                    // comodo. Il passo ricade su 15 come il default a schema.
+                    reservation_pacing_slot_minutes:
+                        a.reservation_pacing_slot_minutes ?? 15,
+                    reservation_pacing_max_covers:
+                        a.reservation_pacing_max_covers ?? null,
+                    reservation_pacing_max_bookings:
+                        a.reservation_pacing_max_bookings ?? null
                 })),
         [activities, canManageActivity]
     );
