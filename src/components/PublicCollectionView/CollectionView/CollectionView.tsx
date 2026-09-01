@@ -1094,6 +1094,50 @@ export default function CollectionView({
         );
     }, [sectionGroups]);
 
+    // Allergeni ordinati per FREQUENZA nel catalogo, per i chip rapidi del
+    // pannello ricerca. Calcolato su sectionGroups (catalogo NON filtrato): se
+    // usasse displaySectionGroups, applicare un chip cambierebbe le frequenze e
+    // i chip si riordinerebbero sotto il dito che li sta toccando.
+    // Tie-break su label localizzata → ordine stabile fra pari frequenza.
+    const allergensByFrequency = useMemo<ResolvedAllergen[]>(() => {
+        const seen = new Map<number, { allergen: ResolvedAllergen; count: number }>();
+        for (const group of sectionGroups) {
+            for (const section of [group.root, ...group.children]) {
+                for (const item of section.items) {
+                    if (!item.allergens) continue;
+                    for (const a of item.allergens) {
+                        const entry = seen.get(a.id);
+                        if (entry) entry.count += 1;
+                        else seen.set(a.id, { allergen: a, count: 1 });
+                    }
+                }
+            }
+        }
+        return Array.from(seen.values())
+            .sort(
+                (x, y) =>
+                    y.count - x.count ||
+                    x.allergen.label.localeCompare(y.allergen.label, "it")
+            )
+            .map(e => e.allergen);
+    }, [sectionGroups]);
+
+    // Prodotti distinti visibili con i filtri correnti / totali. Per id, non
+    // per occorrenza: lo stesso prodotto può comparire in più sezioni.
+    const countDistinctProducts = useCallback((groups: CollectionViewSectionGroup[]): number => {
+        const ids = new Set<string>();
+        for (const group of groups) {
+            for (const section of [group.root, ...group.children]) {
+                for (const item of section.items) ids.add(item.id);
+            }
+        }
+        return ids.size;
+    }, []);
+    const totalProductCount = useMemo(
+        () => countDistinctProducts(sectionGroups),
+        [sectionGroups, countDistinctProducts]
+    );
+
     // Filtra item per allergens. Prodotti senza allergens taggati: sempre
     // visibili (no match possibile, disclaimer nel sheet copre il caso).
     const displaySectionGroups = useMemo<CollectionViewSectionGroup[]>(() => {
@@ -1121,6 +1165,11 @@ export default function CollectionView({
 
     const allFiltered =
         allergenFilterIds.length > 0 && displaySectionGroups.length === 0;
+
+    const visibleProductCount = useMemo(
+        () => countDistinctProducts(displaySectionGroups),
+        [displaySectionGroups, countDistinctProducts]
+    );
 
     // Azzera il filtro allergeni. La persistenza segue dall'effect di persist
     // sopra: il suo guard è un flag one-shot di sequenza (consumato al mount),
@@ -2551,6 +2600,11 @@ export default function CollectionView({
                                 sections={searchableSections}
                                 activeFilterCount={allergenFilterIds.length}
                                 onClearFilters={clearAllergenFilter}
+                                filterAllergens={allergensByFrequency}
+                                appliedFilterIds={allergenFilterIds}
+                                onApplyFilters={setAllergenFilterIds}
+                                visibleProductCount={visibleProductCount}
+                                totalProductCount={totalProductCount}
                                 scrollContainerEl={scrollContainerEl}
                                 mode={mode}
                                 activityId={activityId}
