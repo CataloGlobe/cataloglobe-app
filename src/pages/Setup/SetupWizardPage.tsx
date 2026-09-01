@@ -70,6 +70,9 @@ export default function SetupWizardPage() {
 
     const [stepIndex, setStepIndex] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
+    // Campi compilati al passo 1: nulla raggiunge il DB prima del submit, quindi
+    // è l'unico stato del wizard che un'uscita può perdere.
+    const [isStepOneDirty, setIsStepOneDirty] = useState(false);
     // Sede creata al passo 1: l'id serve al passo 2 per collegare il menù, slug
     // e nome al passo 3 per comporre URL pubblico e QR.
     const [createdActivity, setCreatedActivity] = useState<CreatedActivity | null>(null);
@@ -276,7 +279,28 @@ export default function SetupWizardPage() {
     // Al passo 3 il copy cambia in base a cosa c'è dentro il menù.
     const copy = isPublishStep && !hasProducts ? EMPTY_MENU_COPY : STEP_COPY[stepIndex];
     const isImportPanelOpen = isCatalogStep && importSession.isOpen;
+    // "Indietro" riporta al bivio azzerando il ramo scelto: sul bivio stesso non
+    // ha nulla a cui tornare e il click non produceva alcun effetto visibile.
+    // Nascosto e non disabilitato: un pulsante spento direbbe "puoi tornare
+    // indietro ma non ora", che qui è falso — un indietro non esiste proprio.
+    const canGoBackToBranchChoice = isCatalogStep && (catalogBranch !== null || importSession.isOpen);
     const isAnalyzing = importSession.status === "analyzing" || importSession.status === "creating";
+    // File scelti ma non ancora analizzati: vivono solo nello state della
+    // sessione e non hanno ancora toccato la rete, quindi chiudere il setup li
+    // perderebbe in silenzio. `step === "upload"` distingue questo caso dalla
+    // revisione, dove i file ci sono ancora ma l'analisi è già avvenuta.
+    // Pannello aperto senza file: niente da perdere, nessun avviso.
+    const hasUnanalyzedFiles =
+        importSession.isOpen &&
+        importSession.step === "upload" &&
+        importSession.files.length > 0;
+    // Analisi finita, prodotti in attesa di revisione: esistono solo nello state
+    // della sessione. Il primo write arriva con la RPC del submit, quindi qui
+    // non c'è nulla su DB — si perde il risultato dell'analisi, che per rifarlo
+    // costa un'altra chiamata AI. Nessun requisito sul pannello aperto, a
+    // differenza dei file scelti: questo è lavoro già svolto e già pagato, non
+    // una selezione locale che l'utente può rifare a costo zero.
+    const hasAnalyzedProducts = importSession.status === "review";
 
     const formId = isActivityStep
         ? ACTIVITY_FORM_ID
@@ -325,12 +349,24 @@ export default function SetupWizardPage() {
                     </Text>
                 ) : undefined
             }
-            secondaryLabel={isCatalogStep ? "Indietro" : undefined}
+            isStepOneDirty={isStepOneDirty}
+            // Dalla sede, non da `stepIndex`: se `createActivity` riesce e
+            // l'upload della copertina fallisce, la sede esiste ma il passo non
+            // è avanzato. È la sede a dire cosa è stato davvero salvato.
+            hasCreatedActivity={createdActivity !== null}
+            secondaryLabel={canGoBackToBranchChoice ? "Indietro" : undefined}
             onSecondaryClick={handleBackFromCatalog}
+            // Tre perdite diverse, tre testi diversi: l'analisi in volo è lavoro
+            // già avviato, i prodotti da rivedere sono lavoro già fatto e mai
+            // salvato, i file scelti sono lavoro non ancora partito.
             closeWarning={
                 isAnalyzing
                     ? "L'analisi del menù è ancora in corso: chiudendo ora andrà persa e dovrai ricaricare il file."
-                    : undefined
+                    : hasAnalyzedProducts
+                      ? "Il menù analizzato non è ancora stato salvato: chiudendo ora andrà perso e dovrai ricaricare il file e rifare l'analisi."
+                      : hasUnanalyzedFiles
+                        ? "Il menù che hai caricato non è ancora stato analizzato: chiudendo ora andrà perso e dovrai ricaricarlo."
+                        : undefined
             }
             onExit={handleExitToOverview}
         >
@@ -339,6 +375,7 @@ export default function SetupWizardPage() {
                     formId={ACTIVITY_FORM_ID}
                     tenantId={tenantId}
                     onSavingChange={setIsSaving}
+                    onDirtyChange={setIsStepOneDirty}
                     onCreated={handleActivityCreated}
                 />
             )}

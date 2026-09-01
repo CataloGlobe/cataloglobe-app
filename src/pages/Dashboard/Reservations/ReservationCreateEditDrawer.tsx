@@ -10,7 +10,16 @@ import type { V2Activity } from "@/types/activity";
 const FORM_ID = "reservation-form";
 
 export interface ManageableActivityCapacity
-    extends Pick<V2Activity, "id" | "name"> {
+    extends Pick<
+        V2Activity,
+        | "id"
+        | "name"
+        // Il pacing serve al form per l'avviso non bloccante: senza questi
+        // campi l'host inserirebbe sopra il tetto senza saperlo.
+        | "reservation_pacing_slot_minutes"
+        | "reservation_pacing_max_covers"
+        | "reservation_pacing_max_bookings"
+    > {
     reservation_capacity: number | null;
     reservation_duration_minutes: number;
 }

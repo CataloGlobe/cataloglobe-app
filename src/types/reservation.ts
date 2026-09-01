@@ -39,6 +39,22 @@ export interface V2Reservation {
     // usare `customer_phone`: questa colonna è una chiave, non un'etichetta.
     customer_phone_e164: string | null;
     notes: string | null;
+    /**
+     * Codice lingua (ISO 639-1, minuscolo) in cui il cliente stava leggendo la
+     * pagina pubblica quando ha inviato la prenotazione. Determina la lingua
+     * delle email al cliente e delle stringhe dell'allegato .ics; le email alla
+     * sede restano italiane sempre.
+     *
+     * NULL significa LINGUA IGNOTA, non "italiano": inserimento manuale
+     * dall'admin (il ristoratore non sa in che lingua pensa il cliente) o riga
+     * anteriore alla migration 20260831120000. Il fallback a italiano è
+     * applicato da chi compone l'email, così il dato resta onesto.
+     *
+     * Può contenere una lingua che le email non sanno rendere (es. 'pt'): la
+     * colonna registra la scelta del cliente, non la copertura delle nostre
+     * traduzioni.
+     */
+    customer_language: string | null;
     status: ReservationStatus;
     source: ReservationSource;
     // Stamped by DB DEFAULT auth.uid() on INSERT (migration

@@ -234,6 +234,50 @@
   color: var(--pub-bg-text);
 }
 
+/* Vuoto dedicato "zero risultati per colpa dei filtri": titolo + descrizione +
+   azione di uscita. Struttura diversa da .hint (che resta un solo <p>). */
+.filteredEmpty {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  font-family: var(--pub-font-family, sans-serif);
+}
+
+.filteredEmptyTitle {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--pub-bg-text);
+}
+
+.filteredEmptyHint {
+  font-size: 0.8rem;
+  color: var(--pub-bg-text-muted);
+}
+
+.clearFiltersBtn {
+  margin-top: 0.6rem;
+  padding: 0.45rem 0.95rem;
+  font-family: inherit;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--pub-primary);
+  background: transparent;
+  border: 1px solid var(--pub-primary);
+  /* Pill: affordance secondaria, coerente con le chip della pagina pubblica. */
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-primary) 12%, transparent);
+  }
+}
+
 /* ── GRUPPO SEZIONE ──────────────────────────────────────── */
 
 .group {

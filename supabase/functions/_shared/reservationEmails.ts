@@ -11,10 +11,30 @@
 // here is what only a reservation email says: the footer reason lines, the
 // Data / Ora / Persone triplet, the cancellation sentence.
 //
-// User-facing copy is Italian, as before. Code and comments are English.
+// Customer-facing copy lives in `reservationEmailCopy.ts`, in the five
+// languages the public page speaks, and is selected here from the language the
+// diner was reading when they booked (`reservations.customer_language`; NULL or
+// unsupported → Italian). VENUE-facing copy stays Italian and stays inline: the
+// recipient is the restaurateur and the dashboard is Italian only.
+// Code and comments are English.
 
 import { getEmailFooterText } from "./company-config.ts";
-import { escapeHtml, formatDateIt, formatTimeIt } from "./emailFormat.ts";
+import { escapeHtml, formatDate, formatDateIt, formatTimeIt } from "./emailFormat.ts";
+import {
+    reservationCopyFor,
+    resolveEmailLang,
+    type Emphasize,
+    type ReservationEmailCopy
+} from "./reservationEmailCopy.ts";
+
+export type {
+    ReservationConfirmedVariant,
+    ReservationOutcomeAction
+} from "./reservationEmailCopy.ts";
+import type {
+    ReservationConfirmedVariant,
+    ReservationOutcomeAction
+} from "./reservationEmailCopy.ts";
 import {
     PARAGRAPH_BODY,
     PARAGRAPH_LEAD,
@@ -53,16 +73,29 @@ export interface ReservationEmailBase {
      * withheld because a link could not be built.
      */
     cancelUrl?: string | null;
+    /**
+     * Raw value of `reservations.customer_language` — the language the diner
+     * was reading the public page in when they booked.
+     *
+     * Optional and tolerant of anything: absent, null, empty, or a language we
+     * do not write in ("pt") all resolve to Italian. A language we cannot
+     * honour must never cost an email, and must never leave a hole where a
+     * sentence should be.
+     */
+    language?: string | null;
 }
+
+// --- Emphasis ----------------------------------------------------------------
+//
+// The copy carries one text per sentence and marks the fragments that deserve
+// weight; the format decides how to render them. HTML wraps in <strong>, plain
+// text leaves them alone. That is why the venue name reaches these two already
+// escaped in the HTML path — escaping belongs to whoever knows the format.
+
+const EMPHASIZE_HTML: Emphasize = fragment => `<strong>${fragment}</strong>`;
+const EMPHASIZE_TEXT: Emphasize = fragment => fragment;
 
 // --- Footer reason lines -----------------------------------------------------
-
-// Diner-facing reason. Previously duplicated under two different names
-// (`reservationReceiptReason` in submit-reservation, `reservationOutcomeReason`
-// in respond-reservation) with a character-identical body.
-function reservationCustomerReason(activityName: string): string {
-    return `Hai ricevuto questa email perché hai richiesto una prenotazione presso ${activityName} tramite CataloGlobe.`;
-}
 
 function reservationVenueAlertReason(activityName: string): string {
     return `Hai ricevuto questa email perché gestisci ${activityName} su CataloGlobe.`;
@@ -70,18 +103,33 @@ function reservationVenueAlertReason(activityName: string): string {
 
 // --- Reservation-specific blocks ---------------------------------------------
 
-/** The Data / Ora / Persone triplet shared by every customer email. */
-function renderReservationDetails(dateIt: string, timeIt: string, partySize: number): string {
-    return renderInfoBlock("Dettagli", [
-        renderDetailRow("Data", escapeHtml(dateIt)),
-        renderDetailRow("Ora", escapeHtml(timeIt)),
-        renderDetailRow("Persone", String(partySize))
+/** The Date / Time / People triplet shared by every customer email. */
+function renderReservationDetails(
+    copy: ReservationEmailCopy,
+    date: string,
+    time: string,
+    partySize: number
+): string {
+    return renderInfoBlock(copy.detailsCaption, [
+        renderDetailRow(copy.detailsDate, escapeHtml(date)),
+        renderDetailRow(copy.detailsTime, escapeHtml(time)),
+        renderDetailRow(copy.detailsPeople, String(partySize))
     ]);
 }
 
-/** The Data / Ora / Persone triplet in plain text, without trailing newline. */
-function renderDetailsText(dateIt: string, timeIt: string, partySize: number): string {
-    return `Dettagli\nData: ${dateIt}\nOra: ${timeIt}\nPersone: ${partySize}\n`;
+/** The same triplet in plain text, without trailing newline. */
+function renderDetailsText(
+    copy: ReservationEmailCopy,
+    date: string,
+    time: string,
+    partySize: number
+): string {
+    return (
+        `${copy.detailsCaption}\n` +
+        `${copy.detailsDate}: ${date}\n` +
+        `${copy.detailsTime}: ${time}\n` +
+        `${copy.detailsPeople}: ${partySize}\n`
+    );
 }
 
 // --- Self-service cancellation sentence --------------------------------------
@@ -92,14 +140,15 @@ function renderDetailsText(dateIt: string, timeIt: string, partySize: number): s
 // sent regardless. The diner is told to contact the venue in that case, so the
 // paragraph is never a dead end.
 
-const CANCEL_SENTENCE_LEAD = "Non puoi più venire? ";
-
-function renderCancelSentenceHtml(cancelUrl: string | null | undefined): string {
+function renderCancelSentenceHtml(
+    copy: ReservationEmailCopy,
+    cancelUrl: string | null | undefined
+): string {
     const safe = typeof cancelUrl === "string" && isSafeHttpUrl(cancelUrl) ? cancelUrl : null;
     const body = safe
-        ? `<a href="${escapeHtml(safe)}" style="color:#111827;text-decoration:underline">Annulla la prenotazione</a> in un clic.`
-        : "Contatta direttamente la sede per annullare la prenotazione.";
-    return `<p ${PARAGRAPH_NOTE}>${CANCEL_SENTENCE_LEAD}${body}</p>`;
+        ? `<a href="${escapeHtml(safe)}" style="color:#111827;text-decoration:underline">${escapeHtml(copy.cancelLinkLabel)}</a>${copy.cancelLinkSuffix}`
+        : copy.cancelFallback;
+    return `<p ${PARAGRAPH_NOTE}>${copy.cancelLead}${body}</p>`;
 }
 
 // --- Attendance confirmation button ------------------------------------------
@@ -113,26 +162,35 @@ function renderCancelSentenceHtml(cancelUrl: string | null | undefined): string 
 // Absent URL renders nothing at all — no orphan sentence explaining a button
 // that is not there.
 
-function renderConfirmButtonHtml(confirmUrl: string | null | undefined): string {
+function renderConfirmButtonHtml(
+    copy: ReservationEmailCopy,
+    confirmUrl: string | null | undefined
+): string {
     const safe = typeof confirmUrl === "string" && isSafeHttpUrl(confirmUrl) ? confirmUrl : null;
     if (!safe) return "";
     return `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 16px">
             <tr><td style="background:#111827;border-radius:8px">
-                <a href="${escapeHtml(safe)}" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none">Confermo che vengo</a>
+                <a href="${escapeHtml(safe)}" style="display:inline-block;padding:12px 22px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none">${escapeHtml(copy.confirmButtonLabel)}</a>
             </td></tr>
         </table>`;
 }
 
-function renderConfirmButtonText(confirmUrl: string | null | undefined): string {
+function renderConfirmButtonText(
+    copy: ReservationEmailCopy,
+    confirmUrl: string | null | undefined
+): string {
     const safe = typeof confirmUrl === "string" && isSafeHttpUrl(confirmUrl) ? confirmUrl : null;
-    return safe ? `Confermi che vieni? Basta un tocco:\n${safe}\n\n` : "";
+    return safe ? `${copy.confirmTextLead}\n${safe}\n\n` : "";
 }
 
-function renderCancelSentenceText(cancelUrl: string | null | undefined): string {
+function renderCancelSentenceText(
+    copy: ReservationEmailCopy,
+    cancelUrl: string | null | undefined
+): string {
     const safe = typeof cancelUrl === "string" && isSafeHttpUrl(cancelUrl) ? cancelUrl : null;
     return safe
-        ? `${CANCEL_SENTENCE_LEAD}Annulla la prenotazione da qui:\n${safe}\n`
-        : `${CANCEL_SENTENCE_LEAD}Contatta direttamente la sede per annullare la prenotazione.\n`;
+        ? `${copy.cancelLead}${copy.cancelTextIntro}\n${safe}\n`
+        : `${copy.cancelLead}${copy.cancelFallback}\n`;
 }
 
 // --- Builders ----------------------------------------------------------------
@@ -142,35 +200,44 @@ function renderCancelSentenceText(cancelUrl: string | null | undefined): string 
  * `pending`. Explicitly NOT a confirmation.
  */
 export function buildReservationReceiptEmail(args: ReservationEmailBase): ReservationEmailContent {
-    const { activityName, customerName, reservationDate, reservationTime, partySize, cancelUrl } = args;
+    const { activityName, customerName, reservationDate, reservationTime, partySize, cancelUrl, language } =
+        args;
+    const copy = reservationCopyFor(language);
     const eActivityName = escapeHtml(activityName);
     const eCustomerName = escapeHtml(customerName);
-    const dateIt = formatDateIt(reservationDate);
-    const timeIt = formatTimeIt(reservationTime);
-    const reason = reservationCustomerReason(activityName);
+    const date = formatDate(reservationDate, resolveEmailLang(language));
+    const time = formatTimeIt(reservationTime);
+    // Due forme della stessa riga: l'HTML riceve il nome della sede ESCAPATO.
+    // Il footer inietta questa stringa cosi' com'e' nel markup, quindi un nome
+    // con `<` o `&` uscirebbe come tag. Il nome lo scrive l'admin del locale,
+    // ma chi legge l'email e' il cliente.
+    const reason = copy.customerReason(activityName);
+    const reasonHtml = copy.customerReason(eActivityName);
 
-    const subject = `Abbiamo ricevuto la tua richiesta di prenotazione — ${activityName}`;
+    const subject = copy.receiptSubject(activityName);
     const html = renderCard(
         [
-            renderTitle("Richiesta di prenotazione ricevuta"),
-            `<p ${PARAGRAPH_LEAD}>Ciao ${eCustomerName},</p>`,
-            `<p ${PARAGRAPH_BODY}>abbiamo ricevuto la tua richiesta di prenotazione presso <strong>${eActivityName}</strong>. Riceverai una conferma via email non appena verrà approvata dal locale.</p>`,
-            renderReservationDetails(dateIt, timeIt, partySize),
-            `<p ${PARAGRAPH_NOTE}>Questo non è ancora una conferma. La prenotazione è in attesa di approvazione.</p>`,
-            renderCancelSentenceHtml(cancelUrl)
+            renderTitle(copy.receiptTitle),
+            // Greeting template is our own text; only the name needs escaping.
+            `<p ${PARAGRAPH_LEAD}>${copy.greeting(eCustomerName)}</p>`,
+            `<p ${PARAGRAPH_BODY}>${copy.receiptLead(eActivityName, EMPHASIZE_HTML)} ${copy.receiptFollow}</p>`,
+            renderReservationDetails(copy, date, time, partySize),
+            `<p ${PARAGRAPH_NOTE}>${copy.receiptNote}</p>`,
+            renderCancelSentenceHtml(copy, cancelUrl)
         ],
-        reason
+        reasonHtml,
+        language
     );
     const text =
-        `Ciao ${customerName},\n\n` +
-        `abbiamo ricevuto la tua richiesta di prenotazione presso ${activityName}.\n` +
-        `Riceverai una conferma via email non appena verrà approvata dal locale.\n\n` +
-        renderDetailsText(dateIt, timeIt, partySize) +
+        `${copy.greeting(customerName)}\n\n` +
+        `${copy.receiptLead(activityName, EMPHASIZE_TEXT)}\n` +
+        `${copy.receiptFollow}\n\n` +
+        renderDetailsText(copy, date, time, partySize) +
         `\n` +
-        `Questo non è ancora una conferma. La prenotazione è in attesa di approvazione.\n\n` +
-        renderCancelSentenceText(cancelUrl) +
+        `${copy.receiptNote}\n\n` +
+        renderCancelSentenceText(copy, cancelUrl) +
         `\n` +
-        `${getEmailFooterText(reason)}`;
+        `${getEmailFooterText(reason, language)}`;
 
     return { subject, html, text };
 }
@@ -187,9 +254,11 @@ export function buildReservationReceiptEmail(args: ReservationEmailBase): Reserv
  *
  * No default value: both call sites pass it explicitly, so any future third
  * path is forced to make the choice instead of silently inheriting one.
+ *
+ * The type itself now lives in `reservationEmailCopy.ts` — it is the copy that
+ * has to decline the two variants in five languages — and is re-exported at the
+ * top of this file for the call sites that have always imported it from here.
  */
-export type ReservationConfirmedVariant = "auto" | "manual";
-
 export interface ReservationConfirmedEmailArgs extends ReservationEmailBase {
     variant: ReservationConfirmedVariant;
 }
@@ -198,36 +267,48 @@ export interface ReservationConfirmedEmailArgs extends ReservationEmailBase {
 export function buildReservationConfirmedEmail(
     args: ReservationConfirmedEmailArgs
 ): ReservationEmailContent {
-    const { activityName, customerName, reservationDate, reservationTime, partySize, variant, cancelUrl } =
-        args;
+    const {
+        activityName,
+        customerName,
+        reservationDate,
+        reservationTime,
+        partySize,
+        variant,
+        cancelUrl,
+        language
+    } = args;
+    const copy = reservationCopyFor(language);
     const eActivityName = escapeHtml(activityName);
     const eCustomerName = escapeHtml(customerName);
-    const dateIt = formatDateIt(reservationDate);
-    const timeIt = formatTimeIt(reservationTime);
-    const reason = reservationCustomerReason(activityName);
+    const date = formatDate(reservationDate, resolveEmailLang(language));
+    const time = formatTimeIt(reservationTime);
+    // Due forme della stessa riga: l'HTML riceve il nome della sede ESCAPATO.
+    // Il footer inietta questa stringa cosi' com'e' nel markup, quindi un nome
+    // con `<` o `&` uscirebbe come tag. Il nome lo scrive l'admin del locale,
+    // ma chi legge l'email e' il cliente.
+    const reason = copy.customerReason(activityName);
+    const reasonHtml = copy.customerReason(eActivityName);
 
-    // "La tua prenotazione" (auto) vs "La tua richiesta di prenotazione" (manual).
-    const subjectNoun = variant === "manual" ? "richiesta di prenotazione" : "prenotazione";
-
-    const subject = `Prenotazione confermata — ${activityName}`;
+    const subject = copy.confirmedSubject(activityName);
     const html = renderCard(
         [
-            renderTitle("Prenotazione confermata"),
-            `<p ${PARAGRAPH_LEAD}>Ciao ${eCustomerName},</p>`,
-            `<p ${PARAGRAPH_BODY}>Buone notizie! La tua ${subjectNoun} presso <strong>${eActivityName}</strong> è stata <strong>confermata</strong>. Ti aspettiamo.</p>`,
-            renderReservationDetails(dateIt, timeIt, partySize),
-            renderCancelSentenceHtml(cancelUrl)
+            renderTitle(copy.confirmedTitle),
+            `<p ${PARAGRAPH_LEAD}>${copy.greeting(eCustomerName)}</p>`,
+            `<p ${PARAGRAPH_BODY}>${copy.confirmedBody(eActivityName, variant, EMPHASIZE_HTML)}</p>`,
+            renderReservationDetails(copy, date, time, partySize),
+            renderCancelSentenceHtml(copy, cancelUrl)
         ],
-        reason
+        reasonHtml,
+        language
     );
     const text =
-        `Ciao ${customerName},\n\n` +
-        `Buone notizie! La tua ${subjectNoun} presso ${activityName} è stata confermata. Ti aspettiamo.\n\n` +
-        renderDetailsText(dateIt, timeIt, partySize) +
+        `${copy.greeting(customerName)}\n\n` +
+        `${copy.confirmedBody(activityName, variant, EMPHASIZE_TEXT)}\n\n` +
+        renderDetailsText(copy, date, time, partySize) +
         `\n` +
-        renderCancelSentenceText(cancelUrl) +
+        renderCancelSentenceText(copy, cancelUrl) +
         `\n` +
-        `${getEmailFooterText(reason)}`;
+        `${getEmailFooterText(reason, language)}`;
 
     return { subject, html, text };
 }
@@ -262,41 +343,46 @@ export function buildReservationReminderEmail(
         reservationTime,
         partySize,
         cancelUrl,
-        confirmUrl
+        confirmUrl,
+        language
     } = args;
+    const copy = reservationCopyFor(language);
     const eActivityName = escapeHtml(activityName);
     const eCustomerName = escapeHtml(customerName);
-    const dateIt = formatDateIt(reservationDate);
-    const timeIt = formatTimeIt(reservationTime);
-    const reason = reservationCustomerReason(activityName);
+    const date = formatDate(reservationDate, resolveEmailLang(language));
+    const time = formatTimeIt(reservationTime);
+    // Due forme della stessa riga: l'HTML riceve il nome della sede ESCAPATO.
+    // Il footer inietta questa stringa cosi' com'e' nel markup, quindi un nome
+    // con `<` o `&` uscirebbe come tag. Il nome lo scrive l'admin del locale,
+    // ma chi legge l'email e' il cliente.
+    const reason = copy.customerReason(activityName);
+    const reasonHtml = copy.customerReason(eActivityName);
 
-    const subject = `Ci vediamo domani — ${activityName}`;
+    const subject = copy.reminderSubject(activityName);
     const html = renderCard(
         [
-            renderTitle("Ci vediamo domani"),
-            `<p ${PARAGRAPH_LEAD}>Ciao ${eCustomerName},</p>`,
-            `<p ${PARAGRAPH_BODY}>ti ricordiamo la tua prenotazione di domani presso <strong>${eActivityName}</strong>.</p>`,
-            renderReservationDetails(dateIt, timeIt, partySize),
-            renderConfirmButtonHtml(confirmUrl),
-            renderCancelSentenceHtml(cancelUrl)
+            renderTitle(copy.reminderTitle),
+            `<p ${PARAGRAPH_LEAD}>${copy.greeting(eCustomerName)}</p>`,
+            `<p ${PARAGRAPH_BODY}>${copy.reminderBody(eActivityName, EMPHASIZE_HTML)}</p>`,
+            renderReservationDetails(copy, date, time, partySize),
+            renderConfirmButtonHtml(copy, confirmUrl),
+            renderCancelSentenceHtml(copy, cancelUrl)
         ],
-        reason
+        reasonHtml,
+        language
     );
     const text =
-        `Ciao ${customerName},\n\n` +
-        `ti ricordiamo la tua prenotazione di domani presso ${activityName}.\n\n` +
-        renderDetailsText(dateIt, timeIt, partySize) +
+        `${copy.greeting(customerName)}\n\n` +
+        `${copy.reminderBody(activityName, EMPHASIZE_TEXT)}\n\n` +
+        renderDetailsText(copy, date, time, partySize) +
         `\n` +
-        renderConfirmButtonText(confirmUrl) +
-        renderCancelSentenceText(cancelUrl) +
+        renderConfirmButtonText(copy, confirmUrl) +
+        renderCancelSentenceText(copy, cancelUrl) +
         `\n` +
-        `${getEmailFooterText(reason)}`;
+        `${getEmailFooterText(reason, language)}`;
 
     return { subject, html, text };
 }
-
-/** Non-confirming outcomes an admin can trigger from the dashboard. */
-export type ReservationOutcomeAction = "decline" | "cancel";
 
 export interface ReservationOutcomeEmailArgs extends ReservationEmailBase {
     action: ReservationOutcomeAction;
@@ -306,44 +392,39 @@ export interface ReservationOutcomeEmailArgs extends ReservationEmailBase {
 export function buildReservationOutcomeEmail(
     args: ReservationOutcomeEmailArgs
 ): ReservationEmailContent {
-    const { activityName, customerName, reservationDate, reservationTime, partySize, action } = args;
+    const { activityName, customerName, reservationDate, reservationTime, partySize, action, language } =
+        args;
+    const copy = reservationCopyFor(language);
     const eActivityName = escapeHtml(activityName);
     const eCustomerName = escapeHtml(customerName);
-    const dateIt = formatDateIt(reservationDate);
-    const timeIt = formatTimeIt(reservationTime);
-    const reason = reservationCustomerReason(activityName);
+    const date = formatDate(reservationDate, resolveEmailLang(language));
+    const time = formatTimeIt(reservationTime);
+    // Due forme della stessa riga: l'HTML riceve il nome della sede ESCAPATO.
+    // Il footer inietta questa stringa cosi' com'e' nel markup, quindi un nome
+    // con `<` o `&` uscirebbe come tag. Il nome lo scrive l'admin del locale,
+    // ma chi legge l'email e' il cliente.
+    const reason = copy.customerReason(activityName);
+    const reasonHtml = copy.customerReason(eActivityName);
 
-    const titles: Record<ReservationOutcomeAction, string> = {
-        decline: "Prenotazione non confermata",
-        cancel: "Prenotazione annullata"
-    };
-    const bodies: Record<ReservationOutcomeAction, { html: string; text: string }> = {
-        decline: {
-            html: `Ci dispiace, la tua richiesta di prenotazione presso <strong>${eActivityName}</strong> <strong>non è stata confermata</strong>. Puoi provare con una data o un orario diverso.`,
-            text: `Ci dispiace, la tua richiesta di prenotazione presso ${activityName} non è stata confermata. Puoi provare con una data o un orario diverso.`
-        },
-        cancel: {
-            html: `La tua prenotazione presso <strong>${eActivityName}</strong> è stata <strong>annullata</strong>. Se ritieni che ci sia stato un errore, contatta direttamente la sede.`,
-            text: `La tua prenotazione presso ${activityName} è stata annullata. Se ritieni che ci sia stato un errore, contatta direttamente la sede.`
-        }
-    };
+    const title = copy.outcomeTitle(action);
 
-    const subject = `${titles[action]} — ${activityName}`;
+    const subject = `${title} — ${activityName}`;
     const html = renderCard(
         [
-            renderTitle(titles[action]),
-            `<p ${PARAGRAPH_LEAD}>Ciao ${eCustomerName},</p>`,
-            `<p ${PARAGRAPH_BODY}>${bodies[action].html}</p>`,
-            renderReservationDetails(dateIt, timeIt, partySize)
+            renderTitle(title),
+            `<p ${PARAGRAPH_LEAD}>${copy.greeting(eCustomerName)}</p>`,
+            `<p ${PARAGRAPH_BODY}>${copy.outcomeBody(eActivityName, action, EMPHASIZE_HTML)}</p>`,
+            renderReservationDetails(copy, date, time, partySize)
         ],
-        reason
+        reasonHtml,
+        language
     );
     const text =
-        `Ciao ${customerName},\n\n` +
-        `${bodies[action].text}\n\n` +
-        renderDetailsText(dateIt, timeIt, partySize) +
+        `${copy.greeting(customerName)}\n\n` +
+        `${copy.outcomeBody(activityName, action, EMPHASIZE_TEXT)}\n\n` +
+        renderDetailsText(copy, date, time, partySize) +
         `\n` +
-        `${getEmailFooterText(reason)}`;
+        `${getEmailFooterText(reason, language)}`;
 
     return { subject, html, text };
 }
@@ -456,6 +537,9 @@ export function buildReservationVenueAlertEmail(
     const timeIt = formatTimeIt(reservationTime);
     const eNotes = notes ? escapeHtml(notes) : null;
     const reason = reservationVenueAlertReason(activityName);
+    // Come per le email al cliente: la riga finisce dentro il markup, quindi
+    // la versione HTML porta il nome della sede escapato.
+    const reasonHtml = reservationVenueAlertReason(eActivityName);
 
     // A non-http(s) URL is treated as absent, exactly like null: no anchor,
     // plain sentence, email still sent.
@@ -491,7 +575,7 @@ export function buildReservationVenueAlertEmail(
                     : ""
             ])
         ],
-        reason
+        reasonHtml
     );
 
     const notesBlockText = notes ? `Note: ${notes}\n` : "";
@@ -549,6 +633,9 @@ export function buildReservationCancelledByCustomerEmail(
     const dateIt = formatDateIt(reservationDate);
     const timeIt = formatTimeIt(reservationTime);
     const reason = reservationVenueAlertReason(activityName);
+    // Come per le email al cliente: la riga finisce dentro il markup, quindi
+    // la versione HTML porta il nome della sede escapato.
+    const reasonHtml = reservationVenueAlertReason(eActivityName);
 
     const safeDashboardUrl = dashboardUrl && isSafeHttpUrl(dashboardUrl) ? dashboardUrl : null;
     const dashboardSentenceHtml = safeDashboardUrl
@@ -570,7 +657,7 @@ export function buildReservationCancelledByCustomerEmail(
                 renderDetailRow("Persone", String(partySize))
             ])
         ],
-        reason
+        reasonHtml
     );
 
     const text =

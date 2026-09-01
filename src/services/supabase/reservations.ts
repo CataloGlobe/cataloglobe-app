@@ -178,6 +178,16 @@ export interface SubmitReservationInput {
     customer_email: string;
     customer_phone: string;
     notes?: string;
+    /**
+     * Lingua corrente della pagina pubblica (`i18n.language`) al momento del
+     * submit. L'Edge la valida di forma e la persiste su
+     * `reservations.customer_language`: è ciò che decide in che lingua il
+     * cliente riceverà ricevuta, conferma, promemoria ed esito.
+     *
+     * Omesso → colonna NULL, email in italiano. Mai un errore di validazione:
+     * nessuna prenotazione si perde per la lingua in cui è stata presa.
+     */
+    language?: string;
 }
 
 export type SubmitReservationStatus = "pending" | "confirmed";
@@ -202,6 +212,15 @@ export interface SubmitReservationResult {
  *   CAPACITY_FULL            → 409, capienza superata con overbooking_form='hard'
  *                             (details.capacity, details.peak_with_candidate,
  *                              details.duration_minutes disponibili)
+ *   PACING_FULL              → 409, tetto di pacing della fascia oraria
+ *                             raggiunto. Fatto DIVERSO da CAPACITY_FULL: il
+ *                             locale non è pieno, è quell'orario ad avere già
+ *                             troppi arrivi — un orario vicino è probabilmente
+ *                             libero, e la UI deve dirlo.
+ *                             `details.reason` distingue 'pacing_covers' da
+ *                             'pacing_bookings' (le due leve sono
+ *                             indipendenti); `details.peak_with_candidate` è
+ *                             null su questo ramo.
  *   INVALID_DATE / DATE_IN_PAST / INVALID_TIME / INVALID_EMAIL /
  *   INVALID_PARTY_SIZE / NOTES_TOO_LONG / INVALID_PAYLOAD → 400
  *   SERVER_ERROR             → 500 / network / fallback

@@ -100,20 +100,22 @@
 .image,
 .placeholderImage {
     width: 100%;
-    aspect-ratio: 16/9;
+    aspect-ratio: 4/3;
     border-radius: var(--pub-radius, 12px);
     height: auto;
     display: block;
     object-fit: cover;
 }
 
-/* Box 16:9 che ospita <FramedMedia> (immagine prodotto con framing reale).
+/* Box 4:3 che ospita <FramedMedia> (immagine prodotto con framing reale).
+   Il ratio è gemello del `frameRatio` passato in ItemDetail.tsx: vanno cambiati
+   insieme, altrimenti la geometria calcolata non corrisponde al riquadro reso.
    FramedMedia posiziona l'<img> in absolute → serve relative + overflow hidden. */
 .imageFrame {
     position: relative;
     overflow: hidden;
     width: 100%;
-    aspect-ratio: 16/9;
+    aspect-ratio: 4/3;
     border-radius: var(--pub-radius, 12px);
 }
 

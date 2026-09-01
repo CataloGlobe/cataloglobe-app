@@ -10,8 +10,10 @@ import {
     buildReservationsDashboardUrl
 } from "../_shared/publicSiteUrl.ts";
 import { resolveAlertRecipients } from "../_shared/reservationAlertRecipients.ts";
+import { buildReservationIcsAttachment } from "../_shared/reservationIcs.ts";
 import { signReservationToken } from "../_shared/reservationToken.ts";
 import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";
+import { normalizeCustomerLanguageInput } from "../_shared/emailLang.ts";
 import {
     buildReservationConfirmedEmail,
     buildReservationReceiptEmail,
@@ -87,6 +89,13 @@ const ERROR_MESSAGES: Record<string, string> = {
     RESERVATIONS_DISABLED:     "La sede non accetta prenotazioni online",
     FEATURE_NOT_AVAILABLE:     "Le prenotazioni non sono disponibili per questa attività",
     CAPACITY_FULL:             "Non ci sono più posti per l'orario scelto",
+    // Fatto diverso da CAPACITY_FULL: il locale non è pieno, è l'orario ad
+    // avere già troppi arrivi. Un orario vicino è probabilmente libero, e il
+    // messaggio deve dirlo — altrimenti il cliente abbandona credendo che sia
+    // tutto esaurito. Il testo che vede l'utente arriva dal dizionario
+    // pubblico (`reservation.err_pacing_full`, 5 lingue); questo è il
+    // fallback IT per chi chiama l'endpoint direttamente.
+    PACING_FULL:               "A quest'ora sono già attese troppe prenotazioni. Prova un orario poco prima o poco dopo",
     RATE_LIMITED:              "Troppe richieste. Riprova più tardi.",
     SERVER_ERROR:              "Errore durante l'invio della richiesta"
 };
@@ -222,6 +231,18 @@ serve(async (req: Request) => {
             notes = trimmed.length > 0 ? trimmed : null;
         }
 
+        // Lingua in cui il cliente stava leggendo la pagina pubblica.
+        //
+        // MAI un errore di validazione: un valore assente, malformato o di una
+        // lingua che non sappiamo rendere non deve costare una prenotazione.
+        // Si controlla solo la FORMA, con la stessa regola che
+        // `resolveEmailLang` usa per leggere la colonna — le due DEVONO
+        // concordare, altrimenti un `de-DE` passerebbe la lettura ma non la
+        // scrittura, e la colonna resterebbe NULL senza un errore da nessuna
+        // parte. Il valore si salva com'e': 'pt' e 'de-DE' sono dati onesti,
+        // la riduzione a lingua base avviene quando si compone l'email.
+        const customerLanguage = normalizeCustomerLanguageInput(body.language);
+
         // ── Supabase client (service_role) ──────────────────────────
         const supabase = createClient(
             Deno.env.get("SUPABASE_URL")!,
@@ -265,7 +286,8 @@ serve(async (req: Request) => {
             .from("activities")
             .select(
                 "id, tenant_id, name, slug, status, enable_reservations, " +
-                "reservation_notification_emails"
+                "reservation_notification_emails, reservation_duration_minutes, " +
+                "address, street_number, postal_code, city, province"
             )
             .eq("slug", slug)
             .maybeSingle();
@@ -325,7 +347,15 @@ serve(async (req: Request) => {
         // Return contract (single row):
         //   status='confirmed' → auto-confirmed (auto + capacity set + under)
         //   status='pending'   → admin will decide (manuale, or auto+soft over)
-        //   status='full'      → caller surfaces 409 CAPACITY_FULL
+        //   status='full'      → nessuna riga inserita; `reason` dice perché:
+        //                        'capacity'        → 409 CAPACITY_FULL
+        //                        'pacing_covers'   → 409 PACING_FULL
+        //                        'pacing_bookings' → 409 PACING_FULL
+        //
+        // I due motivi di pacing collassano su un unico codice: al cliente non
+        // interessa se ha sforato il tetto dei coperti o quello delle
+        // prenotazioni, gli interessa che l'orario è saturo e un altro no. La
+        // distinzione resta nei `details` per la diagnosi lato admin.
         const { data: placement, error: placementError } = await supabase
             .rpc("place_online_reservation", {
                 p_activity_id:      activity.id,
@@ -349,10 +379,21 @@ serve(async (req: Request) => {
         const placementStatus = placement.status as "confirmed" | "pending" | "full";
         const placementPeak = placement.peak as number | null;
         const placementCapacity = placement.capacity as number | null;
+        const placementReason = placement.reason as
+            | "capacity"
+            | "pacing_covers"
+            | "pacing_bookings"
+            | null;
 
         if (placementStatus === "full") {
-            return errorResponse("CAPACITY_FULL", 409, {
+            const isPacing =
+                placementReason === "pacing_covers" ||
+                placementReason === "pacing_bookings";
+            return errorResponse(isPacing ? "PACING_FULL" : "CAPACITY_FULL", 409, {
+                reason: placementReason,
                 capacity: placementCapacity,
+                // NULL sul ramo pacing: il picco è l'output del motore di
+                // capienza, che lì non viene eseguito.
                 peak_with_candidate: placementPeak
             });
         }
@@ -395,6 +436,38 @@ serve(async (req: Request) => {
             );
         }
 
+        // ── Lingua del cliente (best-effort) ─────────────────────────────
+        // Stesso schema del telefono canonico e per la stessa ragione:
+        // `place_online_reservation` possiede l'INSERT e resta intatta, quindi
+        // il valore si scrive subito dopo con un UPDATE mirato di quella sola
+        // colonna.
+        //
+        // UPDATE separato da quello del telefono di proposito: sono due fatti
+        // indipendenti, e un fallimento sull'uno non deve portarsi via l'altro.
+        //
+        // Un fallimento qui non fallisce mai la prenotazione e non propaga: la
+        // colonna resta NULL e l'email parte in italiano. Nessuno perde un
+        // tavolo per la lingua in cui l'ha prenotato.
+        if (customerLanguage !== null) {
+            try {
+                const { error: languageUpdateError } = await supabase
+                    .from("reservations")
+                    .update({ customer_language: customerLanguage })
+                    .eq("id", reservationId);
+                if (languageUpdateError) {
+                    console.error(
+                        `[submit-reservation] language persistence failed (reservation_id=${reservationId}):`,
+                        languageUpdateError.message
+                    );
+                }
+            } catch (languageErr) {
+                console.error(
+                    `[submit-reservation] language persistence threw (reservation_id=${reservationId}):`,
+                    languageErr instanceof Error ? languageErr.message : "unknown error"
+                );
+            }
+        }
+
         // ── Best-effort emails (failures NEVER fail the reservation) ─────────
         // Auto-confirmed path uses the "Prenotazione confermata" template,
         // mirrors the wording of respond-reservation's confirm outcome. The
@@ -432,7 +505,8 @@ serve(async (req: Request) => {
                   customerName,
                   // Auto-confirm: the diner never had a pending request.
                   variant: "auto",
-                  cancelUrl
+                  cancelUrl,
+                  language: customerLanguage
               })
             : buildReservationReceiptEmail({
                   activityName: activity.name,
@@ -440,8 +514,28 @@ serve(async (req: Request) => {
                   reservationTime,
                   partySize,
                   customerName,
-                  cancelUrl
+                  cancelUrl,
+                  language: customerLanguage
               });
+
+        // Allegato calendario SOLO quando la prenotazione e' gia' confermata.
+        // Sulla ricevuta no: e' una RICHIESTA che il locale non ha ancora
+        // accettato, e se poi viene rifiutata il cliente si ritrova un
+        // appuntamento fantasma in agenda.
+        const icsAttachments = isAutoConfirmed
+            ? buildReservationIcsAttachment({
+                  reservationId,
+                  venueName: activity.name,
+                  reservationDate,
+                  reservationTime,
+                  partySize,
+                  durationMinutes: activity.reservation_duration_minutes,
+                  address: activity,
+                  cancelUrl,
+                  language: customerLanguage,
+                  now: new Date()
+              })
+            : undefined;
 
         // Customer receipt
         try {
@@ -451,7 +545,8 @@ serve(async (req: Request) => {
                 to: customerEmail,
                 subject: customerEmailBody.subject,
                 html: customerEmailBody.html,
-                text: customerEmailBody.text
+                text: customerEmailBody.text,
+                ...(icsAttachments ? { attachments: icsAttachments } : {})
             });
         } catch (mailErr) {
             console.error("[submit-reservation] customer receipt email failed:", mailErr);

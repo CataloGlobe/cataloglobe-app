@@ -15,7 +15,7 @@
 // cui vivevano nel flusso originale.
 // ============================================================
 
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { createActivity, uploadActivityCover } from "@/services/supabase/activities";
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
 import { generateSlug, sanitizeSlugForSave } from "@/utils/slugify";
@@ -42,6 +42,22 @@ const EMPTY_FORM: BusinessFormValues = {
 
 export function isReservedSlug(slug: string): boolean {
     return RESERVED_SLUGS.has(slug);
+}
+
+/**
+ * Vero se almeno un campo del form si discosta dal modulo vuoto.
+ *
+ * Confronto shallow sugli 8 campi, con `trim()`: un campo compilato e poi
+ * ripulito (o riempito di soli spazi) torna equivalente al vuoto, quindi non
+ * risulta sporco. `coverPreview` è un blob URL locale: qui basta la presenza,
+ * la copertina vera è tracciata a parte da `coverFile`.
+ */
+export function isBusinessFormDirty(values: BusinessFormValues): boolean {
+    return (Object.keys(EMPTY_FORM) as Array<keyof BusinessFormValues>).some(field => {
+        const current = values[field]?.trim() ?? "";
+        const empty = EMPTY_FORM[field]?.trim() ?? "";
+        return current !== empty;
+    });
 }
 
 export function validateBusinessForm(values: BusinessFormValues): BusinessFormErrors {
@@ -126,6 +142,12 @@ export interface UseCreateActivityResult {
     values: BusinessFormValues;
     errors: BusinessFormErrors;
     isCreating: boolean;
+    /**
+     * Almeno un campo compilato (copertina inclusa). Serve a chi ospita il form
+     * per sapere se un'uscita perderebbe dati: la scrittura su DB avviene solo
+     * al submit, quindi finché è falso non c'è nulla da perdere.
+     */
+    isDirty: boolean;
     slugState: SlugInlineState;
     setSlugState: (state: SlugInlineState) => void;
     handleFieldChange: <K extends keyof BusinessFormValues>(
@@ -154,6 +176,11 @@ export function useCreateActivity({
     const [slugTouched, setSlugTouched] = useState(false);
     const [slugState, setSlugState] = useState<SlugInlineState>({ type: "idle" });
     const debouncedName = useDebounce(values.name, 500);
+
+    const isDirty = useMemo(
+        () => coverFile !== null || isBusinessFormDirty(values),
+        [values, coverFile]
+    );
 
     // GENERAZIONE SLUG AUTOMATICA CON DEBOUNCE
     useEffect(() => {
@@ -358,6 +385,7 @@ export function useCreateActivity({
         values,
         errors,
         isCreating,
+        isDirty,
         slugState,
         setSlugState,
         handleFieldChange,

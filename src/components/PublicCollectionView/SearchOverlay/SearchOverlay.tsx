@@ -18,6 +18,12 @@ type Props = {
      *  vivono in CollectionView (che resta montato dopo la chiusura overlay e
      *  può ospitare il detector di scroll-end). */
     onSelectProduct?: (productId: string) => void;
+    /** Quanti allergeni sono attualmente esclusi dal filtro. `sections` arriva
+     *  già filtrato: serve solo a spiegare lo zero-risultati. Default 0. */
+    activeFilterCount?: number;
+    /** Azzera il filtro allergeni senza chiudere il pannello né svuotare la
+     *  query. Undefined ⇒ l'azione non viene renderizzata. */
+    onClearFilters?: () => void;
 };
 
 // ── Helpers di normalizzazione e scoring ─────────────────────────────────────
@@ -71,7 +77,7 @@ function formatPrice(item: CollectionViewSectionItem): { price: string; isFrom: 
     return p != null ? { price: `€${p.toFixed(2)}`, isFrom: false } : null;
 }
 
-export default function SearchOverlay({ isOpen, onClose, sections, scrollContainerEl, mode, activityId, onSelectProduct }: Props) {
+export default function SearchOverlay({ isOpen, onClose, sections, scrollContainerEl, mode, activityId, onSelectProduct, activeFilterCount = 0, onClearFilters }: Props) {
     const { t } = useTranslation("public");
     const [query, setQuery] = useState("");
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -247,9 +253,38 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
             </div>
 
             {/* Risultati */}
+            {/* La catena si decide su debouncedQuery, NON su query: groupedResults
+                deriva dal debounce, quindi scegliere il ramo sul valore immediato
+                aprirebbe una finestra di ~100ms in cui si mostra un vuoto pur
+                avendo risultati validi (sfarfallio + salto di layout, marcato sul
+                vuoto filtrato che è alto). Allineate le due fonti, durante il
+                debounce resta visibile il risultato precedente. L'input resta
+                legato a `query`: la digitazione non deve avere lag. */}
             <div className={styles.results}>
-                {query.trim() === "" ? (
+                {debouncedQuery.trim() === "" ? (
                     <p className={styles.hint}>{t("search.hint")}</p>
+                ) : groupedResults.length === 0 && activeFilterCount > 0 ? (
+                    // Zero risultati CON filtro attivo: `sections` arriva già
+                    // filtrato, quindi il vuoto può dipendere dai filtri e non
+                    // dalla query. Lo diciamo, e offriamo l'uscita senza perdere
+                    // la query digitata.
+                    <div className={styles.filteredEmpty}>
+                        <p className={styles.filteredEmptyTitle}>
+                            {t("search.no_results_filtered", { query })}
+                        </p>
+                        <p className={styles.filteredEmptyHint}>
+                            {t("search.no_results_filtered_hint")}
+                        </p>
+                        {onClearFilters && (
+                            <button
+                                type="button"
+                                className={styles.clearFiltersBtn}
+                                onClick={onClearFilters}
+                            >
+                                {t("search.clear_filters")}
+                            </button>
+                        )}
+                    </div>
                 ) : groupedResults.length === 0 ? (
                     <p className={styles.hint}>
                         {t("search.no_results")}{" "}

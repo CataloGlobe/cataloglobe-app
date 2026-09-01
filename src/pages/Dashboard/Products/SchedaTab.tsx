@@ -115,8 +115,13 @@ export function SchedaTab({
             <div className={`${styles.cardSlot} ${styles.slotImage}`}>
                 <SectionCard>
 
+                    {/* 4:3 = media geometrica dei tre contenitori pubblici reali
+                        (card 1:1 sotto 1024px, card 4:3 sopra, ItemDetail 4:3):
+                        dimezza lo scarto peggiore fra quel che si inquadra qui e
+                        quel che vede il cliente. Cambiarlo qui NON basta: il
+                        riquadro di ItemDetail deve restare lo stesso valore. */}
                     <ImageUploadEditor
-                        aspectRatio={16 / 9}
+                        aspectRatio={4 / 3}
                         backgroundFillModes={["blur", "dominant", "color", "none"]}
                         maxSizeMB={10}
                         compressLongEdge={1280}

@@ -60,6 +60,29 @@ export interface V2Activity {
      */
     reservation_overbooking_form: "hard" | "soft";
     /**
+     * Pacing per fascia oraria — tetto sugli ARRIVI, non sulle presenze.
+     * Si affianca alla capienza senza sostituirla: la capienza dice quante
+     * persone stanno nel locale, il pacing quante ne possono arrivare insieme.
+     *
+     * Ampiezza della fascia in minuti (15 | 30 | 60, default 15). NON è il
+     * passo della griglia di orari offerti dal form pubblico (`reservationSlots.ts`):
+     * sono due cose distinte per scelta, così cambiare l'uno non sposta l'altro.
+     */
+    reservation_pacing_slot_minutes: number;
+    /**
+     * Tetto di COPERTI in arrivo nella fascia. NULL = nessun limite.
+     * Mai 0: il CHECK a schema lo vieta, così un `if (limite)` distratto non
+     * può trasformare "nessun limite" in "tutto bloccato".
+     */
+    reservation_pacing_max_covers: number | null;
+    /**
+     * Tetto di PRENOTAZIONI in arrivo nella fascia. NULL = nessun limite.
+     * Leva indipendente dalla precedente: quattro tavoli da 2 e un tavolo da 8
+     * fanno gli stessi coperti ma un carico di sala molto diverso. Con entrambi
+     * valorizzati vince il più restrittivo.
+     */
+    reservation_pacing_max_bookings: number | null;
+    /**
      * Se true, le prenotazioni confermate di questa sede ricevono il
      * promemoria alle 18:00 del giorno prima (job `send-reservation-reminders`,
      * migration 20260829120001). Default true.
