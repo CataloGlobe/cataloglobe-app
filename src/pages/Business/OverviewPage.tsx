@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
     CheckCircle2,
     Circle,
@@ -353,12 +353,59 @@ type SetupStep = {
     to: string;
 };
 
+/**
+ * Stato lasciato da `SetupWizardPage` all'uscita dal percorso guidato. Vive
+ * nella sola navigazione: niente colonne, flag persistiti o storage.
+ * - `resumable`        → sede non ancora creata, il percorso si può riprendere
+ * - `activity-created` → sede creata, il wizard non riparte (lo blocca il gate)
+ */
+type SetupExitState = { setupExit?: "resumable" | "activity-created" };
+
 export default function OverviewPage() {
     const { selectedTenant, loading: tenantLoading } = useTenant();
     const tenantId = useTenantId();
     const navigate = useNavigate();
     const { permissions } = usePermissions();
     const { showToast } = useToast();
+
+    // Uscita dal percorso guidato: `SetupWizardPage` lascia la distinzione nello
+    // stato della navigazione. Letti come primitive, non come oggetto: l'intera
+    // `location` nelle dipendenze farebbe rientrare l'effect a ogni sua nuova
+    // identità, e il reset qui sotto ne produce una.
+    const { pathname, state: navigationState } = useLocation();
+    const setupExit = (navigationState as SetupExitState | null)?.setupExit ?? null;
+    const setupExitShownRef = useRef(false);
+
+    useEffect(() => {
+        if (!setupExit || setupExitShownRef.current) return;
+        // Il link "Riprendi" ha bisogno del tenant: senza, si aspetta il render
+        // in cui arriva invece di bruciare il toast su un'azione monca.
+        if (!tenantId) return;
+
+        setupExitShownRef.current = true;
+
+        if (setupExit === "activity-created") {
+            // Sede creata: il gate del wizard rimanda indietro chi ne ha già una,
+            // quindi qui un "Riprendi" sarebbe un pulsante rotto.
+            showToast({
+                message: "La tua sede è salvata. Menù e pubblicazione li completi da qui.",
+                type: "success"
+            });
+        } else {
+            showToast({
+                message: "Setup interrotto. Puoi riprenderlo quando vuoi.",
+                type: "info",
+                actionLabel: "Riprendi",
+                onAction: () => navigate(`/business/${tenantId}/setup`)
+            });
+        }
+
+        // Svuota lo stato della history: senza, un ricaricamento della Panoramica
+        // rileggerebbe lo stesso `state` e il toast tornerebbe. `replace` per non
+        // impilare una voce in più, e il ref regge il doppio invoke di StrictMode
+        // nella finestra prima che il reset si propaghi.
+        navigate(pathname, { replace: true, state: null });
+    }, [setupExit, pathname, navigate, showToast, tenantId]);
 
     const [stats, setStats] = useState<Stats | null>(null);
     const [loadingStats, setLoadingStats] = useState(true);

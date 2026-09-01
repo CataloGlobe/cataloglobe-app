@@ -222,9 +222,17 @@ export default function SetupWizardPage() {
         };
     }, [stepIndex, tenantId, createdActivity, createdCatalog]);
 
+    // Chi esce arriva in Panoramica senza sapere cosa sia successo. Lo stato
+    // della navigazione porta l'unica distinzione che conta per il messaggio:
+    // se la sede è stata creata il percorso non è più ripercorribile (il gate
+    // rimanda indietro chi ha già una sede), quindi lì un invito a riprendere
+    // sarebbe un'azione rotta. Derivata da `createdActivity`, non dal passo:
+    // stessa fonte delle varianti della conferma di chiusura.
     const handleExitToOverview = useCallback(() => {
-        navigate(`/business/${businessId}/overview`);
-    }, [navigate, businessId]);
+        navigate(`/business/${businessId}/overview`, {
+            state: { setupExit: createdActivity !== null ? "activity-created" : "resumable" }
+        });
+    }, [navigate, businessId, createdActivity]);
 
     const handleActivityCreated = useCallback((activity: V2Activity) => {
         setCreatedActivity({
