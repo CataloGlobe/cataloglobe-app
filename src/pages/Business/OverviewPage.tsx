@@ -8,7 +8,8 @@ import {
     Download,
     Link as LinkIcon,
     Image as ImageIcon,
-    PauseCircle
+    PauseCircle,
+    Wand2
 } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
@@ -642,13 +643,11 @@ export default function OverviewPage() {
     // `next` è la PRIMA voce non soddisfatta: le successive restano spente.
     const nextStepIndex = setupSteps.findIndex(step => !step.done);
     const setupComplete = nextStepIndex === -1;
-    // Tag sulla voce `next`: solo quando dice qualcosa in più del titolo —
-    // l'inizio della sequenza o la sua chiusura. Negli altri casi resta muto.
-    const nextStepTag = missingSteps === 1
-        ? "Ultimo passo"
-        : nextStepIndex === 0
-            ? "Inizia da qui"
-            : null;
+    // Tag sulla voce `next`: resta solo la chiusura della sequenza. L'"Inizia da
+    // qui" sul primo passo è caduto quando la procedura guidata è salita in cima
+    // alla card: due punti d'inizio in concorrenza, e quello manuale non è
+    // nemmeno il consigliato.
+    const nextStepTag = missingSteps === 1 ? "Ultimo passo" : null;
 
     // Il blocco compare solo a owner/admin, solo a dati caricati e solo finché
     // c'è qualcosa da fare: a configurazione completa cede il posto al blocco
@@ -799,7 +798,46 @@ export default function OverviewPage() {
                                 </div>
                             </div>
 
-                            <div className={styles.configList}>
+                            {/* Percorso consigliato in testa, non in coda: chi
+                                arriva qui senza sedi ha davanti quattro
+                                passaggi manuali, e la guida era una didascalia
+                                in fondo che nessuno leggeva come azione.
+                                Solo a zero sedi: la procedura parte sempre
+                                dalla creazione di una sede e non sa riprenderne
+                                una esistente. */}
+                            {!setup.hasAnyLocation && (
+                                <>
+                                    <div className={styles.setupGuided}>
+                                        <Button
+                                            variant="primary"
+                                            fullWidth
+                                            leftIcon={<Wand2 size={16} />}
+                                            onClick={() => navigate(`${b}/setup`)}
+                                        >
+                                            Configura con la procedura guidata
+                                        </Button>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Ti accompagna nei primi passaggi — sede, menù e
+                                            pubblicazione — in pochi minuti.
+                                        </Text>
+                                    </div>
+
+                                    <div className={styles.setupDivider}>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Oppure procedi un passo alla volta
+                                        </Text>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Stessa condizione del pulsante: con la guida in
+                                cima la voce `next` rinuncia all'evidenziazione,
+                                che competerebbe con lei. Senza guida la
+                                checklist è l'unico contenuto e la mantiene. */}
+                            <div
+                                className={styles.configList}
+                                data-guided={!setup.hasAnyLocation || undefined}
+                            >
                                 {setupSteps.map((step, i) => {
                                     const state = step.done
                                         ? "done"
@@ -841,26 +879,6 @@ export default function OverviewPage() {
                                 })}
                             </div>
 
-                            {/* Alternativa all'elenco, non sostituzione: chi
-                                preferisce fare un passo alla volta continua a
-                                usare le voci qui sopra. Azione secondaria in
-                                fondo, per non competere con la voce `next`.
-
-                                Solo a zero sedi: il percorso guidato parte
-                                sempre dalla creazione di una sede e non sa
-                                riprenderne una esistente, quindi a chi ne ha già
-                                una ne farebbe creare una seconda. */}
-                            {!setup.hasAnyLocation && (
-                                <div className={styles.setupGuidedRow}>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => navigate(`${b}/setup`)}
-                                    >
-                                        Configura con la procedura guidata
-                                    </Button>
-                                </div>
-                            )}
                         </>
                     )}
                 </div>

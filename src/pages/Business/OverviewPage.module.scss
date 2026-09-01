@@ -97,13 +97,29 @@
   gap: 6px;
 }
 
-/* Riga di chiusura del blocco: allineata a sinistra come le voci, staccata
-   dall'elenco da un filetto per leggersi come alternativa e non come quinto
-   passo della sequenza. */
-.setupGuidedRow {
+/* Percorso consigliato, in testa alla card: azione a piena larghezza più la
+   riga che dice cosa fa. Non è una card dentro la card — niente bordo né fondo
+   proprio, il rilievo lo dà il pulsante. */
+.setupGuided {
   display: flex;
-  padding-top: 4px;
-  border-top: 1px solid var(--border);
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Separa i due modi di procedere. Il testo sta nel mezzo: un filetto muto
+   direbbe che sotto c'è dell'altro, non che è la stessa cosa fatta a mano. */
+.setupDivider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  &::before,
+  &::after {
+    content: "";
+    flex: 1 1 auto;
+    height: 1px;
+    background: var(--border);
+  }
 }
 
 .configItem {
@@ -166,6 +182,15 @@
       opacity: 0.8;
     }
   }
+}
+
+/* Con la procedura guidata in cima il richiamo è già speso su di lei: due
+   inviti in concorrenza nella stessa card. L'evidenziazione cade solo lì —
+   senza guida la checklist è l'unico contenuto e indicare il prossimo passo
+   resta utile. Icona in accento e peso del titolo restano in entrambi i casi. */
+.configList[data-guided] .configItem[data-state="next"] {
+  background: transparent;
+  border-color: transparent;
 }
 
 .configIcon {
