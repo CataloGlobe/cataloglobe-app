@@ -440,6 +440,8 @@
         "date": "Data",
         "time": "Ora",
         "choose_date_first": "Scegli prima la data.",
+        "checking_availability": "Controllo la disponibilità…",
+        "time_cleared_unavailable": "L'orario che avevi scelto non è disponibile per {{count}} persone. Scegline un altro.",
         "who": "Chi",
         "name": "Nome e cognome",
         "phone": "Telefono",

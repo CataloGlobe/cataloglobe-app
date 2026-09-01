@@ -34,6 +34,12 @@ type Props = {
     /** Optional id wired by parent for aria-describedby on the field error. */
     errorId?: string;
     invalid?: boolean;
+    /** Lettura di disponibilità in volo. La griglia resta montata e
+     *  interattiva: si attenua soltanto, così non salta né si svuota mentre
+     *  arriva la risposta. */
+    loading?: boolean;
+    /** Testo per gli screen reader durante il caricamento. */
+    loadingLabel?: string;
 };
 
 function slotIsInteractive(slot: ReservationSlot): boolean {
@@ -53,7 +59,9 @@ export default function ReservationTimePicker({
     disabled,
     disabledMessage,
     errorId,
-    invalid
+    invalid,
+    loading = false,
+    loadingLabel
 }: Props) {
     const { t } = useTranslation("public");
     // Recompute `now` (and the default period) only when `periods` change —
@@ -123,8 +131,15 @@ export default function ReservationTimePicker({
         <div
             className={styles.wrapper}
             data-invalid={invalid ? "true" : undefined}
+            data-loading={loading ? "true" : undefined}
+            aria-busy={loading || undefined}
             aria-describedby={errorId}
         >
+            {loading && loadingLabel && (
+                <span className={styles.srOnly} role="status">
+                    {loadingLabel}
+                </span>
+            )}
             {periods.length > 1 && (
                 <div
                     className={styles.segmented}

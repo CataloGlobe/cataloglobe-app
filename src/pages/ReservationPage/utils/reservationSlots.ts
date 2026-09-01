@@ -101,15 +101,24 @@ type RawSlot = ReservationSlot;
  * `state`:
  *   - `"past"` when the date is today AND the slot time has already passed
  *     relative to `now` (slot's start minute `<=` now's minute).
+ *   - `"soldout"` when the time appears in `unavailableTimes` — l'esito della
+ *     lettura di disponibilità server-side (`reservation-availability`).
  *   - `"available"` otherwise.
- *   - `"soldout"` is never produced (reserved for a future per-slot
- *     capacity API; left in the type union so renderers stay ready).
+ *
+ * `past` batte `soldout`: un orario già passato è passato comunque, e dirgli
+ * "esaurito" sposterebbe l'attenzione sulla cosa sbagliata.
+ *
+ * `unavailableTimes` omesso ⇒ nessuno slot spento. È il comportamento
+ * ottimista voluto quando la disponibilità non è ancora arrivata o la chiamata
+ * è fallita: meglio una griglia ottimista, col gate al submit, di una pagina
+ * inutilizzabile.
  */
 function generateDaySlots(
     isoDate: string,
     hours: OpeningHoursEntry[],
     closures: UpcomingClosure[],
-    now: Date
+    now: Date,
+    unavailableTimes?: ReadonlySet<string>
 ): RawSlot[] {
     const ranges = getDaySlots(isoDate, hours, closures);
     if (ranges.length === 0) return [];
@@ -130,7 +139,11 @@ function generateDaySlots(
         for (let m = startMin; m < endMinExclusive; m += SLOT_STEP_MIN) {
             const time = minToHHMM(m);
             const state: ReservationSlotState =
-                isToday && m <= nowMin ? "past" : "available";
+                isToday && m <= nowMin
+                    ? "past"
+                    : unavailableTimes?.has(time)
+                      ? "soldout"
+                      : "available";
             out.push({ time, date: isoDate, state });
         }
     }
@@ -180,9 +193,10 @@ export function getReservationPeriodsForDate(
     isoDate: string,
     hours: OpeningHoursEntry[],
     closures: UpcomingClosure[],
-    now: Date
+    now: Date,
+    unavailableTimes?: ReadonlySet<string>
 ): ReservationPeriodGroup[] {
-    const flat = generateDaySlots(isoDate, hours, closures, now);
+    const flat = generateDaySlots(isoDate, hours, closures, now, unavailableTimes);
     if (flat.length === 0) return [];
 
     const buckets: Record<ReservationPeriodKey, ReservationSlot[]> = {

@@ -439,6 +439,8 @@
     "date": "Date",
     "time": "Heure",
     "choose_date_first": "Choisissez d'abord la date.",
+    "checking_availability": "Vérification des disponibilités…",
+    "time_cleared_unavailable": "L'horaire que vous aviez choisi n'est pas disponible pour {{count}} personnes. Choisissez-en un autre.",
     "who": "Qui",
     "name": "Nom et prénom",
     "phone": "Téléphone",
