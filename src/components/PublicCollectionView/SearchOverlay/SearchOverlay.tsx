@@ -3,8 +3,21 @@ import { motion } from "framer-motion";
 import { useTranslation } from "react-i18next";
 import { X, Search } from "lucide-react";
 import type { CollectionViewSection, CollectionViewSectionItem } from "../CollectionView/CollectionView";
+import { useSheetBodyLock } from "../hooks/useSheetBodyLock";
+import { SEARCH_TRIGGER_ID } from "../PublicCollectionHeader/PublicCollectionHeader";
 import { trackEvent } from "@/services/analytics/publicAnalytics";
 import styles from "./SearchOverlay.module.scss";
+
+// Ripristino dei pointer-events dopo l'uscita (220ms del fade + margine).
+// Serve solo nel caso limite in cui il pannello venga riaperto PRIMA che
+// AnimatePresence lo smonti: lì l'istanza React è riusata e le mutazioni DOM
+// di handleClose resterebbero appiccicate, lasciando il pannello inerte.
+// Nel caso normale il timer muore col cleanup di unmount.
+const POINTER_EVENTS_RESTORE_MS = 260;
+
+// Elementi che il focus trap considera fermabili dentro il pannello.
+const FOCUSABLE_SELECTOR =
+    'button:not([disabled]), input:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])';
 
 type Props = {
     isOpen: boolean;
@@ -83,6 +96,50 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
     const [highlightedIndex, setHighlightedIndex] = useState(-1);
     const inputRef = useRef<HTMLInputElement>(null);
     const resultRefsRef = useRef<(HTMLButtonElement | null)[]>([]);
+    const panelRef = useRef<HTMLDivElement>(null);
+    const overlayRef = useRef<HTMLDivElement>(null);
+    const backdropRef = useRef<HTMLDivElement>(null);
+    const pointerEventsTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // ── Body lock — stessa meccanica delle PublicSheet (hook condiviso) ──────
+    // Gate su mode: in preview il pannello vive dentro il device frame dello
+    // StyleEditor, bloccare il body bloccherebbe lo scroll dell'editor.
+    const isLockActive = isOpen && mode === "public";
+    const { releaseBodyLock } = useSheetBodyLock(isLockActive);
+
+    // ── Chiusura — rilascio del lock a INIZIO uscita, non a fine ────────────
+    // Il pannello sta dentro AnimatePresence: resta montato per tutta l'uscita,
+    // quindi il cleanup dell'hook scatterebbe solo a fade concluso (~220ms di
+    // input bloccato). Stesso vincolo di interattività di animateOutMobile in
+    // PublicSheet: si rilascia subito e il cleanup resta rete di sicurezza.
+    // I pointer-events off evitano che overlay e backdrop, ancora montati e in
+    // dissolvenza, si mangino il tap successivo (al tavolo si nota).
+    const handleClose = useCallback(() => {
+        if (overlayRef.current) overlayRef.current.style.pointerEvents = "none";
+        if (backdropRef.current) backdropRef.current.style.pointerEvents = "none";
+        if (panelRef.current) panelRef.current.style.pointerEvents = "none";
+        if (pointerEventsTimerRef.current !== null) clearTimeout(pointerEventsTimerRef.current);
+        pointerEventsTimerRef.current = setTimeout(() => {
+            if (overlayRef.current) overlayRef.current.style.pointerEvents = "";
+            if (backdropRef.current) backdropRef.current.style.pointerEvents = "";
+            if (panelRef.current) panelRef.current.style.pointerEvents = "";
+        }, POINTER_EVENTS_RESTORE_MS);
+
+        releaseBodyLock();
+
+        // Restore del focus sulla lente (mai sul ghost input, che è off-screen
+        // e tabIndex=-1). preventScroll: il focus non deve competere con lo
+        // scroll-to-product innescato da onExitComplete nel parent.
+        if (mode === "public") {
+            document.getElementById(SEARCH_TRIGGER_ID)?.focus({ preventScroll: true });
+        }
+
+        onClose();
+    }, [onClose, releaseBodyLock, mode]);
+
+    useEffect(() => () => {
+        if (pointerEventsTimerRef.current !== null) clearTimeout(pointerEventsTimerRef.current);
+    }, []);
 
     // Reset query/highlight all'apertura
     useEffect(() => {
@@ -161,19 +218,49 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
             // a overlay completamente uscito (onExitComplete) — niente setTimeout
             // magico qui. Segnaliamo il target prima di chiudere.
             onSelectProduct?.(item.id);
-            onClose();
+            handleClose();
         },
-        [onClose, onSelectProduct, mode, activityId, query, totalCount]
+        [handleClose, onSelectProduct, mode, activityId, query, totalCount]
     );
 
-    // Escape + navigazione frecce + Invio
+    // Escape + navigazione frecce + Invio + focus trap
     useEffect(() => {
         if (!isOpen) return;
         const handle = (e: KeyboardEvent) => {
             switch (e.key) {
                 case "Escape":
-                    onClose();
+                    handleClose();
                     break;
+                case "Tab": {
+                    // Focus trap: il pannello è aria-modal, il Tab non deve
+                    // scendere nel menù sottostante. Solo runtime — in preview
+                    // il pannello è inerte e non riceve focus.
+                    if (mode !== "public") break;
+                    const panel = panelRef.current;
+                    if (!panel) break;
+                    const focusables = Array.from(
+                        panel.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+                    );
+                    if (focusables.length === 0) break;
+                    const first = focusables[0];
+                    const last = focusables[focusables.length - 1];
+                    const active = document.activeElement;
+                    if (!panel.contains(active)) {
+                        // Focus sfuggito fuori (click sul backdrop, ecc.):
+                        // riportalo dentro invece di lasciarlo nel menù.
+                        e.preventDefault();
+                        (e.shiftKey ? last : first).focus();
+                        break;
+                    }
+                    if (e.shiftKey && active === first) {
+                        e.preventDefault();
+                        last.focus();
+                    } else if (!e.shiftKey && active === last) {
+                        e.preventDefault();
+                        first.focus();
+                    }
+                    break;
+                }
                 case "ArrowDown":
                     if (flatResults.length === 0) break;
                     e.preventDefault();
@@ -202,13 +289,13 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
         };
         document.addEventListener("keydown", handle);
         return () => document.removeEventListener("keydown", handle);
-    }, [isOpen, onClose, flatResults, highlightedIndex, handleSelect]);
+    }, [isOpen, handleClose, flatResults, highlightedIndex, handleSelect, mode]);
 
     // Contatore per assegnare l'indice piatto a ogni risultato nel JSX
     let flatIdx = 0;
 
     const panel = (
-        <div className={styles.panel} role="dialog" aria-modal aria-label={t("search.dialog_aria")}>
+        <div ref={panelRef} className={styles.panel} role="dialog" aria-modal aria-label={t("search.dialog_aria")}>
             {/* Riga di ricerca */}
             <div className={styles.searchRow}>
                 <div className={styles.inputWrapper}>
@@ -245,7 +332,7 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
                 <button
                     type="button"
                     className={styles.closeBtn}
-                    onClick={onClose}
+                    onClick={handleClose}
                     aria-label={t("search.close_aria")}
                 >
                     <X size={18} strokeWidth={2} />
@@ -387,13 +474,14 @@ export default function SearchOverlay({ isOpen, onClose, sections, scrollContain
     const overlayTransition = { duration: 0.22, ease: [0.22, 1, 0.36, 1] } as const;
     return (
         <motion.div
+            ref={overlayRef}
             className={styles.publicOverlay}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={overlayTransition}
         >
-            <div className={styles.backdrop} onClick={onClose} aria-hidden />
+            <div ref={backdropRef} className={styles.backdrop} onClick={handleClose} aria-hidden />
             <div className={styles.publicPanelWrap}>
                 <motion.div
                     initial={{ y: -14 }}

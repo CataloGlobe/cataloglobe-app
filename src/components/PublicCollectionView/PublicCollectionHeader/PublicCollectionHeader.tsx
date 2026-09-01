@@ -36,6 +36,17 @@ function readContentMaxWidth(el?: HTMLElement | null): number {
 export const HEADER_HEIGHT_MOBILE = 108;
 export const HEADER_HEIGHT_DESKTOP = 116;
 
+/**
+ * Id del bottone lente. Serve a SearchOverlay per riportare il focus qui alla
+ * chiusura: il pannello non può ricavarlo da document.activeElement perché al
+ * suo mount l'elemento attivo è il ghost input (focalizzato in-gesto per la
+ * tastiera iOS), non la lente.
+ *
+ * Applicato SOLO in mode="public": la preview monta due header (mobile +
+ * desktop) e l'id deve restare unico nel documento.
+ */
+export const SEARCH_TRIGGER_ID = "pub-search-trigger";
+
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 export type PublicCollectionHeaderProps = {
@@ -406,6 +417,7 @@ export default function PublicCollectionHeader({
                         {(onSearchOpen || mode === "preview") && (
                             <button
                                 type="button"
+                                id={mode === "public" ? SEARCH_TRIGGER_ID : undefined}
                                 className={styles.iconBtn}
                                 onClick={() => {
                                     // Focus sincrono in-gesto sul ghost → tastiera iOS su
