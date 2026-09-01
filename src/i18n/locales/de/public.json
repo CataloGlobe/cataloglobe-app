@@ -154,6 +154,7 @@
         "submit_default": "Zur Auswahl hinzufügen",
         "close_aria": "Schließen Sie",
         "format_required": "Wählen Sie ein Format, um fortzufahren",
+        "price_unavailable": "Das Personal fragen",
         "pairing_back": "Zurück zu {{name}}"
     },
     "order_confirmation": {

@@ -7,6 +7,7 @@ import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import PublicSheet from "../PublicSheet/PublicSheet";
 import PairingDetailCard from "../PairingDetailCard/PairingDetailCard";
+import { hasOrderablePrice, isOrderablePrice } from "../itemPricing";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "@pages/Dashboard/Products/components/productImageFraming";
 import styles from "./ItemDetail.module.scss";
@@ -184,8 +185,23 @@ export default function ItemDetail({
 
     const isAddDisabled = !!primaryPriceGroup && !selectedFormatId;
 
+    // Prezzo sconosciuto → CTA disabilitata (non nascosta: nel dettaglio un
+    // bottone che sparisce lascia un vuoto poco leggibile). Il prodotto resta
+    // consultabile. Quando un formato è selezionato la domanda è sul FORMATO,
+    // stessa granularità del server (validateOrderItems: primary_value_missing_price).
+    const selectedFormatValue = selectedFormatId && primaryPriceGroup
+        ? primaryPriceGroup.values.find(v => v.id === selectedFormatId) ?? null
+        : null;
+    const isPriceUnknown = !!displayItem && (
+        selectedFormatValue
+            ? !isOrderablePrice(selectedFormatValue.absolutePrice)
+            : !hasOrderablePrice(displayItem)
+    );
+
     const handleAddToSelection = () => {
         if (!onAddToSelection || !displayItem) return;
+        // Difensivo: la CTA è già disabilitata senza prezzo utilizzabile.
+        if (isPriceUnknown) return;
         const ppg = displayItem.optionGroups?.find(g => g.group_kind?.toUpperCase() === "PRIMARY_PRICE");
         const format: SelectedFormat | null = selectedFormatId && ppg
             ? (() => {
@@ -678,11 +694,13 @@ export default function ItemDetail({
                     <button
                         type="button"
                         className={styles.addToSelectionBtn}
-                        disabled={isAddDisabled || orderingDisabled}
-                        onClick={orderingDisabled ? undefined : handleAddToSelection}
+                        disabled={isAddDisabled || orderingDisabled || isPriceUnknown}
+                        onClick={orderingDisabled || isPriceUnknown ? undefined : handleAddToSelection}
                     >
                         {orderingDisabled ? (
                             t("ordering.suspended")
+                        ) : isPriceUnknown ? (
+                            t("item_detail.price_unavailable")
                         ) : isAddDisabled ? (
                             t("item_detail.format_required")
                         ) : (

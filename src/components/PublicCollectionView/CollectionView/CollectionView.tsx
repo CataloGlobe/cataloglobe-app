@@ -33,6 +33,7 @@ import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import { hasOpenSheet } from "../hooks/useScrollCollapse";
+import { hasOrderablePrice } from "../itemPricing";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 import CategoriesSheet from "../CategoriesSheet/CategoriesSheet";
@@ -330,6 +331,9 @@ function ProductRowInner({
         cardCharacteristics.length - MAX_CHARACTERISTIC_EMOJIS
     );
     const dp = getDisplayPrice({ fromPrice, toPrice, price, effectivePrice, originalPrice });
+    // Prezzo sconosciuto → niente "+": il prodotto resta visibile e
+    // consultabile, ma non aggiungibile (il totale sarebbe falso).
+    const canAdd = orderingEnabled && hasOrderablePrice(item);
 
     const handleRootClick = () => onClick(item);
     const handleAddBtnClick = (e: React.MouseEvent) => {
@@ -389,7 +393,7 @@ function ProductRowInner({
                             <span className={styles.promoBadge}>{t("product.badge_promo")}</span>
                         )}
                     </div>
-                    {orderingEnabled && (
+                    {canAdd && (
                         <button
                             type="button"
                             className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
@@ -547,6 +551,9 @@ function ProductCompactRowInner({
         cardCharacteristics.length - MAX_CHARACTERISTIC_EMOJIS
     );
     const dp = getDisplayPrice({ fromPrice, toPrice, price, effectivePrice, originalPrice });
+    // Prezzo sconosciuto → niente "+": il prodotto resta visibile e
+    // consultabile, ma non aggiungibile (il totale sarebbe falso).
+    const canAdd = orderingEnabled && hasOrderablePrice(item);
 
     const handleRootClick = () => onClick(item);
     const handleAddBtnClick = (e: React.MouseEvent) => {
@@ -587,7 +594,7 @@ function ProductCompactRowInner({
                             </span>
                         </span>
                     )}
-                    {orderingEnabled && (
+                    {canAdd && (
                         <button
                             type="button"
                             className={[styles.addBtnOutline, selectionQty > 0 ? styles.addBtnOutlineActive : ""]
@@ -1569,6 +1576,9 @@ export default function CollectionView({
     const addPairingToSelection = useCallback((pairedProductId: string) => {
         const p = findProductById(pairedProductId);
         if (!p) return;
+        // Stesso gate del "+" lista: un abbinato senza prezzo utilizzabile non
+        // entra in selezione (il tap resta inerte, la card resta consultabile).
+        if (!hasOrderablePrice(p)) return;
         addToSelection(p.id, p.name, p.effective_price ?? p.price ?? p.from_price ?? 0, null, []);
     }, [findProductById, addToSelection]);
 
@@ -1718,13 +1728,19 @@ export default function CollectionView({
         [openItemDetail, mode]
     );
     const handleRowAdd = useCallback(
-        (item: CollectionViewSectionItem) => handleAddClick(
-            item.id,
-            item.name,
-            item.effective_price ?? item.price ?? 0,
-            item.optionGroups,
-            () => openItemDetail(item)
-        ),
+        (item: CollectionViewSectionItem) => {
+            // Difensivo: il "+" è già nascosto per gli item senza prezzo
+            // utilizzabile, ma il callback resta raggiungibile da altre
+            // sorgenti — non aggiungere mai a totale falso.
+            if (!hasOrderablePrice(item)) return;
+            handleAddClick(
+                item.id,
+                item.name,
+                item.effective_price ?? item.price ?? 0,
+                item.optionGroups,
+                () => openItemDetail(item)
+            );
+        },
         [handleAddClick, openItemDetail]
     );
 

@@ -154,6 +154,7 @@
         "submit_default": "Añadir a la selección",
         "close_aria": "Cerrar",
         "format_required": "Elija un formato para continuar",
+        "price_unavailable": "Pregunta al personal",
         "pairing_back": "Volver a {{name}}"
     },
     "order_confirmation": {
