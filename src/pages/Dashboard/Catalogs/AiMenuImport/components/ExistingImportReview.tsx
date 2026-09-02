@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Info } from "lucide-react";
 import { Select } from "@/components/ui/Select/Select";
-import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { Switch } from "@/components/ui/Switch/Switch";
 import {
     listCatalogs,
@@ -412,7 +411,6 @@ export function ExistingImportReview({
 
     // Gruppi + selezione per la lista condivisa.
     const [search, setSearch] = useState("");
-    const catalogLower = useVerticalConfig().catalogLabel.toLowerCase();
 
     const groups = useMemo<ImportProductGroup[]>(() => {
         return aiCategoryKeys
@@ -561,7 +559,11 @@ export function ExistingImportReview({
                         <div className={styles.sectionTitle}>Categorie di destinazione</div>
                         <div className={styles.mappingCard}>
                             <div className={styles.mappingHead}>
-                                <span className={styles.mappingHeadCol}>Trovata nel {catalogLower}</span>
+                                {/* "menù" resta letterale: la colonna elenca le categorie
+                                    lette dal documento caricato, non quelle del catalogo di
+                                    destinazione — di quello parla "Va in" qui accanto.
+                                    Stessa ragione per cui UploadStep non è parametrizzato. */}
+                                <span className={styles.mappingHeadCol}>Trovata nel menù</span>
                                 <span className={styles.mappingHeadCol}>Va in</span>
                             </div>
                             {aiCategoryKeys.map(key => {
