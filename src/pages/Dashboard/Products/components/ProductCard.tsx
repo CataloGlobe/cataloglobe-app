@@ -74,19 +74,20 @@ export default function ProductCard({ product, metadata, onEdit, onDelete }: Pro
                     </Text>
                 </Link>
 
-                {/* Riga dei segnali: con entrambe le mancanze i due badge
-                    vanno a capo invece di troncarsi (card larghe 180px al
-                    minimo). Ordine: prima la gravità maggiore. */}
+                {/* Riga dei segnali: prima il dato (il prezzo, o il badge che
+                    ne dichiara l'assenza occupandone il posto), poi il commento
+                    sul prodotto. Con entrambe le mancanze i due badge vanno a
+                    capo invece di troncarsi (card larghe 180px al minimo). */}
                 <div className={styles.signals}>
-                    {issues.outOfCatalog && (
-                        <Badge variant="warning">Fuori catalogo</Badge>
-                    )}
                     {issues.missingPrice ? (
                         <Badge variant="warning">Senza prezzo</Badge>
                     ) : (
                         <Text variant="caption" colorVariant="muted" className={styles.price}>
                             {price ?? "—"}
                         </Text>
+                    )}
+                    {issues.outOfCatalog && (
+                        <Badge variant="warning">Fuori catalogo</Badge>
                     )}
                 </div>
             </div>

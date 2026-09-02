@@ -98,10 +98,8 @@ export default function ProductCardVariant({
             {/* Body */}
             <div className={styles.body}>
                 <span className={styles.name}>{variant.name}</span>
+                {/* Prima il dato, poi il commento: stesso ordine di ProductCard. */}
                 <div className={styles.signals}>
-                    {issues.outOfCatalog && (
-                        <Badge variant="warning">Fuori catalogo</Badge>
-                    )}
                     {issues.missingPrice ? (
                         <Badge variant="warning">Senza prezzo</Badge>
                     ) : (
@@ -110,6 +108,9 @@ export default function ProductCardVariant({
                                 {price}
                             </Text>
                         )
+                    )}
+                    {issues.outOfCatalog && (
+                        <Badge variant="warning">Fuori catalogo</Badge>
                     )}
                 </div>
             </div>

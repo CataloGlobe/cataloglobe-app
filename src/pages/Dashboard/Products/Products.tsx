@@ -15,7 +15,7 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
-import { Pill } from "@/components/ui/Pill/Pill";
+import { Select } from "@/components/ui/Select/Select";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -72,6 +72,9 @@ const EMPTY_PRODUCT_METADATA: ProductListMetadata = {
 
 const formatCurrency = (value: number) => `${value.toFixed(2)} €`;
 
+/** Valori del filtro "mancanze" in header. */
+type IssueFilter = "all" | "missing-price" | "out-of-catalog";
+
 export default function Products() {
     const currentTenantId = useTenantId();
     const navigate = useNavigate();
@@ -114,9 +117,13 @@ export default function Products() {
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState("");
-    /** Filtri sulle mancanze: valgono per entrambe le viste, lista e griglia. */
-    const [onlyWithoutPrice, setOnlyWithoutPrice] = useState(false);
-    const [onlyOutOfCatalog, setOnlyOutOfCatalog] = useState(false);
+    /**
+     * Filtro sulle mancanze: vale per entrambe le viste, lista e griglia.
+     * Mutuamente esclusivo (le due pill precedenti erano in OR): su staging
+     * solo 6 prodotti su 744 hanno entrambe le mancanze e i due insiemi sono
+     * quasi disgiunti, quindi la combinazione non paga un secondo controllo.
+     */
+    const [issueFilter, setIssueFilter] = useState<IssueFilter>("all");
     const [groupsSearchQuery, setGroupsSearchQuery] = useState("");
     const [ingredientsSearchQuery, setIngredientsSearchQuery] = useState("");
     const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
@@ -215,26 +222,24 @@ export default function Products() {
                 );
                 if (!variantsMatch) return false;
             }
-            // Mancanze: OR fra i filtri attivi — con entrambi accesi si vede
-            // tutto ciò che ha almeno una delle due, non solo chi le ha
-            // entrambe (che su staging sono 6 prodotti su 744).
-            if (onlyWithoutPrice || onlyOutOfCatalog) {
+            // Mancanze: una sola alla volta, quella scelta nel select.
+            if (issueFilter !== "all") {
                 const issues = productIssues(product);
                 const matches =
-                    (onlyWithoutPrice && issues.missingPrice) ||
-                    (onlyOutOfCatalog && issues.outOfCatalog);
+                    issueFilter === "missing-price"
+                        ? issues.missingPrice
+                        : issues.outOfCatalog;
                 if (!matches) return false;
             }
             return true;
         });
-    }, [allProducts, searchQuery, onlyWithoutPrice, onlyOutOfCatalog, productIssues]);
+    }, [allProducts, searchQuery, issueFilter, productIssues]);
 
     // Discriminante dell'empty state: true se ALMENO un filtro che concorre a
     // `filteredProducts` è attivo. Nuovi filtri vanno aggiunti qui oltre che
     // nel useMemo sopra, così il copy "nessun risultato" non viene mai
     // scambiato per "vuoto assoluto".
-    const hasActiveFilter =
-        searchQuery.trim().length > 0 || onlyWithoutPrice || onlyOutOfCatalog;
+    const hasActiveFilter = searchQuery.trim().length > 0 || issueFilter !== "all";
 
     // Conteggi sul set completo (non su `filteredProducts`): sono i numeri che
     // i filtri promettono di mostrare, e non devono cambiare mentre si cerca.
@@ -248,6 +253,29 @@ export default function Products() {
         }
         return { missingPrice, outOfCatalog };
     }, [allProducts, productIssues]);
+
+    const hasIssues = issueCounts.missingPrice > 0 || issueCounts.outOfCatalog > 0;
+
+    // Il conteggio vive nell'etichetta dell'opzione: `Select` incapsula una
+    // <select> nativa, dove l'unico contenuto ammesso è testo. Un'opzione a
+    // zero resta elencata ma disabilitata — sparire cambierebbe le voci del
+    // menu mentre si lavora, e sceglierla porterebbe a una lista vuota.
+    const issueFilterOptions = useMemo(
+        () => [
+            { value: "all", label: "Tutti i prodotti" },
+            {
+                value: "missing-price",
+                label: `Senza prezzo (${issueCounts.missingPrice})`,
+                disabled: issueCounts.missingPrice === 0
+            },
+            {
+                value: "out-of-catalog",
+                label: `Fuori catalogo (${issueCounts.outOfCatalog})`,
+                disabled: issueCounts.outOfCatalog === 0
+            }
+        ],
+        [issueCounts]
+    );
 
     const tableRows = useMemo<ProductTableRow[]>(() => {
         const rows: ProductTableRow[] = [];
@@ -386,21 +414,18 @@ export default function Products() {
                     onChange={setSearchQuery}
                     placeholder={`Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`}
                 />
-                {/* Compare solo se c'è davvero qualcosa da filtrare: a menù
-                    completo il conteggio sarebbe uno zero da leggere ogni
-                    volta. Resta visibile da attivo per poterlo spegnere. */}
-                {(issueCounts.missingPrice > 0 || onlyWithoutPrice) && (
-                    <Pill
-                        label={`Senza prezzo (${issueCounts.missingPrice})`}
-                        active={onlyWithoutPrice}
-                        onClick={() => setOnlyWithoutPrice(v => !v)}
-                    />
-                )}
-                {(issueCounts.outOfCatalog > 0 || onlyOutOfCatalog) && (
-                    <Pill
-                        label={`Fuori catalogo (${issueCounts.outOfCatalog})`}
-                        active={onlyOutOfCatalog}
-                        onClick={() => setOnlyOutOfCatalog(v => !v)}
+                {/* Compare solo se c'è davvero qualcosa da filtrare: a catalogo
+                    completo sarebbe un controllo con due opzioni a zero, cioè
+                    due vicoli ciechi. Resta visibile da attivo per poterlo
+                    riportare a "Tutti". */}
+                {(hasIssues || issueFilter !== "all") && (
+                    <Select
+                        aria-label="Filtra per stato del prodotto"
+                        value={issueFilter}
+                        onChange={e => setIssueFilter(e.target.value as IssueFilter)}
+                        options={issueFilterOptions}
+                        containerClassName={styles.toolbarIssueFilter}
+                        selectClassName={styles.toolbarSelectInner}
                     />
                 )}
                 <SegmentedControl<"list" | "grid">
@@ -425,9 +450,9 @@ export default function Products() {
         searchQuery,
         groupsSearchQuery,
         ingredientsSearchQuery,
-        onlyWithoutPrice,
-        onlyOutOfCatalog,
-        issueCounts,
+        issueFilter,
+        issueFilterOptions,
+        hasIssues,
         viewMode,
         handleViewChange
     ]);
