@@ -40,6 +40,13 @@ export interface V2Reservation {
     customer_phone_e164: string | null;
     notes: string | null;
     /**
+     * Profilo ospite agganciato dal trigger `reservations_link_guest`
+     * (migration 20260902120002). NULL quando `customer_phone_e164` è NULL:
+     * un numero che non sappiamo canonicalizzare non è un'identità, e la
+     * prenotazione resta valida senza profilo.
+     */
+    guest_id: string | null;
+    /**
      * Codice lingua (ISO 639-1, minuscolo) in cui il cliente stava leggendo la
      * pagina pubblica quando ha inviato la prenotazione. Determina la lingua
      * delle email al cliente e delle stringhe dell'allegato .ics; le email alla

@@ -10,6 +10,20 @@ export interface SystemDrawerProps {
     children: ReactNode;
     "aria-labelledby"?: string;
     "aria-describedby"?: string;
+    /**
+     * All'apertura porta il focus sul primo campo del drawer. Default `true`:
+     * è il comportamento giusto per i drawer di CRUD, che esistono per essere
+     * compilati.
+     *
+     * Passare `false` sui drawer di CONSULTAZIONE che contengono comunque un
+     * campo editabile (es. la scheda cliente, dove le note sono un di più):
+     * lì il focus automatico mette il cursore in un campo che l'utente non ha
+     * chiesto di compilare, e il focus ring fa sembrare la scrittura l'azione
+     * principale. Con `false` il focus resta sul contenitore del dialog, che
+     * ha `tabIndex={-1}`: screen reader e trappola del focus continuano a
+     * funzionare identici.
+     */
+    autoFocusFirstInput?: boolean;
 }
 
 const FIRST_INPUT_SELECTOR =
@@ -21,7 +35,8 @@ export const SystemDrawer = ({
     width = 520,
     children,
     "aria-labelledby": ariaLabelledBy,
-    "aria-describedby": ariaDescribedBy
+    "aria-describedby": ariaDescribedBy,
+    autoFocusFirstInput = true
 }: SystemDrawerProps) => {
     const previousActiveElement = useRef<HTMLElement | null>(null);
     const drawerRef = useRef<HTMLDivElement>(null);
@@ -138,7 +153,7 @@ export const SystemDrawer = ({
                         exit={{ x: "100%" }}
                         transition={{ duration: 0.25, type: "tween", ease: "easeOut" }}
                         onAnimationComplete={() => {
-                            if (!openRef.current) return;
+                            if (!openRef.current || !autoFocusFirstInput) return;
                             const firstInput = drawerRef.current?.querySelector<HTMLElement>(FIRST_INPUT_SELECTOR);
                             firstInput?.focus();
                         }}

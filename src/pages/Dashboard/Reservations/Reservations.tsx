@@ -5,7 +5,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { usePageHeader } from "@/context/usePageHeader";
-import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
@@ -17,8 +17,10 @@ import { todayIsoDate } from "@/utils/dateLocal";
 import { listReservations } from "@/services/supabase/reservations";
 import { getActivities } from "@/services/supabase/activities";
 import { getTenantMemberNames } from "@/services/supabase/team";
+import { getReservationGuest } from "@/services/supabase/reservationGuests";
 import type { V2Activity } from "@/types/activity";
 import type { V2Reservation } from "@/types/reservation";
+import type { ReservationGuestSummary } from "@/types/reservationGuest";
 import ReservationDetailDrawer from "./ReservationDetailDrawer";
 import ReservationCreateEditDrawer from "./ReservationCreateEditDrawer";
 import ReservationsInbox from "./ReservationsInbox";
@@ -67,6 +69,21 @@ export default function Reservations() {
 
     const canCreate = useMemo(
         () => (permissions ? canDoOnAnyActivity(permissions, "reservations.manage") : false),
+        [permissions]
+    );
+
+    // Rubrica clienti. Permesso distinto da `reservations.read`: la singola
+    // prenotazione è il turno, la rubrica è l'archivio completo dei clienti
+    // dell'azienda. Staff e viewer non ce l'hanno.
+    const canReadGuests = useMemo(
+        () => (permissions ? canDoOnAnyActivity(permissions, "guests.read") : false),
+        [permissions]
+    );
+    // Owner/admin vedono l'intera azienda: a loro il "nelle tue sedi" sui
+    // conteggi sarebbe rumore. A tutti gli altri serve, perché i loro numeri
+    // sono parziali per costruzione (view security_invoker).
+    const tenantWide = useMemo(
+        () => (permissions ? isTenantWide(permissions) : false),
         [permissions]
     );
 
@@ -342,6 +359,26 @@ export default function Reservations() {
         [selectedId, effectiveReservations]
     );
 
+    // Profilo del cliente della prenotazione aperta. Caricato on-demand
+    // all'apertura del drawer: la lista prenotazioni non ha bisogno dei
+    // profili, e caricarli tutti sarebbe una query per riga.
+    const [detailGuest, setDetailGuest] = useState<ReservationGuestSummary | null>(null);
+    const detailGuestId = selectedReservation?.guest_id ?? null;
+
+    useEffect(() => {
+        if (!isDrawerOpen || !detailGuestId || !tenantId || !canReadGuests) {
+            setDetailGuest(null);
+            return;
+        }
+        let alive = true;
+        getReservationGuest(detailGuestId, tenantId)
+            .then(g => { if (alive) setDetailGuest(g); })
+            // Silenzioso: il profilo è un arricchimento del drawer, la sua
+            // assenza non deve disturbare chi sta gestendo una prenotazione.
+            .catch(() => { if (alive) setDetailGuest(null); });
+        return () => { alive = false; };
+    }, [isDrawerOpen, detailGuestId, tenantId, canReadGuests]);
+
     const selectedActivity = useMemo(
         () =>
             selectedReservation
@@ -513,6 +550,22 @@ export default function Reservations() {
                 }
                 canManage={
                     selectedReservation ? canManageActivity(selectedReservation.activity_id) : false
+                }
+                guestSummary={detailGuest}
+                tenantWide={tenantWide}
+                onOpenGuest={
+                    detailGuest
+                        ? () => {
+                              // La scheda completa vive nella pagina Clienti:
+                              // il deep link `?guest=` la apre già aperta, così
+                              // il link è condivisibile e la rubrica resta una
+                              // sola implementazione.
+                              setIsDrawerOpen(false);
+                              navigate(
+                                  `/business/${businessId}/guests?guest=${detailGuest.id}`
+                              );
+                          }
+                        : undefined
                 }
                 onAction={action => {
                     if (selectedReservation) handleAction(selectedReservation, action);

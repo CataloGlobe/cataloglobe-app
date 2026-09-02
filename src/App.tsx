@@ -61,6 +61,7 @@ const Overview = lazy(() => import("@/pages/Business/OverviewPage"));
 const Businesses = lazy(() => import("./pages/Dashboard/Businesses/Businesses"));
 const Orders = lazy(() => import("./pages/Dashboard/Orders/Orders"));
 const Reservations = lazy(() => import("./pages/Dashboard/Reservations/Reservations"));
+const Guests = lazy(() => import("./pages/Dashboard/Guests/Guests"));
 const Catalogs = lazy(() => import("./pages/Dashboard/Catalogs/Catalogs"));
 const CatalogEngine = lazy(() => import("./pages/Dashboard/Catalogs/CatalogEngine"));
 const Reviews = lazy(() => import("@pages/Dashboard/Reviews/Reviews"));
@@ -234,6 +235,7 @@ export default function App() {
 
                 <Route path="orders" element={<Orders />} />
                 <Route path="reservations" element={<Reservations />} />
+                <Route path="guests" element={<Guests />} />
 
                 <Route path="scheduling" element={<Programming />} />
                 <Route path="scheduling/:ruleId" element={<ProgrammingRuleDetail />} />

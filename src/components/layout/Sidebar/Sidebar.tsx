@@ -18,6 +18,7 @@ import {
     BarChart3,
     MessageSquare,
     Users,
+    BookUser,
     Briefcase,
     FolderOpen,
     TrendingUp,
@@ -145,7 +146,16 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
                 { to: `${b}/analytics`, label: "Analitiche", icon: <BarChart3 size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "analytics.read") },
                 { to: `${b}/reviews`, label: "Recensioni", icon: <MessageSquare size={18} />,
-                  permission: perms => canDoOnAnyActivity(perms, "reviews.read") }
+                  permission: perms => canDoOnAnyActivity(perms, "reviews.read") },
+                // Sta in Insight e non in Operatività: nessuno compila la
+                // rubrica: si popola da sola dall'interazione con gli
+                // avventori, come analitiche e recensioni. Il gate di piano
+                // resta `table_reservation` finché le prenotazioni sono
+                // l'unica sorgente dei profili — quando arriveranno anche
+                // dagli ordini al tavolo andrà allargato, non spostato.
+                { to: `${b}/guests`, label: "Clienti", icon: <BookUser size={18} />,
+                  permission: perms => canDoOnAnyActivity(perms, "guests.read"),
+                  requiresFeature: "table_reservation" }
             ]
         },
         {

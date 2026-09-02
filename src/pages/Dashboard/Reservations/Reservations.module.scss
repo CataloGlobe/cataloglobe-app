@@ -1098,3 +1098,109 @@
 .drawerHeroConfirmed {
   margin-top: 6px;
 }
+
+/* ─────────────────────────────────────────────────────────────────────────
+   AGGANCIO ALLA RUBRICA CLIENTI
+
+   Solo ciò che compare DENTRO le prenotazioni: il profilo nel drawer di
+   dettaglio e il riconoscimento durante l'inserimento. L'elenco e la scheda
+   completa vivono nella pagina Clienti (`Guests.module.scss`).
+   ───────────────────────────────────────────────────────────────────────── */
+
+.guestTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.guestTag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+  white-space: nowrap;
+}
+
+/* Il no-show è l'unico numero che deve saltare all'occhio: è quello che
+   cambia la decisione di stasera. */
+.guestSummaryAlert {
+  color: var(--color-red-900);
+  font-weight: 600;
+}
+
+.guestSummaryDot {
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+}
+
+/* ── Profilo dentro il drawer della prenotazione ─────────────────────── */
+
+.guestInlineCard {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+  padding: 12px 14px;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.guestInlineStats {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+}
+
+.guestInlineVisits {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.guestInlineNotes {
+  font-size: 13px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+  white-space: pre-wrap;
+}
+
+.guestInlineLink {
+  align-self: flex-start;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--brand-primary);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* ── Riconoscimento in inserimento (form) ────────────────────────────── */
+
+.guestMatchBanner {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  background: var(--hover-bg);
+  border: 1px solid color-mix(in srgb, var(--text) 22%, var(--card-bg));
+  border-radius: 8px;
+}
+
+.guestMatchTitle {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.guestMatchStats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+}
