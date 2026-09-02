@@ -6,17 +6,17 @@ import { FramedMedia } from "@components/ui/FramedMedia";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./productImageFraming";
 import type { V2Product, ProductListMetadata } from "@/services/supabase/products";
 import {
-    hasConfiguredEffectivePrice,
-    type ProductPriceFacts
-} from "@/utils/productPriceStatus";
+    getProductIssues,
+    type ProductCompletenessFacts
+} from "@/utils/productCompleteness";
 import styles from "./ProductCardVariant.module.scss";
 
 type Props = {
     variant: V2Product;
     metadata: ProductListMetadata;
     parentPrice?: string | null;
-    /** Prezzo del prodotto base, sorgente dell'ereditarietà: senza, la variante che eredita risulterebbe "da configurare". */
-    parentPriceFacts?: ProductPriceFacts | null;
+    /** Fatti del prodotto base, sorgente dell'ereditarietà: senza, una variante che eredita prezzo o menù risulterebbe mancante. */
+    parentFacts?: ProductCompletenessFacts | null;
 };
 
 function formatVariantPrice(
@@ -41,18 +41,19 @@ export default function ProductCardVariant({
     variant,
     metadata,
     parentPrice,
-    parentPriceFacts
+    parentFacts
 }: Props) {
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
 
     const price = formatVariantPrice(variant, metadata, parentPrice);
-    const missingPrice = !hasConfiguredEffectivePrice(
+    const issues = getProductIssues(
         {
             basePrice: variant.base_price,
-            pricedFormatsCount: metadata.pricedFormatsCount
+            pricedFormatsCount: metadata.pricedFormatsCount,
+            catalogsCount: metadata.catalogsCount
         },
-        parentPriceFacts
+        parentFacts
     );
 
     const handleClick = () => {
@@ -97,15 +98,20 @@ export default function ProductCardVariant({
             {/* Body */}
             <div className={styles.body}>
                 <span className={styles.name}>{variant.name}</span>
-                {missingPrice ? (
-                    <Badge variant="warning">Senza prezzo</Badge>
-                ) : (
-                    price !== null && (
-                        <Text variant="caption" className={styles.price}>
-                            {price}
-                        </Text>
-                    )
-                )}
+                <div className={styles.signals}>
+                    {issues.outOfCatalog && (
+                        <Badge variant="warning">Fuori catalogo</Badge>
+                    )}
+                    {issues.missingPrice ? (
+                        <Badge variant="warning">Senza prezzo</Badge>
+                    ) : (
+                        price !== null && (
+                            <Text variant="caption" className={styles.price}>
+                                {price}
+                            </Text>
+                        )
+                    )}
+                </div>
             </div>
         </div>
     );

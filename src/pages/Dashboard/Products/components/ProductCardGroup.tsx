@@ -1,5 +1,5 @@
 import type { V2Product, ProductListMetadata } from "@/services/supabase/products";
-import type { ProductPriceFacts } from "@/utils/productPriceStatus";
+import type { ProductCompletenessFacts } from "@/utils/productCompleteness";
 import ProductCard from "./ProductCard";
 import ProductCardVariant from "./ProductCardVariant";
 import styles from "./ProductCardGroup.module.scss";
@@ -32,9 +32,10 @@ export default function ProductCardGroup({ product, variants, metadata, onEdit, 
     const spanCols = Math.min(1 + variants.length, 3);
     const parentMeta = metadata[product.id] ?? EMPTY_METADATA;
     const parentPrice = formatParentPrice(product, parentMeta);
-    const parentPriceFacts: ProductPriceFacts = {
+    const parentFacts: ProductCompletenessFacts = {
         basePrice: product.base_price,
-        pricedFormatsCount: parentMeta.pricedFormatsCount
+        pricedFormatsCount: parentMeta.pricedFormatsCount,
+        catalogsCount: parentMeta.catalogsCount
     };
 
     return (
@@ -54,7 +55,7 @@ export default function ProductCardGroup({ product, variants, metadata, onEdit, 
                     variant={variant}
                     metadata={metadata[variant.id] ?? EMPTY_METADATA}
                     parentPrice={parentPrice}
-                    parentPriceFacts={parentPriceFacts}
+                    parentFacts={parentFacts}
                 />
             ))}
         </div>

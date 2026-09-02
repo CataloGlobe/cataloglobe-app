@@ -49,7 +49,7 @@ import {
 } from "@/services/supabase/catalogs";
 import { listBaseProductsWithVariants, getProductListMetadata, V2Product } from "@/services/supabase/products";
 import { getDisplayPrice } from "@/utils/priceDisplay";
-import { hasConfiguredEffectivePrice } from "@/utils/productPriceStatus";
+import { hasConfiguredEffectivePrice } from "@/utils/productCompleteness";
 import { getProductGroups, ProductGroup } from "@/services/supabase/productGroups";
 import { listAttributeDefinitions } from "@/services/supabase/attributes";
 import { supabase } from "@/services/supabase/client";

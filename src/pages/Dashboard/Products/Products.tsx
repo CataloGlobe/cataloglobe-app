@@ -39,10 +39,10 @@ import {
 } from "@/services/supabase/products";
 
 import {
-    hasConfiguredEffectivePrice,
-    hasConfiguredPrice,
-    type ProductPriceFacts
-} from "@/utils/productPriceStatus";
+    getProductIssues,
+    type ProductCompletenessFacts,
+    type ProductIssues
+} from "@/utils/productCompleteness";
 
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ProductCreateEditDrawer, ProductFormMode } from "./ProductCreateEditDrawer";
@@ -114,8 +114,9 @@ export default function Products() {
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState("");
-    /** Filtro "Senza prezzo": vale per entrambe le viste, lista e griglia. */
+    /** Filtri sulle mancanze: valgono per entrambe le viste, lista e griglia. */
     const [onlyWithoutPrice, setOnlyWithoutPrice] = useState(false);
+    const [onlyOutOfCatalog, setOnlyOutOfCatalog] = useState(false);
     const [groupsSearchQuery, setGroupsSearchQuery] = useState("");
     const [ingredientsSearchQuery, setIngredientsSearchQuery] = useState("");
     const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
@@ -162,41 +163,46 @@ export default function Products() {
         loadData();
     }, [loadData]);
 
-    // Fatti sul prezzo di un prodotto, letti dai dati già in memoria dopo
-    // `loadData`: `base_price` dalla riga, formati prezzati dal metadata.
-    // Nessuna query in più.
-    const priceFactsFor = useCallback(
-        (product: V2Product): ProductPriceFacts => ({
-            basePrice: product.base_price,
-            pricedFormatsCount: (productMetadata[product.id] ?? EMPTY_PRODUCT_METADATA)
-                .pricedFormatsCount
-        }),
+    // Fatti sulle mancanze di un prodotto, letti dai dati già in memoria dopo
+    // `loadData`: `base_price` dalla riga, formati prezzati e menù dal
+    // metadata. Nessuna query in più.
+    const factsFor = useCallback(
+        (product: V2Product): ProductCompletenessFacts => {
+            const meta = productMetadata[product.id] ?? EMPTY_PRODUCT_METADATA;
+            return {
+                basePrice: product.base_price,
+                pricedFormatsCount: meta.pricedFormatsCount,
+                catalogsCount: meta.catalogsCount
+            };
+        },
         [productMetadata]
     );
 
-    // Una variante senza prezzo proprio eredita dal padre: va valutata insieme
-    // a lui, altrimenti risulterebbe "senza prezzo" pur essendone dotata.
-    const rowHasPrice = useCallback(
-        (row: ProductTableRow): boolean =>
-            hasConfiguredEffectivePrice(
-                priceFactsFor(row.product),
-                row.parent ? priceFactsFor(row.parent) : null
-            ),
-        [priceFactsFor]
+    // Una variante senza prezzo (o senza collegamento a un menù) eredita dal
+    // padre: va valutata insieme a lui, altrimenti risulterebbe mancante pur
+    // essendo coperta.
+    const rowIssues = useCallback(
+        (row: ProductTableRow): ProductIssues =>
+            getProductIssues(factsFor(row.product), row.parent ? factsFor(row.parent) : null),
+        [factsFor]
     );
 
-    // Il filtro lavora sul prodotto base, che è l'unità di entrambe le viste:
-    // matcha se manca il prezzo a lui o ad almeno una sua variante, così la
+    // I filtri lavorano sul prodotto base, che è l'unità di entrambe le viste:
+    // matcha se la mancanza è sua o di almeno una sua variante, così la
     // riga/card che porta il badge non sparisce mai dal risultato.
-    const productMissesPrice = useCallback(
-        (product: V2Product): boolean => {
-            const parentFacts = priceFactsFor(product);
-            if (!hasConfiguredPrice(parentFacts)) return true;
-            return (product.variants ?? []).some(
-                variant => !hasConfiguredEffectivePrice(priceFactsFor(variant), parentFacts)
+    const productIssues = useCallback(
+        (product: V2Product): ProductIssues => {
+            const parentFacts = factsFor(product);
+            const own = getProductIssues(parentFacts);
+            const variantIssues = (product.variants ?? []).map(variant =>
+                getProductIssues(factsFor(variant), parentFacts)
             );
+            return {
+                missingPrice: own.missingPrice || variantIssues.some(i => i.missingPrice),
+                outOfCatalog: own.outOfCatalog || variantIssues.some(i => i.outOfCatalog)
+            };
         },
-        [priceFactsFor]
+        [factsFor]
     );
 
     const filteredProducts = useMemo(() => {
@@ -209,24 +215,39 @@ export default function Products() {
                 );
                 if (!variantsMatch) return false;
             }
-            // Senza prezzo
-            if (onlyWithoutPrice && !productMissesPrice(product)) return false;
+            // Mancanze: OR fra i filtri attivi — con entrambi accesi si vede
+            // tutto ciò che ha almeno una delle due, non solo chi le ha
+            // entrambe (che su staging sono 6 prodotti su 744).
+            if (onlyWithoutPrice || onlyOutOfCatalog) {
+                const issues = productIssues(product);
+                const matches =
+                    (onlyWithoutPrice && issues.missingPrice) ||
+                    (onlyOutOfCatalog && issues.outOfCatalog);
+                if (!matches) return false;
+            }
             return true;
         });
-    }, [allProducts, searchQuery, onlyWithoutPrice, productMissesPrice]);
+    }, [allProducts, searchQuery, onlyWithoutPrice, onlyOutOfCatalog, productIssues]);
 
     // Discriminante dell'empty state: true se ALMENO un filtro che concorre a
     // `filteredProducts` è attivo. Nuovi filtri vanno aggiunti qui oltre che
     // nel useMemo sopra, così il copy "nessun risultato" non viene mai
     // scambiato per "vuoto assoluto".
-    const hasActiveFilter = searchQuery.trim().length > 0 || onlyWithoutPrice;
+    const hasActiveFilter =
+        searchQuery.trim().length > 0 || onlyWithoutPrice || onlyOutOfCatalog;
 
-    // Conteggio sul set completo (non su `filteredProducts`): è il numero che
-    // il filtro promette di mostrare, e non deve cambiare mentre si cerca.
-    const missingPriceCount = useMemo(
-        () => allProducts.filter(productMissesPrice).length,
-        [allProducts, productMissesPrice]
-    );
+    // Conteggi sul set completo (non su `filteredProducts`): sono i numeri che
+    // i filtri promettono di mostrare, e non devono cambiare mentre si cerca.
+    const issueCounts = useMemo(() => {
+        let missingPrice = 0;
+        let outOfCatalog = 0;
+        for (const product of allProducts) {
+            const issues = productIssues(product);
+            if (issues.missingPrice) missingPrice += 1;
+            if (issues.outOfCatalog) outOfCatalog += 1;
+        }
+        return { missingPrice, outOfCatalog };
+    }, [allProducts, productIssues]);
 
     const tableRows = useMemo<ProductTableRow[]>(() => {
         const rows: ProductTableRow[] = [];
@@ -368,11 +389,18 @@ export default function Products() {
                 {/* Compare solo se c'è davvero qualcosa da filtrare: a menù
                     completo il conteggio sarebbe uno zero da leggere ogni
                     volta. Resta visibile da attivo per poterlo spegnere. */}
-                {(missingPriceCount > 0 || onlyWithoutPrice) && (
+                {(issueCounts.missingPrice > 0 || onlyWithoutPrice) && (
                     <Pill
-                        label={`Senza prezzo (${missingPriceCount})`}
+                        label={`Senza prezzo (${issueCounts.missingPrice})`}
                         active={onlyWithoutPrice}
                         onClick={() => setOnlyWithoutPrice(v => !v)}
+                    />
+                )}
+                {(issueCounts.outOfCatalog > 0 || onlyOutOfCatalog) && (
+                    <Pill
+                        label={`Fuori catalogo (${issueCounts.outOfCatalog})`}
+                        active={onlyOutOfCatalog}
+                        onClick={() => setOnlyOutOfCatalog(v => !v)}
                     />
                 )}
                 <SegmentedControl<"list" | "grid">
@@ -398,7 +426,8 @@ export default function Products() {
         groupsSearchQuery,
         ingredientsSearchQuery,
         onlyWithoutPrice,
-        missingPriceCount,
+        onlyOutOfCatalog,
+        issueCounts,
         viewMode,
         handleViewChange
     ]);
@@ -523,6 +552,13 @@ export default function Products() {
                             </Text>
                         </Link>
                         {row.kind === "variant" && <Badge variant="secondary">Variante</Badge>}
+                        {/* "Fuori catalogo" sta qui e non nella colonna Prezzo:
+                            è un'affermazione sul prodotto, non sul suo prezzo.
+                            Colonne diverse = i due badge non competono quando
+                            un prodotto ha entrambe le mancanze. */}
+                        {rowIssues(row).outOfCatalog && (
+                            <Badge variant="warning">Fuori catalogo</Badge>
+                        )}
                     </div>
                     {row.product.description && (
                         <Text variant="caption" colorVariant="muted">
@@ -540,7 +576,7 @@ export default function Products() {
             cell: (_value, row) => {
                 // Domanda unica ("ha un prezzo?") prima di qualsiasi formattazione:
                 // le diramazioni sotto si occupano solo di COME mostrarlo.
-                if (!rowHasPrice(row)) {
+                if (rowIssues(row).missingPrice) {
                     return <Badge variant="warning">Senza prezzo</Badge>;
                 }
 

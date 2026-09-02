@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
-import { hasConfiguredPrice } from "@/utils/productPriceStatus";
+import { getProductIssues } from "@/utils/productCompleteness";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./productImageFraming";
@@ -34,9 +34,10 @@ export default function ProductCard({ product, metadata, onEdit, onDelete }: Pro
     const tenantId = useTenantId();
     const price = formatPrice(product, metadata);
     // Un prodotto base non eredita da nessuno: la domanda si ferma a lui.
-    const missingPrice = !hasConfiguredPrice({
+    const issues = getProductIssues({
         basePrice: product.base_price,
-        pricedFormatsCount: metadata.pricedFormatsCount
+        pricedFormatsCount: metadata.pricedFormatsCount,
+        catalogsCount: metadata.catalogsCount
     });
 
     return (
@@ -73,13 +74,21 @@ export default function ProductCard({ product, metadata, onEdit, onDelete }: Pro
                     </Text>
                 </Link>
 
-                {missingPrice ? (
-                    <Badge variant="warning">Senza prezzo</Badge>
-                ) : (
-                    <Text variant="caption" colorVariant="muted" className={styles.price}>
-                        {price ?? "—"}
-                    </Text>
-                )}
+                {/* Riga dei segnali: con entrambe le mancanze i due badge
+                    vanno a capo invece di troncarsi (card larghe 180px al
+                    minimo). Ordine: prima la gravità maggiore. */}
+                <div className={styles.signals}>
+                    {issues.outOfCatalog && (
+                        <Badge variant="warning">Fuori catalogo</Badge>
+                    )}
+                    {issues.missingPrice ? (
+                        <Badge variant="warning">Senza prezzo</Badge>
+                    ) : (
+                        <Text variant="caption" colorVariant="muted" className={styles.price}>
+                            {price ?? "—"}
+                        </Text>
+                    )}
+                </div>
             </div>
 
             {/* Overlay azioni — visibile solo al hover */}
