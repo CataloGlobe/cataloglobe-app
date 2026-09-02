@@ -854,20 +854,34 @@ export default function OverviewPage() {
                                 una esistente. */}
                             {!setup.hasAnyLocation && (
                                 <>
-                                    <div className={styles.setupGuided}>
-                                        <Button
-                                            variant="primary"
-                                            fullWidth
-                                            leftIcon={<Wand2 size={16} />}
-                                            onClick={() => navigate(`${b}/setup`)}
-                                        >
-                                            Configura con la procedura guidata
-                                        </Button>
-                                        <Text variant="caption" colorVariant="muted">
-                                            Ti accompagna nei primi passaggi — sede, menù e
-                                            pubblicazione — in pochi minuti.
-                                        </Text>
-                                    </div>
+                                    {/* Blocco, non barra: `Button fullWidth` in una
+                                        card larga lasciava l'etichetta a galleggiare
+                                        al centro di un vuoto, con la riga di supporto
+                                        staccata sotto come una didascalia orfana.
+                                        Stessa anatomia delle voci della checklist —
+                                        icona, testo, chevron — così i due modi di
+                                        procedere si leggono come parenti. */}
+                                    <button
+                                        type="button"
+                                        className={styles.setupGuided}
+                                        onClick={() => navigate(`${b}/setup`)}
+                                    >
+                                        <span className={styles.setupGuidedIcon} aria-hidden>
+                                            <Wand2 size={18} />
+                                        </span>
+                                        <span className={styles.setupGuidedBody}>
+                                            <Text variant="body-sm" weight={600}>
+                                                Configura con la procedura guidata
+                                            </Text>
+                                            <Text variant="caption" colorVariant="muted">
+                                                Sede, menù e pubblicazione in pochi minuti.
+                                            </Text>
+                                        </span>
+                                        <ChevronRight
+                                            size={16}
+                                            className={styles.setupGuidedArrow}
+                                        />
+                                    </button>
 
                                     <div className={styles.setupDivider}>
                                         <Text variant="caption" colorVariant="muted">
