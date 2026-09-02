@@ -1,4 +1,5 @@
 import type { V2Product, ProductListMetadata } from "@/services/supabase/products";
+import type { ProductPriceFacts } from "@/utils/productPriceStatus";
 import ProductCard from "./ProductCard";
 import ProductCardVariant from "./ProductCardVariant";
 import styles from "./ProductCardGroup.module.scss";
@@ -29,7 +30,12 @@ function formatParentPrice(product: V2Product, meta: ProductListMetadata): strin
 
 export default function ProductCardGroup({ product, variants, metadata, onEdit, onDelete }: Props) {
     const spanCols = Math.min(1 + variants.length, 3);
-    const parentPrice = formatParentPrice(product, metadata[product.id] ?? EMPTY_METADATA);
+    const parentMeta = metadata[product.id] ?? EMPTY_METADATA;
+    const parentPrice = formatParentPrice(product, parentMeta);
+    const parentPriceFacts: ProductPriceFacts = {
+        basePrice: product.base_price,
+        pricedFormatsCount: parentMeta.pricedFormatsCount
+    };
 
     return (
         <div
@@ -38,7 +44,7 @@ export default function ProductCardGroup({ product, variants, metadata, onEdit, 
         >
             <ProductCard
                 product={product}
-                metadata={metadata[product.id] ?? EMPTY_METADATA}
+                metadata={parentMeta}
                 onEdit={() => onEdit(product)}
                 onDelete={() => onDelete(product)}
             />
@@ -48,6 +54,7 @@ export default function ProductCardGroup({ product, variants, metadata, onEdit, 
                     variant={variant}
                     metadata={metadata[variant.id] ?? EMPTY_METADATA}
                     parentPrice={parentPrice}
+                    parentPriceFacts={parentPriceFacts}
                 />
             ))}
         </div>

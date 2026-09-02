@@ -5,12 +5,18 @@ import Text from "@/components/ui/Text/Text";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./productImageFraming";
 import type { V2Product, ProductListMetadata } from "@/services/supabase/products";
+import {
+    hasConfiguredEffectivePrice,
+    type ProductPriceFacts
+} from "@/utils/productPriceStatus";
 import styles from "./ProductCardVariant.module.scss";
 
 type Props = {
     variant: V2Product;
     metadata: ProductListMetadata;
     parentPrice?: string | null;
+    /** Prezzo del prodotto base, sorgente dell'ereditarietà: senza, la variante che eredita risulterebbe "da configurare". */
+    parentPriceFacts?: ProductPriceFacts | null;
 };
 
 function formatVariantPrice(
@@ -31,11 +37,23 @@ function formatVariantPrice(
     return parentPrice ?? null;
 }
 
-export default function ProductCardVariant({ variant, metadata, parentPrice }: Props) {
+export default function ProductCardVariant({
+    variant,
+    metadata,
+    parentPrice,
+    parentPriceFacts
+}: Props) {
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
 
     const price = formatVariantPrice(variant, metadata, parentPrice);
+    const missingPrice = !hasConfiguredEffectivePrice(
+        {
+            basePrice: variant.base_price,
+            pricedFormatsCount: metadata.pricedFormatsCount
+        },
+        parentPriceFacts
+    );
 
     const handleClick = () => {
         navigate(`/business/${businessId}/products/${variant.id}`);
@@ -79,10 +97,14 @@ export default function ProductCardVariant({ variant, metadata, parentPrice }: P
             {/* Body */}
             <div className={styles.body}>
                 <span className={styles.name}>{variant.name}</span>
-                {price !== null && (
-                    <Text variant="caption" className={styles.price}>
-                        {price}
-                    </Text>
+                {missingPrice ? (
+                    <Badge variant="warning">Da configurare</Badge>
+                ) : (
+                    price !== null && (
+                        <Text variant="caption" className={styles.price}>
+                            {price}
+                        </Text>
+                    )
                 )}
             </div>
         </div>

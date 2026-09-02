@@ -1,7 +1,9 @@
 import { Package } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
+import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
+import { hasConfiguredPrice } from "@/utils/productPriceStatus";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./productImageFraming";
@@ -31,6 +33,11 @@ function formatPrice(product: V2Product, metadata: ProductListMetadata): string 
 export default function ProductCard({ product, metadata, onEdit, onDelete }: Props) {
     const tenantId = useTenantId();
     const price = formatPrice(product, metadata);
+    // Un prodotto base non eredita da nessuno: la domanda si ferma a lui.
+    const missingPrice = !hasConfiguredPrice({
+        basePrice: product.base_price,
+        pricedFormatsCount: metadata.pricedFormatsCount
+    });
 
     return (
         <div className={styles.card}>
@@ -66,13 +73,11 @@ export default function ProductCard({ product, metadata, onEdit, onDelete }: Pro
                     </Text>
                 </Link>
 
-                {price !== null ? (
-                    <Text variant="caption" colorVariant="muted" className={styles.price}>
-                        {price}
-                    </Text>
+                {missingPrice ? (
+                    <Badge variant="warning">Da configurare</Badge>
                 ) : (
                     <Text variant="caption" colorVariant="muted" className={styles.price}>
-                        —
+                        {price ?? "—"}
                     </Text>
                 )}
             </div>

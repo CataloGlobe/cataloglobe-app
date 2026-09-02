@@ -15,6 +15,7 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
+import { Pill } from "@/components/ui/Pill/Pill";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -39,6 +40,7 @@ import {
 
 import {
     hasConfiguredEffectivePrice,
+    hasConfiguredPrice,
     type ProductPriceFacts
 } from "@/utils/productPriceStatus";
 
@@ -112,6 +114,8 @@ export default function Products() {
 
     // Filter State
     const [searchQuery, setSearchQuery] = useState("");
+    /** Filtro "Senza prezzo": vale per entrambe le viste, lista e griglia. */
+    const [onlyWithoutPrice, setOnlyWithoutPrice] = useState(false);
     const [groupsSearchQuery, setGroupsSearchQuery] = useState("");
     const [ingredientsSearchQuery, setIngredientsSearchQuery] = useState("");
     const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
@@ -158,28 +162,9 @@ export default function Products() {
         loadData();
     }, [loadData]);
 
-    const filteredProducts = useMemo(() => {
-        return allProducts.filter(product => {
-            // Search filter
-            if (searchQuery && !product.name.toLowerCase().includes(searchQuery.toLowerCase())) {
-                // Check if any variant matches
-                const variantsMatch = product.variants?.some(v =>
-                    v.name.toLowerCase().includes(searchQuery.toLowerCase())
-                );
-                if (!variantsMatch) return false;
-            }
-            return true;
-        });
-    }, [allProducts, searchQuery]);
-
-    // Discriminante dell'empty state: true se ALMENO un filtro che concorre a
-    // `filteredProducts` è attivo. Oggi la sola sorgente è `searchQuery`; nuovi
-    // filtri vanno aggiunti qui oltre che nel useMemo sopra, così il copy
-    // "nessun risultato" non viene mai scambiato per "vuoto assoluto".
-    const hasActiveFilter = searchQuery.trim().length > 0;
-
     // Fatti sul prezzo di un prodotto, letti dai dati già in memoria dopo
     // `loadData`: `base_price` dalla riga, formati prezzati dal metadata.
+    // Nessuna query in più.
     const priceFactsFor = useCallback(
         (product: V2Product): ProductPriceFacts => ({
             basePrice: product.base_price,
@@ -198,6 +183,49 @@ export default function Products() {
                 row.parent ? priceFactsFor(row.parent) : null
             ),
         [priceFactsFor]
+    );
+
+    // Il filtro lavora sul prodotto base, che è l'unità di entrambe le viste:
+    // matcha se manca il prezzo a lui o ad almeno una sua variante, così la
+    // riga/card che porta il badge non sparisce mai dal risultato.
+    const productMissesPrice = useCallback(
+        (product: V2Product): boolean => {
+            const parentFacts = priceFactsFor(product);
+            if (!hasConfiguredPrice(parentFacts)) return true;
+            return (product.variants ?? []).some(
+                variant => !hasConfiguredEffectivePrice(priceFactsFor(variant), parentFacts)
+            );
+        },
+        [priceFactsFor]
+    );
+
+    const filteredProducts = useMemo(() => {
+        return allProducts.filter(product => {
+            // Search filter
+            if (searchQuery && !product.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+                // Check if any variant matches
+                const variantsMatch = product.variants?.some(v =>
+                    v.name.toLowerCase().includes(searchQuery.toLowerCase())
+                );
+                if (!variantsMatch) return false;
+            }
+            // Senza prezzo
+            if (onlyWithoutPrice && !productMissesPrice(product)) return false;
+            return true;
+        });
+    }, [allProducts, searchQuery, onlyWithoutPrice, productMissesPrice]);
+
+    // Discriminante dell'empty state: true se ALMENO un filtro che concorre a
+    // `filteredProducts` è attivo. Nuovi filtri vanno aggiunti qui oltre che
+    // nel useMemo sopra, così il copy "nessun risultato" non viene mai
+    // scambiato per "vuoto assoluto".
+    const hasActiveFilter = searchQuery.trim().length > 0 || onlyWithoutPrice;
+
+    // Conteggio sul set completo (non su `filteredProducts`): è il numero che
+    // il filtro promette di mostrare, e non deve cambiare mentre si cerca.
+    const missingPriceCount = useMemo(
+        () => allProducts.filter(productMissesPrice).length,
+        [allProducts, productMissesPrice]
     );
 
     const tableRows = useMemo<ProductTableRow[]>(() => {
@@ -337,6 +365,16 @@ export default function Products() {
                     onChange={setSearchQuery}
                     placeholder={`Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`}
                 />
+                {/* Compare solo se c'è davvero qualcosa da filtrare: a menù
+                    completo il conteggio sarebbe uno zero da leggere ogni
+                    volta. Resta visibile da attivo per poterlo spegnere. */}
+                {(missingPriceCount > 0 || onlyWithoutPrice) && (
+                    <Pill
+                        label={`Senza prezzo (${missingPriceCount})`}
+                        active={onlyWithoutPrice}
+                        onClick={() => setOnlyWithoutPrice(v => !v)}
+                    />
+                )}
                 <SegmentedControl<"list" | "grid">
                     iconsOnly
                     value={viewMode}
@@ -359,6 +397,8 @@ export default function Products() {
         searchQuery,
         groupsSearchQuery,
         ingredientsSearchQuery,
+        onlyWithoutPrice,
+        missingPriceCount,
         viewMode,
         handleViewChange
     ]);
@@ -501,7 +541,7 @@ export default function Products() {
                 // Domanda unica ("ha un prezzo?") prima di qualsiasi formattazione:
                 // le diramazioni sotto si occupano solo di COME mostrarlo.
                 if (!rowHasPrice(row)) {
-                    return <Text variant="body-sm" colorVariant="muted">—</Text>;
+                    return <Badge variant="warning">Da configurare</Badge>;
                 }
 
                 if (row.kind === "variant") {
