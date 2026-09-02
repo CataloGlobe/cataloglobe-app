@@ -371,10 +371,18 @@ export default function SearchOverlay({
     // vicino al gesto). Su iOS la tastiera è già su dal ghost input dell'header
     // (vedi PublicCollectionHeader): qui trasferiamo il focus al vero input senza
     // dismiss intermedio. Solo runtime/public — in preview niente focus.
+    // Aprendo direttamente sui filtri l'input non esiste: il focus va sul primo
+    // chip (l'azione probabile) e non sulla X, che è prima nel DOM ma su cui
+    // Invio chiuderebbe il pannello appena aperto. Senza chip resta la X.
     useLayoutEffect(() => {
         if (!isOpen || mode !== "public") return;
+        if (rootView === "filters") {
+            const firstChip = viewBodyRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
+            (firstChip ?? panelRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR))?.focus();
+            return;
+        }
         inputRef.current?.focus();
-    }, [isOpen, mode]);
+    }, [isOpen, mode, rootView]);
 
     // Debounce 100ms: l'input resta reattivo, il filtro si aggiorna con ritardo
     const [debouncedQuery, setDebouncedQuery] = useState("");

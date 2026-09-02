@@ -1539,6 +1539,87 @@
   }
 }
 
+/* Riga «N piatti nascosti dai filtri»: nota a margine del catalogo, non avviso
+   di sistema. Scorre col contenuto (non sticky): l'informazione serve quando si
+   arriva alla lista, non per tutta la sessione di lettura.
+   Il riquadro non va a tutta larghezza — vive dentro `.container`, quindi
+   condivide la gronda di card e carosello e resta nell'unica colonna di
+   lettura.
+   Fondo: veste neutra derivata dal testo-su-sfondo, MAI --pub-primary. Il
+   primario lo sceglie il tenant (su Toast to Coast è giallo) e sul pattern di
+   fondo stonerebbe restando sotto soglia AA. Opaco e non traslucido perché il
+   pattern di sfondo, visto attraverso un velo, sporca la lettura della riga.
+   Raggio: --pub-radius, la stessa variabile che PublicThemeScope applica sia in
+   pagina pubblica sia in anteprima — nessuna divergenza preview/runtime. */
+.hiddenByFilters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 13px;
+  margin-bottom: 4px;
+  border-radius: var(--pub-radius, 10px);
+  background: color-mix(in srgb, var(--pub-bg-text) 6%, var(--pub-bg));
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 0.75rem;
+  color: var(--pub-bg-text-muted);
+}
+
+.hiddenByFiltersIcon {
+  flex-shrink: 0;
+  color: var(--pub-bg-text-muted);
+}
+
+/* Prende lo spazio disponibile: azione e chiusura restano ancorate a destra. */
+.hiddenByFiltersText {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Testo scuro e sottolineato, MAI --pub-primary: il primario è scelto dal
+   tenant e a certe tinte (giallo su fondo chiaro) scende sotto 4.5:1. Qui il
+   colore del corpo garantisce il contrasto qualunque sia il brand. */
+.hiddenByFiltersBtn {
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--pub-bg-text);
+  font-family: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+
+  @include hover {
+    opacity: 0.7;
+  }
+}
+
+.hiddenByFiltersClose {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Area di tocco 28px su un'icona da 13: sotto i 24 il bersaglio è troppo
+     piccolo per il pollice, e questa riga vive su mobile. Il -7px riassorbe
+     l'aria interna del bersaglio (28 - 13) / 2 = 7.5: senza, l'icona
+     starebbe a ~20px dal bordo del riquadro contro i 13px del testo a
+     sinistra, e la riga risulterebbe sbilanciata. */
+  width: 28px;
+  height: 28px;
+  margin-right: -7px;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--pub-bg-text-muted);
+  cursor: pointer;
+
+  @include hover {
+    color: var(--pub-bg-text);
+  }
+}
+
 .allergenEmptyState {
   padding: 56px 16px;
   text-align: center;

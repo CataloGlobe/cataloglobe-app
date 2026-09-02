@@ -69,6 +69,12 @@
     "close_label": "Annuler",
     "dialog_aria": "Recherche dans le catalogue"
   },
+  "filters": {
+    "hidden_count_one": "{{count}} plat masqué par les filtres",
+    "hidden_count_other": "{{count}} plats masqués par les filtres",
+    "show_all": "Tout afficher",
+    "dismiss_aria": "Masquer cet avis"
+  },
   "allergens": {
     "title": "Allergènes",
     "close_aria": "Fermer",

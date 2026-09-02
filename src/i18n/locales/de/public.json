@@ -69,6 +69,12 @@
         "close_label": "Abbrechen",
         "dialog_aria": "Suche im Katalog"
     },
+    "filters": {
+        "hidden_count_one": "{{count}} Gericht durch Filter ausgeblendet",
+        "hidden_count_other": "{{count}} Gerichte durch Filter ausgeblendet",
+        "show_all": "Alle anzeigen",
+        "dismiss_aria": "Diesen Hinweis ausblenden"
+    },
     "allergens": {
         "title": "Allergene",
         "close_aria": "Schließen Sie",

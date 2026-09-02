@@ -69,6 +69,12 @@
         "close_label": "Annulla",
         "dialog_aria": "Ricerca nel catalogo"
     },
+    "filters": {
+        "hidden_count_one": "{{count}} piatto nascosto dai filtri",
+        "hidden_count_other": "{{count}} piatti nascosti dai filtri",
+        "show_all": "Mostra tutto",
+        "dismiss_aria": "Nascondi questo avviso"
+    },
     "allergens": {
         "title": "Allergeni",
         "close_aria": "Chiudi",

@@ -78,7 +78,8 @@ export type PublicCollectionHeaderProps = {
     activeTab?: HubTab;
     /** Callback per cambio tab. Obbligatoria solo quando showHubTabs !== false. */
     onTabChange?: (tab: HubTab) => void;
-    /** Conteggio allergeni filtrati attivi (per badge sul pulsante More). */
+    /** Conteggio filtri allergeni attivi: badge sulla LENTE (è da lì che si
+     *  aprono i filtri). La voce dentro «…» resta, ma senza conteggio. */
     allergensCount?: number;
     /** Apre il MoreSheet (allergeni + info). Undefined in preview. */
     onOpenMore?: () => void;
@@ -432,6 +433,14 @@ export default function PublicCollectionHeader({
                                 tabIndex={mode === "preview" ? -1 : undefined}
                             >
                                 <Search size={15} strokeWidth={2} />
+                                {/* Conteggio filtri attivi: sta QUI e non su «…»
+                                    perché è dalla lente che si aprono i filtri.
+                                    Due badge nello stesso cluster sarebbero rumore. */}
+                                {allergensCount > 0 && (
+                                    <span className={styles.iconBtnBadge} aria-hidden>
+                                        {allergensCount}
+                                    </span>
+                                )}
                             </button>
                         )}
 
@@ -446,11 +455,6 @@ export default function PublicCollectionHeader({
                                 tabIndex={mode === "preview" ? -1 : undefined}
                             >
                                 <MoreHorizontal size={16} strokeWidth={2} />
-                                {allergensCount > 0 && (
-                                    <span className={styles.iconBtnBadge} aria-hidden>
-                                        {allergensCount}
-                                    </span>
-                                )}
                             </button>
                         )}
 

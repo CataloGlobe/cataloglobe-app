@@ -69,6 +69,12 @@
         "close_label": "Cancelar",
         "dialog_aria": "Buscar en el catálogo"
     },
+    "filters": {
+        "hidden_count_one": "{{count}} plato oculto por los filtros",
+        "hidden_count_other": "{{count}} platos ocultos por los filtros",
+        "show_all": "Mostrar todo",
+        "dismiss_aria": "Ocultar este aviso"
+    },
     "allergens": {
         "title": "Alérgenos",
         "close_aria": "Cerrar",

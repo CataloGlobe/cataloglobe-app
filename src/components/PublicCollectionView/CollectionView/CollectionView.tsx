@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LanguageContext } from "@/context/Language/LanguageContext";
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Phone, Plus, Utensils } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Phone, Plus, SlidersHorizontal, Utensils, X } from "lucide-react";
 import { IconLink } from "@tabler/icons-react";
 import type {
     ResolvedAllergen,
@@ -65,6 +65,9 @@ import MoreSheet from "../MoreSheet/MoreSheet";
 import {
     getAllergenPreferences,
     setAllergenPreferences,
+    isHiddenNoticeDismissed,
+    setHiddenNoticeDismissed,
+    clearHiddenNoticeDismissed,
 } from "@/services/customer/allergenPreferences";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
@@ -945,7 +948,14 @@ export default function CollectionView({
 
     // ── Search overlay ──────────────────────────────────────────────────────
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const handleOpenSearch = useCallback(() => setIsSearchOpen(true), []);
+    // Vista da cui parte il pannello. Oggi l'unico ingresso è la lente, che
+    // apre sulla ricerca; la capacità di partire dai filtri è già cablata
+    // (prop rootView) e avrà il suo chiamante con la voce dentro «…».
+    const [searchRootView, setSearchRootView] = useState<"search" | "filters">("search");
+    const handleOpenSearch = useCallback(() => {
+        setSearchRootView("search");
+        setIsSearchOpen(true);
+    }, []);
     const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
     // Prefetch del chunk SearchOverlay su pointerdown del bottone header:
     // il pointerdown precede il click, il chunk arriva prima del tap-up.
@@ -1170,6 +1180,38 @@ export default function CollectionView({
         () => countDistinctProducts(displaySectionGroups),
         [displaySectionGroups, countDistinctProducts]
     );
+
+    // Prodotti nascosti dai filtri: differenza fra i due conteggi già calcolati
+    // su id univoci (lo stesso prodotto può comparire in più sezioni).
+    const hiddenProductCount = Math.max(0, totalProductCount - visibleProductCount);
+
+    // Gate esplicito sui segnali di stato filtro (badge sulla lente, riga
+    // «N nascosti»): in preview il filtro non gira mai — gli effect sono già
+    // gated su mode — ma dirlo qui rende l'intenzione leggibile sul posto.
+    const showFilterState = mode === "public" && allergenFilterIds.length > 0;
+
+    // ── Chiusura della riga «N nascosti» ────────────────────────────────────
+    // Hydration-safe come le preferenze allergeni: default false in render,
+    // lettura da sessionStorage in effect post-mount.
+    const [hiddenNoticeDismissed, setHiddenNoticeDismissedState] = useState(false);
+    useEffect(() => {
+        if (!activityId || mode !== "public") return;
+        setHiddenNoticeDismissedState(isHiddenNoticeDismissed(activityId));
+    }, [activityId, mode]);
+
+    // A filtri azzerati il flag decade: riapplicandone uno la riga ricompare,
+    // perché è un avviso nuovo su uno stato nuovo.
+    useEffect(() => {
+        if (!activityId || mode !== "public") return;
+        if (allergenFilterIds.length > 0) return;
+        clearHiddenNoticeDismissed(activityId);
+        setHiddenNoticeDismissedState(false);
+    }, [activityId, mode, allergenFilterIds.length]);
+
+    const dismissHiddenNotice = useCallback(() => {
+        setHiddenNoticeDismissedState(true);
+        if (activityId) setHiddenNoticeDismissed(activityId);
+    }, [activityId]);
 
     // Azzera il filtro allergeni. La persistenza segue dall'effect di persist
     // sopra: il suo guard è un flag one-shot di sequenza (consumato al mount),
@@ -2598,6 +2640,7 @@ export default function CollectionView({
                                 isOpen={isSearchOpen}
                                 onClose={handleCloseSearch}
                                 sections={searchableSections}
+                                rootView={searchRootView}
                                 activeFilterCount={allergenFilterIds.length}
                                 onClearFilters={clearAllergenFilter}
                                 filterAllergens={allergensByFrequency}
@@ -2790,6 +2833,41 @@ export default function CollectionView({
                                     data-content-density={style.contentDensity ?? "full"}
                                 >
                                     {featuredBeforeCatalogSlot}
+                                    {/* Perché il menù è più corto del solito. Riga nuda,
+                                        senza contenitore: è una nota a margine del
+                                        catalogo, non un avviso di sistema — il filtro
+                                        l'ha scelto il cliente. Assente quando allFiltered
+                                        (lì parla l'empty state dedicato) e una volta
+                                        chiusa con la X, finché i filtri non tornano a
+                                        zero. Unico aria-live della feature. */}
+                                    {showFilterState && !allFiltered && !hiddenNoticeDismissed && hiddenProductCount > 0 && (
+                                        <div className={styles.hiddenByFilters} aria-live="polite">
+                                            <SlidersHorizontal
+                                                size={13}
+                                                strokeWidth={2}
+                                                className={styles.hiddenByFiltersIcon}
+                                                aria-hidden
+                                            />
+                                            <span className={styles.hiddenByFiltersText}>
+                                                {t("filters.hidden_count", { count: hiddenProductCount })}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={clearAllergenFilter}
+                                                className={styles.hiddenByFiltersBtn}
+                                            >
+                                                {t("filters.show_all")}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={dismissHiddenNotice}
+                                                className={styles.hiddenByFiltersClose}
+                                                aria-label={t("filters.dismiss_aria")}
+                                            >
+                                                <X size={13} strokeWidth={2} aria-hidden />
+                                            </button>
+                                        </div>
+                                    )}
                                     {allFiltered && (
                                         <div className={styles.allergenEmptyState}>
                                             <Text variant="body" color="var(--pub-bg-text)">
