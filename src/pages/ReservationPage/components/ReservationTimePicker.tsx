@@ -47,7 +47,7 @@ function slotIsInteractive(slot: ReservationSlot): boolean {
 }
 
 function slotAriaLabel(slot: ReservationSlot, t: TFunction): string | undefined {
-    if (slot.state === "soldout") return t("reservation.slot_soldout_aria", { time: slot.time });
+    if (slot.state === "soldout") return t("reservation.slot_unavailable_aria", { time: slot.time });
     if (slot.state === "past") return t("reservation.slot_past_aria", { time: slot.time });
     return undefined;
 }
@@ -135,11 +135,20 @@ export default function ReservationTimePicker({
             aria-busy={loading || undefined}
             aria-describedby={errorId}
         >
-            {loading && loadingLabel && (
-                <span className={styles.srOnly} role="status">
-                    {loadingLabel}
-                </span>
-            )}
+            {/* Segnale VISIBILE sopra la griglia. La sola attenuazione non
+                comunicava nulla: letta senza contesto diceva "sono tutti
+                spenti", che è il contrario del vero. Il testo occupa una riga
+                riservata anche da fermo (`.loadingRow` è sempre nel flusso, con
+                `visibility` commutata) così la griglia non si sposta di un
+                pixel quando compare. */}
+            <span
+                className={styles.loadingRow}
+                data-visible={loading ? "true" : undefined}
+                role="status"
+            >
+                <span className={styles.loadingDot} aria-hidden="true" />
+                {loading ? loadingLabel : ""}
+            </span>
             {periods.length > 1 && (
                 <div
                     className={styles.segmented}
@@ -189,7 +198,7 @@ export default function ReservationTimePicker({
                             >
                                 <span className={styles.slotTime}>{slot.time}</span>
                                 {slot.state === "soldout" && (
-                                    <span className={styles.slotTag}>{t("reservation.soldout_tag")}</span>
+                                    <span className={styles.slotTag}>{t("reservation.slot_unavailable_tag")}</span>
                                 )}
                             </button>
                         </li>

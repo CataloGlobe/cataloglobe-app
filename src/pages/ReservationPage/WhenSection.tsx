@@ -25,8 +25,11 @@ type Props = {
 
 /** Ritardo prima di interrogare il server. Chi passa da 2 a 6 coperti clicca
  *  quattro volte in due secondi: senza questo sarebbero quattro chiamate per
- *  tre risposte che nessuno leggerà. */
-const AVAILABILITY_DEBOUNCE_MS = 400;
+ *  tre risposte che nessuno leggerà.
+ *
+ *  Sceso da 400 a 200 dopo aver parallelizzato i gate nell'Edge: con la
+ *  risposta più veloce, 400 era diventato metà dell'attesa percepita. */
+const AVAILABILITY_DEBOUNCE_MS = 200;
 
 /** Tetto lato server (una giornata intera a 15 minuti). Tagliamo qui così una
  *  giornata anomala degrada invece di farsi rifiutare l'intera richiesta. */
@@ -60,6 +63,10 @@ export default function WhenSection({
     // Discrimina le risposte: una lenta che arriva dopo una veloce non deve
     // sovrascrivere un risultato più recente.
     const requestSeqRef = useRef(0);
+    // La PRIMA richiesta della sessione parte subito. Il ritardo serve ad
+    // assorbire una raffica di clic sul selettore coperti: all'apertura di una
+    // data quella raffica non c'è ancora, e aspettare sarebbe attesa pura.
+    const hasFetchedOnceRef = useRef(false);
 
     const partySizeNum = Number.parseInt(values.party_size, 10);
     const partyIsValid =
@@ -113,6 +120,8 @@ export default function WhenSection({
 
         const seq = ++requestSeqRef.current;
         setIsChecking(true);
+        const delay = hasFetchedOnceRef.current ? AVAILABILITY_DEBOUNCE_MS : 0;
+        hasFetchedOnceRef.current = true;
         const timer = setTimeout(() => {
             void getReservationAvailability({
                 slug,
@@ -140,7 +149,7 @@ export default function WhenSection({
                     if (seq !== requestSeqRef.current) return;
                     setIsChecking(false);
                 });
-        }, AVAILABILITY_DEBOUNCE_MS);
+        }, delay);
 
         return () => clearTimeout(timer);
         // `baseTimes` deriva da data + orari + chiusure, già coperti dalla

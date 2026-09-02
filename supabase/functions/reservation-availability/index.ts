@@ -51,14 +51,14 @@ const corsHeaders = {
 // è condiviso da tutti i visitatori della stessa sede, e con venti persone sul
 // menù si esaurirebbe in un minuto bloccando la pagina a tutti.
 //
-// Il bucket giusto per una lettura è quello per IP: una sessione reale fa 4-8
-// chiamate (apertura + qualche cambio di data o di coperti, con ritardo e
-// cache lato client). 60/min copre largamente e taglia lo scripting.
-// Il limite per slug resta solo come tetto anti-flood, non come regolatore.
+// UN SOLO bucket, per IP. Ce n'era un secondo per slug come tetto anti-flood,
+// rimosso dopo la misura: `checkRateLimit` è una SCRITTURA (RPC
+// `increment_rate_limit`), e due scritture per proteggere una lettura che
+// costa 1,8 ms di SQL sono più care del lavoro che difendono. Il bucket per IP
+// è quello che regola davvero: una sessione reale fa 4-8 chiamate, 60/min
+// copre largamente e taglia lo scripting.
 const RATE_LIMIT_IP_PER_MIN = 60;
 const RATE_LIMIT_IP_WINDOW_SECONDS = 60;
-const RATE_LIMIT_SLUG_PER_MIN = 600;
-const RATE_LIMIT_SLUG_WINDOW_SECONDS = 60;
 
 // Una giornata intera a 15 minuti. Tetto al lavoro per richiesta; la stessa
 // soglia è ribadita dentro la funzione SQL (difesa in profondità).
@@ -173,21 +173,41 @@ serve(async (req: Request) => {
             Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
         );
 
-        // ── Rate limit ───────────────────────────────────────────────
-        // IP per primo: è il bucket che regola davvero. Namespace distinto da
-        // `submit-reservation` così le due superfici non si consumano a vicenda.
-        try {
-            await checkRateLimit(supabase, {
+        // ── Gate, in ONDATE anziché in fila ──────────────────────────
+        // Erano sei round trip sequenziali: misurati, ~250 ms su ~400 di
+        // risposta totale, mentre l'SQL che fa il lavoro vero ne costa 1,8.
+        // Qui restano tre ondate, imposte dalle dipendenze REALI dei dati:
+        // `tenants` ha bisogno di `activity.tenant_id`, la feature e la
+        // disponibilità di `activity.id`. Ciò che non dipende da nulla parte
+        // insieme.
+        //
+        // La semantica dei gate NON cambia: gli esiti si valutano nello stesso
+        // ordine di prima e il primo che fallisce decide la risposta. In
+        // parallelo va solo l'ATTESA, non la decisione.
+
+        // Ondata 1 — rate limit e risoluzione dello slug non si conoscono.
+        // `allSettled` e non `all`: se il rate limit scatta mentre la select è
+        // ancora in volo, l'altra promise deve poter fallire senza diventare
+        // un rejection non gestito.
+        const [rlResult, activityResult] = await Promise.allSettled([
+            checkRateLimit(supabase, {
+                // Namespace distinto da `submit-reservation`: le due superfici
+                // non devono consumarsi a vicenda.
                 key: `reservation-availability:ip:${extractClientIp(req)}`,
                 limit: RATE_LIMIT_IP_PER_MIN,
                 windowSeconds: RATE_LIMIT_IP_WINDOW_SECONDS
-            });
-            await checkRateLimit(supabase, {
-                key: `reservation-availability:slug:${slug}`,
-                limit: RATE_LIMIT_SLUG_PER_MIN,
-                windowSeconds: RATE_LIMIT_SLUG_WINDOW_SECONDS
-            });
-        } catch (rlErr) {
+            }),
+            supabase
+                .from("activities")
+                .select("id, tenant_id, status, enable_reservations")
+                .eq("slug", slug)
+                .maybeSingle()
+        ]);
+
+        // Il rate limit resta il PRIMO a decidere: 429 a prescindere da come è
+        // andata la select, che non ha effetti da annullare (è una lettura).
+        if (rlResult.status === "rejected") {
+            const rlErr = rlResult.reason;
             if (rlErr instanceof RateLimitExceededError) {
                 return errorResponse(
                     "RATE_LIMITED",
@@ -198,16 +218,12 @@ serve(async (req: Request) => {
             }
             throw rlErr;
         }
+        if (activityResult.status === "rejected") throw activityResult.reason;
 
         // ── Gate sede: stessi controlli di submit-reservation ─────────
         // Esiti diversi, risposta identica (UNAVAILABLE 409): il client non
         // deve poter distinguere una sede inesistente da una sospesa.
-        const { data: activity, error: activityError } = await supabase
-            .from("activities")
-            .select("id, tenant_id, status, enable_reservations")
-            .eq("slug", slug)
-            .maybeSingle();
-
+        const { data: activity, error: activityError } = activityResult.value;
         if (activityError) throw activityError;
         if (
             !activity ||
@@ -217,11 +233,21 @@ serve(async (req: Request) => {
             return errorResponse("UNAVAILABLE", 409);
         }
 
-        const { data: tenant, error: tenantStateError } = await supabase
-            .from("tenants")
-            .select("subscription_status, deleted_at")
-            .eq("id", activity.tenant_id)
-            .maybeSingle();
+        // Ondata 2 — abbonamento e feature di piano dipendono entrambi dalla
+        // sede appena risolta, ma non l'uno dall'altro.
+        const [tenantRes, featureRes] = await Promise.all([
+            supabase
+                .from("tenants")
+                .select("subscription_status, deleted_at")
+                .eq("id", activity.tenant_id)
+                .maybeSingle(),
+            supabase.rpc("activity_has_feature", {
+                p_activity_id: activity.id,
+                p_feature_id: "table_reservation"
+            })
+        ]);
+
+        const { data: tenant, error: tenantStateError } = tenantRes;
         if (tenantStateError) throw tenantStateError;
         if (
             !tenant ||
@@ -231,11 +257,7 @@ serve(async (req: Request) => {
             return errorResponse("UNAVAILABLE", 409);
         }
 
-        const { data: hasReservationFeature, error: featErr } = await supabase
-            .rpc("activity_has_feature", {
-                p_activity_id: activity.id,
-                p_feature_id: "table_reservation"
-            });
+        const { data: hasReservationFeature, error: featErr } = featureRes;
         if (featErr || hasReservationFeature !== true) {
             return errorResponse("UNAVAILABLE", 409);
         }
