@@ -43,6 +43,11 @@ export function SetupActivityStep({
     } = useCreateActivity({
         tenantId,
         activityType: selectedTenant?.vertical_type ?? null,
+        // Qui l'uscita non è sempre voluta: un "indietro" del browser porta
+        // fuori dal wizard e, senza bozza, perderebbe il form in silenzio.
+        // Resta locale a questo dispositivo: nulla raggiunge il DB prima di
+        // "Continua".
+        persistDraft: true,
         onNotify: showToast,
         onSuccess: onCreated
     });
