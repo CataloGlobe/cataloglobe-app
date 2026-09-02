@@ -1,6 +1,7 @@
 import { Package } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { getProductIssues } from "@/utils/productCompleteness";
@@ -32,6 +33,7 @@ function formatPrice(product: V2Product, metadata: ProductListMetadata): string 
 
 export default function ProductCard({ product, metadata, onEdit, onDelete }: Props) {
     const tenantId = useTenantId();
+    const { catalogLabel } = useVerticalConfig();
     const price = formatPrice(product, metadata);
     // Un prodotto base non eredita da nessuno: la domanda si ferma a lui.
     const issues = getProductIssues({
@@ -87,7 +89,9 @@ export default function ProductCard({ product, metadata, onEdit, onDelete }: Pro
                         </Text>
                     )}
                     {issues.outOfCatalog && (
-                        <Badge variant="warning">Fuori catalogo</Badge>
+                        <Badge variant="warning">
+                            {`Fuori ${catalogLabel.toLowerCase()}`}
+                        </Badge>
                     )}
                 </div>
             </div>

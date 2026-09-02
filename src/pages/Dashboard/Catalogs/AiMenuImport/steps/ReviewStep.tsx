@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { FolderPlus, FolderInput, Info } from "lucide-react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import type { AiProduct, ImportMode, ExistingImportPlan } from "@/hooks/useAiImportSession";
 import { ExistingImportReview } from "../components/ExistingImportReview";
 import {
@@ -58,6 +59,8 @@ export function ReviewStep({
     forceNewCatalog = false
 }: ReviewStepProps) {
     const [search, setSearch] = useState("");
+    const { catalogLabel } = useVerticalConfig();
+    const catalogLower = catalogLabel.toLowerCase();
 
     // Il ramo mostrato: con `forceNewCatalog` non dipende più da `importMode`,
     // così una sessione ri-agganciata in modalità "existing" non può comunque
@@ -117,12 +120,12 @@ export function ReviewStep({
                         options={[
                             {
                                 value: "new",
-                                label: "Nuovo catalogo",
+                                label: `Nuovo ${catalogLower}`,
                                 icon: <FolderPlus size={16} />
                             },
                             {
                                 value: "existing",
-                                label: "Catalogo esistente",
+                                label: `${catalogLabel} esistente`,
                                 icon: <FolderInput size={16} />
                             }
                         ]}
@@ -148,7 +151,7 @@ export function ReviewStep({
                 <>
                     <div className={styles.menuNameSection}>
                         <TextInput
-                            label="Nome del menù"
+                            label={`Nome del ${catalogLower}`}
                             required
                             value={menuName}
                             onChange={e => onMenuNameChange(e.target.value)}

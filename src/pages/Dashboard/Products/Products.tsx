@@ -81,6 +81,11 @@ export default function Products() {
     const { selectedTenant } = useTenant();
     const { showToast } = useToast();
     const verticalConfig = useVerticalConfig();
+    // "Fuori menù" per food & beverage, "Fuori catalogo" per retail/hotel:
+    // `catalogLabel` è capitalizzato (è una label di navigazione), qui vive
+    // dentro una frase → stessa minuscola già usata da `catalogLower` in
+    // Catalogs.tsx. Le card in griglia rileggono l'hook per conto loro.
+    const outOfCatalogLabel = `Fuori ${verticalConfig.catalogLabel.toLowerCase()}`;
     const { canEdit } = useSubscriptionGuard();
     const { permissions } = usePermissions();
     const canWriteProduct = permissions != null ? canDoOnTenant(permissions, "products.write") : false;
@@ -270,11 +275,11 @@ export default function Products() {
             },
             {
                 value: "out-of-catalog",
-                label: `Fuori catalogo (${issueCounts.outOfCatalog})`,
+                label: `${outOfCatalogLabel} (${issueCounts.outOfCatalog})`,
                 disabled: issueCounts.outOfCatalog === 0
             }
         ],
-        [issueCounts]
+        [issueCounts, outOfCatalogLabel]
     );
 
     const tableRows = useMemo<ProductTableRow[]>(() => {
@@ -582,7 +587,7 @@ export default function Products() {
                             Colonne diverse = i due badge non competono quando
                             un prodotto ha entrambe le mancanze. */}
                         {rowIssues(row).outOfCatalog && (
-                            <Badge variant="warning">Fuori catalogo</Badge>
+                            <Badge variant="warning">{outOfCatalogLabel}</Badge>
                         )}
                     </div>
                     {row.product.description && (

@@ -1,5 +1,6 @@
 import { Sparkles, Check, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import type { AiImportSession } from "@/hooks/useAiImportSession";
 import { countAiProductsWithoutPrice, toAiPriceableProduct } from "./aiProductPricing";
 
@@ -31,6 +32,11 @@ export function AiMenuImportWizard({
     session,
     forceNewCatalog = false
 }: AiMenuImportWizardProps) {
+    // Il wizard monta sia dentro MainLayout sia dentro il setup guidato: in
+    // entrambi i casi è sotto TenantProvider (App.tsx), quindi l'hook risolve.
+    const { catalogLabel } = useVerticalConfig();
+    const catalogLower = catalogLabel.toLowerCase();
+
     const {
         step,
         files,
@@ -163,7 +169,7 @@ export function AiMenuImportWizard({
                             ? `Importa ${
                                   existingImportPlan.createCount + existingImportPlan.reuseCount
                               } prodotti in «${existingImportPlan.catalogName}»`
-                            : "Importa in catalogo"}
+                            : `Importa in ${catalogLower}`}
                     </Button>
                 )}
             </>
@@ -273,8 +279,8 @@ export function AiMenuImportWizard({
                                             </div>
                                             <div className={styles.importSuccessNoticeText}>
                                                 {createdWithoutPrice === 1
-                                                    ? "Compare nel menù ma non può essere ordinato."
-                                                    : "Compaiono nel menù ma non possono essere ordinati."}{" "}
+                                                    ? `Compare nel ${catalogLower} ma non può essere ordinato.`
+                                                    : `Compaiono nel ${catalogLower} ma non possono essere ordinati.`}{" "}
                                                 Li trovi con il filtro «Senza prezzo» in Prodotti.
                                             </div>
                                         </div>

@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import { getTenantSetupStatus, type TenantSetupStatus } from "@/services/supabase/overviewStats";
 import { getActivities } from "@/services/supabase/activities";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import type { V2Activity } from "@/types/activity";
 import { formatInactiveReason } from "@/utils/activityStatus";
 import { getActiveCatalogForActivities, type ActiveCatalogMeta } from "@/services/supabase/activeCatalog";
@@ -364,6 +365,12 @@ type SetupExitState = { setupExit?: "resumable" | "activity-created" };
 export default function OverviewPage() {
     const { selectedTenant, loading: tenantLoading } = useTenant();
     const tenantId = useTenantId();
+    // "Menù" per food & beverage, "Catalogo" per retail/hotel/generic: la
+    // pagina non può dire una parola nella checklist e l'altra nelle
+    // statistiche, o si contraddice da sola sulla stessa schermata.
+    const { catalogLabel, catalogLabelPlural } = useVerticalConfig();
+    const catalogLower = catalogLabel.toLowerCase();
+    const catalogLowerPlural = catalogLabelPlural.toLowerCase();
     const navigate = useNavigate();
     const { permissions } = usePermissions();
     const { showToast } = useToast();
@@ -388,7 +395,7 @@ export default function OverviewPage() {
             // Sede creata: il gate del wizard rimanda indietro chi ne ha già una,
             // quindi qui un "Riprendi" sarebbe un pulsante rotto.
             showToast({
-                message: "La tua sede è salvata. Menù e pubblicazione li completi da qui.",
+                message: `La tua sede è salvata. ${catalogLabel} e pubblicazione li completi da qui.`,
                 type: "success"
             });
         } else {
@@ -405,7 +412,9 @@ export default function OverviewPage() {
         // impilare una voce in più, e il ref regge il doppio invoke di StrictMode
         // nella finestra prima che il reset si propaghi.
         navigate(pathname, { replace: true, state: null });
-    }, [setupExit, pathname, navigate, showToast, tenantId]);
+        // `catalogLabel` entra fra le dipendenze perché il messaggio lo usa: un
+        // rientro è innocuo, il ref e il guard su `setupExit` lo fermano subito.
+    }, [setupExit, pathname, navigate, showToast, tenantId, catalogLabel]);
 
     const [stats, setStats] = useState<Stats | null>(null);
     const [loadingStats, setLoadingStats] = useState(true);
@@ -664,15 +673,15 @@ export default function OverviewPage() {
             done: setup?.hasProducts ?? false,
             doneTitle: "Prodotti aggiunti",
             todoTitle: "Aggiungi i primi prodotti",
-            description: "Piatti, bevande, prezzi: li crei una volta e li riusi in ogni menù.",
+            description: `Piatti, bevande, prezzi: li crei una volta e li riusi in ogni ${catalogLower}.`,
             to: `${b}/products`
         },
         {
             id: "catalog",
             done: setup?.hasPopulatedCatalog ?? false,
-            doneTitle: "Menù pronto",
-            todoTitle: "Crea un menù",
-            description: "I prodotti vanno organizzati in un menù per essere mostrati ai clienti.",
+            doneTitle: `${catalogLabel} pronto`,
+            todoTitle: `Crea un ${catalogLower}`,
+            description: `I prodotti vanno organizzati in un ${catalogLower} per essere mostrati ai clienti.`,
             to: `${b}/catalogs`
         },
         {
@@ -680,7 +689,7 @@ export default function OverviewPage() {
             done: setup?.hasActiveLayoutRule ?? false,
             doneTitle: "Regola attiva",
             todoTitle: "Attiva una regola",
-            description: "Decide quale menù mostrare in quale sede. Senza, la pagina resta vuota.",
+            description: `Decide quale ${catalogLower} mostrare in quale sede. Senza, la pagina resta vuota.`,
             to: `${b}/scheduling`
         }
     ];
@@ -764,7 +773,7 @@ export default function OverviewPage() {
 
     const quickActions = [
         { label: "Nuovo prodotto", to: `${b}/products` },
-        { label: "Nuovo catalogo", to: `${b}/catalogs` },
+        { label: `Nuovo ${catalogLower}`, to: `${b}/catalogs` },
         { label: "Nuova programmazione", to: `${b}/scheduling` },
         { label: "Nuovo contenuto in evidenza", to: `${b}/featured` }
     ];
@@ -794,7 +803,7 @@ export default function OverviewPage() {
                             <Text variant="body-sm" colorVariant="muted" style={{ marginTop: 8 }}>
                                 {stats.locations} {stats.locations === 1 ? "sede" : "sedi"}&nbsp;&bull;&nbsp;
                                 {stats.products} prodotti&nbsp;&bull;&nbsp;
-                                {stats.catalogs} {stats.catalogs === 1 ? "catalogo" : "cataloghi"}
+                                {stats.catalogs} {stats.catalogs === 1 ? catalogLower : catalogLowerPlural}
                             </Text>
                         )}
                     </div>
@@ -818,11 +827,11 @@ export default function OverviewPage() {
                             <div className={styles.setupHeader}>
                                 <div className={styles.setupHeading}>
                                     <Text variant="title-sm" weight={600}>
-                                        Il tuo menù non è ancora online
+                                        Il tuo {catalogLower} non è ancora online
                                     </Text>
                                     <Text variant="body-sm" colorVariant="muted">
                                         {missingSteps === 1
-                                            ? "Manca un passaggio: resta solo da dire dove e quando mostrare il menù."
+                                            ? `Manca un passaggio: resta solo da dire dove e quando mostrare il ${catalogLower}.`
                                             : `Mancano ${missingSteps} passaggi. Si fanno in quest'ordine: ognuno serve al successivo.`}
                                     </Text>
                                 </div>
@@ -874,7 +883,7 @@ export default function OverviewPage() {
                                                 Configura con la procedura guidata
                                             </Text>
                                             <Text variant="caption" colorVariant="muted">
-                                                Sede, menù e pubblicazione in pochi minuti.
+                                                Sede, {catalogLower} e pubblicazione in pochi minuti.
                                             </Text>
                                         </span>
                                         <ChevronRight
@@ -1017,7 +1026,7 @@ export default function OverviewPage() {
                 <div className={styles.kpiGrid}>
                     <StatCard label="Sedi" value={stats?.locations} loading={loadingStats} />
                     <StatCard label="Prodotti" value={stats?.products} loading={loadingStats} />
-                    <StatCard label="Cataloghi" value={stats?.catalogs} loading={loadingStats} />
+                    <StatCard label={catalogLabelPlural} value={stats?.catalogs} loading={loadingStats} />
                     <StatCard label="Programmi" value={stats?.schedules} loading={loadingStats} />
                     <StatCard label="Contenuti in evidenza" value={stats?.featuredContents} loading={loadingStats} />
                 </div>

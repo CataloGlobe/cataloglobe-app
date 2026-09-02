@@ -1,6 +1,7 @@
 import { Package } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/Badge/Badge";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import Text from "@/components/ui/Text/Text";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./productImageFraming";
@@ -45,6 +46,7 @@ export default function ProductCardVariant({
 }: Props) {
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
+    const { catalogLabel } = useVerticalConfig();
 
     const price = formatVariantPrice(variant, metadata, parentPrice);
     const issues = getProductIssues(
@@ -110,7 +112,9 @@ export default function ProductCardVariant({
                         )
                     )}
                     {issues.outOfCatalog && (
-                        <Badge variant="warning">Fuori catalogo</Badge>
+                        <Badge variant="warning">
+                            {`Fuori ${catalogLabel.toLowerCase()}`}
+                        </Badge>
                     )}
                 </div>
             </div>
