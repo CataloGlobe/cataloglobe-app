@@ -1,5 +1,6 @@
 import { AlertTriangle, Trash2 } from "lucide-react";
 import type { AiProduct } from "../AiMenuImportWizard";
+import { aiProductMissesPrice, toAiPriceableProduct } from "../aiProductPricing";
 import { Checkbox } from "./Checkbox";
 import styles from "../aiMenuImport.module.scss";
 
@@ -46,6 +47,12 @@ export function ProductReviewCard({ product, onUpdate, onRemove }: ProductReview
                         value={product.name}
                         onChange={e => onUpdate({ name: e.target.value })}
                     />
+                    {aiProductMissesPrice(toAiPriceableProduct(product)) && (
+                        <span className={styles.noPriceBadge}>
+                            <AlertTriangle size={10} />
+                            Senza prezzo
+                        </span>
+                    )}
                     {priceDisplay && (
                         <span className={styles.productPrice}>{priceDisplay}</span>
                     )}

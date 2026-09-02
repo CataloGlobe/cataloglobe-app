@@ -319,6 +319,70 @@
   white-space: nowrap;
 }
 
+/* Campo prezzo editabile: stessa impaginazione di .productPrice (peso, spazio
+   a destra del nome), ma correggibile senza uscire dalla revisione. */
+.priceField,
+.priceFieldCompact {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  padding: 1px 6px;
+  background-color: #f8fafc;
+  border: 1px solid #e2e8f0;
+
+  &:focus-within {
+    background-color: #fff;
+    border-color: var(--brand-primary, #6366f1);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+  }
+}
+
+.priceFieldCurrency {
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+}
+
+.priceFieldInput {
+  width: 64px;
+  border: none;
+  background: none;
+  padding: 0;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text, #0f172a);
+  text-align: right;
+
+  &:focus {
+    outline: none;
+  }
+
+  &::placeholder {
+    font-weight: 600;
+    color: #cbd5e1;
+  }
+}
+
+.priceFieldCompact {
+  padding: 0 4px;
+  background: none;
+  border-color: transparent;
+
+  .priceFieldCurrency {
+    font-size: 11px;
+  }
+
+  .priceFieldInput {
+    width: 44px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #475569;
+  }
+}
+
 .productDescription {
   font-size: 13px;
   color: #94a3b8;
@@ -350,6 +414,23 @@
   border-radius: 6px;
 }
 
+/* Il tag ospita un input: allinea nome e campo sulla stessa riga. */
+.formatTagEditable {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 1px 4px 1px 8px;
+  border: 1px solid transparent;
+}
+
+/* Formato senza prezzo: ambra sul singolo campo. Non alza un badge di riga —
+   se un altro formato è prezzato il prodotto resta ordinabile. */
+.formatTagNoPrice {
+  background-color: #fffbeb;
+  border-color: #fde68a;
+  color: #b45309;
+}
+
 /* Seconda riga iniettata (levetta/selettore del ramo esistente). */
 .productBelow {
   padding-left: 4px;
@@ -365,6 +446,25 @@
   color: #dc2626;
   background-color: #fef2f2;
   border: 1px solid #fecaca;
+  padding: 1px 7px;
+  border-radius: 6px;
+  flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* Stessa geometria di .lowConfBadge, palette diversa: il rosso dice "l'AI non è
+   sicura di aver letto bene", l'ambra dice "manca un dato". Due segnali che
+   possono convivere sulla stessa riga e non devono confondersi. */
+.noPriceBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #b45309;
+  background-color: #fffbeb;
+  border: 1px solid #fde68a;
   padding: 1px 7px;
   border-radius: 6px;
   flex-shrink: 0;

@@ -139,6 +139,7 @@ export function ReviewStep({
                     onToggleCategory={onToggleCategory}
                     onToggleAll={onToggleAll}
                     onRemoveProduct={onRemoveProduct}
+                    onUpdateProduct={onUpdateProduct}
                     onSetPlan={onSetExistingPlan}
                     lockedCatalogId={initialCatalogId}
                     lockedCatalogName={initialCatalogName}
@@ -164,6 +165,7 @@ export function ReviewStep({
                         onRemoveProduct={onRemoveProduct}
                         onRenameCategory={onCategoryNameChange}
                         onRenameProduct={(id, name) => onUpdateProduct(id, { name })}
+                        onUpdateProduct={onUpdateProduct}
                         foundCount={products.length}
                         selectedCount={selectedIds.size}
                         searchQuery={search}

@@ -1,6 +1,7 @@
-import { Sparkles, Check } from "lucide-react";
+import { Sparkles, Check, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import type { AiImportSession } from "@/hooks/useAiImportSession";
+import { countAiProductsWithoutPrice, toAiPriceableProduct } from "./aiProductPricing";
 
 import { StepIndicator } from "./components/StepIndicator";
 import { UploadStep } from "./steps/UploadStep";
@@ -64,6 +65,19 @@ export function AiMenuImportWizard({
         setExistingImportPlan,
         importIntoExistingCatalog
     } = session;
+
+    // Prodotti che l'import sta creando senza prezzo. Nel ramo "catalogo
+    // esistente" contano solo le decisioni `create`: per un prodotto riusato il
+    // prezzo è quello già in DB, non quello letto dall'AI.
+    const effectiveMode = forceNewCatalog ? "new" : importMode;
+    const createdWithoutPrice =
+        effectiveMode === "existing"
+            ? countAiProductsWithoutPrice(
+                  (existingImportPlan?.decisions ?? [])
+                      .filter(d => d.kind === "create")
+                      .map(d => d.product)
+              )
+            : countAiProductsWithoutPrice(selectedProducts.map(toAiPriceableProduct));
 
     /* ── Footer per step ──────────────────────────────────── */
 
@@ -240,6 +254,32 @@ export function AiMenuImportWizard({
                                     {importResult.created} prodotti creati
                                     {importResult.errors > 0 && `, ${importResult.errors} saltati`}
                                 </div>
+                                {/* L'ultimo momento in cui il numero è ancora
+                                    davanti agli occhi: dopo la chiusura il
+                                    prodotto senza prezzo si confonde con gli
+                                    altri. Il rimando al filtro chiude il giro. */}
+                                {createdWithoutPrice > 0 && (
+                                    <div className={styles.importSuccessNotice}>
+                                        <AlertTriangle
+                                            size={18}
+                                            className={styles.importSuccessNoticeIcon}
+                                            aria-hidden
+                                        />
+                                        <div>
+                                            <div className={styles.importSuccessNoticeTitle}>
+                                                {createdWithoutPrice === 1
+                                                    ? "1 prodotto è senza prezzo"
+                                                    : `${createdWithoutPrice} prodotti sono senza prezzo`}
+                                            </div>
+                                            <div className={styles.importSuccessNoticeText}>
+                                                {createdWithoutPrice === 1
+                                                    ? "Compare nel menù ma non può essere ordinato."
+                                                    : "Compaiono nel menù ma non possono essere ordinati."}{" "}
+                                                Li trovi con il filtro «Senza prezzo» in Prodotti.
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

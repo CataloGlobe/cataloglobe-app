@@ -25,7 +25,9 @@ export type AiProduct = {
     base_price: number | null;
     product_type: "simple" | "formats";
     confidence: "high" | "medium" | "low";
-    formats?: { name: string; price: number }[];
+    // `price` nullable: l'AI può estrarre un formato senza prezzo, e la
+    // revisione permette di svuotare il campo prima di reinserirlo.
+    formats?: { name: string; price: number | null }[];
     _id: string;
     _selected: boolean;
     _category: string;
