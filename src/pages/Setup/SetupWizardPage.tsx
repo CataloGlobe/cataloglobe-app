@@ -56,10 +56,17 @@ const STEP_COPY = [
     }
 ];
 
-/** Copy alternativo del passo 3 quando il menù è stato creato vuoto. */
+/**
+ * Copy alternativo del passo 3 quando il menù è stato creato vuoto.
+ *
+ * Annuncia il risultato, non la mancanza: quello che manca lo dice già il
+ * riquadro ambra sotto, e ripeterlo qui faceva del passo tre blocchi che
+ * dicevano la stessa cosa. Il QR è il deliverable, ed è pronto davvero.
+ */
 const EMPTY_MENU_COPY = {
-    title: "Manca un ultimo passo: i piatti",
-    subtitle: "Sede, menù e regola sono a posto. Il tuo indirizzo pubblico funziona già."
+    title: "Il tuo QR è pronto",
+    subtitle:
+        "Sede, menù e regola sono a posto: manca solo cosa mostrare dentro, cioè i piatti."
 };
 
 export default function SetupWizardPage() {
