@@ -37,6 +37,11 @@ import {
     ProductListMetadata
 } from "@/services/supabase/products";
 
+import {
+    hasConfiguredEffectivePrice,
+    type ProductPriceFacts
+} from "@/utils/productPriceStatus";
+
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ProductCreateEditDrawer, ProductFormMode } from "./ProductCreateEditDrawer";
 import { ProductDeleteDrawer } from "./ProductDeleteDrawer";
@@ -172,6 +177,28 @@ export default function Products() {
     // filtri vanno aggiunti qui oltre che nel useMemo sopra, così il copy
     // "nessun risultato" non viene mai scambiato per "vuoto assoluto".
     const hasActiveFilter = searchQuery.trim().length > 0;
+
+    // Fatti sul prezzo di un prodotto, letti dai dati già in memoria dopo
+    // `loadData`: `base_price` dalla riga, formati prezzati dal metadata.
+    const priceFactsFor = useCallback(
+        (product: V2Product): ProductPriceFacts => ({
+            basePrice: product.base_price,
+            pricedFormatsCount: (productMetadata[product.id] ?? EMPTY_PRODUCT_METADATA)
+                .pricedFormatsCount
+        }),
+        [productMetadata]
+    );
+
+    // Una variante senza prezzo proprio eredita dal padre: va valutata insieme
+    // a lui, altrimenti risulterebbe "senza prezzo" pur essendone dotata.
+    const rowHasPrice = useCallback(
+        (row: ProductTableRow): boolean =>
+            hasConfiguredEffectivePrice(
+                priceFactsFor(row.product),
+                row.parent ? priceFactsFor(row.parent) : null
+            ),
+        [priceFactsFor]
+    );
 
     const tableRows = useMemo<ProductTableRow[]>(() => {
         const rows: ProductTableRow[] = [];
@@ -471,6 +498,12 @@ export default function Products() {
             width: "1fr",
             accessor: row => row.product.id,
             cell: (_value, row) => {
+                // Domanda unica ("ha un prezzo?") prima di qualsiasi formattazione:
+                // le diramazioni sotto si occupano solo di COME mostrarlo.
+                if (!rowHasPrice(row)) {
+                    return <Text variant="body-sm" colorVariant="muted">—</Text>;
+                }
+
                 if (row.kind === "variant") {
                     const variantMeta = productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA;
                     // Variant has formats

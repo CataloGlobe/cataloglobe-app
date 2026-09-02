@@ -49,6 +49,7 @@ import {
 } from "@/services/supabase/catalogs";
 import { listBaseProductsWithVariants, getProductListMetadata, V2Product } from "@/services/supabase/products";
 import { getDisplayPrice } from "@/utils/priceDisplay";
+import { hasConfiguredEffectivePrice } from "@/utils/productPriceStatus";
 import { getProductGroups, ProductGroup } from "@/services/supabase/productGroups";
 import { listAttributeDefinitions } from "@/services/supabase/attributes";
 import { supabase } from "@/services/supabase/client";
@@ -127,6 +128,8 @@ type ProductRow = {
     sku: string | null;
     price: number | null;
     from_price: number | null;
+    /** Il prodotto ha un prezzo configurato (per la variante: proprio o ereditato dal padre). */
+    hasPrice: boolean;
     isVariant: boolean;
     isGroupChild: boolean; // true when a variant row with a parent row above it in the same group
     hasVariants: boolean; // true for a parent row that has at least one variant link in this category
@@ -421,9 +424,17 @@ export default function CatalogEngine() {
             const parentLink = links.find(l => l.variant_product_id === null) ?? null;
             const variantLinks = links.filter(l => l.variant_product_id !== null);
 
+            // Fatti sul prezzo del prodotto base: servono alla riga padre e, come
+            // sorgente dell'ereditarietà, a ogni riga variante del gruppo.
+            const baseProduct = productById.get(productId);
+            const basePriceFacts = {
+                basePrice: baseProduct?.base_price ?? null,
+                pricedFormatsCount: formatsCountByProductId[productId] ?? 0
+            };
+
             // Render parent row first (if present)
             if (parentLink) {
-                const parentProduct = productById.get(productId);
+                const parentProduct = baseProduct;
                 rows.push({
                     id: parentLink.id,
                     linkId: parentLink.id,
@@ -436,6 +447,7 @@ export default function CatalogEngine() {
                     from_price: (formatsCountByProductId[productId] ?? 0) > 1
                         ? (formatPriceByProductId[productId] ?? null)
                         : null,
+                    hasPrice: hasConfiguredEffectivePrice(basePriceFacts),
                     isVariant: false,
                     isGroupChild: false,
                     hasVariants: variantLinks.length > 0
@@ -457,6 +469,17 @@ export default function CatalogEngine() {
                     from_price: vLink.variant_product_id && (formatsCountByProductId[vLink.variant_product_id] ?? 0) > 1
                         ? (formatPriceByProductId[vLink.variant_product_id] ?? null)
                         : null,
+                    // La variante senza prezzo proprio eredita dal prodotto base:
+                    // "da configurare" solo se nessuno dei due è prezzato.
+                    hasPrice: hasConfiguredEffectivePrice(
+                        {
+                            basePrice: varProduct?.base_price ?? null,
+                            pricedFormatsCount: vLink.variant_product_id
+                                ? (formatsCountByProductId[vLink.variant_product_id] ?? 0)
+                                : 0
+                        },
+                        basePriceFacts
+                    ),
                     isVariant: true,
                     isGroupChild: parentLink !== null,
                     hasVariants: false
@@ -1562,7 +1585,7 @@ export default function CatalogEngine() {
                                 {row.name}
                             </Text>
                             {row.isVariant && <Badge variant="secondary">Variante</Badge>}
-                            {row.price === null && row.from_price === null && <Badge variant="warning">Da configurare</Badge>}
+                            {!row.hasPrice && <Badge variant="warning">Da configurare</Badge>}
                         </div>
                         {row.sku && (
                             <Text variant="caption" className={styles.productSku}>
