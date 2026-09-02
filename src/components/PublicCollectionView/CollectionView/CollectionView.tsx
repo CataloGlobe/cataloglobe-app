@@ -914,9 +914,10 @@ export default function CollectionView({
         (orderingActive || itemDetailOrderingDisabled) &&
         !(effectiveMaintenance != null && SILENT_MAINTENANCE_REASONS.has(effectiveMaintenance.reason));
     const { t } = useTranslation("public");
-    const [activeSectionId, setActiveSectionId] = useState<string | null>(
-        () => sectionGroups[0]?.root.id ?? null
-    );
+    // Seme a null: la prima categoria attiva la sceglie l'effect più sotto, che
+    // gira dopo il primo render e può quindi leggere il dominio VISIBILE
+    // (displaySectionGroups è dichiarato più in basso di questo useState).
+    const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
     const pageRef = useRef<HTMLElement | null>(null);
     // SSR: window non esiste server-side → null iniziale. Client-side parte da
@@ -1319,10 +1320,27 @@ export default function CollectionView({
         [displaySectionGroups]
     );
 
-    // Solo le sezioni L1 (root dei gruppi) — usato per scroll tracking e nav
-    const l1Sections = useMemo(
+    // ── Due domini distinti di sezioni L1, NON intercambiabili ──────────────
+    //
+    // catalogL1Sections: tutte le L1 del catalogo, pre-filtro. Serve SOLO
+    // all'analytics: section_index deve misurare la posizione nel menù del
+    // ristoratore, non in quello ristretto dai filtri del cliente. Altrimenti
+    // due sessioni che leggono la stessa quantità di menù riporterebbero
+    // profondità diverse, e chi legge le Analitiche non avrebbe modo di saperlo.
+    //
+    // visibleL1Sections: solo le L1 effettivamente renderizzate. Serve a tutto
+    // ciò che ragiona su ciò che l'utente ha davanti — section tracking e
+    // misura della nav. Deve restare allineata a navItems: quando divergono,
+    // activeSectionId può puntare a una categoria che non ha più una pill e
+    // nessuna risulta evidenziata.
+    const catalogL1Sections = useMemo(
         () => sectionGroups.map(g => g.root),
         [sectionGroups]
+    );
+
+    const visibleL1Sections = useMemo(
+        () => displaySectionGroups.map(g => g.root),
+        [displaySectionGroups]
     );
 
     // ── Analytics: product_detail_open wrapper ──────────────────────────
@@ -1881,7 +1899,10 @@ export default function CollectionView({
             ro?.disconnect();
             window.removeEventListener("resize", onResize);
         };
-    }, [recomputeStickyOffset, l1Sections]);
+        // visibleL1Sections e non catalogL1Sections: qui si misura l'altezza
+        // della nav RENDERIZZATA, che mostra le sole categorie sopravvissute al
+        // filtro — se scendono da due righe a una, l'offset va rimisurato.
+    }, [recomputeStickyOffset, visibleL1Sections]);
 
     // ── Evidenziazione prodotto raggiunto dalla ricerca (pop + velo) ────────
     // Il prodotto scelto in SearchOverlay è scrollato qui (CollectionView resta
@@ -2004,8 +2025,12 @@ export default function CollectionView({
                     const sectionId = (entry.target as HTMLElement).dataset.sectionId;
                     if (!sectionId || viewedSectionsRef.current.has(sectionId)) continue;
                     viewedSectionsRef.current.add(sectionId);
-                    const section = l1Sections.find(s => s.id === sectionId);
-                    const sectionIndex = l1Sections.findIndex(s => s.id === sectionId);
+                    // catalogL1Sections: l'indice deve dire la posizione nel
+                    // menù del ristoratore, non in quello ristretto dai filtri
+                    // del cliente — altrimenti la stessa lettura darebbe
+                    // profondità diverse a seconda dei filtri attivi.
+                    const section = catalogL1Sections.find(s => s.id === sectionId);
+                    const sectionIndex = catalogL1Sections.findIndex(s => s.id === sectionId);
                     trackEvent(activityId, "section_view", {
                         section_title: section?.name,
                         section_index: sectionIndex
@@ -2020,7 +2045,7 @@ export default function CollectionView({
         }
 
         return () => observer.disconnect();
-    }, [mode, activityId, l1Sections, sectionGroups]);
+    }, [mode, activityId, catalogL1Sections, sectionGroups]);
 
     // ── Valuta FAB ──────────────────────────────────────────────────────────
     const [valutaVisible, setValutaVisible] = useState(false);
@@ -2042,12 +2067,21 @@ export default function CollectionView({
         openReviewsSheet();
     }, [valutaVisible, openReviewsSheet]);
 
-    // ── Keep first section active when sections load asynchronously ─────────
+    // ── Prima categoria attiva, e risanamento di un id orfano ───────────────
+    // Copre due casi con la stessa regola: le sezioni che arrivano in modo
+    // asincrono (activeSectionId ancora null) e l'attivo che punta a una
+    // categoria appena svuotata dal filtro — lì la pill non esiste più e
+    // nessuna risulterebbe evidenziata. In entrambi si riparte dalla prima
+    // categoria visibile; l'effect di scroll, che gira dopo, corregge subito
+    // in base alla posizione reale.
     useEffect(() => {
-        if (!activeSectionId && sectionGroups.length > 0) {
-            setActiveSectionId(sectionGroups[0].root.id);
-        }
-    }, [activeSectionId, sectionGroups]);
+        if (visibleL1Sections.length === 0) return;
+        const stillVisible =
+            activeSectionId !== null &&
+            visibleL1Sections.some(s => s.id === activeSectionId);
+        if (stillVisible) return;
+        setActiveSectionId(visibleL1Sections[0].id);
+    }, [activeSectionId, visibleL1Sections]);
 
     // ── Chiudi il dettaglio prodotto al cambio di tab ────────────────────────
     // skipNextTabCloseRef: quando il cambio tab è CAUSATO dall'apertura di un
@@ -2126,7 +2160,7 @@ export default function CollectionView({
 
     // ── Main scroll effect: section tracking + scroll-to-top visibility ─────
     useEffect(() => {
-        if (l1Sections.length === 0) return;
+        if (visibleL1Sections.length === 0) return;
 
         function findScrollContainer(el: HTMLElement | null): HTMLElement | Window {
             let node = el?.parentElement ?? null;
@@ -2152,8 +2186,11 @@ export default function CollectionView({
             const containerTop =
                 container === window ? 0 : (container as HTMLElement).getBoundingClientRect().top;
 
-            let naturalActive = l1Sections[0].id;
-            for (const section of l1Sections) {
+            // Seme e iterazione sul dominio VISIBILE: una categoria svuotata dal
+            // filtro non è renderizzata, quindi non le corrisponde nessuna zona
+            // di pagina e non può essere il risultato del tracking.
+            let naturalActive = visibleL1Sections[0].id;
+            for (const section of visibleL1Sections) {
                 const el = sectionRefs.current[section.id];
                 if (!el) continue;
                 const sectionTop = el.getBoundingClientRect().top - containerTop;
@@ -2215,7 +2252,10 @@ export default function CollectionView({
             }
             pendingScrollTargetIdRef.current = null;
         };
-    }, [l1Sections, scrollContainerEl, mode]);
+        // Dipendere da visibleL1Sections fa ri-eseguire l'effect quando il
+        // filtro cambia la lista: il computeActiveSection all'ingresso ricalcola
+        // l'attivo sulla posizione reale, senza attendere il primo scroll.
+    }, [visibleL1Sections, scrollContainerEl, mode]);
 
     // ── Nav items — L1 + children per dropdown sotto-sezioni ────────────────
     // Derivati da displaySectionGroups: il filtro allergeni nasconde anche le
