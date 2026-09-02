@@ -23,6 +23,11 @@
   --color-warning-300: #fcd34d;
   --color-warning-500: #f59e0b;
   --color-warning-700: #b45309;
+  // Testo su fill ambra tenue. Non è un colore nuovo: è già il valore
+  // letterale di .activatePill (BusinessCard), .badgeDraft (Programmazione) e
+  // del riquadro di fine import. Un passo oltre il 700 della ramp DESIGN.md
+  // per tenere il contrasto a 6.37:1 invece dei 4.51:1 di misura del 700.
+  --color-warning-800: #92400e;
 
   // Red / danger palette
   --color-red-50:  #fff1f2;

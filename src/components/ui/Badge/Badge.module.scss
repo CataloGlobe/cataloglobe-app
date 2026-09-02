@@ -33,9 +33,14 @@
   --badge-color: #fff;
 }
 
+/* Ramp ambra di DESIGN.md (§2 Semantic), non un token danger: la variante
+   leggeva `--danger-500` — mai definito — e cadeva sul fallback `#edb20e`,
+   senape con testo bianco a ~1.9:1, sotto il minimo di 4.5:1 (DESIGN.md §6).
+   Fill tenue + testo scuro è anche la coppia già usata da ogni altro segnale
+   ambra del backoffice (StatusBadge warning, .badgeDraft, .activatePill). */
 .warning {
-  --badge-bg: var(--danger-500, #edb20e);
-  --badge-color: #fff;
+  --badge-bg: var(--color-warning-100, #fef3c7);
+  --badge-color: var(--color-warning-800, #92400e);
 }
 
 /* Positioning */
