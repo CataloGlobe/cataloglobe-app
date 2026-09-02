@@ -12,10 +12,12 @@ type SetupActivityStepProps = {
     /** Notifica al wizard lo stato di salvataggio, che possiede il bottone primario. */
     onSavingChange: (saving: boolean) => void;
     /**
-     * Notifica al wizard se il form ha campi compilati: niente arriva al DB
-     * prima del submit, quindi è il wizard a decidere se un'uscita va confermata.
+     * Notifica al wizard se una copertina è stata selezionata. I campi
+     * testuali sopravvivono all'uscita in una bozza locale; la copertina è un
+     * `File` e non può seguirli, quindi è l'unico contenuto la cui perdita
+     * merita una conferma.
      */
-    onDirtyChange?: (dirty: boolean) => void;
+    onCoverSelectedChange?: (selected: boolean) => void;
     /** Creazione riuscita: il wizard registra la sede e avanza al passo successivo. */
     onCreated: (activity: V2Activity) => void;
 };
@@ -24,7 +26,7 @@ export function SetupActivityStep({
     formId,
     tenantId,
     onSavingChange,
-    onDirtyChange,
+    onCoverSelectedChange,
     onCreated
 }: SetupActivityStepProps) {
     const { showToast } = useToast();
@@ -34,7 +36,6 @@ export function SetupActivityStep({
         values,
         errors,
         isCreating,
-        isDirty,
         slugState,
         handleFieldChange,
         handleCoverChange,
@@ -56,21 +57,25 @@ export function SetupActivityStep({
         onSavingChange(isCreating);
     }, [isCreating, onSavingChange]);
 
-    useEffect(() => {
-        onDirtyChange?.(isDirty);
-    }, [isDirty, onDirtyChange]);
+    // `coverPreview` è il blob URL creato alla selezione: la sua presenza dice
+    // esattamente "c'è una copertina scelta e non ancora caricata".
+    const hasCover = values.coverPreview !== null;
 
-    // Il cleanup dell'effect qui sopra girerebbe a ogni cambio di `isDirty`,
+    useEffect(() => {
+        onCoverSelectedChange?.(hasCover);
+    }, [hasCover, onCoverSelectedChange]);
+
+    // Il cleanup dell'effect qui sopra girerebbe a ogni cambio di `hasCover`,
     // azzerando lo stato del wizard fra un render e l'altro: l'unmount vive in
     // un effect a dipendenze vuote, letto via ref per non catturare una
     // callback stale.
-    const onDirtyChangeRef = useRef(onDirtyChange);
-    onDirtyChangeRef.current = onDirtyChange;
+    const onCoverSelectedChangeRef = useRef(onCoverSelectedChange);
+    onCoverSelectedChangeRef.current = onCoverSelectedChange;
 
     useEffect(() => {
-        // Smontato lo step, non c'è più un form sporco da confermare: senza
+        // Smontato lo step, non c'è più una copertina da confermare: senza
         // questa notifica il wizard resterebbe fermo sull'ultimo valore.
-        return () => onDirtyChangeRef.current?.(false);
+        return () => onCoverSelectedChangeRef.current?.(false);
     }, []);
 
     return (

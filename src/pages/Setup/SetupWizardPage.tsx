@@ -77,9 +77,10 @@ export default function SetupWizardPage() {
 
     const [stepIndex, setStepIndex] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
-    // Campi compilati al passo 1: nulla raggiunge il DB prima del submit, quindi
-    // è l'unico stato del wizard che un'uscita può perdere.
-    const [isStepOneDirty, setIsStepOneDirty] = useState(false);
+    // Copertina scelta al passo 1: i campi testuali sopravvivono all'uscita in
+    // una bozza locale, la copertina è un `File` e non può seguirli. È l'unico
+    // contenuto del passo 1 che un'uscita perde davvero.
+    const [stepOneHasCover, setStepOneHasCover] = useState(false);
     // Sede creata al passo 1: l'id serve al passo 2 per collegare il menù, slug
     // e nome al passo 3 per comporre URL pubblico e QR.
     const [createdActivity, setCreatedActivity] = useState<CreatedActivity | null>(null);
@@ -364,7 +365,7 @@ export default function SetupWizardPage() {
                     </Text>
                 ) : undefined
             }
-            isStepOneDirty={isStepOneDirty}
+            stepOneHasCover={stepOneHasCover}
             // Dalla sede, non da `stepIndex`: se `createActivity` riesce e
             // l'upload della copertina fallisce, la sede esiste ma il passo non
             // è avanzato. È la sede a dire cosa è stato davvero salvato.
@@ -390,7 +391,7 @@ export default function SetupWizardPage() {
                     formId={ACTIVITY_FORM_ID}
                     tenantId={tenantId}
                     onSavingChange={setIsSaving}
-                    onDirtyChange={setIsStepOneDirty}
+                    onCoverSelectedChange={setStepOneHasCover}
                     onCreated={handleActivityCreated}
                 />
             )}
