@@ -1,7 +1,10 @@
 import { Package } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
+import { getProductIssues } from "@/utils/productCompleteness";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./productImageFraming";
@@ -30,7 +33,14 @@ function formatPrice(product: V2Product, metadata: ProductListMetadata): string 
 
 export default function ProductCard({ product, metadata, onEdit, onDelete }: Props) {
     const tenantId = useTenantId();
+    const { catalogLabel } = useVerticalConfig();
     const price = formatPrice(product, metadata);
+    // Un prodotto base non eredita da nessuno: la domanda si ferma a lui.
+    const issues = getProductIssues({
+        basePrice: product.base_price,
+        pricedFormatsCount: metadata.pricedFormatsCount,
+        catalogsCount: metadata.catalogsCount
+    });
 
     return (
         <div className={styles.card}>
@@ -66,15 +76,24 @@ export default function ProductCard({ product, metadata, onEdit, onDelete }: Pro
                     </Text>
                 </Link>
 
-                {price !== null ? (
-                    <Text variant="caption" colorVariant="muted" className={styles.price}>
-                        {price}
-                    </Text>
-                ) : (
-                    <Text variant="caption" colorVariant="muted" className={styles.price}>
-                        —
-                    </Text>
-                )}
+                {/* Riga dei segnali: prima il dato (il prezzo, o il badge che
+                    ne dichiara l'assenza occupandone il posto), poi il commento
+                    sul prodotto. Con entrambe le mancanze i due badge vanno a
+                    capo invece di troncarsi (card larghe 180px al minimo). */}
+                <div className={styles.signals}>
+                    {issues.missingPrice ? (
+                        <Badge variant="warning">Senza prezzo</Badge>
+                    ) : (
+                        <Text variant="caption" colorVariant="muted" className={styles.price}>
+                            {price ?? "—"}
+                        </Text>
+                    )}
+                    {issues.outOfCatalog && (
+                        <Badge variant="warning">
+                            {`Fuori ${catalogLabel.toLowerCase()}`}
+                        </Badge>
+                    )}
+                </div>
             </div>
 
             {/* Overlay azioni — visibile solo al hover */}

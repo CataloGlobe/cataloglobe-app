@@ -23,16 +23,29 @@
   --color-warning-300: #fcd34d;
   --color-warning-500: #f59e0b;
   --color-warning-700: #b45309;
+  // Testo su fill ambra tenue. Non è un colore nuovo: è già il valore
+  // letterale di .activatePill (BusinessCard), .badgeDraft (Programmazione) e
+  // del riquadro di fine import. Un passo oltre il 700 della ramp DESIGN.md
+  // per tenere il contrasto a 6.37:1 invece dei 4.51:1 di misura del 700.
+  --color-warning-800: #92400e;
 
   // Red / danger palette
   --color-red-50:  #fff1f2;
+  // Coppia fill-tenue/testo-scuro per i badge danger. Stessa scala dei
+  // fallback --color-red-600/700 già in uso (Menu, TableRowActions).
+  --color-red-100: #fee2e2;
   --color-red-200: #fecdd3;
+  --color-red-800: #991b1b;
   --color-red-900: #450a0a;
 
   // Green / success palette
   --color-green-50:  #f0fdf4;
+  // Coppia documentata in DESIGN.md §5 per StatusBadge success: riusata dal
+  // Badge così le due famiglie di badge dicono "successo" con lo stesso verde.
+  --color-green-100: #d1fae5;
   --color-green-200: #bbf7d0;
   --color-green-500: #10b981;
+  --color-green-800: #065f46;
   --color-green-900: #14532d;
 }
 

@@ -120,6 +120,8 @@ type ProductOptionValueListRow = {
 
 type CatalogCategoryProductListRow = {
     product_id: string;
+    /** Valorizzato quando la riga collega una VARIANTE alla categoria. */
+    variant_product_id: string | null;
     catalog_id: string;
 };
 
@@ -151,11 +153,16 @@ export async function getProductListMetadata(
             .select("id, product_id, group_kind")
             .eq("tenant_id", tenantId)
             .in("product_id", uniqueProductIds),
+        // Una variante è collegata alla categoria via `variant_product_id`, non
+        // via `product_id` (che porta il prodotto base): filtrare sul solo
+        // `product_id` la faceva risultare fuori da ogni catalogo.
         supabase
             .from("catalog_category_products")
-            .select("product_id, catalog_id")
+            .select("product_id, variant_product_id, catalog_id")
             .eq("tenant_id", tenantId)
-            .in("product_id", uniqueProductIds)
+            .or(
+                `product_id.in.(${uniqueProductIds.join(",")}),variant_product_id.in.(${uniqueProductIds.join(",")})`
+            )
     ]);
 
     if (groupsRes.error) throw groupsRes.error;
@@ -217,9 +224,13 @@ export async function getProductListMetadata(
     const catalogItems = (catalogItemsRes.data ?? []) as CatalogCategoryProductListRow[];
 
     for (const item of catalogItems) {
-        const catalogIds = catalogIdsByProductId.get(item.product_id) ?? new Set<string>();
+        // La riga vale per la variante quando c'è, altrimenti per il prodotto
+        // base: `product_id` su una riga-variante è il padre, che potrebbe non
+        // essere fra gli id richiesti.
+        const targetId = item.variant_product_id ?? item.product_id;
+        const catalogIds = catalogIdsByProductId.get(targetId) ?? new Set<string>();
         catalogIds.add(item.catalog_id);
-        catalogIdsByProductId.set(item.product_id, catalogIds);
+        catalogIdsByProductId.set(targetId, catalogIds);
     }
 
     for (const [productId, catalogIds] of catalogIdsByProductId.entries()) {

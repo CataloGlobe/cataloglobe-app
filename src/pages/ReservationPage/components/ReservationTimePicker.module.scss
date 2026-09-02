@@ -23,6 +23,55 @@
         border-color: var(--pub-error, #d33d3d);
         box-shadow: 0 0 0 3px color-mix(in srgb, var(--pub-error, #d33d3d) 16%, transparent);
     }
+
+    /* Lettura di disponibilità in volo. La griglia resta montata, alla stessa
+       altezza e ancora cliccabile: si attenua e basta. Sostituirla con uno
+       skeleton la farebbe collassare e ricomparire a ogni cambio di coperti —
+       un salto di layout per un'informazione che arriva in poche centinaia di
+       millisecondi. */
+    &[data-loading="true"] {
+        opacity: 0.62;
+    }
+}
+
+/* Riga di stato sopra la griglia. Sta SEMPRE nel flusso e commuta
+   `visibility`, non `display`: così l'altezza è riservata da subito e la
+   griglia non sobbalza quando il messaggio compare o sparisce. Essendo un
+   `role="status"` visibile, serve anche da annuncio per gli screen reader —
+   niente elemento sr-only separato che direbbe la stessa cosa due volte. */
+.loadingRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 14px;
+    font-size: 11px;
+    line-height: 1.2;
+    color: color-mix(in srgb, var(--pub-text) 62%, transparent);
+    visibility: hidden;
+
+    &[data-visible="true"] {
+        visibility: visible;
+    }
+}
+
+.loadingDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: loadingPulse 1s ease-in-out infinite;
+}
+
+@keyframes loadingPulse {
+    0%, 100% { opacity: 0.25; }
+    50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .loadingDot {
+        animation: none;
+        opacity: 0.7;
+    }
 }
 
 .placeholder {

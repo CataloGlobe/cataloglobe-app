@@ -1,6 +1,8 @@
-import { type ReactNode, type CSSProperties, useMemo } from "react";
+import { type ReactNode, type CSSProperties, useEffect, useMemo, useState } from "react";
 import { Search, X, Check, Minus, AlertTriangle, Trash2 } from "lucide-react";
 import type { AiProduct } from "@/hooks/useAiImportSession";
+import { parseDecimalPrice } from "@/utils/priceParser";
+import { aiProductMissesPrice, toAiPriceableProduct } from "../aiProductPricing";
 import styles from "./importProductList.module.scss";
 
 /** Slot opzionali iniettati dal ramo "catalogo esistente" (badge/levetta/selettore). */
@@ -35,6 +37,12 @@ export interface ImportProductListProps {
     onRenameCategory?: (categoryKey: string, name: string) => void;
     /** Rinomina prodotto inline (ramo "nuovo"). Assente → nome statico. */
     onRenameProduct?: (id: string, name: string) => void;
+    /**
+     * Correzione del prezzo inline (base o singolo formato). Assente → prezzi
+     * in sola lettura. È l'ultimo momento prima della scrittura in DB: senza
+     * questo canale l'utente vede il problema e non può risolverlo qui.
+     */
+    onUpdateProduct?: (id: string, updates: Partial<AiProduct>) => void;
     foundCount: number;
     selectedCount: number;
     searchQuery: string;
@@ -58,6 +66,7 @@ export function ImportProductList({
     onRemoveProduct,
     onRenameCategory,
     onRenameProduct,
+    onUpdateProduct,
     foundCount,
     selectedCount,
     searchQuery,
@@ -180,6 +189,12 @@ export function ImportProductList({
                                                           onRenameProduct(product._id, name)
                                                     : undefined
                                             }
+                                            onUpdate={
+                                                onUpdateProduct
+                                                    ? (updates: Partial<AiProduct>) =>
+                                                          onUpdateProduct(product._id, updates)
+                                                    : undefined
+                                            }
                                         />
                                     ))}
                                 </div>
@@ -207,6 +222,7 @@ interface ImportProductRowProps {
     onToggle: () => void;
     onRemove?: () => void;
     onRename?: (name: string) => void;
+    onUpdate?: (updates: Partial<AiProduct>) => void;
 }
 
 function ImportProductRow({
@@ -215,7 +231,8 @@ function ImportProductRow({
     config,
     onToggle,
     onRemove,
-    onRename
+    onRename,
+    onUpdate
 }: ImportProductRowProps) {
     if (!product || typeof product.name !== "string") return null;
 
@@ -231,10 +248,29 @@ function ImportProductRow({
         .filter(Boolean)
         .join(" ");
 
+    const hasFormats =
+        product.product_type === "formats" &&
+        Array.isArray(product.formats) &&
+        product.formats.length > 0;
+
+    // Il badge di riga risponde alla stessa domanda del gate pubblico: basta un
+    // formato prezzato perché il prodotto abbia un prezzo. Sui formati vuoti
+    // restanti parla il singolo campo, non la riga.
+    const missingPrice = aiProductMissesPrice(toAiPriceableProduct(product));
+
     const priceDisplay =
         product.product_type === "simple" && product.base_price != null
             ? `€ ${product.base_price.toFixed(2)}`
             : null;
+
+    const updateFormatPrice = (index: number, price: number | null) => {
+        if (!onUpdate || !Array.isArray(product.formats)) return;
+        onUpdate({
+            formats: product.formats.map((format, i) =>
+                i === index ? { ...format, price } : format
+            )
+        });
+    };
 
     return (
         <div className={rowClass}>
@@ -261,7 +297,24 @@ function ImportProductRow({
                         )}
                         {config?.badge}
                     </div>
-                    {priceDisplay && <span className={styles.productPrice}>{priceDisplay}</span>}
+                    {missingPrice && (
+                        <span className={styles.noPriceBadge}>
+                            <AlertTriangle size={10} />
+                            Senza prezzo
+                        </span>
+                    )}
+                    {!hasFormats &&
+                        (onUpdate ? (
+                            <PriceField
+                                value={product.base_price}
+                                onCommit={price => onUpdate({ base_price: price })}
+                                ariaLabel={`Prezzo di ${product.name}`}
+                            />
+                        ) : (
+                            priceDisplay && (
+                                <span className={styles.productPrice}>{priceDisplay}</span>
+                            )
+                        ))}
                     {isLow && (
                         <span className={styles.lowConfBadge}>
                             <AlertTriangle size={10} />
@@ -280,22 +333,43 @@ function ImportProductRow({
                     </div>
                 )}
 
-                {product.product_type === "formats" &&
-                    Array.isArray(product.formats) &&
-                    product.formats.length > 0 && (
-                        <div className={styles.productFormats}>
-                            {product.formats.map((f, i) => {
-                                if (!f || typeof f.name !== "string") return null;
-                                const priceStr = f.price != null ? f.price.toFixed(2) : null;
+                {hasFormats && (
+                    <div className={styles.productFormats}>
+                        {product.formats!.map((f, i) => {
+                            if (!f || typeof f.name !== "string") return null;
+                            const priceStr = f.price != null ? f.price.toFixed(2) : null;
+                            const formatMissesPrice = f.price == null;
+                            if (!onUpdate) {
                                 return (
                                     <span key={i} className={styles.formatTag}>
                                         {f.name}
                                         {priceStr ? ` €${priceStr}` : ""}
                                     </span>
                                 );
-                            })}
-                        </div>
-                    )}
+                            }
+                            return (
+                                <span
+                                    key={i}
+                                    className={[
+                                        styles.formatTag,
+                                        styles.formatTagEditable,
+                                        formatMissesPrice ? styles.formatTagNoPrice : ""
+                                    ]
+                                        .filter(Boolean)
+                                        .join(" ")}
+                                >
+                                    {f.name}
+                                    <PriceField
+                                        value={f.price}
+                                        onCommit={price => updateFormatPrice(i, price)}
+                                        ariaLabel={`Prezzo del formato ${f.name} di ${product.name}`}
+                                        compact
+                                    />
+                                </span>
+                            );
+                        })}
+                    </div>
+                )}
 
                 {config?.below && <div className={styles.productBelow}>{config.below}</div>}
             </div>
@@ -306,6 +380,67 @@ function ImportProductRow({
                 </button>
             )}
         </div>
+    );
+}
+
+/* ── Campo prezzo inline ──────────────────────────────────── */
+
+interface PriceFieldProps {
+    value: number | null;
+    onCommit: (price: number | null) => void;
+    ariaLabel: string;
+    /** Variante stretta, dentro il tag di un formato. */
+    compact?: boolean;
+}
+
+/**
+ * Input prezzo con testo locale: durante la digitazione "12," è uno stato
+ * legittimo e non deve essere riscritto dal valore committato. Propaga solo i
+ * valori interpretabili — campo vuoto incluso, che significa "senza prezzo".
+ */
+function PriceField({ value, onCommit, ariaLabel, compact }: PriceFieldProps) {
+    const [text, setText] = useState(value != null ? String(value) : "");
+
+    // Il valore può cambiare da fuori (reset della sessione, ri-analisi): la
+    // sincronizzazione avviene solo quando il testo locale non lo rappresenta
+    // già, altrimenti un "5,0" appena digitato tornerebbe "5".
+    useEffect(() => {
+        const parsed = parseDecimalPrice(text);
+        const localValue = Number.isNaN(parsed) ? null : parsed;
+        if (localValue !== value) {
+            setText(value != null ? String(value) : "");
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [value]);
+
+    const handleChange = (raw: string) => {
+        setText(raw);
+        if (raw.trim() === "") {
+            onCommit(null);
+            return;
+        }
+        const parsed = parseDecimalPrice(raw);
+        // Input intermedio non interpretabile ("12,"): resta locale finché non
+        // diventa un numero, il prodotto intanto conserva il valore precedente.
+        if (!Number.isNaN(parsed) && parsed >= 0) onCommit(parsed);
+    };
+
+    return (
+        <span className={compact ? styles.priceFieldCompact : styles.priceField}>
+            <span className={styles.priceFieldCurrency} aria-hidden>
+                €
+            </span>
+            <input
+                type="text"
+                inputMode="decimal"
+                className={styles.priceFieldInput}
+                value={text}
+                aria-label={ariaLabel}
+                placeholder="—"
+                onChange={e => handleChange(e.target.value)}
+                onClick={e => e.stopPropagation()}
+            />
+        </span>
     );
 }
 

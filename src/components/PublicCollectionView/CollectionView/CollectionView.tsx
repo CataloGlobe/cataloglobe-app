@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { LanguageContext } from "@/context/Language/LanguageContext";
-import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Phone, Plus, Utensils } from "lucide-react";
+import { Facebook, Globe, Instagram, Mail, MapPin, MessageCircle, Phone, Plus, SlidersHorizontal, Utensils, X } from "lucide-react";
 import { IconLink } from "@tabler/icons-react";
 import type {
     ResolvedAllergen,
@@ -33,6 +33,7 @@ import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
 import { hasOpenSheet } from "../hooks/useScrollCollapse";
+import { hasOrderablePrice } from "../itemPricing";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 import CategoriesSheet from "../CategoriesSheet/CategoriesSheet";
@@ -59,11 +60,13 @@ const preloadSheetChunks = () => {
     void importOrderConfirmationSheet();
 };
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
-import AllergensSheet from "../AllergensSheet/AllergensSheet";
 import MoreSheet from "../MoreSheet/MoreSheet";
 import {
     getAllergenPreferences,
     setAllergenPreferences,
+    isHiddenNoticeDismissed,
+    setHiddenNoticeDismissed,
+    clearHiddenNoticeDismissed,
 } from "@/services/customer/allergenPreferences";
 import CharacteristicIcon from "@/components/ui/CharacteristicIcon/CharacteristicIcon";
 import type { OpeningHoursEntry, UpcomingClosure } from "../PublicOpeningHours/PublicOpeningHours";
@@ -330,6 +333,9 @@ function ProductRowInner({
         cardCharacteristics.length - MAX_CHARACTERISTIC_EMOJIS
     );
     const dp = getDisplayPrice({ fromPrice, toPrice, price, effectivePrice, originalPrice });
+    // Prezzo sconosciuto → niente "+": il prodotto resta visibile e
+    // consultabile, ma non aggiungibile (il totale sarebbe falso).
+    const canAdd = orderingEnabled && hasOrderablePrice(item);
 
     const handleRootClick = () => onClick(item);
     const handleAddBtnClick = (e: React.MouseEvent) => {
@@ -389,7 +395,7 @@ function ProductRowInner({
                             <span className={styles.promoBadge}>{t("product.badge_promo")}</span>
                         )}
                     </div>
-                    {orderingEnabled && (
+                    {canAdd && (
                         <button
                             type="button"
                             className={[styles.addBtn, selectionQty > 0 ? styles.addBtnActive : ""]
@@ -547,6 +553,9 @@ function ProductCompactRowInner({
         cardCharacteristics.length - MAX_CHARACTERISTIC_EMOJIS
     );
     const dp = getDisplayPrice({ fromPrice, toPrice, price, effectivePrice, originalPrice });
+    // Prezzo sconosciuto → niente "+": il prodotto resta visibile e
+    // consultabile, ma non aggiungibile (il totale sarebbe falso).
+    const canAdd = orderingEnabled && hasOrderablePrice(item);
 
     const handleRootClick = () => onClick(item);
     const handleAddBtnClick = (e: React.MouseEvent) => {
@@ -587,7 +596,7 @@ function ProductCompactRowInner({
                             </span>
                         </span>
                     )}
-                    {orderingEnabled && (
+                    {canAdd && (
                         <button
                             type="button"
                             className={[styles.addBtnOutline, selectionQty > 0 ? styles.addBtnOutlineActive : ""]
@@ -904,9 +913,10 @@ export default function CollectionView({
         (orderingActive || itemDetailOrderingDisabled) &&
         !(effectiveMaintenance != null && SILENT_MAINTENANCE_REASONS.has(effectiveMaintenance.reason));
     const { t } = useTranslation("public");
-    const [activeSectionId, setActiveSectionId] = useState<string | null>(
-        () => sectionGroups[0]?.root.id ?? null
-    );
+    // Seme a null: la prima categoria attiva la sceglie l'effect più sotto, che
+    // gira dopo il primo render e può quindi leggere il dominio VISIBILE
+    // (displaySectionGroups è dichiarato più in basso di questo useState).
+    const [activeSectionId, setActiveSectionId] = useState<string | null>(null);
     const sectionRefs = useRef<Record<string, HTMLElement | null>>({});
     const pageRef = useRef<HTMLElement | null>(null);
     // SSR: window non esiste server-side → null iniziale. Client-side parte da
@@ -938,7 +948,18 @@ export default function CollectionView({
 
     // ── Search overlay ──────────────────────────────────────────────────────
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    const handleOpenSearch = useCallback(() => setIsSearchOpen(true), []);
+    // Vista da cui parte il pannello: la lente apre sulla ricerca, la voce
+    // «Filtri» dentro «…» apre direttamente i filtri. Il valore viene sempre
+    // riscritto all'apertura, quindi non resta incollato fra due aperture.
+    const [searchRootView, setSearchRootView] = useState<"search" | "filters">("search");
+    const handleOpenSearch = useCallback(() => {
+        setSearchRootView("search");
+        setIsSearchOpen(true);
+    }, []);
+    const handleOpenFilters = useCallback(() => {
+        setSearchRootView("filters");
+        setIsSearchOpen(true);
+    }, []);
     const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
     // Prefetch del chunk SearchOverlay su pointerdown del bottone header:
     // il pointerdown precede il click, il chunk arriva prima del tap-up.
@@ -1044,7 +1065,6 @@ export default function CollectionView({
     // Hydration-safe: default vuoto in render (= server), lettura sessionStorage
     // spostata in effect post-mount (client-only) → niente mismatch #418/#425.
     const [allergenFilterIds, setAllergenFilterIds] = useState<number[]>([]);
-    const [isAllergensFilterOpen, setIsAllergensFilterOpen] = useState(false);
 
     const allergensPersistSkipRef = useRef(true);
     useEffect(() => {
@@ -1087,6 +1107,50 @@ export default function CollectionView({
         );
     }, [sectionGroups]);
 
+    // Allergeni ordinati per FREQUENZA nel catalogo, per i chip rapidi del
+    // pannello ricerca. Calcolato su sectionGroups (catalogo NON filtrato): se
+    // usasse displaySectionGroups, applicare un chip cambierebbe le frequenze e
+    // i chip si riordinerebbero sotto il dito che li sta toccando.
+    // Tie-break su label localizzata → ordine stabile fra pari frequenza.
+    const allergensByFrequency = useMemo<ResolvedAllergen[]>(() => {
+        const seen = new Map<number, { allergen: ResolvedAllergen; count: number }>();
+        for (const group of sectionGroups) {
+            for (const section of [group.root, ...group.children]) {
+                for (const item of section.items) {
+                    if (!item.allergens) continue;
+                    for (const a of item.allergens) {
+                        const entry = seen.get(a.id);
+                        if (entry) entry.count += 1;
+                        else seen.set(a.id, { allergen: a, count: 1 });
+                    }
+                }
+            }
+        }
+        return Array.from(seen.values())
+            .sort(
+                (x, y) =>
+                    y.count - x.count ||
+                    x.allergen.label.localeCompare(y.allergen.label, "it")
+            )
+            .map(e => e.allergen);
+    }, [sectionGroups]);
+
+    // Prodotti distinti visibili con i filtri correnti / totali. Per id, non
+    // per occorrenza: lo stesso prodotto può comparire in più sezioni.
+    const countDistinctProducts = useCallback((groups: CollectionViewSectionGroup[]): number => {
+        const ids = new Set<string>();
+        for (const group of groups) {
+            for (const section of [group.root, ...group.children]) {
+                for (const item of section.items) ids.add(item.id);
+            }
+        }
+        return ids.size;
+    }, []);
+    const totalProductCount = useMemo(
+        () => countDistinctProducts(sectionGroups),
+        [sectionGroups, countDistinctProducts]
+    );
+
     // Filtra item per allergens. Prodotti senza allergens taggati: sempre
     // visibili (no match possibile, disclaimer nel sheet copre il caso).
     const displaySectionGroups = useMemo<CollectionViewSectionGroup[]>(() => {
@@ -1114,6 +1178,43 @@ export default function CollectionView({
 
     const allFiltered =
         allergenFilterIds.length > 0 && displaySectionGroups.length === 0;
+
+    const visibleProductCount = useMemo(
+        () => countDistinctProducts(displaySectionGroups),
+        [displaySectionGroups, countDistinctProducts]
+    );
+
+    // Prodotti nascosti dai filtri: differenza fra i due conteggi già calcolati
+    // su id univoci (lo stesso prodotto può comparire in più sezioni).
+    const hiddenProductCount = Math.max(0, totalProductCount - visibleProductCount);
+
+    // Gate esplicito sui segnali di stato filtro (badge sulla lente, riga
+    // «N nascosti»): in preview il filtro non gira mai — gli effect sono già
+    // gated su mode — ma dirlo qui rende l'intenzione leggibile sul posto.
+    const showFilterState = mode === "public" && allergenFilterIds.length > 0;
+
+    // ── Chiusura della riga «N nascosti» ────────────────────────────────────
+    // Hydration-safe come le preferenze allergeni: default false in render,
+    // lettura da sessionStorage in effect post-mount.
+    const [hiddenNoticeDismissed, setHiddenNoticeDismissedState] = useState(false);
+    useEffect(() => {
+        if (!activityId || mode !== "public") return;
+        setHiddenNoticeDismissedState(isHiddenNoticeDismissed(activityId));
+    }, [activityId, mode]);
+
+    // A filtri azzerati il flag decade: riapplicandone uno la riga ricompare,
+    // perché è un avviso nuovo su uno stato nuovo.
+    useEffect(() => {
+        if (!activityId || mode !== "public") return;
+        if (allergenFilterIds.length > 0) return;
+        clearHiddenNoticeDismissed(activityId);
+        setHiddenNoticeDismissedState(false);
+    }, [activityId, mode, allergenFilterIds.length]);
+
+    const dismissHiddenNotice = useCallback(() => {
+        setHiddenNoticeDismissedState(true);
+        if (activityId) setHiddenNoticeDismissed(activityId);
+    }, [activityId]);
 
     // Azzera il filtro allergeni. La persistenza segue dall'effect di persist
     // sopra: il suo guard è un flag one-shot di sequenza (consumato al mount),
@@ -1221,10 +1322,27 @@ export default function CollectionView({
         [displaySectionGroups]
     );
 
-    // Solo le sezioni L1 (root dei gruppi) — usato per scroll tracking e nav
-    const l1Sections = useMemo(
+    // ── Due domini distinti di sezioni L1, NON intercambiabili ──────────────
+    //
+    // catalogL1Sections: tutte le L1 del catalogo, pre-filtro. Serve SOLO
+    // all'analytics: section_index deve misurare la posizione nel menù del
+    // ristoratore, non in quello ristretto dai filtri del cliente. Altrimenti
+    // due sessioni che leggono la stessa quantità di menù riporterebbero
+    // profondità diverse, e chi legge le Analitiche non avrebbe modo di saperlo.
+    //
+    // visibleL1Sections: solo le L1 effettivamente renderizzate. Serve a tutto
+    // ciò che ragiona su ciò che l'utente ha davanti — section tracking e
+    // misura della nav. Deve restare allineata a navItems: quando divergono,
+    // activeSectionId può puntare a una categoria che non ha più una pill e
+    // nessuna risulta evidenziata.
+    const catalogL1Sections = useMemo(
         () => sectionGroups.map(g => g.root),
         [sectionGroups]
+    );
+
+    const visibleL1Sections = useMemo(
+        () => displaySectionGroups.map(g => g.root),
+        [displaySectionGroups]
     );
 
     // ── Analytics: product_detail_open wrapper ──────────────────────────
@@ -1569,6 +1687,9 @@ export default function CollectionView({
     const addPairingToSelection = useCallback((pairedProductId: string) => {
         const p = findProductById(pairedProductId);
         if (!p) return;
+        // Stesso gate del "+" lista: un abbinato senza prezzo utilizzabile non
+        // entra in selezione (il tap resta inerte, la card resta consultabile).
+        if (!hasOrderablePrice(p)) return;
         addToSelection(p.id, p.name, p.effective_price ?? p.price ?? p.from_price ?? 0, null, []);
     }, [findProductById, addToSelection]);
 
@@ -1718,13 +1839,19 @@ export default function CollectionView({
         [openItemDetail, mode]
     );
     const handleRowAdd = useCallback(
-        (item: CollectionViewSectionItem) => handleAddClick(
-            item.id,
-            item.name,
-            item.effective_price ?? item.price ?? 0,
-            item.optionGroups,
-            () => openItemDetail(item)
-        ),
+        (item: CollectionViewSectionItem) => {
+            // Difensivo: il "+" è già nascosto per gli item senza prezzo
+            // utilizzabile, ma il callback resta raggiungibile da altre
+            // sorgenti — non aggiungere mai a totale falso.
+            if (!hasOrderablePrice(item)) return;
+            handleAddClick(
+                item.id,
+                item.name,
+                item.effective_price ?? item.price ?? 0,
+                item.optionGroups,
+                () => openItemDetail(item)
+            );
+        },
         [handleAddClick, openItemDetail]
     );
 
@@ -1774,7 +1901,10 @@ export default function CollectionView({
             ro?.disconnect();
             window.removeEventListener("resize", onResize);
         };
-    }, [recomputeStickyOffset, l1Sections]);
+        // visibleL1Sections e non catalogL1Sections: qui si misura l'altezza
+        // della nav RENDERIZZATA, che mostra le sole categorie sopravvissute al
+        // filtro — se scendono da due righe a una, l'offset va rimisurato.
+    }, [recomputeStickyOffset, visibleL1Sections]);
 
     // ── Evidenziazione prodotto raggiunto dalla ricerca (pop + velo) ────────
     // Il prodotto scelto in SearchOverlay è scrollato qui (CollectionView resta
@@ -1897,8 +2027,12 @@ export default function CollectionView({
                     const sectionId = (entry.target as HTMLElement).dataset.sectionId;
                     if (!sectionId || viewedSectionsRef.current.has(sectionId)) continue;
                     viewedSectionsRef.current.add(sectionId);
-                    const section = l1Sections.find(s => s.id === sectionId);
-                    const sectionIndex = l1Sections.findIndex(s => s.id === sectionId);
+                    // catalogL1Sections: l'indice deve dire la posizione nel
+                    // menù del ristoratore, non in quello ristretto dai filtri
+                    // del cliente — altrimenti la stessa lettura darebbe
+                    // profondità diverse a seconda dei filtri attivi.
+                    const section = catalogL1Sections.find(s => s.id === sectionId);
+                    const sectionIndex = catalogL1Sections.findIndex(s => s.id === sectionId);
                     trackEvent(activityId, "section_view", {
                         section_title: section?.name,
                         section_index: sectionIndex
@@ -1913,7 +2047,7 @@ export default function CollectionView({
         }
 
         return () => observer.disconnect();
-    }, [mode, activityId, l1Sections, sectionGroups]);
+    }, [mode, activityId, catalogL1Sections, sectionGroups]);
 
     // ── Valuta FAB ──────────────────────────────────────────────────────────
     const [valutaVisible, setValutaVisible] = useState(false);
@@ -1935,12 +2069,21 @@ export default function CollectionView({
         openReviewsSheet();
     }, [valutaVisible, openReviewsSheet]);
 
-    // ── Keep first section active when sections load asynchronously ─────────
+    // ── Prima categoria attiva, e risanamento di un id orfano ───────────────
+    // Copre due casi con la stessa regola: le sezioni che arrivano in modo
+    // asincrono (activeSectionId ancora null) e l'attivo che punta a una
+    // categoria appena svuotata dal filtro — lì la pill non esiste più e
+    // nessuna risulterebbe evidenziata. In entrambi si riparte dalla prima
+    // categoria visibile; l'effect di scroll, che gira dopo, corregge subito
+    // in base alla posizione reale.
     useEffect(() => {
-        if (!activeSectionId && sectionGroups.length > 0) {
-            setActiveSectionId(sectionGroups[0].root.id);
-        }
-    }, [activeSectionId, sectionGroups]);
+        if (visibleL1Sections.length === 0) return;
+        const stillVisible =
+            activeSectionId !== null &&
+            visibleL1Sections.some(s => s.id === activeSectionId);
+        if (stillVisible) return;
+        setActiveSectionId(visibleL1Sections[0].id);
+    }, [activeSectionId, visibleL1Sections]);
 
     // ── Chiudi il dettaglio prodotto al cambio di tab ────────────────────────
     // skipNextTabCloseRef: quando il cambio tab è CAUSATO dall'apertura di un
@@ -2019,7 +2162,7 @@ export default function CollectionView({
 
     // ── Main scroll effect: section tracking + scroll-to-top visibility ─────
     useEffect(() => {
-        if (l1Sections.length === 0) return;
+        if (visibleL1Sections.length === 0) return;
 
         function findScrollContainer(el: HTMLElement | null): HTMLElement | Window {
             let node = el?.parentElement ?? null;
@@ -2045,8 +2188,11 @@ export default function CollectionView({
             const containerTop =
                 container === window ? 0 : (container as HTMLElement).getBoundingClientRect().top;
 
-            let naturalActive = l1Sections[0].id;
-            for (const section of l1Sections) {
+            // Seme e iterazione sul dominio VISIBILE: una categoria svuotata dal
+            // filtro non è renderizzata, quindi non le corrisponde nessuna zona
+            // di pagina e non può essere il risultato del tracking.
+            let naturalActive = visibleL1Sections[0].id;
+            for (const section of visibleL1Sections) {
                 const el = sectionRefs.current[section.id];
                 if (!el) continue;
                 const sectionTop = el.getBoundingClientRect().top - containerTop;
@@ -2108,7 +2254,10 @@ export default function CollectionView({
             }
             pendingScrollTargetIdRef.current = null;
         };
-    }, [l1Sections, scrollContainerEl, mode]);
+        // Dipendere da visibleL1Sections fa ri-eseguire l'effect quando il
+        // filtro cambia la lista: il computeActiveSection all'ingresso ricalcola
+        // l'attivo sulla posizione reale, senza attendere il primo scroll.
+    }, [visibleL1Sections, scrollContainerEl, mode]);
 
     // ── Nav items — L1 + children per dropdown sotto-sezioni ────────────────
     // Derivati da displaySectionGroups: il filtro allergeni nasconde anche le
@@ -2533,8 +2682,14 @@ export default function CollectionView({
                                 isOpen={isSearchOpen}
                                 onClose={handleCloseSearch}
                                 sections={searchableSections}
+                                rootView={searchRootView}
                                 activeFilterCount={allergenFilterIds.length}
                                 onClearFilters={clearAllergenFilter}
+                                filterAllergens={allergensByFrequency}
+                                appliedFilterIds={allergenFilterIds}
+                                onApplyFilters={setAllergenFilterIds}
+                                visibleProductCount={visibleProductCount}
+                                totalProductCount={totalProductCount}
                                 scrollContainerEl={scrollContainerEl}
                                 mode={mode}
                                 activityId={activityId}
@@ -2720,6 +2875,41 @@ export default function CollectionView({
                                     data-content-density={style.contentDensity ?? "full"}
                                 >
                                     {featuredBeforeCatalogSlot}
+                                    {/* Perché il menù è più corto del solito. Riga nuda,
+                                        senza contenitore: è una nota a margine del
+                                        catalogo, non un avviso di sistema — il filtro
+                                        l'ha scelto il cliente. Assente quando allFiltered
+                                        (lì parla l'empty state dedicato) e una volta
+                                        chiusa con la X, finché i filtri non tornano a
+                                        zero. Unico aria-live della feature. */}
+                                    {showFilterState && !allFiltered && !hiddenNoticeDismissed && hiddenProductCount > 0 && (
+                                        <div className={styles.hiddenByFilters} aria-live="polite">
+                                            <SlidersHorizontal
+                                                size={13}
+                                                strokeWidth={2}
+                                                className={styles.hiddenByFiltersIcon}
+                                                aria-hidden
+                                            />
+                                            <span className={styles.hiddenByFiltersText}>
+                                                {t("filters.hidden_count", { count: hiddenProductCount })}
+                                            </span>
+                                            <button
+                                                type="button"
+                                                onClick={clearAllergenFilter}
+                                                className={styles.hiddenByFiltersBtn}
+                                            >
+                                                {t("filters.show_all")}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={dismissHiddenNotice}
+                                                className={styles.hiddenByFiltersClose}
+                                                aria-label={t("filters.dismiss_aria")}
+                                            >
+                                                <X size={13} strokeWidth={2} aria-hidden />
+                                            </button>
+                                        </div>
+                                    )}
                                     {allFiltered && (
                                         <div className={styles.allergenEmptyState}>
                                             <Text variant="body" color="var(--pub-bg-text)">
@@ -2727,7 +2917,7 @@ export default function CollectionView({
                                             </Text>
                                             <button
                                                 type="button"
-                                                onClick={() => setIsAllergensFilterOpen(true)}
+                                                onClick={handleOpenFilters}
                                                 className={styles.allergenEmptyBtn}
                                             >
                                                 {t("allergens.filter_edit_cta")}
@@ -3071,7 +3261,7 @@ export default function CollectionView({
                 <MoreSheet
                     isOpen={isMoreSheetOpen}
                     onClose={() => setIsMoreSheetOpen(false)}
-                    onOpenAllergens={() => setIsAllergensFilterOpen(true)}
+                    onOpenFilters={handleOpenFilters}
                     onOpenInfo={() => setIsInfoSheetOpen(true)}
                     onOpenReservation={
                         enableReservations && slug
@@ -3086,7 +3276,7 @@ export default function CollectionView({
                               }
                             : undefined
                     }
-                    allergensCount={allergenFilterIds.length}
+                    activeFilterCount={allergenFilterIds.length}
                     hasAllergensInCatalog={allergensInCatalog.length > 0}
                     hasInfo={hasAnyInfo}
                     // SSR-safe: window assente nel render server (entry-server);
@@ -3098,17 +3288,6 @@ export default function CollectionView({
                             : undefined
                     }
                     shareTitle={businessName}
-                />
-            )}
-
-            {mode === "public" && (
-                <AllergensSheet
-                    mode="filter"
-                    isOpen={isAllergensFilterOpen}
-                    onClose={() => setIsAllergensFilterOpen(false)}
-                    allergens={allergensInCatalog}
-                    selectedIds={allergenFilterIds}
-                    onApplyFilter={setAllergenFilterIds}
                 />
             )}
 

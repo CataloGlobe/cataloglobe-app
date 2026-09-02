@@ -56,10 +56,17 @@ const STEP_COPY = [
     }
 ];
 
-/** Copy alternativo del passo 3 quando il menù è stato creato vuoto. */
+/**
+ * Copy alternativo del passo 3 quando il menù è stato creato vuoto.
+ *
+ * Annuncia il risultato, non la mancanza: quello che manca lo dice già il
+ * riquadro ambra sotto, e ripeterlo qui faceva del passo tre blocchi che
+ * dicevano la stessa cosa. Il QR è il deliverable, ed è pronto davvero.
+ */
 const EMPTY_MENU_COPY = {
-    title: "Manca un ultimo passo: i piatti",
-    subtitle: "Sede, menù e regola sono a posto. Il tuo indirizzo pubblico funziona già."
+    title: "Il tuo QR è pronto",
+    subtitle:
+        "Sede, menù e regola sono a posto: manca solo cosa mostrare dentro, cioè i piatti."
 };
 
 export default function SetupWizardPage() {
@@ -70,9 +77,10 @@ export default function SetupWizardPage() {
 
     const [stepIndex, setStepIndex] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
-    // Campi compilati al passo 1: nulla raggiunge il DB prima del submit, quindi
-    // è l'unico stato del wizard che un'uscita può perdere.
-    const [isStepOneDirty, setIsStepOneDirty] = useState(false);
+    // Copertina scelta al passo 1: i campi testuali sopravvivono all'uscita in
+    // una bozza locale, la copertina è un `File` e non può seguirli. È l'unico
+    // contenuto del passo 1 che un'uscita perde davvero.
+    const [stepOneHasCover, setStepOneHasCover] = useState(false);
     // Sede creata al passo 1: l'id serve al passo 2 per collegare il menù, slug
     // e nome al passo 3 per comporre URL pubblico e QR.
     const [createdActivity, setCreatedActivity] = useState<CreatedActivity | null>(null);
@@ -222,9 +230,17 @@ export default function SetupWizardPage() {
         };
     }, [stepIndex, tenantId, createdActivity, createdCatalog]);
 
+    // Chi esce arriva in Panoramica senza sapere cosa sia successo. Lo stato
+    // della navigazione porta l'unica distinzione che conta per il messaggio:
+    // se la sede è stata creata il percorso non è più ripercorribile (il gate
+    // rimanda indietro chi ha già una sede), quindi lì un invito a riprendere
+    // sarebbe un'azione rotta. Derivata da `createdActivity`, non dal passo:
+    // stessa fonte delle varianti della conferma di chiusura.
     const handleExitToOverview = useCallback(() => {
-        navigate(`/business/${businessId}/overview`);
-    }, [navigate, businessId]);
+        navigate(`/business/${businessId}/overview`, {
+            state: { setupExit: createdActivity !== null ? "activity-created" : "resumable" }
+        });
+    }, [navigate, businessId, createdActivity]);
 
     const handleActivityCreated = useCallback((activity: V2Activity) => {
         setCreatedActivity({
@@ -349,7 +365,7 @@ export default function SetupWizardPage() {
                     </Text>
                 ) : undefined
             }
-            isStepOneDirty={isStepOneDirty}
+            stepOneHasCover={stepOneHasCover}
             // Dalla sede, non da `stepIndex`: se `createActivity` riesce e
             // l'upload della copertina fallisce, la sede esiste ma il passo non
             // è avanzato. È la sede a dire cosa è stato davvero salvato.
@@ -375,7 +391,7 @@ export default function SetupWizardPage() {
                     formId={ACTIVITY_FORM_ID}
                     tenantId={tenantId}
                     onSavingChange={setIsSaving}
-                    onDirtyChange={setIsStepOneDirty}
+                    onCoverSelectedChange={setStepOneHasCover}
                     onCreated={handleActivityCreated}
                 />
             )}

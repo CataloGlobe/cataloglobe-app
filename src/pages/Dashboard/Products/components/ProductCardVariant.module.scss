@@ -87,6 +87,14 @@
     margin-bottom: 4px;
 }
 
+/* Riga dei segnali (badge mancanze + prezzo): wrap invece di troncamento. */
+.signals {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
 .price {
     font-size: 12px;
     font-weight: 700;

@@ -13,15 +13,25 @@
 // / `onSettled`; i gate di pagina (abbonamento, limite sedi) via i
 // guard `canSubmit` / `beforeCreate`, invocati nello stesso ordine in
 // cui vivevano nel flusso originale.
+//
+// `persistDraft` aggiunge una bozza locale dei campi testuali (opt-in,
+// spenta per default): serve al setup guidato, dove un "indietro" del
+// browser perderebbe in silenzio un form che non ha ancora toccato il DB.
+// Il drawer di creazione sede resta senza, il suo contesto non si perde.
 // ============================================================
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { createActivity, uploadActivityCover } from "@/services/supabase/activities";
 import { ensureUniqueBusinessSlug } from "@/utils/businessSlug";
 import { generateSlug, sanitizeSlugForSave } from "@/utils/slugify";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { isValidCapIT, isValidProvinciaIT } from "@/utils/addressValidators";
 import { RESERVED_SLUGS } from "@/constants/reservedSlugs";
+import {
+    clearSetupActivityDraft,
+    readSetupActivityDraft,
+    saveSetupActivityDraft
+} from "@/utils/setupActivityDraft";
 import type { V2Activity } from "@/types/activity";
 import type { BusinessFormValues, SlugInlineState } from "@/types/Businesses";
 import type { ToastOptions } from "@/types/toast";
@@ -42,22 +52,6 @@ const EMPTY_FORM: BusinessFormValues = {
 
 export function isReservedSlug(slug: string): boolean {
     return RESERVED_SLUGS.has(slug);
-}
-
-/**
- * Vero se almeno un campo del form si discosta dal modulo vuoto.
- *
- * Confronto shallow sugli 8 campi, con `trim()`: un campo compilato e poi
- * ripulito (o riempito di soli spazi) torna equivalente al vuoto, quindi non
- * risulta sporco. `coverPreview` è un blob URL locale: qui basta la presenza,
- * la copertina vera è tracciata a parte da `coverFile`.
- */
-export function isBusinessFormDirty(values: BusinessFormValues): boolean {
-    return (Object.keys(EMPTY_FORM) as Array<keyof BusinessFormValues>).some(field => {
-        const current = values[field]?.trim() ?? "";
-        const empty = EMPTY_FORM[field]?.trim() ?? "";
-        return current !== empty;
-    });
 }
 
 export function validateBusinessForm(values: BusinessFormValues): BusinessFormErrors {
@@ -125,6 +119,13 @@ export interface UseCreateActivityOptions {
     canSubmit?: () => boolean;
     /** Guard dopo i controlli slug, prima della insert (es. limite sedi del piano). */
     beforeCreate?: () => boolean;
+    /**
+     * Conserva i campi testuali in una bozza locale per tenant, ripristinata
+     * al montaggio successivo. Opt-in: serve dove un'uscita non intenzionale
+     * (indietro del browser) perderebbe un form mai arrivato al DB. La
+     * copertina resta fuori — un `File` non è serializzabile.
+     */
+    persistDraft?: boolean;
     /** Feedback utente (toast) prodotto dal flusso di creazione. */
     onNotify?: (options: ToastOptions) => void;
     /**
@@ -142,12 +143,6 @@ export interface UseCreateActivityResult {
     values: BusinessFormValues;
     errors: BusinessFormErrors;
     isCreating: boolean;
-    /**
-     * Almeno un campo compilato (copertina inclusa). Serve a chi ospita il form
-     * per sapere se un'uscita perderebbe dati: la scrittura su DB avviene solo
-     * al submit, quindi finché è falso non c'è nulla da perdere.
-     */
-    isDirty: boolean;
     slugState: SlugInlineState;
     setSlugState: (state: SlugInlineState) => void;
     handleFieldChange: <K extends keyof BusinessFormValues>(
@@ -165,6 +160,7 @@ export function useCreateActivity({
     activityType = null,
     canSubmit,
     beforeCreate,
+    persistDraft = false,
     onNotify,
     onSuccess,
     onSettled
@@ -176,18 +172,42 @@ export function useCreateActivity({
     const [slugTouched, setSlugTouched] = useState(false);
     const [slugState, setSlugState] = useState<SlugInlineState>({ type: "idle" });
     const debouncedName = useDebounce(values.name, 500);
+    // Stessa soglia dello slug: si salva quando l'utente si ferma, non a ogni
+    // battuta. `values` è un oggetto nuovo a ogni modifica, quindi il debounce
+    // lavora sull'identità senza bisogno di confrontare campo per campo.
+    const debouncedValues = useDebounce(values, 500);
 
-    const isDirty = useMemo(
-        () => coverFile !== null || isBusinessFormDirty(values),
-        [values, coverFile]
-    );
+    // Ripristino tentato una volta sola: senza guard, un remount del ramo o un
+    // cambio di `onNotify` rifarebbe partire toast e rivalidazione.
+    const draftRestoredRef = useRef(false);
+    // Creata la sede, la bozza non descrive più niente di recuperabile. Serve
+    // un flag e non il solo reset dei valori: se `createActivity` riesce e
+    // l'upload della copertina fallisce, il form resta compilato e senza
+    // questo la bozza verrebbe riscritta per una sede che ormai esiste.
+    const activityCreatedRef = useRef(false);
 
     // GENERAZIONE SLUG AUTOMATICA CON DEBOUNCE
     useEffect(() => {
-        if (!debouncedName.trim()) {
-            setValues(prev => ({ ...prev, slug: "" }));
+        // Il nome CORRENTE è la fonte di verità su "il campo è vuoto".
+        // `debouncedName` vuoto ha due significati che vanno distinti: il nome
+        // è davvero vuoto, oppure il debounce non ha ancora prodotto il valore
+        // appena scritto — o appena ripristinato dalla bozza, dove il nome
+        // arriva tutto insieme e questo effect rigira subito perché
+        // `slugTouched` è cambiato, con `debouncedName` ancora alla stringa
+        // iniziale. Leggere lì il "vuoto" azzerava lo slug appena ripristinato.
+        if (!values.name.trim()) {
+            // Identità preservata quando non c'è nulla da azzerare: al primo
+            // render `values` resta `EMPTY_FORM`, che è ciò su cui il
+            // salvataggio della bozza si regola.
+            setValues(prev => (prev.slug === "" ? prev : { ...prev, slug: "" }));
             return;
         }
+
+        // Debounce non ancora allineato al nome corrente: si aspetta il suo
+        // giro, senza toccare lo slug e senza interrogare la rete a ogni
+        // battuta con un valore già stantio.
+        if (debouncedName !== values.name) return;
+
         if (slugTouched) return; // l’utente ha modificato manualmente lo slug → non aggiorniamo più
         if (!tenantId) return;
 
@@ -198,7 +218,71 @@ export function useCreateActivity({
         }
 
         compute();
-    }, [debouncedName, slugTouched, tenantId]);
+    }, [values.name, debouncedName, slugTouched, tenantId]);
+
+    // RIPRISTINO DELLA BOZZA LOCALE
+    //
+    // Dichiarato dopo l'effect dello slug: al primo giro quello azzera lo slug
+    // perché il nome è vuoto, e deve farlo prima che la bozza scriva i suoi
+    // valori, non dopo.
+    useEffect(() => {
+        if (!persistDraft || !tenantId) return;
+        if (draftRestoredRef.current) return;
+        draftRestoredRef.current = true;
+
+        const draft = readSetupActivityDraft(tenantId);
+        if (!draft) return;
+
+        // Lo slug ripristinato viene dalla bozza, non dal nome corrente:
+        // trattarlo come "toccato" impedisce alla generazione automatica di
+        // sovrascriverlo appena il nome si stabilizza. Se la bozza non ne
+        // aveva uno, la generazione resta libera di produrlo.
+        if (draft.slug.trim()) setSlugTouched(true);
+        setValues(prev => ({ ...prev, ...draft }));
+
+        onNotify?.({
+            message: "Abbiamo ripreso i dati che avevi lasciato su questo dispositivo.",
+            type: "info",
+            duration: 4000
+        });
+
+        // `activities.slug` è UNIQUE globale: nei giorni fra l'abbandono e la
+        // ripresa qualcun altro può averlo preso. Rivalidato invece che dato
+        // per buono, con lo stesso esito che il form produce già quando il
+        // submit incontra un conflitto — nessun ramo nuovo da imparare.
+        const savedSlug = sanitizeSlugForSave(draft.slug);
+        if (!savedSlug) return;
+
+        (async () => {
+            try {
+                const unique = await ensureUniqueBusinessSlug(savedSlug);
+                if (unique === savedSlug) return;
+                const suggestions = await getSlugSuggestions(savedSlug, draft.city);
+                setSlugState({ type: "conflict", suggestions });
+            } catch (error) {
+                // Rete assente o query fallita: lo slug resta com'era e il
+                // conflitto, se c'è, riemerge al submit — che lo ricontrolla
+                // comunque. Meglio di un form bloccato alla ripresa.
+                console.error("[useCreateActivity] rivalidazione slug bozza fallita:", error);
+            }
+        })();
+    }, [persistDraft, tenantId, onNotify]);
+
+    // SALVATAGGIO DELLA BOZZA
+    useEffect(() => {
+        if (!persistDraft || !tenantId) return;
+        // Prima del tentativo di ripristino non c'è nulla di significativo da
+        // scrivere, e scrivere ora sovrascriverebbe la bozza da leggere.
+        if (!draftRestoredRef.current) return;
+        if (activityCreatedRef.current) return;
+        // Identità, non contenuto: `EMPTY_FORM` è la costante del primo render
+        // e quella a cui torna `reset()`. Qualunque modifica dell'utente
+        // produce un oggetto diverso, quindi qui passano solo i form davvero
+        // toccati — al montaggio non si scrive (né si cancella) nulla.
+        if (debouncedValues === EMPTY_FORM) return;
+
+        saveSetupActivityDraft(tenantId, debouncedValues);
+    }, [persistDraft, tenantId, debouncedValues]);
 
     const handleFieldChange = useCallback(
         <K extends keyof BusinessFormValues>(field: K, value: BusinessFormValues[K]) => {
@@ -337,6 +421,15 @@ export function useCreateActivity({
                     activity_type: activityType
                 });
 
+                // La sede esiste: la bozza non ha più niente da recuperare e
+                // lasciarla sarebbe un fantasma alla prossima apertura. Qui e
+                // non a fine blocco: se l'upload della copertina fallisce, la
+                // sede resta creata comunque.
+                if (persistDraft) {
+                    activityCreatedRef.current = true;
+                    clearSetupActivityDraft(tenantId);
+                }
+
                 if (coverFile) {
                     const compressedCover = await compressImage(coverFile, COMPRESS_PROFILES.cover);
                     await uploadActivityCover(
@@ -375,6 +468,7 @@ export function useCreateActivity({
             coverFile,
             canSubmit,
             beforeCreate,
+            persistDraft,
             onNotify,
             onSuccess,
             onSettled
@@ -385,7 +479,6 @@ export function useCreateActivity({
         values,
         errors,
         isCreating,
-        isDirty,
         slugState,
         setSlugState,
         handleFieldChange,

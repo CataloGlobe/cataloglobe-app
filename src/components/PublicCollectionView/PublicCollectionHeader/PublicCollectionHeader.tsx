@@ -36,6 +36,17 @@ function readContentMaxWidth(el?: HTMLElement | null): number {
 export const HEADER_HEIGHT_MOBILE = 108;
 export const HEADER_HEIGHT_DESKTOP = 116;
 
+/**
+ * Id del bottone lente. Serve a SearchOverlay per riportare il focus qui alla
+ * chiusura: il pannello non può ricavarlo da document.activeElement perché al
+ * suo mount l'elemento attivo è il ghost input (focalizzato in-gesto per la
+ * tastiera iOS), non la lente.
+ *
+ * Applicato SOLO in mode="public": la preview monta due header (mobile +
+ * desktop) e l'id deve restare unico nel documento.
+ */
+export const SEARCH_TRIGGER_ID = "pub-search-trigger";
+
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
 export type PublicCollectionHeaderProps = {
@@ -67,7 +78,8 @@ export type PublicCollectionHeaderProps = {
     activeTab?: HubTab;
     /** Callback per cambio tab. Obbligatoria solo quando showHubTabs !== false. */
     onTabChange?: (tab: HubTab) => void;
-    /** Conteggio allergeni filtrati attivi (per badge sul pulsante More). */
+    /** Conteggio filtri allergeni attivi: badge sulla LENTE (è da lì che si
+     *  aprono i filtri). La voce dentro «…» resta, ma senza conteggio. */
     allergensCount?: number;
     /** Apre il MoreSheet (allergeni + info). Undefined in preview. */
     onOpenMore?: () => void;
@@ -406,6 +418,7 @@ export default function PublicCollectionHeader({
                         {(onSearchOpen || mode === "preview") && (
                             <button
                                 type="button"
+                                id={mode === "public" ? SEARCH_TRIGGER_ID : undefined}
                                 className={styles.iconBtn}
                                 onClick={() => {
                                     // Focus sincrono in-gesto sul ghost → tastiera iOS su
@@ -420,6 +433,14 @@ export default function PublicCollectionHeader({
                                 tabIndex={mode === "preview" ? -1 : undefined}
                             >
                                 <Search size={15} strokeWidth={2} />
+                                {/* Conteggio filtri attivi: sta QUI e non su «…»
+                                    perché è dalla lente che si aprono i filtri.
+                                    Due badge nello stesso cluster sarebbero rumore. */}
+                                {allergensCount > 0 && (
+                                    <span className={styles.iconBtnBadge} aria-hidden>
+                                        {allergensCount}
+                                    </span>
+                                )}
                             </button>
                         )}
 
@@ -434,11 +455,6 @@ export default function PublicCollectionHeader({
                                 tabIndex={mode === "preview" ? -1 : undefined}
                             >
                                 <MoreHorizontal size={16} strokeWidth={2} />
-                                {allergensCount > 0 && (
-                                    <span className={styles.iconBtnBadge} aria-hidden>
-                                        {allergensCount}
-                                    </span>
-                                )}
                             </button>
                         )}
 

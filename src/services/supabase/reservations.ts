@@ -265,6 +265,72 @@ export async function submitReservation(
     return data;
 }
 
+// ─── CUSTOMER-SIDE (edge `reservation-availability`, pubblica) ─────────────
+
+export interface ReservationAvailabilityInput {
+    slug: string;
+    reservation_date: string;
+    party_size: number;
+    /** Orari "HH:MM" che il picker ha già deciso di mostrare. Max 96. */
+    times: string[];
+}
+
+export interface ReservationAvailabilitySlot {
+    time: string;
+    available: boolean;
+}
+
+/**
+ * Chiede quali fra gli orari proposti accettano una prenotazione per N persone.
+ *
+ * La griglia la possiede il CLIENT: quali orari esistano dipende da orari di
+ * apertura, chiusure e coda oltre mezzanotte (`reservationSlots.ts`). Il server
+ * risponde solo sullo stato, e non restituisce nulla sull'occupazione reale —
+ * né posti residui, né tetti, né il motivo del blocco.
+ *
+ * La risposta è una fotografia di qualche secondo prima: la verità resta il
+ * ricontrollo sotto lock al submit. Chi chiama deve trattare un fallimento
+ * come "non lo so", NON come "tutto pieno": la griglia torna ottimista e il
+ * gate resta al submit. Un errore di rete non deve impedire di prenotare.
+ *
+ * Errori (`.code` su Error):
+ *   INVALID_PAYLOAD → 400
+ *   UNAVAILABLE     → 409, sede non consultabile (inesistente, sospesa,
+ *                     prenotazioni disattivate, abbonamento, piano). Unico
+ *                     codice per tutti: nessun oracolo sull'esistenza.
+ *   RATE_LIMITED    → 429
+ *   SERVER_ERROR    → 500 / rete / fallback
+ */
+export async function getReservationAvailability(
+    input: ReservationAvailabilityInput
+): Promise<ReservationAvailabilitySlot[]> {
+    const { data, error } = await supabase.functions.invoke<{
+        slots: ReservationAvailabilitySlot[];
+    }>("reservation-availability", { body: input });
+
+    if (error) {
+        let code = "SERVER_ERROR";
+        let message: string | undefined;
+        if (error instanceof FunctionsHttpError) {
+            try {
+                const body = (await error.context.clone().json()) as {
+                    error_code?: unknown;
+                    message?: unknown;
+                };
+                if (typeof body?.error_code === "string") code = body.error_code;
+                if (typeof body?.message === "string") message = body.message;
+            } catch {
+                // body non JSON → restano i default
+            }
+        }
+        const err = new Error(message ?? code);
+        (err as Error & { code?: string }).code = code;
+        throw err;
+    }
+
+    return Array.isArray(data?.slots) ? data.slots : [];
+}
+
 // ─── CUSTOMER-SIDE (edge `cancel-reservation-public`, link firmato) ─────────
 
 /** Riepilogo mostrato al cliente sulla pagina di disdetta.

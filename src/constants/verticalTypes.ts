@@ -83,6 +83,12 @@ export const VERTICAL_LABELS: Record<VerticalType, string> = {
 export interface VerticalConfig {
     label: string;
     catalogLabel: string;
+    /**
+     * Plurale di `catalogLabel`. Esiste come campo e non come regola derivata
+     * perché in italiano non è ricavabile: "Menù" è invariabile, "Catalogo"
+     * diventa "Cataloghi". Serve a conteggi e statistiche ("3 menù", StatCard).
+     */
+    catalogLabelPlural: string;
     categoryLabel: string;
     productLabel: string;
     productLabelPlural: string;
@@ -128,6 +134,7 @@ export interface VerticalConfig {
 const FOOD_BEVERAGE_CONFIG: VerticalConfig = {
     label: "Food & Beverage",
     catalogLabel: "Menù",
+    catalogLabelPlural: "Menù",
     categoryLabel: "Portata",
     productLabel: "Prodotto",
     productLabelPlural: "Prodotti",
@@ -179,6 +186,7 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
     retail: {
         label: "Negozio",
         catalogLabel: "Catalogo",
+        catalogLabelPlural: "Cataloghi",
         categoryLabel: "Categoria",
         productLabel: "Prodotto",
         productLabelPlural: "Prodotti",
@@ -212,6 +220,7 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
     hotel: {
         label: "Hotel",
         catalogLabel: "Catalogo",
+        catalogLabelPlural: "Cataloghi",
         categoryLabel: "Categoria",
         productLabel: "Prodotto",
         productLabelPlural: "Prodotti",
@@ -245,6 +254,7 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
     generic: {
         label: "Generico",
         catalogLabel: "Catalogo",
+        catalogLabelPlural: "Cataloghi",
         categoryLabel: "Categoria",
         productLabel: "Prodotto",
         productLabelPlural: "Prodotti",

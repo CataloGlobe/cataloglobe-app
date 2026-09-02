@@ -763,8 +763,8 @@ export default function AnalyticsPage() {
                                     <div className={styles.chartsGrid}>
                                         <ReservationsHourlyChart data={reservationsHourly} isLoading={isLoading} />
                                         <ReservationsSoonCard
-                                            title="No-show"
-                                            description="Prenotazioni che non si presentano. Disponibile quando il flusso registrerà lo stato no-show."
+                                            title="Non presentati"
+                                            description="Prenotazioni che non si presentano. Disponibile quando il flusso registrerà lo stato."
                                         />
                                     </div>
 

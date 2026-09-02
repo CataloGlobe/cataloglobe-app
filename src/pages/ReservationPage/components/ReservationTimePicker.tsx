@@ -34,6 +34,12 @@ type Props = {
     /** Optional id wired by parent for aria-describedby on the field error. */
     errorId?: string;
     invalid?: boolean;
+    /** Lettura di disponibilità in volo. La griglia resta montata e
+     *  interattiva: si attenua soltanto, così non salta né si svuota mentre
+     *  arriva la risposta. */
+    loading?: boolean;
+    /** Testo per gli screen reader durante il caricamento. */
+    loadingLabel?: string;
 };
 
 function slotIsInteractive(slot: ReservationSlot): boolean {
@@ -41,7 +47,7 @@ function slotIsInteractive(slot: ReservationSlot): boolean {
 }
 
 function slotAriaLabel(slot: ReservationSlot, t: TFunction): string | undefined {
-    if (slot.state === "soldout") return t("reservation.slot_soldout_aria", { time: slot.time });
+    if (slot.state === "soldout") return t("reservation.slot_unavailable_aria", { time: slot.time });
     if (slot.state === "past") return t("reservation.slot_past_aria", { time: slot.time });
     return undefined;
 }
@@ -53,7 +59,9 @@ export default function ReservationTimePicker({
     disabled,
     disabledMessage,
     errorId,
-    invalid
+    invalid,
+    loading = false,
+    loadingLabel
 }: Props) {
     const { t } = useTranslation("public");
     // Recompute `now` (and the default period) only when `periods` change —
@@ -123,8 +131,24 @@ export default function ReservationTimePicker({
         <div
             className={styles.wrapper}
             data-invalid={invalid ? "true" : undefined}
+            data-loading={loading ? "true" : undefined}
+            aria-busy={loading || undefined}
             aria-describedby={errorId}
         >
+            {/* Segnale VISIBILE sopra la griglia. La sola attenuazione non
+                comunicava nulla: letta senza contesto diceva "sono tutti
+                spenti", che è il contrario del vero. Il testo occupa una riga
+                riservata anche da fermo (`.loadingRow` è sempre nel flusso, con
+                `visibility` commutata) così la griglia non si sposta di un
+                pixel quando compare. */}
+            <span
+                className={styles.loadingRow}
+                data-visible={loading ? "true" : undefined}
+                role="status"
+            >
+                <span className={styles.loadingDot} aria-hidden="true" />
+                {loading ? loadingLabel : ""}
+            </span>
             {periods.length > 1 && (
                 <div
                     className={styles.segmented}
@@ -174,7 +198,7 @@ export default function ReservationTimePicker({
                             >
                                 <span className={styles.slotTime}>{slot.time}</span>
                                 {slot.state === "soldout" && (
-                                    <span className={styles.slotTag}>{t("reservation.soldout_tag")}</span>
+                                    <span className={styles.slotTag}>{t("reservation.slot_unavailable_tag")}</span>
                                 )}
                             </button>
                         </li>

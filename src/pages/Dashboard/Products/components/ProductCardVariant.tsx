@@ -1,16 +1,23 @@
 import { Package } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Badge } from "@/components/ui/Badge/Badge";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import Text from "@/components/ui/Text/Text";
 import { FramedMedia } from "@components/ui/FramedMedia";
 import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./productImageFraming";
 import type { V2Product, ProductListMetadata } from "@/services/supabase/products";
+import {
+    getProductIssues,
+    type ProductCompletenessFacts
+} from "@/utils/productCompleteness";
 import styles from "./ProductCardVariant.module.scss";
 
 type Props = {
     variant: V2Product;
     metadata: ProductListMetadata;
     parentPrice?: string | null;
+    /** Fatti del prodotto base, sorgente dell'ereditarietà: senza, una variante che eredita prezzo o menù risulterebbe mancante. */
+    parentFacts?: ProductCompletenessFacts | null;
 };
 
 function formatVariantPrice(
@@ -31,11 +38,25 @@ function formatVariantPrice(
     return parentPrice ?? null;
 }
 
-export default function ProductCardVariant({ variant, metadata, parentPrice }: Props) {
+export default function ProductCardVariant({
+    variant,
+    metadata,
+    parentPrice,
+    parentFacts
+}: Props) {
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
+    const { catalogLabel } = useVerticalConfig();
 
     const price = formatVariantPrice(variant, metadata, parentPrice);
+    const issues = getProductIssues(
+        {
+            basePrice: variant.base_price,
+            pricedFormatsCount: metadata.pricedFormatsCount,
+            catalogsCount: metadata.catalogsCount
+        },
+        parentFacts
+    );
 
     const handleClick = () => {
         navigate(`/business/${businessId}/products/${variant.id}`);
@@ -79,11 +100,23 @@ export default function ProductCardVariant({ variant, metadata, parentPrice }: P
             {/* Body */}
             <div className={styles.body}>
                 <span className={styles.name}>{variant.name}</span>
-                {price !== null && (
-                    <Text variant="caption" className={styles.price}>
-                        {price}
-                    </Text>
-                )}
+                {/* Prima il dato, poi il commento: stesso ordine di ProductCard. */}
+                <div className={styles.signals}>
+                    {issues.missingPrice ? (
+                        <Badge variant="warning">Senza prezzo</Badge>
+                    ) : (
+                        price !== null && (
+                            <Text variant="caption" className={styles.price}>
+                                {price}
+                            </Text>
+                        )
+                    )}
+                    {issues.outOfCatalog && (
+                        <Badge variant="warning">
+                            {`Fuori ${catalogLabel.toLowerCase()}`}
+                        </Badge>
+                    )}
+                </div>
             </div>
         </div>
     );

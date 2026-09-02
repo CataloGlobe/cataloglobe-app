@@ -54,11 +54,11 @@ type SetupShellProps = {
      */
     sidebarNote?: ReactNode;
     /**
-     * Il passo 1 ha campi compilati non ancora salvati. Al passo 1 nulla
-     * raggiunge il DB prima del submit: senza campi compilati un'uscita non
-     * perde niente.
+     * Il passo 1 ha una copertina selezionata. È l'unica cosa che un'uscita
+     * perde davvero: i campi testuali restano in una bozza locale e tornano
+     * alla riapertura, un `File` non è serializzabile e non può seguirli.
      */
-    isStepOneDirty?: boolean;
+    stepOneHasCover?: boolean;
     /**
      * La sede esiste su DB. Deriva dalla sede, non dall'indice del passo: se
      * `createActivity` riesce e l'upload della copertina fallisce, la sede c'è
@@ -91,7 +91,7 @@ export function SetupShell({
     onPrimaryClick,
     chromeless = false,
     sidebarNote,
-    isStepOneDirty = false,
+    stepOneHasCover = false,
     hasCreatedActivity = false,
     secondaryLabel,
     onSecondaryClick,
@@ -113,10 +113,11 @@ export function SetupShell({
     // ---------------------------------------------------------------
     // Predicato di uscita — fonte unica per link, Esc e riga in sidebar.
     //
-    // Confermare un'uscita ha senso solo se c'è qualcosa da dire: dati del
-    // passo 1 che andrebbero persi, oppure una sede ormai creata che rende
-    // questa procedura non ripetibile. Senza nessuno dei due l'uscita è
-    // innocua e la conferma sarebbe solo un ostacolo.
+    // Confermare un'uscita ha senso solo se c'è qualcosa da dire: una
+    // copertina selezionata che non può seguire la bozza, oppure una sede
+    // ormai creata che rende questa procedura non ripetibile. Senza nessuno
+    // dei due l'uscita è innocua — i campi testuali tornano da soli alla
+    // riapertura — e la conferma sarebbe solo un ostacolo.
     //
     // `closeWarning` (analisi del menù in corso) ha precedenza: è l'unico caso
     // in cui si perde un lavoro già avviato, quindi impone la conferma anche
@@ -130,12 +131,13 @@ export function SetupShell({
               exitLabel: "Vai alla Panoramica"
           }
         : {
-              title: "Vuoi uscire dal setup?",
-              body: "I dati di questo passaggio non sono ancora salvati: chiudendo ora andranno persi.",
-              exitLabel: "Esci senza salvare"
+              // Non un allarme: i dati restano. Si dice solo cosa non resta.
+              title: "Prima di uscire",
+              body: "I dati che hai inserito li ritrovi alla riapertura, su questo dispositivo. La foto di copertina no: quella andrà riselezionata.",
+              exitLabel: "Esci dal setup"
           };
 
-    const needsConfirm = Boolean(closeWarning) || hasCreatedActivity || isStepOneDirty;
+    const needsConfirm = Boolean(closeWarning) || hasCreatedActivity || stepOneHasCover;
 
     const requestClose = useCallback(() => {
         if (!needsConfirm) {
@@ -272,12 +274,14 @@ export function SetupShell({
                     {sidebarNote && <div className={styles.sidebarNote}>{sidebarNote}</div>}
 
                     <div className={styles.sidebarFooter}>
-                        {/* Fino alla creazione della sede il progresso NON è
-                            salvato: dirlo qui evita di prometterlo. */}
+                        {/* Fino alla creazione della sede la bozza è locale:
+                            dire "salvato" prometterebbe un account che non c'è
+                            ancora dietro, e tacerlo lascerebbe credere che
+                            chiudere perda tutto. */}
                         <Text variant="caption" colorVariant="muted">
                             {hasCreatedActivity
                                 ? "La tua sede è salvata. Puoi chiudere quando vuoi."
-                                : "I dati di questo passaggio vengono salvati quando premi Continua."}
+                                : "I dati di questo passaggio restano su questo dispositivo finché non premi Continua."}
                         </Text>
                         <button type="button" className={styles.closeLink} onClick={requestClose}>
                             Chiudi il setup
@@ -359,16 +363,15 @@ export function SetupShell({
                                 {confirmCopy.title}
                             </Text>
                             {/* Il lavoro in corso prevale: descrive una perdita
-                                più immediata di quella della variante. */}
-                            {closeWarning ? (
-                                <Text variant="body-sm" colorVariant="warning">
-                                    {closeWarning}
-                                </Text>
-                            ) : (
-                                <Text variant="body-sm" colorVariant="muted">
-                                    {confirmCopy.body}
-                                </Text>
-                            )}
+                                più immediata di quella della variante. Stesso
+                                trattamento per tutte e cinque — hanno lo stesso
+                                ruolo, dire cosa succede chiudendo, e colorarne
+                                tre suggeriva una gerarchia inesistente. In un
+                                pannello che esiste perché qualcosa è a rischio,
+                                il testo basta da solo. */}
+                            <Text variant="body-sm" colorVariant="muted">
+                                {closeWarning ?? confirmCopy.body}
+                            </Text>
                             {/* Restare nel setup è l'esito atteso: è quello il
                                 primario, in testa alla pila. L'uscita resta a
                                 portata di mano, ma non è l'azione suggerita. */}

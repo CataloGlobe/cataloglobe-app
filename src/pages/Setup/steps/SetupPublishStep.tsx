@@ -48,12 +48,16 @@ export function SetupPublishStep({
                 </div>
 
                 <div className={styles.details}>
-                    <div className={styles.status} data-tone={hasProducts ? "ok" : "warn"}>
-                        <span className={styles.statusDot} aria-hidden />
-                        <Text variant="body-sm" weight={600}>
-                            {hasProducts ? "Menù visibile" : "Pagina attiva, menù vuoto"}
-                        </Text>
-                    </div>
+                    {/* Solo a menù pieno: senza piatti lo diceva già il riquadro
+                        ambra qui sotto, e due volte era una volta di troppo. */}
+                    {hasProducts && (
+                        <div className={styles.status}>
+                            <span className={styles.statusDot} aria-hidden />
+                            <Text variant="body-sm" weight={600}>
+                                Menù visibile
+                            </Text>
+                        </div>
+                    )}
 
                     <a
                         className={styles.publicUrl}
@@ -64,47 +68,31 @@ export function SetupPublishStep({
                         {publicUrl}
                     </a>
 
+                    {/* L'unica cosa che resta da fare. Assorbe quel che prima era
+                        diviso fra titolo del passo, indicatore di stato e questo
+                        riquadro: dicevano tutti e tre la stessa cosa. Titolo
+                        sull'azione, non sulla constatazione. */}
                     {!hasProducts && (
                         <div className={styles.notice}>
-                            <AlertTriangle size={16} aria-hidden />
+                            <AlertTriangle
+                                size={20}
+                                className={styles.noticeIcon}
+                                aria-hidden
+                            />
                             <div>
                                 <Text variant="body-sm" weight={600}>
-                                    Il QR è già quello definitivo
+                                    Aggiungi i piatti prima di stamparlo
                                 </Text>
-                                <Text variant="caption" colorVariant="muted">
-                                    Non cambierà più: puoi stamparlo o mandarlo al grafico fin da
-                                    ora. Ma finché non aggiungi i piatti, chi lo inquadra trova una
-                                    pagina vuota.
+                                <Text variant="caption">
+                                    Il QR è definitivo e non cambierà più, ma finché la pagina è
+                                    vuota chi lo inquadra non trova nulla.
                                 </Text>
                             </div>
                         </div>
                     )}
 
-                    {ruleStatus === "creating" && (
-                        <div className={styles.ruleBox}>
-                            <Loader size="sm" />
-                            <Text variant="caption" colorVariant="muted">
-                                Sto collegando il menù alla sede…
-                            </Text>
-                        </div>
-                    )}
-
-                    {ruleStatus === "ready" && (
-                        <div className={styles.ruleBox}>
-                            <Text variant="body-sm" weight={600}>
-                                Ho creato la regola &laquo;Menù principale&raquo;
-                            </Text>
-                            <Text variant="caption" colorVariant="muted">
-                                {catalogName} è visibile su {activityName} tutti i giorni, a tutte
-                                le ore, solo per questa sede. Per un menù diverso a colazione o a
-                                cena, aggiungi una regola in Programmazione: avrà la precedenza
-                                nella sua fascia oraria.
-                            </Text>
-                        </div>
-                    )}
-
                     {ruleStatus === "failed" && (
-                        <div className={styles.ruleBox} data-tone="warn" role="alert">
+                        <div className={styles.ruleBox} role="alert">
                             <Text variant="body-sm" weight={600}>
                                 Il collegamento non è riuscito
                             </Text>
@@ -123,11 +111,33 @@ export function SetupPublishStep({
                         </div>
                     )}
 
-                    {/* Sotto il blocco della regola, non sotto il QR: lì sembrava
-                        riferirsi al codice invece che al menù. */}
-                    <Text variant="caption" colorVariant="muted" className={styles.styleNote}>
-                        Il menù usa i colori predefiniti — puoi cambiarli quando vuoi.
-                    </Text>
+                    {/* Il contorno: vero, utile, ma non è quello che si sta
+                        cercando adesso. Sotto una linea, piccolo e attenuato —
+                        resta leggibile e smette di competere. La spiegazione sul
+                        menù diverso a colazione o a cena è caduta: informazione
+                        corretta al momento sbagliato, e chi ne ha bisogno la
+                        trova in Programmazione. */}
+                    <div className={styles.footnotes}>
+                        {ruleStatus === "creating" && (
+                            <span className={styles.footnoteRow}>
+                                <Loader size="sm" />
+                                <Text variant="caption" colorVariant="muted">
+                                    Sto collegando il menù alla sede…
+                                </Text>
+                            </span>
+                        )}
+
+                        {ruleStatus === "ready" && (
+                            <Text variant="caption" colorVariant="muted">
+                                Regola &laquo;Menù principale&raquo; creata: {catalogName} è
+                                visibile su {activityName} tutti i giorni, a tutte le ore.
+                            </Text>
+                        )}
+
+                        <Text variant="caption" colorVariant="muted">
+                            Il menù usa i colori predefiniti — puoi cambiarli quando vuoi.
+                        </Text>
+                    </div>
                 </div>
             </div>
 

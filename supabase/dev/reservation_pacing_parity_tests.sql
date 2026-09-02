@@ -22,6 +22,15 @@
 -- 2. DOPO aver applicato la RPC nuova → stesse righe, stesso verdetto.
 --    Un MISMATCH qui e' una regressione vera.
 --
+-- Usato due volte finora:
+--   - 20260831150001, introduzione del pacing (9 casi, esito 9/9)
+--   - 20260901100003, estrazione di picco e pacing in funzioni separate
+--     (13 casi: i 4 in coda coprono i rami della sweep-line, che l'estrazione
+--     tocca direttamente)
+-- Da solo NON basta per l'estrazione: qui la parita' si verifica con i tetti
+-- di pacing a NULL, quindi non dice nulla su `reservation_pacing_block`. Va
+-- rilanciato anche `reservation_pacing_engine_tests.sql`.
+--
 -- Le colonne di pacing (migration 20260831140000) possono esserci o no: se ci
 -- sono vengono forzate a NULL a ogni caso, se non ci sono il blocco e' saltato.
 --
@@ -341,7 +350,15 @@ BEGIN
             ('f — esattamente al limite → pending',           20, 'manuale','hard',  0, TIME '19:30', 16, 'confirmed', TIME '20:00', 4, 'pending/20/20'),
             ('g — half-open: uscita a candStart non conta',    5, 'manuale','hard',  0, TIME '18:00', 10, 'confirmed', TIME '20:00', 4, 'pending/4/5'),
             ('h — overnight D-1 23:30 vs candidato 00:30',    10, 'manuale','hard', -1, TIME '23:30', 10, 'confirmed', TIME '00:30', 4, 'full/14/10'),
-            ('i — riga cancelled ignorata dal motore',        10, 'manuale','hard',  0, TIME '19:30', 20, 'cancelled', TIME '20:00', 4, 'pending/4/10')
+            ('i — riga cancelled ignorata dal motore',        10, 'manuale','hard',  0, TIME '19:30', 20, 'cancelled', TIME '20:00', 4, 'pending/4/10'),
+            -- Casi aggiunti per l'estrazione della sweep-line in
+            -- `reservation_peak_with_candidate` (20260901100000): coprono i tre
+            -- rami del loop (uscita anticipata, evento interno, sconfinamento
+            -- sul giorno dopo) che prima erano esercitati solo di striscio.
+            ('j — seed oltre la finestra: non conta',           5, 'manuale','hard',  0, TIME '22:30', 20, 'confirmed', TIME '20:00', 4, 'pending/4/5'),
+            ('k — seed esattamente a candEnd: non conta',       5, 'manuale','hard',  0, TIME '22:00', 20, 'confirmed', TIME '20:00', 4, 'pending/4/5'),
+            ('l — seed dentro la finestra: picco interno',     10, 'manuale','hard',  0, TIME '21:00',  6, 'confirmed', TIME '20:00', 4, 'pending/10/10'),
+            ('m — overnight verso D+1: 00:30 pesa su 23:30',   10, 'manuale','hard',  1, TIME '00:30', 10, 'confirmed', TIME '23:30', 4, 'full/14/10')
         ) AS t(caso, cap, conf, over, seed_off, seed_time, seed_party, seed_status, cand_time, cand_party, atteso)
     LOOP
         v_ordine := v_ordine + 1;

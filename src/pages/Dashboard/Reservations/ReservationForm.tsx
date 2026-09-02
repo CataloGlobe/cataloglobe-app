@@ -7,6 +7,11 @@ import {
     createReservation,
     updateReservation
 } from "@/services/supabase/reservations";
+import { findReservationGuestByPhone } from "@/services/supabase/reservationGuests";
+import { usePermissions } from "@/context/PermissionsContext";
+import { isTenantWide } from "@/lib/permissions";
+import type { ReservationGuestSummary } from "@/types/reservationGuest";
+import { formatAbsenceCount, formatVisitCount } from "@/utils/guestVisibilityCopy";
 import { listActivityHours } from "@/services/supabase/activityHours";
 import { listActivityClosures } from "@/services/supabase/activityClosures";
 import {
@@ -66,7 +71,21 @@ export function ReservationForm({
     onSavingChange
 }: ReservationFormProps) {
     const { showToast } = useToast();
+    const { permissions } = usePermissions();
     const isEditing = mode === "edit";
+
+    // ── Riconoscimento del cliente durante l'inserimento ──────────────────
+    // È il punto di maggior valore quotidiano della rubrica: l'operatore
+    // digita il numero e, se quella persona è già passata, il profilo compare
+    // prima ancora che finisca di compilare.
+    //
+    // Il lookup parte sul blur del campo telefono (non a ogni tasto: sarebbe
+    // una query per carattere su un numero che è completo solo alla fine).
+    // Fallisce in silenzio: chi non ha `guests.read` riceve zero righe dalla
+    // RLS e il form si comporta esattamente come prima.
+    const [guestMatch, setGuestMatch] = useState<ReservationGuestSummary | null>(null);
+    const [guestLookupLoading, setGuestLookupLoading] = useState(false);
+    const tenantWide = permissions ? isTenantWide(permissions) : false;
 
     const defaultActivityId =
         entityData?.activity_id ??
@@ -356,6 +375,32 @@ export function ReservationForm({
         return ok;
     };
 
+    const handlePhoneBlur = async () => {
+        const raw = customerPhone.trim();
+        if (!tenantId || raw.length === 0) {
+            setGuestMatch(null);
+            return;
+        }
+        setGuestLookupLoading(true);
+        try {
+            const found = await findReservationGuestByPhone(tenantId, raw);
+            setGuestMatch(found);
+            // Prefill SOLO dei campi ancora vuoti: se l'operatore ha già
+            // scritto un nome, quello che ha davanti vince su quello che
+            // sappiamo noi (il cliente può prenotare per un altro).
+            if (found) {
+                setCustomerName(prev => (prev.trim() ? prev : found.display_name));
+                setCustomerEmail(prev => (prev.trim() || !found.email ? prev : found.email));
+            }
+        } catch {
+            // Nessun toast: il riconoscimento è un di più. Se non funziona,
+            // l'operatore deve poter inserire la prenotazione lo stesso.
+            setGuestMatch(null);
+        } finally {
+            setGuestLookupLoading(false);
+        }
+    };
+
     const handleSubmit = async (e: FormEvent) => {
         e.preventDefault();
         if (!validate()) return;
@@ -506,10 +551,48 @@ export function ReservationForm({
                 required
                 type="tel"
                 value={customerPhone}
-                onChange={e => setCustomerPhone(e.target.value)}
+                onChange={e => {
+                    setCustomerPhone(e.target.value);
+                    // Il numero è cambiato: il profilo mostrato non è più
+                    // necessariamente quello giusto.
+                    if (guestMatch) setGuestMatch(null);
+                }}
+                onBlur={() => void handlePhoneBlur()}
                 placeholder="es. +39 333 1234567"
+                helperText={
+                    guestLookupLoading ? "Cerco il cliente in rubrica…" : undefined
+                }
                 error={phoneError}
             />
+
+            {/* Cliente riconosciuto. Non è un avviso di errore: è il contesto
+                che serve mentre si prende la prenotazione — quante volte è
+                venuto, se non si è presentato, cosa il locale ha annotato. */}
+            {guestMatch && (
+                <div className={styles.guestMatchBanner}>
+                    <div className={styles.guestMatchTitle}>
+                        Già in rubrica: <strong>{guestMatch.display_name}</strong>
+                    </div>
+                    <div className={styles.guestMatchStats}>
+                        <span>{formatVisitCount(guestMatch.visible_visits, tenantWide)}</span>
+                        {guestMatch.visible_no_shows > 0 && (
+                            <span className={styles.guestSummaryAlert}>
+                                {formatAbsenceCount(guestMatch.visible_no_shows, tenantWide)}
+                            </span>
+                        )}
+                    </div>
+                    {guestMatch.tags.length > 0 && (
+                        <div className={styles.guestTags}>
+                            {guestMatch.tags.map(t => (
+                                <span key={t} className={styles.guestTag}>{t}</span>
+                            ))}
+                        </div>
+                    )}
+                    {guestMatch.venue_notes && (
+                        <div className={styles.guestInlineNotes}>{guestMatch.venue_notes}</div>
+                    )}
+                </div>
+            )}
 
             <TextInput
                 label="Email"

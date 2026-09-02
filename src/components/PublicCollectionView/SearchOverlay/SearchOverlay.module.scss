@@ -278,6 +278,263 @@
   }
 }
 
+/* ── VIEWPORT DELLE DUE VISTE ────────────────────────────── */
+
+/* Contenitore del corpo: eredita la catena flex che prima partiva dal .panel,
+   così .results continua a scrollare internamente. La transizione fra viste
+   anima QUESTO nodo (slide) e l'altezza del .panel — l'intestazione resta
+   ferma perché è fuori di qui. */
+.viewBody {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Corpo della vista filtri: stesso ruolo di scroll che .results ha nella
+   vista ricerca (AllergenFilterBody riceve questa classe come root). */
+.filtersBody {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  scrollbar-width: none;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Titolo della vista filtri quando è la radice (nessun ritorno possibile):
+   occupa il posto dell'input, stessa altezza di riga. */
+.viewTitle {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--pub-bg-text);
+  line-height: 40px;
+}
+
+.backBtn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  height: 40px;
+  padding: 0 0.5rem;
+  border: none;
+  background: transparent;
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--pub-bg-text);
+  cursor: pointer;
+  border-radius: var(--pub-btn-radius, 8px);
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-bg-text) 8%, transparent);
+  }
+}
+
+/* ── AZIONI VISTA FILTRI ─────────────────────────────────── */
+
+/* Fuori dall'area scrollabile: restano visibili qualunque sia lo scroll. */
+.filterActions {
+  display: flex;
+  gap: 8px;
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--pub-border);
+  background: var(--pub-bg);
+  flex-shrink: 0;
+}
+
+.resetBtn {
+  flex: 1;
+  background: transparent;
+  border: 1px solid color-mix(in srgb, var(--pub-bg-text) 18%, transparent);
+  color: color-mix(in srgb, var(--pub-bg-text) 70%, transparent);
+  padding: 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease;
+
+  &:hover:not(:disabled) {
+    background: color-mix(in srgb, var(--pub-bg-text) 5%, transparent);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+.applyBtn {
+  flex: 2;
+  background: var(--pub-accent, #f59e0b);
+  border: none;
+  color: var(--pub-cta-text, #fff);
+  padding: 0.7rem;
+  border-radius: 999px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-accent, #f59e0b) 88%, white);
+  }
+}
+
+/* ── CHIP RAPIDI (vista ricerca a campo vuoto) ───────────── */
+
+.quickFilters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 0.85rem 1rem 0.5rem;
+}
+
+.chipRow {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--pub-bg-text) 14%, transparent);
+  background: transparent;
+  color: var(--pub-bg-text);
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 0.78rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-bg-text) 6%, transparent);
+  }
+}
+
+.chipSelected {
+  background: color-mix(in srgb, var(--pub-primary) 12%, transparent);
+  border-color: color-mix(in srgb, var(--pub-primary) 40%, transparent);
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-primary) 18%, transparent);
+  }
+}
+
+.chipIcon {
+  display: inline-flex;
+  align-items: center;
+  color: currentColor;
+}
+
+.quickFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid var(--pub-border);
+}
+
+.allFiltersBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0;
+  border: none;
+  background: transparent;
+  color: var(--pub-bg-text);
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.visibleCount {
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 0.72rem;
+  color: var(--pub-bg-text-muted);
+  text-align: right;
+}
+
+/* ── RIGA COMPATTA (durante la digitazione) ──────────────── */
+
+.compactFilterRow {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--pub-border);
+  flex-shrink: 0;
+}
+
+.compactFiltersBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.32rem 0.6rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--pub-bg-text) 14%, transparent);
+  background: transparent;
+  color: var(--pub-bg-text);
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-bg-text) 6%, transparent);
+  }
+}
+
+/* Chip attivo: rimovibile al tap. */
+.activeChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.32rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--pub-primary) 40%, transparent);
+  background: color-mix(in srgb, var(--pub-primary) 12%, transparent);
+  color: var(--pub-bg-text);
+  font-family: var(--pub-font-family, sans-serif);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.12s ease;
+
+  &:hover {
+    background: color-mix(in srgb, var(--pub-primary) 18%, transparent);
+  }
+}
+
 /* ── GRUPPO SEZIONE ──────────────────────────────────────── */
 
 .group {

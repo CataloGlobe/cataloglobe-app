@@ -49,6 +49,8 @@ interface ExistingImportReviewProps {
     onToggleCategory: (categoryKey: string) => void;
     onToggleAll: () => void;
     onRemoveProduct: (id: string) => void;
+    /** Correzione prezzo inline: vale anche qui, i prodotti "create" finiscono in DB come nel ramo nuovo. */
+    onUpdateProduct: (id: string, updates: Partial<AiProduct>) => void;
     onSetPlan: (plan: ExistingImportPlan | null) => void;
     // Scorciatoia kebab (FASE 2C-5): catalogo pre-selezionato e bloccato → il
     // dropdown "Catalogo di destinazione" è nascosto (il banner è nel ReviewStep).
@@ -79,6 +81,7 @@ export function ExistingImportReview({
     onToggleCategory,
     onToggleAll,
     onRemoveProduct,
+    onUpdateProduct,
     onSetPlan,
     lockedCatalogId
 }: ExistingImportReviewProps) {
@@ -556,6 +559,10 @@ export function ExistingImportReview({
                         <div className={styles.sectionTitle}>Categorie di destinazione</div>
                         <div className={styles.mappingCard}>
                             <div className={styles.mappingHead}>
+                                {/* "menù" resta letterale: la colonna elenca le categorie
+                                    lette dal documento caricato, non quelle del catalogo di
+                                    destinazione — di quello parla "Va in" qui accanto.
+                                    Stessa ragione per cui UploadStep non è parametrizzato. */}
                                 <span className={styles.mappingHeadCol}>Trovata nel menù</span>
                                 <span className={styles.mappingHeadCol}>Va in</span>
                             </div>
@@ -635,6 +642,7 @@ export function ExistingImportReview({
                     onToggleCategory={onToggleCategory}
                     onToggleAll={onToggleAll}
                     onRemoveProduct={onRemoveProduct}
+                    onUpdateProduct={onUpdateProduct}
                     foundCount={products.length}
                     selectedCount={selectedIds.size}
                     searchQuery={search}

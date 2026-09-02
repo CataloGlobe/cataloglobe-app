@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import {
     CheckCircle2,
     Circle,
@@ -8,7 +8,8 @@ import {
     Download,
     Link as LinkIcon,
     Image as ImageIcon,
-    PauseCircle
+    PauseCircle,
+    Wand2
 } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
@@ -23,6 +24,7 @@ import { Badge } from "@/components/ui/Badge/Badge";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import { getTenantSetupStatus, type TenantSetupStatus } from "@/services/supabase/overviewStats";
 import { getActivities } from "@/services/supabase/activities";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import type { V2Activity } from "@/types/activity";
 import { formatInactiveReason } from "@/utils/activityStatus";
 import { getActiveCatalogForActivities, type ActiveCatalogMeta } from "@/services/supabase/activeCatalog";
@@ -352,12 +354,67 @@ type SetupStep = {
     to: string;
 };
 
+/**
+ * Stato lasciato da `SetupWizardPage` all'uscita dal percorso guidato. Vive
+ * nella sola navigazione: niente colonne, flag persistiti o storage.
+ * - `resumable`        → sede non ancora creata, il percorso si può riprendere
+ * - `activity-created` → sede creata, il wizard non riparte (lo blocca il gate)
+ */
+type SetupExitState = { setupExit?: "resumable" | "activity-created" };
+
 export default function OverviewPage() {
     const { selectedTenant, loading: tenantLoading } = useTenant();
     const tenantId = useTenantId();
+    // "Menù" per food & beverage, "Catalogo" per retail/hotel/generic: la
+    // pagina non può dire una parola nella checklist e l'altra nelle
+    // statistiche, o si contraddice da sola sulla stessa schermata.
+    const { catalogLabel, catalogLabelPlural } = useVerticalConfig();
+    const catalogLower = catalogLabel.toLowerCase();
+    const catalogLowerPlural = catalogLabelPlural.toLowerCase();
     const navigate = useNavigate();
     const { permissions } = usePermissions();
     const { showToast } = useToast();
+
+    // Uscita dal percorso guidato: `SetupWizardPage` lascia la distinzione nello
+    // stato della navigazione. Letti come primitive, non come oggetto: l'intera
+    // `location` nelle dipendenze farebbe rientrare l'effect a ogni sua nuova
+    // identità, e il reset qui sotto ne produce una.
+    const { pathname, state: navigationState } = useLocation();
+    const setupExit = (navigationState as SetupExitState | null)?.setupExit ?? null;
+    const setupExitShownRef = useRef(false);
+
+    useEffect(() => {
+        if (!setupExit || setupExitShownRef.current) return;
+        // Il link "Riprendi" ha bisogno del tenant: senza, si aspetta il render
+        // in cui arriva invece di bruciare il toast su un'azione monca.
+        if (!tenantId) return;
+
+        setupExitShownRef.current = true;
+
+        if (setupExit === "activity-created") {
+            // Sede creata: il gate del wizard rimanda indietro chi ne ha già una,
+            // quindi qui un "Riprendi" sarebbe un pulsante rotto.
+            showToast({
+                message: `La tua sede è salvata. ${catalogLabel} e pubblicazione li completi da qui.`,
+                type: "success"
+            });
+        } else {
+            showToast({
+                message: "Setup interrotto. Puoi riprenderlo quando vuoi.",
+                type: "info",
+                actionLabel: "Riprendi",
+                onAction: () => navigate(`/business/${tenantId}/setup`)
+            });
+        }
+
+        // Svuota lo stato della history: senza, un ricaricamento della Panoramica
+        // rileggerebbe lo stesso `state` e il toast tornerebbe. `replace` per non
+        // impilare una voce in più, e il ref regge il doppio invoke di StrictMode
+        // nella finestra prima che il reset si propaghi.
+        navigate(pathname, { replace: true, state: null });
+        // `catalogLabel` entra fra le dipendenze perché il messaggio lo usa: un
+        // rientro è innocuo, il ref e il guard su `setupExit` lo fermano subito.
+    }, [setupExit, pathname, navigate, showToast, tenantId, catalogLabel]);
 
     const [stats, setStats] = useState<Stats | null>(null);
     const [loadingStats, setLoadingStats] = useState(true);
@@ -616,15 +673,15 @@ export default function OverviewPage() {
             done: setup?.hasProducts ?? false,
             doneTitle: "Prodotti aggiunti",
             todoTitle: "Aggiungi i primi prodotti",
-            description: "Piatti, bevande, prezzi: li crei una volta e li riusi in ogni menù.",
+            description: `Piatti, bevande, prezzi: li crei una volta e li riusi in ogni ${catalogLower}.`,
             to: `${b}/products`
         },
         {
             id: "catalog",
             done: setup?.hasPopulatedCatalog ?? false,
-            doneTitle: "Menù pronto",
-            todoTitle: "Crea un menù",
-            description: "I prodotti vanno organizzati in un menù per essere mostrati ai clienti.",
+            doneTitle: `${catalogLabel} pronto`,
+            todoTitle: `Crea un ${catalogLower}`,
+            description: `I prodotti vanno organizzati in un ${catalogLower} per essere mostrati ai clienti.`,
             to: `${b}/catalogs`
         },
         {
@@ -632,7 +689,7 @@ export default function OverviewPage() {
             done: setup?.hasActiveLayoutRule ?? false,
             doneTitle: "Regola attiva",
             todoTitle: "Attiva una regola",
-            description: "Decide quale menù mostrare in quale sede. Senza, la pagina resta vuota.",
+            description: `Decide quale ${catalogLower} mostrare in quale sede. Senza, la pagina resta vuota.`,
             to: `${b}/scheduling`
         }
     ];
@@ -642,13 +699,11 @@ export default function OverviewPage() {
     // `next` è la PRIMA voce non soddisfatta: le successive restano spente.
     const nextStepIndex = setupSteps.findIndex(step => !step.done);
     const setupComplete = nextStepIndex === -1;
-    // Tag sulla voce `next`: solo quando dice qualcosa in più del titolo —
-    // l'inizio della sequenza o la sua chiusura. Negli altri casi resta muto.
-    const nextStepTag = missingSteps === 1
-        ? "Ultimo passo"
-        : nextStepIndex === 0
-            ? "Inizia da qui"
-            : null;
+    // Tag sulla voce `next`: resta solo la chiusura della sequenza. L'"Inizia da
+    // qui" sul primo passo è caduto quando la procedura guidata è salita in cima
+    // alla card: due punti d'inizio in concorrenza, e quello manuale non è
+    // nemmeno il consigliato.
+    const nextStepTag = missingSteps === 1 ? "Ultimo passo" : null;
 
     // Il blocco compare solo a owner/admin, solo a dati caricati e solo finché
     // c'è qualcosa da fare: a configurazione completa cede il posto al blocco
@@ -718,7 +773,7 @@ export default function OverviewPage() {
 
     const quickActions = [
         { label: "Nuovo prodotto", to: `${b}/products` },
-        { label: "Nuovo catalogo", to: `${b}/catalogs` },
+        { label: `Nuovo ${catalogLower}`, to: `${b}/catalogs` },
         { label: "Nuova programmazione", to: `${b}/scheduling` },
         { label: "Nuovo contenuto in evidenza", to: `${b}/featured` }
     ];
@@ -748,7 +803,7 @@ export default function OverviewPage() {
                             <Text variant="body-sm" colorVariant="muted" style={{ marginTop: 8 }}>
                                 {stats.locations} {stats.locations === 1 ? "sede" : "sedi"}&nbsp;&bull;&nbsp;
                                 {stats.products} prodotti&nbsp;&bull;&nbsp;
-                                {stats.catalogs} {stats.catalogs === 1 ? "catalogo" : "cataloghi"}
+                                {stats.catalogs} {stats.catalogs === 1 ? catalogLower : catalogLowerPlural}
                             </Text>
                         )}
                     </div>
@@ -772,11 +827,11 @@ export default function OverviewPage() {
                             <div className={styles.setupHeader}>
                                 <div className={styles.setupHeading}>
                                     <Text variant="title-sm" weight={600}>
-                                        Il tuo menù non è ancora online
+                                        Il tuo {catalogLower} non è ancora online
                                     </Text>
                                     <Text variant="body-sm" colorVariant="muted">
                                         {missingSteps === 1
-                                            ? "Manca un passaggio: resta solo da dire dove e quando mostrare il menù."
+                                            ? `Manca un passaggio: resta solo da dire dove e quando mostrare il ${catalogLower}.`
                                             : `Mancano ${missingSteps} passaggi. Si fanno in quest'ordine: ognuno serve al successivo.`}
                                     </Text>
                                 </div>
@@ -799,7 +854,60 @@ export default function OverviewPage() {
                                 </div>
                             </div>
 
-                            <div className={styles.configList}>
+                            {/* Percorso consigliato in testa, non in coda: chi
+                                arriva qui senza sedi ha davanti quattro
+                                passaggi manuali, e la guida era una didascalia
+                                in fondo che nessuno leggeva come azione.
+                                Solo a zero sedi: la procedura parte sempre
+                                dalla creazione di una sede e non sa riprenderne
+                                una esistente. */}
+                            {!setup.hasAnyLocation && (
+                                <>
+                                    {/* Blocco, non barra: `Button fullWidth` in una
+                                        card larga lasciava l'etichetta a galleggiare
+                                        al centro di un vuoto, con la riga di supporto
+                                        staccata sotto come una didascalia orfana.
+                                        Stessa anatomia delle voci della checklist —
+                                        icona, testo, chevron — così i due modi di
+                                        procedere si leggono come parenti. */}
+                                    <button
+                                        type="button"
+                                        className={styles.setupGuided}
+                                        onClick={() => navigate(`${b}/setup`)}
+                                    >
+                                        <span className={styles.setupGuidedIcon} aria-hidden>
+                                            <Wand2 size={18} />
+                                        </span>
+                                        <span className={styles.setupGuidedBody}>
+                                            <Text variant="body-sm" weight={600}>
+                                                Configura con la procedura guidata
+                                            </Text>
+                                            <Text variant="caption" colorVariant="muted">
+                                                Sede, {catalogLower} e pubblicazione in pochi minuti.
+                                            </Text>
+                                        </span>
+                                        <ChevronRight
+                                            size={16}
+                                            className={styles.setupGuidedArrow}
+                                        />
+                                    </button>
+
+                                    <div className={styles.setupDivider}>
+                                        <Text variant="caption" colorVariant="muted">
+                                            Oppure procedi un passo alla volta
+                                        </Text>
+                                    </div>
+                                </>
+                            )}
+
+                            {/* Stessa condizione del pulsante: con la guida in
+                                cima la voce `next` rinuncia all'evidenziazione,
+                                che competerebbe con lei. Senza guida la
+                                checklist è l'unico contenuto e la mantiene. */}
+                            <div
+                                className={styles.configList}
+                                data-guided={!setup.hasAnyLocation || undefined}
+                            >
                                 {setupSteps.map((step, i) => {
                                     const state = step.done
                                         ? "done"
@@ -841,26 +949,6 @@ export default function OverviewPage() {
                                 })}
                             </div>
 
-                            {/* Alternativa all'elenco, non sostituzione: chi
-                                preferisce fare un passo alla volta continua a
-                                usare le voci qui sopra. Azione secondaria in
-                                fondo, per non competere con la voce `next`.
-
-                                Solo a zero sedi: il percorso guidato parte
-                                sempre dalla creazione di una sede e non sa
-                                riprenderne una esistente, quindi a chi ne ha già
-                                una ne farebbe creare una seconda. */}
-                            {!setup.hasAnyLocation && (
-                                <div className={styles.setupGuidedRow}>
-                                    <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => navigate(`${b}/setup`)}
-                                    >
-                                        Configura con la procedura guidata
-                                    </Button>
-                                </div>
-                            )}
                         </>
                     )}
                 </div>
@@ -938,7 +1026,7 @@ export default function OverviewPage() {
                 <div className={styles.kpiGrid}>
                     <StatCard label="Sedi" value={stats?.locations} loading={loadingStats} />
                     <StatCard label="Prodotti" value={stats?.products} loading={loadingStats} />
-                    <StatCard label="Cataloghi" value={stats?.catalogs} loading={loadingStats} />
+                    <StatCard label={catalogLabelPlural} value={stats?.catalogs} loading={loadingStats} />
                     <StatCard label="Programmi" value={stats?.schedules} loading={loadingStats} />
                     <StatCard label="Contenuti in evidenza" value={stats?.featuredContents} loading={loadingStats} />
                 </div>

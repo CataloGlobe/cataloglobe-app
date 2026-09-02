@@ -14,13 +14,16 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
-import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import GuestConfirmedMark from "./GuestConfirmedMark";
+import { statusMeta } from "@/utils/reservationStatusMeta";
 import {
     canAccept,
     type CapacityReservation
 } from "@/utils/reservationCapacity";
 import type { V2Reservation } from "@/types/reservation";
+import type { ReservationGuestSummary } from "@/types/reservationGuest";
+import { formatAbsenceCount, formatVisitCount } from "@/utils/guestVisibilityCopy";
 import type { DeferredAction } from "./useDeferredCommit";
 import styles from "./Reservations.module.scss";
 
@@ -44,23 +47,21 @@ interface Props {
     activityDurationMinutes?: number;
     /** True if the caller has reservations.manage on this reservation's activity. */
     canManage: boolean;
+    /**
+     * Profilo del cliente, se la prenotazione è agganciata a uno e il caller ha
+     * `guests.read`. NULL è normale in tre casi diversi che l'UI non distingue:
+     * telefono non canonicalizzabile, prenotazione anteriore alla rubrica,
+     * oppure permesso assente. In tutti e tre non si mostra nulla.
+     */
+    guestSummary?: ReservationGuestSummary | null;
+    /** `isTenantWide(permissions)` — governa il "nelle tue sedi" sui conteggi. */
+    tenantWide?: boolean;
+    /** Apre la scheda cliente completa. Assente = nessun bottone. */
+    onOpenGuest?: () => void;
     /** Deferred-commit dispatcher (caller closes drawer + shows undo toast). */
     onAction: (action: DeferredAction) => void;
     /** Apre il drawer di modifica dati. Visibile solo se canManage e stato non terminale. */
     onEdit?: () => void;
-}
-
-function statusInfo(status: V2Reservation["status"]): {
-    variant: StatusBadgeVariant;
-    label: string;
-} {
-    switch (status) {
-        case "pending":   return { variant: "warning", label: "Da gestire" };
-        case "confirmed": return { variant: "success", label: "Confermata" };
-        case "declined":  return { variant: "neutral", label: "Rifiutata" };
-        case "cancelled": return { variant: "neutral", label: "Annullata" };
-        case "no_show":   return { variant: "neutral", label: "Non presentato" };
-    }
 }
 
 function formatDateIt(isoDate: string): string {
@@ -107,6 +108,9 @@ export default function ReservationDetailDrawer({
     activityCapacity,
     activityDurationMinutes,
     canManage,
+    guestSummary,
+    tenantWide = false,
+    onOpenGuest,
     onAction,
     onEdit
 }: Props) {
@@ -176,7 +180,7 @@ export default function ReservationDetailDrawer({
         onClose();
     };
 
-    const st = statusInfo(reservation.status);
+    const st = statusMeta(reservation.status);
     const isPast = isInThePast(reservation);
     const canEdit =
         canManage &&
@@ -369,6 +373,62 @@ export default function ReservationDetailDrawer({
                                     </a>
                                 </li>
                             </ul>
+
+                            {/* ── Chi è questa persona ───────────────────
+                                 La rubrica serve qui, non solo nella sua
+                                 pagina: un elenco che si consulta di proposito
+                                 non lo consulta nessuno. Allergie e note del
+                                 locale compaiono PRIMA del servizio, dov'è
+                                 possibile evitare l'errore.
+
+                                 I conteggi passano da formatVisitCount, che
+                                 aggiunge "nelle tue sedi" ai ruoli scoped: un
+                                 manager non deve credere che 1 assenza sia il
+                                 totale del cliente quando ne ha 5 altrove. */}
+                            {guestSummary && (
+                                <div className={styles.guestInlineCard}>
+                                    <div className={styles.guestInlineStats}>
+                                        <span className={styles.guestInlineVisits}>
+                                            {formatVisitCount(guestSummary.visible_visits, tenantWide)}
+                                        </span>
+                                        {guestSummary.visible_no_shows > 0 && (
+                                            <>
+                                                <span className={styles.guestSummaryDot} aria-hidden>·</span>
+                                                <span className={styles.guestSummaryAlert}>
+                                                    {formatAbsenceCount(
+                                                        guestSummary.visible_no_shows,
+                                                        tenantWide
+                                                    )}
+                                                </span>
+                                            </>
+                                        )}
+                                    </div>
+
+                                    {guestSummary.tags.length > 0 && (
+                                        <div className={styles.guestTags}>
+                                            {guestSummary.tags.map(t => (
+                                                <span key={t} className={styles.guestTag}>{t}</span>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {guestSummary.venue_notes && (
+                                        <div className={styles.guestInlineNotes}>
+                                            {guestSummary.venue_notes}
+                                        </div>
+                                    )}
+
+                                    {onOpenGuest && (
+                                        <button
+                                            type="button"
+                                            className={styles.guestInlineLink}
+                                            onClick={onOpenGuest}
+                                        >
+                                            Apri scheda cliente
+                                        </button>
+                                    )}
+                                </div>
+                            )}
                         </div>
                     </section>
 

@@ -1,0 +1,545 @@
+/* Rubrica clienti — pagina.
+ *
+ * Autonoma rispetto a Reservations.module.scss: i profili nascono oggi dalle
+ * prenotazioni ma è già previsto che arrivino anche dagli ordini al tavolo,
+ * quindi la pagina non deve dipendere dagli stili di una delle due sorgenti.
+ *
+ * Non esistono stili per pulsanti di esportazione, checkbox di selezione
+ * multipla o azioni di invio: quelle affordance sono escluse per scelta di
+ * prodotto, non dimenticate.
+ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.lockedWrap {
+  padding: 48px 16px;
+}
+
+.emptyState {
+  padding: 64px 16px;
+}
+
+.cards {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.skeleton {
+  height: 76px;
+  border-radius: 12px;
+  background: var(--skeleton-base);
+}
+
+/* ── Elenco a righe ──────────────────────────────────────────────────
+   Un contenitore, righe divise da un bordo: le voci sono omogenee e la card
+   per riga aggiungerebbe un bordo e un'ombra per cliente senza aggiungere
+   informazione. */
+
+.guestsWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.guestsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.guestListItem + .guestListItem {
+  border-top: 1px solid var(--border);
+}
+
+.guestRow {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  text-align: left;
+  background: none;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s ease;
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: -2px;
+  }
+}
+
+/* Iniziale invece della sagoma: distingue una riga dall'altra, mentre
+   un'icona persona identica su ogni riga non distingue nulla. */
+.guestInitial {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.guestMain {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.guestNameLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.guestName {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.guestTagMore {
+  font-size: 11px;
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+  flex: 0 0 auto;
+}
+
+.guestPhone {
+  font-size: 13px;
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+}
+
+.guestTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.guestTag {
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  font-size: 11px;
+  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+  white-space: nowrap;
+}
+
+/* Le assenze sono l'unico dato della riga che cambia una decisione: pill
+   piena, non testo colorato, e solo quando il valore è > 0. */
+.guestAbsencePill {
+  flex: 0 0 auto;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--color-red-100);
+  color: var(--color-red-900);
+  border: 1px solid var(--color-red-200);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.guestStats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex: 0 0 auto;
+  font-size: 13px;
+}
+
+.guestStatsVisits {
+  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+  white-space: nowrap;
+}
+
+.guestStatsLast {
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Nota sull'ambito dei conteggi. Deliberatamente sobria: va letta una volta,
+   non deve competere con i dati. */
+.guestsFootnote {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+}
+
+/* ── Vista tabella ───────────────────────────────────────────────────── */
+
+.tableName {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tablePhone {
+  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+  white-space: nowrap;
+}
+
+.tableMuted {
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+}
+
+.tableAbsence {
+  color: var(--color-red-900);
+  font-weight: 600;
+}
+
+/* ── Scheda cliente (drawer) ─────────────────────────────────────────── */
+
+.drawerBody {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.drawerSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drawerSectionTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+}
+
+.drawerHeaderTitle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.drawerFooter {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+.drawerFooterHint {
+  width: 100%;
+  margin: 0;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+  text-align: right;
+}
+
+.drawerNotes {
+  padding: 12px 14px;
+  background: var(--hover-bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  font-size: 14px;
+  color: var(--text);
+  white-space: pre-wrap;
+}
+
+.contactList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.contactItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+}
+
+.contactIcon {
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+  flex-shrink: 0;
+}
+
+.contactLink {
+  color: var(--brand-primary);
+  text-decoration: none;
+  word-break: break-word;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+
+/* Tre metriche affiancate: "quante volte è venuto", "quante volte non si è
+   presentato", "da quanto lo conosciamo" sono tre domande distinte. Divise da
+   un bordo verticale invece che da tre riquadri: è un blocco unico di sintesi,
+   non tre card. */
+.metricRow {
+  display: flex;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.metric {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  min-width: 0;
+
+  & + & {
+    border-left: 1px solid var(--border);
+  }
+}
+
+.metricValue,
+.metricValueAlert,
+.metricValueSmall {
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+}
+
+.metricValue,
+.metricValueAlert {
+  font-size: 22px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Solo il valore che cambia una decisione si colora. Zero resta neutro. */
+.metricValueAlert {
+  color: var(--color-red-900);
+}
+
+/* "marzo 2026" non è un numero: stessa riga di base, corpo da testo. */
+.metricValueSmall {
+  font-size: 15px;
+  padding-top: 5px;
+  padding-bottom: 4px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.metricLabel {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+}
+
+/* Sottotitolo di sezione: spiega a cosa serve, sotto l'etichetta. */
+.sectionSubtitle {
+  margin: -4px 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+}
+
+/* ── Marcature ───────────────────────────────────────────────────────── */
+
+.guestTagsEditor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tagPill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 999px;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+.tagPillRemove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: none;
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: var(--color-red-100);
+    color: var(--color-red-900);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 1px;
+  }
+}
+
+/* Tratteggiata: è un posto vuoto da riempire, non un'azione già disponibile
+   allo stesso peso delle marcature esistenti. */
+.tagPillAdd {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: none;
+  border: 1px dashed color-mix(in srgb, var(--text) 22%, var(--card-bg));
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+
+  &:hover {
+    background: var(--hover-bg);
+    color: var(--text);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 1px;
+  }
+}
+
+/* Box del campo "aggiungi": raccoglie input e suggerimenti in un unico
+   riquadro, così i suggerimenti si leggono come scorciatoie del campo e non
+   come marcature già applicate (che stanno sopra, piene, con la x). */
+.tagAddBox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--hover-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.guestTagAddRow {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.tagSuggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.tagSuggestionsLabel {
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+}
+
+.tagSuggestion {
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+  cursor: pointer;
+
+  &:hover {
+    color: var(--text);
+    border-color: color-mix(in srgb, var(--text) 22%, var(--card-bg));
+  }
+}
+
+/* ── Storico visite ──────────────────────────────────────────────────── */
+
+.guestVisitList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--card-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.guestVisitRow {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+}
+
+.guestVisitDate {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.guestVisitMeta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 12px;
+  color: color-mix(in srgb, var(--text) 62%, var(--card-bg));
+}
+
+.guestVisitMetaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Note del CLIENTE su quella visita: fra virgolette perché sono parole sue,
+   non del locale. */
+.guestVisitNotes {
+  font-size: 13px;
+  font-style: italic;
+  color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+}

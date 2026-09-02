@@ -23,19 +23,29 @@
   --badge-color: var(--text);
 }
 
+/* Stesso difetto della variante warning: `--success-500` non è mai definito,
+   quindi il fill cadeva sul fallback `#22c55e` con testo bianco (2.28:1).
+   Coppia di DESIGN.md §5 per StatusBadge success → 6.78:1. */
 .success {
-  --badge-bg: var(--success-500, #22c55e);
-  --badge-color: #fff;
+  --badge-bg: var(--color-green-100, #d1fae5);
+  --badge-color: var(--color-green-800, #065f46);
 }
 
+/* `--danger-500` non esiste: il fill cadeva su `#ef4444` con testo bianco
+   (3.76:1). Fill tenue + testo scuro come le altre semantiche → 6.80:1. */
 .danger {
-  --badge-bg: var(--danger-500, #ef4444);
-  --badge-color: #fff;
+  --badge-bg: var(--color-red-100, #fee2e2);
+  --badge-color: var(--color-red-800, #991b1b);
 }
 
+/* Ramp ambra di DESIGN.md (§2 Semantic), non un token danger: la variante
+   leggeva `--danger-500` — mai definito — e cadeva sul fallback `#edb20e`,
+   senape con testo bianco a ~1.9:1, sotto il minimo di 4.5:1 (DESIGN.md §6).
+   Fill tenue + testo scuro è anche la coppia già usata da ogni altro segnale
+   ambra del backoffice (StatusBadge warning, .badgeDraft, .activatePill). */
 .warning {
-  --badge-bg: var(--danger-500, #edb20e);
-  --badge-color: #fff;
+  --badge-bg: var(--color-warning-100, #fef3c7);
+  --badge-color: var(--color-warning-800, #92400e);
 }
 
 /* Positioning */

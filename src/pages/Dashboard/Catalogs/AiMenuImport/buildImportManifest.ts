@@ -41,7 +41,7 @@ export interface AiImportProductInput {
     description: string | null;
     base_price: number | null;
     image_url?: string | null;
-    formats?: { name: string; price: number }[];
+    formats?: { name: string; price: number | null }[];
 }
 
 export type ProductImportDecision =

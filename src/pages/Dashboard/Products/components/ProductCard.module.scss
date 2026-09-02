@@ -97,6 +97,15 @@
     color: var(--text);
 }
 
+/* Riga dei segnali (badge mancanze + prezzo). Va a capo invece di troncare:
+   con entrambe le mancanze la card cresce di una riga. */
+.signals {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+}
+
 .price {
     font-size: 12px;
     font-weight: 700;

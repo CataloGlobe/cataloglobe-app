@@ -218,6 +218,7 @@ export default function ReservationForm({
                 errors={effectiveErrors}
                 hours={hours}
                 closures={closures}
+                slug={slug}
                 onChange={handleChange}
                 onBlur={handleBlur}
             />
