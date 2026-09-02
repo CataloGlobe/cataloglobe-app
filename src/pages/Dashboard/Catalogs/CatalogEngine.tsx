@@ -1585,7 +1585,7 @@ export default function CatalogEngine() {
                                 {row.name}
                             </Text>
                             {row.isVariant && <Badge variant="secondary">Variante</Badge>}
-                            {!row.hasPrice && <Badge variant="warning">Da configurare</Badge>}
+                            {!row.hasPrice && <Badge variant="warning">Senza prezzo</Badge>}
                         </div>
                         {row.sku && (
                             <Text variant="caption" className={styles.productSku}>

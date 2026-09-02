@@ -541,7 +541,7 @@ export default function Products() {
                 // Domanda unica ("ha un prezzo?") prima di qualsiasi formattazione:
                 // le diramazioni sotto si occupano solo di COME mostrarlo.
                 if (!rowHasPrice(row)) {
-                    return <Badge variant="warning">Da configurare</Badge>;
+                    return <Badge variant="warning">Senza prezzo</Badge>;
                 }
 
                 if (row.kind === "variant") {

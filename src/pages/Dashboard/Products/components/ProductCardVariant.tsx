@@ -98,7 +98,7 @@ export default function ProductCardVariant({
             <div className={styles.body}>
                 <span className={styles.name}>{variant.name}</span>
                 {missingPrice ? (
-                    <Badge variant="warning">Da configurare</Badge>
+                    <Badge variant="warning">Senza prezzo</Badge>
                 ) : (
                     price !== null && (
                         <Text variant="caption" className={styles.price}>

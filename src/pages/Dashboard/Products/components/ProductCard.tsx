@@ -74,7 +74,7 @@ export default function ProductCard({ product, metadata, onEdit, onDelete }: Pro
                 </Link>
 
                 {missingPrice ? (
-                    <Badge variant="warning">Da configurare</Badge>
+                    <Badge variant="warning">Senza prezzo</Badge>
                 ) : (
                     <Text variant="caption" colorVariant="muted" className={styles.price}>
                         {price ?? "—"}
