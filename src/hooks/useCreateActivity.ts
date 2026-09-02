@@ -188,10 +188,26 @@ export function useCreateActivity({
 
     // GENERAZIONE SLUG AUTOMATICA CON DEBOUNCE
     useEffect(() => {
-        if (!debouncedName.trim()) {
-            setValues(prev => ({ ...prev, slug: "" }));
+        // Il nome CORRENTE è la fonte di verità su "il campo è vuoto".
+        // `debouncedName` vuoto ha due significati che vanno distinti: il nome
+        // è davvero vuoto, oppure il debounce non ha ancora prodotto il valore
+        // appena scritto — o appena ripristinato dalla bozza, dove il nome
+        // arriva tutto insieme e questo effect rigira subito perché
+        // `slugTouched` è cambiato, con `debouncedName` ancora alla stringa
+        // iniziale. Leggere lì il "vuoto" azzerava lo slug appena ripristinato.
+        if (!values.name.trim()) {
+            // Identità preservata quando non c'è nulla da azzerare: al primo
+            // render `values` resta `EMPTY_FORM`, che è ciò su cui il
+            // salvataggio della bozza si regola.
+            setValues(prev => (prev.slug === "" ? prev : { ...prev, slug: "" }));
             return;
         }
+
+        // Debounce non ancora allineato al nome corrente: si aspetta il suo
+        // giro, senza toccare lo slug e senza interrogare la rete a ogni
+        // battuta con un valore già stantio.
+        if (debouncedName !== values.name) return;
+
         if (slugTouched) return; // l’utente ha modificato manualmente lo slug → non aggiorniamo più
         if (!tenantId) return;
 
@@ -202,7 +218,7 @@ export function useCreateActivity({
         }
 
         compute();
-    }, [debouncedName, slugTouched, tenantId]);
+    }, [values.name, debouncedName, slugTouched, tenantId]);
 
     // RIPRISTINO DELLA BOZZA LOCALE
     //
