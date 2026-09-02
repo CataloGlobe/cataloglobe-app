@@ -619,7 +619,13 @@ export default function SearchOverlay({
                 legato a `query`: la digitazione non deve avere lag. */}
             <div className={styles.results}>
                 {debouncedQuery.trim() === "" ? (
-                    onApplyFilters ? (
+                    // I chip rapidi compaiono solo se c'è davvero qualcosa da
+                    // filtrare. Senza allergeni nel catalogo mostrerebbero un
+                    // separatore, un link e un contatore su zero opzioni: il
+                    // pannello torna alla sola scritta d'aiuto, com'era prima
+                    // dei filtri. Stesso ramo per la preview, dove manca
+                    // l'handler di applicazione e l'UI sarebbe inerte.
+                    onApplyFilters && allAllergens.length > 0 ? (
                         <QuickAllergenChips
                             allergens={quickChips}
                             selectedIds={applied}
@@ -629,8 +635,6 @@ export default function SearchOverlay({
                             totalCount={totalProductCount}
                         />
                     ) : (
-                        // Nessun handler di applicazione (ramo preview): resta
-                        // la scritta d'aiuto, niente UI di filtro inerte.
                         <p className={styles.hint}>{t("search.hint")}</p>
                     )
                 ) : groupedResults.length === 0 && activeFilterCount > 0 ? (

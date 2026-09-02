@@ -8,7 +8,8 @@ import styles from "./MoreSheet.module.scss";
 type Props = {
     isOpen: boolean;
     onClose: () => void;
-    onOpenAllergens: () => void;
+    /** Apre il pannello unificato sulla vista filtri (rootView="filters"). */
+    onOpenFilters: () => void;
     onOpenInfo: () => void;
     /**
      * Callback "Prenota un tavolo". Quando undefined la voce non viene
@@ -16,7 +17,8 @@ type Props = {
      * `enable_reservations === true` AND lo slug è disponibile.
      */
     onOpenReservation?: () => void;
-    allergensCount: number;
+    /** Filtri attivi: mostrato nel sottotitolo della voce, non come badge. */
+    activeFilterCount: number;
     hasAllergensInCatalog: boolean;
     hasInfo: boolean;
     /**
@@ -36,15 +38,20 @@ type Props = {
 // Riferimento: PublicSheet.tsx — desktop panel exit
 // `transition={{ type: "spring", duration: 0.32 }}` (linea 225). Mobile usa
 // uno spring (damping 28, stiffness 260) con settling perceived ~280-320ms.
+//
+// Serve SOLO per l'hop verso un'altra PublicSheet (Info), dove entrambe le
+// superfici sono ancorate in basso e si muovono nella stessa direzione. Il
+// passaggio ai filtri NON lo usa: quello apre il pannello ancorato in alto,
+// che esce in direzione opposta e non impila nulla.
 const SHEET_EXIT_DURATION_MS = 300;
 
 export default function MoreSheet({
     isOpen,
     onClose,
-    onOpenAllergens,
+    onOpenFilters,
     onOpenInfo,
     onOpenReservation,
-    allergensCount,
+    activeFilterCount,
     hasAllergensInCatalog,
     hasInfo,
     shareUrl,
@@ -84,12 +91,16 @@ export default function MoreSheet({
                 ? t("more.share_error")
                 : t("more.share_label");
 
-    const allergensDisabled = !hasAllergensInCatalog;
-    const allergensSubtitle = allergensDisabled
-        ? t("more.allergens_subtitle_empty")
-        : allergensCount > 0
-            ? t("more.allergens_subtitle_active", { count: allergensCount })
-            : t("more.allergens_subtitle_inactive");
+    const filtersDisabled = !hasAllergensInCatalog;
+    // Catalogo senza allergeni: STESSA chiave che il pannello mostra nello
+    // stesso caso (allergens.filter_empty). Una frase, un punto di verità —
+    // due testi diversi per la stessa condizione sarebbero un'incoerenza che
+    // il cliente incontra a due tap di distanza.
+    const filtersSubtitle = filtersDisabled
+        ? t("allergens.filter_empty")
+        : activeFilterCount > 0
+            ? t("more.filters_subtitle_active", { count: activeFilterCount })
+            : t("more.filters_subtitle_inactive");
 
     return (
         <PublicSheet
@@ -116,25 +127,31 @@ export default function MoreSheet({
                 <button
                     type="button"
                     className={styles.item}
-                    disabled={allergensDisabled}
-                    aria-disabled={allergensDisabled}
+                    disabled={filtersDisabled}
+                    aria-disabled={filtersDisabled}
                     onClick={() => {
-                        if (allergensDisabled) return;
+                        if (filtersDisabled) return;
+                        // Niente attesa fra le due superfici: si chiudono e si
+                        // aprono nello stesso commit React, e il contatore delle
+                        // sheet aperte passa da 1 a 0 a 1 dentro i layout effect,
+                        // cioè PRIMA del paint — il body non risulta mai
+                        // sbloccato in un frame dipinto, quindi niente salto di
+                        // scroll. I due movimenti vanno in direzioni opposte
+                        // (sheet giù, pannello dall'alto) e non collidono.
                         onClose();
-                        window.setTimeout(onOpenAllergens, SHEET_EXIT_DURATION_MS);
+                        onOpenFilters();
                     }}
                 >
                     <span className={styles.iconWrap} aria-hidden>
                         <Filter size={18} strokeWidth={2} />
                     </span>
                     <span className={styles.text}>
-                        <span className={styles.itemLabel}>{t("more.allergens_label")}</span>
-                        <span className={styles.itemSubtitle}>{allergensSubtitle}</span>
+                        <span className={styles.itemLabel}>{t("more.filters_label")}</span>
+                        {/* Il conteggio vive QUI e non in un badge: il
+                            sottotitolo dice anche di cosa sono quei numeri. */}
+                        <span className={styles.itemSubtitle}>{filtersSubtitle}</span>
                     </span>
-                    {allergensCount > 0 && (
-                        <span className={styles.badge}>{allergensCount}</span>
-                    )}
-                    {!allergensDisabled && (
+                    {!filtersDisabled && (
                         <ChevronRight size={16} strokeWidth={2} className={styles.chevron} aria-hidden />
                     )}
                 </button>

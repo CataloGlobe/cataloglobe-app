@@ -67,9 +67,15 @@ export default function QuickAllergenChips({
                     <SlidersHorizontal size={14} strokeWidth={2} aria-hidden />
                     <span>{t("search.all_filters")}</span>
                 </button>
-                <span className={styles.visibleCount}>
-                    {t("search.visible_count", { visible: visibleCount, total: totalCount })}
-                </span>
+                {/* Solo quando i due numeri differiscono: a filtri spenti
+                    «22 piatti visibili su 22» non dice nulla che l'utente non
+                    veda già scorrendo. Il contatore serve a quantificare
+                    l'effetto di un filtro, non a certificarne l'assenza. */}
+                {visibleCount !== totalCount && (
+                    <span className={styles.visibleCount}>
+                        {t("search.visible_count", { visible: visibleCount, total: totalCount })}
+                    </span>
+                )}
             </div>
         </div>
     );

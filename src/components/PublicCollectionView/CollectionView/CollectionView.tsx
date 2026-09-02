@@ -60,7 +60,6 @@ const preloadSheetChunks = () => {
     void importOrderConfirmationSheet();
 };
 import AllergenIcon from "@/components/ui/AllergenIcon/AllergenIcon";
-import AllergensSheet from "../AllergensSheet/AllergensSheet";
 import MoreSheet from "../MoreSheet/MoreSheet";
 import {
     getAllergenPreferences,
@@ -949,12 +948,16 @@ export default function CollectionView({
 
     // ── Search overlay ──────────────────────────────────────────────────────
     const [isSearchOpen, setIsSearchOpen] = useState(false);
-    // Vista da cui parte il pannello. Oggi l'unico ingresso è la lente, che
-    // apre sulla ricerca; la capacità di partire dai filtri è già cablata
-    // (prop rootView) e avrà il suo chiamante con la voce dentro «…».
+    // Vista da cui parte il pannello: la lente apre sulla ricerca, la voce
+    // «Filtri» dentro «…» apre direttamente i filtri. Il valore viene sempre
+    // riscritto all'apertura, quindi non resta incollato fra due aperture.
     const [searchRootView, setSearchRootView] = useState<"search" | "filters">("search");
     const handleOpenSearch = useCallback(() => {
         setSearchRootView("search");
+        setIsSearchOpen(true);
+    }, []);
+    const handleOpenFilters = useCallback(() => {
+        setSearchRootView("filters");
         setIsSearchOpen(true);
     }, []);
     const handleCloseSearch = useCallback(() => setIsSearchOpen(false), []);
@@ -1062,7 +1065,6 @@ export default function CollectionView({
     // Hydration-safe: default vuoto in render (= server), lettura sessionStorage
     // spostata in effect post-mount (client-only) → niente mismatch #418/#425.
     const [allergenFilterIds, setAllergenFilterIds] = useState<number[]>([]);
-    const [isAllergensFilterOpen, setIsAllergensFilterOpen] = useState(false);
 
     const allergensPersistSkipRef = useRef(true);
     useEffect(() => {
@@ -2915,7 +2917,7 @@ export default function CollectionView({
                                             </Text>
                                             <button
                                                 type="button"
-                                                onClick={() => setIsAllergensFilterOpen(true)}
+                                                onClick={handleOpenFilters}
                                                 className={styles.allergenEmptyBtn}
                                             >
                                                 {t("allergens.filter_edit_cta")}
@@ -3259,7 +3261,7 @@ export default function CollectionView({
                 <MoreSheet
                     isOpen={isMoreSheetOpen}
                     onClose={() => setIsMoreSheetOpen(false)}
-                    onOpenAllergens={() => setIsAllergensFilterOpen(true)}
+                    onOpenFilters={handleOpenFilters}
                     onOpenInfo={() => setIsInfoSheetOpen(true)}
                     onOpenReservation={
                         enableReservations && slug
@@ -3274,7 +3276,7 @@ export default function CollectionView({
                               }
                             : undefined
                     }
-                    allergensCount={allergenFilterIds.length}
+                    activeFilterCount={allergenFilterIds.length}
                     hasAllergensInCatalog={allergensInCatalog.length > 0}
                     hasInfo={hasAnyInfo}
                     // SSR-safe: window assente nel render server (entry-server);
@@ -3286,17 +3288,6 @@ export default function CollectionView({
                             : undefined
                     }
                     shareTitle={businessName}
-                />
-            )}
-
-            {mode === "public" && (
-                <AllergensSheet
-                    mode="filter"
-                    isOpen={isAllergensFilterOpen}
-                    onClose={() => setIsAllergensFilterOpen(false)}
-                    allergens={allergensInCatalog}
-                    selectedIds={allergenFilterIds}
-                    onApplyFilter={setAllergenFilterIds}
                 />
             )}
 
