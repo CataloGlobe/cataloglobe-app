@@ -116,6 +116,11 @@ export type ResolveRulesForActivityResult = {
             config?: unknown;
         };
     };
+    /** Numero di regole layout enabled=true associate alla sede, PRIMA del
+     *  filtro temporale (`isTimeRuleActiveNow`) — distingue "nessuna regola
+     *  mai configurata" da "regole configurate ma nessuna vince ora"
+     *  (dayparting). Vedi `resolveActivityCatalogs.ts` → `hasConfiguredCatalogRule`. */
+    layoutCandidateCount: number;
     priceRuleId: string | null;
     visibilityRule: {
         scheduleId: string;
@@ -586,6 +591,7 @@ export async function resolveRulesForActivity(
                   }
                 : {})
         },
+        layoutCandidateCount: layoutCandidates.rows.length,
         priceRuleId: selectedPriceRule?.id ?? null,
         visibilityRule,
         featuredRule: selectedFeaturedRule
