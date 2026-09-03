@@ -19,6 +19,7 @@ import { fetchPublicCatalog, type CatalogSource, type PublicCatalogPayload } fro
 import { getCached, setCached } from "@/services/publicCatalog/publicCatalogCache";
 
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
+import PublicCatalogUnavailable from "@/components/PublicCollectionView/PublicCatalogUnavailable/PublicCatalogUnavailable";
 import NotFound from "../NotFound/NotFound";
 import { isValidLangFormat } from "@/utils/lang";
 import pageStyles from "./PublicCollectionPage.module.scss";
@@ -160,7 +161,9 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     // Dinamic head tags (title, description, OG) — only when ready.
     // Anche con menù vuoto la pagina è quella della sede: title/OG col suo nome.
     const headBusiness =
-        state.status === "ready" || state.status === "empty" ? state.business : null;
+        state.status === "ready" || state.status === "empty" || state.status === "catalog_empty"
+            ? state.business
+            : null;
     const headLang = state.status === "ready" ? state.effectiveLanguage : undefined;
     const menuLabel = t("page.menu_label", { defaultValue: "Menu" });
     const headTitle = headBusiness ? `${headBusiness.name} · ${menuLabel}` : undefined;
@@ -514,9 +517,21 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         return <NotFound variant="subscription-inactive" />;
     }
 
-    // NB: `empty` (sede pubblicata, menù non ancora pubblicato) NON è un errore
-    // e NON passa da NotFound: cade nel render sotto, che mostra intestazione +
-    // messaggio sobrio senza azioni. Il 404 vero resta `domain_error`.
+    // `catalog_empty` (regola di programmazione vinta, catalogo senza
+    // prodotti visibili ORA) NON è un errore e NON passa da NotFound: sede
+    // pubblicata, branding minimo (logo + nome) via PublicCatalogUnavailable,
+    // niente chrome (header/search/hub). Il 404 vero resta `domain_error`.
+    // NB: `empty` (nessun catalogo risolto/nessuna regola vinta, comportamento
+    // storico) NON passa di qui: cade nel render sotto, chrome completa via
+    // PublicCatalogReady, invariato da prima di questo lavoro.
+    if (state.status === "catalog_empty") {
+        return (
+            <PublicCatalogUnavailable
+                business={state.business}
+                tenantLogoUrl={state.tenantLogoUrl}
+            />
+        );
+    }
 
     // Lingua di destinazione: già nell'URL quando il refetch inizia.
     // Fallback a baseLanguage se si torna alla lingua base (URL senza /lang).

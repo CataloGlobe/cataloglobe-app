@@ -53,7 +53,8 @@ function makePayload(overrides: Partial<ResolvedPayloadShape> = {}): ResolvedPay
                 id: "cat-1",
                 name: "Menu",
                 categories: []
-            } as unknown as NonNullable<ResolvedPayloadShape["resolved"]["catalog"]>
+            } as unknown as NonNullable<ResolvedPayloadShape["resolved"]["catalog"]>,
+            hasRenderableItems: true
         },
         ...overrides
     };
@@ -139,7 +140,7 @@ describe("derivePageState", () => {
         expect(derivePageState(payload, null)).toEqual({ status: "inactive" });
     });
 
-    it("nessun catalogo né featured → empty con business e tenantLogoUrl", () => {
+    it("nessun catalogo né featured → empty con business e tenantLogoUrl (comportamento storico, invariato)", () => {
         const payload = makePayload({ resolved: {}, tenantLogoUrl: "https://logo.example/x.png" });
         const state = derivePageState(payload, null);
         expect(state.status).toBe("empty");
@@ -149,11 +150,38 @@ describe("derivePageState", () => {
         }
     });
 
-    it("featured-only (niente catalogo) NON è empty", () => {
+    it("regola vinta ma catalogo senza prodotti renderabili → catalog_empty", () => {
+        const payload = makePayload({
+            resolved: {
+                hasRenderableItems: false
+            },
+            tenantLogoUrl: "https://logo.example/x.png"
+        });
+        const state = derivePageState(payload, null);
+        expect(state.status).toBe("catalog_empty");
+        if (state.status === "catalog_empty") {
+            expect(state.business.id).toBe("act-1");
+            expect(state.tenantLogoUrl).toBe("https://logo.example/x.png");
+        }
+    });
+
+    it("featured-only (niente catalogo, nessuna regola vinta) NON è empty né catalog_empty", () => {
         const payload = makePayload({
             resolved: {
                 featured: {
                     before_catalog: [{ id: "f1" } as never]
+                }
+            }
+        });
+        expect(derivePageState(payload, null).status).toBe("ready");
+    });
+
+    it("featured-only (regola vinta ma catalogo vuoto) resta ready, non catalog_empty", () => {
+        const payload = makePayload({
+            resolved: {
+                hasRenderableItems: false,
+                featured: {
+                    after_catalog: [{ id: "f2" } as never]
                 }
             }
         });
