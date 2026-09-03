@@ -423,4 +423,13 @@
     grid-template-columns: 20px 32px 28px minmax(0, 1fr) auto;
     grid-template-rows: auto auto;
   }
+
+  /* `.rowNoDrag` ha 6 figli (niente drag handle): senza questa regola
+     ereditava il template a 5 colonne di `.row`, pensato per 7 figli.
+     Stessa logica di collasso: dot/checkbox/nome/target in riga 1,
+     toggle + menu azioni scendono in riga 2. */
+  .rowNoDrag {
+    grid-template-columns: 20px 32px minmax(0, 1fr) auto;
+    grid-template-rows: auto auto;
+  }
 }
