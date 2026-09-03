@@ -61,6 +61,41 @@ type Props = {
     initialPayload?: PublicCatalogInitialPayload;
 };
 
+/**
+ * Il payload SSR è single-use per SESSIONE, non per istanza.
+ *
+ * `entry-client.tsx` legge `window.__PUBLIC_CATALOG__` a livello modulo e lo
+ * passa come prop: quel valore sopravvive a tutta la sessione SPA. La guardia
+ * skip-fetch qui sotto è invece governata da un ref PER-ISTANZA
+ * (`hydrationConsumedRef`), che si azzera ad ogni remount della pagina —
+ * navigare su `/:slug/prenota` e tornare indietro smonta e rimonta
+ * `PublicCollectionPage`. Con solo il ref, il remount ritrova il payload
+ * inlinato (lingua base, ormai stale) e può ri-armare lo skip del fetch:
+ * la pagina renderebbe contenuto vecchio con stato già `ready`, quindi anche
+ * `usePublicLanguageSync` resta spento (attivo solo fuori dal ramo ready).
+ *
+ * Fix: il payload viene RILASCIATO dopo il primo consumo effettivo, così ogni
+ * mount successivo non lo trova più e passa dal fetch. La disponibilità è
+ * letta da `window` al mount (non dalla prop, che resta valorizzata per sempre).
+ */
+type SsrPayloadWindow = Window & {
+    __PUBLIC_CATALOG__?: PublicCatalogInitialPayload;
+};
+
+function readSsrPayload(
+    fallback: PublicCatalogInitialPayload | undefined
+): PublicCatalogInitialPayload | undefined {
+    // Render server (nessun window): la prop è l'unica sorgente.
+    if (typeof window === "undefined") return fallback;
+    return (window as SsrPayloadWindow).__PUBLIC_CATALOG__ ?? undefined;
+}
+
+/** Idempotente: dopo il primo consumo il payload non è più disponibile. */
+function releaseSsrPayload(): void {
+    if (typeof window === "undefined") return;
+    (window as SsrPayloadWindow).__PUBLIC_CATALOG__ = undefined;
+}
+
 export default function PublicCollectionPage({ initialPayload }: Props) {
     const { slug, lang: langFromUrl } = useParams<{ slug: string; lang?: string }>();
     const navigate = useNavigate();
@@ -108,9 +143,16 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     }, [maintenanceParam, t]);
     const [effectiveSimulate, setEffectiveSimulate] = useState<string | null>(null);
     const isSimulation = !!effectiveSimulate;
+    // Payload SSR ancora disponibile a QUESTO mount (vedi readSsrPayload):
+    // valutato una sola volta, non ri-letto ad ogni render. Su un remount
+    // successivo al primo consumo vale `undefined` → la pagina fetcha.
+    const [ssrPayload] = useState<PublicCatalogInitialPayload | undefined>(() =>
+        readSsrPayload(initialPayload)
+    );
+
     const [state, setState] = useState<PageState>(() =>
-        initialPayload
-            ? derivePageState(initialPayload.payload, initialPayload.allergens)
+        ssrPayload
+            ? derivePageState(ssrPayload.payload, ssrPayload.allergens)
             : { status: "loading" }
     );
 
@@ -129,7 +171,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     // normalmente. (entry-client non monta StrictMode → il ref non viene
     // consumato due volte; rivedere se StrictMode torna.)
     const hydrationConsumedRef = useRef(false);
-    const inlinedBaseLang = initialPayload?.payload.base_language_code ?? "it";
+    const inlinedBaseLang = ssrPayload?.payload.base_language_code ?? "it";
 
     // Payload-derived: ordering_disabled deriva da business.ordering_enabled.
     // Backward compat: snapshot Redis pre-Fix 1 puo non avere il campo →
@@ -184,6 +226,12 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     usePublicFontInjection(state.status === "ready" ? state.resolved.style : null);
 
     useEffect(() => {
+        // Il payload SSR ha già fatto il suo lavoro: `ssrPayload` è stato letto
+        // al mount e ha popolato lo stato iniziale (primo paint). Da qui in poi
+        // nessun altro mount della sessione deve poterlo riusare — vedi
+        // releaseSsrPayload. Idempotente, primo effect post-commit.
+        releaseSsrPayload();
+
         if (!slug) {
             setState({ status: "error", messageKey: "page.invalid_link" });
             return;
@@ -211,7 +259,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         // retryToken > 0 (manual retry) e simulateParam bypassano lo skip.
         const requestedLang = validatedLang ?? inlinedBaseLang;
         if (
-            initialPayload &&
+            ssrPayload &&
             !hydrationConsumedRef.current &&
             requestedLang === inlinedBaseLang &&
             retryToken === 0 &&
