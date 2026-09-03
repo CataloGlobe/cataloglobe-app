@@ -16,7 +16,7 @@
     "skip_to_content": "Salta al contenuto",
     "hub": {
         "menu": "Menu",
-        "events": "Eventi & Promo",
+        "events": "In evidenza",
         "reviews": "Dicci la tua",
         "storia": "Storia"
     },
@@ -268,7 +268,7 @@
         "preview_close_aria": "Chiudi"
     },
     "events": {
-        "list_aria": "Eventi e promozioni",
+        "list_aria": "In evidenza",
         "empty": "Nessun evento o promozione attiva al momento.",
         "back": "← Torna alla lista",
         "close_aria": "Chiudi",

@@ -15,7 +15,7 @@
   "skip_to_content": "Skip to content",
   "hub": {
     "menu": "Menu",
-    "events": "Événements et promotions",
+    "events": "En vedette",
     "reviews": "Dites-nous ce qu'il en est",
     "storia": "Histoire"
   },
@@ -267,7 +267,7 @@
     "preview_close_aria": "Fermer"
   },
   "events": {
-    "list_aria": "Événements et promotions",
+    "list_aria": "En vedette",
     "empty": "Il n'y a pas d'événements ou de promotions en cours pour le moment.",
     "back": "← Retour à la liste",
     "close_aria": "Fermer",

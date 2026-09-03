@@ -15,7 +15,7 @@
     "skip_to_content": "Skip to content",
     "hub": {
         "menu": "Menu",
-        "events": "Events & Promo",
+        "events": "Featured",
         "reviews": "Tell us",
         "storia": "Story"
     },
@@ -267,7 +267,7 @@
         "preview_close_aria": "Close"
     },
     "events": {
-        "list_aria": "Events and promotions",
+        "list_aria": "Featured",
         "empty": "No events or promotions active right now.",
         "back": "← Back to list",
         "close_aria": "Close",

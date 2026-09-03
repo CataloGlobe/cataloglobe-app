@@ -15,7 +15,7 @@
     "skip_to_content": "Zum Inhalt springen",
     "hub": {
         "menu": "Menü",
-        "events": "Veranstaltungen & Promo",
+        "events": "Hervorgehoben",
         "reviews": "Erzählen Sie uns Ihre",
         "storia": "Geschichte"
     },
@@ -267,7 +267,7 @@
         "preview_close_aria": "Schließen Sie"
     },
     "events": {
-        "list_aria": "Veranstaltungen und Promotionen",
+        "list_aria": "Hervorgehoben",
         "empty": "Zurzeit keine aktiven Veranstaltungen oder Aktionen.",
         "back": "← Zurück zur Liste",
         "close_aria": "Schließen",

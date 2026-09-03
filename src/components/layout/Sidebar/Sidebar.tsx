@@ -13,7 +13,7 @@ import {
     Calendar,
     BookOpen,
     BookOpenText,
-    Layers,
+    Pin,
     Palette,
     BarChart3,
     MessageSquare,
@@ -123,7 +123,7 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
                 {
                     to: `${b}/featured`,
                     label: "Contenuti in evidenza",
-                    icon: <Layers size={18} />,
+                    icon: <Pin size={18} />,
                     permission: perms => canDoOnAnyActivity(perms, "featured.read")
                 },
                 {

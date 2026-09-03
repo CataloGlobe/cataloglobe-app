@@ -5,7 +5,7 @@ import Text from "@/components/ui/Text/Text";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { Pencil, Trash2, Layers, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Pencil, Trash2, Pin, LayoutGrid, List as ListIcon } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
@@ -256,7 +256,7 @@ export default function Highlights() {
                         </div>
                     ) : filteredContents.length === 0 ? (
                         <EmptyState
-                            icon={<Layers size={40} strokeWidth={1.5} />}
+                            icon={<Pin size={40} strokeWidth={1.5} />}
                             title={
                                 searchQuery
                                     ? "Nessun risultato"
