@@ -100,6 +100,8 @@ export default function LanguageSelectorView({
 
     if (languages.length <= 1) return null;
 
+    const activeLang = languages.find(lang => lang.code === currentLang);
+
     const portalStyle: Record<string, string> = triggerRef.current
         ? (() => {
             const cs = getComputedStyle(triggerRef.current!);
@@ -154,9 +156,15 @@ export default function LanguageSelectorView({
                 aria-label={t("language_selector.trigger_aria")}
                 aria-expanded={open}
             >
-                <span className={styles.triggerCode}>
-                    {currentLang.toUpperCase()}
-                </span>
+                {activeLang?.flag_emoji ? (
+                    <span className={styles.triggerFlag} aria-hidden="true">
+                        {activeLang.flag_emoji}
+                    </span>
+                ) : (
+                    <span className={styles.triggerCode}>
+                        {currentLang.toUpperCase()}
+                    </span>
+                )}
             </button>
 
             {isDropdown && open && createPortal(

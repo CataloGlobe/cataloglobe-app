@@ -63,6 +63,16 @@
   line-height: 1;
 }
 
+/* Emoji flag — dimensione allineata alle icone Lucide (20px) delle altre
+   pill della toolbar (search/•••/pin/chat), stesso 44×44 hit-area. */
+.triggerFlag {
+  font-size: 20px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* ── DROPDOWN (portale su document.body) ────────────────── */
 .dropdown {
   position: fixed;
