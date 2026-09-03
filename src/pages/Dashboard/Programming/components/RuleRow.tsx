@@ -229,6 +229,7 @@ export function RuleRow({
                 {onToggleEnabled && (
                     <>
                         <Switch
+                            ariaLabel={`Attiva o disattiva ${displayName}`}
                             checked={rule.enabled}
                             onChange={checked => {
                                 if (checked && rule.end_at && new Date(rule.end_at) < new Date()) {

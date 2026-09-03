@@ -6,6 +6,9 @@ import styles from "./Switch.module.scss";
 export interface SwitchProps {
     id?: string;
     label?: string;
+    /** Nome accessibile quando non c'è una `label` visibile (es. toggle
+        dentro una riga di tabella, dove il contesto è la riga stessa). */
+    ariaLabel?: string;
     tooltip?: React.ReactNode;
     description?: string;
     helperText?: string;
@@ -23,6 +26,7 @@ export interface SwitchProps {
 export const Switch: React.FC<SwitchProps> = ({
     id,
     label,
+    ariaLabel,
     tooltip,
     description,
     helperText,
@@ -55,6 +59,7 @@ export const Switch: React.FC<SwitchProps> = ({
                         role="switch"
                         checked={checked}
                         disabled={isDisabled}
+                        aria-label={ariaLabel}
                         aria-invalid={hasError || undefined}
                         aria-describedby={describedById}
                         onChange={e => onChange(e.target.checked)}
