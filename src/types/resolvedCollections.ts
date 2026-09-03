@@ -241,4 +241,9 @@ export type ResolvedCollections = {
      *  del resolver — vedi `resolveActivityCatalogs`). Calcolato da
      *  `resolveActivityCatalogs` — SYNC edge↔FE, vedi header dei due file. */
     hasRenderableItems?: boolean;
+    /** True quando esiste almeno una regola layout enabled=true per la sede
+     *  (indipendentemente dal fatto che vinca ora) — distingue "nessuna
+     *  regola mai configurata" da "regole configurate ma nessuna vince ora"
+     *  (dayparting). Calcolato da `resolveActivityCatalogs` — SYNC edge↔FE. */
+    hasConfiguredCatalogRule?: boolean;
 };
