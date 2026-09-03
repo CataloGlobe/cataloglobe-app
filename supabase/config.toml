@@ -334,3 +334,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/confirm-reservation-attendance/index.ts"
+
+[functions.purge-reservation-data]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/purge-reservation-data/index.ts"
