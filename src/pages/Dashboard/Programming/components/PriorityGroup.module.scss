@@ -93,8 +93,18 @@
   }
 }
 
-.rowNoDrag {
-  grid-template-columns: 20px 32px minmax(0, 2fr) minmax(120px, 1fr) 64px 44px;
+/* Griglia definita come custom property `--rule-row-grid` su `.ruleBlock`
+   (Programming.module.scss), l'antenato comune con la riga etichette
+   colonna: unica sorgente di verità per riga dati e header. Il fallback
+   replica i valori desktop per eventuali usi fuori da `.ruleBlock`.
+   Selettore a doppia classe di proposito: serve a battere il
+   `@media (max-width: 768px) .row` in fondo al file, che altrimenti
+   vincerebbe per ordine di cascata a parità di specificità. */
+.row.rowNoDrag {
+  grid-template-columns: var(
+    --rule-row-grid,
+    20px 32px minmax(0, 2fr) minmax(120px, 1fr) 64px 44px
+  );
 }
 
 .rowDisabled {
@@ -426,10 +436,10 @@
 
   /* `.rowNoDrag` ha 6 figli (niente drag handle): senza questa regola
      ereditava il template a 5 colonne di `.row`, pensato per 7 figli.
-     Stessa logica di collasso: dot/checkbox/nome/target in riga 1,
-     toggle + menu azioni scendono in riga 2. */
+     Le colonne mobile arrivano da `--rule-row-grid` ridefinita su
+     `.ruleBlock`; qui resta solo il collasso su due righe (dot/checkbox/
+     nome/target in riga 1, toggle + menu azioni in riga 2). */
   .rowNoDrag {
-    grid-template-columns: 20px 32px minmax(0, 1fr) auto;
     grid-template-rows: auto auto;
   }
 }

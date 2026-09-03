@@ -798,9 +798,19 @@
 /* ─── RuleBlock ──────────────────────────────────────────────── */
 
 .ruleBlock {
+  /* Griglia condivisa tra la riga dati (`.rowNoDrag` in
+     PriorityGroup.module.scss) e la riga etichette colonna qui sotto.
+     Definita sull'antenato comune così le due non possono divergere:
+     colonne = pallino stato | checkbox | nome | target | toggle | menu. */
+  --rule-row-grid: 20px 32px minmax(0, 2fr) minmax(120px, 1fr) 64px 44px;
+
   background: var(--card-bg, #fff);
   border: 1px solid var(--border, #e2e8f0);
   border-radius: var(--radius-lg, 10px);
+
+  @media (max-width: 768px) {
+    --rule-row-grid: 20px 32px minmax(0, 1fr) auto;
+  }
 }
 
 .ruleBlockHeader {
