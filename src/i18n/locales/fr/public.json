@@ -439,6 +439,8 @@
     "disabled_text": "{{brand}} n'accepte pas les réservations en ligne pour le moment.",
     "disabled_call": "Vous pouvez appeler directement l'établissement pour demander une table.",
     "disabled_contact": "Pour demander une table, contactez directement l'établissement.",
+    "unconfigured_title": "Réservation en ligne indisponible",
+    "unconfigured_text": "{{brand}} n'a pas encore activé la réservation en ligne.",
     "call_venue": "Appeler l'établissement",
     "back_to_menu": "Retour au menu",
     "back_button": "Menu",

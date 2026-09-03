@@ -439,6 +439,8 @@
         "disabled_text": "{{brand}} no acepta reservas online en este momento.",
         "disabled_call": "Puedes llamar directamente al local para pedir una mesa.",
         "disabled_contact": "Para pedir una mesa, contacta directamente con el local.",
+        "unconfigured_title": "Reserva online no disponible",
+        "unconfigured_text": "{{brand}} todavía no ha activado la reserva online.",
         "call_venue": "Llamar al local",
         "back_to_menu": "Volver al menú",
         "back_button": "Menú",

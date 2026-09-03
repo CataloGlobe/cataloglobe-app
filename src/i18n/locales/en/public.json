@@ -439,6 +439,8 @@
         "disabled_text": "{{brand}} isn't accepting online reservations right now.",
         "disabled_call": "You can call the venue directly to request a table.",
         "disabled_contact": "To request a table, contact the venue directly.",
+        "unconfigured_title": "Online booking unavailable",
+        "unconfigured_text": "{{brand}} hasn't set up online booking yet.",
         "call_venue": "Call the venue",
         "back_to_menu": "Back to menu",
         "back_button": "Menu",

@@ -28,6 +28,10 @@ export type ResolveState =
     | { status: "network-error" }
     | { status: "inactive"; brand: Brand | null }
     | { status: "reservations-disabled"; brand: Brand }
+    /** Prenotazioni attive sulla sede ma nessuna fascia prenotabile
+     *  nell'orizzonte: orari mai configurati (o tutti i giorni chiusi).
+     *  Vicolo cieco per il cliente → stato dedicato, non il form vuoto. */
+    | { status: "hours-unconfigured"; brand: Brand }
     | { status: "ready"; brand: Brand };
 
 export type FormFields = {

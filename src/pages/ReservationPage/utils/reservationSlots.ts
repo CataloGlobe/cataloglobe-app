@@ -14,7 +14,9 @@ import {
     parseLocalDate,
     type OpeningHoursEntry,
     type UpcomingClosure
-} from "@pages/ReservationPage/availability";
+    // `@/pages/...`: vedi nota in derivePageState — l'alias `@pages` non è
+    // risolto da vitest e questo modulo finisce nel grafo dei test.
+} from "@/pages/ReservationPage/availability";
 
 export const RESERVATION_HORIZON_DAYS = 90;
 
@@ -280,6 +282,35 @@ export function buildHorizonDays(
         });
     }
     return cells;
+}
+
+/**
+ * True iff at least one day of the horizon has bookable ranges.
+ *
+ * Discriminante di "prenotazione online non configurata". NON usare
+ * `hours.length === 0`: una sede può avere le 7 righe di `activity_hours`
+ * scritte ma tutte con `is_closed=true` — righe presenti, zero fasce
+ * prenotabili. Per il cliente i due casi sono identici (nessuna data
+ * selezionabile, oggi e per i prossimi 90 giorni) e lo restano finché il
+ * ristoratore non cambia la configurazione, quindi vanno trattati allo
+ * stesso modo. Il criterio "nessun giorno dell'orizzonte è prenotabile"
+ * copre entrambi — e le combinazioni che oggi non prevediamo.
+ *
+ * Esce al primo giorno utile: nel caso normale è O(1) sui giorni.
+ */
+export function hasBookableDays(
+    hours: OpeningHoursEntry[],
+    closures: UpcomingClosure[],
+    horizonDays = RESERVATION_HORIZON_DAYS,
+    today = todayIsoDate()
+): boolean {
+    const start = parseLocalDate(today);
+    if (!start) return false;
+    for (let i = 0; i < horizonDays; i++) {
+        const iso = toIsoLocal(addDays(start, i));
+        if (getDaySlots(iso, hours, closures).length > 0) return true;
+    }
+    return false;
 }
 
 /**

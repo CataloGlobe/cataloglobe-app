@@ -439,6 +439,8 @@
         "disabled_text": "{{brand}} nimmt derzeit keine Online-Reservierungen an.",
         "disabled_call": "Sie können den Standort direkt anrufen, um einen Tisch anzufragen.",
         "disabled_contact": "Um einen Tisch anzufragen, kontaktieren Sie den Standort direkt.",
+        "unconfigured_title": "Online-Reservierung nicht verfügbar",
+        "unconfigured_text": "{{brand}} hat die Online-Reservierung noch nicht eingerichtet.",
         "call_venue": "Standort anrufen",
         "back_to_menu": "Zurück zum Menü",
         "back_button": "Menü",
