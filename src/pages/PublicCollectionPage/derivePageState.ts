@@ -192,6 +192,16 @@ export function derivePageState(
         return { status: "catalog_empty", business, tenantLogoUrl };
     }
 
+    // Nessuna regola layout mai configurata/pubblicata per la sede (setup mai
+    // completato) — distinto dal caso sotto (`isEmpty`, INVARIATO): lì le
+    // regole esistono ma nessuna vince ora per dayparting. Confronto esplicito
+    // `=== false`: `undefined` (payload servito da un'edge non ancora
+    // aggiornata durante il rollout) deve cadere nel ramo `isEmpty` legacy,
+    // mai qui.
+    if (!hasFeatured && !resolved.catalog && resolved.hasConfiguredCatalogRule === false) {
+        return { status: "catalog_empty", business, tenantLogoUrl };
+    }
+
     const baseLang = base_language_code ?? "it";
     const effectiveLang = effective_language ?? baseLang;
     const availLangs: AvailableLanguage[] =

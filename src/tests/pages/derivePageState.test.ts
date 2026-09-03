@@ -165,9 +165,52 @@ describe("derivePageState", () => {
         }
     });
 
+    it("nessuna regola layout mai configurata (hasConfiguredCatalogRule=false) → catalog_empty", () => {
+        const payload = makePayload({
+            resolved: {
+                hasConfiguredCatalogRule: false
+            },
+            tenantLogoUrl: "https://logo.example/x.png"
+        });
+        const state = derivePageState(payload, null);
+        expect(state.status).toBe("catalog_empty");
+        if (state.status === "catalog_empty") {
+            expect(state.business.id).toBe("act-1");
+            expect(state.tenantLogoUrl).toBe("https://logo.example/x.png");
+        }
+    });
+
+    it("regole configurate ma nessuna vince ora (hasConfiguredCatalogRule=true, dayparting) → empty, invariato", () => {
+        const payload = makePayload({
+            resolved: {
+                hasConfiguredCatalogRule: true
+            }
+        });
+        expect(derivePageState(payload, null).status).toBe("empty");
+    });
+
+    it("payload da edge non ancora aggiornata (hasConfiguredCatalogRule undefined) → empty, mai catalog_empty", () => {
+        const payload = makePayload({
+            resolved: {}
+        });
+        expect(derivePageState(payload, null).status).toBe("empty");
+    });
+
     it("featured-only (niente catalogo, nessuna regola vinta) NON è empty né catalog_empty", () => {
         const payload = makePayload({
             resolved: {
+                featured: {
+                    before_catalog: [{ id: "f1" } as never]
+                }
+            }
+        });
+        expect(derivePageState(payload, null).status).toBe("ready");
+    });
+
+    it("featured-only anche con hasConfiguredCatalogRule=false resta ready, mai catalog_empty (guard !hasFeatured)", () => {
+        const payload = makePayload({
+            resolved: {
+                hasConfiguredCatalogRule: false,
                 featured: {
                     before_catalog: [{ id: "f1" } as never]
                 }
