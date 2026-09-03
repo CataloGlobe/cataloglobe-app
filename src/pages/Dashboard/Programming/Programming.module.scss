@@ -836,6 +836,32 @@
   }
 }
 
+/* Riga etichette colonna, una per card di gruppo. Padding orizzontale e
+   gap replicano quelli di `.row` (PriorityGroup.module.scss) perché le
+   etichette cadano esattamente sopra la loro colonna. */
+.ruleColumnHeader {
+  display: grid;
+  grid-template-columns: var(--rule-row-grid);
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.4rem 1rem;
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  user-select: none;
+
+  /* Sotto i 768px la riga dati collassa su due righe e la colonna target
+     è dimensionata `auto`, cioè sul suo contenuto: il pill della riga e la
+     parola "Target" hanno larghezze diverse, quindi le due griglie non
+     possono coincidere. Senza allineamento l'etichetta è solo rumore. */
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
 .ruleBlockHeaderLeft {
   display: flex;
   align-items: center;

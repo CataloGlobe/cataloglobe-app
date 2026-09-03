@@ -251,10 +251,28 @@ function RuleBlock({
         </div>
     );
 
+    /* Etichette colonna: stessa grid delle righe dati via `--rule-row-grid`,
+       ereditata da `.ruleBlock`. Le celle vuote (pallino stato, checkbox)
+       servono solo a far cadere "Regola" e "Target" sulla loro colonna;
+       toggle e menu azioni non hanno etichetta e restano fuori. */
+    const columnLabels = (
+        <div className={styles.ruleColumnHeader} aria-hidden="true">
+            <span />
+            <span />
+            <span>Regola</span>
+            <span>Target</span>
+        </div>
+    );
+
     return (
         <div className={styles.ruleBlock}>
             {header}
-            {isOpen && children}
+            {isOpen && (
+                <>
+                    {columnLabels}
+                    {children}
+                </>
+            )}
         </div>
     );
 }
