@@ -37,10 +37,10 @@ export type RenderPublicResult =
     | { kind: "ready"; html: string }
     | {
           /** Payload valido ma non renderizzabile come catalogo (inactive /
-              subscription_inactive / empty): il chiamante serve il fallback
-              SPA, che gestisce questi stati come oggi. */
+              subscription_inactive / empty / catalog_empty): il chiamante
+              serve il fallback SPA, che gestisce questi stati come oggi. */
           kind: "non-ready";
-          status: "inactive" | "subscription_inactive" | "empty";
+          status: "inactive" | "subscription_inactive" | "empty" | "catalog_empty";
       };
 
 const noop = () => {};
