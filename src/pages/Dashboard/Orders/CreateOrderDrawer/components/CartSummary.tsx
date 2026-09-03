@@ -123,7 +123,7 @@ export function CartSummary({
                     onChange={e =>
                         onOrderNoteChange(e.target.value.slice(0, ORDER_NOTE_MAX_LEN))
                     }
-                    placeholder="Es. servire dopo gli antipasti, allergie..."
+                    placeholder="Es. servire dopo gli antipasti..."
                     className={styles.orderNoteInput}
                     maxLength={ORDER_NOTE_MAX_LEN}
                     rows={2}

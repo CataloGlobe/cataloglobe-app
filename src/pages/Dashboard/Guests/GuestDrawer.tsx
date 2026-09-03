@@ -36,8 +36,11 @@ import { formatCustomerSince, visibilityFootnote } from "@/utils/guestVisibility
 import styles from "./Guests.module.scss";
 
 /** Marcature proposte. Restano suggerimenti: il campo libero resta il vero
- *  strumento, queste servono solo a evitare dieci grafie di "abituale". */
-const SUGGESTED_TAGS = ["abituale", "VIP", "allergie", "tavolo tranquillo"];
+ *  strumento, queste servono solo a evitare dieci grafie di "abituale".
+ *  Niente dati sanitari fra i suggerimenti: il ristoratore può sempre
+ *  scriverseli a mano sul singolo cliente, ma non li proponiamo come
+ *  categoria standard applicabile a chiunque. */
+const SUGGESTED_TAGS = ["abituale", "VIP", "tavolo tranquillo"];
 
 interface Props {
     open: boolean;
@@ -371,7 +374,7 @@ export default function GuestDrawer({
                                                 setNewTag("");
                                             }
                                         }}
-                                        placeholder="es. allergie"
+                                        placeholder="es. abituale"
                                         maxLength={40}
                                         aria-label="Nuova marcatura"
                                         // Qui l'autofocus è corretto: il campo

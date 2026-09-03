@@ -609,12 +609,15 @@ export function ReservationForm({
                     Note
                     <span className={styles.reservationFormLabelOptional}>opzionale</span>
                 </label>
+                {/* Nessun esempio sanitario nel placeholder: se emerge
+                    un'allergia dev'essere iniziativa di chi prenota, non una
+                    categoria che chiediamo noi. */}
                 <textarea
                     id={`${formId}-notes`}
                     className={styles.reservationFormTextarea}
                     value={notes}
                     onChange={e => setNotes(e.target.value)}
-                    placeholder="es. allergie, occasione speciale, tavolo all'aperto…"
+                    placeholder="es. occasione speciale, tavolo all'aperto…"
                     maxLength={500}
                     rows={3}
                 />

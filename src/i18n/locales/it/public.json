@@ -465,7 +465,7 @@
         "notes": "Note",
         "special_requests": "Richieste particolari",
         "optional": "(facoltativo)",
-        "notes_placeholder": "Allergie, esigenze particolari, occasioni speciali…",
+        "notes_placeholder": "Esigenze particolari, occasioni speciali…",
         "people": "Persone",
         "exact_number": "Indica il numero esatto",
         "party_count_one": "{{count}} persona",
