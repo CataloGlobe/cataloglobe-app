@@ -23,6 +23,14 @@ import PublicCatalogUnavailable from "@/components/PublicCollectionView/PublicCa
 import NotFound from "../NotFound/NotFound";
 import { isValidLangFormat } from "@/utils/lang";
 import DeviceFrame, { type DeviceFrameFormat } from "@/components/ui/DeviceFrame/DeviceFrame";
+import PublicPreviewBar from "./components/PublicPreviewBar";
+import { useTenantMembership } from "./useTenantMembership";
+import {
+    detectRealDeviceFormat,
+    listPreviewFormats,
+    resolvePreviewFormat,
+    shouldShowPreviewBar
+} from "./previewControl";
 import pageStyles from "./PublicCollectionPage.module.scss";
 // reviews_summary and recent_reviews still returned by edge function — unused in frontend for now
 
@@ -97,46 +105,12 @@ function releaseSsrPayload(): void {
     (window as SsrPayloadWindow).__PUBLIC_CATALOG__ = undefined;
 }
 
-// ── Device-frame di simulazione (?preview=) ──────────────────────────────
-// Rank per la regola prodotto "solo formati ≤ dispositivo reale": desktop
-// reale → tutti; tablet reale → tablet/mobile; mobile reale → nessuno (il
-// param viene sempre ignorato, vedi resolvePreview sotto).
-const DEVICE_FRAME_RANK: Record<DeviceFrameFormat, number> = {
-    mobile: 0,
-    tablet: 1,
-    desktop: 2
-};
-
-// `preview=desktop` non produce MAI un frame. Per la regola "≤ dispositivo
-// reale" il livello desktop è selezionabile solo da un dispositivo già
-// desktop — cioè esattamente il caso in cui non c'è nulla da simulare:
-// incorniciare la pagina alla stessa larghezza in cui verrebbe comunque
-// renderizzata aggiungerebbe solo un bordo e un vincolo di altezza. Si
-// comporta quindi come il path senza `preview` (no-op silenzioso).
-const NO_FRAME_FORMATS: ReadonlySet<DeviceFrameFormat> = new Set<DeviceFrameFormat>(["desktop"]);
-
-function isDeviceFrameFormat(value: string): value is DeviceFrameFormat {
-    return value === "mobile" || value === "tablet" || value === "desktop";
-}
-
-// Stesso breakpoint 640 di useIsMobile in PublicSheet.tsx (mobile reale),
-// 1024 come CollectionView.module.scss `@container collection` (soglia
-// desktop). Rilevazione one-shot, no resize listener: nessun controllo UI
-// da tenere sincronizzato in questo commit (FASE 2.4).
-function detectRealDeviceFormat(): DeviceFrameFormat {
-    if (typeof window === "undefined") return "desktop";
-    const w = window.innerWidth;
-    if (w < 640) return "mobile";
-    if (w < 1024) return "tablet";
-    return "desktop";
-}
-
 export default function PublicCollectionPage({ initialPayload }: Props) {
     const { slug, lang: langFromUrl } = useParams<{ slug: string; lang?: string }>();
     const navigate = useNavigate();
     const { t, i18n } = useTranslation("public");
     const location = useLocation();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const simulateParam = searchParams.get("simulate");
     const previewParam = searchParams.get("preview");
 
@@ -178,54 +152,6 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         return { reason, message: messageForReason(reason, t) };
     }, [maintenanceParam, t]);
     const [effectiveSimulate, setEffectiveSimulate] = useState<string | null>(null);
-    const isSimulation = !!effectiveSimulate;
-
-    // Device-frame di simulazione (?preview=): stesso perimetro auth di
-    // ?simulate= (nessun controllo permessi oltre alla sessione — gap
-    // pre-esistente, vedi nota adiacente in docs/audit-device-frame-pagina-pubblica.md).
-    // Effect separato dal fetch principale: preview non richiede un refetch
-    // del catalogo, solo il montaggio del device-frame lato render.
-    const [effectivePreview, setEffectivePreview] = useState<DeviceFrameFormat | null>(null);
-    useEffect(() => {
-        if (!previewParam || !isDeviceFrameFormat(previewParam)) {
-            setEffectivePreview(null);
-            return;
-        }
-        // Formati che non producono mai un frame (oggi: desktop). Check prima
-        // di qualunque await: nessuna ragione di interrogare la sessione per
-        // un valore che comunque si risolve in no-op.
-        if (NO_FRAME_FORMATS.has(previewParam)) {
-            setEffectivePreview(null);
-            return;
-        }
-        let cancelled = false;
-        (async () => {
-            const {
-                data: { session }
-            } = await supabase.auth.getSession();
-            if (cancelled) return;
-            if (!session) {
-                setEffectivePreview(null);
-                return;
-            }
-            const realFormat = detectRealDeviceFormat();
-            // Dispositivo reale già mobile: nessun formato ha senso da simulare,
-            // il param va ignorato silenziosamente (nessun frame, nessun errore).
-            if (realFormat === "mobile") {
-                setEffectivePreview(null);
-                return;
-            }
-            // Regola prodotto: solo formati ≤ dispositivo reale.
-            if (DEVICE_FRAME_RANK[previewParam] > DEVICE_FRAME_RANK[realFormat]) {
-                setEffectivePreview(null);
-                return;
-            }
-            setEffectivePreview(previewParam);
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [previewParam]);
 
     // URL caricato nell'iframe di preview: stesso path della finestra host
     // (slug + eventuale segmento lingua) e stessi query param, MENO `preview`.
@@ -256,6 +182,68 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
             ? derivePageState(ssrPayload.payload, ssrPayload.allergens)
             : { status: "loading" }
     );
+
+    // ── Elementi riservati (mai visibili ai clienti) ──────────────────────
+    // Un'unica verifica condivisa: "sessione presente E relazione reale con
+    // QUESTO tenant" (owner o membership attiva, qualunque ruolo). Copre sia
+    // il banner `?simulate=` sia la barra di controllo formato / `?preview=`.
+    // Il tenant è noto solo a payload ricevuto → prima di allora tutto resta
+    // nascosto (fail-closed). Il gate autorizzativo vero per `simulate` è
+    // server-side (resolve-public-catalog): qui si decide solo cosa mostrare.
+    const isMember = useTenantMembership(
+        state.status === "ready" || state.status === "empty" || state.status === "catalog_empty"
+            ? state.business.tenant_id
+            : null
+    );
+    // Un non membro con `?simulate=` riceve dal server il catalogo normale:
+    // il banner non deve comparire, l'esperienza è identica a un anonimo.
+    const simulateAt = isMember === true ? effectiveSimulate : null;
+
+    // Dispositivo reale: rilevazione one-shot al mount (nessun resize listener).
+    // Dentro l'iframe del DeviceFrame la larghezza è quella del frame: la
+    // pagina ospitata non deve né mostrare la barra né montare un frame
+    // proprio — la finestra host possiede entrambi.
+    const [realFormat] = useState<DeviceFrameFormat>(() =>
+        typeof window === "undefined" ? "desktop" : detectRealDeviceFormat(window.innerWidth)
+    );
+    const [isFramed] = useState<boolean>(() => typeof window !== "undefined" && window.self !== window.top);
+
+    // Device-frame di simulazione (?preview=): derivato, nessun effect. Non
+    // richiede un refetch del catalogo, solo il montaggio del frame lato render.
+    const effectivePreview = isFramed
+        ? null
+        : resolvePreviewFormat({ previewParam, realFormat, isMember });
+    const previewFormats = useMemo(() => listPreviewFormats(realFormat), [realFormat]);
+    const showPreviewBar = shouldShowPreviewBar({
+        isMember,
+        realFormat,
+        isFramed,
+        hasSimulate: !!simulateAt
+    });
+    // Pillola: scrive `?preview=<formato>` nell'URL (persistente, condivisibile —
+    // stesso pattern di `simulate`). Il resto della query string è preservato.
+    const handleSelectFormat = useCallback(
+        (format: DeviceFrameFormat) => {
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.set("preview", format);
+                return next;
+            });
+        },
+        [setSearchParams]
+    );
+    const previewBarNode = showPreviewBar ? (
+        <PublicPreviewBar
+            formats={previewFormats}
+            activeFormat={effectivePreview ?? realFormat}
+            onSelectFormat={handleSelectFormat}
+            simulateAt={simulateAt}
+            // Fissa solo con frame attivo: nel ramo senza frame la barra sta
+            // nel flusso (bannerSlot) e non deve contendere lo z-index con
+            // l'header sticky della pagina pubblica.
+            sticky={effectivePreview !== null}
+        />
+    ) : null;
 
     // Fase 1 (URL-driven): applica la lingua dall'URL nelle SHELL
     // (loading/error/inactive/...). Nel ramo "ready" comanda il
@@ -461,6 +449,11 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
                     return { status: "loading" };
                 });
 
+                // Pre-check "sessione presente" solo per scegliere il trasporto
+                // (invoke diretto, no-store) — il tenant non è ancora noto qui.
+                // L'autorizzazione vera (appartenenza al tenant) è server-side:
+                // un non membro riceve il catalogo normale e il banner resta
+                // nascosto (vedi simulateAt / useTenantMembership).
                 let simulate: string | undefined = undefined;
                 if (simulateParam) {
                     const {
@@ -673,12 +666,19 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     // NB: `empty` (nessun catalogo risolto/nessuna regola vinta, comportamento
     // storico) NON passa di qui: cade nel render sotto, chrome completa via
     // PublicCatalogReady, invariato da prima di questo lavoro.
+    // La barra riservata compare anche qui: è proprio in questo stato che un
+    // membro vuole verificare (via `?simulate=`) cosa vedrà il cliente quando
+    // una regola futura entrerà in vigore. Nessun frame in questo ramo (non
+    // c'è catalogo da incorniciare): solo la barra sopra la card.
     if (state.status === "catalog_empty") {
         return (
-            <PublicCatalogUnavailable
-                business={state.business}
-                tenantLogoUrl={state.tenantLogoUrl}
-            />
+            <div className={pageStyles.previewShell}>
+                {previewBarNode}
+                <PublicCatalogUnavailable
+                    business={state.business}
+                    tenantLogoUrl={state.tenantLogoUrl}
+                />
+            </div>
         );
     }
 
@@ -695,32 +695,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
             activeTab={activeTab}
             onTabChange={handleTabChange}
             onTabAutoReset={handleTabAutoReset}
-            bannerSlot={
-                isSimulation ? (
-                    <div
-                        style={{
-                            position: "relative",
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            gap: "0.75rem",
-                            padding: "0.5rem 1rem",
-                            background: "#fef3c7",
-                            color: "#92400e",
-                            fontSize: "0.8rem",
-                            fontWeight: 500,
-                            borderBottom: "1px solid #fde68a"
-                        }}
-                    >
-                        <span>{t("page.simulation_banner")}</span>
-                        <span>
-                            {new Date(effectiveSimulate!).toLocaleString("it-IT", {
-                                timeZone: "Europe/Rome"
-                            })}
-                        </span>
-                    </div>
-                ) : null
-            }
+            bannerSlot={previewBarNode}
         >
             {/* Toast cambio lingua — gated post-mount (non SSR) per evitare
                 mismatch hydration #418: server non renderizza PublicCollectionPage
@@ -770,8 +745,12 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     // `catalogReadyNode` resta costruito ma non montato su questo ramo: è solo
     // creazione di elementi React (nessun effect, nessun fetch) — il contenuto
     // vero lo renderizza l'iframe.
+    // La barra resta montata anche qui, sopra il frame: dentro l'iframe la
+    // pagina ospitata NON la renderizza (isFramed), quindi il controllo per
+    // cambiare ancora formato è sempre e solo questo.
     return (
-        <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
+        <div className={pageStyles.previewShell}>
+            {previewBarNode}
             <DeviceFrame
                 format={effectivePreview}
                 iframeSrc={previewIframeSrc}

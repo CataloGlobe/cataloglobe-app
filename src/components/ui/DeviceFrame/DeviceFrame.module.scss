@@ -11,6 +11,33 @@
   overflow: hidden;
 }
 
+/* ── Host in flusso (modalità iframe, pagina pubblica) ─────────────────────
+   Il .host base è un canvas a altezza fissa (flex:1 in un contenitore a
+   altezza vincolata) con overflow:hidden e centratura flex: pensato per lo
+   Style Editor, dove il frame DEVE stare dentro il pannello. Sulla pagina
+   pubblica l'host riceve ~viewport meno barra: il frame mobile (667px) ci
+   sta ed è centrato, il tablet (1024px) NO — `align-items:center` con item
+   più alto del contenitore lo fa traboccare in egual misura sopra e sotto,
+   e overflow:hidden taglia la parte sopra → frame "incollato" al bordo
+   superiore (in realtà tagliato), niente scroll di pagina.
+   Qui invece: l'host cresce col contenuto (flex-basis auto, overflow
+   visibile), padding uniforme, e la centratura passa ai margin:auto del
+   wrapper — che, a differenza di align-items, si azzerano quando l'item
+   trabocca (top-aligned + pagina che scrolla) e centrano quando ci sta. */
+
+.hostFlow {
+  flex: 1 0 auto;
+  overflow: visible;
+  align-items: flex-start;
+  justify-content: flex-start;
+  padding: 16px;
+  box-sizing: border-box;
+
+  > .deviceVisualWrapper {
+    margin: auto;
+  }
+}
+
 /* ── Visual wrapper — riserva l'ingombro visivo scalato ───────────────────── */
 
 .deviceVisualWrapper {

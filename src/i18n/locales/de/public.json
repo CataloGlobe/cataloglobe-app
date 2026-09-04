@@ -3,13 +3,20 @@
         "loading": "Laden...",
         "invalid_link": "Ungültiger Link.",
         "loading_error": "Ladefehler.",
-        "simulation_banner": "Vorschau Simulation",
         "empty_catalog": "Zurzeit kein Produkt verfügbar",
         "menu_label": "Menü",
         "error": {
             "not_found": "Standort nicht gefunden.",
             "invalid_link": "Ungültiger Link.",
             "invalid_lang": "Sprache nicht unterstützt."
+        },
+        "preview_bar": {
+            "not_visible": "Leiste für Kunden nicht sichtbar",
+            "simulated": "Simulierter Inhalt",
+            "format_label": "Vorschauformat",
+            "format_desktop": "Desktop",
+            "format_tablet": "Tablet",
+            "format_mobile": "Smartphone"
         }
     },
     "skip_to_content": "Zum Inhalt springen",

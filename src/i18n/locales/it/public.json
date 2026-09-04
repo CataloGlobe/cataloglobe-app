@@ -3,7 +3,6 @@
         "loading": "Caricamento...",
         "invalid_link": "Link non valido.",
         "loading_error": "Errore di caricamento.",
-        "simulation_banner": "Anteprima simulazione",
         "menu_label": "Menu",
         "catalog_empty_title": "Il menù non è ancora pronto",
         "catalog_empty_description": "Il locale sta preparando i suoi piatti. Torna a controllare tra poco.",
@@ -11,6 +10,14 @@
             "not_found": "Sede non trovata.",
             "invalid_link": "Link non valido.",
             "invalid_lang": "Lingua non supportata."
+        },
+        "preview_bar": {
+            "not_visible": "Barra non visibile ai clienti",
+            "simulated": "Contenuto simulato",
+            "format_label": "Formato anteprima",
+            "format_desktop": "Desktop",
+            "format_tablet": "Tablet",
+            "format_mobile": "Smartphone"
         }
     },
     "skip_to_content": "Salta al contenuto",

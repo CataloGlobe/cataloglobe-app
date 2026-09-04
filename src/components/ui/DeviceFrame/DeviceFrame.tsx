@@ -113,8 +113,12 @@ export default function DeviceFrame({
         </div>
     );
 
+    // Modalità iframe (pagina pubblica): il frame vive nel flusso della pagina
+    // (.hostFlow), non in un canvas a altezza fissa. Vedi nota in .module.scss.
+    const hostClassName = iframeSrc ? `${styles.host} ${styles.hostFlow}` : styles.host;
+
     return (
-        <div className={styles.host} ref={setHostEl}>
+        <div className={hostClassName} ref={setHostEl}>
             <div
                 className={styles.deviceVisualWrapper}
                 style={{ width: `${width * scale}px`, height: `${height * scale}px` }}

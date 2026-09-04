@@ -3,13 +3,20 @@
         "loading": "Cargando...",
         "invalid_link": "Enlace no válido.",
         "loading_error": "Error de carga.",
-        "simulation_banner": "Simulación previa",
         "empty_catalog": "Ningún producto disponible por el momento",
         "menu_label": "Menú",
         "error": {
             "not_found": "Local no encontrado.",
             "invalid_link": "Enlace no válido.",
             "invalid_lang": "Idioma no compatible."
+        },
+        "preview_bar": {
+            "not_visible": "Barra no visible para los clientes",
+            "simulated": "Contenido simulado",
+            "format_label": "Formato de vista previa",
+            "format_desktop": "Escritorio",
+            "format_tablet": "Tableta",
+            "format_mobile": "Smartphone"
         }
     },
     "skip_to_content": "Ir al contenido",
