@@ -6,6 +6,7 @@ import { TableRowActions } from "@components/ui/TableRowActions/TableRowActions"
 import { useToast } from "@/context/Toast/ToastContext";
 import { buildRuleSummary } from "@utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@utils/scheduleDraft";
+import { getToggleGuardResult } from "@utils/ruleToggleGuards";
 import type { LayoutRule, LayoutRuleOption } from "@services/supabase/layoutScheduling";
 import styles from "./PriorityGroup.module.scss";
 
@@ -232,21 +233,16 @@ export function RuleRow({
                             ariaLabel={`Attiva o disattiva ${displayName}`}
                             checked={rule.enabled}
                             onChange={checked => {
-                                if (checked && rule.end_at && new Date(rule.end_at) < new Date()) {
-                                    showToast({
-                                        type: "error",
-                                        message: "Questa regola è scaduta. Aggiorna la data di fine prima di riattivarla.",
-                                        duration: 3000
-                                    });
-                                    return;
-                                }
-                                if (checked && ruleIsDraft) {
-                                    showToast({
-                                        type: "error",
-                                        message: "Completa i campi obbligatori prima di attivare la regola.",
-                                        duration: 3000
-                                    });
-                                    return;
+                                if (checked) {
+                                    const guard = getToggleGuardResult(rule);
+                                    if (!guard.canToggle) {
+                                        showToast({
+                                            type: "error",
+                                            message: guard.reason,
+                                            duration: 3000
+                                        });
+                                        return;
+                                    }
                                 }
                                 onToggleEnabled(rule.id, checked);
                             }}
