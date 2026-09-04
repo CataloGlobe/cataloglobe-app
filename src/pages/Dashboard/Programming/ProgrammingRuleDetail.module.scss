@@ -10,6 +10,18 @@
 .topActions {
   display: flex;
   gap: 0.65rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Stato attivo/disattivo: salva subito, quindi vive accanto alle azioni e
+   non dentro il form. */
+.enabledToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-right: 0.35rem;
+  border-right: 1px solid var(--border);
 }
 
 .layout {
