@@ -1,5 +1,5 @@
 // =============================================================================
-// Unit test — runRetentionTick (cancellazione prenotazioni a 24 mesi)
+// Unit test — runRetentionTick (cancellazione prenotazioni a 36 mesi)
 // =============================================================================
 //
 // Lo store finto NON è un mock passivo: replica le due regole del database che
@@ -27,8 +27,11 @@ import {
     type RetentionStore
 } from "../../supabase/functions/_shared/reservationRetention";
 
-/** Soglia = oggi (03/09/2026) meno 24 mesi. Le date "vecchie" dei test stanno
- *  prima, quelle "recenti" dopo. */
+/** Soglia arbitraria: `runRetentionTick` riceve la DATA di taglio, non il numero
+ *  di mesi di conservazione — quello vive in `RETENTION_MONTHS`
+ *  (`purge-reservation-data`) ed è coperto dal test su `retentionCutoffDate` in
+ *  fondo al file. Qui le date "vecchie" stanno prima della soglia, le "recenti"
+ *  dopo: cambiare la policy da 24 a 36 mesi non tocca queste fixture. */
 const CUTOFF = "2024-09-03";
 
 interface GuestRow {
@@ -368,7 +371,7 @@ describe("runRetentionTick — ramo con profilo", () => {
 });
 
 describe("runRetentionTick — ramo orfano (guest_id NULL)", () => {
-    it("prenotazione senza profilo oltre i 24 mesi: anonimizzata", async () => {
+    it("prenotazione senza profilo oltre la soglia: anonimizzata", async () => {
         const db = new FakeDb(
             [],
             [reservation({ id: "r1", reservation_date: "2024-08-01" })]
@@ -381,7 +384,7 @@ describe("runRetentionTick — ramo orfano (guest_id NULL)", () => {
         expect(db.reservations[0]!.customer_phone_e164).toBeNull();
     });
 
-    it("prenotazione senza profilo entro i 24 mesi: intatta", async () => {
+    it("prenotazione senza profilo entro la soglia: intatta", async () => {
         const db = new FakeDb([], [reservation({ id: "r1", reservation_date: "2026-06-01" })]);
 
         const summary = await runWith(db);
@@ -512,7 +515,8 @@ describe("runRetentionTick — modalità e robustezza", () => {
 
 describe("retentionCutoffDate", () => {
     it("sottrae i mesi di conservazione restando su wall-clock locale", () => {
-        expect(retentionCutoffDate(new Date(2026, 8, 3), 24)).toBe("2024-09-03");
-        expect(retentionCutoffDate(new Date(2026, 0, 31), 24)).toBe("2024-01-31");
+        // 36 = `RETENTION_MONTHS` dichiarato nel §7 dell'informativa.
+        expect(retentionCutoffDate(new Date(2026, 8, 3), 36)).toBe("2023-09-03");
+        expect(retentionCutoffDate(new Date(2026, 0, 31), 36)).toBe("2023-01-31");
     });
 });

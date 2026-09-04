@@ -1,5 +1,5 @@
 // =============================================================================
-// reservationRetention — logica pura della cancellazione a 24 mesi
+// reservationRetention — logica pura della cancellazione a 36 mesi
 // =============================================================================
 //
 // Estratta da purge-reservation-data/index.ts sul modello di

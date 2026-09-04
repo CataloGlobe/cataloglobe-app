@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
+import { useParams } from "react-router-dom";
 import { Trans, useTranslation } from "react-i18next";
 import {
     submitReservation,
@@ -35,6 +36,9 @@ export default function ReservationForm({
     onResolveErrorCode
 }: Props) {
     const { t, i18n } = useTranslation("public");
+    // Serve solo a preservare la lingua nel link all'informativa: la route
+    // lang-aware è `/:slug/:lang/prenota`, quella base non ha il segmento.
+    const { lang } = useParams<{ lang?: string }>();
     const [form, setForm] = useState<FormFields>(EMPTY_FORM);
     const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
     const [submitError, setSubmitError] = useState<string | null>(null);
@@ -263,6 +267,10 @@ export default function ReservationForm({
                     )}
                 </button>
 
+                {/* Informativa DELLA SEDE, non quella di CataloGlobe: il
+                    titolare del trattamento dei dati di chi prenota è il locale
+                    (CataloGlobe è responsabile ex art. 28), quindi
+                    `/legal/privacy` indicherebbe il soggetto sbagliato. */}
                 <p className={styles.privacy}>
                     <Trans
                         i18nKey="reservation.consent"
@@ -270,7 +278,11 @@ export default function ReservationForm({
                         components={{
                             privacy: (
                                 <a
-                                    href="/legal/privacy"
+                                    href={
+                                        lang
+                                            ? `/${slug}/${lang}/privacy-prenotazioni`
+                                            : `/${slug}/privacy-prenotazioni`
+                                    }
                                     target="_blank"
                                     rel="noopener noreferrer"
                                 />

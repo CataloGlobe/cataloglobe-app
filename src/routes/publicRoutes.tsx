@@ -44,6 +44,14 @@ const ReservationConfirmPage = lazy(
     () => import("@pages/ReservationPage/ReservationConfirmPage")
 );
 
+// Informativa privacy prenotazioni: il titolare del trattamento è la sede, non
+// CataloGlobe, quindi ogni sede ha la propria. Lazy anche per il testo, che vive
+// in cinque lingue nel chunk di questa pagina: non deve entrare nel bundle di
+// hydration del catalogo (LCP pagato da ogni scansione di QR).
+const ReservationPrivacyPage = lazy(
+    () => import("@pages/ReservationPrivacyPage/ReservationPrivacyPage")
+);
+
 type PublicRoutesOptions = {
     /**
      * Payload inlinato dalla shell SSR, passato solo da `entry-client.tsx`.
@@ -83,6 +91,14 @@ export function publicRoutes({ initialPayload }: PublicRoutesOptions = {}) {
         </PublicErrorBoundary>
     );
 
+    const reservationPrivacyElement = (
+        <PublicErrorBoundary>
+            <Suspense fallback={<AppLoader intent="public" />}>
+                <ReservationPrivacyPage />
+            </Suspense>
+        </PublicErrorBoundary>
+    );
+
     return [
         // Più specifiche del catch-all catalogo grazie al segmento literal.
         <Route key="/:slug/prenota" path="/:slug/prenota" element={reservationElement} />,
@@ -106,6 +122,16 @@ export function publicRoutes({ initialPayload }: PublicRoutesOptions = {}) {
             key="/:slug/:lang/prenotazione/conferma"
             path="/:slug/:lang/prenotazione/conferma"
             element={reservationConfirmElement}
+        />,
+        <Route
+            key="/:slug/privacy-prenotazioni"
+            path="/:slug/privacy-prenotazioni"
+            element={reservationPrivacyElement}
+        />,
+        <Route
+            key="/:slug/:lang/privacy-prenotazioni"
+            path="/:slug/:lang/privacy-prenotazioni"
+            element={reservationPrivacyElement}
         />,
         <Route
             key="/:slug/:lang?"

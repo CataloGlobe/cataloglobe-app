@@ -1,6 +1,6 @@
 // @ts-nocheck
 // =============================================================================
-// purge-reservation-data — conservazione 24 mesi delle prenotazioni
+// purge-reservation-data — conservazione 36 mesi delle prenotazioni
 // =============================================================================
 //
 // Invocata da pg_cron. Cancella i profili della rubrica la cui ultima
@@ -36,8 +36,22 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const JOB_SECRET = Deno.env.get("RESERVATION_RETENTION_SECRET")!;
 
-/** Mesi di conservazione dichiarati nell'informativa privacy. */
-const RETENTION_MONTHS = 24;
+/**
+ * Mesi di conservazione dichiarati nell'informativa privacy (§7).
+ *
+ * 36 e non 24 per il ciclo stagionale: un locale turistico vede lo stesso
+ * cliente una volta l'anno, e con due anni basta che ne salti uno per perdere
+ * tutto lo storico. Tre anni coprono quel caso restando proporzionati alla
+ * finalità dichiarata — riconoscere il cliente che torna.
+ *
+ * Costante di prodotto, NON un'impostazione della sede: il periodo dichiarato
+ * nell'informativa e quello applicato dal job devono coincidere sempre, e un
+ * ristoratore che li disallinea produce una promessa non mantenuta.
+ *
+ * ⚠️ SYNC: il §7 dell'informativa in `src/pages/ReservationPrivacyPage/notice.ts`
+ * ripete questo numero in cinque lingue. Cambiarlo qui significa cambiarlo lì.
+ */
+const RETENTION_MONTHS = 36;
 
 /** Tetti per esecuzione. Il superamento è LOGGATO, mai silenzioso. */
 const MAX_GUESTS_PER_RUN = 500;

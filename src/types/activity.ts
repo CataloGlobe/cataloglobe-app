@@ -88,6 +88,21 @@ export interface V2Activity {
      * migration 20260829120001). Default true.
      */
     reservation_reminder_enabled: boolean;
+    /**
+     * Email pubblicata nell'informativa privacy prenotazioni della sede come
+     * canale a cui il cliente si rivolge per accesso / rettifica / cancellazione
+     * dei propri dati.
+     *
+     * NULL = fallback all'email dell'owner del tenant, risolto a runtime lato
+     * edge (`tenants.owner_user_id` → `auth.users`, service_role). Il fallback
+     * NON viene materializzato qui: un valore copiato si sgancerebbe in silenzio
+     * il giorno che l'owner cambia email.
+     *
+     * Distinta da `email_public` (contatto commerciale in vetrina) e da
+     * `reservation_notification_emails` (destinatari degli avvisi operativi, che
+     * possono essere indirizzi personali del team e non vanno pubblicati).
+     */
+    reservation_privacy_contact_email: string | null;
     qr_fg_color: string | null;
     qr_bg_color: string | null;
     google_review_url: string | null;
