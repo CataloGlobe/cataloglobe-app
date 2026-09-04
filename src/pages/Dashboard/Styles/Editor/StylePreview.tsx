@@ -1,4 +1,4 @@
-import { useState, useLayoutEffect } from "react";
+import { useState } from "react";
 import { StyleTokenModel } from "./StyleTokenModel";
 import CollectionView, {
   type CollectionViewSectionGroup,
@@ -6,6 +6,7 @@ import CollectionView, {
 import type { SelectionItem } from "@/components/PublicCollectionView/OrderingSheet/OrderingSheet";
 import FeaturedBlock from "@/components/PublicCollectionView/FeaturedBlock/FeaturedBlock";
 import PublicThemeScope from "@/features/public/components/PublicThemeScope";
+import DeviceFrame from "@/components/ui/DeviceFrame/DeviceFrame";
 import { DEFAULT_COLLECTION_STYLE } from "@/types/collectionStyle";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import type {
@@ -460,24 +461,6 @@ export const StylePreview = ({
   isTransitioning = false,
 }: StylePreviewProps) => {
   const [screenEl, setScreenEl] = useState<HTMLDivElement | null>(null);
-  const [rootEl, setRootEl] = useState<HTMLDivElement | null>(null);
-  const [previewScale, setPreviewScale] = useState(1);
-
-  useLayoutEffect(() => {
-    if (!rootEl) return;
-    const LOGICAL_DESKTOP_WIDTH = 1280;
-    const compute = (w: number) =>
-      viewMode === "desktop" ? Math.min(1, w / LOGICAL_DESKTOP_WIDTH) : 1;
-
-    // Compute synchronously on first observation to avoid a flash at scale 1
-    setPreviewScale(compute(rootEl.getBoundingClientRect().width));
-
-    const ro = new ResizeObserver((entries) => {
-      setPreviewScale(compute(entries[0]?.contentRect.width ?? 0));
-    });
-    ro.observe(rootEl);
-    return () => ro.disconnect();
-  }, [rootEl, viewMode]);
 
   const businessName = "Nome Sede";
 
@@ -509,100 +492,43 @@ export const StylePreview = ({
   };
 
   return (
-    <div className={previewStyles.previewRoot} ref={setRootEl}>
-      {/* Device Frame */}
+    <div className={previewStyles.previewRoot}>
       <PublicThemeScope
         tokens={model}
         className={previewStyles.themeScopeWrapper}
       >
-        {viewMode === "mobile" ? (
-          <div
-            className={`${previewStyles.deviceFrame} ${previewStyles.deviceMobile} preview-mobile ${
-              isTransitioning ? previewStyles.deviceFrameTransitioning : ""
-            }`}
-          >
-            <div className={previewStyles.deviceScreen} ref={setScreenEl}>
-              <CollectionView
-                businessName={businessName}
-                businessImage={null}
-                collectionTitle="Nome Catalogo"
-                sectionGroups={MOCK_SECTION_GROUPS}
-                initialSelection={MOCK_INITIAL_SELECTION}
-                style={collectionStyle}
-                mode="preview"
-                previewDevice="mobile"
-                orderingActive={true}
-                scrollContainerEl={screenEl}
-                viewportWidthEl={screenEl}
-                activityAddress="Via Example, 1 - Città"
-                openingHours={MOCK_OPENING_HOURS}
-                upcomingClosures={MOCK_UPCOMING_CLOSURES}
-                featuredBeforeCatalogSlot={
-                  <FeaturedBlock
-                    blocks={MOCK_FEATURED}
-                    layout={model.appearance.featuredStyle}
-                    showSubtitle={model.appearance.showFeaturedSubtitle ?? true}
-                    showTitle={model.appearance.showFeaturedTitle ?? true}
-                    showCta={model.appearance.showFeaturedCta ?? true}
-                    interactive={false}
-                  />
-                }
+        <DeviceFrame
+          format={viewMode}
+          isTransitioning={isTransitioning}
+          screenRef={setScreenEl}
+        >
+          <CollectionView
+            businessName={businessName}
+            businessImage={null}
+            collectionTitle="Nome Catalogo"
+            sectionGroups={MOCK_SECTION_GROUPS}
+            initialSelection={MOCK_INITIAL_SELECTION}
+            style={collectionStyle}
+            mode="preview"
+            previewDevice={viewMode}
+            orderingActive={true}
+            scrollContainerEl={screenEl}
+            viewportWidthEl={screenEl}
+            activityAddress="Via Example, 1 - Città"
+            openingHours={MOCK_OPENING_HOURS}
+            upcomingClosures={MOCK_UPCOMING_CLOSURES}
+            featuredBeforeCatalogSlot={
+              <FeaturedBlock
+                blocks={MOCK_FEATURED}
+                layout={model.appearance.featuredStyle}
+                showSubtitle={model.appearance.showFeaturedSubtitle ?? true}
+                showTitle={model.appearance.showFeaturedTitle ?? true}
+                showCta={model.appearance.showFeaturedCta ?? true}
+                interactive={false}
               />
-            </div>
-          </div>
-        ) : (
-          /* Desktop: wrapper riserva lo spazio visivo scalato, device interno
-                       a 1280px logici con transform: scale(previewScale) da top-left.
-                       transform: scale (non zoom) preserva le misure per container queries. */
-          <div
-            className={previewStyles.deviceVisualWrapper}
-            style={{
-              width: `${1280 * previewScale}px`,
-              height: `${720 * previewScale}px`,
-            }}
-          >
-            <div
-              className={`${previewStyles.deviceFrame} ${previewStyles.deviceDesktop} preview-desktop ${
-                isTransitioning ? previewStyles.deviceFrameTransitioning : ""
-              }`}
-              style={{
-                transform: `scale(${previewScale})`,
-                transformOrigin: "top left",
-              }}
-            >
-              <div className={previewStyles.deviceScreen} ref={setScreenEl}>
-                <CollectionView
-                  businessName={businessName}
-                  businessImage={null}
-                  collectionTitle="Nome Catalogo"
-                  sectionGroups={MOCK_SECTION_GROUPS}
-                  initialSelection={MOCK_INITIAL_SELECTION}
-                  style={collectionStyle}
-                  mode="preview"
-                  previewDevice="desktop"
-                  orderingActive={true}
-                  scrollContainerEl={screenEl}
-                  viewportWidthEl={screenEl}
-                  activityAddress="Via Example, 1 - Città"
-                  openingHours={MOCK_OPENING_HOURS}
-                  upcomingClosures={MOCK_UPCOMING_CLOSURES}
-                  featuredBeforeCatalogSlot={
-                    <FeaturedBlock
-                      blocks={MOCK_FEATURED}
-                      layout={model.appearance.featuredStyle}
-                      showSubtitle={
-                        model.appearance.showFeaturedSubtitle ?? true
-                      }
-                      showTitle={model.appearance.showFeaturedTitle ?? true}
-                      showCta={model.appearance.showFeaturedCta ?? true}
-                      interactive={false}
-                    />
-                  }
-                />
-              </div>
-            </div>
-          </div>
-        )}
+            }
+          />
+        </DeviceFrame>
       </PublicThemeScope>
     </div>
   );

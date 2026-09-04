@@ -22,6 +22,7 @@ import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
 import PublicCatalogUnavailable from "@/components/PublicCollectionView/PublicCatalogUnavailable/PublicCatalogUnavailable";
 import NotFound from "../NotFound/NotFound";
 import { isValidLangFormat } from "@/utils/lang";
+import DeviceFrame, { type DeviceFrameFormat } from "@/components/ui/DeviceFrame/DeviceFrame";
 import pageStyles from "./PublicCollectionPage.module.scss";
 // reviews_summary and recent_reviews still returned by edge function — unused in frontend for now
 
@@ -96,6 +97,40 @@ function releaseSsrPayload(): void {
     (window as SsrPayloadWindow).__PUBLIC_CATALOG__ = undefined;
 }
 
+// ── Device-frame di simulazione (?preview=) ──────────────────────────────
+// Rank per la regola prodotto "solo formati ≤ dispositivo reale": desktop
+// reale → tutti; tablet reale → tablet/mobile; mobile reale → nessuno (il
+// param viene sempre ignorato, vedi resolvePreview sotto).
+const DEVICE_FRAME_RANK: Record<DeviceFrameFormat, number> = {
+    mobile: 0,
+    tablet: 1,
+    desktop: 2
+};
+
+// `preview=desktop` non produce MAI un frame. Per la regola "≤ dispositivo
+// reale" il livello desktop è selezionabile solo da un dispositivo già
+// desktop — cioè esattamente il caso in cui non c'è nulla da simulare:
+// incorniciare la pagina alla stessa larghezza in cui verrebbe comunque
+// renderizzata aggiungerebbe solo un bordo e un vincolo di altezza. Si
+// comporta quindi come il path senza `preview` (no-op silenzioso).
+const NO_FRAME_FORMATS: ReadonlySet<DeviceFrameFormat> = new Set<DeviceFrameFormat>(["desktop"]);
+
+function isDeviceFrameFormat(value: string): value is DeviceFrameFormat {
+    return value === "mobile" || value === "tablet" || value === "desktop";
+}
+
+// Stesso breakpoint 640 di useIsMobile in PublicSheet.tsx (mobile reale),
+// 1024 come CollectionView.module.scss `@container collection` (soglia
+// desktop). Rilevazione one-shot, no resize listener: nessun controllo UI
+// da tenere sincronizzato in questo commit (FASE 2.4).
+function detectRealDeviceFormat(): DeviceFrameFormat {
+    if (typeof window === "undefined") return "desktop";
+    const w = window.innerWidth;
+    if (w < 640) return "mobile";
+    if (w < 1024) return "tablet";
+    return "desktop";
+}
+
 export default function PublicCollectionPage({ initialPayload }: Props) {
     const { slug, lang: langFromUrl } = useParams<{ slug: string; lang?: string }>();
     const navigate = useNavigate();
@@ -103,6 +138,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const simulateParam = searchParams.get("simulate");
+    const previewParam = searchParams.get("preview");
 
     // Maintenance mode mid-session — tre canali, in ordine di priorita:
     //   1. Router state (preferito): set da TableEntryPage navigate post-423
@@ -143,6 +179,71 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     }, [maintenanceParam, t]);
     const [effectiveSimulate, setEffectiveSimulate] = useState<string | null>(null);
     const isSimulation = !!effectiveSimulate;
+
+    // Device-frame di simulazione (?preview=): stesso perimetro auth di
+    // ?simulate= (nessun controllo permessi oltre alla sessione — gap
+    // pre-esistente, vedi nota adiacente in docs/audit-device-frame-pagina-pubblica.md).
+    // Effect separato dal fetch principale: preview non richiede un refetch
+    // del catalogo, solo il montaggio del device-frame lato render.
+    const [effectivePreview, setEffectivePreview] = useState<DeviceFrameFormat | null>(null);
+    useEffect(() => {
+        if (!previewParam || !isDeviceFrameFormat(previewParam)) {
+            setEffectivePreview(null);
+            return;
+        }
+        // Formati che non producono mai un frame (oggi: desktop). Check prima
+        // di qualunque await: nessuna ragione di interrogare la sessione per
+        // un valore che comunque si risolve in no-op.
+        if (NO_FRAME_FORMATS.has(previewParam)) {
+            setEffectivePreview(null);
+            return;
+        }
+        let cancelled = false;
+        (async () => {
+            const {
+                data: { session }
+            } = await supabase.auth.getSession();
+            if (cancelled) return;
+            if (!session) {
+                setEffectivePreview(null);
+                return;
+            }
+            const realFormat = detectRealDeviceFormat();
+            // Dispositivo reale già mobile: nessun formato ha senso da simulare,
+            // il param va ignorato silenziosamente (nessun frame, nessun errore).
+            if (realFormat === "mobile") {
+                setEffectivePreview(null);
+                return;
+            }
+            // Regola prodotto: solo formati ≤ dispositivo reale.
+            if (DEVICE_FRAME_RANK[previewParam] > DEVICE_FRAME_RANK[realFormat]) {
+                setEffectivePreview(null);
+                return;
+            }
+            setEffectivePreview(previewParam);
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [previewParam]);
+
+    // URL caricato nell'iframe di preview: stesso path della finestra host
+    // (slug + eventuale segmento lingua) e stessi query param, MENO `preview`.
+    // Escludere `preview` serve a due cose:
+    //   1. Stabilità: il formato è un resize CSS del frame, non un reload. Il
+    //      src non deve cambiare al cambio formato — la stringa risultante
+    //      resta identica, quindi React non riscrive l'attributo e l'iframe
+    //      non ricarica (i payload `simulate` non sono cacheati: un reload
+    //      costerebbe un refetch pieno ad ogni switch).
+    //   2. Guardia anti-ricorsione: con `preview` nel src, la pagina dentro
+    //      l'iframe monterebbe a sua volta un DeviceFrame con un altro iframe.
+    const previewIframeSrc = useMemo(() => {
+        const params = new URLSearchParams(location.search);
+        params.delete("preview");
+        const qs = params.toString();
+        return `${location.pathname}${qs ? `?${qs}` : ""}`;
+    }, [location.pathname, location.search]);
+
     // Payload SSR ancora disponibile a QUESTO mount (vedi readSsrPayload):
     // valutato una sola volta, non ri-letto ad ogni render. Su un remount
     // successivo al primo consumo vale `undefined` → la pagina fetcha.
@@ -585,7 +686,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     // Fallback a baseLanguage se si torna alla lingua base (URL senza /lang).
     const toastTargetLang = langFromUrl ?? state.baseLanguage;
 
-    return (
+    const catalogReadyNode = (
         <PublicCatalogReady
             slug={slug!}
             data={state}
@@ -646,5 +747,38 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
                 </span>
             </div>}
         </PublicCatalogReady>
+    );
+
+    // Device-frame di simulazione: monta SOLO quando un formato valido è
+    // stato risolto (auth + regola "≤ dispositivo reale", vedi effect sopra).
+    // Nessun frame → markup identico a prima di questo lavoro (zero rischio
+    // di regressione sul comportamento pubblico normale).
+    if (!effectivePreview) {
+        return catalogReadyNode;
+    }
+
+    // Il frame ospita una finestra REALE (iframe same-origin su /:slug), non
+    // l'albero React in-place: dentro l'iframe window/matchMedia/createPortal
+    // lavorano nativamente sulle dimensioni del frame, quindi header,
+    // bottom-bar e PublicSheet si comportano come su un dispositivo reale di
+    // quel formato senza alcuno scoping manuale (l'approccio a scoping
+    // per-componente è stato tentato e revertito — vedi
+    // docs/audit-device-frame-pagina-pubblica.md).
+    // Richiede X-Frame-Options: SAMEORIGIN + CSP frame-ancestors 'self'
+    // (vercel.json, FASE 3.1): in `npm run dev` Vite non invia XFO, quindi
+    // l'embedding va verificato su deploy reale.
+    // `catalogReadyNode` resta costruito ma non montato su questo ramo: è solo
+    // creazione di elementi React (nessun effect, nessun fetch) — il contenuto
+    // vero lo renderizza l'iframe.
+    return (
+        <div style={{ display: "flex", flexDirection: "column", minHeight: "100dvh" }}>
+            <DeviceFrame
+                format={effectivePreview}
+                iframeSrc={previewIframeSrc}
+                iframeTitle={t("page.preview_frame_title", {
+                    defaultValue: "Anteprima della pagina pubblica"
+                })}
+            />
+        </div>
     );
 }
