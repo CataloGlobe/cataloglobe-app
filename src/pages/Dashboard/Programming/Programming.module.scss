@@ -801,21 +801,18 @@
   /* Griglia condivisa tra la riga dati (`.rowNoDrag` in
      PriorityGroup.module.scss) e la riga etichette colonna qui sotto.
      Definita sull'antenato comune così le due non possono divergere:
-     colonne = pallino stato | checkbox | nome | target | toggle | menu. */
+     colonne = pallino stato | checkbox | nome | target | toggle | menu.
+
+     Vale solo da 768px in su: sotto, la riga dati mostra un set di celle
+     diverso (niente checkbox, chip target e menu azioni) e dichiara le
+     proprie colonne in PriorityGroup.module.scss, mentre la riga etichette
+     è `display: none`. Nessuno consuma questa variabile su mobile, quindi
+     non ha una variante ridotta. */
   --rule-row-grid: 20px 32px minmax(0, 2fr) minmax(120px, 1fr) 64px 44px;
 
   background: var(--card-bg, #fff);
   border: 1px solid var(--border, #e2e8f0);
   border-radius: var(--radius-lg, 10px);
-
-  /* Il track del target è `minmax(0, 40%)` e non `auto`: un track `auto`
-     accanto a un `fr` viene dimensionato sul max-content, e il pill è
-     `white-space: nowrap`, quindi con un target lungo si prendeva quasi
-     tutta la riga lasciando il nome regola a larghezza zero. Con un cap
-     percentuale l'ellipsis già presente su `.targetPillText` scatta. */
-  @media (max-width: 768px) {
-    --rule-row-grid: 20px 32px minmax(0, 1fr) minmax(0, 40%);
-  }
 }
 
 .ruleBlockHeader {
@@ -867,10 +864,10 @@
   opacity: 0.72;
   user-select: none;
 
-  /* Sotto i 768px la riga dati collassa su due righe e la colonna target
-     è dimensionata `auto`, cioè sul suo contenuto: il pill della riga e la
-     parola "Target" hanno larghezze diverse, quindi le due griglie non
-     possono coincidere. Senza allineamento l'etichetta è solo rumore. */
+  /* Sotto i 768px la riga dati diventa minimale: niente checkbox, niente
+     chip target, niente menu azioni. Non resta nessuna colonna da
+     etichettare e le due griglie non coincidono più, quindi l'header
+     sparisce del tutto. */
   @media (max-width: 768px) {
     display: none;
   }

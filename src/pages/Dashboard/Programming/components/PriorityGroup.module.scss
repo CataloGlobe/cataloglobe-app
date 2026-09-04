@@ -93,13 +93,13 @@
   }
 }
 
-/* Griglia definita come custom property `--rule-row-grid` su `.ruleBlock`
-   (Programming.module.scss), l'antenato comune con la riga etichette
-   colonna: unica sorgente di verità per riga dati e header. Il fallback
-   replica i valori desktop per eventuali usi fuori da `.ruleBlock`.
-   Selettore a doppia classe di proposito: serve a battere il
-   `@media (max-width: 768px) .row` in fondo al file, che altrimenti
-   vincerebbe per ordine di cascata a parità di specificità. */
+/* Griglia desktop, definita come custom property `--rule-row-grid` su
+   `.ruleBlock` (Programming.module.scss), l'antenato comune con la riga
+   etichette colonna: unica sorgente di verità per riga dati e header. Il
+   fallback replica i valori desktop per eventuali usi fuori da `.ruleBlock`.
+   Sotto i 768px vince il blocco responsive in fondo al file, che dichiara
+   colonne proprie perché lì il set di celle visibili è diverso.
+   Selettore a doppia classe di proposito: batte il `.row` che precede. */
 .row.rowNoDrag {
   grid-template-columns: var(
     --rule-row-grid,
