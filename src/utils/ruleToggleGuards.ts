@@ -1,5 +1,7 @@
 import type { LayoutRule } from "@services/supabase/layoutScheduling";
-import { isLayoutRuleDraft } from "@utils/scheduleDraft";
+// Import relativo (non `@utils/...`): vitest.config risolve solo l'alias `@`,
+// e questo helper deve restare testabile in isolamento.
+import { isLayoutRuleDraft } from "./scheduleDraft";
 
 /**
  * Union discriminata: quando `canToggle` è false il motivo è sempre presente,
