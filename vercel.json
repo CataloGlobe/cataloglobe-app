@@ -44,6 +44,32 @@
           "value": "1; mode=block"
         }
       ]
+    },
+    {
+      "source": "/:slug((?!(?:login|verify-otp|sign-up|check-email|email-confirmed|forgot-password|reset-password|workspace|select-business|onboarding|business|dashboard|invite|legal|status|admin|api|assets|public)(?:/|$))[a-z0-9][a-z0-9-]*[a-z0-9])",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self'"
+        }
+      ]
+    },
+    {
+      "source": "/:slug((?!(?:login|verify-otp|sign-up|check-email|email-confirmed|forgot-password|reset-password|workspace|select-business|onboarding|business|dashboard|invite|legal|status|admin|api|assets|public)(?:/|$))[a-z0-9][a-z0-9-]*[a-z0-9])/:lang([a-z]{2,5})",
+      "headers": [
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Content-Security-Policy",
+          "value": "frame-ancestors 'self'"
+        }
+      ]
     }
   ]
 }
