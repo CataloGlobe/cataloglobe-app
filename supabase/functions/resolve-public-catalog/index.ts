@@ -8,6 +8,7 @@ import {
 import { toRomeDateTime, getNowInRome } from "../_shared/schedulingNow.ts";
 import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/checkOrderingState.ts";
 import { checkRateLimit, RateLimitExceededError, extractClientIp, hashIp } from "../_shared/rateLimit.ts";
+import { extractBearerJwt, isTenantMember } from "../_shared/tenantMembership.ts";
 
 const RATE_LIMIT_PER_IP_PER_MIN = 120;
 
@@ -442,23 +443,35 @@ serve(async (req: Request) => {
             );
         }
 
-        // 2. Parse simulation time (if provided, only for authenticated users)
+        // 2. Parse simulation time — SOLO se il chiamante ha una relazione
+        // reale con il tenant della sede risolta (owner o membership attiva,
+        // qualunque ruolo). "Autenticato da qualche parte" NON basta: un
+        // utente di un altro tenant deve ricevere esattamente il catalogo
+        // pubblico normale (gap cross-tenant chiuso, vedi
+        // docs/audit-device-frame-pagina-pubblica.md). La RPC gira con
+        // l'identità dell'utente (anon key + JWT), non con la service role.
         let simulatedAt = undefined;
         if (simulate) {
-            const authHeader = req.headers.get("Authorization");
-            let isAuthenticated = false;
-            if (authHeader) {
-                const token = authHeader.replace("Bearer ", "");
-                const { data: { user }, error } = await supabase.auth.getUser(token);
-                isAuthenticated = !!user && !error;
+            const jwt = extractBearerJwt(req);
+            let isMember = false;
+            if (jwt) {
+                const supabaseUser = createClient(
+                    Deno.env.get("SUPABASE_URL")!,
+                    Deno.env.get("SUPABASE_ANON_KEY")!,
+                    {
+                        global: { headers: { Authorization: `Bearer ${jwt}` } },
+                        auth: { persistSession: false, autoRefreshToken: false }
+                    }
+                );
+                isMember = await isTenantMember(supabaseUser, activity.tenant_id);
             }
-            if (isAuthenticated) {
+            if (isMember) {
                 const parsed = new Date(simulate);
                 if (!Number.isNaN(parsed.getTime())) {
                     simulatedAt = toRomeDateTime(parsed);
                 }
             }
-            // Non autenticato: simulatedAt resta undefined → catalogo normale
+            // Non membro (o anonimo): simulatedAt resta undefined → catalogo normale
         }
 
         // 3. Resolve catalogs + tenant info in parallel
