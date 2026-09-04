@@ -1,4 +1,13 @@
-import { Globe, Building2, Users, AlertCircle, Loader2, Copy, Trash2 } from "lucide-react";
+import {
+    Globe,
+    Building2,
+    Users,
+    AlertCircle,
+    ChevronRight,
+    Loader2,
+    Copy,
+    Trash2
+} from "lucide-react";
 import Text from "@components/ui/Text/Text";
 import { Tooltip } from "@components/ui/Tooltip/Tooltip";
 import { Switch } from "@components/ui/Switch/Switch";
@@ -64,33 +73,21 @@ export function RuleRow({
         rule.name ?? `${getRuleTypeLabel(rule.rule_type)} · ${rule.id.slice(0, 6)}`
     ).trim();
 
-    const targetCell = (() => {
+    /* Descrizione del target derivata una volta sola: il pill desktop e la
+       riga secondaria condensata del mobile devono dire la stessa cosa. */
+    const target: { icon: typeof Globe; label: string; tooltip: string | null } = (() => {
         if (rule.applyToAll) {
-            return (
-                <Tooltip content="Applicata a: Tutte le attività" side="top">
-                    <div className={styles.targetPill}>
-                        <Globe size={12} />
-                        <Text variant="caption" weight={600} as="span" className={styles.targetPillText}>
-                            Tutte
-                        </Text>
-                    </div>
-                </Tooltip>
-            );
+            return { icon: Globe, label: "Tutte", tooltip: "Applicata a: Tutte le attività" };
         }
         if (rule.activityIds.length > 0) {
             const firstName = activityById.get(rule.activityIds[0])?.name ?? "…";
             const extra = rule.activityIds.length - 1;
             const allNames = rule.activityIds.map(id => activityById.get(id)?.name ?? id).join(", ");
-            return (
-                <Tooltip content={`Attività: ${allNames}`} side="top">
-                    <div className={styles.targetPill}>
-                        <Building2 size={12} />
-                        <Text variant="caption" weight={600} as="span" className={styles.targetPillText}>
-                            {firstName}{extra > 0 ? ` +${extra}` : ""}
-                        </Text>
-                    </div>
-                </Tooltip>
-            );
+            return {
+                icon: Building2,
+                label: `${firstName}${extra > 0 ? ` +${extra}` : ""}`,
+                tooltip: `Attività: ${allNames}`
+            };
         }
         if (rule.groupIds.length > 0) {
             const firstGroupName = activityGroups.find(g => g.id === rule.groupIds[0])?.name ?? "…";
@@ -98,26 +95,40 @@ export function RuleRow({
             const allGroupNames = rule.groupIds
                 .map(id => activityGroups.find(g => g.id === id)?.name ?? id)
                 .join(", ");
-            return (
-                <Tooltip content={`Gruppi: ${allGroupNames}`} side="top">
-                    <div className={styles.targetPill}>
-                        <Users size={12} />
-                        <Text variant="caption" weight={600} as="span" className={styles.targetPillText}>
-                            {firstGroupName}{extra > 0 ? ` +${extra}` : ""}
-                        </Text>
-                    </div>
-                </Tooltip>
-            );
+            return {
+                icon: Users,
+                label: `${firstGroupName}${extra > 0 ? ` +${extra}` : ""}`,
+                tooltip: `Gruppi: ${allGroupNames}`
+            };
         }
-        return (
-            <div className={styles.targetPill}>
-                <AlertCircle size={12} />
-                <Text variant="caption" colorVariant="muted" as="span" className={styles.targetPillText}>
-                    Nessun target
-                </Text>
-            </div>
-        );
+        return { icon: AlertCircle, label: "Nessun target", tooltip: null };
     })();
+
+    const TargetIcon = target.icon;
+    const summary = buildRuleSummary(rule);
+
+    const targetPill = (
+        <div className={styles.targetPill}>
+            <TargetIcon size={12} />
+            <Text
+                variant="caption"
+                weight={target.tooltip ? 600 : undefined}
+                colorVariant={target.tooltip ? undefined : "muted"}
+                as="span"
+                className={styles.targetPillText}
+            >
+                {target.label}
+            </Text>
+        </div>
+    );
+
+    const targetCell = target.tooltip ? (
+        <Tooltip content={target.tooltip} side="top">
+            {targetPill}
+        </Tooltip>
+    ) : (
+        targetPill
+    );
 
     return (
         <div
@@ -217,13 +228,20 @@ export function RuleRow({
                         </span>
                     </Tooltip>
                 )}
-                <Text variant="caption" colorVariant="muted">
-                    {buildRuleSummary(rule)}
+                <Text variant="caption" colorVariant="muted" className={styles.summaryDesktop}>
+                    {summary}
+                </Text>
+
+                {/* Sotto i 768px il chip target sparisce dalla riga: la sua
+                    informazione rientra qui, condensata in una sola stringa
+                    troncata insieme al sottotitolo. */}
+                <Text variant="caption" colorVariant="muted" className={styles.metaMobile}>
+                    {summary} · {target.label}
                 </Text>
             </div>
 
             {/* Target */}
-            <div>{targetCell}</div>
+            <div className={styles.targetCell}>{targetCell}</div>
 
             {/* Enable toggle */}
             <div className={styles.statusCell} data-no-click="true">
@@ -273,6 +291,10 @@ export function RuleRow({
                     />
                 )}
             </div>
+
+            {/* Affordance "riga tappabile": solo mobile, dove il menu azioni
+                sparisce e le azioni si raggiungono dal dettaglio. */}
+            <ChevronRight size={16} className={styles.rowChevron} aria-hidden="true" />
         </div>
     );
 }

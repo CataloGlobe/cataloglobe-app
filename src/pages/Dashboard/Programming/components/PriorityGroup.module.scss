@@ -426,20 +426,54 @@
 }
 
 
+/* Riga secondaria condensata: esiste solo sotto i 768px, dove sostituisce
+   sottotitolo + chip target con una sola stringa troncata. */
+.metaMobile {
+  display: none;
+}
+
+/* Chevron "riga tappabile": solo mobile. */
+/* `--color-gray-*` non è un token globale (cfr. `_theme.scss`): il chevron
+   usa il testo di tema smorzato, così resta leggibile anche in dark. */
+.rowChevron {
+  display: none;
+  color: var(--text);
+  opacity: 0.4;
+  flex-shrink: 0;
+}
+
 /* ─── Responsive ──────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
-  .row {
-    grid-template-columns: 20px 32px 28px minmax(0, 1fr) auto;
-    grid-template-rows: auto auto;
+  /* Riga minimale: pallino stato · nome (+ riga secondaria condensata sotto
+     al nome, dentro `.nameCell`) · toggle · chevron. Checkbox, chip target e
+     menu azioni sono nascosti: la selezione multipla e Duplica/Elimina si
+     raggiungono dal dettaglio, dove la riga naviga al tap.
+     Le colonne sono dichiarate qui e non via `--rule-row-grid` perché il set
+     di celle visibili è diverso da quello desktop; la riga etichette colonna
+     che condivideva la variabile è `display: none` sotto i 768px. */
+  .row,
+  .row.rowNoDrag {
+    grid-template-columns: 20px minmax(0, 1fr) auto auto;
+    grid-template-rows: auto;
   }
 
-  /* `.rowNoDrag` ha 6 figli (niente drag handle): senza questa regola
-     ereditava il template a 5 colonne di `.row`, pensato per 7 figli.
-     Le colonne mobile arrivano da `--rule-row-grid` ridefinita su
-     `.ruleBlock`; qui resta solo il collasso su due righe (dot/checkbox/
-     nome/target in riga 1, toggle + menu azioni in riga 2). */
-  .rowNoDrag {
-    grid-template-rows: auto auto;
+  .rowCheckbox,
+  .targetCell,
+  .rowActions,
+  .dragHandle,
+  .summaryDesktop {
+    display: none;
+  }
+
+  .metaMobile {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .rowChevron {
+    display: block;
   }
 }
