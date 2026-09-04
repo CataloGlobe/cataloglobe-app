@@ -381,6 +381,15 @@
   gap: 0.4rem;
 }
 
+.targetModeIcon {
+  flex-shrink: 0;
+  color: var(--color-gray-500);
+}
+
+.targetModeOption:has(input:checked) .targetModeIcon {
+  color: var(--brand-primary);
+}
+
 .targetModeLabel {
   font-size: 0.85rem;
   font-weight: 600;
@@ -425,6 +434,11 @@
   font-weight: 500;
   color: var(--color-gray-800);
   line-height: 1.4;
+}
+
+.chipIcon {
+  flex-shrink: 0;
+  color: var(--brand-primary);
 }
 
 .chipLabel {

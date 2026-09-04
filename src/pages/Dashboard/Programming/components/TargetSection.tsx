@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { Search } from "lucide-react";
+import { Building2, Globe, Search, Users } from "lucide-react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import Text from "@/components/ui/Text/Text";
 import { LayoutRuleOption } from "@/services/supabase/layoutScheduling";
@@ -29,6 +29,8 @@ interface TargetSectionProps {
 interface MultiSelectChipProps {
     label: string;
     placeholder: string;
+    /** Stessa icona usata dal chip target nella riga lista (sede vs gruppo). */
+    icon: typeof Building2;
     options: LayoutRuleOption[];
     selectedIds: string[];
     onAdd: (id: string) => void;
@@ -38,6 +40,7 @@ interface MultiSelectChipProps {
 function MultiSelectChip({
     label,
     placeholder,
+    icon: Icon,
     options,
     selectedIds,
     onAdd,
@@ -83,6 +86,7 @@ function MultiSelectChip({
                 <div className={styles.chipsRow}>
                     {selectedOptions.map(opt => (
                         <span key={opt.id} className={styles.chip}>
+                            <Icon size={12} className={styles.chipIcon} aria-hidden="true" />
                             <span className={styles.chipLabel}>{opt.name}</span>
                             <button
                                 type="button"
@@ -187,21 +191,32 @@ export function TargetSection({
         onFormChange({ groupIds: groupIds.filter(x => x !== id) });
     };
 
-    const radioOptions: Array<{ value: TargetMode; label: string; description: string }> = [
+    /* Stesse icone del chip target nella riga lista (RuleRow): su mobile il
+       chip sparisce dalla riga, quindi la distinzione visiva sede / gruppo /
+       tutte deve restare riconoscibile qui. */
+    const radioOptions: Array<{
+        value: TargetMode;
+        label: string;
+        description: string;
+        icon: typeof Globe;
+    }> = [
         {
             value: "all",
             label: "Tutte le sedi",
-            description: "La regola si applica a tutte le sedi del tenant"
+            description: "La regola si applica a tutte le sedi del tenant",
+            icon: Globe
         },
         {
             value: "activities",
             label: "Sedi specifiche",
-            description: "Seleziona una o più sedi specifiche"
+            description: "Seleziona una o più sedi specifiche",
+            icon: Building2
         },
         {
             value: "groups",
             label: "Gruppi di sedi",
-            description: "Seleziona uno o più gruppi"
+            description: "Seleziona uno o più gruppi",
+            icon: Users
         }
     ];
 
@@ -233,6 +248,11 @@ export function TargetSection({
                             className={styles.targetModeRadio}
                         />
                         <div className={styles.targetModeContent}>
+                            <opt.icon
+                                size={14}
+                                className={styles.targetModeIcon}
+                                aria-hidden="true"
+                            />
                             <span className={styles.targetModeLabel}>{opt.label}</span>
                             <span className={styles.targetModeDesc}>· {opt.description}</span>
                         </div>
@@ -245,6 +265,7 @@ export function TargetSection({
                 <MultiSelectChip
                     label="Sedi selezionate"
                     placeholder="Cerca sede..."
+                    icon={Building2}
                     options={tenantActivities}
                     selectedIds={activityIds}
                     onAdd={handleAddActivity}
@@ -256,6 +277,7 @@ export function TargetSection({
                 <MultiSelectChip
                     label="Gruppi selezionati"
                     placeholder="Cerca gruppo..."
+                    icon={Users}
                     options={tenantGroups}
                     selectedIds={groupIds}
                     onAdd={handleAddGroup}
