@@ -729,6 +729,26 @@
 
 /* ─── Responsive ─────────────────────────────────────────────── */
 
+@media (max-width: 768px) {
+  /* `.targetModeDesc` è `nowrap` per tenere label e descrizione sulla stessa
+     riga sul desktop: su schermi stretti la descrizione sfora il contenitore
+     (la riga non ha spazio per contenerla e non può andare a capo). Qui la
+     descrizione può mandare a capo e, se serve, scendere sotto la label. */
+  .targetModeContent {
+    flex-wrap: wrap;
+  }
+
+  /* Con la descrizione su due righe il radio, centrato, cadeva a metà del
+     blocco di testo: ancoralo alla riga della label. */
+  .targetModeOption {
+    align-items: flex-start;
+  }
+
+  .targetModeDesc {
+    white-space: normal;
+  }
+}
+
 @media (max-width: 900px) {
   .layout {
     flex-direction: column;
