@@ -850,12 +850,21 @@
   gap: 0.5rem;
   align-items: center;
   padding: 0.4rem 1rem;
+  /* Terzo livello di superficie tra il titolo gruppo (--hover-bg) e le
+     righe dati (--card-bg): mezza via tra i due, così la gerarchia regge
+     in entrambi i temi senza introdurre un colore letterale. */
+  background: color-mix(in srgb, var(--hover-bg) 50%, var(--card-bg) 50%);
   border-bottom: 1px solid var(--border, #e2e8f0);
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  color: var(--text-muted);
+  /* Stessa coppia colore/opacità di `.headerCell` in DataTable.module.scss:
+     `--text-muted` non esiste come token globale (cfr. Breadcrumb.module.scss),
+     quindi la dichiarazione precedente era invalida e le etichette
+     ereditavano il testo pieno. */
+  color: var(--text, #0f172a);
+  opacity: 0.72;
   user-select: none;
 
   /* Sotto i 768px la riga dati collassa su due righe e la colonna target
