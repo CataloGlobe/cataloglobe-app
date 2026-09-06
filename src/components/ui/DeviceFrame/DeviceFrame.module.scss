@@ -103,6 +103,41 @@
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
 }
 
+/* ── Bezel "dispositivo" (solo modalità iframe, pagina pubblica) ──────────
+   Bordo simmetrico marcato, nessun elemento decorativo (niente notch, tasti,
+   fotocamera — scartati per decisione di prodotto). content-box: il bordo
+   sta FUORI dai 375/768 px logici, che restano la viewport esatta
+   dell'iframe; DeviceFrame.tsx riserva l'ingombro totale nel wrapper.
+   Lo Style Editor (modalità children) NON riceve questa classe. */
+
+.deviceBezel {
+  box-sizing: content-box;
+  border-style: solid;
+  border-color: #1c1c1e;
+  background: #1c1c1e;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.18),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+
+  &.deviceMobile {
+    border-width: 12px;
+    border-radius: 40px;
+
+    .deviceIframe {
+      border-radius: 28px;
+    }
+  }
+
+  &.deviceTablet {
+    border-width: 14px;
+    border-radius: 32px;
+
+    .deviceIframe {
+      border-radius: 18px;
+    }
+  }
+}
+
 /* ── Desktop frame ──────────────────────────────────────────────────────── */
 
 .deviceDesktop {

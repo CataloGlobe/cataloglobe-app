@@ -9,6 +9,17 @@ const FRAME_DIMENSIONS: Record<DeviceFrameFormat, { width: number; height: numbe
     desktop: { width: 1280, height: 720 },
 };
 
+// Bezel (modalità iframe, pagina pubblica): spessore del bordo "dispositivo"
+// per formato. Sta FUORI dalle dimensioni logiche (box-sizing: content-box
+// su .deviceBezel), così l'iframe conserva esattamente 375/768 px di viewport
+// e il wrapper riserva l'ingombro totale bordo incluso. Desktop: mai in
+// modalità iframe (preview=desktop è un no-op), 0 per completezza del Record.
+const BEZEL_WIDTH: Record<DeviceFrameFormat, number> = {
+    mobile: 12,
+    tablet: 14,
+    desktop: 0,
+};
+
 type DeviceFrameBaseProps = {
     /** Formato simulato. Dimensioni logiche fisse (vedi FRAME_DIMENSIONS). */
     format: DeviceFrameFormat;
@@ -77,13 +88,18 @@ export default function DeviceFrame({
     const [scale, setScale] = useState(1);
     const { width, height } = FRAME_DIMENSIONS[format];
     const scales = format !== "mobile";
+    // Solo la modalità iframe ha il bezel: lo Style Editor (children) resta
+    // con il bordo sottile originale, sono due contesti visivi distinti.
+    const bezel = iframeSrc ? BEZEL_WIDTH[format] : 0;
+    const outerWidth = width + bezel * 2;
+    const outerHeight = height + bezel * 2;
 
     useLayoutEffect(() => {
         if (!scales || !hostEl) {
             setScale(1);
             return;
         }
-        const compute = (w: number) => Math.min(1, w / width);
+        const compute = (w: number) => Math.min(1, w / outerWidth);
         // Compute synchronously on first observation to avoid a flash at scale 1
         setScale(compute(hostEl.getBoundingClientRect().width));
 
@@ -92,12 +108,13 @@ export default function DeviceFrame({
         });
         ro.observe(hostEl);
         return () => ro.disconnect();
-    }, [hostEl, width, scales]);
+    }, [hostEl, outerWidth, scales]);
 
     const frameClassName = [
         styles.deviceFrame,
         format === "mobile" ? styles.deviceMobile : format === "tablet" ? styles.deviceTablet : styles.deviceDesktop,
         `preview-${format}`,
+        bezel > 0 ? styles.deviceBezel : "",
         isTransitioning ? styles.deviceFrameTransitioning : "",
     ]
         .filter(Boolean)
@@ -121,7 +138,7 @@ export default function DeviceFrame({
         <div className={hostClassName} ref={setHostEl}>
             <div
                 className={styles.deviceVisualWrapper}
-                style={{ width: `${width * scale}px`, height: `${height * scale}px` }}
+                style={{ width: `${outerWidth * scale}px`, height: `${outerHeight * scale}px` }}
             >
                 <div
                     className={frameClassName}
