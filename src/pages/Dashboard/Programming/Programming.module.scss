@@ -798,6 +798,18 @@
 /* ─── RuleBlock ──────────────────────────────────────────────── */
 
 .ruleBlock {
+  /* Griglia condivisa tra la riga dati (`.rowNoDrag` in
+     PriorityGroup.module.scss) e la riga etichette colonna qui sotto.
+     Definita sull'antenato comune così le due non possono divergere:
+     colonne = pallino stato | checkbox | nome | target | toggle | menu.
+
+     Vale solo da 768px in su: sotto, la riga dati mostra un set di celle
+     diverso (niente checkbox, chip target e menu azioni) e dichiara le
+     proprie colonne in PriorityGroup.module.scss, mentre la riga etichette
+     è `display: none`. Nessuno consuma questa variabile su mobile, quindi
+     non ha una variante ridotta. */
+  --rule-row-grid: 20px 32px minmax(0, 2fr) minmax(120px, 1fr) 64px 44px;
+
   background: var(--card-bg, #fff);
   border: 1px solid var(--border, #e2e8f0);
   border-radius: var(--radius-lg, 10px);
@@ -823,6 +835,41 @@
         var(--border, #e2e8f0) 20%
       );
     }
+  }
+}
+
+/* Riga etichette colonna, una per card di gruppo. Padding orizzontale e
+   gap replicano quelli di `.row` (PriorityGroup.module.scss) perché le
+   etichette cadano esattamente sopra la loro colonna. */
+.ruleColumnHeader {
+  display: grid;
+  grid-template-columns: var(--rule-row-grid);
+  gap: 0.5rem;
+  align-items: center;
+  padding: 0.4rem 1rem;
+  /* Terzo livello di superficie tra il titolo gruppo (--hover-bg) e le
+     righe dati (--card-bg): mezza via tra i due, così la gerarchia regge
+     in entrambi i temi senza introdurre un colore letterale. */
+  background: color-mix(in srgb, var(--hover-bg) 50%, var(--card-bg) 50%);
+  border-bottom: 1px solid var(--border, #e2e8f0);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  /* Stessa coppia colore/opacità di `.headerCell` in DataTable.module.scss:
+     `--text-muted` non esiste come token globale (cfr. Breadcrumb.module.scss),
+     quindi la dichiarazione precedente era invalida e le etichette
+     ereditavano il testo pieno. */
+  color: var(--text, #0f172a);
+  opacity: 0.72;
+  user-select: none;
+
+  /* Sotto i 768px la riga dati diventa minimale: niente checkbox, niente
+     chip target, niente menu azioni. Non resta nessuna colonna da
+     etichettare e le due griglie non coincidono più, quindi l'header
+     sparisce del tutto. */
+  @media (max-width: 768px) {
+    display: none;
   }
 }
 

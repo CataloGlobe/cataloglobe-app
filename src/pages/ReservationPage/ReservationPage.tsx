@@ -15,6 +15,7 @@ import ReservationHeader from "./ReservationHeader";
 import ReservationForm from "./ReservationForm";
 import StateCard from "./StateCard";
 import SuccessRecap from "./SuccessRecap";
+import { hasBookableDays } from "./utils/reservationSlots";
 import { CalendarOffIcon, SearchOffIcon, WifiOffIcon } from "./icons";
 import type { Brand, FormFields, ResolveState } from "./types";
 import styles from "./ReservationPage.module.scss";
@@ -98,6 +99,13 @@ export default function ReservationPage() {
                 setResolve({ status: "reservations-disabled", brand });
                 return;
             }
+            // Toggle attivo ma nessuna fascia prenotabile nei prossimi 90
+            // giorni: il form sarebbe un calendario interamente spento senza
+            // spiegazione. Stato dedicato con l'alternativa telefonica.
+            if (!hasBookableDays(brand.hours, brand.closures)) {
+                setResolve({ status: "hours-unconfigured", brand });
+                return;
+            }
             setResolve({ status: "ready", brand });
         })();
         return () => {
@@ -116,12 +124,15 @@ export default function ReservationPage() {
     // Document <title>: aligned with the public menu's pattern via
     // usePageHead — venue name first, descriptor after (matches
     // PublicCollectionPage `${name} · Menu`).
-    const brandNameForTitle: string | null =
-        resolve.status === "ready" || resolve.status === "reservations-disabled"
-            ? resolve.brand.brandName
+    const resolvedBrand: Brand | null =
+        resolve.status === "ready" ||
+        resolve.status === "reservations-disabled" ||
+        resolve.status === "hours-unconfigured"
+            ? resolve.brand
             : resolve.status === "inactive"
-                ? resolve.brand?.brandName ?? null
+                ? resolve.brand
                 : null;
+    const brandNameForTitle: string | null = resolvedBrand?.brandName ?? null;
     const pageTitle =
         resolve.status === "loading"
             ? undefined
@@ -133,12 +144,7 @@ export default function ReservationPage() {
     // Font dello stile attivo — vedi usePublicFontInjection. Stessa gap
     // fix di PublicCollectionPage: senza questo, l'@font-face reale non
     // viene mai caricato qui e il browser ricade sul generic CSS.
-    const resolvedStyleForFont =
-        resolve.status === "ready" || resolve.status === "reservations-disabled"
-            ? resolve.brand.resolvedStyle
-            : resolve.status === "inactive"
-                ? resolve.brand?.resolvedStyle ?? null
-                : null;
+    const resolvedStyleForFont = resolvedBrand?.resolvedStyle ?? null;
     usePublicFontInjection(resolvedStyleForFont);
 
     const handleResolveErrorCode = useCallback(
@@ -255,8 +261,19 @@ export default function ReservationPage() {
                     )}
 
                     {resolve.status === "reservations-disabled" && (
-                        <ReservationsDisabled
-                            brandName={brand.brandName}
+                        <PhoneFallbackState
+                            title={t("reservation.disabled_title")}
+                            text={t("reservation.disabled_text", { brand: brand.brandName })}
+                            phone={brand.phone}
+                            phonePublic={brand.phonePublic}
+                            backHref={backHref}
+                        />
+                    )}
+
+                    {resolve.status === "hours-unconfigured" && (
+                        <PhoneFallbackState
+                            title={t("reservation.unconfigured_title")}
+                            text={t("reservation.unconfigured_text", { brand: brand.brandName })}
                             phone={brand.phone}
                             phonePublic={brand.phonePublic}
                             backHref={backHref}
@@ -292,15 +309,20 @@ export default function ReservationPage() {
     );
 }
 
-// ── Local helper component for the disabled state ─────────────────────────
+// ── Stato "niente prenotazione online, ecco l'alternativa" ────────────────
+// Condiviso da `reservations-disabled` (toggle spento) e
+// `hours-unconfigured` (toggle acceso, nessuna fascia prenotabile): cambia
+// solo la copy del perché, il vicolo cieco da evitare è lo stesso.
 
-function ReservationsDisabled({
-    brandName,
+function PhoneFallbackState({
+    title,
+    text,
     phone,
     phonePublic,
     backHref
 }: {
-    brandName: string;
+    title: string;
+    text: string;
     phone: string | null;
     phonePublic: boolean;
     backHref: string;
@@ -313,10 +335,10 @@ function ReservationsDisabled({
         <div className={styles.stateWrapper}>
             <StateCard
                 icon={<CalendarOffIcon />}
-                title={t("reservation.disabled_title")}
+                title={title}
                 text={
                     <>
-                        {t("reservation.disabled_text", { brand: brandName })}
+                        {text}
                         {showPhoneCta
                             ? ` ${t("reservation.disabled_call")}`
                             : ` ${t("reservation.disabled_contact")}`}

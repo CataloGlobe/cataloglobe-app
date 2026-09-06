@@ -3,19 +3,26 @@
         "loading": "Cargando...",
         "invalid_link": "Enlace no válido.",
         "loading_error": "Error de carga.",
-        "simulation_banner": "Simulación previa",
         "empty_catalog": "Ningún producto disponible por el momento",
         "menu_label": "Menú",
         "error": {
             "not_found": "Local no encontrado.",
             "invalid_link": "Enlace no válido.",
             "invalid_lang": "Idioma no compatible."
+        },
+        "preview_bar": {
+            "not_visible": "Barra no visible para los clientes",
+            "simulated": "Contenido simulado",
+            "format_label": "Formato de vista previa",
+            "format_desktop": "Escritorio",
+            "format_tablet": "Tableta",
+            "format_mobile": "Smartphone"
         }
     },
     "skip_to_content": "Ir al contenido",
     "hub": {
         "menu": "Menú",
-        "events": "Eventos y promociones",
+        "events": "Destacado",
         "reviews": "Cuéntenos la suya",
         "storia": "Historia"
     },
@@ -267,7 +274,7 @@
         "preview_close_aria": "Cerrar"
     },
     "events": {
-        "list_aria": "Eventos y promociones",
+        "list_aria": "Destacado",
         "empty": "No hay eventos ni promociones activos en este momento.",
         "back": "← Volver a la lista",
         "close_aria": "Cerrar",
@@ -439,6 +446,8 @@
         "disabled_text": "{{brand}} no acepta reservas online en este momento.",
         "disabled_call": "Puedes llamar directamente al local para pedir una mesa.",
         "disabled_contact": "Para pedir una mesa, contacta directamente con el local.",
+        "unconfigured_title": "Reserva online no disponible",
+        "unconfigured_text": "{{brand}} todavía no ha activado la reserva online.",
         "call_venue": "Llamar al local",
         "back_to_menu": "Volver al menú",
         "back_button": "Menú",
@@ -461,7 +470,7 @@
         "notes": "Notas",
         "special_requests": "Peticiones especiales",
         "optional": "(opcional)",
-        "notes_placeholder": "Alergias, necesidades especiales, ocasiones especiales…",
+        "notes_placeholder": "Necesidades especiales, ocasiones especiales…",
         "people": "Personas",
         "exact_number": "Indica el número exacto",
         "party_count_one": "{{count}} persona",

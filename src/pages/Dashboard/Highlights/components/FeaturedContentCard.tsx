@@ -1,4 +1,4 @@
-import { Layers } from "lucide-react";
+import { ImageIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
 import Text from "@/components/ui/Text/Text";
@@ -53,7 +53,7 @@ export default function FeaturedContentCard({ item, onEdit, onDelete }: Props) {
                     />
                 ) : (
                     <div className={styles.placeholder} aria-hidden="true">
-                        <Layers size={28} strokeWidth={1.5} />
+                        <ImageIcon size={28} strokeWidth={1.5} />
                     </div>
                 )}
             </div>

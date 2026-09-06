@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, useReducedMotion } from "framer-motion";
-import { BookOpenText, CalendarDays, ImageIcon, MessageCircle, MoreHorizontal, ReceiptText, Search, Utensils } from "lucide-react";
+import { BookOpenText, ImageIcon, MessageCircle, MoreHorizontal, Pin, ReceiptText, Search, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { hasOpenSheet } from "../hooks/useScrollCollapse";
 import { buildCoverImageSet } from "@/utils/imageTransform";
@@ -471,7 +471,7 @@ export default function PublicCollectionHeader({
                                         aria-label={t("hub.events")}
                                         tabIndex={mode === "preview" ? -1 : undefined}
                                     >
-                                        <CalendarDays size={15} strokeWidth={2} />
+                                        <Pin size={15} strokeWidth={2} />
                                     </button>
                                 )}
                                 {(onOpenReviews || mode === "preview") && (

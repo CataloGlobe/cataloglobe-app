@@ -8,10 +8,19 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { Badge } from "@/components/ui/Badge/Badge";
+import Text from "@/components/ui/Text/Text";
+import { Switch } from "@/components/ui/Switch/Switch";
+import { Menu } from "@/components/ui/Menu";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { Copy, MoreHorizontal, Trash2 } from "lucide-react";
 import { useToast } from "@/context/Toast/ToastContext";
+import { getToggleGuardResult } from "@utils/ruleToggleGuards";
 import {
+    deleteLayoutRule,
+    duplicateRule,
     getLayoutRuleById,
     listLayoutRuleOptions,
+    updateScheduleEnabled,
     type LayoutRule,
     type LayoutRuleOption,
     type LayoutTimeMode
@@ -100,6 +109,9 @@ export default function FeaturedRuleDetail() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [isTogglingEnabled, setIsTogglingEnabled] = useState(false);
+    const [isDuplicating, setIsDuplicating] = useState(false);
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
 
     const [rule, setRule] = useState<LayoutRule | null>(null);
     const [activities, setActivities] = useState<LayoutRuleOption[]>([]);
@@ -186,6 +198,107 @@ export default function FeaturedRuleDetail() {
     const handleReset = () => {
         if (!initialSnapshot) return;
         setForm(JSON.parse(initialSnapshot) as FeaturedRuleDetailForm);
+    };
+
+    /* Stesso pattern di ProgrammingRuleDetail: il toggle salva subito e non
+       passa dal form, così non interferisce con l'auto-attivazione delle
+       bozze al submit. Le guardie valutano `rule` (stato persistito). */
+    const handleToggleEnabled = async (nextEnabled: boolean) => {
+        if (!rule || !ruleId) return;
+
+        if (nextEnabled) {
+            const guard = getToggleGuardResult(rule);
+            if (!guard.canToggle) {
+                showToast({ type: "error", message: guard.reason, duration: 3000 });
+                return;
+            }
+        }
+
+        setIsTogglingEnabled(true);
+        try {
+            await updateScheduleEnabled(ruleId, nextEnabled);
+            setRule(prev => (prev ? { ...prev, enabled: nextEnabled } : prev));
+            setForm(prev => (prev ? { ...prev, enabled: nextEnabled } : prev));
+            setInitialSnapshot(prev =>
+                prev
+                    ? JSON.stringify({
+                          ...(JSON.parse(prev) as FeaturedRuleDetailForm),
+                          enabled: nextEnabled
+                      })
+                    : prev
+            );
+            showToast({
+                type: "success",
+                message: nextEnabled ? "Regola abilitata." : "Regola disabilitata.",
+                duration: 2000
+            });
+        } catch (error) {
+            console.error("Errore update stato regola:", error);
+            showToast({
+                type: "error",
+                message: "Impossibile aggiornare lo stato.",
+                duration: 3000
+            });
+        } finally {
+            setIsTogglingEnabled(false);
+        }
+    };
+
+    const handleDuplicate = async () => {
+        if (!rule || !ruleId) return;
+
+        if (isDirty) {
+            showToast({
+                type: "error",
+                message: "Salva o annulla le modifiche prima di duplicare la regola.",
+                duration: 3000
+            });
+            return;
+        }
+
+        setIsDuplicating(true);
+        try {
+            const newRuleId = await duplicateRule(ruleId, rule.tenant_id);
+            showToast({
+                type: "success",
+                message: "Regola duplicata e disabilitata.",
+                duration: 2200
+            });
+            navigate(
+                `/business/${businessId}/scheduling/featured/${newRuleId}?fromType=${fromType ?? "featured"}`
+            );
+        } catch (error) {
+            console.error("Errore duplicazione regola:", error);
+            showToast({
+                type: "error",
+                message: "Errore durante la duplicazione della regola.",
+                duration: 3000
+            });
+        } finally {
+            setIsDuplicating(false);
+        }
+    };
+
+    const handleDelete = async (): Promise<boolean> => {
+        if (!ruleId) return false;
+        try {
+            await deleteLayoutRule(ruleId);
+            showToast({
+                type: "success",
+                message: "Regola eliminata con successo.",
+                duration: 2200
+            });
+            navigate(`/business/${businessId}/scheduling?type=${fromType ?? "featured"}`);
+            return true;
+        } catch (error) {
+            console.error("Errore eliminazione regola:", error);
+            showToast({
+                type: "error",
+                message: "Errore durante l'eliminazione della regola.",
+                duration: 3000
+            });
+            return false;
+        }
     };
 
     const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -359,6 +472,40 @@ export default function FeaturedRuleDetail() {
     const headerActions = useMemo(() => (
         form && canWrite ? (
             <div className={styles.topActions}>
+                <div className={styles.enabledToggle}>
+                    <Switch
+                        ariaLabel={`Attiva o disattiva ${form.name}`}
+                        checked={form.enabled}
+                        onChange={checked => void handleToggleEnabled(checked)}
+                        disabled={isTogglingEnabled || !canEdit}
+                    />
+                    <Text variant="body-sm" colorVariant="muted" as="span">
+                        {form.enabled ? "Attiva" : "Disattivata"}
+                    </Text>
+                </div>
+                <Menu
+                    align="end"
+                    trigger={
+                        <Button
+                            variant="secondary"
+                            aria-label="Altre azioni sulla regola"
+                            disabled={!canEdit || isDuplicating}
+                        >
+                            <MoreHorizontal size={16} />
+                        </Button>
+                    }
+                >
+                    <Menu.Item icon={Copy} onSelect={() => void handleDuplicate()}>
+                        Duplica
+                    </Menu.Item>
+                    <Menu.Item
+                        icon={Trash2}
+                        variant="destructive"
+                        onSelect={() => setIsDeleteDialogOpen(true)}
+                    >
+                        Elimina
+                    </Menu.Item>
+                </Menu>
                 <Button
                     variant="secondary"
                     onClick={handleReset}
@@ -378,7 +525,7 @@ export default function FeaturedRuleDetail() {
             </div>
         ) : null
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    ), [form, isDirty, isSaving, canWrite, canEdit]);
+    ), [form, isDirty, isSaving, canWrite, canEdit, isTogglingEnabled, isDuplicating]);
 
     usePageHeader({
         title: form?.name || (isLoading ? "Caricamento regola..." : "Regola in evidenza"),
@@ -426,6 +573,15 @@ export default function FeaturedRuleDetail() {
                     />
                 </div>
             </form>
+
+            <ConfirmDialog
+                isOpen={isDeleteDialogOpen}
+                onClose={() => setIsDeleteDialogOpen(false)}
+                onConfirm={handleDelete}
+                title="Eliminare regola?"
+                message="Questa azione è irreversibile."
+                confirmLabel="Elimina"
+            />
         </section>
             )}
         </PageGate>

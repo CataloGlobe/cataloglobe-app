@@ -3,19 +3,26 @@
         "loading": "Loading...",
         "invalid_link": "Invalid link.",
         "loading_error": "Loading error.",
-        "simulation_banner": "Simulation preview",
         "empty_catalog": "No products available at the moment",
         "menu_label": "Menu",
         "error": {
             "not_found": "Venue not found.",
             "invalid_link": "Invalid link.",
             "invalid_lang": "Unsupported language."
+        },
+        "preview_bar": {
+            "not_visible": "Bar not visible to customers",
+            "simulated": "Simulated content",
+            "format_label": "Preview format",
+            "format_desktop": "Desktop",
+            "format_tablet": "Tablet",
+            "format_mobile": "Smartphone"
         }
     },
     "skip_to_content": "Skip to content",
     "hub": {
         "menu": "Menu",
-        "events": "Events & Promo",
+        "events": "Featured",
         "reviews": "Tell us",
         "storia": "Story"
     },
@@ -267,7 +274,7 @@
         "preview_close_aria": "Close"
     },
     "events": {
-        "list_aria": "Events and promotions",
+        "list_aria": "Featured",
         "empty": "No events or promotions active right now.",
         "back": "← Back to list",
         "close_aria": "Close",
@@ -439,6 +446,8 @@
         "disabled_text": "{{brand}} isn't accepting online reservations right now.",
         "disabled_call": "You can call the venue directly to request a table.",
         "disabled_contact": "To request a table, contact the venue directly.",
+        "unconfigured_title": "Online booking unavailable",
+        "unconfigured_text": "{{brand}} hasn't set up online booking yet.",
         "call_venue": "Call the venue",
         "back_to_menu": "Back to menu",
         "back_button": "Menu",
@@ -461,7 +470,7 @@
         "notes": "Notes",
         "special_requests": "Special requests",
         "optional": "(optional)",
-        "notes_placeholder": "Allergies, special needs, special occasions…",
+        "notes_placeholder": "Special needs, special occasions…",
         "people": "People",
         "exact_number": "Enter the exact number",
         "party_count_one": "{{count}} person",

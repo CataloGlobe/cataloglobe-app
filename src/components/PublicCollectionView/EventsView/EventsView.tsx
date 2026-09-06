@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CalendarDays } from "lucide-react";
+import { Pin } from "lucide-react";
 import type { V2FeaturedContent } from "@/types/resolvedCollections";
 import FeaturedCard from "@/components/PublicCollectionView/FeaturedCard/FeaturedCard";
 import { FeaturedContentDetail } from "@/components/PublicCollectionView/FeaturedBlock/FeaturedContentDetail";
@@ -47,7 +47,7 @@ export default function EventsView({ featuredContents, layout = "card", showSubt
     if (featuredContents.length === 0) {
         return (
             <div className={styles.emptyState}>
-                <CalendarDays size={48} strokeWidth={1.5} className={styles.emptyIcon} />
+                <Pin size={48} strokeWidth={1.5} className={styles.emptyIcon} />
                 <Text variant="body" color="var(--pub-bg-text-muted)">
                     {t("events.empty")}
                 </Text>

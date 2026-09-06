@@ -167,6 +167,18 @@ export type ResolvedCollections = {
         after_catalog?: V2FeaturedContent[];
     };
     catalog?: ResolvedCatalog;
+    /** True/false quando una regola "layout" ha risolto un catalogo: indica
+     *  se quel catalogo ha almeno un prodotto visibile (post override).
+     *  `undefined` quando nessuna regola ha risolto un catalogo (early return
+     *  sotto). SYNC con `src/types/resolvedCollections.ts` e con la copia edge. */
+    hasRenderableItems?: boolean;
+    /** True quando esiste almeno una regola layout enabled=true per la sede
+     *  (indipendentemente dal fatto che vinca ora) — distingue "nessuna
+     *  regola mai configurata" da "regole configurate ma nessuna vince ora"
+     *  (dayparting). `undefined` non dovrebbe verificarsi: sempre settato sia
+     *  nell'early-return sia nel return finale. SYNC con
+     *  `src/types/resolvedCollections.ts` e con la copia edge. */
+    hasConfiguredCatalogRule?: boolean;
 };
 
 type ScheduleSlot = "primary" | "overlay";
@@ -1848,7 +1860,8 @@ export async function resolveActivityCatalogs(
 
     if (!layoutCatalogId) {
         return {
-            featured
+            featured,
+            hasConfiguredCatalogRule: ruleResolution.layoutCandidateCount > 0
         };
     }
 
@@ -2015,6 +2028,8 @@ export async function resolveActivityCatalogs(
     return {
         ...(finalPrimary?.styleData ? { style: finalPrimary.styleData } : {}),
         ...(finalPrimary?.catalog ? { catalog: finalPrimary.catalog } : {}),
-        ...(Object.keys(featured).length > 0 ? { featured } : {})
+        ...(Object.keys(featured).length > 0 ? { featured } : {}),
+        hasRenderableItems: schedulesWithItems.length > 0,
+        hasConfiguredCatalogRule: ruleResolution.layoutCandidateCount > 0
     };
 }

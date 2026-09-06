@@ -47,3 +47,22 @@ export async function fetchMyPermissions(tenantId: string): Promise<UserPermissi
 function isUserRole(value: string): value is UserRole {
     return value === "owner" || value === "admin" || value === "manager" || value === "staff" || value === "viewer";
 }
+
+/**
+ * Id dei tenant con cui il caller ha una relazione reale (owner via
+ * `tenants.owner_user_id`, oppure membership attiva in `tenant_memberships`,
+ * qualunque ruolo). Wrapper sopra RPC `public.get_my_tenant_ids()`.
+ *
+ * Usato dalla pagina pubblica per decidere se mostrare gli elementi
+ * riservati (barra "Barra non visibile ai clienti", `?simulate=`, `?preview=`):
+ * la domanda è "appartiene a QUESTO tenant?", non "ha un permesso X" —
+ * per questo non passa da `get_my_permissions` (che richiede un tenant e
+ * lancia 42501 sui non membri).
+ *
+ * Ritorna `[]` per un utente senza alcun tenant; throws su errori RPC.
+ */
+export async function fetchMyTenantIds(): Promise<string[]> {
+    const { data, error } = await supabase.rpc("get_my_tenant_ids");
+    if (error) throw error;
+    return Array.isArray(data) ? data.filter((id): id is string => typeof id === "string") : [];
+}

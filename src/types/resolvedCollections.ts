@@ -235,4 +235,15 @@ export type ResolvedCollections = {
         after_catalog?: V2FeaturedContent[];
     };
     catalog?: ResolvedCatalog;
+    /** True/false quando una regola "layout" ha risolto un catalogo: indica
+     *  se quel catalogo ha almeno un prodotto visibile (post override).
+     *  `undefined` quando nessuna regola ha risolto un catalogo (early return
+     *  del resolver — vedi `resolveActivityCatalogs`). Calcolato da
+     *  `resolveActivityCatalogs` — SYNC edge↔FE, vedi header dei due file. */
+    hasRenderableItems?: boolean;
+    /** True quando esiste almeno una regola layout enabled=true per la sede
+     *  (indipendentemente dal fatto che vinca ora) — distingue "nessuna
+     *  regola mai configurata" da "regole configurate ma nessuna vince ora"
+     *  (dayparting). Calcolato da `resolveActivityCatalogs` — SYNC edge↔FE. */
+    hasConfiguredCatalogRule?: boolean;
 };

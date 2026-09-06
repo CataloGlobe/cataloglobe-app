@@ -1,0 +1,53 @@
+.scope {
+  min-height: 100vh;
+  display: block;
+  background: var(--pub-bg);
+}
+
+.container {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.card {
+  max-width: 420px;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+
+.avatar {
+  margin-bottom: 8px;
+}
+
+.businessName {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--pub-text-secondary);
+  margin: 0 0 24px;
+}
+
+.icon {
+  display: flex;
+  color: var(--pub-primary);
+  margin-bottom: 8px;
+}
+
+.title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--pub-text);
+  margin: 0;
+}
+
+.description {
+  font-size: 0.95rem;
+  color: var(--pub-text-secondary);
+  margin: 8px 0 0;
+}

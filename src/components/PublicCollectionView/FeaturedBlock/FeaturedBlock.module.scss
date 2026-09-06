@@ -3,15 +3,28 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 .wrapper {
+  /* Marcatore globale stabile (non hashato), per essere referenziabile da
+     `CollectionView.module.scss` con un selettore di adiacenza `:global()`
+     senza conoscere il classname locale hashato di questo modulo — stesso
+     escape-hatch `:global()` già usato altrove in questo file/progetto
+     (es. `:global(.preview-mobile)`). Vedi FASE 2d in CollectionView.module.scss
+     per l'uso: l'elemento subito dopo il featured block (before_catalog)
+     riceve un margin-top ridotto rispetto al resto dei figli del container. */
+  composes: pub-featured-wrapper from global;
   width: 100%;
-  margin: 16px 0;
 }
 
-/* Niente full-bleed né margini negativi: il wrapper eredita il gutter di
-   contenuto dal genitore `.container` (context `collection`, ~16px per lato su
-   mobile), lo stesso di titoli sezione e card prodotti. La prima card del
-   carosello si allinea a quelle; il peek deriva da larghezza card + scroll,
-   non dal padding. Un solo gutter, mai doppio, mai a filo dello schermo. */
+/* Niente margin verticale proprio: il wrapper è sempre figlio diretto di
+   `.container` (CollectionView), che governa il ritmo verticale via
+   margin-top sui suoi figli diretti (FASE 2d) — un margin qui si sommerebbe
+   o richiederebbe valori negativi (l'approccio FASE 2b/2c, abbandonato: il
+   margine negativo si "ritira" visivamente dentro il box precedente,
+   percepito come sovrapposizione all'ispezione DOM). Niente full-bleed né
+   margini negativi: il wrapper eredita il gutter di contenuto dal genitore
+   `.container` (context `collection`, ~16px per lato su mobile), lo stesso di
+   titoli sezione e card prodotti. La prima card del carosello si allinea a
+   quelle; il peek deriva da larghezza card + scroll, non dal padding. Un solo
+   gutter, mai doppio, mai a filo dello schermo. */
 
 /* ══════════════════════════════════════════════════════════════════════════
    TRACK — carousel (mobile) / grid (desktop 2-4) / carousel (desktop 5+)

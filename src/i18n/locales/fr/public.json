@@ -3,19 +3,26 @@
     "loading": "Chargement...",
     "invalid_link": "Lien non valide.",
     "loading_error": "Erreur de chargement.",
-    "simulation_banner": "Prévisualisation de la simulation",
     "empty_catalog": "Aucun produit disponible pour le moment",
     "menu_label": "Menu",
     "error": {
       "not_found": "Établissement introuvable.",
       "invalid_link": "Lien non valide.",
       "invalid_lang": "Langue non prise en charge."
+    },
+    "preview_bar": {
+      "not_visible": "Barre non visible par les clients",
+      "simulated": "Contenu simulé",
+      "format_label": "Format de l'aperçu",
+      "format_desktop": "Ordinateur",
+      "format_tablet": "Tablette",
+      "format_mobile": "Smartphone"
     }
   },
   "skip_to_content": "Skip to content",
   "hub": {
     "menu": "Menu",
-    "events": "Événements et promotions",
+    "events": "En vedette",
     "reviews": "Dites-nous ce qu'il en est",
     "storia": "Histoire"
   },
@@ -267,7 +274,7 @@
     "preview_close_aria": "Fermer"
   },
   "events": {
-    "list_aria": "Événements et promotions",
+    "list_aria": "En vedette",
     "empty": "Il n'y a pas d'événements ou de promotions en cours pour le moment.",
     "back": "← Retour à la liste",
     "close_aria": "Fermer",
@@ -439,6 +446,8 @@
     "disabled_text": "{{brand}} n'accepte pas les réservations en ligne pour le moment.",
     "disabled_call": "Vous pouvez appeler directement l'établissement pour demander une table.",
     "disabled_contact": "Pour demander une table, contactez directement l'établissement.",
+    "unconfigured_title": "Réservation en ligne indisponible",
+    "unconfigured_text": "{{brand}} n'a pas encore activé la réservation en ligne.",
     "call_venue": "Appeler l'établissement",
     "back_to_menu": "Retour au menu",
     "back_button": "Menu",
@@ -461,7 +470,7 @@
     "notes": "Notes",
     "special_requests": "Demandes particulières",
     "optional": "(facultatif)",
-    "notes_placeholder": "Allergies, besoins particuliers, occasions spéciales…",
+    "notes_placeholder": "Besoins particuliers, occasions spéciales…",
     "people": "Personnes",
     "exact_number": "Indiquez le nombre exact",
     "party_count_one": "{{count}} personne",

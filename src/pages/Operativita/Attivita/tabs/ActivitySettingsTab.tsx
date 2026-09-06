@@ -5,7 +5,7 @@ import React, {
     useRef,
     useState
 } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { QrCode, type QrCodeHandle } from "@/components/ui/QrCode/QrCode";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import {
@@ -27,6 +27,8 @@ import { Button, Card, InlineBanner, MultiEmailInput } from "@/components/ui";
 import UIText from "@/components/ui/Text/Text";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
+import { TextInput } from "@/components/ui/Input/TextInput";
+import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
 import { Menu } from "@/components/ui/Menu";
 import ModalLayout, {
     ModalLayoutContent,
@@ -118,6 +120,32 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     const reservationEmails: string[] =
         activity.reservation_notification_emails ?? [];
     const [isUpdatingEmails, setIsUpdatingEmails] = useState(false);
+
+    // ── Privacy contact email draft state ───────────────────────────────────
+    // Campo singolo, quindi draft + UnsavedChangesBar invece del save-immediato
+    // usato dagli avvisi: un indirizzo si scrive un carattere alla volta e
+    // salvare a ogni tasto pubblicherebbe "mari", "mario", "mario@" in sequenza
+    // dentro un'informativa privacy.
+    // `tenants.legal_name` è nullable e appartiene ai dati di fatturazione:
+    // senza, l'informativa privacy prenotazioni non si genera affatto.
+    const hasLegalName = (selectedTenant?.legal_name ?? "").trim().length > 0;
+
+    const savedPrivacyEmail = activity.reservation_privacy_contact_email ?? "";
+    const [privacyEmailDraft, setPrivacyEmailDraft] = useState(savedPrivacyEmail);
+    const [privacyEmailError, setPrivacyEmailError] = useState<string | null>(null);
+    const [isSavingPrivacyEmail, setIsSavingPrivacyEmail] = useState(false);
+    const lastSavedPrivacyEmailRef = useRef(savedPrivacyEmail);
+
+    // Re-sync sul reload del parent preservando il draft sporco. Stesso pattern
+    // di capacità / pagamenti / servizi.
+    useEffect(() => {
+        const prevSaved = lastSavedPrivacyEmailRef.current;
+        if (savedPrivacyEmail === prevSaved) return;
+        setPrivacyEmailDraft(prev => (prev === prevSaved ? savedPrivacyEmail : prev));
+        lastSavedPrivacyEmailRef.current = savedPrivacyEmail;
+    }, [savedPrivacyEmail]);
+
+    const isPrivacyEmailDirty = privacyEmailDraft.trim() !== savedPrivacyEmail;
 
     // ── Capacity & availability draft state (Step 3 wires:
     //    capacity, duration_minutes, overbooking_form, confirmation_mode) ──
@@ -610,6 +638,36 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
             showToast
         ]
     );
+
+    const savePrivacyEmail = useCallback(async () => {
+        const trimmed = privacyEmailDraft.trim();
+        // Vuoto = "torna al fallback owner", non un errore da correggere.
+        if (trimmed !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
+            setPrivacyEmailError("Inserisci un indirizzo email valido.");
+            return;
+        }
+        setPrivacyEmailError(null);
+        setIsSavingPrivacyEmail(true);
+        try {
+            await updateActivity(activity.id, tenantId, {
+                reservation_privacy_contact_email: trimmed === "" ? null : trimmed
+            });
+            await onReload();
+            showToast({ message: "Email per le richieste sui dati aggiornata.", type: "success" });
+        } catch {
+            showToast({
+                message: "Impossibile aggiornare l'email per le richieste sui dati.",
+                type: "error"
+            });
+        } finally {
+            setIsSavingPrivacyEmail(false);
+        }
+    }, [activity.id, tenantId, privacyEmailDraft, onReload, showToast]);
+
+    const cancelPrivacyEmail = useCallback(() => {
+        setPrivacyEmailDraft(savedPrivacyEmail);
+        setPrivacyEmailError(null);
+    }, [savedPrivacyEmail]);
 
     const saveCapacity = useCallback(async () => {
         // Parse + validate locally (CHECK constraints mirror these). Empty
@@ -1276,6 +1334,74 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                             ? `Se lasci vuoto, gli avvisi andranno a ${ownerEmail} (proprietario dell'azienda).`
                                             : "Se lasci vuoto, gli avvisi andranno all'email del proprietario dell'azienda."}
                                     </p>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Senza ragione sociale l'informativa non si genera, e
+                            il cliente che apre il link dal form trova un
+                            messaggio invece del documento. Il tono NON è "hai
+                            dimenticato qualcosa": `legal_name` si compila coi
+                            dati di fatturazione, cioè sottoscrivendo
+                            l'abbonamento, quindi chi vede questo avviso è quasi
+                            sempre in prova — per lui è un prerequisito, non una
+                            distrazione. */}
+                        {activity.enable_reservations && !hasLegalName && (
+                            <div className={styles.privacyNoticeAlert}>
+                                <InlineBanner variant="warning">
+                                    Per pubblicare l'informativa privacy delle prenotazioni serve
+                                    la ragione sociale della tua azienda: la inserisci con i dati
+                                    di fatturazione, sottoscrivendo l'abbonamento. Finché manca,
+                                    chi apre l'informativa dal modulo di prenotazione trova un
+                                    avviso che lo invita a contattarti.{" "}
+                                    <Link
+                                        to={`/business/${tenantId}/subscription`}
+                                        className={styles.privacyNoticeAlertLink}
+                                    >
+                                        Vai ad Abbonamento
+                                    </Link>
+                                </InlineBanner>
+                            </div>
+                        )}
+
+                        {/* Informativa privacy: il titolare del trattamento dei
+                            dati di chi prenota è la sede, non CataloGlobe, e
+                            l'informativa pubblica deve dire a chi scrivere. */}
+                        {activity.enable_reservations && (
+                            <div className={styles.privacyEmailField}>
+                                <TextInput
+                                    id="reservation-privacy-email"
+                                    type="email"
+                                    label="Email per le richieste sui dati personali"
+                                    helperText="Viene pubblicato nell'informativa privacy delle prenotazioni, che chiunque può leggere: è l'indirizzo a cui i clienti scrivono se vogliono sapere quali dati hai su di loro o chiederne la cancellazione."
+                                    placeholder="privacy@esempio.it"
+                                    value={privacyEmailDraft}
+                                    onChange={e => {
+                                        setPrivacyEmailDraft(e.target.value);
+                                        setPrivacyEmailError(null);
+                                    }}
+                                    error={privacyEmailError ?? undefined}
+                                    disabled={isSavingPrivacyEmail}
+                                />
+                                {privacyEmailDraft.trim() === "" && (
+                                    <p className={styles.privacyEmailNote}>
+                                        {/* Il fallback pubblica l'email personale
+                                            dell'owner, che non l'ha scelta per
+                                            questo: dirlo qui è l'unico punto in
+                                            cui può accorgersene prima. */}
+                                        {ownerEmail
+                                            ? `Se lasci vuoto, nell'informativa comparirà ${ownerEmail} (titolare dell'account).`
+                                            : "Se lasci vuoto, nell'informativa comparirà l'email del titolare dell'account."}
+                                    </p>
+                                )}
+                                {isPrivacyEmailDirty && (
+                                    <UnsavedChangesBar
+                                        isSaving={isSavingPrivacyEmail}
+                                        onCancel={cancelPrivacyEmail}
+                                        onSave={() => {
+                                            void savePrivacyEmail();
+                                        }}
+                                    />
                                 )}
                             </div>
                         )}

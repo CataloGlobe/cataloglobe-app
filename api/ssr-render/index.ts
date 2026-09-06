@@ -43,6 +43,19 @@ import { VERTICAL_CONFIG, type VerticalType } from "../../src/constants/vertical
  */
 
 // ⚠️ SYNC con middleware.ts (righe 49-86): stessa validazione slug.
+//    NB: `middleware.ts` non esiste più nel repo (restano solo artefatti
+//    compilati in .vercel/output/). Riferimento storico da bonificare.
+//
+// ⚠️ SYNC RESERVED_SEGMENTS ↔ vercel.json: la lista qui sotto è duplicata
+//    nel negative-lookahead delle DUE regole `headers` di vercel.json che
+//    rilassano X-Frame-Options a SAMEORIGIN (+ CSP frame-ancestors 'self')
+//    sulla sola pagina pubblica `/:slug` e `/:slug/:lang`, per consentire
+//    l'iframe di anteprima formato. Tutte le altre rotte restano a DENY.
+//    `vercel.json` deve essere JSON valido (niente commenti) e Vercel può
+//    rifiutare chiavi non previste dallo schema: la nota vive qui, non lì.
+//    AGGIUNGERE UN SEGMENTO RISERVATO QUI SENZA AGGIORNARE vercel.json
+//    significa esporre quella rotta al framing same-origin — la nuova rotta
+//    passerebbe il lookahead e riceverebbe SAMEORIGIN invece di DENY.
 const SLUG_RE = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?$/;
 const RESERVED_SEGMENTS = new Set([
     "login",

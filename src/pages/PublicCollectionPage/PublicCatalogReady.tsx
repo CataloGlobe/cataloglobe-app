@@ -302,7 +302,9 @@ function CollectionViewWithCustomerSession(
 export type PublicCatalogReadyProps = {
     slug: string;
     /** `ready` (catalogo con contenuti) oppure `empty` (sede pubblicata senza
-     *  menù ancora pubblicato): stessa resa, cambia solo il corpo centrale. */
+     *  nulla da mostrare, comportamento storico): stessa resa, cambia solo il
+     *  corpo centrale. `catalog_empty` è instradato a `PublicCatalogUnavailable`
+     *  a monte, in `PublicCollectionPage`. */
     data: CatalogRenderData;
     /** Derivato page-level (router state / URL param / payload), iniettato. */
     orderingMaintenance: { reason: OrderingStateReason; message: string } | null;
@@ -338,6 +340,7 @@ export default function PublicCatalogReady({
         tenantLogoUrl,
         openingHours,
         upcomingClosures,
+        hasReservationHours,
         allergens,
         effectiveLanguage,
         baseLanguage,
@@ -349,6 +352,12 @@ export default function PublicCatalogReady({
     // Innocuo in SPA (solo prop, non markup); da rendere client-only allo
     // stage 4.
     const sessionId = useMemo(() => crypto.randomUUID(), []);
+
+    // Voce "Prenota" nel MoreSheet: toggle sede + almeno una fascia
+    // prenotabile. Senza orari il link porterebbe a una pagina che può solo
+    // dire "non si può" — meglio non offrire la strada.
+    const reservationsCtaVisible =
+        business.enable_reservations && hasReservationHours;
     const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
 
     // Derive CollectionStyle from stored tokens so runtime matches preview
@@ -386,9 +395,9 @@ export default function PublicCatalogReady({
 
     const sectionGroups = mapCatalogToSectionGroups(resolved);
     const catalogCharacteristics = collectCatalogCharacteristics(resolved.catalog);
-    // Menù non ancora pubblicato: messaggio sobrio, nessuna azione. Chi arriva
-    // da un QR non ha un "indietro" utile e non è di fronte a un errore.
-    // defaultValue inline: le chiavi non sono ancora nei bundle locale.
+    // Menù non ancora pubblicato (comportamento storico, invariato): messaggio
+    // sobrio, nessuna azione. defaultValue inline: chiavi mai state nei bundle
+    // locale, pre-esistenti a questo lavoro.
     const emptyState =
         data.status === "empty"
             ? {
@@ -400,9 +409,7 @@ export default function PublicCatalogReady({
                           "Questo locale non ha ancora pubblicato il suo menù. Riprova più tardi."
                   })
               }
-            : sectionGroups.length === 0
-              ? { title: t("page.empty_catalog") }
-              : undefined;
+            : undefined;
 
     const allFeaturedContents = [
         ...(resolved.featured?.before_catalog ?? []),
@@ -455,7 +462,7 @@ export default function PublicCatalogReady({
                 mode="public"
                 activityId={business.id}
                 slug={business.slug}
-                enableReservations={business.enable_reservations}
+                enableReservations={reservationsCtaVisible}
                 tenantLogoUrl={tenantLogoUrl}
                 activityAddress={(() => {
                     const street = [business.address, business.street_number]

@@ -1,0 +1,112 @@
+/* ── PublicPreviewBar — barra riservata (mai visibile ai clienti) ─────────
+   Palette neutra scura, la stessa famiglia dell'header pubblico
+   (rgba(20,20,20,…)) e del languageToast della pagina. Nessun token di
+   tema: la barra vive FUORI dal PublicThemeScope nel ramo frame e dentro
+   nel ramo senza frame — deve rendere uguale in entrambi. */
+
+.bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    padding: 0.45rem 1rem;
+    background: rgba(20, 20, 20, 0.94);
+    color: rgba(255, 255, 255, 0.92);
+    font-family: var(--pub-font-family, system-ui, sans-serif);
+    font-size: 0.8rem;
+    font-weight: 500;
+    line-height: 1.3;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    user-select: none;
+}
+
+/* Solo nel ramo frame (fuori dal PublicThemeScope, nessun header sticky
+   della pagina pubblica con cui contendere lo z-index). */
+.barSticky {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+}
+
+.sections {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem 0.75rem;
+    min-width: 0;
+}
+
+.section {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    white-space: nowrap;
+
+    svg {
+        flex-shrink: 0;
+        opacity: 0.85;
+    }
+}
+
+/* Sezione simulazione: unico punto giallo, distinto dal resto della barra. */
+.sectionSimulated {
+    color: #fde68a;
+
+    svg {
+        opacity: 1;
+    }
+}
+
+.divider {
+    width: 1px;
+    height: 1rem;
+    background: rgba(255, 255, 255, 0.22);
+    flex-shrink: 0;
+}
+
+.formats {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.pill {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.28rem 0.7rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: rgba(255, 255, 255, 0.72);
+    font: inherit;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.15s ease, color 0.15s ease;
+
+    &:hover {
+        color: rgba(255, 255, 255, 0.95);
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    &:focus-visible {
+        outline: 2px solid rgba(255, 255, 255, 0.7);
+        outline-offset: 1px;
+    }
+
+    &[data-active="true"] {
+        background: rgba(255, 255, 255, 0.92);
+        color: #141414;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pill {
+        transition: none;
+    }
+}

@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { motion, useReducedMotion } from "framer-motion";
-import { BookOpenText, CalendarDays, MessageCircle, ReceiptText, Utensils } from "lucide-react";
+import { BookOpenText, MessageCircle, Pin, ReceiptText, Utensils } from "lucide-react";
 import type { HubTab } from "@/types/collectionStyle";
 import { useScrollCollapse } from "../hooks/useScrollCollapse";
 import styles from "./PublicBottomBar.module.scss";
@@ -222,7 +222,7 @@ export default function PublicBottomBar({
                         aria-label={t("hub.events")}
                         onClick={onOpenEvents}
                     >
-                        <CalendarDays size={19} strokeWidth={1.9} />
+                        <Pin size={19} strokeWidth={1.9} />
                     </button>
                 )}
                 {onOpenReviews && (

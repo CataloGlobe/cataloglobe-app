@@ -3,19 +3,26 @@
         "loading": "Laden...",
         "invalid_link": "Ungültiger Link.",
         "loading_error": "Ladefehler.",
-        "simulation_banner": "Vorschau Simulation",
         "empty_catalog": "Zurzeit kein Produkt verfügbar",
         "menu_label": "Menü",
         "error": {
             "not_found": "Standort nicht gefunden.",
             "invalid_link": "Ungültiger Link.",
             "invalid_lang": "Sprache nicht unterstützt."
+        },
+        "preview_bar": {
+            "not_visible": "Leiste für Kunden nicht sichtbar",
+            "simulated": "Simulierter Inhalt",
+            "format_label": "Vorschauformat",
+            "format_desktop": "Desktop",
+            "format_tablet": "Tablet",
+            "format_mobile": "Smartphone"
         }
     },
     "skip_to_content": "Zum Inhalt springen",
     "hub": {
         "menu": "Menü",
-        "events": "Veranstaltungen & Promo",
+        "events": "Hervorgehoben",
         "reviews": "Erzählen Sie uns Ihre",
         "storia": "Geschichte"
     },
@@ -267,7 +274,7 @@
         "preview_close_aria": "Schließen Sie"
     },
     "events": {
-        "list_aria": "Veranstaltungen und Promotionen",
+        "list_aria": "Hervorgehoben",
         "empty": "Zurzeit keine aktiven Veranstaltungen oder Aktionen.",
         "back": "← Zurück zur Liste",
         "close_aria": "Schließen",
@@ -439,6 +446,8 @@
         "disabled_text": "{{brand}} nimmt derzeit keine Online-Reservierungen an.",
         "disabled_call": "Sie können den Standort direkt anrufen, um einen Tisch anzufragen.",
         "disabled_contact": "Um einen Tisch anzufragen, kontaktieren Sie den Standort direkt.",
+        "unconfigured_title": "Online-Reservierung nicht verfügbar",
+        "unconfigured_text": "{{brand}} hat die Online-Reservierung noch nicht eingerichtet.",
         "call_venue": "Standort anrufen",
         "back_to_menu": "Zurück zum Menü",
         "back_button": "Menü",
@@ -461,7 +470,7 @@
         "notes": "Notizen",
         "special_requests": "Besondere Wünsche",
         "optional": "(optional)",
-        "notes_placeholder": "Allergien, besondere Bedürfnisse, besondere Anlässe…",
+        "notes_placeholder": "Besondere Bedürfnisse, besondere Anlässe…",
         "people": "Personen",
         "exact_number": "Geben Sie die genaue Anzahl an",
         "party_count_one": "{{count}} Person",

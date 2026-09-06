@@ -9,6 +9,14 @@
     }
 }
 
+/* ── Preview shell (barra riservata + DeviceFrame) ── */
+
+.previewShell {
+    display: flex;
+    flex-direction: column;
+    min-height: 100dvh;
+}
+
 /* ── Language change toast ─────────────────────────── */
 
 /* Toast sempre nel DOM — CSS transitions gestiscono enter/exit.

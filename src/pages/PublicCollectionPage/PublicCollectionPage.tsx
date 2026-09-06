@@ -19,8 +19,18 @@ import { fetchPublicCatalog, type CatalogSource, type PublicCatalogPayload } fro
 import { getCached, setCached } from "@/services/publicCatalog/publicCatalogCache";
 
 import { AppLoader } from "@/components/ui/AppLoader/AppLoader";
+import PublicCatalogUnavailable from "@/components/PublicCollectionView/PublicCatalogUnavailable/PublicCatalogUnavailable";
 import NotFound from "../NotFound/NotFound";
 import { isValidLangFormat } from "@/utils/lang";
+import DeviceFrame, { type DeviceFrameFormat } from "@/components/ui/DeviceFrame/DeviceFrame";
+import PublicPreviewBar from "./components/PublicPreviewBar";
+import { useTenantMembership } from "./useTenantMembership";
+import {
+    detectRealDeviceFormat,
+    listPreviewFormats,
+    resolvePreviewFormat,
+    shouldShowPreviewBar
+} from "./previewControl";
 import pageStyles from "./PublicCollectionPage.module.scss";
 // reviews_summary and recent_reviews still returned by edge function — unused in frontend for now
 
@@ -60,13 +70,49 @@ type Props = {
     initialPayload?: PublicCatalogInitialPayload;
 };
 
+/**
+ * Il payload SSR è single-use per SESSIONE, non per istanza.
+ *
+ * `entry-client.tsx` legge `window.__PUBLIC_CATALOG__` a livello modulo e lo
+ * passa come prop: quel valore sopravvive a tutta la sessione SPA. La guardia
+ * skip-fetch qui sotto è invece governata da un ref PER-ISTANZA
+ * (`hydrationConsumedRef`), che si azzera ad ogni remount della pagina —
+ * navigare su `/:slug/prenota` e tornare indietro smonta e rimonta
+ * `PublicCollectionPage`. Con solo il ref, il remount ritrova il payload
+ * inlinato (lingua base, ormai stale) e può ri-armare lo skip del fetch:
+ * la pagina renderebbe contenuto vecchio con stato già `ready`, quindi anche
+ * `usePublicLanguageSync` resta spento (attivo solo fuori dal ramo ready).
+ *
+ * Fix: il payload viene RILASCIATO dopo il primo consumo effettivo, così ogni
+ * mount successivo non lo trova più e passa dal fetch. La disponibilità è
+ * letta da `window` al mount (non dalla prop, che resta valorizzata per sempre).
+ */
+type SsrPayloadWindow = Window & {
+    __PUBLIC_CATALOG__?: PublicCatalogInitialPayload;
+};
+
+function readSsrPayload(
+    fallback: PublicCatalogInitialPayload | undefined
+): PublicCatalogInitialPayload | undefined {
+    // Render server (nessun window): la prop è l'unica sorgente.
+    if (typeof window === "undefined") return fallback;
+    return (window as SsrPayloadWindow).__PUBLIC_CATALOG__ ?? undefined;
+}
+
+/** Idempotente: dopo il primo consumo il payload non è più disponibile. */
+function releaseSsrPayload(): void {
+    if (typeof window === "undefined") return;
+    (window as SsrPayloadWindow).__PUBLIC_CATALOG__ = undefined;
+}
+
 export default function PublicCollectionPage({ initialPayload }: Props) {
     const { slug, lang: langFromUrl } = useParams<{ slug: string; lang?: string }>();
     const navigate = useNavigate();
     const { t, i18n } = useTranslation("public");
     const location = useLocation();
-    const [searchParams] = useSearchParams();
+    const [searchParams, setSearchParams] = useSearchParams();
     const simulateParam = searchParams.get("simulate");
+    const previewParam = searchParams.get("preview");
 
     // Maintenance mode mid-session — tre canali, in ordine di priorita:
     //   1. Router state (preferito): set da TableEntryPage navigate post-423
@@ -106,12 +152,98 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         return { reason, message: messageForReason(reason, t) };
     }, [maintenanceParam, t]);
     const [effectiveSimulate, setEffectiveSimulate] = useState<string | null>(null);
-    const isSimulation = !!effectiveSimulate;
+
+    // URL caricato nell'iframe di preview: stesso path della finestra host
+    // (slug + eventuale segmento lingua) e stessi query param, MENO `preview`.
+    // Escludere `preview` serve a due cose:
+    //   1. Stabilità: il formato è un resize CSS del frame, non un reload. Il
+    //      src non deve cambiare al cambio formato — la stringa risultante
+    //      resta identica, quindi React non riscrive l'attributo e l'iframe
+    //      non ricarica (i payload `simulate` non sono cacheati: un reload
+    //      costerebbe un refetch pieno ad ogni switch).
+    //   2. Guardia anti-ricorsione: con `preview` nel src, la pagina dentro
+    //      l'iframe monterebbe a sua volta un DeviceFrame con un altro iframe.
+    const previewIframeSrc = useMemo(() => {
+        const params = new URLSearchParams(location.search);
+        params.delete("preview");
+        const qs = params.toString();
+        return `${location.pathname}${qs ? `?${qs}` : ""}`;
+    }, [location.pathname, location.search]);
+
+    // Payload SSR ancora disponibile a QUESTO mount (vedi readSsrPayload):
+    // valutato una sola volta, non ri-letto ad ogni render. Su un remount
+    // successivo al primo consumo vale `undefined` → la pagina fetcha.
+    const [ssrPayload] = useState<PublicCatalogInitialPayload | undefined>(() =>
+        readSsrPayload(initialPayload)
+    );
+
     const [state, setState] = useState<PageState>(() =>
-        initialPayload
-            ? derivePageState(initialPayload.payload, initialPayload.allergens)
+        ssrPayload
+            ? derivePageState(ssrPayload.payload, ssrPayload.allergens)
             : { status: "loading" }
     );
+
+    // ── Elementi riservati (mai visibili ai clienti) ──────────────────────
+    // Un'unica verifica condivisa: "sessione presente E relazione reale con
+    // QUESTO tenant" (owner o membership attiva, qualunque ruolo). Copre sia
+    // il banner `?simulate=` sia la barra di controllo formato / `?preview=`.
+    // Il tenant è noto solo a payload ricevuto → prima di allora tutto resta
+    // nascosto (fail-closed). Il gate autorizzativo vero per `simulate` è
+    // server-side (resolve-public-catalog): qui si decide solo cosa mostrare.
+    const isMember = useTenantMembership(
+        state.status === "ready" || state.status === "empty" || state.status === "catalog_empty"
+            ? state.business.tenant_id
+            : null
+    );
+    // Un non membro con `?simulate=` riceve dal server il catalogo normale:
+    // il banner non deve comparire, l'esperienza è identica a un anonimo.
+    const simulateAt = isMember === true ? effectiveSimulate : null;
+
+    // Dispositivo reale: rilevazione one-shot al mount (nessun resize listener).
+    // Dentro l'iframe del DeviceFrame la larghezza è quella del frame: la
+    // pagina ospitata non deve né mostrare la barra né montare un frame
+    // proprio — la finestra host possiede entrambi.
+    const [realFormat] = useState<DeviceFrameFormat>(() =>
+        typeof window === "undefined" ? "desktop" : detectRealDeviceFormat(window.innerWidth)
+    );
+    const [isFramed] = useState<boolean>(() => typeof window !== "undefined" && window.self !== window.top);
+
+    // Device-frame di simulazione (?preview=): derivato, nessun effect. Non
+    // richiede un refetch del catalogo, solo il montaggio del frame lato render.
+    const effectivePreview = isFramed
+        ? null
+        : resolvePreviewFormat({ previewParam, realFormat, isMember });
+    const previewFormats = useMemo(() => listPreviewFormats(realFormat), [realFormat]);
+    const showPreviewBar = shouldShowPreviewBar({
+        isMember,
+        realFormat,
+        isFramed,
+        hasSimulate: !!simulateAt
+    });
+    // Pillola: scrive `?preview=<formato>` nell'URL (persistente, condivisibile —
+    // stesso pattern di `simulate`). Il resto della query string è preservato.
+    const handleSelectFormat = useCallback(
+        (format: DeviceFrameFormat) => {
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.set("preview", format);
+                return next;
+            });
+        },
+        [setSearchParams]
+    );
+    const previewBarNode = showPreviewBar ? (
+        <PublicPreviewBar
+            formats={previewFormats}
+            activeFormat={effectivePreview ?? realFormat}
+            onSelectFormat={handleSelectFormat}
+            simulateAt={simulateAt}
+            // Fissa solo con frame attivo: nel ramo senza frame la barra sta
+            // nel flusso (bannerSlot) e non deve contendere lo z-index con
+            // l'header sticky della pagina pubblica.
+            sticky={effectivePreview !== null}
+        />
+    ) : null;
 
     // Fase 1 (URL-driven): applica la lingua dall'URL nelle SHELL
     // (loading/error/inactive/...). Nel ramo "ready" comanda il
@@ -128,7 +260,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     // normalmente. (entry-client non monta StrictMode → il ref non viene
     // consumato due volte; rivedere se StrictMode torna.)
     const hydrationConsumedRef = useRef(false);
-    const inlinedBaseLang = initialPayload?.payload.base_language_code ?? "it";
+    const inlinedBaseLang = ssrPayload?.payload.base_language_code ?? "it";
 
     // Payload-derived: ordering_disabled deriva da business.ordering_enabled.
     // Backward compat: snapshot Redis pre-Fix 1 puo non avere il campo →
@@ -160,7 +292,9 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     // Dinamic head tags (title, description, OG) — only when ready.
     // Anche con menù vuoto la pagina è quella della sede: title/OG col suo nome.
     const headBusiness =
-        state.status === "ready" || state.status === "empty" ? state.business : null;
+        state.status === "ready" || state.status === "empty" || state.status === "catalog_empty"
+            ? state.business
+            : null;
     const headLang = state.status === "ready" ? state.effectiveLanguage : undefined;
     const menuLabel = t("page.menu_label", { defaultValue: "Menu" });
     const headTitle = headBusiness ? `${headBusiness.name} · ${menuLabel}` : undefined;
@@ -181,6 +315,12 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     usePublicFontInjection(state.status === "ready" ? state.resolved.style : null);
 
     useEffect(() => {
+        // Il payload SSR ha già fatto il suo lavoro: `ssrPayload` è stato letto
+        // al mount e ha popolato lo stato iniziale (primo paint). Da qui in poi
+        // nessun altro mount della sessione deve poterlo riusare — vedi
+        // releaseSsrPayload. Idempotente, primo effect post-commit.
+        releaseSsrPayload();
+
         if (!slug) {
             setState({ status: "error", messageKey: "page.invalid_link" });
             return;
@@ -208,7 +348,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         // retryToken > 0 (manual retry) e simulateParam bypassano lo skip.
         const requestedLang = validatedLang ?? inlinedBaseLang;
         if (
-            initialPayload &&
+            ssrPayload &&
             !hydrationConsumedRef.current &&
             requestedLang === inlinedBaseLang &&
             retryToken === 0 &&
@@ -309,6 +449,11 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
                     return { status: "loading" };
                 });
 
+                // Pre-check "sessione presente" solo per scegliere il trasporto
+                // (invoke diretto, no-store) — il tenant non è ancora noto qui.
+                // L'autorizzazione vera (appartenenza al tenant) è server-side:
+                // un non membro riceve il catalogo normale e il banner resta
+                // nascosto (vedi simulateAt / useTenantMembership).
                 let simulate: string | undefined = undefined;
                 if (simulateParam) {
                     const {
@@ -514,15 +659,34 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
         return <NotFound variant="subscription-inactive" />;
     }
 
-    // NB: `empty` (sede pubblicata, menù non ancora pubblicato) NON è un errore
-    // e NON passa da NotFound: cade nel render sotto, che mostra intestazione +
-    // messaggio sobrio senza azioni. Il 404 vero resta `domain_error`.
+    // `catalog_empty` (regola di programmazione vinta, catalogo senza
+    // prodotti visibili ORA) NON è un errore e NON passa da NotFound: sede
+    // pubblicata, branding minimo (logo + nome) via PublicCatalogUnavailable,
+    // niente chrome (header/search/hub). Il 404 vero resta `domain_error`.
+    // NB: `empty` (nessun catalogo risolto/nessuna regola vinta, comportamento
+    // storico) NON passa di qui: cade nel render sotto, chrome completa via
+    // PublicCatalogReady, invariato da prima di questo lavoro.
+    // La barra riservata compare anche qui: è proprio in questo stato che un
+    // membro vuole verificare (via `?simulate=`) cosa vedrà il cliente quando
+    // una regola futura entrerà in vigore. Nessun frame in questo ramo (non
+    // c'è catalogo da incorniciare): solo la barra sopra la card.
+    if (state.status === "catalog_empty") {
+        return (
+            <div className={pageStyles.previewShell}>
+                {previewBarNode}
+                <PublicCatalogUnavailable
+                    business={state.business}
+                    tenantLogoUrl={state.tenantLogoUrl}
+                />
+            </div>
+        );
+    }
 
     // Lingua di destinazione: già nell'URL quando il refetch inizia.
     // Fallback a baseLanguage se si torna alla lingua base (URL senza /lang).
     const toastTargetLang = langFromUrl ?? state.baseLanguage;
 
-    return (
+    const catalogReadyNode = (
         <PublicCatalogReady
             slug={slug!}
             data={state}
@@ -531,32 +695,7 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
             activeTab={activeTab}
             onTabChange={handleTabChange}
             onTabAutoReset={handleTabAutoReset}
-            bannerSlot={
-                isSimulation ? (
-                    <div
-                        style={{
-                            position: "relative",
-                            display: "flex",
-                            justifyContent: "center",
-                            alignItems: "center",
-                            gap: "0.75rem",
-                            padding: "0.5rem 1rem",
-                            background: "#fef3c7",
-                            color: "#92400e",
-                            fontSize: "0.8rem",
-                            fontWeight: 500,
-                            borderBottom: "1px solid #fde68a"
-                        }}
-                    >
-                        <span>{t("page.simulation_banner")}</span>
-                        <span>
-                            {new Date(effectiveSimulate!).toLocaleString("it-IT", {
-                                timeZone: "Europe/Rome"
-                            })}
-                        </span>
-                    </div>
-                ) : null
-            }
+            bannerSlot={previewBarNode}
         >
             {/* Toast cambio lingua — gated post-mount (non SSR) per evitare
                 mismatch hydration #418: server non renderizza PublicCollectionPage
@@ -583,5 +722,42 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
                 </span>
             </div>}
         </PublicCatalogReady>
+    );
+
+    // Device-frame di simulazione: monta SOLO quando un formato valido è
+    // stato risolto (auth + regola "≤ dispositivo reale", vedi effect sopra).
+    // Nessun frame → markup identico a prima di questo lavoro (zero rischio
+    // di regressione sul comportamento pubblico normale).
+    if (!effectivePreview) {
+        return catalogReadyNode;
+    }
+
+    // Il frame ospita una finestra REALE (iframe same-origin su /:slug), non
+    // l'albero React in-place: dentro l'iframe window/matchMedia/createPortal
+    // lavorano nativamente sulle dimensioni del frame, quindi header,
+    // bottom-bar e PublicSheet si comportano come su un dispositivo reale di
+    // quel formato senza alcuno scoping manuale (l'approccio a scoping
+    // per-componente è stato tentato e revertito — vedi
+    // docs/audit-device-frame-pagina-pubblica.md).
+    // Richiede X-Frame-Options: SAMEORIGIN + CSP frame-ancestors 'self'
+    // (vercel.json, FASE 3.1): in `npm run dev` Vite non invia XFO, quindi
+    // l'embedding va verificato su deploy reale.
+    // `catalogReadyNode` resta costruito ma non montato su questo ramo: è solo
+    // creazione di elementi React (nessun effect, nessun fetch) — il contenuto
+    // vero lo renderizza l'iframe.
+    // La barra resta montata anche qui, sopra il frame: dentro l'iframe la
+    // pagina ospitata NON la renderizza (isFramed), quindi il controllo per
+    // cambiare ancora formato è sempre e solo questo.
+    return (
+        <div className={pageStyles.previewShell}>
+            {previewBarNode}
+            <DeviceFrame
+                format={effectivePreview}
+                iframeSrc={previewIframeSrc}
+                iframeTitle={t("page.preview_frame_title", {
+                    defaultValue: "Anteprima della pagina pubblica"
+                })}
+            />
+        </div>
     );
 }

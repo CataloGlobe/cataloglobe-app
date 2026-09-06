@@ -3,19 +3,27 @@
         "loading": "Caricamento...",
         "invalid_link": "Link non valido.",
         "loading_error": "Errore di caricamento.",
-        "simulation_banner": "Anteprima simulazione",
-        "empty_catalog": "Nessun prodotto disponibile al momento",
         "menu_label": "Menu",
+        "catalog_empty_title": "Il menù non è ancora pronto",
+        "catalog_empty_description": "Il locale sta preparando i suoi piatti. Torna a controllare tra poco.",
         "error": {
             "not_found": "Sede non trovata.",
             "invalid_link": "Link non valido.",
             "invalid_lang": "Lingua non supportata."
+        },
+        "preview_bar": {
+            "not_visible": "Barra non visibile ai clienti",
+            "simulated": "Contenuto simulato",
+            "format_label": "Formato anteprima",
+            "format_desktop": "Desktop",
+            "format_tablet": "Tablet",
+            "format_mobile": "Smartphone"
         }
     },
     "skip_to_content": "Salta al contenuto",
     "hub": {
         "menu": "Menu",
-        "events": "Eventi & Promo",
+        "events": "In evidenza",
         "reviews": "Dicci la tua",
         "storia": "Storia"
     },
@@ -267,7 +275,7 @@
         "preview_close_aria": "Chiudi"
     },
     "events": {
-        "list_aria": "Eventi e promozioni",
+        "list_aria": "In evidenza",
         "empty": "Nessun evento o promozione attiva al momento.",
         "back": "← Torna alla lista",
         "close_aria": "Chiudi",
@@ -440,6 +448,8 @@
         "disabled_text": "{{brand}} non accetta prenotazioni online al momento.",
         "disabled_call": "Puoi chiamare direttamente il locale per richiedere un tavolo.",
         "disabled_contact": "Per richiedere un tavolo contatta direttamente la sede.",
+        "unconfigured_title": "Prenotazione online non disponibile",
+        "unconfigured_text": "{{brand}} non ha ancora attivato la prenotazione online.",
         "call_venue": "Chiama il locale",
         "back_to_menu": "Torna al menu",
         "back_button": "Menu",
@@ -462,7 +472,7 @@
         "notes": "Note",
         "special_requests": "Richieste particolari",
         "optional": "(facoltativo)",
-        "notes_placeholder": "Allergie, esigenze particolari, occasioni speciali…",
+        "notes_placeholder": "Esigenze particolari, occasioni speciali…",
         "people": "Persone",
         "exact_number": "Indica il numero esatto",
         "party_count_one": "{{count}} persona",

@@ -1,0 +1,239 @@
+/* Informativa privacy prenotazioni — documento lungo, da leggere e da scorrere.
+ *
+ * Impaginazione da documento, non da pagina di prodotto: misura di riga
+ * limitata, gerarchia dei titoli evidente, ancore per sezione. Chi apre questa
+ * pagina di solito cerca un punto preciso (i diritti, la conservazione), quindi
+ * la struttura conta più dell'estetica.
+ *
+ * Colori: token nudi di `_theme.scss` + `opacity` per il testo secondario,
+ * come in `PrivacyPolicyPage.module.scss`. Nessun fallback esadecimale e nessun
+ * token inventato: il tema light/dark deve valere anche qui.
+ *
+ * Nessuna vestizione col tema della sede: la pagina non fetcha il catalogo. */
+
+.page {
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+}
+
+.header {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+}
+
+.backLink {
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--text);
+    opacity: 0.6;
+    text-decoration: none;
+
+    &:hover {
+        opacity: 1;
+    }
+}
+
+.main {
+    /* Misura di riga da documento: oltre i ~70 caratteri l'occhio perde la riga
+       e un testo legale già faticoso diventa illeggibile. */
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 32px 20px 80px;
+}
+
+/* ── Stati (loading / non disponibile / errore) ───────────────────────────── */
+
+.stateText {
+    font-size: 0.9375rem;
+    color: var(--text);
+    opacity: 0.6;
+}
+
+.stateBlock {
+    padding: 40px 0;
+}
+
+.stateTitle {
+    margin: 0 0 12px;
+    font-size: 1.375rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.stateBody {
+    margin: 0;
+    font-size: 0.9375rem;
+    line-height: 1.6;
+    color: var(--text);
+    opacity: 0.78;
+}
+
+/* ── Intestazione del documento ───────────────────────────────────────────── */
+
+.docTitle {
+    margin: 0 0 8px;
+    font-size: 1.625rem;
+    font-weight: 700;
+    line-height: 1.25;
+}
+
+.docSubtitle {
+    margin: 0 0 4px;
+    font-size: 1.0625rem;
+    font-weight: 600;
+}
+
+.docReference,
+.docVersion {
+    margin: 0;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+    color: var(--text);
+    opacity: 0.6;
+}
+
+.docVersion {
+    margin-top: 4px;
+}
+
+/* ── Sommario ─────────────────────────────────────────────────────────────── */
+
+.toc {
+    margin: 28px 0 8px;
+    padding: 16px 20px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.tocLabel {
+    margin: 0 0 8px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text);
+    opacity: 0.6;
+}
+
+.tocList {
+    margin: 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    li {
+        font-size: 0.875rem;
+        line-height: 1.5;
+    }
+
+    a {
+        color: var(--text);
+        text-decoration: none;
+
+        &:hover {
+            text-decoration: underline;
+        }
+    }
+}
+
+/* ── Sezioni ──────────────────────────────────────────────────────────────── */
+
+.section {
+    margin-top: 32px;
+    /* Compensa l'header sticky quando si salta da un'ancora del sommario:
+       senza, il titolo finisce sotto la barra. */
+    scroll-margin-top: 64px;
+}
+
+.sectionTitle {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 0 0 12px;
+    font-size: 1.125rem;
+    font-weight: 600;
+    line-height: 1.3;
+}
+
+.sectionNum {
+    flex: 0 0 auto;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--brand-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.paragraph {
+    margin: 0 0 12px;
+    font-size: 0.9375rem;
+    line-height: 1.65;
+    opacity: 0.9;
+
+    &:last-child {
+        margin-bottom: 0;
+    }
+}
+
+.list {
+    margin: 0 0 12px;
+    padding-left: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    opacity: 0.9;
+
+    li {
+        font-size: 0.9375rem;
+        line-height: 1.6;
+    }
+}
+
+/* ── Tabella finalità / base giuridica (§3) ───────────────────────────────── */
+
+.tableWrap {
+    /* Scroll dentro il contenitore: su schermo stretto scorre la tabella, mai
+       il body della pagina. */
+    margin: 0 0 12px;
+    overflow-x: auto;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+}
+
+.table {
+    width: 100%;
+    min-width: 480px;
+    border-collapse: collapse;
+    font-size: 0.875rem;
+
+    th,
+    td {
+        padding: 10px 14px;
+        text-align: left;
+        vertical-align: top;
+        line-height: 1.55;
+        border-bottom: 1px solid var(--border);
+    }
+
+    th {
+        font-weight: 600;
+        white-space: nowrap;
+        color: var(--text);
+        opacity: 0.6;
+    }
+
+    td {
+        opacity: 0.9;
+    }
+
+    tbody tr:last-child td {
+        border-bottom: none;
+    }
+}

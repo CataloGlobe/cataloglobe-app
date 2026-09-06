@@ -492,6 +492,39 @@
     color: var(--color-text-muted, #6b7280);
 }
 
+/* Avviso "manca la ragione sociale": prerequisito dell'informativa privacy
+   prenotazioni, non una dimenticanza da correggere in due secondi. */
+.privacyNoticeAlert {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border, #e5e7eb);
+}
+
+.privacyNoticeAlertLink {
+    font-weight: 600;
+    color: inherit;
+    text-decoration: underline;
+    white-space: nowrap;
+}
+
+/* Privacy contact email for the reservations privacy notice. Stessa cornice a
+   filetto degli altri sub-campi prenotazioni, così lo stack resta uno solo. */
+.privacyEmailField {
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px solid var(--color-border, #e5e7eb);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.privacyEmailNote {
+    margin: 2px 0 0;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--color-text-muted, #6b7280);
+}
+
 // ── Capacity & availability accordion ───────────────────────────────────────
 // Wrapper aligns ConfigAccordionSection (its header/body have a built-in 20px
 // horizontal padding) with the parent Card's inline 24px gutter. Negative

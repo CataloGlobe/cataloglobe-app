@@ -10,6 +10,18 @@
 .topActions {
   display: flex;
   gap: 0.65rem;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+/* Stato attivo/disattivo: salva subito, quindi vive accanto alle azioni e
+   non dentro il form. */
+.enabledToggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding-right: 0.35rem;
+  border-right: 1px solid var(--border);
 }
 
 .layout {
@@ -369,6 +381,15 @@
   gap: 0.4rem;
 }
 
+.targetModeIcon {
+  flex-shrink: 0;
+  color: var(--color-gray-500);
+}
+
+.targetModeOption:has(input:checked) .targetModeIcon {
+  color: var(--brand-primary);
+}
+
 .targetModeLabel {
   font-size: 0.85rem;
   font-weight: 600;
@@ -413,6 +434,11 @@
   font-weight: 500;
   color: var(--color-gray-800);
   line-height: 1.4;
+}
+
+.chipIcon {
+  flex-shrink: 0;
+  color: var(--brand-primary);
 }
 
 .chipLabel {
@@ -702,6 +728,26 @@
 }
 
 /* ─── Responsive ─────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  /* `.targetModeDesc` è `nowrap` per tenere label e descrizione sulla stessa
+     riga sul desktop: su schermi stretti la descrizione sfora il contenitore
+     (la riga non ha spazio per contenerla e non può andare a capo). Qui la
+     descrizione può mandare a capo e, se serve, scendere sotto la label. */
+  .targetModeContent {
+    flex-wrap: wrap;
+  }
+
+  /* Con la descrizione su due righe il radio, centrato, cadeva a metà del
+     blocco di testo: ancoralo alla riga della label. */
+  .targetModeOption {
+    align-items: flex-start;
+  }
+
+  .targetModeDesc {
+    white-space: normal;
+  }
+}
 
 @media (max-width: 900px) {
   .layout {
