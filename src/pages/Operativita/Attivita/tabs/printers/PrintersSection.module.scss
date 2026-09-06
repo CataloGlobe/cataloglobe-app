@@ -1,0 +1,106 @@
+// Sezione "Stampanti" nel tab Impostazioni della sede.
+// Vive dentro una Card con header del tab (cardHeader/cardTitle locali):
+// qui solo il corpo (toolbar + lista/empty).
+
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    padding: 16px 24px 20px;
+}
+
+.toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.hint {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: #6B7280;
+    flex: 1;
+    min-width: 0;
+}
+
+.list {
+    display: flex;
+    flex-direction: column;
+    border: 1px solid #E5E7EB;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    background-color: #FFFFFF;
+
+    & + & {
+        border-top: 1px solid #F3F4F6;
+    }
+}
+
+.rowIcon {
+    flex-shrink: 0;
+    color: #6B7280;
+}
+
+.rowText {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+}
+
+.rowLabel {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.rowSn {
+    font-family: ui-monospace, "SFMono-Regular", "Menlo", monospace;
+    font-size: 0.75rem;
+    color: #6B7280;
+    letter-spacing: 0.02em;
+}
+
+.rowActions {
+    flex-shrink: 0;
+}
+
+.skeleton {
+    height: 56px;
+    border-radius: 10px;
+    background-color: #F9FAFB;
+    border: 1px solid #F3F4F6;
+    animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+// ── Drawer form ──────────────────────────────────────────────────────────────
+
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.drawerContent {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}

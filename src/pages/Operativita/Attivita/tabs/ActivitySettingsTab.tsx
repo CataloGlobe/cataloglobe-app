@@ -53,6 +53,7 @@ import {
 } from "./hours-services/FeesSection";
 import { ExportCatalogDrawer } from "./ExportCatalogDrawer";
 import { ConfigAccordionSection } from "./components/ConfigAccordionSection";
+import { PrintersSection } from "./printers/PrintersSection";
 import {
     deleteActivityAtomic,
     updateActivity,
@@ -1219,6 +1220,23 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                         )}
                     </div>
                 </Card>
+
+                {/* ── Row 2b-bis: Stampanti Sunmi (solo con ordinazioni attive) ── */}
+                {activity.ordering_enabled && (
+                    <Card className={styles.card}>
+                        <div className={styles.cardHeader}>
+                            <div className={styles.cardHeaderText}>
+                                <h3 className={styles.cardTitle}>Stampanti</h3>
+                                <p className={styles.cardSubtitle}>
+                                    Collega le stampanti cloud Sunmi della sede per ricevere le comande in cucina.
+                                </p>
+                            </div>
+                        </div>
+                        <div className={styles.cardBodyFlat}>
+                            <PrintersSection tenantId={tenantId} activityId={activity.id} />
+                        </div>
+                    </Card>
+                )}
 
                 {/* ── Row 2c: Prenotazioni toggle (full width) ──────────────── */}
                 <Card className={styles.card}>
