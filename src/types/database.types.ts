@@ -3006,6 +3006,8 @@ export type Database = {
       reservation_tables: {
         Row: {
           activity_id: string
+          assigned_at: string
+          assignment_source: string
           created_at: string
           id: string
           reservation_id: string
@@ -3015,6 +3017,8 @@ export type Database = {
         }
         Insert: {
           activity_id: string
+          assigned_at?: string
+          assignment_source?: string
           created_at?: string
           id?: string
           reservation_id: string
@@ -3024,6 +3028,8 @@ export type Database = {
         }
         Update: {
           activity_id?: string
+          assigned_at?: string
+          assignment_source?: string
           created_at?: string
           id?: string
           reservation_id?: string
@@ -3098,7 +3104,6 @@ export type Database = {
           seated_at: string | null
           source: string
           status: string
-          table_id: string | null
           tenant_id: string
           updated_at: string
         }
@@ -3123,7 +3128,6 @@ export type Database = {
           seated_at?: string | null
           source?: string
           status?: string
-          table_id?: string | null
           tenant_id: string
           updated_at?: string
         }
@@ -3148,7 +3152,6 @@ export type Database = {
           seated_at?: string | null
           source?: string
           status?: string
-          table_id?: string | null
           tenant_id?: string
           updated_at?: string
         }
@@ -3179,20 +3182,6 @@ export type Database = {
             columns: ["guest_id"]
             isOneToOne: false
             referencedRelation: "v_reservation_guests_directory"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reservations_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "tables"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "reservations_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "v_tables_with_state"
             referencedColumns: ["id"]
           },
           {
@@ -4813,13 +4802,19 @@ export type Database = {
           active_orders: Json | null
           active_sessions_count: number | null
           activity_id: string | null
+          assignment_priority: number | null
           bill_requested_count: number | null
+          bookable_online: boolean | null
+          combination_group_id: string | null
+          combination_group_name: string | null
           created_at: string | null
           current_total: number | null
           deleted_at: string | null
           id: string | null
           label: string | null
           maintenance_mode: boolean | null
+          max_seats: number | null
+          min_seats: number | null
           open_groups_count: number | null
           open_orders_count: number | null
           pending_orders_count: number | null
@@ -4839,6 +4834,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "activities"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tables_combination_group_id_fkey"
+            columns: ["combination_group_id", "activity_id"]
+            isOneToOne: false
+            referencedRelation: "table_combination_groups"
+            referencedColumns: ["id", "activity_id"]
           },
           {
             foreignKeyName: "tables_tenant_id_fkey"
@@ -5153,6 +5155,14 @@ export type Database = {
         }[]
       }
       assign_sunmi_shop_id: { Args: { p_activity_id: string }; Returns: number }
+      assign_tables_for_reservation: {
+        Args: { p_reservation_id: string }
+        Returns: {
+          assigned: boolean
+          reason: string
+          table_id: string
+        }[]
+      }
       can_read_schedule: {
         Args: {
           p_apply_to_all: boolean

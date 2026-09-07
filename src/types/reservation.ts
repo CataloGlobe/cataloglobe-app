@@ -91,3 +91,29 @@ export interface V2Reservation {
     created_at: string;
     updated_at: string;
 }
+
+// Chi ha scelto il tavolo (public.reservation_tables.assignment_source).
+// "system" = proposta del motore automatico (assign_tables_for_reservation),
+//            ricalcolabile: il motore la cancella e la rifà.
+// "manual" = decisione dell'operatore, intoccabile: basta UNA riga manual
+//            sulla prenotazione perché l'intera assegnazione sia fissa.
+export type ReservationTableAssignmentSource = "system" | "manual";
+
+// ReservationTableAssignment — riga di public.reservation_tables: un tavolo
+// assegnato a una prenotazione (molti-a-molti, tavoli accostati).
+// Le righe NON vengono cancellate al cambio di status della prenotazione:
+// l'occupazione si deriva sempre via join su reservations.status
+// (pending | confirmed | seated occupano). Una disdetta annullata ritrova i
+// suoi tavoli senza riassegnazione.
+export interface ReservationTableAssignment {
+    id: string;
+    tenant_id: string;
+    activity_id: string;
+    reservation_id: string;
+    table_id: string;
+    assignment_source: ReservationTableAssignmentSource;
+    /** Quando la riga è stata scritta dall'assegnatario (motore o operatore). */
+    assigned_at: string;
+    created_at: string;
+    updated_at: string;
+}
