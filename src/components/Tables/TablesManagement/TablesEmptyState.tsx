@@ -12,7 +12,7 @@ export function TablesEmptyState({ onGoToSettings }: TablesEmptyStateProps) {
         <EmptyState
             icon={<QrCode size={40} strokeWidth={1.5} />}
             title="Tavoli non disponibili"
-            description="Per gestire i tavoli, abilita prima le Ordinazioni QR per questa sede dalla scheda Impostazioni."
+            description="Per gestire i tavoli, abilita prima le Ordinazioni QR o le Prenotazioni per questa sede dalla scheda Impostazioni."
             action={
                 <Button variant="primary" onClick={onGoToSettings}>
                     Vai alle impostazioni

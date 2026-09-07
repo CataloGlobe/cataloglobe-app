@@ -98,3 +98,10 @@
     gap: 16px;
     padding: 16px;
 }
+
+// Separatore fra i campi comuni del tavolo e quelli di assegnazione
+// prenotazioni: il blocco sotto esiste solo se la sede prenota.
+.formSectionTitle {
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}

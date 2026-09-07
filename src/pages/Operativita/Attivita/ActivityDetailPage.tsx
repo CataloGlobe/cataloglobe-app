@@ -126,7 +126,6 @@ const ActivityDetailPage: React.FC = () => {
 
     usePageHeader({
         leading,
-        sticky: true,
     });
 
     if (loading && !activity) {
@@ -175,11 +174,16 @@ const ActivityDetailPage: React.FC = () => {
                 {activeTab === "tables" && (
                     <PageGate readPermission="tables.read" activityId={activity.id}>
                         {() => (
-                            activity.ordering_enabled ? (
+                            // I tavoli servono a due domini: ordinazioni QR e
+                            // prenotazioni. Basta uno dei due abilitati per
+                            // poterli mappare. `orderingEnabled` resta il gate
+                            // delle sole azioni QR dentro la pagina.
+                            activity.ordering_enabled || activity.enable_reservations ? (
                                 <TablesManagement
                                     tenantId={businessId!}
                                     activityId={activity.id}
-                                    orderingEnabled={true}
+                                    orderingEnabled={activity.ordering_enabled}
+                                    reservationsEnabled={activity.enable_reservations}
                                 />
                             ) : (
                                 <TablesEmptyState

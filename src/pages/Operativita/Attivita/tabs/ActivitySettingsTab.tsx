@@ -59,6 +59,7 @@ import {
     updateActivity,
     updateActivityOrderingEnabled
 } from "@/services/supabase/activities";
+import { getMappedSeatsSummary } from "@/services/supabase/tables";
 import { listActivityHours } from "@/services/supabase/activityHours";
 import { listActivityClosures } from "@/services/supabase/activityClosures";
 import { listTenantMembers } from "@/services/supabase/team";
@@ -221,6 +222,50 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         });
         lastSavedCapacityRef.current = newSaved;
     }, [savedCapacity]);
+
+    // ── Controllo di realtà sulla capienza ──────────────────────────────────
+    // La capienza è un numero che il ristoratore digita (capienza OPERATIVA:
+    // può essere piu bassa dei posti fisici perche la cucina non regge). Non
+    // viene derivata dai tavoli e non viene mai corretta d'ufficio: qui si
+    // mostra solo la somma dei posti mappati, perche una divergenza forte di
+    // solito e' una svista, non una scelta. Avviso informativo, mai bloccante.
+    const [seatsSummary, setSeatsSummary] = useState<{
+        totalSeats: number;
+        tablesCount: number;
+        tablesWithoutSeats: number;
+    } | null>(null);
+
+    useEffect(() => {
+        if (!activity.enable_reservations || !tenantId || !activity.id) {
+            setSeatsSummary(null);
+            return;
+        }
+        let cancelled = false;
+        void (async () => {
+            try {
+                const summary = await getMappedSeatsSummary(tenantId, activity.id);
+                if (!cancelled) setSeatsSummary(summary);
+            } catch {
+                // Silente: il confronto e' un aiuto, non un requisito della pagina.
+                if (!cancelled) setSeatsSummary(null);
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [tenantId, activity.id, activity.enable_reservations]);
+
+    // Divergenza rilevante: oltre il 20% della capienza dichiarata e almeno 4
+    // coperti di scarto. Sotto quella soglia il rumore supererebbe il segnale.
+    const capacityMismatch = useMemo(() => {
+        if (!seatsSummary || seatsSummary.tablesCount === 0) return null;
+        const declared = Number(capacityDraft.capacity.trim());
+        if (!Number.isFinite(declared) || declared <= 0) return null;
+        const delta = seatsSummary.totalSeats - declared;
+        const isRelevant =
+            Math.abs(delta) >= 4 && Math.abs(delta) >= declared * 0.2;
+        return isRelevant ? { delta } : null;
+    }, [seatsSummary, capacityDraft.capacity]);
 
     const isCapacityDirty =
         capacityDraft.capacity !== savedCapacity.capacity ||
@@ -1457,6 +1502,25 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                                                 <p className={styles.capacityHint}>
                                                     Senza capienza impostata, le prenotazioni online non hanno limiti.
                                                 </p>
+                                            )}
+                                            {/* Controllo di realtà: la somma dei posti
+                                                mappati sui tavoli. Informativo, non
+                                                blocca né corregge il numero digitato. */}
+                                            {seatsSummary && seatsSummary.tablesCount > 0 && (
+                                                <>
+                                                    <p className={styles.capacityHint}>
+                                                        {`Posti mappati sui tavoli: ${seatsSummary.totalSeats} su ${seatsSummary.tablesCount} ${seatsSummary.tablesCount === 1 ? "tavolo" : "tavoli"}.`}
+                                                        {seatsSummary.tablesWithoutSeats > 0 &&
+                                                            ` ${seatsSummary.tablesWithoutSeats} ${seatsSummary.tablesWithoutSeats === 1 ? "tavolo non dichiara" : "tavoli non dichiarano"} i posti, quindi la somma è parziale.`}
+                                                    </p>
+                                                    {capacityMismatch && (
+                                                        <p className={styles.capacityWarning}>
+                                                            {capacityMismatch.delta > 0
+                                                                ? `I tavoli hanno ${capacityMismatch.delta} posti in più della capienza impostata. Se è voluto (per esempio la cucina non regge la sala piena) va bene così.`
+                                                                : `I tavoli hanno ${Math.abs(capacityMismatch.delta)} posti in meno della capienza impostata. Se è voluto (per esempio mancano ancora dei tavoli da mappare) va bene così.`}
+                                                        </p>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                         <div className={styles.capacityField}>
