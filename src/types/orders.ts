@@ -11,6 +11,18 @@ export interface V2Table {
     seats: number | null;
     zone_id: string | null;
     zone_name: string | null;
+    /** Capienza minima assegnabile. null = nessun minimo (pavimento 1). */
+    min_seats: number | null;
+    /** Capienza massima accostando sedie. null = il tetto e' `seats`.
+     *  Se anche `seats` e' null la capienza e' SCONOSCIUTA: il tavolo non e'
+     *  candidabile all'assegnazione automatica. */
+    max_seats: number | null;
+    /** Gruppo di accostamento fisico. null = tavolo non accostabile. */
+    combination_group_id: string | null;
+    /** Preferenza a parita' di condizioni: piu' alto = scelto prima. 0 = neutro. */
+    assignment_priority: number;
+    /** false = tavolo riservato ai walk-in, escluso dalle prenotazioni online. */
+    bookable_online: boolean;
     maintenance_mode: boolean;
     deleted_at: string | null;
     created_at: string;
@@ -26,6 +38,11 @@ export interface V2TableInsert {
     label: string;
     seats?: number | null;
     zone_id?: string | null;
+    min_seats?: number | null;
+    max_seats?: number | null;
+    combination_group_id?: string | null;
+    assignment_priority?: number;
+    bookable_online?: boolean;
     maintenance_mode?: boolean;
 }
 
@@ -36,7 +53,37 @@ export interface V2TableUpdate {
     label?: string;
     seats?: number | null;
     zone_id?: string | null;
+    min_seats?: number | null;
+    max_seats?: number | null;
+    combination_group_id?: string | null;
+    assignment_priority?: number;
+    bookable_online?: boolean;
     maintenance_mode?: boolean;
+}
+
+// V2TableCombinationGroup — riga di public.table_combination_groups.
+// Gruppo di tavoli fisicamente accostabili FRA LORO (relazione transitiva:
+// stesso gruppo = tutte le coppie e combinazioni sono ammesse). Distinto dalla
+// zona, che e' l'area operativa. FK tables.combination_group_id ON DELETE SET NULL.
+export interface V2TableCombinationGroup {
+    id: string;
+    tenant_id: string;
+    activity_id: string;
+    name: string;
+    sort_order: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface V2TableCombinationGroupInsert {
+    activity_id: string;
+    name: string;
+    sort_order?: number;
+}
+
+export interface V2TableCombinationGroupUpdate {
+    name?: string;
+    sort_order?: number;
 }
 
 // V2TableZone — riga di public.table_zones (γ-lite). UNIQUE (activity_id, name).
@@ -260,6 +307,8 @@ export interface V2TableActiveOrder {
 //   - open: submitted + acknowledged + ready (UI "aperti", base per gate
 //     di close-table con risoluzione bulk).
 export interface V2TableWithState extends V2Table {
+    /** Nome del gruppo di accostamento (LEFT JOIN nella view). null = nessuno. */
+    combination_group_name: string | null;
     active_sessions_count: number;
     pending_orders_count: number;
     open_orders_count: number;

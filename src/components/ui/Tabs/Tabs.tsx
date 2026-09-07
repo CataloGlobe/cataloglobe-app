@@ -8,6 +8,7 @@ import React, {
     useState
 } from "react";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
+import { useHorizontalOverflow } from "@/hooks/useHorizontalOverflow";
 import styles from "./Tabs.module.scss";
 
 /* ------------------------------------------------------------------ */
@@ -110,6 +111,11 @@ function TabsList({ children }: TabsListProps) {
     // `primary`/`secondary` usano background pill, nessun trattino.
     const showIndicator = variant === undefined || variant === "line";
 
+    // Le tab non vanno mai a capo né si comprimono: scrollano. La sfumatura sul
+    // bordo destro compare solo quando c'è davvero altro da scorrere — è l'unico
+    // affordance previsto (niente freccine di navigazione).
+    const { atEnd } = useHorizontalOverflow(listRef, children);
+
     const measure = useCallback(() => {
         const listEl = listRef.current;
         const activeEl = itemRefs.current.get(value);
@@ -127,7 +133,15 @@ function TabsList({ children }: TabsListProps) {
 
         const listBox = listEl.getBoundingClientRect();
         const box = activeEl.getBoundingClientRect();
-        setIndicator({ width: box.width, left: box.left - listBox.left, animate });
+        // `+ scrollLeft`: la lista è uno scroller e l'indicatore è posizionato in
+        // assoluto rispetto al suo box di contenuto — che scorre. La differenza
+        // fra rect è invece relativa al viewport, quindi senza il compenso
+        // l'underline si sposterebbe di quanto si è scrollato.
+        setIndicator({
+            width: box.width,
+            left: box.left - listBox.left + listEl.scrollLeft,
+            animate
+        });
 
         prevSig.current = sig;
     }, [value, itemRefs]);
@@ -154,7 +168,11 @@ function TabsList({ children }: TabsListProps) {
     }, [measure, showIndicator]);
 
     return (
-        <div className={styles.list} role="tablist" ref={listRef}>
+        <div
+            className={`${styles.list} ${!atEnd ? styles.overflowEnd : ""}`}
+            role="tablist"
+            ref={listRef}
+        >
             {children}
             {showIndicator && indicator && (
                 <span

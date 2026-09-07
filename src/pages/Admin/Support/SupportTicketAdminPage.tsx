@@ -11,6 +11,7 @@ import {
 } from "@/components/Support/SupportThread/SupportThread";
 import { useAdminOutletContext } from "@/layouts/AdminLayout/outletContext";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePollingRefresh } from "@/hooks/usePollingRefresh";
 import {
@@ -257,11 +258,28 @@ export default function SupportTicketAdminPage() {
             .join(" · ");
     }, [ticket]);
 
+    // Il "← Supporto" non è una sezione: non c'è niente da scegliere, si torna
+    // in un posto solo. Lo stato del ticket è invece una mutazione dell'entità,
+    // quindi sta sempre a vista come Bozza/Pubblicata delle storie.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        backAction: { label: "Supporto", onClick: () => navigate("..") },
+        statusControl: ticket
+            ? {
+                  options: STATUS_OPTIONS,
+                  value: ticket.status,
+                  onChange: value => void handleStatusChange(value as SupportTicketStatus),
+                  label: "Stato della richiesta",
+                  disabled: isChangingStatus
+              }
+            : undefined
+    }), [navigate, ticket, isChangingStatus, handleStatusChange]);
+
     usePageHeader({
         title: ticket?.subject ?? "Richiesta",
         subtitle,
         leading,
-        actions: headerActions
+        actions: headerActions,
+        compact: headerCompact
     });
 
     if (isLoading) {

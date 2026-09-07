@@ -36,17 +36,50 @@ interface MenuItemProps {
     variant?: "default" | "destructive";
     onSelect?: () => void;
     disabled?: boolean;
+    /**
+     * Voce che porta altrove invece di eseguire qualcosa: rende un `<a>` vero,
+     * così restano il middle-click, "apri in nuova scheda" e l'anteprima
+     * dell'URL — un `window.open()` in `onSelect` li perderebbe tutti.
+     */
+    href?: string;
+    target?: string;
 }
 
-function MenuItem({ children, icon: Icon, variant = "default", onSelect, disabled }: MenuItemProps) {
-    return (
-        <RadixDropdownMenu.Item
-            className={`${styles.item}${variant === "destructive" ? ` ${styles.danger}` : ""}`}
-            disabled={disabled}
-            onSelect={onSelect}
-        >
+function MenuItem({
+    children,
+    icon: Icon,
+    variant = "default",
+    onSelect,
+    disabled,
+    href,
+    target
+}: MenuItemProps) {
+    const className = `${styles.item}${variant === "destructive" ? ` ${styles.danger}` : ""}`;
+    const content = (
+        <>
             {Icon && <Icon size={14} />}
             <span className={styles.itemLabel}>{children}</span>
+        </>
+    );
+
+    if (href) {
+        return (
+            <RadixDropdownMenu.Item asChild disabled={disabled}>
+                <a
+                    className={className}
+                    href={href}
+                    target={target}
+                    rel={target === "_blank" ? "noopener noreferrer" : undefined}
+                >
+                    {content}
+                </a>
+            </RadixDropdownMenu.Item>
+        );
+    }
+
+    return (
+        <RadixDropdownMenu.Item className={className} disabled={disabled} onSelect={onSelect}>
+            {content}
         </RadixDropdownMenu.Item>
     );
 }

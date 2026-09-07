@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -105,10 +106,23 @@ export default function Support() {
 
     // PRIMA di qualsiasi early return: l'header è renderizzato dallo slot
     // centralizzato in MainLayout e l'hook non può stare sotto una condizione.
+    // Nessuna tab, nessuna ricerca (la pagina non ne ha una), nessun toggle
+    // vista: in compatto resta la sola CTA. Senza `support.write` non resta
+    // nessun campo valorizzato, quindi sparisce l'intera config invece di
+    // diventare `{primaryAction: undefined}` — che sarebbe comunque truthy e
+    // produrrebbe una barra compatta vuota.
+    const headerCompact = useMemo<PageHeaderCompactConfig | undefined>(
+        () => canWrite
+            ? { primaryAction: { label: "+ Nuova richiesta", onClick: () => setIsDrawerOpen(true) } }
+            : undefined,
+        [canWrite]
+    );
+
     usePageHeader({
         title: "Assistenza",
         subtitle: "Rispondiamo dal lunedì al venerdì.",
-        actions: headerActions
+        actions: headerActions,
+        compact: headerCompact
     });
 
     if (!canRead) {

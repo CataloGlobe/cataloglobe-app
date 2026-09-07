@@ -365,7 +365,6 @@ export default function CatalogEngine() {
 
     usePageHeader({
         title: catalog?.name || catalogLabel,
-        sticky: true,
     });
 
     const categoriesById = useMemo(

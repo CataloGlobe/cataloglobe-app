@@ -9,10 +9,37 @@ $line-text-disabled: #aab0bb;
   gap: 1rem;
 }
 
+// Le tab non vanno mai a capo e non si comprimono: quando non ci stanno,
+// scorrono. La scrollbar resta nascosta (l'affordance è la sfumatura sul bordo
+// destro, `.overflowEnd`) ma lo scroll orizzontale nativo — trackpad, swipe,
+// shift+wheel — funziona.
 .list {
   display: flex;
-  // Ancoraggio dell'underline dinamico (posizionato assoluto).
+  flex-wrap: nowrap;
+  // Ancoraggio dell'underline dinamico (posizionato assoluto). NB: l'indicatore
+  // vive nel box di contenuto dello scroller, quindi scorre insieme alle tab —
+  // la misura in Tabs.tsx compensa lo `scrollLeft`.
   position: relative;
+  overflow-x: auto;
+  overflow-y: hidden;
+  min-width: 0;
+  max-width: 100%;
+  white-space: nowrap;
+
+  scrollbar-width: none; // Firefox
+  -ms-overflow-style: none; // Edge legacy
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+// Sfumatura sul bordo destro quando resta contenuto oltre il bordo. Fatta con
+// una mask e non con un overlay in gradiente: così è indipendente dal colore di
+// sfondo (le tab vivono sia nella banda header bianca sia dentro i drawer).
+.overflowEnd {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent 100%);
 }
 
 .tab {
@@ -101,7 +128,6 @@ $line-text-disabled: #aab0bb;
   .list {
     display: inline-flex;
     gap: 4px;
-    flex-wrap: wrap;
   }
 
   .tab {

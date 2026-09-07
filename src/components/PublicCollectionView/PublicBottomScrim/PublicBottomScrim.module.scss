@@ -1,0 +1,160 @@
+// Scrim + blur progressivo bordo inferiore pagina pubblica — mobile-only.
+// Sibling di PublicBottomBar, figlio diretto di `main.page` (fuori da `.container`
+// con container-type → nessun containing block imprevisto per il fixed).
+// z-index 100: fascia libera 31–149 — sopra header sticky (30) e FAB (55/60),
+// SOTTO PublicBottomBar (150), toast/SearchOverlay (200), PublicSheet (900).
+// Nessun transform/transition/will-change: i layer backdrop-filter devono
+// restare statici sul compositor.
+
+$scrim-height: 120px;
+
+// Clearance inferiore per i contenitori scrollabili pubblici che stanno SOTTO lo
+// scrim: 120px (altezza dello scrim, $scrim-height) + 16px di respiro = 136px.
+// La safe-area resta a parte e va SOMMATA dal consumer:
+//   padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px))
+// (mai `max()`: su iPhone con home indicator la safe-area va aggiunta, non confrontata).
+// Definito su :root — stesso selettore di `--pub-bottombar-clearance` in
+// PublicBottomBar.module.scss — perché footer e Storie sono SIBLING dello scrim,
+// non discendenti: su `.root` non erediterebbero e var() cadrebbe sul fallback.
+// Distinto da `--pub-bottombar-clearance` (86px = ingombro reale della pill):
+// concetti diversi, devono poter divergere. Se $scrim-height cambia, aggiorna qui.
+:global(:root) {
+  --pub-scrim-clearance: #{$scrim-height + 16px};
+}
+
+.root {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: calc(#{$scrim-height} + env(safe-area-inset-bottom, 0px));
+  z-index: 100;
+  pointer-events: none;
+
+  // CSS-driven split (stesso pattern di PublicBottomBar .barWrap): montato
+  // sempre in public, visibile solo ≤640px. Esclusa la preview ([data-preview]):
+  // lì lo split è pilotato dal device frame, non dal viewport del browser.
+  @media (min-width: 641px) {
+    &:not([data-preview]) {
+      display: none;
+    }
+  }
+}
+
+/* ── Preview Style Editor ────────────────────────────────────────────────────
+   `.deviceScreen` è lo scroll container: position:fixed si ancorerebbe alla
+   finestra dell'editor, non al frame → sticky bottom (come .barWrap[data-preview]).
+   Il margin-top negativo pari all'altezza evita che l'overlay aggiunga flow in
+   fondo alla preview. In preview la safe-area vale 0 → 120px netti. */
+.root[data-preview] {
+  position: sticky;
+  bottom: 0;
+  margin-top: calc(-1 * #{$scrim-height} - env(safe-area-inset-bottom, 0px));
+}
+
+/* ── Strato A — scrim gradiente ─────────────────────────────────────────────
+   rgba(var(--pub-bg-rgb), a): l'endpoint ad alpha 0 conserva l'hue dello
+   sfondo (niente banding grigio verso `transparent` su WebKit).
+   Alpha DEVE arrivare a 1 sul bordo inferiore: sotto quella soglia si intravede
+   contenuto tagliato e l'effetto smette di leggersi come dissolvenza. */
+.scrim {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(var(--pub-bg-rgb), 1) 0%,
+    rgba(var(--pub-bg-rgb), 0.96) 32%,
+    rgba(var(--pub-bg-rgb), 0.7) 58%,
+    rgba(var(--pub-bg-rgb), 0.28) 80%,
+    rgba(var(--pub-bg-rgb), 0) 100%
+  );
+}
+
+/* ── Strato B — 3 layer blur mascherati ─────────────────────────────────────
+   Blur crescente, area decrescente (ordine DOM = ordine stacking, sotto .scrim).
+   Ramp delle maschere LUNGHE, sovrapposte e con profilo ease-out (più stop):
+   un backdrop-filter mascherato non riduce il raggio, fa un cross-fade fra
+   versione sfocata e nitida dello stesso contenuto → compresso in ~10px si
+   legge come un bordo, distribuito su ~80px diventa impercettibile. Nessun
+   punto in cui un layer si spegne mentre gli altri sono ancora pieni.
+   Profilo cumulativo ≈ 13.5px al bordo inferiore, ~6px a 1/4, ~1.5px a metà,
+   coda lunga fino al 100%.
+   `transparent` qui è alpha di MASCHERA, non colore: resta `transparent`.
+   Entrambi i prefissi obbligatori: su WebKit l'assenza di -webkit-mask-image
+   disattiva silenziosamente il ritaglio → bordo netto.
+   Gated da [data-blur="on"] sul root: spegnibile dal Web Inspector (A/B). */
+.layer1,
+.layer2,
+.layer3 {
+  position: absolute;
+  inset: 0;
+}
+
+.root[data-blur="on"] {
+  .layer1 {
+    // 1.5px (era 2px): governa la coda più lunga → meno sdoppiamento dove il
+    // contenuto è ancora quasi nitido.
+    -webkit-backdrop-filter: blur(1.5px);
+    backdrop-filter: blur(1.5px);
+    -webkit-mask-image: linear-gradient(
+      to top,
+      #000 35%,
+      rgba(0, 0, 0, 0.85) 48%,
+      rgba(0, 0, 0, 0.55) 62%,
+      rgba(0, 0, 0, 0.25) 78%,
+      rgba(0, 0, 0, 0.08) 90%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to top,
+      #000 35%,
+      rgba(0, 0, 0, 0.85) 48%,
+      rgba(0, 0, 0, 0.55) 62%,
+      rgba(0, 0, 0, 0.25) 78%,
+      rgba(0, 0, 0, 0.08) 90%,
+      transparent 100%
+    );
+  }
+
+  .layer2 {
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    -webkit-mask-image: linear-gradient(
+      to top,
+      #000 18%,
+      rgba(0, 0, 0, 0.8) 30%,
+      rgba(0, 0, 0, 0.45) 44%,
+      rgba(0, 0, 0, 0.18) 55%,
+      transparent 68%
+    );
+    mask-image: linear-gradient(
+      to top,
+      #000 18%,
+      rgba(0, 0, 0, 0.8) 30%,
+      rgba(0, 0, 0, 0.45) 44%,
+      rgba(0, 0, 0, 0.18) 55%,
+      transparent 68%
+    );
+  }
+
+  .layer3 {
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    -webkit-mask-image: linear-gradient(
+      to top,
+      #000 8%,
+      rgba(0, 0, 0, 0.75) 16%,
+      rgba(0, 0, 0, 0.4) 25%,
+      rgba(0, 0, 0, 0.15) 30%,
+      transparent 38%
+    );
+    mask-image: linear-gradient(
+      to top,
+      #000 8%,
+      rgba(0, 0, 0, 0.75) 16%,
+      rgba(0, 0, 0, 0.4) 25%,
+      rgba(0, 0, 0, 0.15) 30%,
+      transparent 38%
+    );
+  }
+}

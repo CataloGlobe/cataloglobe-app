@@ -1049,6 +1049,19 @@
 .emptyState {
   padding: 32px 16px;
   text-align: center;
+
+  /* Senza footer (non montato in emptyState) questo è l'ultimo contenuto in
+     flusso: sotto PublicBottomScrim (≤640px) serve la stessa clearance del
+     footer, token `--pub-scrim-clearance` + safe-area sommata. Doppio gating
+     @media + `.preview-mobile` come il footer (Style Editor non passa dalla
+     @media: il viewport è quello dell'editor). */
+  @media (max-width: 640px) {
+    padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
+  }
+
+  :global(.preview-mobile) & {
+    padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
+  }
 }
 
 /* ----------------------------------------------------

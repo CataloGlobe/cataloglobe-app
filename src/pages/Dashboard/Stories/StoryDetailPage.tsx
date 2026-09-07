@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -27,7 +28,8 @@ import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import { StoryForm } from "./components/StoryForm";
 import { StoryBlockEditor } from "./components/StoryBlockEditor";
 import { createBlock } from "./components/createBlock";
-import { HeaderSaveAction } from "./components/HeaderSaveAction";
+import { HeaderSaveAction, DiscardChangesConfirmDialog } from "./components/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "./components/headerSaveActionCompact";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { StoryProductPicker } from "./components/StoryProductPicker";
 import { AddBlockMenu } from "./components/AddBlockMenu";
@@ -53,6 +55,9 @@ export default function StoryDetailPage() {
     const [story, setStory] = useState<StoryWithProduct | null>(null);
     const [loading, setLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    // Conferma dello scarto quando "Annulla" arriva dal kebab compatto: stessa
+    // domanda del bottone in toolbar comoda.
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
     // Draft
     const [eyebrow, setEyebrow] = useState("");
@@ -324,7 +329,28 @@ export default function StoryDetailPage() {
         ),
         [status, canWrite, isDirty, isSaving, saveStory, discardStory]
     );
-    usePageHeader({ actions, sticky: true });
+    // Bozza/Pubblicata resta a vista anche in compatto: è lo stato della storia,
+    // non un'azione accessoria. Salva/Annulla seguono lo stesso trattamento
+    // delle altre pagine con `HeaderSaveAction`.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        statusControl: {
+            options: STATUS_OPTIONS,
+            value: status,
+            onChange: value => setStatus(value as StoryStatus),
+            label: "Stato della storia",
+            disabled: !canWrite
+        },
+        ...(canWrite
+            ? buildSaveActionCompactConfig({
+                  isDirty,
+                  isSaving,
+                  onSave: saveStory,
+                  onRequestDiscard: () => setConfirmDiscardOpen(true)
+              })
+            : {})
+    }), [status, canWrite, isDirty, isSaving, saveStory]);
+
+    usePageHeader({ actions, compact: headerCompact });
 
     if (loading) {
         return (
@@ -401,6 +427,12 @@ export default function StoryDetailPage() {
                             onAddBlock={handleAddBlock}
                         />
                     </SectionCard>
+
+                    <DiscardChangesConfirmDialog
+                        isOpen={confirmDiscardOpen}
+                        onClose={() => setConfirmDiscardOpen(false)}
+                        onDiscard={discardStory}
+                    />
                 </div>
             )}
         </PageGate>

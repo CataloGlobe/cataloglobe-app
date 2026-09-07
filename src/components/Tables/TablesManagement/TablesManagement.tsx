@@ -13,6 +13,7 @@ import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
+import { Switch } from "@/components/ui/Switch/Switch";
 
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -30,6 +31,7 @@ import {
 import type { V2Table, V2TableWithState } from "@/types/orders";
 
 import { ZoneSelectField } from "@/components/Tables/ZoneSelectField/ZoneSelectField";
+import { CombinationGroupSelectField } from "@/components/Tables/CombinationGroupSelectField/CombinationGroupSelectField";
 import { TableZoneManagementDrawer } from "@/components/Tables/TableZoneManagementDrawer/TableZoneManagementDrawer";
 
 import TableDeleteDrawer from "@/pages/Dashboard/Tables/TableDeleteDrawer";
@@ -41,14 +43,22 @@ import styles from "./TablesManagement.module.scss";
 export interface TablesManagementProps {
     tenantId: string;
     activityId: string;
-    /** Se false: bottoni create/edit disabilitati con tooltip prerequisito. */
+    /** Ordinazioni QR attive sulla sede. Gate delle SOLE azioni QR (anteprima,
+     *  genera PDF, rigenera token) e della colonna QR: senza ordinazioni il QR
+     *  non porta da nessuna parte. NON gatare la creazione tavoli — i tavoli
+     *  servono anche alle prenotazioni. */
     orderingEnabled: boolean;
+    /** Prenotazioni attive sulla sede. Gate dei campi di assegnazione
+     *  (capienza min/max, gruppo di accostamento, priorita', prenotabile
+     *  online): a chi non prenota non servono e non vengono mostrati. */
+    reservationsEnabled: boolean;
 }
 
 export function TablesManagement({
     tenantId,
     activityId,
-    orderingEnabled
+    orderingEnabled,
+    reservationsEnabled
 }: TablesManagementProps) {
     const { showToast } = useToast();
     const { permissions } = usePermissions();
@@ -68,6 +78,14 @@ export function TablesManagement({
     const [formLabel, setFormLabel] = useState("");
     const [formZoneId, setFormZoneId] = useState<string | null>(null);
     const [formSeats, setFormSeats] = useState<string>("");
+    // Campi prenotazione. Stringhe vuote = "non dichiarato" (NULL a DB).
+    const [formMinSeats, setFormMinSeats] = useState<string>("");
+    const [formMaxSeats, setFormMaxSeats] = useState<string>("");
+    const [formGroupId, setFormGroupId] = useState<string | null>(null);
+    const [formPriority, setFormPriority] = useState<string>("0");
+    const [formBookableOnline, setFormBookableOnline] = useState(true);
+    // Stesso guardrail di `isCreatingZone` per il mini-form gruppo.
+    const [isCreatingGroup, setIsCreatingGroup] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     // Guardrail: true mentre il mini-form "Crea zona" e' aperto. Blocca
     // submit del form tavolo per evitare creazione tavolo con zone_id=null
@@ -169,7 +187,13 @@ export function TablesManagement({
         setFormLabel("");
         setFormZoneId(null);
         setFormSeats("");
+        setFormMinSeats("");
+        setFormMaxSeats("");
+        setFormGroupId(null);
+        setFormPriority("0");
+        setFormBookableOnline(true);
         setIsCreatingZone(false);
+        setIsCreatingGroup(false);
         setIsDrawerOpen(true);
     }
 
@@ -178,7 +202,13 @@ export function TablesManagement({
         setFormLabel(item.label);
         setFormZoneId(item.zone_id);
         setFormSeats(item.seats?.toString() ?? "");
+        setFormMinSeats(item.min_seats?.toString() ?? "");
+        setFormMaxSeats(item.max_seats?.toString() ?? "");
+        setFormGroupId(item.combination_group_id);
+        setFormPriority(item.assignment_priority?.toString() ?? "0");
+        setFormBookableOnline(item.bookable_online ?? true);
         setIsCreatingZone(false);
+        setIsCreatingGroup(false);
         setIsDrawerOpen(true);
     }
 
@@ -193,6 +223,14 @@ export function TablesManagement({
             showToast({
                 message:
                     "Conferma o annulla la creazione zona prima di salvare il tavolo",
+                type: "error"
+            });
+            return;
+        }
+        if (isCreatingGroup) {
+            showToast({
+                message:
+                    "Conferma o annulla la creazione del gruppo prima di salvare il tavolo",
                 type: "error"
             });
             return;
@@ -217,13 +255,90 @@ export function TablesManagement({
             seatsParsed = n;
         }
 
+        // Campi prenotazione: validati e inviati SOLO se la sede prenota. Con
+        // le prenotazioni spente il form non li mostra, e non vanno scritti —
+        // un update con i valori del form azzererebbe quanto configurato prima
+        // di disattivarle.
+        let reservationFields: {
+            min_seats: number | null;
+            max_seats: number | null;
+            combination_group_id: string | null;
+            assignment_priority: number;
+            bookable_online: boolean;
+        } | null = null;
+
+        if (reservationsEnabled) {
+            const parseOptionalCount = (raw: string): number | null | "invalid" => {
+                const trimmed = raw.trim();
+                if (trimmed.length === 0) return null;
+                const n = Number(trimmed);
+                return Number.isInteger(n) && n > 0 ? n : "invalid";
+            };
+
+            const minParsed = parseOptionalCount(formMinSeats);
+            const maxParsed = parseOptionalCount(formMaxSeats);
+            if (minParsed === "invalid" || maxParsed === "invalid") {
+                showToast({
+                    message:
+                        "Capienza minima e massima devono essere numeri interi positivi",
+                    type: "error"
+                });
+                return;
+            }
+            if (minParsed !== null && maxParsed !== null && minParsed > maxParsed) {
+                showToast({
+                    message: "La capienza minima non può superare la massima",
+                    type: "error"
+                });
+                return;
+            }
+            if (seatsParsed !== undefined) {
+                if (minParsed !== null && seatsParsed < minParsed) {
+                    showToast({
+                        message: "I posti non possono essere meno della capienza minima",
+                        type: "error"
+                    });
+                    return;
+                }
+                if (maxParsed !== null && seatsParsed > maxParsed) {
+                    showToast({
+                        message: "I posti non possono superare la capienza massima",
+                        type: "error"
+                    });
+                    return;
+                }
+            }
+
+            const priorityParsed = Number(formPriority.trim() || "0");
+            if (
+                !Number.isInteger(priorityParsed) ||
+                priorityParsed < 0 ||
+                priorityParsed > 100
+            ) {
+                showToast({
+                    message: "La priorità deve essere un numero intero fra 0 e 100",
+                    type: "error"
+                });
+                return;
+            }
+
+            reservationFields = {
+                min_seats: minParsed,
+                max_seats: maxParsed,
+                combination_group_id: formGroupId,
+                assignment_priority: priorityParsed,
+                bookable_online: formBookableOnline
+            };
+        }
+
         setIsSaving(true);
         try {
             if (editingItem) {
                 await updateTable(editingItem.id, tenantId, {
                     label: formLabel.trim(),
                     zone_id: formZoneId,
-                    seats: seatsParsed ?? null
+                    seats: seatsParsed ?? null,
+                    ...(reservationFields ?? {})
                 });
                 showToast({ message: "Tavolo aggiornato", type: "success" });
             } else {
@@ -231,7 +346,8 @@ export function TablesManagement({
                     activity_id: activityId,
                     label: formLabel.trim(),
                     zone_id: formZoneId,
-                    seats: seatsParsed
+                    seats: seatsParsed,
+                    ...(reservationFields ?? {})
                 });
                 showToast({ message: "Tavolo creato", type: "success" });
             }
@@ -371,6 +487,30 @@ export function TablesManagement({
     }
 
     // ── Columns ──
+    // `undefined` e `null` NON sono la stessa cosa in queste colonne:
+    //   null      = il ristoratore non ha dichiarato il valore → "—" / default;
+    //   undefined = il campo non e' arrivato dalla view → dato mancante.
+    // Il secondo caso e' successo davvero: la view `v_tables_with_state` elenca
+    // le colonne una per una e finche' non e' stata ricreata restituiva
+    // `bookable_online` assente, che come falsy stampava "Solo walk-in" su
+    // tavoli tutti prenotabili. Una cella che dice il contrario del vero non fa
+    // rumore; una che dice "non lo so" si nota. Da qui il ramo esplicito.
+    // I tipi dicono che il campo c'e' sempre; il payload della view puo'
+    // smentirli. Il cast a Partial e' il punto in cui questa distanza fra
+    // tipo e realta' viene ammessa, invece di essere ignorata.
+    const isFieldMissing = (row: V2TableWithState, key: keyof V2TableWithState) =>
+        (row as Partial<V2TableWithState>)[key] === undefined;
+
+    const missingCell = (
+        <Tooltip content="Dato non disponibile: ricaricare la pagina o verificare le migration della vista tavoli">
+            <span>
+                <Text variant="body-sm" colorVariant="muted">
+                    n/d
+                </Text>
+            </span>
+        </Tooltip>
+    );
+
     const columns: ColumnDefinition<V2TableWithState>[] = [
         {
             id: "label",
@@ -410,6 +550,69 @@ export function TablesManagement({
                 </Text>
             )
         },
+        // Colonne di assegnazione: solo con prenotazioni attive.
+        ...(reservationsEnabled
+            ? ([
+                  {
+                      id: "capacity_range",
+                      header: "Min–Max",
+                      width: "100px",
+                      accessor: row => row.max_seats ?? row.seats,
+                      cell: (_v, row) => {
+                          // Il tetto e' `max_seats`, con fallback su `seats`: ma il
+                          // fallback vale solo se `max_seats` e' davvero NULL a DB.
+                          if (
+                              isFieldMissing(row, "min_seats") ||
+                              isFieldMissing(row, "max_seats")
+                          ) {
+                              return missingCell;
+                          }
+                          const floor = row.min_seats ?? "—";
+                          const ceiling = row.max_seats ?? row.seats ?? "—";
+                          return (
+                              <Text variant="body-sm" colorVariant="muted">
+                                  {`${floor} – ${ceiling}`}
+                              </Text>
+                          );
+                      }
+                  },
+                  {
+                      id: "combination_group",
+                      header: "Accostamento",
+                      width: "1fr",
+                      accessor: row => row.combination_group_name,
+                      cell: (_v, row) => {
+                          if (isFieldMissing(row, "combination_group_name")) {
+                              return missingCell;
+                          }
+                          return row.combination_group_name === null ? (
+                              <Text variant="body-sm" colorVariant="muted">
+                                  Da solo
+                              </Text>
+                          ) : (
+                              <Text variant="body-sm">{row.combination_group_name}</Text>
+                          );
+                      }
+                  },
+                  {
+                      id: "bookable_online",
+                      header: "Prenotabile",
+                      width: "110px",
+                      accessor: row => row.bookable_online,
+                      cell: (_v, row) => {
+                          if (isFieldMissing(row, "bookable_online")) return missingCell;
+                          return (
+                              <Text
+                                  variant="body-sm"
+                                  colorVariant={row.bookable_online ? undefined : "muted"}
+                              >
+                                  {row.bookable_online ? "Sì" : "Solo walk-in"}
+                              </Text>
+                          );
+                      }
+                  }
+              ] as ColumnDefinition<V2TableWithState>[])
+            : []),
         {
             id: "actions",
             header: "",
@@ -417,34 +620,42 @@ export function TablesManagement({
             align: "right",
             cell: (_v, row) => (
                 <div className={styles.actionsCell}>
-                    <Tooltip content="Anteprima QR">
-                        <IconButton
-                            icon={<QrCode size={16} />}
-                            aria-label="Anteprima QR"
-                            variant="ghost"
-                            onClick={() => openQrPreview(row)}
-                        />
-                    </Tooltip>
+                    {/* Azioni QR: senza ordinazioni attive il QR non porta da
+                        nessuna parte, quindi non si mostra affatto. */}
+                    {orderingEnabled && (
+                        <Tooltip content="Anteprima QR">
+                            <IconButton
+                                icon={<QrCode size={16} />}
+                                aria-label="Anteprima QR"
+                                variant="ghost"
+                                onClick={() => openQrPreview(row)}
+                            />
+                        </Tooltip>
+                    )}
                     {canManage && (
                         <TableRowActions
                             actions={[
                                 { label: "Modifica", onClick: () => openEdit(row) },
-                                {
-                                    label:
-                                        generatingQrTableId === row.id
-                                            ? "Generazione..."
-                                            : "Genera QR",
-                                    icon: QrCode,
-                                    onClick: () => handleGenerateQrSingle(row)
-                                },
-                                {
-                                    label: "Rigenera token QR",
-                                    icon: RotateCw,
-                                    onClick: () => openRegen(row)
-                                },
+                                ...(orderingEnabled
+                                    ? [
+                                          {
+                                              label:
+                                                  generatingQrTableId === row.id
+                                                      ? "Generazione..."
+                                                      : "Genera QR",
+                                              icon: QrCode,
+                                              onClick: () => handleGenerateQrSingle(row)
+                                          },
+                                          {
+                                              label: "Rigenera token QR",
+                                              icon: RotateCw,
+                                              onClick: () => openRegen(row)
+                                          }
+                                      ]
+                                    : []),
                                 {
                                     label: "Elimina",
-                                    variant: "destructive",
+                                    variant: "destructive" as const,
                                     onClick: () => openDelete(row),
                                     separator: true
                                 }
@@ -496,14 +707,16 @@ export function TablesManagement({
                                             <Layers size={14} />
                                             <span>Gestisci zone</span>
                                         </DropdownMenu.Item>
-                                        <DropdownMenu.Item
-                                            className={styles.dropdownItem}
-                                            onSelect={() => void handleGenerateQrAll()}
-                                            disabled={!activityId || items.length === 0 || isGeneratingQrAll || !canEdit}
-                                        >
-                                            <QrCode size={14} />
-                                            <span>{isGeneratingQrAll ? "Generazione..." : "Genera QR"}</span>
-                                        </DropdownMenu.Item>
+                                        {orderingEnabled && (
+                                            <DropdownMenu.Item
+                                                className={styles.dropdownItem}
+                                                onSelect={() => void handleGenerateQrAll()}
+                                                disabled={!activityId || items.length === 0 || isGeneratingQrAll || !canEdit}
+                                            >
+                                                <QrCode size={14} />
+                                                <span>{isGeneratingQrAll ? "Generazione..." : "Genera QR"}</span>
+                                            </DropdownMenu.Item>
+                                        )}
                                     </DropdownMenu.Content>
                                 </DropdownMenu.Portal>
                             </DropdownMenu.Root>
@@ -513,7 +726,7 @@ export function TablesManagement({
                                 variant="primary"
                                 leftIcon={<Plus size={16} />}
                                 onClick={openCreate}
-                                disabled={!activityId || !orderingEnabled || !canEdit}
+                                disabled={!activityId || !canEdit}
                                 className={styles.toolbarCta}
                             >
                                 Nuovo tavolo
@@ -528,13 +741,17 @@ export function TablesManagement({
                         title={items.length === 0 ? "Nessun tavolo" : "Nessun risultato"}
                         description={
                             items.length === 0
-                                ? "Crea il primo tavolo per iniziare a ricevere ordinazioni."
+                                ? orderingEnabled && reservationsEnabled
+                                    ? "Crea il primo tavolo: serve sia alle ordinazioni al QR sia all'assegnazione delle prenotazioni."
+                                    : orderingEnabled
+                                      ? "Crea il primo tavolo per iniziare a ricevere ordinazioni."
+                                      : "Mappa i tavoli per poterli assegnare alle prenotazioni."
                                 : hasFiltersActive
                                   ? "Modifica i filtri per vedere altri risultati."
                                   : "Nessun tavolo da mostrare."
                         }
                         action={
-                            items.length === 0 && activityId && orderingEnabled && canManage ? (
+                            items.length === 0 && activityId && canManage ? (
                                 <Button variant="primary" onClick={openCreate} disabled={!canEdit}>
                                     Nuovo tavolo
                                 </Button>
@@ -618,7 +835,71 @@ export function TablesManagement({
                             value={formSeats}
                             onChange={e => setFormSeats(e.target.value)}
                             placeholder="2"
+                            helperText={
+                                reservationsEnabled
+                                    ? "Posti apparecchiati di norma. Se lo lasci vuoto la capienza del tavolo resta sconosciuta e le prenotazioni non gli vengono assegnate in automatico."
+                                    : "Posti apparecchiati di norma."
+                            }
                         />
+
+                        {/* Campi di assegnazione: solo se la sede prende prenotazioni.
+                            A chi usa i soli QR non servono e non compaiono. */}
+                        {reservationsEnabled && (
+                            <>
+                                <div className={styles.formSectionTitle}>
+                                    <Text variant="body-sm" weight={600}>
+                                        Assegnazione prenotazioni
+                                    </Text>
+                                </div>
+
+                                <TextInput
+                                    label="Capienza minima (opzionale)"
+                                    type="number"
+                                    min={1}
+                                    value={formMinSeats}
+                                    onChange={e => setFormMinSeats(e.target.value)}
+                                    placeholder="2"
+                                    helperText="Sotto questo numero il tavolo non viene proposto: evita la coppia al tavolo grande. Vuoto = nessun minimo, va bene qualsiasi gruppo che ci stia."
+                                />
+
+                                <TextInput
+                                    label="Capienza massima (opzionale)"
+                                    type="number"
+                                    min={1}
+                                    value={formMaxSeats}
+                                    onChange={e => setFormMaxSeats(e.target.value)}
+                                    placeholder="6"
+                                    helperText="Massimo raggiungibile aggiungendo sedie. Vuoto = nessuna sedia in più, il tetto resta il numero di posti."
+                                />
+
+                                <CombinationGroupSelectField
+                                    tenantId={tenantId}
+                                    activityId={activityId}
+                                    value={formGroupId}
+                                    onChange={setFormGroupId}
+                                    onModeChange={m => setIsCreatingGroup(m === "create")}
+                                    label="Gruppo di accostamento (opzionale)"
+                                />
+
+                                <TextInput
+                                    label="Priorità di assegnazione"
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    value={formPriority}
+                                    onChange={e => setFormPriority(e.target.value)}
+                                    placeholder="0"
+                                    helperText="Da 0 a 100: a parità di condizioni viene scelto prima il tavolo con il numero più alto. Lascia 0 se non hai preferenze — tutti i tavoli restano pari."
+                                />
+
+                                <Switch
+                                    label="Prenotabile online"
+                                    checked={formBookableOnline}
+                                    onChange={setFormBookableOnline}
+                                    helperText="Attivo per impostazione predefinita. Disattivalo per tenere il tavolo ai clienti che arrivano senza prenotare: resta assegnabile a mano, ma il sistema non lo propone mai."
+                                />
+                            </>
+                        )}
                     </form>
                 </DrawerLayout>
             </SystemDrawer>

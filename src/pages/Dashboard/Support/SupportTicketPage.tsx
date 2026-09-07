@@ -10,6 +10,7 @@ import {
     type SupportThreadMessage
 } from "@/components/Support/SupportThread/SupportThread";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useAuth } from "@/context/useAuth";
 import { useTenantId } from "@/context/useTenantId";
@@ -244,11 +245,21 @@ export default function SupportTicketPage() {
             .join(" · ");
     }, [ticket, activityName]);
 
+    // Qui lo stato non si cambia, si legge: resta un'indicazione, non diventa un
+    // controllo che sulla pagina non esiste. Stesso trattamento del "Salvato ✓".
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        backAction: { label: "Assistenza", onClick: () => navigate("..") },
+        statusIndicator: ticket
+            ? { label: SUPPORT_STATUS_LABEL[ticket.status] }
+            : undefined
+    }), [navigate, ticket]);
+
     usePageHeader({
         title: ticket?.subject ?? "Richiesta",
         subtitle: headerSubtitle,
         leading,
-        actions: headerActions
+        actions: headerActions,
+        compact: headerCompact
     });
 
     async function handleSend() {

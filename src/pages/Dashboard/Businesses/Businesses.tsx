@@ -22,6 +22,7 @@ import Text from "@components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderAction, PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import {
   workspaceRoleIsOwner as isOwner,
   workspaceRoleIsAdmin as isAdmin,
@@ -295,55 +296,59 @@ export default function Businesses() {
     );
   }, [activeTab, handleTabChange, businesses.length]);
 
+  const handleAddActivity = useCallback(() => {
+    if (!canEdit) {
+      showToast({ message: subscriptionInactiveMessage(), type: "error" });
+      return;
+    }
+    if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
+      setSeatLimitDialogOpen(true);
+      return;
+    }
+    setIsCreateOpen(true);
+    setCreateSlugState({ type: "idle" });
+  }, [
+    canEdit,
+    showToast,
+    subscriptionInactiveMessage,
+    selectedTenant,
+    businesses.length,
+    setCreateSlugState,
+  ]);
+
+  const handleNewGroup = useCallback(() => {
+    if (!canEdit) {
+      showToast({ message: subscriptionInactiveMessage(), type: "error" });
+      return;
+    }
+    window.dispatchEvent(new CustomEvent("open-group-drawer"));
+  }, [canEdit, showToast, subscriptionInactiveMessage]);
+
+  // La primaria cambia con la tab attiva: due azioni diverse, mai entrambe.
+  // Dichiarata a dati una volta sola e consumata sia dalla toolbar comoda sia
+  // da quella compatta — così non possono divergere.
+  const ctaAction = useMemo<PageHeaderAction | undefined>(() => {
+    if (activeTab === "activities") {
+      return canCreate
+        ? { label: "Aggiungi sede", onClick: handleAddActivity, disabled: !canEdit }
+        : undefined;
+    }
+    return canManageGroups
+      ? { label: "Nuovo gruppo", onClick: handleNewGroup, disabled: !canEdit }
+      : undefined;
+  }, [activeTab, canCreate, canManageGroups, canEdit, handleAddActivity, handleNewGroup]);
+
   const headerActions = useMemo(() => {
-    const cta =
-      activeTab === "activities" ? (
-        canCreate ? (
-          <Button
-            variant="primary"
-            disabled={!canEdit}
-            onClick={() => {
-              if (!canEdit) {
-                showToast({
-                  message: subscriptionInactiveMessage(),
-                  type: "error",
-                });
-                return;
-              }
-              if (
-                selectedTenant &&
-                businesses.length >= selectedTenant.paid_seats
-              ) {
-                setSeatLimitDialogOpen(true);
-                return;
-              }
-              setIsCreateOpen(true);
-              setCreateSlugState({ type: "idle" });
-            }}
-            className={styles.toolbarCta}
-          >
-            Aggiungi sede
-          </Button>
-        ) : null
-      ) : canManageGroups ? (
-        <Button
-          variant="primary"
-          disabled={!canEdit}
-          onClick={() => {
-            if (!canEdit) {
-              showToast({
-                message: subscriptionInactiveMessage(),
-                type: "error",
-              });
-              return;
-            }
-            window.dispatchEvent(new CustomEvent("open-group-drawer"));
-          }}
-          className={styles.toolbarCta}
-        >
-          Nuovo gruppo
-        </Button>
-      ) : null;
+    const cta = ctaAction ? (
+      <Button
+        variant="primary"
+        disabled={ctaAction.disabled}
+        onClick={ctaAction.onClick}
+        className={styles.toolbarCta}
+      >
+        {ctaAction.label}
+      </Button>
+    ) : null;
 
     return (
       <>
@@ -376,25 +381,49 @@ export default function Businesses() {
         {cta}
       </>
     );
-  }, [
-    activeTab,
-    canEdit,
-    canCreate,
-    canManageGroups,
-    selectedTenant,
+  }, [activeTab, ctaAction, searchTerm, viewMode, handleViewChange]);
+
+  // Le sezioni esistono solo se c'è davvero qualcosa fra cui navigare: con una
+  // sola sede la tab bar non viene renderizzata nemmeno in comoda, e in compatto
+  // il picker sparisce di conseguenza (la riga resta icone + CTA).
+  const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+    sections: businesses.length > 1
+      ? [
+          { value: "activities", label: "Sedi" },
+          { value: "groups", label: "Gruppi di sedi" }
+        ]
+      : undefined,
+    activeSection: activeTab,
+    onSectionChange: value => handleTabChange(value as ActiveTab),
+    search: {
+      value: searchTerm,
+      onChange: setSearchTerm,
+      placeholder: activeTab === "activities" ? "Cerca sede..." : "Cerca gruppo..."
+    },
+    // Il toggle vista esiste solo sull'elenco sedi: sui gruppi non c'è nemmeno
+    // in comoda, quindi non lo si inventa qui.
+    persistentIcons: activeTab === "activities"
+      ? [
+          viewMode === "list"
+            ? { icon: <LayoutGrid size={18} />, label: "Vista griglia", onClick: () => handleViewChange("grid") }
+            : { icon: <ListIcon size={18} />, label: "Vista lista", onClick: () => handleViewChange("list") }
+        ]
+      : undefined,
+    primaryAction: ctaAction
+  }), [
     businesses.length,
-    showToast,
-    subscriptionInactiveMessage,
+    activeTab,
+    handleTabChange,
     searchTerm,
     viewMode,
     handleViewChange,
-    setCreateSlugState,
+    ctaAction,
   ]);
 
   usePageHeader({
     leading,
     actions: headerActions,
-    sticky: true,
+    compact: headerCompact,
   });
 
   // ======================================

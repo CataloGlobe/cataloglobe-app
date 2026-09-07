@@ -230,6 +230,11 @@ export async function createTable(
         label: string;
         seats?: number;
         zone_id?: string | null;
+        min_seats?: number | null;
+        max_seats?: number | null;
+        combination_group_id?: string | null;
+        assignment_priority?: number;
+        bookable_online?: boolean;
         maintenance_mode?: boolean;
     }
 ): Promise<V2Table> {
@@ -239,6 +244,17 @@ export async function createTable(
         label: data.label,
         seats: data.seats,
         zone_id: data.zone_id ?? null,
+        // I campi prenotazione sono omessi quando non passati: il DB applica i
+        // default (min/max NULL, gruppo NULL, priorita' 0, prenotabile true).
+        min_seats: data.min_seats ?? null,
+        max_seats: data.max_seats ?? null,
+        combination_group_id: data.combination_group_id ?? null,
+        ...(data.assignment_priority !== undefined
+            ? { assignment_priority: data.assignment_priority }
+            : {}),
+        ...(data.bookable_online !== undefined
+            ? { bookable_online: data.bookable_online }
+            : {}),
         maintenance_mode: data.maintenance_mode ?? false
     };
 
@@ -288,6 +304,39 @@ export async function updateTable(
         throw error;
     }
     return mapJoinedRowToV2Table(data);
+}
+
+/**
+ * Somma dei posti mappati sui tavoli attivi di una sede, piu' quanti tavoli
+ * non dichiarano i posti. Alimenta il controllo di realta' accanto al campo
+ * "Capienza (coperti)" nelle impostazioni sede.
+ *
+ * Si somma `seats` (apparecchiatura normale), non `max_seats`: il confronto e'
+ * con la capienza operativa dichiarata dal ristoratore, che ragiona sul
+ * servizio normale, non sul massimo teorico con le sedie aggiunte.
+ *
+ * I tavoli senza `seats` non contribuiscono e sono contati a parte: senza quel
+ * numero la somma sembrerebbe bassa invece che parziale, e l'avviso di
+ * divergenza accuserebbe il ristoratore di un errore che non ha fatto.
+ */
+export async function getMappedSeatsSummary(
+    tenantId: string,
+    activityId: string
+): Promise<{ totalSeats: number; tablesCount: number; tablesWithoutSeats: number }> {
+    const { data, error } = await supabase
+        .from("tables")
+        .select("seats")
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId)
+        .is("deleted_at", null);
+    if (error) throw error;
+
+    const rows = (data ?? []) as { seats: number | null }[];
+    return {
+        totalSeats: rows.reduce((sum, r) => sum + (r.seats ?? 0), 0),
+        tablesCount: rows.length,
+        tablesWithoutSeats: rows.filter(r => r.seats == null).length
+    };
 }
 
 /**

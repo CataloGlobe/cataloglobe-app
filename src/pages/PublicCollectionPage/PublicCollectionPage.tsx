@@ -25,8 +25,8 @@ import { isValidLangFormat } from "@/utils/lang";
 import DeviceFrame, { type DeviceFrameFormat } from "@/components/ui/DeviceFrame/DeviceFrame";
 import PublicPreviewBar from "./components/PublicPreviewBar";
 import { useTenantMembership } from "./useTenantMembership";
+import { useRealDeviceFormat } from "./useRealDeviceFormat";
 import {
-    detectRealDeviceFormat,
     listPreviewFormats,
     resolvePreviewFormat,
     shouldShowPreviewBar
@@ -199,13 +199,12 @@ export default function PublicCollectionPage({ initialPayload }: Props) {
     // il banner non deve comparire, l'esperienza è identica a un anonimo.
     const simulateAt = isMember === true ? effectiveSimulate : null;
 
-    // Dispositivo reale: rilevazione one-shot al mount (nessun resize listener).
+    // Dispositivo reale: rilevazione REATTIVA al resize (rotazione smartphone
+    // e drag della finestra desktop, senza refresh) — vedi useRealDeviceFormat.
     // Dentro l'iframe del DeviceFrame la larghezza è quella del frame: la
     // pagina ospitata non deve né mostrare la barra né montare un frame
     // proprio — la finestra host possiede entrambi.
-    const [realFormat] = useState<DeviceFrameFormat>(() =>
-        typeof window === "undefined" ? "desktop" : detectRealDeviceFormat(window.innerWidth)
-    );
+    const realFormat = useRealDeviceFormat();
     const [isFramed] = useState<boolean>(() => typeof window !== "undefined" && window.self !== window.top);
 
     // Device-frame di simulazione (?preview=): derivato, nessun effect. Non

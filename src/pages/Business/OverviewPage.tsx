@@ -480,7 +480,7 @@ export default function OverviewPage() {
         qrRefs.current = {};
     }
 
-    usePageHeader({ title: "Panoramica", sticky: true });
+    usePageHeader({ title: "Panoramica" });
 
     // La checklist è per owner/admin: per i ruoli activity-scoped i count sono
     // filtrati da RLS e possono valere 0 per mancanza di permesso, indistinguibile

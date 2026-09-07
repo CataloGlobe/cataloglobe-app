@@ -1,0 +1,56 @@
+// Il gruppo si legge come un solo controllo: bottone primario + caret uniti,
+// separati solo da una hairline. Altezza allineata al resto del cluster header.
+.root {
+  display: inline-flex;
+  align-items: stretch;
+  flex-shrink: 0;
+}
+
+.primary {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
+}
+
+.primaryWithCaret {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.caret {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  height: var(--control-height, 38px);
+  padding: 0 8px;
+
+  background: var(--brand-primary);
+  color: #fff;
+  border: none;
+  // Hairline di separazione dalla primaria: mezzo pixel di stacco è sufficiente
+  // a leggere due bersagli distinti senza spezzare il blocco in due bottoni.
+  border-left: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 0 8px 8px 0;
+
+  cursor: pointer;
+  transition: background 0.2s ease;
+
+  &:hover {
+    background: var(--brand-primary-hover);
+  }
+
+  &[disabled] {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  // Il caret ruota da chiuso ad aperto: dice che il menu è suo.
+  &[data-state="open"] svg {
+    transform: rotate(180deg);
+  }
+
+  svg {
+    transition: transform 0.2s ease;
+  }
+}

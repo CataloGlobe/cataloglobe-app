@@ -68,3 +68,33 @@ Split in 4 commit/prompt separati, in quest'ordine:
 - **Frontend, unica verifica condivisa**: `useTenantMembership(tenantId)` (sessione presente E `fetchMyTenantIds()` contiene il tenant del payload) gestisce sia il banner `simulate` sia la barra formato / `?preview=`. Logica pura in `previewControl.ts` (`resolvePreviewFormat`, `listPreviewFormats`, `shouldShowPreviewBar`), coperta da `src/tests/previewControl.test.ts`.
 - **Barra unificata** `PublicPreviewBar`: "Barra non visibile ai clienti" (icona `IconUserShield`, sempre) + separatore + "Contenuto simulato — data" (giallo, solo con `simulate`) + pillole Desktop/Tablet/Smartphone (solo formati ≤ dispositivo reale; nascoste se ne resta uno solo). Click → `?preview=<formato>` in URL. Nessun nuovo punto di ingresso: la barra compare aprendo il link pubblico normale. Montata in `bannerSlot` (ready/empty), sopra la card `catalog_empty`, e sopra il `DeviceFrame` quando il frame è attivo. Dentro l'iframe (`window.self !== window.top`) la pagina non renderizza né barra né frame: li possiede la finestra host.
 - **Verifica locale con sessione reale (Chrome)**: owner → barra su link normale, entrambe le sezioni con `simulate`, frame mobile 375 / tablet 768 corretti, nessuna barra dentro l'iframe. Utente autenticato NON membro (`alexs-test`) con `?simulate=&preview=mobile` → nessuna barra, nessun frame, pagina identica a un anonimo. Edge deployata su staging: 200 e fail-closed con JWT assente/invalido/anon-key. Restano da riconfermare su deploy Vercel: embedding iframe con gli header XFO/CSP reali.
+
+## FASE 3.5 — Chiusura: rilevazione dispositivo reale reattiva
+
+Ultimo item aperto della feature. La classificazione del dispositivo reale era
+one-shot al mount (`useState(() => detectRealDeviceFormat(window.innerWidth))`
+in `PublicCollectionPage.tsx`): ruotando uno smartphone o ridimensionando la
+finestra a pagina già aperta, la barra restava sui formati calcolati
+all'apertura fino a un refresh manuale.
+
+- **Fix**: nuovo hook `src/pages/PublicCollectionPage/useRealDeviceFormat.ts` —
+  singolo listener `resize` (copre anche la rotazione: i browser moderni
+  emettono `resize` insieme a `orientationchange`), debounce 150ms, `setState`
+  solo quando cambia la **classe** (drag continuo dentro lo stesso breakpoint =
+  zero re-render). SSR-safe; un `recompute()` al mount riallinea dopo
+  l'idratazione.
+- **Nessun'altra modifica**: `previewFormats`, `shouldShowPreviewBar` e
+  `resolvePreviewFormat` erano già derivati da `realFormat`, quindi diventano
+  reattivi di conseguenza. `previewControl.ts` invariato (14 test verdi).
+- **Formato non più valido dopo il resize**: nessuna riscrittura dell'URL. Il
+  param `preview` resta in query string ma `resolvePreviewFormat` lo ignora in
+  silenzio — stesso comportamento dell'apertura diretta da smartphone, coerente
+  con "ogni condizione negativa è silenziosa". La pillola attiva ricade su
+  `realFormat` (`activeFormat={effectivePreview ?? realFormat}`). Tornando a una
+  larghezza valida il frame si rimonta senza toccare l'URL.
+- **Verifica (Chrome + sessione owner reale, dev server)**: 1512px →
+  Desktop/Tablet/Smartphone; resize a 800px senza refresh → Desktop sparisce,
+  attiva Tablet; con `?preview=tablet` e frame montato (iframe 768px), resize a
+  500px → frame smontato, barra nascosta, pagina pubblica normale; ritorno a
+  1512px → frame 768px ripristinato. Nessuna regressione sul gating membro /
+  non membro (`lollos-test`, tenant diverso: nessuna barra).

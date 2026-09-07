@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
@@ -115,11 +116,30 @@ export default function Highlights() {
         </>
     ), [handleCreate, canEdit, canWrite, searchQuery, viewMode, handleViewChange]);
 
+    // Stessa toolbar dichiarata a dati per lo stato compatto. Nessuna
+    // `sections`: la pagina non ha tab, quindi la riga compatta parte dalle
+    // icone. Il toggle vista resta a vista — azione frequente.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        search: {
+            value: searchQuery,
+            onChange: setSearchQuery,
+            placeholder: "Cerca per titolo..."
+        },
+        persistentIcons: [
+            viewMode === "list"
+                ? { icon: <LayoutGrid size={18} />, label: "Vista griglia", onClick: () => handleViewChange("grid") }
+                : { icon: <ListIcon size={18} />, label: "Vista lista", onClick: () => handleViewChange("list") }
+        ],
+        primaryAction: canWrite
+            ? { label: "Crea contenuto", onClick: handleCreate, disabled: !canEdit }
+            : undefined
+    }), [searchQuery, viewMode, handleViewChange, canWrite, handleCreate, canEdit]);
+
     usePageHeader({
         title: "Contenuti in evidenza",
         subtitle: "Gestisci i contenuti editoriali e aggregatori di prodotti.",
         actions: headerActions,
-        sticky: true,
+        compact: headerCompact,
     });
 
     const handleEdit = (item: FeaturedContentWithProducts) => {

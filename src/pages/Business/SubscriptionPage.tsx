@@ -259,7 +259,6 @@ export default function SubscriptionPage() {
         subtitle: !canReadBilling
             ? undefined
             : "Gestisci il piano e il metodo di pagamento della tua attività.",
-        sticky: true,
     });
 
     const paidSeats = selectedTenant?.paid_seats ?? 0;

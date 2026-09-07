@@ -4,6 +4,7 @@ import { useSearchParams } from "react-router-dom";
 import { AlertCircle, Calendar, ChevronLeft, ChevronRight, ClipboardList, Plus, RefreshCw, RotateCcw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
@@ -404,17 +405,60 @@ export default function Orders() {
         </Tabs>
     ), [mainTab, handleTabChange]);
 
+    // Stessa toolbar a dati per lo stato compatto. Nessuna `search`: il filtro
+    // per tavolo è un select in-page, non vive nella banda.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        sections: [
+            { value: "comande", label: "Comande" },
+            { value: "tavoli", label: "Tavoli" },
+            { value: "storico", label: "Storico" }
+        ],
+        activeSection: mainTab,
+        onSectionChange: value => handleTabChange(value as MainTab),
+        // Il suono resta a vista: in sala si alza o si abbassa al volo, e il suo
+        // stato acceso/spento va letto senza aprire nulla.
+        persistentIcons: [
+            {
+                icon: soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />,
+                label: soundEnabled ? "Disattiva suoni notifiche" : "Attiva suoni notifiche",
+                onClick: toggleSound
+            }
+        ],
+        secondaryActions: [
+            {
+                label: "Aggiorna",
+                onClick: refreshAll,
+                disabled: !selectedActivityId || isLoadingOrders
+            }
+        ],
+        primaryAction: canCreateOrder
+            ? { label: "Crea ordine", onClick: () => setIsCreateOrderOpen(true), disabled: !canEdit }
+            : undefined
+    }), [
+        mainTab,
+        handleTabChange,
+        soundEnabled,
+        toggleSound,
+        refreshAll,
+        selectedActivityId,
+        isLoadingOrders,
+        canCreateOrder,
+        canEdit
+    ]);
+
     // Plan gate (computed early; the actual lock screen render is below,
     // after all hooks, to respect the Rules of Hooks).
     const isLocked = !hasFeature("table_ordering");
 
     // When locked, pass null so the PageHeaderSlot stays empty (toolbar/tab
     // are owned by MainLayout via context, not by this component's render).
+    // Vale anche per `compact`: senza il piano la banda non esiste affatto,
+    // non esiste "una versione compatta di niente".
     const headerConfig = useMemo(
         () => isLocked
             ? null
-            : { leading: headerLeading, actions: headerActions, sticky: true },
-        [isLocked, headerLeading, headerActions]
+            : { leading: headerLeading, actions: headerActions, compact: headerCompact },
+        [isLocked, headerLeading, headerActions, headerCompact]
     );
     usePageHeader(headerConfig);
 

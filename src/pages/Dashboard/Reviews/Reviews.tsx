@@ -8,9 +8,10 @@ import type { Review } from "@/types/database";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { Trash2, MessageSquare, Star } from "lucide-react";
+import { ArrowUpDown, CalendarRange, Trash2, MessageSquare, Star } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Select } from "@/components/ui/Select/Select";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -347,10 +348,65 @@ export default function Reviews() {
     ), [searchQuery, filterPeriod, sortBy]);
 
     // Selettore sede vive nella navbar (SedeScopeSelect). Titolo nel breadcrumb.
+    // Tre filtri, tre trattamenti già validati altrove: la valutazione prende il
+    // posto del picker sezione (la pagina non ha sezioni), periodo e ordinamento
+    // restano icone con overlay e chip. Icone diverse: due bottoni identici non
+    // direbbero quale filtro aprono.
+    //
+    // Le opzioni valutazione qui portano la stella nel testo: nella toolbar
+    // comoda è un'icona accanto al numero, in una lista il solo "5" non si
+    // capirebbe.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        leadingFilter: {
+            label: "Valutazione",
+            options: [
+                { value: "all", label: "Tutte" },
+                { value: "5", label: "5 stelle" },
+                { value: "4", label: "4 stelle" },
+                { value: "3", label: "3 stelle" },
+                { value: "2", label: "2 stelle" },
+                { value: "1", label: "1 stella" }
+            ],
+            value: filterRating,
+            defaultValue: "all",
+            onChange: setFilterRating
+        },
+        filterControls: [
+            {
+                label: "Periodo",
+                icon: <CalendarRange size={18} />,
+                options: PERIOD_OPTIONS,
+                value: filterPeriod,
+                defaultValue: "all",
+                onChange: value => {
+                    const next = value as PeriodFilter;
+                    setFilterPeriod(next);
+                    if (next !== "custom") {
+                        setCustomFrom("");
+                        setCustomTo("");
+                    }
+                }
+            },
+            {
+                label: "Ordinamento",
+                icon: <ArrowUpDown size={18} />,
+                options: SORT_OPTIONS,
+                value: sortBy,
+                defaultValue: "newest",
+                onChange: value => setSortBy(value as SortOption)
+            }
+        ],
+        search: {
+            value: searchQuery,
+            onChange: setSearchQuery,
+            placeholder: "Cerca commenti..."
+        }
+    }), [filterRating, filterPeriod, sortBy, searchQuery]);
+
     usePageHeader({
         leading,
         actions: headerActions,
-        sticky: true,
+        compact: headerCompact,
     });
 
     /* ── Handlers ───────────────────────────────────── */

@@ -5,6 +5,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnActivity, canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -305,11 +306,42 @@ export default function Reservations() {
 
     // When locked, pass null so the PageHeaderSlot stays empty (toolbar/tab
     // are owned by MainLayout via context, not by this component's render).
+    // Il contatore degli inbox: nella toolbar comoda resta la prop `badge` di
+    // `Tabs.Tab` (pill dedicata, più leggibile); qui è interpolato
+    // nell'etichetta, come fa Team. Il picker compatto mostra una stringa sola,
+    // quindi `PageHeaderSection` resta `{label, value}` senza campo badge.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        sections: [
+            {
+                value: "inbox",
+                label: pendingInScope.length > 0
+                    ? `Da gestire · ${pendingInScope.length}`
+                    : "Da gestire"
+            },
+            { value: "agenda", label: "Agenda" }
+        ],
+        activeSection: tab,
+        onSectionChange: value => handleTabChange(value as TabKey),
+        filterControls: [
+            {
+                label: "Canale",
+                options: CHANNEL_OPTIONS,
+                value: channelFilter,
+                // "all" = "Tutti i canali": valore a riposo, nessun pallino.
+                defaultValue: "all",
+                onChange: value => setChannelFilter(value as ChannelFilter)
+            }
+        ],
+        primaryAction: canCreate
+            ? { label: "Nuova prenotazione", onClick: handleOpenCreate }
+            : undefined
+    }), [tab, handleTabChange, pendingInScope.length, channelFilter, canCreate, handleOpenCreate]);
+
     const headerConfig = useMemo(
         () => isLocked
             ? null
-            : { leading: headerLeading, actions: pageActions, sticky: true },
-        [isLocked, headerLeading, pageActions]
+            : { leading: headerLeading, actions: pageActions, compact: headerCompact },
+        [isLocked, headerLeading, pageActions, headerCompact]
     );
     usePageHeader(headerConfig);
 

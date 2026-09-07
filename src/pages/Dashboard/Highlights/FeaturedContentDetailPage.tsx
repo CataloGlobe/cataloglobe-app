@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from "react"
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -215,10 +216,34 @@ export default function FeaturedContentDetailPage() {
         );
     }, [activeTab, productsEnabled, canEdit, canWrite]);
 
+    // "Prodotti inclusi" resta in elenco anche quando non è raggiungibile: una
+    // voce che sparisce e riappare cambiando tipo confonde più di una spenta con
+    // scritto perché. La primaria segue la tab attiva, come su Sedi.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        sections: [
+            { value: "info", label: "Informazioni" },
+            {
+                value: "products",
+                label: "Prodotti inclusi",
+                disabled: !productsEnabled,
+                description: !productsEnabled ? "Seleziona il tipo Promo o Bundle" : undefined
+            }
+        ],
+        activeSection: activeTab,
+        onSectionChange: value => handleTabChange(value as FeaturedDetailTab),
+        primaryAction: activeTab === "products" && productsEnabled && canWrite
+            ? {
+                  label: "+ Aggiungi prodotto",
+                  onClick: () => addProductTriggerRef.current?.(),
+                  disabled: !canEdit
+              }
+            : undefined
+    }), [activeTab, handleTabChange, productsEnabled, canWrite, canEdit]);
+
     usePageHeader({
         leading,
         actions,
-        sticky: true,
+        compact: headerCompact,
     });
 
     if (pageError) {

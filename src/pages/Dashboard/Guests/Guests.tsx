@@ -23,6 +23,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -125,7 +126,23 @@ export default function Guests() {
     // (rende solo `leading` e `actions`; il titolo vive nel breadcrumb della
     // navbar post-refactor). Passarli darebbe l'illusione di una intestazione
     // che nessuno renderizza.
-    usePageHeader(isLocked ? null : { actions: headerActions, sticky: true });
+    // Nessuna tab e nessuna CTA: in compatto la riga resta lente + toggle vista.
+    // `primaryAction` omesso di proposito — la rubrica non ha un'azione di
+    // creazione, i clienti nascono dalle prenotazioni.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        search: {
+            value: search,
+            onChange: setSearch,
+            placeholder: "Cerca cliente..."
+        },
+        persistentIcons: [
+            viewMode === "rows"
+                ? { icon: <Table2 size={18} />, label: "Vista tabella", onClick: () => handleViewChange("table") }
+                : { icon: <ListIcon size={18} />, label: "Vista righe", onClick: () => handleViewChange("rows") }
+        ]
+    }), [search, viewMode, handleViewChange]);
+
+    usePageHeader(isLocked ? null : { actions: headerActions, compact: headerCompact });
 
     const loadGuests = useCallback(async () => {
         if (!tenantId || !canRead) return;

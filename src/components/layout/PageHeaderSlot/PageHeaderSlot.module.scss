@@ -1,59 +1,73 @@
 .slot {
+  position: relative;
   background: #ffffff;
   border-bottom: 1px solid #e5e7eb;
-  // Verticale 0: le sezioni interne (leading + actions) gestiscono
-  // il proprio padding-y così che la riga tab underline possa estendersi
-  // fino al bordo inferiore della banda.
   padding: 0 24px;
-  // Altezza canonica della banda = controllo 38px + padding-y 12*2 = 62px.
-  // Le pagine con actions a 38px raggiungono già 62 via `.actions { padding: 12px 0 }`;
-  // le pagine con solo leading (es. dettaglio sede) ottengono qui la stessa altezza
-  // così l'header è coerente cross-pagina e i tab underline restano a filo del bordo.
+  // Altezza canonica della banda = controllo 38px + padding-y 12*2 ≈ 62px.
+  // Vale per entrambe le modalità, così il passaggio comoda ↔ compatta non fa
+  // saltare l'altezza dell'header.
   min-height: 57px;
   display: flex;
   align-items: stretch;
-  gap: 12px;
   flex-shrink: 0;
   width: 100%;
   box-sizing: border-box;
 
+  // Il padding orizzontale segue la viewport: è cosmetico e indipendente dalla
+  // scelta comoda/compatta, che resta guidata dal contenuto.
   @media (max-width: 767px) {
-    padding: 12px 16px;
-    min-height: 0;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 12px;
+    padding: 0 16px;
+  }
+}
+
+/* ── Riga raw (leading + actions dichiarati dalla pagina) ───── */
+
+.rawRow {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "leading actions";
+  align-items: stretch;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+// In modalità compatta la riga raw resta nel DOM ma esce dal flusso: continua a
+// essere misurata (`visibility: hidden` conserva il layout) senza occupare
+// spazio né essere raggiungibile.
+.compactMode .rawRow {
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  top: 0;
+  width: auto;
+  visibility: hidden;
+  pointer-events: none;
+
+  @media (max-width: 767px) {
+    left: 16px;
+    right: 16px;
   }
 }
 
 .leading {
+  grid-area: leading;
   display: flex;
-  // Centra di default i controlli box (SegmentedControl, Select, ecc.)
-  // sulla linea di centro verticale della banda — stessa di `.actions`.
-  // I tab underline (`Tabs.variant_line`) si gestiscono via `align-self:
-  // stretch + height: 100%` sul componente: l'underline resta a filo del
-  // bordo inferiore della banda anche con leading centrato.
+  // Centra i controlli box (SegmentedControl, Select) sulla linea di centro
+  // della banda. I tab underline si allineano da sé al bordo inferiore via
+  // `align-self: stretch + height: 100%` sul componente.
   align-items: center;
   min-width: 0;
-  flex-shrink: 1;
 }
 
 .actions {
+  grid-area: actions;
   display: flex;
   gap: 8px;
-  flex-shrink: 0;
-  flex-wrap: nowrap;
   align-items: center;
   justify-content: flex-end;
-  margin-left: auto;
-  // Padding-y interno: ricrea lo spazio verticale per actions-only pages
-  // (es. Menù) mantenendo la banda della stessa altezza di prima.
-  // padding: 12px 0;
-
-  @media (max-width: 767px) {
-    margin-left: 0;
-    justify-content: flex-start;
-    flex-wrap: wrap;
-    padding: 0;
-  }
+  // Larghezza = contenuto: la colonna `auto` non deve allargarsi oltre,
+  // altrimenti mangia lo spazio delle tab prima del necessario.
+  justify-self: end;
+  min-width: 0;
 }

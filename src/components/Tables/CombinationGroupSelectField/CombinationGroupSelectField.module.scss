@@ -1,0 +1,66 @@
+// Token da `src/styles/_theme.scss`. NB: il gemello ZoneSelectField usa nomi
+// di variabili inesistenti (--color-border, --color-surface, --color-primary…)
+// e vive sui fallback hardcoded, quindi resta chiaro anche in tema scuro.
+// Qui si usano i token veri: il campo segue il tema.
+.wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.label {
+    margin-bottom: 2px;
+}
+
+.select {
+    width: 100%;
+    min-height: var(--control-height);
+    padding: 9px 12px;
+    font-size: 0.875rem;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background-color: var(--card-bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:hover:not(:disabled) {
+        border-color: var(--brand-primary);
+    }
+
+    &:focus-visible {
+        outline: none;
+        border-color: var(--brand-primary);
+        box-shadow: 0 0 0 3px var(--brand-primary-soft);
+    }
+
+    &:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+}
+
+.createForm {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 10px;
+    border-radius: 8px;
+    background-color: var(--hover-bg);
+    border: 1px solid var(--border);
+}
+
+.createActions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.hint {
+    color: var(--text);
+    opacity: 0.65;
+}
+
+.error {
+    color: var(--color-red-800);
+}

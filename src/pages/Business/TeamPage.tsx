@@ -3,6 +3,7 @@ import { supabase } from "@/services/supabase/client";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnTenant, canChangeRoleOf, canRemoveMember } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useAuth } from "@/context/useAuth";
@@ -170,6 +171,17 @@ export default function TeamPage() {
         </Tabs>
     ), [activeTab, handleTabChange, pendingCount]);
 
+    // Opzioni condivise fra il `Select` della toolbar comoda e l'overlay
+    // filtro di quella compatta: un elenco solo, nessun rischio di divergenza.
+    const roleFilterOptions = useMemo(() => [
+        { value: "", label: "Tutti i ruoli" },
+        { value: "owner", label: "Owner" },
+        { value: "admin", label: "Admin" },
+        { value: "manager", label: "Manager" },
+        { value: "staff", label: "Staff" },
+        { value: "viewer", label: "Viewer" }
+    ], []);
+
     const headerActions = useMemo(() => (
         <>
             <ToolbarSearch
@@ -183,14 +195,7 @@ export default function TeamPage() {
                 onChange={e => setRoleFilter(e.target.value)}
                 containerClassName={styles.toolbarFilter}
                 selectClassName={styles.toolbarFilterSelect}
-                options={[
-                    { value: "", label: "Tutti i ruoli" },
-                    { value: "owner", label: "Owner" },
-                    { value: "admin", label: "Admin" },
-                    { value: "manager", label: "Manager" },
-                    { value: "staff", label: "Staff" },
-                    { value: "viewer", label: "Viewer" }
-                ]}
+                options={roleFilterOptions}
             />
             {canInvite && (
                 <Button
@@ -202,11 +207,42 @@ export default function TeamPage() {
                 </Button>
             )}
         </>
-    ), [search, roleFilter, canInvite]);
+    ), [search, roleFilter, canInvite, roleFilterOptions]);
+
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        sections: [
+            { value: "members", label: "Membri" },
+            {
+                value: "invites",
+                label: pendingCount > 0 ? `Inviti in attesa · ${pendingCount}` : "Inviti in attesa"
+            }
+        ],
+        activeSection: activeTab,
+        onSectionChange: value => handleTabChange(value as TeamTab),
+        search: {
+            value: search,
+            onChange: setSearch,
+            placeholder: "Cerca per email..."
+        },
+        filterControls: [
+            {
+                label: "Ruolo",
+                options: roleFilterOptions,
+                value: roleFilter,
+                // "" = "Tutti i ruoli": è il valore a riposo, quindi nessun pallino.
+                defaultValue: "",
+                onChange: setRoleFilter
+            }
+        ],
+        primaryAction: canInvite
+            ? { label: "Invita membro", onClick: () => setInviteDrawerOpen(true) }
+            : undefined
+    }), [activeTab, handleTabChange, pendingCount, search, roleFilter, roleFilterOptions, canInvite]);
 
     usePageHeader({
         leading: canReadTeam ? leading : undefined,
         actions: canReadTeam ? headerActions : undefined,
+        compact: canReadTeam ? headerCompact : undefined,
     });
 
     useEffect(() => {
