@@ -12,9 +12,14 @@ import styles from "./PublicBottomScrim.module.scss";
  * - Strato B (`.layer1..3`): 3 layer `backdrop-filter` mascherati con
  *   `mask-image` per ammorbidire il bordo superiore dello scrim.
  *
- * `data-blur="on"` è deliberato e NON configurabile (niente prop, query param
- * o stato): serve solo a disattivare i 3 layer blur dal Web Inspector su
- * iPhone reale (`data-blur="off"`) per un confronto A/B dal vivo senza rebuild.
+ * `data-blur` è deliberato e NON configurabile (niente prop, query param o
+ * stato): attributo statico, toggleabile dal Web Inspector per un confronto A/B
+ * dal vivo senza rebuild. Default `"off"`: sul device reale (iPhone, Safari,
+ * foto prodotto vere) on/off non produce differenza percepibile — sotto la
+ * curva alpha dello scrim non resta abbastanza contenuto da sfocare, quindi i
+ * layer costavano composizione (fascia fixed sopra contenuto che scrolla) senza
+ * resa. Markup e regole SCSS dei layer restano per un eventuale riesame su
+ * stili con `pageBackground` scuro: `data-blur="on"` dal DevTools li riaccende.
  *
  * `isPreview`: nello Style Editor lo scroll container è `.deviceScreen`, non
  * la finestra → `position: sticky` invece di `fixed` (stesso pattern di
@@ -30,7 +35,7 @@ export default function PublicBottomScrim({ isPreview = false }: Props) {
             className={styles.root}
             aria-hidden="true"
             data-preview={isPreview ? "true" : undefined}
-            data-blur="on"
+            data-blur="off"
         >
             <div className={styles.layer1} />
             <div className={styles.layer2} />
