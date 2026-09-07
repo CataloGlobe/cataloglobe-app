@@ -22,6 +22,7 @@ import type {
     ReassignActivityTablesSummary,
     ReservationTableAssignment,
     ReservationTableAssignmentOutcome,
+    ReservationTableAssignmentWithTable,
     V2Reservation
 } from "@/types/reservation";
 
@@ -662,6 +663,67 @@ export async function listReservationTables(
 
     if (error) throw error;
     return (data ?? []) as ReservationTableAssignment[];
+}
+
+// Embed del tavolo via FK composita (table_id, activity_id). Il nome del
+// vincolo disambigua fra `tables` e la view `v_tables_with_state`, che
+// PostgREST vede come due bersagli della stessa FK. Si legge da `tables`
+// SENZA filtrare `deleted_at`: una ponte può puntare a un tavolo rimosso
+// (vedi migration 20260907120200) e l'UI deve poterlo dire, non nasconderlo.
+// `zone` è a sua volta un embed (tables.zone_id → table_zones), come in
+// `tables.ts:listTables`.
+const RESERVATION_TABLES_WITH_TABLE_SELECT =
+    "*, table:tables!reservation_tables_table_fkey(label, deleted_at, zone:table_zones!tables_zone_id_fkey(name))";
+
+// supabase-js tipizza un embed 1:1 come oggetto o array a seconda del JOIN.
+type JoinedZone = { name: string } | { name: string }[] | null;
+type JoinedTable =
+    | { label: string; deleted_at: string | null; zone: JoinedZone }
+    | { label: string; deleted_at: string | null; zone: JoinedZone }[]
+    | null;
+
+function mapJoinedAssignment(
+    row: Record<string, unknown> & { table?: JoinedTable }
+): ReservationTableAssignmentWithTable {
+    const { table, ...rest } = row;
+    const t = Array.isArray(table) ? table[0] : table;
+    const zone = t ? (Array.isArray(t.zone) ? t.zone[0] : t.zone) : null;
+    return {
+        ...(rest as unknown as ReservationTableAssignment),
+        table: t
+            ? { label: t.label, deleted_at: t.deleted_at, zone_name: zone?.name ?? null }
+            : null
+    };
+}
+
+/**
+ * Assegnazioni di MOLTE prenotazioni in una sola query, con il tavolo
+ * embeddato. Serve all'agenda: una chiamata per riga non regge a venti
+ * prenotazioni. Il filtro sulle date lo fa il chiamante (passa solo gli id
+ * che gli interessano): qui si prende ciò che viene chiesto.
+ *
+ * Array vuoto in ingresso → `[]` senza toccare la rete.
+ * Ordine: `reservation_id` poi `table_id` (uuid). L'ordine sensato — per
+ * etichetta del tavolo — lo decide chi presenta, con l'etichetta in mano.
+ */
+export async function listReservationTablesForReservations(
+    reservationIds: string[],
+    tenantId: string
+): Promise<ReservationTableAssignmentWithTable[]> {
+    if (reservationIds.length === 0) return [];
+
+    const { data, error } = await supabase
+        .from("reservation_tables")
+        .select(RESERVATION_TABLES_WITH_TABLE_SELECT)
+        .in("reservation_id", reservationIds)
+        .eq("tenant_id", tenantId)
+        .order("reservation_id", { ascending: true })
+        .order("table_id", { ascending: true });
+
+    if (error) throw error;
+    return ((data ?? []) as unknown as Array<Record<string, unknown> & { table?: JoinedTable }>).map(
+        mapJoinedAssignment
+    );
 }
 
 /**

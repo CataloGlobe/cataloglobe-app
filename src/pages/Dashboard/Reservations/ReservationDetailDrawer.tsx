@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import {
+    Armchair,
     CalendarDays,
     Clock,
     Globe,
@@ -7,6 +8,7 @@ import {
     MapPin,
     PencilLine,
     Phone,
+    TriangleAlert,
     User,
     Users
 } from "lucide-react";
@@ -15,6 +17,8 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import type { TableAssignmentView } from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
+import { formatTableLabels } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import GuestConfirmedMark from "./GuestConfirmedMark";
 import { statusMeta } from "@/utils/reservationStatusMeta";
 import {
@@ -39,6 +43,12 @@ interface Props {
      *  via `get_tenant_member_names`. Used to attribute manual reservations
      *  to the operator. Optional: missing/empty map → "Staff" fallback. */
     operatorNames?: Map<string, string>;
+    /**
+     * Tavoli assegnati a QUESTA prenotazione, già ordinati e con i conflitti
+     * spiegati (calcolati dal parent una volta per tutte). NULL = nessuna
+     * assegnazione: la sezione non compare, non è un errore.
+     */
+    tableView?: TableAssignmentView | null;
     /** Same-list reservations (with overrides applied) for the peak engine. */
     allReservations: V2Reservation[];
     /** Sede capienza coperti (NULL = nessun limite configurato). */
@@ -104,6 +114,7 @@ export default function ReservationDetailDrawer({
     reservation,
     activityName,
     operatorNames,
+    tableView = null,
     allReservations,
     activityCapacity,
     activityDurationMinutes,
@@ -333,6 +344,62 @@ export default function ReservationDetailDrawer({
                             {activityName ?? "—"}
                         </div>
                     </section>
+
+                    {/* ── Tavolo ────────────────────────────────────────
+                         Solo se c'è un'assegnazione. "Proposto" = scelta del
+                         sistema, ricalcolabile; la decisione dell'operatore
+                         non si annuncia. Il conflitto è l'unica riga colorata
+                         della sezione: il tavolo in sé è un fatto, non uno
+                         stato. Nessun gesto in questa fase. */}
+                    {tableView && tableView.rows.length > 0 && (
+                        <section className={styles.drawerSection}>
+                            <h3 className={styles.drawerSectionTitle}>
+                                {tableView.rows.length === 1 ? "Tavolo" : "Tavoli"}
+                            </h3>
+                            <ul className={styles.drawerTableList}>
+                                {tableView.rows.map(row => (
+                                    <li key={row.table_id} className={styles.drawerTableRow}>
+                                        <Armchair
+                                            size={15}
+                                            strokeWidth={2}
+                                            aria-hidden
+                                            className={styles.drawerTableIcon}
+                                        />
+                                        <span className={styles.drawerTableLabel}>
+                                            {formatTableLabels([row.label])}
+                                        </span>
+                                        {row.zone_name && (
+                                            <span className={styles.drawerTableZone}>
+                                                {row.zone_name}
+                                            </span>
+                                        )}
+                                        {row.deleted && (
+                                            <span className={styles.drawerTableRemoved}>
+                                                rimosso dalla sala
+                                            </span>
+                                        )}
+                                    </li>
+                                ))}
+                            </ul>
+                            {tableView.proposed && (
+                                <p className={styles.drawerTableHint}>
+                                    Proposto dal sistema. Se la prenotazione viene spostata o
+                                    cambia il numero di persone, la proposta viene rifatta.
+                                </p>
+                            )}
+                            {tableView.conflict && (
+                                <div className={styles.drawerTableConflict} role="status">
+                                    <TriangleAlert
+                                        size={15}
+                                        strokeWidth={2.25}
+                                        aria-hidden
+                                        className={styles.drawerTableConflictIcon}
+                                    />
+                                    <span>{tableView.conflict.message}.</span>
+                                </div>
+                            )}
+                        </section>
+                    )}
 
                     {/* ── Cliente ───────────────────────────────────────── */}
                     <section className={styles.drawerSection}>

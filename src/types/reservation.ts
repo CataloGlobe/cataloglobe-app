@@ -9,11 +9,16 @@
 // `no_show` = il cliente non si è presentato. Raggiungibile solo da
 // `confirmed` ed è reversibile: il dato alimenterà un indice di affidabilità,
 // quindi una marcatura sbagliata deve essere correggibile.
-// Il CHECK del DB ammette anche `seated` e `completed` (migration
-// 20260615140000): restano fuori finché non esiste chi li scrive.
+// `seated` e `completed` sono ammessi dal CHECK del DB (migration
+// 20260615140000) e oggi nessuno li scrive. Stanno nel tipo perché il motore
+// di assegnazione tavoli li considera (`seated` OCCUPA un tavolo): il
+// rilevamento conflitti lato client deve poterli leggere il giorno in cui
+// compariranno, non scoprirlo a runtime.
 export type ReservationStatus =
     | "pending"
     | "confirmed"
+    | "seated"
+    | "completed"
     | "declined"
     | "cancelled"
     | "no_show";
@@ -116,6 +121,20 @@ export interface ReservationTableAssignment {
     assigned_at: string;
     created_at: string;
     updated_at: string;
+}
+
+// Riga di ponte arricchita con il tavolo a cui punta (embed PostgREST via FK
+// composita `reservation_tables_table_fkey`). `table` è NULL quando il caller
+// non può leggere `tables` sulla sede (RLS `tables.read`) — caso teorico,
+// tutti i ruoli hanno quel permesso — e l'UI lo tratta come etichetta ignota.
+// `deleted_at` non NULL = tavolo soft-deleted: la ponte conserva lo storico,
+// ma per l'operatore è un conflitto (il tavolo non esiste più in sala).
+export interface ReservationTableAssignmentWithTable extends ReservationTableAssignment {
+    table: {
+        label: string;
+        deleted_at: string | null;
+        zone_name: string | null;
+    } | null;
 }
 
 // Esito del motore assign_tables_for_reservation, così come lo restituiscono

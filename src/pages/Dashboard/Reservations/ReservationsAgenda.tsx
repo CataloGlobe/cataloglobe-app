@@ -4,6 +4,11 @@ import { EmptyState } from "@components/ui/EmptyState/EmptyState";
 import { addDays, todayIsoDate } from "@/utils/dateLocal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
+import {
+    TableAssignmentBadge,
+    type TableAssignmentView
+} from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
+import { formatTableLabels } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import type { V2Reservation } from "@/types/reservation";
 import ChannelMark from "./ChannelMark";
 import GuestConfirmedMark from "./GuestConfirmedMark";
@@ -12,6 +17,8 @@ import styles from "./Reservations.module.scss";
 interface Props {
     /** Reservations belonging to the single selected activity, all statuses. */
     items: V2Reservation[];
+    /** Tavoli assegnati per prenotazione (solo chi ne ha uno). Calcolato dal parent. */
+    tableViews: ReadonlyMap<string, TableAssignmentView>;
     /** Activity name to render in headers (also serves as gate: null = "All sites"). */
     activityName: string | null;
     /** Click any row → open detail drawer. */
@@ -90,6 +97,10 @@ function statusBadgeFor(status: V2Reservation["status"]): {
     switch (status) {
         case "confirmed":
             return { variant: "success", label: "Confermata" };
+        case "seated":
+            return { variant: "success", label: "Al tavolo" };
+        case "completed":
+            return { variant: "neutral", label: "Completata" };
         case "pending":
             return { variant: "warning", label: "In attesa" };
         case "declined":
@@ -103,7 +114,7 @@ function statusBadgeFor(status: V2Reservation["status"]): {
 
 /** Status tone used by the Settimana grid chips. Mirrors StatusBadge palette. */
 function statusToneFor(status: V2Reservation["status"]): "confirmed" | "pending" | "terminal" {
-    if (status === "confirmed") return "confirmed";
+    if (status === "confirmed" || status === "seated") return "confirmed";
     if (status === "pending") return "pending";
     return "terminal";
 }
@@ -114,6 +125,7 @@ const WEEKDAY_ABBR_IT = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"];
 
 export default function ReservationsAgenda({
     items,
+    tableViews,
     activityName,
     onOpenDetail
 }: Props) {
@@ -268,6 +280,7 @@ export default function ReservationsAgenda({
     const renderTimelineRow = (r: V2Reservation) => {
         const isTerminal = TERMINAL.has(r.status);
         const badge = statusBadgeFor(r.status);
+        const tableView = tableViews.get(r.id);
         return (
             <button
                 key={r.id}
@@ -304,6 +317,13 @@ export default function ReservationsAgenda({
                 <span className={styles.timelineMeta}>
                     <GuestConfirmedMark guestConfirmedAt={r.guest_confirmed_at} />
                     <StatusBadge variant={badge.variant} label={badge.label} />
+                    {/* Nessun tavolo = nessun badge: è uno stato normale. */}
+                    {tableView && (
+                        <TableAssignmentBadge
+                            view={tableView}
+                            className={styles.timelineTableBadge}
+                        />
+                    )}
                 </span>
             </button>
         );
@@ -370,6 +390,14 @@ export default function ReservationsAgenda({
     const renderWeekChip = (r: V2Reservation) => {
         const tone = statusToneFor(r.status);
         const badge = statusBadgeFor(r.status);
+        // La chip è già satura: il tavolo sta solo nel `title`, con il
+        // conflitto quando c'è.
+        const tableView = tableViews.get(r.id);
+        const tableTitle = tableView
+            ? tableView.conflict
+                ? ` · ${tableView.conflict.message}`
+                : ` · ${formatTableLabels(tableView.labels)}${tableView.proposed ? " (proposto)" : ""}`
+            : "";
         return (
             <button
                 key={r.id}
@@ -378,7 +406,7 @@ export default function ReservationsAgenda({
                 data-tone={tone}
                 onClick={() => onOpenDetail(r)}
                 aria-label={`${r.customer_name} ${r.reservation_time.slice(0, 5)} · ${badge.label}`}
-                title={`${badge.label} — ${r.customer_name} · ${r.party_size}`}
+                title={`${badge.label} — ${r.customer_name} · ${r.party_size}${tableTitle}`}
             >
                 <span className={styles.weekChipTime}>
                     {r.reservation_time.slice(0, 5)}
