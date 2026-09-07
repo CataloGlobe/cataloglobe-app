@@ -1105,6 +1105,41 @@
    Lista piatta, un tavolo per riga, nessuna card: è un fatto, non un
    pannello. L'unica riga colorata è il conflitto, ambra come lo StatusBadge
    warning che l'operatore già conosce. */
+.drawerSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.drawerTableActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.drawerTablePicker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drawerTablePickerActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Bottone "Riorganizza i tavoli" nell'intestazione del giorno: agisce sul
+   giorno che sta sotto, quindi vive lì e non nell'header di pagina. */
+.dayHeaderAction {
+  margin-left: auto;
+  align-self: center;
+}
+
 .drawerTableList {
   list-style: none;
   margin: 0;

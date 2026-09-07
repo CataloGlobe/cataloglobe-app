@@ -17,8 +17,13 @@ import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import { shiftIsoDate, todayIsoDate } from "@/utils/dateLocal";
 import {
     listReservations,
-    listReservationTablesForReservations
+    listReservationTablesForReservations,
+    reassignActivityTables,
+    resetReservationTablesToSystem,
+    setReservationTables
 } from "@/services/supabase/reservations";
+import { listTables } from "@/services/supabase/tables";
+import type { V2Table } from "@/types/orders";
 import { getActivities } from "@/services/supabase/activities";
 import { getTenantMemberNames } from "@/services/supabase/team";
 import { getReservationGuest } from "@/services/supabase/reservationGuests";
@@ -30,11 +35,16 @@ import type {
 import type { ReservationGuestSummary } from "@/types/reservationGuest";
 import {
     DEFAULT_TABLE_DURATION_MINUTES,
+    OCCUPYING_STATUSES,
     detectReservationTableConflicts,
+    reservationWindowsOverlap,
     type ReservationTableConflict
 } from "@/utils/reservationTableConflicts";
 import type { TableAssignmentView } from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
-import { bareTableLabel } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
+import {
+    bareTableLabel,
+    formatTableLabels
+} from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import ReservationDetailDrawer from "./ReservationDetailDrawer";
 import ReservationCreateEditDrawer from "./ReservationCreateEditDrawer";
 import ReservationsInbox from "./ReservationsInbox";
@@ -154,6 +164,12 @@ export default function Reservations() {
     const [tableAssignments, setTableAssignments] = useState<
         ReservationTableAssignmentWithTable[]
     >([]);
+    // Tavoli per sede, caricati on-demand quando il drawer si apre con
+    // `canManage` (servono solo al picker "Cambia tavolo"). Cache per sede:
+    // la sala non cambia mentre si gestisce una serata.
+    const [tablesByActivity, setTablesByActivity] = useState<Map<string, V2Table[]>>(
+        () => new Map()
+    );
     const [isLoading, setIsLoading] = useState(true);
 
     const initialTab: TabKey = useMemo(() => {
@@ -545,6 +561,153 @@ export default function Reservations() {
         [selectedReservation, activities]
     );
 
+    // ── Tavoli: dati e gesti per il drawer ────────────────────────────
+    const selectedCanManage = selectedReservation
+        ? canManageActivity(selectedReservation.activity_id)
+        : false;
+    const selectedActivityId = selectedReservation?.activity_id ?? null;
+
+    useEffect(() => {
+        if (!isDrawerOpen || !tenantId || !selectedActivityId || !selectedCanManage) return;
+        if (tablesByActivity.has(selectedActivityId)) return;
+        let alive = true;
+        listTables(tenantId, selectedActivityId)
+            .then(rows => {
+                if (!alive) return;
+                setTablesByActivity(prev => new Map(prev).set(selectedActivityId, rows));
+            })
+            .catch(() => {
+                if (!alive) return;
+                showToast({ message: "Errore nel caricamento dei tavoli.", type: "error" });
+            });
+        return () => {
+            alive = false;
+        };
+    }, [isDrawerOpen, tenantId, selectedActivityId, selectedCanManage, tablesByActivity, showToast]);
+
+    const selectedTables = selectedActivityId
+        ? tablesByActivity.get(selectedActivityId)
+        : undefined;
+
+    // Chi occupa ogni tavolo nella finestra della prenotazione aperta
+    // (esclusa lei stessa). Stessa regola del motore, via l'util condivisa:
+    // il picker lo MOSTRA, non impedisce la scelta.
+    const selectedTableOccupancy = useMemo<ReadonlyMap<string, string>>(() => {
+        const out = new Map<string, string>();
+        if (!selectedReservation) return out;
+        const duration =
+            selectedActivity?.reservation_duration_minutes ?? DEFAULT_TABLE_DURATION_MINUTES;
+        const byId = new Map(effectiveReservations.map(r => [r.id, r]));
+        const names = new Map<string, string[]>();
+        for (const a of tableAssignments) {
+            if (a.activity_id !== selectedReservation.activity_id) continue;
+            if (a.reservation_id === selectedReservation.id) continue;
+            const other = byId.get(a.reservation_id);
+            if (!other || !OCCUPYING_STATUSES.has(other.status)) continue;
+            if (!reservationWindowsOverlap(selectedReservation, other, duration)) continue;
+            const list = names.get(a.table_id) ?? [];
+            list.push(`${other.customer_name} (${other.reservation_time.slice(0, 5)})`);
+            names.set(a.table_id, list);
+        }
+        for (const [tableId, list] of names) out.set(tableId, list.join(", "));
+        return out;
+    }, [selectedReservation, selectedActivity, effectiveReservations, tableAssignments]);
+
+    const labelForTableId = useCallback(
+        (tableId: string): string => {
+            const fromTables = selectedTables?.find(t => t.id === tableId)?.label;
+            if (fromTables) return fromTables;
+            const fromAssignments = tableAssignments.find(a => a.table_id === tableId)?.table?.label;
+            return fromAssignments ?? "sconosciuto";
+        },
+        [selectedTables, tableAssignments]
+    );
+
+    const handleSetTables = useCallback(
+        async (tableIds: string[]): Promise<boolean> => {
+            if (!selectedReservation || !tenantId) return false;
+            try {
+                await setReservationTables(selectedReservation.id, tableIds, tenantId);
+                await loadData();
+                showToast({
+                    message: `${formatTableLabels(tableIds.map(labelForTableId))}: assegnazione confermata.`,
+                    type: "success"
+                });
+                return true;
+            } catch (err) {
+                showToast({
+                    message: err instanceof Error ? err.message : "Errore inatteso",
+                    type: "error"
+                });
+                return false;
+            }
+        },
+        [selectedReservation, tenantId, loadData, showToast, labelForTableId]
+    );
+
+    const handleResetTables = useCallback(async (): Promise<boolean> => {
+        if (!selectedReservation || !tenantId) return false;
+        try {
+            const outcomes = await resetReservationTablesToSystem(selectedReservation.id, tenantId);
+            await loadData();
+            const assigned = outcomes
+                .filter(o => o.assigned && o.table_id)
+                .map(o => labelForTableId(o.table_id as string));
+            showToast({
+                message:
+                    assigned.length > 0
+                        ? `Il sistema propone ${formatTableLabels(assigned)}.`
+                        : "Nessun tavolo libero in questa fascia: la prenotazione resta senza tavolo.",
+                type: "info"
+            });
+            return true;
+        } catch (err) {
+            showToast({
+                message: err instanceof Error ? err.message : "Errore inatteso",
+                type: "error"
+            });
+            return false;
+        }
+    }, [selectedReservation, tenantId, loadData, showToast, labelForTableId]);
+
+    const handleReassignDay = useCallback(
+        async (date: string): Promise<boolean> => {
+            if (scope === "__all__" || !tenantId) return false;
+            try {
+                const summary = await reassignActivityTables(scope, date, tenantId);
+                await loadData();
+                const parts = [
+                    `Proposte rifatte per ${summary.reassigned} ${
+                        summary.reassigned === 1 ? "prenotazione" : "prenotazioni"
+                    }.`
+                ];
+                if (summary.unassigned > 0) {
+                    parts.push(
+                        summary.unassigned === 1
+                            ? "1 è rimasta senza tavolo."
+                            : `${summary.unassigned} sono rimaste senza tavolo.`
+                    );
+                }
+                if (summary.skipped_manual > 0) {
+                    parts.push(
+                        summary.skipped_manual === 1
+                            ? "1 sistemata a mano è rimasta com'era."
+                            : `${summary.skipped_manual} sistemate a mano sono rimaste come erano.`
+                    );
+                }
+                showToast({ message: parts.join(" "), type: "info", duration: 7000 });
+                return true;
+            } catch (err) {
+                showToast({
+                    message: err instanceof Error ? err.message : "Errore inatteso",
+                    type: "error"
+                });
+                return false;
+            }
+        },
+        [scope, tenantId, loadData, showToast]
+    );
+
     // ── Today bar ─────────────────────────────────────────────────────
     const today = todayIsoDate();
     const todayItems = useMemo(
@@ -688,6 +851,8 @@ export default function Reservations() {
                         items={scopedReservations}
                         tableViews={tableViews}
                         activityName={scopedActivityName}
+                        canManage={scope !== "__all__" && canManageActivity(scope)}
+                        onReassignDay={handleReassignDay}
                         onOpenDetail={handleOpenDetail}
                     />
                 )}
@@ -706,6 +871,10 @@ export default function Reservations() {
                 tableView={
                     selectedReservation ? tableViews.get(selectedReservation.id) ?? null : null
                 }
+                tables={selectedTables}
+                tableOccupancy={selectedTableOccupancy}
+                onSetTables={handleSetTables}
+                onResetTables={handleResetTables}
                 allReservations={effectiveReservations}
                 activityCapacity={selectedActivity?.reservation_capacity ?? null}
                 activityDurationMinutes={

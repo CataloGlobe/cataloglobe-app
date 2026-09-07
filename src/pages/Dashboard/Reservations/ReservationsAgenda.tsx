@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
-import { CalendarRange, ChevronLeft, ChevronRight, MessageSquare } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, MessageSquare, RefreshCw } from "lucide-react";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
 import { addDays, todayIsoDate } from "@/utils/dateLocal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { Button } from "@/components/ui/Button/Button";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { OCCUPYING_STATUSES } from "@/utils/reservationTableConflicts";
 import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
 import {
     TableAssignmentBadge,
@@ -21,6 +24,14 @@ interface Props {
     tableViews: ReadonlyMap<string, TableAssignmentView>;
     /** Activity name to render in headers (also serves as gate: null = "All sites"). */
     activityName: string | null;
+    /** True se chi guarda ha `reservations.manage` sulla sede in scope. */
+    canManage?: boolean;
+    /**
+     * Riorganizza i tavoli del giorno (RPC `reassign_activity_tables`).
+     * Ritorna true se riuscita: il parent ha già ricaricato e mostrato il
+     * toast col riepilogo. Assente = nessun bottone.
+     */
+    onReassignDay?: (date: string) => Promise<boolean>;
     /** Click any row → open detail drawer. */
     onOpenDetail: (r: V2Reservation) => void;
 }
@@ -127,9 +138,13 @@ export default function ReservationsAgenda({
     items,
     tableViews,
     activityName,
+    canManage = false,
+    onReassignDay,
     onOpenDetail
 }: Props) {
     const [mode, setMode] = useState<ViewMode>("days");
+    // Giorno in attesa di conferma per "Riorganizza i tavoli".
+    const [reassignDate, setReassignDate] = useState<string | null>(null);
     const [showTerminal, setShowTerminal] = useState(false);
     const [weekOffset, setWeekOffset] = useState(0);
     const today = todayIsoDate();
@@ -181,6 +196,23 @@ export default function ReservationsAgenda({
         list.filter(r => r.status === "confirmed").reduce((s, r) => s + r.party_size, 0);
 
     const hasAnyTerminal = rangeItems.some(r => TERMINAL.has(r.status));
+
+    // Quante prenotazioni del giorno la RPC rifarebbe (attive senza decisione
+    // dell'operatore, comprese quelle ancora senza tavolo) e quante lascerebbe
+    // stare (attive con assegnazione confermata). Stessi criteri della RPC,
+    // sui dati già in memoria: il numero vero arriva poi nel toast.
+    const reassignCounts = (list: V2Reservation[]) => {
+        let redo = 0;
+        let manual = 0;
+        for (const r of list) {
+            if (!OCCUPYING_STATUSES.has(r.status)) continue;
+            const view = tableViews.get(r.id);
+            if (view && !view.proposed) manual += 1;
+            else redo += 1;
+        }
+        return { redo, manual };
+    };
+    const pendingReassign = reassignDate ? reassignCounts(byDate.get(reassignDate) ?? []) : null;
 
     const sortedDates = useMemo(
         () => Array.from(byDate.keys()).sort((a, b) => a.localeCompare(b)),
@@ -360,6 +392,9 @@ export default function ReservationsAgenda({
                     const list = byDate.get(date) ?? [];
                     const filtered = visibleItems(list);
                     const covers = coversFor(list);
+                    // Niente da rifare = niente bottone.
+                    const showReassign =
+                        canManage && onReassignDay !== undefined && reassignCounts(list).redo > 0;
                     return (
                         <section key={date} className={styles.dayGroup}>
                             <div className={styles.dayHeader}>
@@ -371,6 +406,17 @@ export default function ReservationsAgenda({
                                     {filtered.length === 1 ? "prenotazione" : "prenotazioni"}
                                     {covers > 0 && ` · ~${covers} coperti`}
                                 </span>
+                                {showReassign && (
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className={styles.dayHeaderAction}
+                                        leftIcon={<RefreshCw size={14} strokeWidth={2} />}
+                                        onClick={() => setReassignDate(date)}
+                                    >
+                                        Riorganizza i tavoli
+                                    </Button>
+                                )}
                             </div>
                             <div className={styles.timeline}>
                                 {filtered.map(renderTimelineRow)}
@@ -382,6 +428,38 @@ export default function ReservationsAgenda({
                     Include le prenotazioni online e quelle inserite a mano. Le prenotazioni
                     prese altrove e non registrate qui non compaiono.
                 </p>
+
+                {/* Conferma sempre, anche per un giorno futuro: la RPC cancella e
+                    rifà le proposte, e i numeri qui sotto dicono in anticipo cosa
+                    tocca. Il riepilogo vero arriva nel toast. */}
+                <ConfirmDialog
+                    isOpen={reassignDate !== null}
+                    onClose={() => setReassignDate(null)}
+                    onConfirm={async () => {
+                        if (!reassignDate || !onReassignDay) return false;
+                        return onReassignDay(reassignDate);
+                    }}
+                    title={
+                        reassignDate
+                            ? `Riorganizzare i tavoli di ${formatDayHeader(reassignDate).toLowerCase()}?`
+                            : "Riorganizzare i tavoli?"
+                    }
+                    message={
+                        pendingReassign
+                            ? `Rifarò le proposte per ${pendingReassign.redo} ${
+                                  pendingReassign.redo === 1 ? "prenotazione" : "prenotazioni"
+                              }. ${
+                                  pendingReassign.manual === 0
+                                      ? "Nessuna è stata sistemata a mano."
+                                      : pendingReassign.manual === 1
+                                        ? "Quella che hai sistemato a mano resta com'è."
+                                        : `Le ${pendingReassign.manual} che hai sistemato a mano restano come sono.`
+                              }`
+                            : undefined
+                    }
+                    confirmLabel="Riorganizza"
+                    confirmVariant="primary"
+                />
             </div>
         );
     }
