@@ -58,6 +58,14 @@ $scrim-height: 120px;
 
 /* ── Strato B — 3 layer blur mascherati ─────────────────────────────────────
    Blur crescente, area decrescente (ordine DOM = ordine stacking, sotto .scrim).
+   Ramp delle maschere LUNGHE, sovrapposte e con profilo ease-out (più stop):
+   un backdrop-filter mascherato non riduce il raggio, fa un cross-fade fra
+   versione sfocata e nitida dello stesso contenuto → compresso in ~10px si
+   legge come un bordo, distribuito su ~80px diventa impercettibile. Nessun
+   punto in cui un layer si spegne mentre gli altri sono ancora pieni.
+   Profilo cumulativo ≈ 13.5px al bordo inferiore, ~6px a 1/4, ~1.5px a metà,
+   coda lunga fino al 100%.
+   `transparent` qui è alpha di MASCHERA, non colore: resta `transparent`.
    Entrambi i prefissi obbligatori: su WebKit l'assenza di -webkit-mask-image
    disattiva silenziosamente il ritaglio → bordo netto.
    Gated da [data-blur="on"] sul root: spegnibile dal Web Inspector (A/B). */
@@ -70,23 +78,69 @@ $scrim-height: 120px;
 
 .root[data-blur="on"] {
   .layer1 {
-    -webkit-backdrop-filter: blur(2px);
-    backdrop-filter: blur(2px);
-    -webkit-mask-image: linear-gradient(to top, #000 92%, transparent 100%);
-    mask-image: linear-gradient(to top, #000 92%, transparent 100%);
+    // 1.5px (era 2px): governa la coda più lunga → meno sdoppiamento dove il
+    // contenuto è ancora quasi nitido.
+    -webkit-backdrop-filter: blur(1.5px);
+    backdrop-filter: blur(1.5px);
+    -webkit-mask-image: linear-gradient(
+      to top,
+      #000 35%,
+      rgba(0, 0, 0, 0.85) 48%,
+      rgba(0, 0, 0, 0.55) 62%,
+      rgba(0, 0, 0, 0.25) 78%,
+      rgba(0, 0, 0, 0.08) 90%,
+      transparent 100%
+    );
+    mask-image: linear-gradient(
+      to top,
+      #000 35%,
+      rgba(0, 0, 0, 0.85) 48%,
+      rgba(0, 0, 0, 0.55) 62%,
+      rgba(0, 0, 0, 0.25) 78%,
+      rgba(0, 0, 0, 0.08) 90%,
+      transparent 100%
+    );
   }
 
   .layer2 {
     -webkit-backdrop-filter: blur(4px);
     backdrop-filter: blur(4px);
-    -webkit-mask-image: linear-gradient(to top, #000 75%, transparent 90%);
-    mask-image: linear-gradient(to top, #000 75%, transparent 90%);
+    -webkit-mask-image: linear-gradient(
+      to top,
+      #000 18%,
+      rgba(0, 0, 0, 0.8) 30%,
+      rgba(0, 0, 0, 0.45) 44%,
+      rgba(0, 0, 0, 0.18) 55%,
+      transparent 68%
+    );
+    mask-image: linear-gradient(
+      to top,
+      #000 18%,
+      rgba(0, 0, 0, 0.8) 30%,
+      rgba(0, 0, 0, 0.45) 44%,
+      rgba(0, 0, 0, 0.18) 55%,
+      transparent 68%
+    );
   }
 
   .layer3 {
     -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
-    -webkit-mask-image: linear-gradient(to top, #000 55%, transparent 70%);
-    mask-image: linear-gradient(to top, #000 55%, transparent 70%);
+    -webkit-mask-image: linear-gradient(
+      to top,
+      #000 8%,
+      rgba(0, 0, 0, 0.75) 16%,
+      rgba(0, 0, 0, 0.4) 25%,
+      rgba(0, 0, 0, 0.15) 30%,
+      transparent 38%
+    );
+    mask-image: linear-gradient(
+      to top,
+      #000 8%,
+      rgba(0, 0, 0, 0.75) 16%,
+      rgba(0, 0, 0, 0.4) 25%,
+      rgba(0, 0, 0, 0.15) 30%,
+      transparent 38%
+    );
   }
 }
