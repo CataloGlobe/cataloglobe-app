@@ -50,11 +50,11 @@
 
 .root {
   width: 100%;
-  // Clearance per la bottom bar pubblica fluttuante — ingombro REALE (token
-  // `--pub-bottombar-clearance`, PublicBottomBar.module.scss), non un valore
-  // a occhio. Sul `.root`, non su `.grid`, così vale anche quando c'è solo il
-  // cappello senza lista storie.
-  padding-bottom: max(var(--pub-bottombar-clearance), env(safe-area-inset-bottom));
+  // Clearance sotto PublicBottomScrim (che copre anche la bottom bar): token
+  // `--pub-scrim-clearance` (120px scrim + 16px respiro, PublicBottomScrim
+  // .module.scss) + safe-area SOMMATA, mai `max()`. Sul `.root`, non su
+  // `.grid`, così vale anche quando c'è solo il cappello senza lista storie.
+  padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
 }
 
 /* ── Cappello ─────────────────────────────────────────────────────────── */

@@ -8,6 +8,20 @@
 
 $scrim-height: 120px;
 
+// Clearance inferiore per i contenitori scrollabili pubblici che stanno SOTTO lo
+// scrim: 120px (altezza dello scrim, $scrim-height) + 16px di respiro = 136px.
+// La safe-area resta a parte e va SOMMATA dal consumer:
+//   padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px))
+// (mai `max()`: su iPhone con home indicator la safe-area va aggiunta, non confrontata).
+// Definito su :root — stesso selettore di `--pub-bottombar-clearance` in
+// PublicBottomBar.module.scss — perché footer e Storie sono SIBLING dello scrim,
+// non discendenti: su `.root` non erediterebbero e var() cadrebbe sul fallback.
+// Distinto da `--pub-bottombar-clearance` (86px = ingombro reale della pill):
+// concetti diversi, devono poter divergere. Se $scrim-height cambia, aggiorna qui.
+:global(:root) {
+  --pub-scrim-clearance: #{$scrim-height + 16px};
+}
+
 .root {
   position: fixed;
   left: 0;

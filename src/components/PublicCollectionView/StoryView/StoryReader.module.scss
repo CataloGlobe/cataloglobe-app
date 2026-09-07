@@ -9,11 +9,12 @@
   // vero non solo estetico. Stesso breakpoint di `.cappello` in
   // StoryView.module.scss (@container collection, mai @media viewport: la
   // preview Style Editor misura il device frame).
-  // padding-bottom: ingombro REALE della bottom bar flottante (token
-  // `--pub-bottombar-clearance`, PublicBottomBar.module.scss), non un valore
-  // a occhio — protegge davvero la coda del contenuto (didascalia ultima
-  // immagine, card "Dal menu") ora che il lettore vive IN FLUSSO.
-  padding: var(--pub-space-4) 0 max(var(--pub-bottombar-clearance), env(safe-area-inset-bottom));
+  // padding-bottom: clearance sotto PublicBottomScrim (che copre anche la
+  // bottom bar) — token `--pub-scrim-clearance` (120px scrim + 16px respiro,
+  // PublicBottomScrim.module.scss) + safe-area SOMMATA, mai `max()` — protegge
+  // davvero la coda del contenuto (didascalia ultima immagine, card "Dal menu")
+  // ora che il lettore vive IN FLUSSO.
+  padding: var(--pub-space-4) 0 calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
 
   @container collection (min-width: 700px) {
     padding-top: var(--pub-space-7);
