@@ -68,10 +68,11 @@
   padding: 6px;
   box-sizing: border-box;
 
-  // blur 30px: cancella il dettaglio del testo dietro restando sotto la soglia di
-  // jank di iOS Safari (~32px) per una barra fixed sopra contenuto che scrolla.
-  backdrop-filter: blur(30px) saturate(1.8);
-  -webkit-backdrop-filter: blur(30px) saturate(1.8);
+  // blur 12px: sotto la pill c'è lo scrim di PublicBottomScrim ad alpha ~1, quindi
+  // il vetro sfoca un colore quasi piatto — un raggio alto costerebbe composizione
+  // (su un elemento che si scala via transform) senza resa visibile.
+  backdrop-filter: blur(12px) saturate(1.8);
+  -webkit-backdrop-filter: blur(12px) saturate(1.8);
   border-radius: 999px;
   box-shadow: 0 8px 30px rgba(0, 0, 0, 0.18);
 
