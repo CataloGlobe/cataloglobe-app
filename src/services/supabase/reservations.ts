@@ -18,7 +18,12 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalize";
-import type { V2Reservation } from "@/types/reservation";
+import type {
+    ReassignActivityTablesSummary,
+    ReservationTableAssignment,
+    ReservationTableAssignmentOutcome,
+    V2Reservation
+} from "@/types/reservation";
 
 /**
  * Lista prenotazioni di un tenant. Ordinate per data + ora ascendente
@@ -607,4 +612,134 @@ export async function respondReservation(
         throw err;
     }
     return data;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Assegnazione tavoli — lettura + i tre gesti dell'operatore (FASE 4)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// Il motore (`assign_tables_for_reservation`) gira da trigger su ogni INSERT e
+// su ogni cambio di data/ora/coperti: il frontend non lo chiama mai. Qui solo
+// ciò che il motore non può decidere da solo. Le tre RPC sono SECURITY
+// DEFINER con gate interno `has_permission('reservations.manage', activity)`
+// → 42501 unico per "non esiste" e "non autorizzato". Mapping errori come
+// `ingredients.ts:setProductIngredients`.
+
+/**
+ * Mappa gli errori delle RPC di assegnazione in Error con `.code` per il
+ * branching UI. 42501 e 22023 hanno un messaggio italiano; il resto passa.
+ */
+function mapReservationTablesRpcError(error: { code?: string; message?: string }): Error {
+    let message: string;
+    if (error.code === "42501") {
+        message = "Operazione non autorizzata";
+    } else if (error.code === "22023") {
+        message = "Richiesta non valida";
+    } else {
+        message = error.message ?? "Errore inatteso";
+    }
+    const err = new Error(message);
+    (err as Error & { code?: string; details?: string }).code = error.code;
+    (err as Error & { code?: string; details?: string }).details = error.message;
+    return err;
+}
+
+/**
+ * Tavoli assegnati a una prenotazione (righe di `reservation_tables`).
+ * Lettura diretta sotto RLS (`reservations.read` sulla sede) + tenant filter
+ * difensivo. Ordine per table_id: stabile, nessun significato operativo.
+ */
+export async function listReservationTables(
+    reservationId: string,
+    tenantId: string
+): Promise<ReservationTableAssignment[]> {
+    const { data, error } = await supabase
+        .from("reservation_tables")
+        .select("*")
+        .eq("reservation_id", reservationId)
+        .eq("tenant_id", tenantId)
+        .order("table_id", { ascending: true });
+
+    if (error) throw error;
+    return (data ?? []) as ReservationTableAssignment[];
+}
+
+/**
+ * Assegnazione manuale: sostituisce TUTTI i tavoli della prenotazione con
+ * `tableIds`, tutti `manual`. Da quel momento il motore non la ricalcola più
+ * (reschedule e riorganizzazione la saltano). Nessuna verifica che i tavoli
+ * siano liberi: l'operatore non viene bloccato, il conflitto lo mostra la UI.
+ *
+ * `tenantId` non viaggia verso la RPC (tenant e sede vengono dalla riga di
+ * prenotazione lato server): serve solo a mantenere la firma uniforme del
+ * service e per un eventuale filtro difensivo sul risultato.
+ *
+ * Errori (`.code`):
+ *   42501 → prenotazione inesistente/non autorizzata, o tavolo non della sede
+ *   22023 → array vuoto, elemento null, duplicati, prenotazione non attiva
+ */
+export async function setReservationTables(
+    reservationId: string,
+    tableIds: string[],
+    tenantId: string
+): Promise<ReservationTableAssignment[]> {
+    const { data, error } = await supabase.rpc("set_reservation_tables", {
+        p_reservation_id: reservationId,
+        p_table_ids: tableIds
+    });
+
+    if (error) throw mapReservationTablesRpcError(error);
+    const rows = (data ?? []) as ReservationTableAssignment[];
+    return rows.filter(r => r.tenant_id === tenantId);
+}
+
+/**
+ * Restituisce la prenotazione al sistema: cancella ogni riga (manual comprese)
+ * e richiama subito il motore. Ritorna l'esito del motore così com'è.
+ *
+ * Errori (`.code`): 42501 (inesistente/non autorizzata), 22023 (non attiva).
+ */
+export async function resetReservationTablesToSystem(
+    reservationId: string,
+    // Firma uniforme del service; tenant e sede vengono dalla riga lato server.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _tenantId: string
+): Promise<ReservationTableAssignmentOutcome[]> {
+    const { data, error } = await supabase.rpc("reset_reservation_tables_to_system", {
+        p_reservation_id: reservationId
+    });
+
+    if (error) throw mapReservationTablesRpcError(error);
+    return (data ?? []) as ReservationTableAssignmentOutcome[];
+}
+
+/**
+ * Riorganizza una giornata: ricalcola le assegnazioni `system` di tutte le
+ * prenotazioni attive di (sede, data), le manual restano. `date` in formato
+ * "YYYY-MM-DD" (stesso di `reservation_date`).
+ *
+ * Errori (`.code`): 42501 (sede inesistente/non autorizzata), 22023 (data mancante).
+ */
+export async function reassignActivityTables(
+    activityId: string,
+    date: string,
+    // Firma uniforme del service; il gate è sulla sede lato server.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _tenantId: string
+): Promise<ReassignActivityTablesSummary> {
+    const { data, error } = await supabase.rpc("reassign_activity_tables", {
+        p_activity_id: activityId,
+        p_date: date
+    });
+
+    if (error) throw mapReservationTablesRpcError(error);
+
+    const rows = (data ?? []) as ReassignActivityTablesSummary[];
+    const summary = rows[0];
+    if (!summary) {
+        const err = new Error("Risposta vuota dal server");
+        (err as unknown as { code: string }).code = "SERVER_ERROR";
+        throw err;
+    }
+    return summary;
 }

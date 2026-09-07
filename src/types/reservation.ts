@@ -117,3 +117,32 @@ export interface ReservationTableAssignment {
     created_at: string;
     updated_at: string;
 }
+
+// Esito del motore assign_tables_for_reservation, così come lo restituiscono
+// anche reset_reservation_tables_to_system e la RPC di riorganizzazione.
+// Una riga per tavolo assegnato (assigned=true), oppure UNA sola riga
+// (table_id=null, assigned=false) con il motivo.
+export type ReservationTableAssignmentReason =
+    | "single"
+    | "single_relaxed_min"
+    | "combination"
+    | "no_table_available"
+    | "manual_assignment"
+    | "inactive_status"
+    | "reservation_not_found";
+
+export interface ReservationTableAssignmentOutcome {
+    table_id: string | null;
+    assigned: boolean;
+    reason: ReservationTableAssignmentReason;
+}
+
+// Riepilogo di reassign_activity_tables(sede, data).
+export interface ReassignActivityTablesSummary {
+    /** Prenotazioni con almeno un tavolo dopo il giro. */
+    reassigned: number;
+    /** Prenotazioni rimaste senza tavolo dopo il giro. */
+    unassigned: number;
+    /** Prenotazioni attive saltate perché hanno un'assegnazione manual. */
+    skipped_manual: number;
+}
