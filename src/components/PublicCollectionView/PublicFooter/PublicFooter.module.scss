@@ -28,7 +28,9 @@
    (TODO: consolidare in token --pub-bottombar-clearance). */
 @media (max-width: 640px) {
   .footer {
-    padding-bottom: calc(16px + 58px + 16px + env(safe-area-inset-bottom, 0px));
+    /* 120px scrim (PublicBottomScrim) + 16px respiro: i link legali restano fuori
+       dalla zona di dissolvenza. */
+    padding-bottom: calc(120px + 16px + env(safe-area-inset-bottom, 0px));
   }
 }
 
