@@ -32,6 +32,7 @@ import { contrastText } from "@/features/public/utils/mapStyleTokensToCssVars";
 import styles from "./CollectionView.module.scss";
 import EventsView from "../EventsView/EventsView";
 import PublicBottomBar from "../PublicBottomBar/PublicBottomBar";
+import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
 import { hasOpenSheet } from "../hooks/useScrollCollapse";
 import { hasOrderablePrice } from "../itemPricing";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
@@ -3212,6 +3213,12 @@ export default function CollectionView({
                     // Parse-fail ⇒ "#ffffff" ⇒ "dark" (preserva il comportamento storico).
                     surfaceTheme={contrastText(style.backgroundColor) === "#1a1a1a" ? "light" : "dark"}
                 />
+            )}
+
+            {/* ── SCRIM bordo inferiore — stessa condizione di mount della barra.
+                Sotto la barra (z 100 < 150), sopra il contenuto. Solo CSS. ── */}
+            {(useBottomBar || (mode === "preview" && previewDevice === "mobile")) && (
+                <PublicBottomScrim isPreview={mode === "preview"} />
             )}
 
             {submitFeedback && (
