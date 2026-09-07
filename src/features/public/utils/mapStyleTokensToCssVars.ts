@@ -218,9 +218,16 @@ export function mapStyleTokensToCssVars(tokens: StyleTokenModel): Record<string,
         tokens.appearance.patternIntensity
     );
 
+    // Tripletta RGB dello sfondo pagina per gradienti alpha `rgba(var(--pub-bg-rgb), a)`.
+    // Un gradiente verso `transparent` (o via color-mix con transparent) interpola verso
+    // rgba(0,0,0,0) e produce banding grigio su WebKit; con la tripletta l'endpoint ad
+    // alpha 0 conserva l'hue per costruzione. Stesso parseHex di --pub-bg (fallback 0 per canale).
+    const bgRgb = parseHex(tokens.colors.pageBackground);
+
     return {
         // ── Existing pub vars ────────────────────────────────────────────
         "--pub-bg": tokens.colors.pageBackground,
+        "--pub-bg-rgb": `${bgRgb.r}, ${bgRgb.g}, ${bgRgb.b}`,
         "--pub-primary": tokens.colors.primary,
         // --pub-primary-text: testo su elementi primary-filled (nav attiva, badge) →
         // contrasto sul primario, NON sull'accent (cta-text serve solo agli elementi accent-filled)
