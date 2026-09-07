@@ -21,6 +21,8 @@ import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/Data
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
+import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import { Package, LayoutGrid, List as ListIcon } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
@@ -365,24 +367,25 @@ export default function Products() {
         </Tabs>
     ), [activeTab, handleTabChange, visibleTabs]);
 
+    // Una sola azione per tab: lo `SplitButton` rende quindi un normale bottone
+    // primario, senza caret. Stesso componente delle pagine con più azioni —
+    // nessuna variante per pagina. La lista è condivisa con la config compatta.
+    const ctaActions = useMemo<SplitButtonAction[]>(
+        () =>
+            activeTab === "products" && canWriteProduct
+                ? [{ label: `Crea ${verticalConfig.productLabel.toLowerCase()}`, onClick: handleCreateBase, disabled: !canEdit }]
+                : activeTab === "groups" && canWriteProduct
+                ? [{ label: "Crea gruppo", onClick: () => setCreateGroupOpen(true), disabled: !canEdit }]
+                : activeTab === "attributes" && canWriteAttribute
+                ? [{ label: "Nuovo attributo", onClick: () => setAttrCreateSeq(s => s + 1), disabled: !canEdit }]
+                : activeTab === "ingredients" && verticalConfig.productSections.ingredients && canWriteProduct
+                ? [{ label: "Crea ingrediente", onClick: () => setIngredientCreateSeq(s => s + 1), disabled: !canEdit }]
+                : [],
+        [activeTab, canWriteProduct, canWriteAttribute, canEdit, verticalConfig, handleCreateBase]
+    );
+
     const headerActions = useMemo(() => {
-        const cta = activeTab === "products" && canWriteProduct ? (
-            <Button variant="primary" onClick={handleCreateBase} disabled={!canEdit} className={styles.toolbarCta}>
-                {`Crea ${verticalConfig.productLabel.toLowerCase()}`}
-            </Button>
-        ) : activeTab === "groups" && canWriteProduct ? (
-            <Button variant="primary" onClick={() => setCreateGroupOpen(true)} disabled={!canEdit} className={styles.toolbarCta}>
-                Crea gruppo
-            </Button>
-        ) : activeTab === "attributes" && canWriteAttribute ? (
-            <Button variant="primary" onClick={() => setAttrCreateSeq(s => s + 1)} disabled={!canEdit} className={styles.toolbarCta}>
-                Nuovo attributo
-            </Button>
-        ) : activeTab === "ingredients" && verticalConfig.productSections.ingredients && canWriteProduct ? (
-            <Button variant="primary" onClick={() => setIngredientCreateSeq(s => s + 1)} disabled={!canEdit} className={styles.toolbarCta}>
-                Crea ingrediente
-            </Button>
-        ) : null;
+        const cta = ctaActions.length > 0 ? <SplitButton actions={ctaActions} /> : null;
 
         if (activeTab === "groups") {
             return (
@@ -447,10 +450,7 @@ export default function Products() {
         );
     }, [
         activeTab,
-        canEdit,
-        canWriteProduct,
-        canWriteAttribute,
-        handleCreateBase,
+        ctaActions,
         verticalConfig,
         searchQuery,
         groupsSearchQuery,
@@ -462,7 +462,54 @@ export default function Products() {
         handleViewChange
     ]);
 
-    usePageHeader({ leading, actions: headerActions });
+    // Versione a dati della stessa toolbar per lo stato compatto. Il filtro
+    // "mancanze" (tab Prodotti) non ha posto in questa riga: resta disponibile
+    // in comoda — annotato per il rollout successivo, non inventato qui.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => {
+        const search =
+            activeTab === "products"
+                ? {
+                      value: searchQuery,
+                      onChange: setSearchQuery,
+                      placeholder: `Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`
+                  }
+                : activeTab === "groups"
+                ? { value: groupsSearchQuery, onChange: setGroupsSearchQuery, placeholder: "Cerca gruppo..." }
+                : activeTab === "ingredients"
+                ? { value: ingredientsSearchQuery, onChange: setIngredientsSearchQuery, placeholder: "Cerca ingrediente..." }
+                : undefined;
+
+        return {
+            sections: visibleTabs.map(tab => ({ value: tab.value, label: tab.label })),
+            activeSection: activeTab,
+            onSectionChange: value => handleTabChange(value as ProductsTab),
+            search,
+            // Il toggle vista esiste solo sulla tab Prodotti, e lì resta sempre
+            // a vista: è troppo frequente per finire dietro un tap in più.
+            persistentIcons:
+                activeTab === "products"
+                    ? [
+                          viewMode === "list"
+                              ? { icon: <LayoutGrid size={18} />, label: "Vista griglia", onClick: () => handleViewChange("grid") }
+                              : { icon: <ListIcon size={18} />, label: "Vista lista", onClick: () => handleViewChange("list") }
+                      ]
+                    : undefined,
+            primaryAction: ctaActions[0]
+        };
+    }, [
+        activeTab,
+        visibleTabs,
+        handleTabChange,
+        searchQuery,
+        groupsSearchQuery,
+        ingredientsSearchQuery,
+        verticalConfig,
+        viewMode,
+        handleViewChange,
+        ctaActions
+    ]);
+
+    usePageHeader({ leading, actions: headerActions, compact: headerCompact });
 
     const handleCreateVariant = (baseProduct: V2Product) => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }

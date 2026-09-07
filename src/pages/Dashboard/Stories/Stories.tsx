@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -16,7 +17,11 @@ import { UnsavedChangesDialog } from "@/components/ui/UnsavedChangesDialog/Unsav
 import StoryCreateDrawer from "./StoryCreateDrawer";
 import StoryDeleteDrawer from "./StoryDeleteDrawer";
 import { StoryBrandPanel } from "./components/StoryBrandPanel";
-import { HeaderSaveAction } from "./components/HeaderSaveAction";
+import {
+    HeaderSaveAction,
+    DiscardChangesConfirmDialog
+} from "./components/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "./components/headerSaveActionCompact";
 import { useBrandStoryDraft } from "./hooks/useBrandStoryDraft";
 import { useBeforeUnloadWarning } from "./hooks/useBeforeUnloadWarning";
 import styles from "./Stories.module.scss";
@@ -56,6 +61,10 @@ export default function Stories() {
     const [loading, setLoading] = useState(true);
     const [stories, setStories] = useState<StoryWithProduct[]>([]);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
+    // Conferma dello scarto quando "Annulla" arriva dal kebab della toolbar
+    // compatta: stessa domanda del bottone in toolbar comoda, che ha il proprio
+    // dialog dentro `HeaderSaveAction`.
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<StoryWithProduct | null>(null);
     // Tab richiesto mentre il brand è dirty: apre il dialog 3 opzioni.
     const [pendingTab, setPendingTab] = useState<StoriesTab | null>(null);
@@ -142,7 +151,40 @@ export default function Stories() {
         );
     }, [activeTab, handleCreate, canEdit, canWrite, brand.isDirty, brand.isSaving, brand.save, brand.discard]);
 
-    usePageHeader({ leading, actions, sticky: true });
+    // Le due tab hanno azioni di natura diversa: "Storie" crea, "Storia del
+    // brand" salva. La config compatta segue la tab attiva, non è calcolata una
+    // volta sola.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => {
+        const base = {
+            sections: [
+                { value: "stories", label: "Storie" },
+                { value: "brand", label: "Storia del brand" }
+            ],
+            activeSection: activeTab,
+            onSectionChange: (value: string) => handleTabChange(value as StoriesTab)
+        };
+
+        if (!canWrite) return base;
+
+        if (activeTab === "brand") {
+            return {
+                ...base,
+                ...buildSaveActionCompactConfig({
+                    isDirty: brand.isDirty,
+                    isSaving: brand.isSaving,
+                    onSave: brand.save,
+                    onRequestDiscard: () => setConfirmDiscardOpen(true)
+                })
+            };
+        }
+
+        return {
+            ...base,
+            primaryAction: { label: "Crea storia", onClick: handleCreate, disabled: !canEdit }
+        };
+    }, [activeTab, handleTabChange, canWrite, canEdit, handleCreate, brand.isDirty, brand.isSaving, brand.save]);
+
+    usePageHeader({ leading, actions, compact: headerCompact });
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
@@ -355,6 +397,12 @@ export default function Stories() {
                             }
                             return ok;
                         }}
+                    />
+
+                    <DiscardChangesConfirmDialog
+                        isOpen={confirmDiscardOpen}
+                        onClose={() => setConfirmDiscardOpen(false)}
+                        onDiscard={brand.discard}
                     />
                 </>
             )}

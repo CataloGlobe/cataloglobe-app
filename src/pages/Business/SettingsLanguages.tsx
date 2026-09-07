@@ -47,7 +47,6 @@ export default function SettingsLanguages() {
     usePageHeader({
         title: t("languages.title"),
         subtitle: t("languages.description"),
-        sticky: true,
     });
 
     const loadData = useCallback(async () => {

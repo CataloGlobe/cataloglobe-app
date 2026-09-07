@@ -6,6 +6,7 @@ import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Select } from "@/components/ui/Select/Select";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { listAllTickets } from "@/services/supabase/support";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
@@ -93,6 +94,8 @@ export default function SupportQueuePage() {
                 onChange={e => setFilter(e.target.value as StatusFilter)}
                 options={FILTER_OPTIONS}
                 aria-label="Filtra per stato"
+                containerClassName={styles.toolbarFilter}
+                selectClassName={styles.toolbarFilterSelect}
             />
         ),
         [filter]
@@ -106,10 +109,25 @@ export default function SupportQueuePage() {
             : `${waitingCount} richieste aspettano una risposta.`;
     }, [isLoading, waitingCount]);
 
+    // Unico controllo della pagina, e non è un'azione: prende il posto del
+    // picker sezione come su Analitiche e Recensioni. Nessuna primaria: la coda
+    // si guarda, non ci si crea nulla.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        leadingFilter: {
+            label: "Stato",
+            options: FILTER_OPTIONS,
+            value: filter,
+            // Default della coda, non "nessun filtro": è come si apre la pagina.
+            defaultValue: "open_only",
+            onChange: value => setFilter(value as StatusFilter)
+        }
+    }), [filter]);
+
     usePageHeader({
         title: "Supporto",
         subtitle,
-        actions: headerActions
+        actions: headerActions,
+        compact: headerCompact
     });
 
     if (isLoading) {

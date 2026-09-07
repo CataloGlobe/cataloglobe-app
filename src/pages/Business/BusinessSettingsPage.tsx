@@ -49,7 +49,6 @@ export default function BusinessSettingsPage() {
     usePageHeader({
         title: "Impostazioni attività",
         subtitle: "Gestisci le informazioni e le preferenze di questa attività.",
-        sticky: true,
     });
 
     const handleSave = async (e: React.FormEvent) => {

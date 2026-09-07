@@ -4,6 +4,37 @@ import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import styles from "./HeaderSaveAction.module.scss";
 
+/**
+ * Conferma per lo scarto delle modifiche. Estratta perché la stessa domanda va
+ * fatta da due punti diversi — il bottone "Annulla" della toolbar comoda e la
+ * voce "Annulla" nel kebab di quella compatta — e deve restare la stessa
+ * domanda: testo, etichette e variante distruttiva in un posto solo.
+ */
+export function DiscardChangesConfirmDialog({
+    isOpen,
+    onClose,
+    onDiscard
+}: {
+    isOpen: boolean;
+    onClose: () => void;
+    onDiscard: () => void;
+}) {
+    return (
+        <ConfirmDialog
+            isOpen={isOpen}
+            onClose={onClose}
+            onConfirm={async () => {
+                onDiscard();
+                return true;
+            }}
+            title="Scartare le modifiche non salvate?"
+            message="Le modifiche non salvate andranno perse. Resti sulla pagina."
+            confirmLabel="Scarta"
+            confirmVariant="danger"
+        />
+    );
+}
+
 interface HeaderSaveActionProps {
     /** true quando il draft differisce dallo stato salvato. */
     isDirty: boolean;
@@ -55,17 +86,10 @@ export function HeaderSaveAction({ isDirty, isSaving, onSave, onDiscard }: Heade
             </Button>
 
             {onDiscard && (
-                <ConfirmDialog
+                <DiscardChangesConfirmDialog
                     isOpen={confirmDiscardOpen}
                     onClose={() => setConfirmDiscardOpen(false)}
-                    onConfirm={async () => {
-                        onDiscard();
-                        return true;
-                    }}
-                    title="Scartare le modifiche non salvate?"
-                    message="Le modifiche non salvate andranno perse. Resti sulla pagina."
-                    confirmLabel="Scarta"
-                    confirmVariant="danger"
+                    onDiscard={onDiscard}
                 />
             )}
         </div>

@@ -1,0 +1,350 @@
+.bar {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  min-width: 0;
+  padding: 10px 0;
+}
+
+// Occupa lo spazio libero al centro: il gruppo icone + CTA resta ancorato a
+// destra anche quando la pagina non ha sezioni e il picker non si rende.
+.spacer {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ── Selettore sezione ─────────────────────────────────────── */
+
+// Solo la sezione attiva + chevron: nessun accenno alle altre. Chi cerca le
+// altre sezioni le trova dove si aspetta di trovarle, cioè aprendo il picker.
+.sectionPicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+
+  height: var(--control-height, 38px);
+  padding: 0 8px 0 0;
+  gap: 6px;
+
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.sectionLabel {
+  // Il nome della sezione è l'unico elemento comprimibile della riga: tronca
+  // lui, così le icone e la CTA restano sempre intere.
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sectionChevron {
+  flex-shrink: 0;
+  color: var(--text-muted, #64748b);
+}
+
+// Quando lo slot ospita un filtro invece delle sezioni: piccola icona davanti
+// al valore, così si legge come "sto filtrando" e non come "sono in questa
+// sezione".
+.sectionFilterIcon {
+  flex-shrink: 0;
+  color: var(--text-muted, #64748b);
+}
+
+// Filtro attivo: la pillola si accende. Sostituisce il pallino delle icone —
+// qui il valore è già scritto, serve solo dire che non è quello di default.
+.sectionPickerActive {
+  padding-left: 10px;
+  border-radius: 999px;
+  background: var(--brand-primary-soft);
+  color: var(--brand-primary);
+
+  .sectionFilterIcon,
+  .sectionChevron {
+    color: currentColor;
+  }
+}
+
+.sectionPicker[data-state="open"] .sectionChevron {
+  transform: rotate(180deg);
+}
+
+// Voce di sezione con spiegazione: etichetta sopra, motivo sotto.
+.sectionOption {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sectionOptionHint {
+  font-size: 12px;
+  font-weight: 400;
+  line-height: 1.3;
+  color: var(--text-muted, #64748b);
+  white-space: normal;
+}
+
+/* ── Ritorno alla lista ────────────────────────────────────── */
+
+// Stessa metrica del picker ma senza chevron: qui non si sceglie, si torna.
+.backAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+
+  height: var(--control-height, 38px);
+  padding: 0 8px 0 0;
+
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ── Icone ─────────────────────────────────────────────────── */
+
+.iconButton {
+  flex-shrink: 0;
+  // Ancoraggio del pallino "filtro attivo".
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  // Bersaglio touch pieno: l'icona è 18px ma l'area cliccabile no.
+  width: var(--control-height, 38px);
+  height: var(--control-height, 38px);
+
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+
+  color: var(--text-muted, #64748b);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover {
+    background: var(--hover-bg, #f1f5f9);
+    color: var(--text);
+  }
+}
+
+/* ── Impilamento riga + chip filtro ────────────────────────── */
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+
+  // La riga cede il proprio respiro inferiore alla chip: senza, i due padding
+  // si sommerebbero e la banda crescerebbe più del necessario.
+  .bar {
+    padding-bottom: 4px;
+  }
+}
+
+// La chip vive sotto la riga, non dentro: la riga principale resta di altezza
+// costante e non balla quando il filtro si attiva o si azzera.
+.filterChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-bottom: 10px;
+}
+
+// La pillola è il contenitore, non il bersaglio: i due botteni dentro hanno
+// aree proprie. Il padding sta su di loro, così ognuno è toccabile per intero.
+.filterChip {
+  display: inline-flex;
+  align-items: center;
+
+  border-radius: 999px;
+  background: var(--brand-primary-soft);
+
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--brand-primary);
+  white-space: nowrap;
+}
+
+.filterChipMain {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+
+  padding: 4px 6px 4px 10px;
+
+  background: transparent;
+  border: none;
+  border-radius: 999px 0 0 999px;
+
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.filterChipLabel {
+  font-weight: 500;
+  opacity: 0.75;
+}
+
+.filterChipClear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  // Area propria a destra della pillola: la × non deve rubare tocchi al corpo
+  // né essere così piccola da mancarsi.
+  padding: 4px 8px 4px 4px;
+
+  background: transparent;
+  border: none;
+  border-radius: 0 999px 999px 0;
+
+  color: inherit;
+  opacity: 0.7;
+  cursor: pointer;
+  transition: opacity 0.15s;
+
+  &:hover {
+    opacity: 1;
+  }
+}
+
+/* ── Filtro: icona + overlay a lista ───────────────────────── */
+
+// Pallino sull'icona: dice che un filtro è attivo senza aprire nulla.
+.filterDot {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+  // Stacco dall'icona sottostante, così il pallino si legge come applicato
+  // sopra e non come parte del glifo.
+  box-shadow: 0 0 0 2px var(--card-bg, #ffffff);
+}
+
+.filterOverlay {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-width: 0;
+}
+
+.filterTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.filterOptions {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 8px;
+}
+
+.filterOption {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+
+  // Riga piena: il bersaglio è l'intera larghezza, non la sola etichetta.
+  padding: 10px 4px;
+
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+
+  font-size: 15px;
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--hover-bg, #f1f5f9);
+  }
+}
+
+.filterOptionSelected {
+  font-weight: 600;
+  color: var(--brand-primary);
+}
+
+/* ── Controllo di stato dell'entità ────────────────────────── */
+
+// Non si comprime: se lo spazio manca è la ricerca o l'etichetta della sezione
+// a cedere, non lo stato — cambiarlo è l'operazione per cui si è qui.
+.statusControl {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+}
+
+.readonly {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* ── Indicazione di stato ──────────────────────────────────── */
+
+// Stesso linguaggio della pillola "Salvato" della toolbar comoda: quieto, non
+// cliccabile, occupa il posto della primaria quando non c'è nulla da premere.
+.status {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding-right: 4px;
+
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  white-space: nowrap;
+
+  svg {
+    color: var(--color-green-500);
+  }
+}
+
+/* ── Azione primaria ───────────────────────────────────────── */
+
+.primary {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
+}
+
+/* ── Overlay ricerca ───────────────────────────────────────── */
+
+// Prende l'intera riga al posto del resto: la ricerca su schermo stretto è una
+// modalità, non un campo da incastrare accanto agli altri controlli.
+.searchField {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.searchInput {
+  box-sizing: border-box;
+  height: var(--control-height, 38px);
+  line-height: 1;
+}

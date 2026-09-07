@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -183,11 +184,29 @@ export default function Styles() {
         </>
     ), [handleCreateClick, canEdit, canWrite, searchQuery, viewMode, handleViewModeChange]);
 
+    // Stessa toolbar a dati per lo stato compatto: nessuna tab, quindi niente
+    // `sections` — la riga parte dalle icone.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        search: {
+            value: searchQuery,
+            onChange: setSearchQuery,
+            placeholder: "Cerca stili..."
+        },
+        persistentIcons: [
+            viewMode === "list"
+                ? { icon: <LayoutGrid size={18} />, label: "Vista griglia", onClick: () => handleViewModeChange("grid") }
+                : { icon: <ListIcon size={18} />, label: "Vista lista", onClick: () => handleViewModeChange("list") }
+        ],
+        primaryAction: canWrite
+            ? { label: "Crea stile", onClick: handleCreateClick, disabled: !canEdit }
+            : undefined
+    }), [searchQuery, viewMode, handleViewModeChange, canWrite, handleCreateClick, canEdit]);
+
     usePageHeader({
         title: "Stili",
         subtitle: "Personalizza l'aspetto visivo e i colori del tuo catalogo.",
         actions: headerActions,
-        sticky: true,
+        compact: headerCompact,
     });
 
     const handleEditClick = useCallback(

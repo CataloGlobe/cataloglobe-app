@@ -7,11 +7,15 @@
   padding-bottom: 2rem;
 }
 
+// NIENTE `flex-wrap`: andando a capo da sole le azioni si dichiarerebbero
+// sempre "abbastanza strette", e `useCompactToolbar` misura proprio quella
+// larghezza per decidere se la banda entra nella riga. Su schermo stretto non
+// si spezzano più: passa la barra compatta (stesso motivo per cui `ToolbarSearch`
+// non ha più il `width: 100%` sotto i 767px).
 .topActions {
   display: flex;
   gap: 0.65rem;
   align-items: center;
-  flex-wrap: wrap;
 }
 
 /* Stato attivo/disattivo: salva subito, quindi vive accanto alle azioni e

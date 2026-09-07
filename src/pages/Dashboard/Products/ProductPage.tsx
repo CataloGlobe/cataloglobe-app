@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useParams, useNavigate, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Button } from "@/components/ui/Button/Button";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import Text from "@/components/ui/Text/Text";
@@ -17,7 +18,11 @@ import { getProduct, V2Product } from "@/services/supabase/products";
 import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
 import { getProductUsage, ProductUsageData } from "@/services/supabase/productUsage";
 import { useSchedaDraft } from "./hooks/useSchedaDraft";
-import { HeaderSaveAction } from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
+import {
+    HeaderSaveAction,
+    DiscardChangesConfirmDialog
+} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
 import { useBeforeUnloadWarning } from "@/pages/Dashboard/Stories/hooks/useBeforeUnloadWarning";
 import SchedaTab from "./SchedaTab";
 import PrezziOpzioniTab from "./PrezziOpzioniTab";
@@ -99,6 +104,10 @@ export default function ProductPage() {
     const [addonGroups, setAddonGroups] = useState<GroupWithValues[]>([]);
 
     const [isVariantDrawerOpen, setIsVariantDrawerOpen] = useState(false);
+    // Conferma dello scarto quando "Annulla" arriva dal kebab compatto: stessa
+    // domanda del bottone in toolbar comoda (che ha il dialog dentro
+    // `HeaderSaveAction`).
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
     const [usageLoading, setUsageLoading] = useState(true);
     const [usageData, setUsageData] = useState<ProductUsageData | null>(null);
@@ -224,10 +233,32 @@ export default function ProductPage() {
         [schedaDraft.isDirty, schedaDraft.isSavingAll, schedaDraft.handleSaveAll, schedaDraft.handleDiscardAll]
     );
 
+    // Il salva è di pagina, non di tab: vale su tutte le sezioni, esattamente
+    // come nella toolbar comoda. Le sezioni restano quelle dinamiche del
+    // verticale (`visibleTabs`), il salva ci si affianca senza dipenderne.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        sections: visibleTabs.map(tab => ({ value: tab.value, label: tab.label })),
+        activeSection: activeTab,
+        onSectionChange: value => handleTabChange(value as ProductPageTab),
+        ...buildSaveActionCompactConfig({
+            isDirty: schedaDraft.isDirty,
+            isSaving: schedaDraft.isSavingAll,
+            onSave: schedaDraft.handleSaveAll,
+            onRequestDiscard: () => setConfirmDiscardOpen(true)
+        })
+    }), [
+        visibleTabs,
+        activeTab,
+        handleTabChange,
+        schedaDraft.isDirty,
+        schedaDraft.isSavingAll,
+        schedaDraft.handleSaveAll
+    ]);
+
     usePageHeader({
         leading,
         actions,
-        sticky: true,
+        compact: headerCompact,
     });
 
     if (loading) {
@@ -323,6 +354,12 @@ export default function ProductPage() {
                     setIsVariantDrawerOpen(false);
                     loadProduct();
                 }}
+            />
+
+            <DiscardChangesConfirmDialog
+                isOpen={confirmDiscardOpen}
+                onClose={() => setConfirmDiscardOpen(false)}
+                onDiscard={schedaDraft.handleDiscardAll}
             />
         </div>
     );

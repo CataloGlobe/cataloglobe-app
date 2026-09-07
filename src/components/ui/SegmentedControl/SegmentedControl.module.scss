@@ -16,6 +16,27 @@
   padding: 4px;
   background: var(--hover-bg, #f1f5f9);
   border-radius: 10px;
+
+  // Il track non si comprime e i segmenti non vanno a capo: quando lo spazio
+  // manca si scorre. Scrollbar nascosta — l'affordance è la sfumatura destra.
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  scrollbar-width: none; // Firefox
+  -ms-overflow-style: none; // Edge legacy
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+// Mask e non overlay in gradiente: il control vive su sfondi diversi (banda
+// header bianca, drawer, card) e la sfumatura deve restarne indipendente.
+.overflowEnd {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent 100%);
 }
 
 // Variante `sm`: contesti densi (header di pagina). Stessa logica, misure ridotte.

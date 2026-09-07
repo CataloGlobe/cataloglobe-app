@@ -1,3 +1,19 @@
+// Filtro della banda header: larghezza fissa come negli altri toolbar-select
+// (TeamPage, Recensioni). Senza, il select si comprime con la viewport e la sua
+// larghezza naturale non dice più nulla — `useCompactToolbar` la misura per
+// decidere se la banda entra nella riga, e la pagina non passerebbe mai alla
+// barra compatta.
+.toolbarFilter {
+    width: 220px;
+    flex: 0 0 auto;
+}
+
+.toolbarFilterSelect {
+    box-sizing: border-box;
+    height: var(--control-height, 38px);
+    line-height: 1;
+}
+
 // Coda di supporto della piattaforma. Solo token di _theme.scss.
 
 .list {

@@ -150,6 +150,21 @@
     text-decoration: none;
 }
 
+// Le due azioni della banda header: `.btn` da solo le rende 30px e 34px — fra
+// loro disallineate, e sotto i 38px del resto dei controlli di banda. La classe
+// vale solo qui, gli altri `.btn` della pagina (righe tabella) restano compatti.
+.toolbarBtn {
+    box-sizing: border-box;
+    height: var(--control-height, 38px);
+    display: inline-flex;
+    align-items: center;
+    // `nowrap` non è cosmetico: mandando il testo a capo il bottone si stringe,
+    // e `useCompactToolbar` misura proprio quella larghezza per decidere se la
+    // banda entra nella riga. Un'etichetta spezzata su due righe direbbe
+    // "ci sto comodo" mentre non ci sta.
+    white-space: nowrap;
+}
+
 .btn_primary {
     background: var(--brand-primary);
     border-color: var(--brand-primary);

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { formatDateTimeIt } from "@/utils/formatDateTime";
 import {
     addIncidentUpdate,
@@ -106,7 +107,7 @@ function AddUpdateBlock({
                 </select>
                 <button
                     type="submit"
-                    className={`${styles.btn} ${styles.btn_primary}`}
+                    className={`${styles.btn} ${styles.btn_primary} ${styles.toolbarBtn}`}
                     disabled={submitting}
                 >
                     {submitting ? "…" : "Aggiungi"}
@@ -185,13 +186,13 @@ export default function StatusIncidentsPage() {
                     href="/status"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className={`${styles.btn} ${styles.linkBtn}`}
+                    className={`${styles.btn} ${styles.linkBtn} ${styles.toolbarBtn}`}
                 >
                     Vedi /status
                 </a>
                 <button
                     type="button"
-                    className={`${styles.btn} ${styles.btn_primary}`}
+                    className={`${styles.btn} ${styles.btn_primary} ${styles.toolbarBtn}`}
                     onClick={openCreate}
                 >
                     + Nuovo incidente
@@ -201,10 +202,21 @@ export default function StatusIncidentsPage() {
         [openCreate]
     );
 
+    // "Vedi /status" è un link, non un comando: passa da `href`, così anche
+    // dentro il kebab resta un `<a>` (middle-click e "apri in nuova scheda"
+    // continuano a funzionare).
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        secondaryActions: [
+            { label: "Vedi /status", href: "/status", target: "_blank" }
+        ],
+        primaryAction: { label: "+ Nuovo incidente", onClick: openCreate }
+    }), [openCreate]);
+
     usePageHeader({
         title: "Incidenti",
         subtitle: "Pubblica un incidente per comunicare disservizi ai clienti.",
-        actions: headerActions
+        actions: headerActions,
+        compact: headerCompact
     });
 
     function openEdit(inc: StatusIncident) {

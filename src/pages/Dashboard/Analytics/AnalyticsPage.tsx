@@ -47,6 +47,7 @@ import {
 } from "@/services/supabase/analytics";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { PageGate } from "@/components/PageGate/PageGate";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
@@ -579,19 +580,21 @@ export default function AnalyticsPage() {
 
     // Selettore sede vive nella navbar (SedeScopeSelect). Nella banda:
     // periodo a sinistra (leading), Esporta a destra (actions).
+    const periodOptions = useMemo<{ value: PeriodKey; label: string }[]>(() => [
+        { value: "today", label: "Oggi" },
+        { value: "7d", label: "7 giorni" },
+        { value: "30d", label: "30 giorni" },
+        { value: "90d", label: "90 giorni" },
+        { value: "all", label: "Tutto" }
+    ], []);
+
     const leading = useMemo(() => (
         <SegmentedControl
             value={period}
             onChange={setPeriod}
-            options={[
-                { value: "today", label: "Oggi" },
-                { value: "7d", label: "7 giorni" },
-                { value: "30d", label: "30 giorni" },
-                { value: "90d", label: "90 giorni" },
-                { value: "all", label: "Tutto" }
-            ]}
+            options={periodOptions}
         />
-    ), [period]);
+    ), [period, periodOptions]);
 
     const headerActions = useMemo(() => (
         <Button
@@ -605,10 +608,29 @@ export default function AnalyticsPage() {
         </Button>
     ), [isLoading, isEmpty, handleExportXlsx]);
 
+    // Il `leading` qui è un filtro, non una navigazione: in compatto prende il
+    // posto del picker sezione e mostra il periodo scelto in chiaro.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        leadingFilter: {
+            label: "Periodo",
+            options: periodOptions,
+            value: period,
+            // Default della pagina, non "nessun filtro": è il periodo con cui
+            // le analitiche si aprono.
+            defaultValue: "7d",
+            onChange: value => setPeriod(value as PeriodKey)
+        },
+        primaryAction: {
+            label: "Esporta Excel",
+            onClick: handleExportXlsx,
+            disabled: isLoading || isEmpty
+        }
+    }), [period, periodOptions, handleExportXlsx, isLoading, isEmpty]);
+
     usePageHeader({
         leading,
         actions: headerActions,
-        sticky: true,
+        compact: headerCompact,
     });
 
     return (

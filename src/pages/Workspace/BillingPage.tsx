@@ -77,7 +77,6 @@ export default function BillingPage() {
     usePageHeader({
         title: "Abbonamenti",
         subtitle: "Panoramica degli abbonamenti delle tue attività.",
-        sticky: true,
     });
 
     return (

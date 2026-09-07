@@ -62,7 +62,6 @@ export default function WorkspaceSettingsPage() {
     usePageHeader({
         title: "Impostazioni",
         subtitle: "Gestisci il profilo e le preferenze del tuo workspace.",
-        sticky: true,
     });
 
     useEffect(() => {

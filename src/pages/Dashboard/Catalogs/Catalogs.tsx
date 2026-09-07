@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate } from "react-router-dom";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
@@ -119,6 +120,25 @@ export default function Catalogs() {
         localStorage.setItem("cataloglobe_catalogs_view_mode", next);
     }, []);
 
+    const handleOpenAiImport = useCallback(() => {
+        if (!canEdit) {
+            showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" });
+            return;
+        }
+        openAiImport?.();
+    }, [canEdit, showToast, openAiImport]);
+
+    const aiImportIsBusy = importStatus !== "idle";
+
+    const aiImportLabel =
+        importStatus === "analyzing"
+            ? "Analisi in corso…"
+            : importStatus === "creating"
+                ? "Salvataggio…"
+                : importStatus === "review"
+                    ? "Rivedi menù analizzato"
+                    : "Importa con AI";
+
     const headerActions = useMemo(() => (
         <>
             <ToolbarSearch
@@ -138,10 +158,7 @@ export default function Catalogs() {
             {canWriteCatalog && (
                 <Button
                     variant="outline"
-                    onClick={() => {
-                        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
-                        openAiImport?.();
-                    }}
+                    onClick={handleOpenAiImport}
                     disabled={!canEdit}
                     leftIcon={
                         importStatus === "analyzing" || importStatus === "creating"
@@ -152,13 +169,7 @@ export default function Catalogs() {
                     }
                     className={styles.toolbarCta}
                 >
-                    {importStatus === "analyzing"
-                        ? "Analisi in corso…"
-                        : importStatus === "creating"
-                            ? "Salvataggio…"
-                            : importStatus === "review"
-                                ? "Rivedi menù analizzato"
-                                : "Importa con AI"}
+                    {aiImportLabel}
                 </Button>
             )}
             {canWriteCatalog && (
@@ -172,13 +183,60 @@ export default function Catalogs() {
                 </Button>
             )}
         </>
-    ), [canWriteCatalog, canEdit, showToast, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange, openAiImport, importStatus]);
+    ), [canWriteCatalog, canEdit, handleOpenCreate, catalogLower, searchQuery, viewMode, handleViewModeChange, handleOpenAiImport, importStatus, aiImportLabel]);
+
+    // Import AI: stessa azione, due collocazioni a seconda dello stato.
+    //
+    // A riposo è una secondaria come le altre e sta nel kebab. Mentre lavora
+    // NON può nascondersi lì: un'operazione in corso che l'utente non vede è
+    // un'operazione che l'utente rilancia. Finché non torna `idle` viene quindi
+    // promossa fra le icone sempre visibili, con l'icona che ne dice lo stato
+    // (spinner mentre analizza o salva, occhio quando il risultato è pronto da
+    // rivedere). Regola generale del rollout, non un'eccezione di questa pagina.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => {
+        const viewToggle = viewMode === "list"
+            ? { icon: <LayoutGrid size={18} />, label: "Vista griglia", onClick: () => handleViewModeChange("grid") }
+            : { icon: <ListIcon size={18} />, label: "Vista lista", onClick: () => handleViewModeChange("list") };
+
+        const aiIcon = importStatus === "review"
+            ? <Eye size={18} />
+            : <Loader size="sm" className={styles.importSpinner} />;
+
+        return {
+            search: {
+                value: searchQuery,
+                onChange: setSearchQuery,
+                placeholder: `Cerca ${catalogLower}...`
+            },
+            persistentIcons: canWriteCatalog && aiImportIsBusy
+                ? [{ icon: aiIcon, label: aiImportLabel, onClick: handleOpenAiImport }, viewToggle]
+                : [viewToggle],
+            secondaryActions: canWriteCatalog && !aiImportIsBusy
+                ? [{ label: aiImportLabel, onClick: handleOpenAiImport, disabled: !canEdit }]
+                : undefined,
+            primaryAction: canWriteCatalog
+                ? { label: `Crea ${catalogLower}`, onClick: handleOpenCreate, disabled: !canEdit }
+                : undefined
+        };
+    }, [
+        searchQuery,
+        catalogLower,
+        viewMode,
+        handleViewModeChange,
+        canWriteCatalog,
+        canEdit,
+        importStatus,
+        aiImportIsBusy,
+        aiImportLabel,
+        handleOpenAiImport,
+        handleOpenCreate
+    ]);
 
     usePageHeader({
         title: verticalConfig.catalogLabel,
         subtitle: `Gestisci l'albero delle categorie e i gruppi del tuo ${catalogLower}.`,
         actions: headerActions,
-        sticky: true,
+        compact: headerCompact,
     });
 
     const handleOpenEdit = (catalog: V2Catalog) => {

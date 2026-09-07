@@ -12,10 +12,12 @@ import ModalLayout, {
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Menu } from "@/components/ui/Menu";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import Text from "@/components/ui/Text/Text";
@@ -1070,6 +1072,42 @@ export default function Programming() {
         }
     }, [currentTenantId, ruleTypeFilter, navigate, showToast]);
 
+    // Azioni della banda in ordine di lettura: la primaria è l'ultima ("Nuova
+    // regola"), "Simula regole" resta raggiungibile dal caret. Sulla tab "Tutte"
+    // la primaria non ha un tipo implicito da creare → apre lei stessa il menu
+    // dei quattro tipi, come faceva prima del passaggio a SplitButton.
+    const headerSplitActions = useMemo<SplitButtonAction[]>(() => {
+        const actions: SplitButtonAction[] = [
+            {
+                label: "Simula regole",
+                onClick: () => setIsSimulatorDrawerOpen(true),
+                disabled: !currentTenantId
+            }
+        ];
+
+        if (!canWrite) return actions;
+
+        const label = isCreating ? "Creazione..." : "Nuova regola";
+        const disabled = !currentTenantId || isCreating || !canEdit;
+
+        actions.push(
+            ruleTypeFilter === "all"
+                ? {
+                      label,
+                      disabled,
+                      items: [
+                          { label: "Layout", onClick: () => void handleCreateRule("layout") },
+                          { label: "In evidenza", onClick: () => void handleCreateRule("featured") },
+                          { label: "Prezzi", onClick: () => void handleCreateRule("price") },
+                          { label: "Disponibilità", onClick: () => void handleCreateRule("visibility") }
+                      ]
+                  }
+                : { label, disabled, onClick: () => void handleCreateRule() }
+        );
+
+        return actions;
+    }, [currentTenantId, canWrite, canEdit, isCreating, ruleTypeFilter, handleCreateRule]);
+
     const headerActions = useMemo(() => (
         <div className={styles.headerActions}>
             {viewMode === "list" && (
@@ -1088,54 +1126,9 @@ export default function Programming() {
                     { value: "calendar", label: "Vista calendario", icon: <CalendarDays size={16} /> }
                 ]}
             />
-            <Button
-                variant="secondary"
-                className={styles.toolbarCta}
-                onClick={() => setIsSimulatorDrawerOpen(true)}
-                disabled={!currentTenantId}
-            >
-                Simula regole
-            </Button>
-            {canWrite && (ruleTypeFilter === "all" ? (
-                <Menu
-                    trigger={
-                        <Button
-                            variant="primary"
-                            className={styles.toolbarCta}
-                            disabled={!currentTenantId || isCreating || !canEdit}
-                            loading={isCreating}
-                        >
-                            {isCreating ? "Creazione..." : "Nuova regola"}
-                        </Button>
-                    }
-                    align="end"
-                >
-                    <Menu.Item onSelect={() => void handleCreateRule("layout")}>
-                        Layout
-                    </Menu.Item>
-                    <Menu.Item onSelect={() => void handleCreateRule("featured")}>
-                        In evidenza
-                    </Menu.Item>
-                    <Menu.Item onSelect={() => void handleCreateRule("price")}>
-                        Prezzi
-                    </Menu.Item>
-                    <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
-                        Disponibilità
-                    </Menu.Item>
-                </Menu>
-            ) : (
-                <Button
-                    variant="primary"
-                    className={styles.toolbarCta}
-                    onClick={() => void handleCreateRule()}
-                    disabled={!currentTenantId || isCreating || !canEdit}
-                    loading={isCreating}
-                >
-                    {isCreating ? "Creazione..." : "Nuova regola"}
-                </Button>
-            ))}
+            <SplitButton actions={headerSplitActions} loading={isCreating} />
         </div>
-    ), [viewMode, searchTerm, ruleTypeFilter, currentTenantId, isCreating, handleCreateRule, canWrite, canEdit]);
+    ), [viewMode, searchTerm, headerSplitActions, isCreating]);
 
     const headerLeading = useMemo(() => (
         <Tabs<RuleTypeFilter>
@@ -1153,10 +1146,49 @@ export default function Programming() {
         </Tabs>
     ), [ruleTypeFilter, handleRuleTypeFilterChange]);
 
+    // Stessa toolbar dichiarata a dati, per lo stato compatto: le 5 tab
+    // diventano un picker, "Simula regole" scende nel kebab, il toggle
+    // lista/calendario resta un'icona a vista (azione frequente) e "Nuova
+    // regola" resta il bottone pieno.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        sections: RULE_TYPE_TAB_OPTIONS.map(option => ({
+            value: option.value,
+            label: option.label
+        })),
+        activeSection: ruleTypeFilter,
+        onSectionChange: value => handleRuleTypeFilterChange(value as RuleTypeFilter),
+        // La ricerca filtra la lista: nella vista calendario non ha bersaglio.
+        search: viewMode === "list"
+            ? {
+                  value: searchTerm,
+                  onChange: setSearchTerm,
+                  placeholder: "Cerca per nome, tipo, target o id..."
+              }
+            : undefined,
+        persistentIcons: [
+            viewMode === "list"
+                ? {
+                      icon: <CalendarDays size={18} />,
+                      label: "Vista calendario",
+                      onClick: () => setViewMode("calendar")
+                  }
+                : {
+                      icon: <List size={18} />,
+                      label: "Vista lista",
+                      onClick: () => setViewMode("list")
+                  }
+        ],
+        // `headerSplitActions` è già in ordine di lettura: le secondarie
+        // precedono la primaria, che è l'ultima.
+        secondaryActions: headerSplitActions.slice(0, -1),
+        primaryAction: headerSplitActions[headerSplitActions.length - 1],
+        loading: isCreating
+    }), [ruleTypeFilter, handleRuleTypeFilterChange, viewMode, searchTerm, headerSplitActions, isCreating]);
+
     usePageHeader({
         leading: headerLeading,
         actions: headerActions,
-        sticky: true,
+        compact: headerCompact,
     });
 
     return (

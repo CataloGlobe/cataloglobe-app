@@ -1,13 +1,15 @@
 // Wrapper container (passato come `containerClassName` a InputBase):
-// larghezza fissa 280px desktop, stretch su mobile.
+// larghezza fissa, uguale a ogni viewport.
+//
+// NIENTE `width: 100%` sotto una soglia: la larghezza deve restare quella reale
+// perché `useCompactToolbar` la misura per decidere se la toolbar entra nella
+// riga. Una search che si autocomprime si dichiara sempre "abbastanza stretta",
+// e una pagina il cui unico controllo è la search (Clienti) non passerebbe mai
+// allo stato compatto. Su schermo stretto la search non si stringe: sparisce
+// dietro un'icona e si apre a tutta riga (`PageHeaderCompactBar`).
 .wrap {
   width: 280px;
   flex: 0 0 auto;
-
-  @media (max-width: 767px) {
-    width: 100%;
-    flex: 1 1 auto;
-  }
 }
 
 // `inputClassName` applicata direttamente all'<input> interno

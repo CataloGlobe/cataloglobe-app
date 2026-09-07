@@ -6,7 +6,7 @@ import { PageHeaderContext, type PageHeaderConfig } from "./PageHeaderContext";
  * Registra al mount, pulisce al unmount.
  * Deve essere chiamato in pagine che vivono dentro MainLayout.
  *
- * Deps: title/subtitle/sticky (primitivi, value-compared) + actions/titleAddon
+ * Deps: title/subtitle (primitivi, value-compared) + leading/actions/titleAddon
  * (ReactNode, reference-compared). La pagina DEVE memoizzare actions/titleAddon
  * via useMemo, altrimenti il re-create per render scatena un loop di setConfig.
  */
@@ -24,9 +24,9 @@ export function usePageHeader(config: PageHeaderConfig | null) {
     }, [
         config?.title,
         config?.subtitle,
-        config?.sticky,
         config?.leading,
         config?.actions,
+        config?.compact,
         config?.titleAddon,
         setConfig,
     ]);

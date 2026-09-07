@@ -4,6 +4,7 @@ import { IconLoader2 } from "@tabler/icons-react";
 import { Button } from "@/components/ui";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityProfileTab } from "./tabs/ActivityProfileTab";
 import { ActivityAvailabilityTab } from "./tabs/ActivityAvailabilityTab";
@@ -124,8 +125,23 @@ const ActivityDetailPage: React.FC = () => {
         </Tabs>
     ), [activeTab, handleTabChange]);
 
+    // Solo sezioni: la pagina non ha azioni di banda (lo stato sede vive in
+    // lista e nella tab Impostazioni, vedi sopra), quindi in compatto la riga
+    // è il solo picker.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        sections: [
+            { value: "profile", label: "Profilo" },
+            { value: "availability", label: "Disponibilità" },
+            { value: "tables", label: "Tavoli" },
+            { value: "settings", label: "Impostazioni" }
+        ],
+        activeSection: activeTab,
+        onSectionChange: value => handleTabChange(value as TabValue)
+    }), [activeTab, handleTabChange]);
+
     usePageHeader({
         leading,
+        compact: headerCompact,
     });
 
     if (loading && !activity) {

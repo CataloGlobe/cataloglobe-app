@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import Text from "@components/ui/Text/Text";
+import { useHorizontalOverflow } from "@/hooks/useHorizontalOverflow";
 import styles from "./SegmentedControl.module.scss";
 
 interface SegmentedOption<T extends string | number> {
@@ -47,10 +48,20 @@ export function SegmentedControl<T extends string | number>({
         }
     }, [value, options]);
 
+    // Come le tab: i segmenti non si comprimono e non vanno a capo — scorrono,
+    // con sfumatura sul bordo destro finché resta contenuto oltre il bordo.
+    const { atEnd } = useHorizontalOverflow(containerRef, options);
+
     return (
         <div
             ref={containerRef}
-            className={`${styles.wrapper} ${size === "sm" ? styles.wrapperSm : ""}`}
+            className={[
+                styles.wrapper,
+                size === "sm" ? styles.wrapperSm : "",
+                !atEnd ? styles.overflowEnd : ""
+            ]
+                .filter(Boolean)
+                .join(" ")}
             role="radiogroup"
         >
             <div

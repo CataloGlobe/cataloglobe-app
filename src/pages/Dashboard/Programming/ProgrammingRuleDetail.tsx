@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
+import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Button } from "@/components/ui/Button/Button";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
@@ -795,11 +796,70 @@ export default function ProgrammingRuleDetail() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     ), [form, isDirty, isSaving, canWrite, canEdit, isTogglingEnabled, isDuplicating]);
 
+    // Compatto: un kebab solo. Le due voci del menu di pagina (Duplica,
+    // Elimina) e l'Annulla modifiche, che in comoda è un bottone a sé, finiscono
+    // nello stesso elenco — due kebab affiancati non direbbero all'utente quale
+    // aprire. Elimina resta staccata dalle altre e distruttiva; il suo dialog di
+    // conferma è invariato, cambia solo da dove si apre la voce.
+    //
+    // Lo Switch attiva/disattivata diventa `statusControl`: è lo stato della
+    // regola, sta sempre a vista come Bozza/Pubblicata delle storie.
+    // `undefined` e non `{}`: una config vuota è pur sempre una config, e la
+    // banda renderebbe una barra compatta senza niente dentro. Senza config la
+    // pagina resta sulla riga comoda, che l'assenza di azioni la gestisce già.
+    const headerCompact = useMemo<PageHeaderCompactConfig | undefined>(() => {
+        if (!form || !canWrite) return undefined;
+        return {
+            statusControl: {
+                options: [
+                    { value: "enabled", label: "Attiva" },
+                    { value: "disabled", label: "Disattivata" }
+                ],
+                value: form.enabled ? "enabled" : "disabled",
+                onChange: value => void handleToggleEnabled(value === "enabled"),
+                label: `Attiva o disattiva ${form.name}`,
+                disabled: isTogglingEnabled || !canEdit
+            },
+            secondaryActions: [
+                {
+                    label: "Annulla modifiche",
+                    onClick: handleReset,
+                    disabled: !isDirty || isSaving || !canEdit
+                },
+                {
+                    label: "Duplica",
+                    onClick: () => void handleDuplicate(),
+                    disabled: !canEdit || isDuplicating
+                },
+                {
+                    label: "Elimina",
+                    onClick: () => setIsDeleteDialogOpen(true),
+                    variant: "destructive",
+                    separatorBefore: true,
+                    disabled: !canEdit
+                }
+            ],
+            primaryAction: {
+                label: "Salva regola",
+                // La primaria della toolbar comoda è un `type="submit"` legato al
+                // form per id: qui il click deve fare la stessa cosa, non una
+                // scorciatoia che salti la validazione del form.
+                onClick: () => {
+                    const el = document.getElementById("rule-detail-form");
+                    if (el instanceof HTMLFormElement) el.requestSubmit();
+                },
+                disabled: !isDirty || !canEdit
+            },
+            loading: isSaving
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [form, isDirty, isSaving, canWrite, canEdit, isTogglingEnabled, isDuplicating]);
+
     usePageHeader({
         title: form?.name || (isLoading ? "Caricamento regola..." : "Regola"),
         titleAddon: headerTitleAddon ?? undefined,
         actions: headerActions ?? undefined,
-        sticky: true,
+        compact: headerCompact,
     });
 
     if (isLoading || !form || !rule) {
