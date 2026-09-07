@@ -56,16 +56,23 @@ $scrim-height: 120px;
    rgba(var(--pub-bg-rgb), a): l'endpoint ad alpha 0 conserva l'hue dello
    sfondo (niente banding grigio verso `transparent` su WebKit).
    Alpha DEVE arrivare a 1 sul bordo inferiore: sotto quella soglia si intravede
-   contenuto tagliato e l'effetto smette di leggersi come dissolvenza. */
+   contenuto tagliato e l'effetto smette di leggersi come dissolvenza.
+   Curva leggera (test su iPhone reale): il quasi-opaco resta confinato ai primi
+   ~17px, che stanno dietro la pill e dietro la barra indirizzi di Safari; la
+   fascia visibile sopra la pill si alleggerisce molto (0.12 a 74% invece di
+   ~0.35) così la card sottostante si INTUISCE invece di sparire — un contenuto
+   che svanisce legge come "fine lista" e toglie l'invito a scorrere. Non
+   compete con le icone della barra, che hanno già il proprio vetro. */
 .scrim {
   position: absolute;
   inset: 0;
   background: linear-gradient(
     to top,
     rgba(var(--pub-bg-rgb), 1) 0%,
-    rgba(var(--pub-bg-rgb), 0.96) 32%,
-    rgba(var(--pub-bg-rgb), 0.7) 58%,
-    rgba(var(--pub-bg-rgb), 0.28) 80%,
+    rgba(var(--pub-bg-rgb), 0.9) 14%,
+    rgba(var(--pub-bg-rgb), 0.55) 32%,
+    rgba(var(--pub-bg-rgb), 0.3) 52%,
+    rgba(var(--pub-bg-rgb), 0.12) 74%,
     rgba(var(--pub-bg-rgb), 0) 100%
   );
 }
