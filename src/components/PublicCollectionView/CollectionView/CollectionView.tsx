@@ -36,6 +36,7 @@ import PublicBottomScrim from "../PublicBottomScrim/PublicBottomScrim";
 import { hasOpenSheet } from "../hooks/useScrollCollapse";
 import { hasOrderablePrice } from "../itemPricing";
 import type { SelectionItem, SelectedFormat, SelectedAddon } from "../OrderingSheet/OrderingSheet";
+import type { SubmitOrderOverrides } from "../OrderingSheet/submitOrderOverrides";
 import type { ReviewsViewProps } from "../ReviewsView/ReviewsView";
 import CategoriesSheet from "../CategoriesSheet/CategoriesSheet";
 
@@ -1522,7 +1523,7 @@ export default function CollectionView({
         return () => clearTimeout(tm);
     }, [submitFeedback]);
 
-    const handleSubmitOrder = useCallback(async () => {
+    const handleSubmitOrder = useCallback(async (overrides?: SubmitOrderOverrides) => {
         if (!customerSession?.session) {
             setSubmitFeedback({
                 type: "error",
@@ -1536,10 +1537,18 @@ export default function CollectionView({
         setSubmitFeedback(null);
 
         try {
-            const items: OrderItemRequest[] = selection.flatMap(it => {
+            // `overrides` porta il testo di un editor nota lasciato aperto (non
+            // confermato) al momento dell'invio, flushato dal ref imperativo in
+            // OrderingSheet — vedi noteEditorHandle.ts. Deve avere PRIORITA' su
+            // `it.note`/`orderNote`: onSave() li aggiorna via setState, ma quello
+            // stato non e' ancora visibile in questa stessa closure (React non
+            // ha ancora ri-renderizzato), quindi senza override il testo appena
+            // digitato verrebbe letto come assente e perso silenziosamente.
+            const items: OrderItemRequest[] = selection.flatMap((it, index) => {
                 const baseQty = it.qty;
                 if (baseQty <= 0) return [];
-                const trimmedNote = it.note?.trim().replace(/\s+/g, " ");
+                const rawNote = overrides?.itemNoteOverrides?.get(index) ?? it.note;
+                const trimmedNote = rawNote?.trim().replace(/\s+/g, " ");
                 const entry: OrderItemRequest = {
                     product_id: it.id,
                     quantity: baseQty,
@@ -1554,7 +1563,8 @@ export default function CollectionView({
                 return [entry];
             });
 
-            const trimmedOrderNote = orderNote?.trim().replace(/\s+/g, " ");
+            const rawOrderNote = overrides?.orderNoteOverride ?? orderNote;
+            const trimmedOrderNote = rawOrderNote?.trim().replace(/\s+/g, " ");
             const notesArg = trimmedOrderNote && trimmedOrderNote.length > 0
                 ? trimmedOrderNote
                 : undefined;
