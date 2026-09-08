@@ -37,11 +37,6 @@ import ModalLayout, {
 } from "@/components/ui/ModalLayout/ModalLayout";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { SuspendActivityDialog } from "../components/SuspendActivityDialog";
-import { ActivityHoursSection } from "./hours-services/ActivityHoursSection";
-import { ActivityHoursDrawer } from "./hours-services/ActivityHoursDrawer";
-import { ActivityClosuresSection } from "./hours-services/ActivityClosuresSection";
-import { ActivityClosureCreateEditDrawer } from "./hours-services/ActivityClosureCreateEditDrawer";
-import { ActivityClosureDeleteDrawer } from "./hours-services/ActivityClosureDeleteDrawer";
 import { PaymentMethodsSection } from "./hours-services/PaymentMethodsSection";
 import { ServicesSection } from "./hours-services/ServicesSection";
 import {
@@ -58,8 +53,6 @@ import {
     updateActivity
 } from "@/services/supabase/activities";
 import { getMappedSeatsSummary } from "@/services/supabase/tables";
-import { listActivityHours } from "@/services/supabase/activityHours";
-import { listActivityClosures } from "@/services/supabase/activityClosures";
 import { listTenantMembers } from "@/services/supabase/team";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import type { TenantMemberRow } from "@/types/team";
@@ -74,7 +67,6 @@ import {
 } from "@/utils/activityStatus";
 import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
-import type { V2ActivityClosure } from "@/types/activity-closures";
 import styles from "./ActivitySettingsTab.module.scss";
 
 const DEFAULT_FG = "#000000";
@@ -92,7 +84,10 @@ interface ActivitySettingsTabProps {
     tenantId: string;
     onReload: () => Promise<void>;
     canWrite?: boolean;
-    canManageHours?: boolean;
+    /** Orari caricati dalla pagina (dato di sede): servono alla nota
+     *  "mancano gli orari" della card Prenotazioni. */
+    hours: V2ActivityHours[];
+    isHoursLoading: boolean;
 }
 
 export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
@@ -100,7 +95,8 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     tenantId,
     onReload,
     canWrite = true,
-    canManageHours = true
+    hours,
+    isHoursLoading
 }) => {
     const { showToast } = useToast();
     const { selectedTenant } = useTenant();
@@ -278,19 +274,6 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     const [teamMembers, setTeamMembers] = useState<TenantMemberRow[]>([]);
     const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
 
-    // ── Hours state ──────────────────────────────────────────────────────────
-    const [hours, setHours] = useState<V2ActivityHours[]>([]);
-    const [isHoursLoading, setIsHoursLoading] = useState(true);
-    const [isHoursDrawerOpen, setIsHoursDrawerOpen] = useState(false);
-
-    // ── Closures state ───────────────────────────────────────────────────────
-    const [closures, setClosures] = useState<V2ActivityClosure[]>([]);
-    const [isClosuresLoading, setIsClosuresLoading] = useState(true);
-    const [isClosureDrawerOpen, setIsClosureDrawerOpen] = useState(false);
-    const [isClosureDeleteDrawerOpen, setIsClosureDeleteDrawerOpen] = useState(false);
-    const [closureMode, setClosureMode] = useState<"create" | "edit">("create");
-    const [selectedClosure, setSelectedClosure] = useState<V2ActivityClosure | undefined>();
-
     // ── QR / preview state ───────────────────────────────────────────────────
     // Due istanze del QR (anteprima nella card + modale ingrandita): i controlli
     // di download vivono fuori dal componente e scelgono a runtime quale delle
@@ -432,34 +415,6 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
               }
             : undefined;
 
-    // ── Loaders ──────────────────────────────────────────────────────────────
-    const loadHours = useCallback(async () => {
-        try {
-            setIsHoursLoading(true);
-            setHours(await listActivityHours(activity.id, tenantId));
-        } catch {
-            showToast({ message: "Errore nel caricamento degli orari.", type: "error" });
-        } finally {
-            setIsHoursLoading(false);
-        }
-    }, [activity.id, tenantId, showToast]);
-
-    const loadClosures = useCallback(async () => {
-        try {
-            setIsClosuresLoading(true);
-            setClosures(await listActivityClosures(activity.id, tenantId));
-        } catch {
-            showToast({ message: "Errore nel caricamento delle chiusure.", type: "error" });
-        } finally {
-            setIsClosuresLoading(false);
-        }
-    }, [activity.id, tenantId, showToast]);
-
-    useEffect(() => {
-        loadHours();
-        loadClosures();
-    }, [loadHours, loadClosures]);
-
     // Lazy fetch team members for the reservations email field. Gated on
     // `team.read` (scoped roles without that permission see no quick-pick
     // and no auto-fill). Only runs when reservations are enabled so we
@@ -490,32 +445,6 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         setQrFgColor(activity.qr_fg_color ?? DEFAULT_FG);
         setQrBgColor(activity.qr_bg_color ?? DEFAULT_BG);
     }, [activity.qr_fg_color, activity.qr_bg_color]);
-
-    // ── Handlers: Hours / Closures ───────────────────────────────────────────
-    const handleHoursSaved = useCallback(async () => {
-        await Promise.all([loadHours(), onReload()]);
-    }, [loadHours, onReload]);
-
-    const handleClosureSaved = useCallback(async () => {
-        await loadClosures();
-    }, [loadClosures]);
-
-    const openCreateClosure = () => {
-        setClosureMode("create");
-        setSelectedClosure(undefined);
-        setIsClosureDrawerOpen(true);
-    };
-
-    const openEditClosure = (closure: V2ActivityClosure) => {
-        setClosureMode("edit");
-        setSelectedClosure(closure);
-        setIsClosureDrawerOpen(true);
-    };
-
-    const openDeleteClosure = (closure: V2ActivityClosure) => {
-        setSelectedClosure(closure);
-        setIsClosureDeleteDrawerOpen(true);
-    };
 
     // ── Draft save / cancel handlers ─────────────────────────────────────────
     const savePayments = useCallback(async () => {
@@ -968,29 +897,6 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     return (
         <>
             <div className={styles.layout}>
-                {/* ── Row 1: Hours + Closures ──────────────────────────────── */}
-                <div className={styles.row}>
-                    {isHoursLoading ? (
-                        <div className={styles.skeletonCard} />
-                    ) : (
-                        <ActivityHoursSection
-                            hours={hours}
-                            activity={activity}
-                            onEditRequest={canManageHours ? () => setIsHoursDrawerOpen(true) : undefined}
-                        />
-                    )}
-                    {isClosuresLoading ? (
-                        <div className={styles.skeletonCard} />
-                    ) : (
-                        <ActivityClosuresSection
-                            closures={closures}
-                            onCreateRequest={canManageHours ? openCreateClosure : undefined}
-                            onEditRequest={canManageHours ? openEditClosure : undefined}
-                            onDeleteRequest={canManageHours ? openDeleteClosure : undefined}
-                        />
-                    )}
-                </div>
-
                 {/* ── Row 2: Public access + Site config ───────────────────── */}
                 <div className={styles.row}>
                     {/* Card: Accesso pubblico */}
@@ -1828,30 +1734,6 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
             </div>
 
             {/* ── Drawers ──────────────────────────────────────────────────── */}
-            <ActivityHoursDrawer
-                open={isHoursDrawerOpen}
-                onClose={() => setIsHoursDrawerOpen(false)}
-                hours={hours}
-                activity={activity}
-                tenantId={tenantId}
-                onSuccess={handleHoursSaved}
-            />
-            <ActivityClosureCreateEditDrawer
-                open={isClosureDrawerOpen}
-                onClose={() => setIsClosureDrawerOpen(false)}
-                mode={closureMode}
-                activityId={activity.id}
-                tenantId={tenantId}
-                selectedClosure={selectedClosure}
-                onSuccess={handleClosureSaved}
-            />
-            <ActivityClosureDeleteDrawer
-                open={isClosureDeleteDrawerOpen}
-                onClose={() => setIsClosureDeleteDrawerOpen(false)}
-                closure={selectedClosure}
-                tenantId={tenantId}
-                onSuccess={handleClosureSaved}
-            />
             <ExportCatalogDrawer
                 open={isExportDrawerOpen}
                 onClose={() => setIsExportDrawerOpen(false)}

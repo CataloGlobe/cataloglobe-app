@@ -10,11 +10,14 @@ import { ActivityProfileTab } from "./tabs/ActivityProfileTab";
 import { ActivityAvailabilityTab } from "./tabs/ActivityAvailabilityTab";
 import { ActivitySettingsTab } from "./tabs/ActivitySettingsTab";
 import { ActivityOrderingTab } from "./tabs/ActivityOrderingTab";
+import { ActivityHoursTab } from "./tabs/ActivityHoursTab";
 import { TablesManagement } from "@/components/Tables/TablesManagement/TablesManagement";
 import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmptyState";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { getActivityById } from "@/services/supabase/activities";
+import { listActivityHours } from "@/services/supabase/activityHours";
 import { V2Activity } from "@/types/activity";
+import type { V2ActivityHours } from "@/types/activity-hours";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnActivity } from "@/lib/permissions";
@@ -132,6 +135,28 @@ const ActivityDetailPage: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
+    // Orari a livello pagina: dato della sede, non di una tab. Li scrive la
+    // tab Orari, li legge anche Prenotazioni (nota "mancano gli orari"); una
+    // sola fonte, ricaricata dopo ogni scrittura via `loadHours`.
+    const [hours, setHours] = useState<V2ActivityHours[]>([]);
+    const [isHoursLoading, setIsHoursLoading] = useState(true);
+
+    const loadHours = useCallback(async () => {
+        if (!activityId || !businessId) return;
+        try {
+            setIsHoursLoading(true);
+            setHours(await listActivityHours(activityId, businessId));
+        } catch {
+            showToast({ message: "Errore nel caricamento degli orari.", type: "error" });
+        } finally {
+            setIsHoursLoading(false);
+        }
+    }, [activityId, businessId, showToast]);
+
+    useEffect(() => {
+        loadHours();
+    }, [loadHours]);
+
     const breadcrumbItems = useMemo(
         () => [
             { label: "Sedi", to: `/business/${businessId}/locations` },
@@ -235,6 +260,17 @@ const ActivityDetailPage: React.FC = () => {
                         )}
                     </PageGate>
                 )}
+                {activeTab === "hours" && (
+                    <ActivityHoursTab
+                        activity={activity}
+                        tenantId={businessId!}
+                        hours={hours}
+                        isHoursLoading={isHoursLoading}
+                        onHoursChanged={loadHours}
+                        onReload={fetchData}
+                        canManageHours={canManageHours}
+                    />
+                )}
                 {activeTab === "ordering" && (
                     <ActivityOrderingTab
                         activity={activity}
@@ -243,18 +279,16 @@ const ActivityDetailPage: React.FC = () => {
                         canWrite={canManage}
                     />
                 )}
-                {/* Ponte FASE 6: Orari / Prenotazioni montano ancora l'intera
-                    tab Impostazioni. I blocchi vengono spostati uno alla volta
-                    nei passi successivi. */}
-                {(activeTab === "hours" ||
-                    activeTab === "reservations" ||
-                    activeTab === "settings") && (
+                {/* Ponte FASE 6: Prenotazioni monta ancora l'intera tab
+                    Impostazioni finché i suoi blocchi non vengono estratti. */}
+                {(activeTab === "reservations" || activeTab === "settings") && (
                     <ActivitySettingsTab
                         activity={activity}
                         tenantId={businessId!}
                         onReload={fetchData}
                         canWrite={canManage}
-                        canManageHours={canManageHours}
+                        hours={hours}
+                        isHoursLoading={isHoursLoading}
                     />
                 )}
             </div>
