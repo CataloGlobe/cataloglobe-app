@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ArrowRight, Lock } from "lucide-react";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { Card } from "@/components/ui";
+import { PrerequisitesRow, type PrerequisiteItem } from "@/components/ui/PrerequisitesRow/PrerequisitesRow";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { PrintersSection } from "./printers/PrintersSection";
 import { updateActivityOrderingEnabled } from "@/services/supabase/activities";
@@ -59,8 +60,24 @@ export const ActivityOrderingTab: React.FC<ActivityOrderingTabProps> = ({
         [activity.id, tenantId, onReload, showToast]
     );
 
+    // Prerequisiti accertabili senza letture nuove: la riga sede è già qui.
+    // "Tavoli mappati" e "menù pubblicato" costerebbero un fetch a testa
+    // (lista tavoli, resolver catalogo) e restano fuori per scelta.
+    const prerequisites: PrerequisiteItem[] = [
+        {
+            id: "published",
+            label: "Sede pubblicata",
+            ok: activity.status === "active",
+            consequence:
+                "Finché la sede è sospesa la pagina pubblica non è raggiungibile e il QR del tavolo non porta da nessuna parte.",
+            actionLabel: "Vai a Impostazioni",
+            href: `/business/${tenantId}/locations/${activity.id}?tab=settings`
+        }
+    ];
+
     return (
         <div className={cardStyles.layout}>
+            <PrerequisitesRow items={prerequisites} />
             <Card className={cardStyles.card}>
                 <div className={cardStyles.cardHeader}>
                     <div className={cardStyles.cardHeaderText}>

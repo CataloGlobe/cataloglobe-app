@@ -17,6 +17,7 @@ import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmp
 import { PageGate } from "@/components/PageGate/PageGate";
 import { getActivityById } from "@/services/supabase/activities";
 import { listActivityHours } from "@/services/supabase/activityHours";
+import { getTenantFiscalProfile } from "@/services/supabase/tenants";
 import { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -158,6 +159,29 @@ const ActivityDetailPage: React.FC = () => {
         loadHours();
     }, [loadHours]);
 
+    // Ragione sociale a livello pagina: `get_user_tenants()` (fonte di
+    // `selectedTenant`) non espone i campi fiscali, quindi il contesto non
+    // basta. Una lettura per apertura sede; la legge Prenotazioni per il
+    // prerequisito dell'informativa privacy. `null` = non ancora letta.
+    const [legalName, setLegalName] = useState<string | null | undefined>(undefined);
+
+    useEffect(() => {
+        if (!businessId) return;
+        let cancelled = false;
+        getTenantFiscalProfile(businessId)
+            .then(profile => {
+                if (!cancelled) setLegalName(profile.legal_name ?? null);
+            })
+            .catch(() => {
+                // Silente: il prerequisito resta "in caricamento" e la riga
+                // non dichiara nulla di falso.
+                if (!cancelled) setLegalName(undefined);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [businessId]);
+
     const breadcrumbItems = useMemo(
         () => [
             { label: "Sedi", to: `/business/${businessId}/locations` },
@@ -293,6 +317,7 @@ const ActivityDetailPage: React.FC = () => {
                         canWrite={canManage}
                         hours={hours}
                         isHoursLoading={isHoursLoading}
+                        legalName={legalName}
                     />
                 )}
                 {activeTab === "settings" && (

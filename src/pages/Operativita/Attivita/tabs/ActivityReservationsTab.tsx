@@ -2,7 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Link } from "react-router-dom";
 import { ArrowRight, Lock, Plus } from "lucide-react";
 import { usePlanFeatures } from "@/lib/planFeatures";
-import { Button, Card, InlineBanner, MultiEmailInput } from "@/components/ui";
+import { Button, Card, MultiEmailInput } from "@/components/ui";
+import { PrerequisitesRow, type PrerequisiteItem } from "@/components/ui/PrerequisitesRow/PrerequisitesRow";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -15,7 +16,6 @@ import type { TenantMemberRow } from "@/types/team";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnTenant } from "@/lib/permissions";
 import { useToast } from "@/context/Toast/ToastContext";
-import { useTenant } from "@/context/useTenant";
 import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 // Card, accordion e classi della card Prenotazioni vivono nel modulo di
@@ -32,6 +32,9 @@ interface ActivityReservationsTabProps {
     /** Orari caricati dalla pagina: servono alla nota "mancano gli orari". */
     hours: V2ActivityHours[];
     isHoursLoading: boolean;
+    /** Ragione sociale letta dalla pagina (`getTenantFiscalProfile`):
+     *  `undefined` = non ancora letta, `null` = assente. */
+    legalName?: string | null;
 }
 
 /**
@@ -45,10 +48,10 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
     onReload,
     canWrite = true,
     hours,
-    isHoursLoading
+    isHoursLoading,
+    legalName
 }) => {
     const { showToast } = useToast();
-    const { selectedTenant } = useTenant();
     const { permissions } = usePermissions();
     const canReadTeam = permissions ? canDoOnTenant(permissions, "team.read") : false;
 
@@ -69,7 +72,7 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
     // dentro un'informativa privacy.
     // `tenants.legal_name` è nullable e appartiene ai dati di fatturazione:
     // senza, l'informativa privacy prenotazioni non si genera affatto.
-    const hasLegalName = (selectedTenant?.legal_name ?? "").trim().length > 0;
+    const hasLegalName = (legalName ?? "").trim().length > 0;
 
     const savedPrivacyEmail = activity.reservation_privacy_contact_email ?? "";
     const [privacyEmailDraft, setPrivacyEmailDraft] = useState(savedPrivacyEmail);
@@ -376,8 +379,43 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
     );
 
 
+    // ── Prerequisiti del canale ──────────────────────────────────────────────
+    // Tutto già a livello pagina: `hours` (passo 3), `reservation_capacity`
+    // (passo 5), `legal_name` dal contesto tenant. Nessuna lettura nuova.
+    const hasOpenHours = hours.some(h => !h.is_closed && h.opens_at && h.closes_at);
+    const prerequisites: PrerequisiteItem[] = [
+        {
+            id: "hours",
+            label: "Orari di apertura configurati",
+            ok: hasOpenHours,
+            consequence:
+                "Senza orari le richieste di prenotazione non vengono filtrate sulle fasce di apertura.",
+            actionLabel: "Vai a Orari",
+            href: `/business/${tenantId}/locations/${activity.id}?tab=hours`
+        },
+        {
+            id: "capacity",
+            label: "Capienza della sala impostata",
+            ok: hasCapacity,
+            consequence:
+                "Senza capienza le prenotazioni online non hanno limiti e la conferma automatica non è disponibile.",
+            actionLabel: "Vai a Sala",
+            href: `/business/${tenantId}/locations/${activity.id}?tab=sala`
+        },
+        {
+            id: "legal",
+            label: "Ragione sociale dell'azienda presente",
+            ok: hasLegalName,
+            consequence:
+                "Senza ragione sociale l'informativa privacy delle prenotazioni non si pubblica: chi la apre dal modulo trova un avviso che lo invita a contattarti. La ragione sociale si inserisce con i dati di fatturazione.",
+            actionLabel: "Vai ad Abbonamento",
+            href: `/business/${tenantId}/subscription`
+        }
+    ];
+
     return (
         <div className={styles.layout}>
+            <PrerequisitesRow items={prerequisites} loading={isHoursLoading || legalName === undefined} />
                 {/* ── Row 2c: Prenotazioni toggle (full width) ──────────────── */}
                 <Card className={styles.card}>
                     <div className={styles.cardHeader}>
@@ -406,15 +444,6 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
                                 <span>Disponibile con il piano Pro</span>
                             </div>
                         )}
-                        {activity.enable_reservations &&
-                            !isHoursLoading &&
-                            !hours.some(h => !h.is_closed && h.opens_at && h.closes_at) && (
-                                <div className={styles.reservationsHoursNote}>
-                                    <InlineBanner variant="info">
-                                        Questa sede non ha fasce orarie di apertura configurate: imposta gli orari di apertura per gestire e filtrare correttamente le richieste di prenotazione.
-                                    </InlineBanner>
-                                </div>
-                            )}
 
                         {/* Promemoria: sotto l'interruttore principale e
                             visibile solo quando le prenotazioni sono attive —
@@ -496,31 +525,6 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
                             </div>
                         )}
 
-                        {/* Senza ragione sociale l'informativa non si genera, e
-                            il cliente che apre il link dal form trova un
-                            messaggio invece del documento. Il tono NON è "hai
-                            dimenticato qualcosa": `legal_name` si compila coi
-                            dati di fatturazione, cioè sottoscrivendo
-                            l'abbonamento, quindi chi vede questo avviso è quasi
-                            sempre in prova — per lui è un prerequisito, non una
-                            distrazione. */}
-                        {activity.enable_reservations && !hasLegalName && (
-                            <div className={styles.privacyNoticeAlert}>
-                                <InlineBanner variant="warning">
-                                    Per pubblicare l'informativa privacy delle prenotazioni serve
-                                    la ragione sociale della tua azienda: la inserisci con i dati
-                                    di fatturazione, sottoscrivendo l'abbonamento. Finché manca,
-                                    chi apre l'informativa dal modulo di prenotazione trova un
-                                    avviso che lo invita a contattarti.{" "}
-                                    <Link
-                                        to={`/business/${tenantId}/subscription`}
-                                        className={styles.privacyNoticeAlertLink}
-                                    >
-                                        Vai ad Abbonamento
-                                    </Link>
-                                </InlineBanner>
-                            </div>
-                        )}
 
                         {/* Informativa privacy: il titolare del trattamento dei
                             dati di chi prenota è la sede, non CataloGlobe, e
