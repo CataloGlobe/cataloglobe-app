@@ -11,6 +11,7 @@ import { ActivityAvailabilityTab } from "./tabs/ActivityAvailabilityTab";
 import { ActivitySettingsTab } from "./tabs/ActivitySettingsTab";
 import { ActivityOrderingTab } from "./tabs/ActivityOrderingTab";
 import { ActivityHoursTab } from "./tabs/ActivityHoursTab";
+import { ActivityReservationsTab } from "./tabs/ActivityReservationsTab";
 import { TablesManagement } from "@/components/Tables/TablesManagement/TablesManagement";
 import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmptyState";
 import { PageGate } from "@/components/PageGate/PageGate";
@@ -279,16 +280,22 @@ const ActivityDetailPage: React.FC = () => {
                         canWrite={canManage}
                     />
                 )}
-                {/* Ponte FASE 6: Prenotazioni monta ancora l'intera tab
-                    Impostazioni finché i suoi blocchi non vengono estratti. */}
-                {(activeTab === "reservations" || activeTab === "settings") && (
-                    <ActivitySettingsTab
+                {activeTab === "reservations" && (
+                    <ActivityReservationsTab
                         activity={activity}
                         tenantId={businessId!}
                         onReload={fetchData}
                         canWrite={canManage}
                         hours={hours}
                         isHoursLoading={isHoursLoading}
+                    />
+                )}
+                {activeTab === "settings" && (
+                    <ActivitySettingsTab
+                        activity={activity}
+                        tenantId={businessId!}
+                        onReload={fetchData}
+                        canWrite={canManage}
                     />
                 )}
             </div>

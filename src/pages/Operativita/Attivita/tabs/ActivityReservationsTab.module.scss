@@ -1,0 +1,18 @@
+// Solo ciò che è specifico della tab Prenotazioni. Card e accordion vengono
+// da ActivitySettingsTab.module.scss.
+
+// Rimando alla pagina operativa, in coda alla tab.
+.operativeLink {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: #6B7280;
+}
+
+.operativeLinkAnchor {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-weight: 600;
+    color: inherit;
+    text-decoration: underline;
+}
