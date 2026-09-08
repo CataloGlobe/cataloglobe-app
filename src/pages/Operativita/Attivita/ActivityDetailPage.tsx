@@ -251,6 +251,11 @@ const ActivityDetailPage: React.FC = () => {
                                     activityId={activity.id}
                                     orderingEnabled={activity.ordering_enabled}
                                     reservationsEnabled={activity.enable_reservations}
+                                    reservationCapacity={activity.reservation_capacity}
+                                    reservationDurationMinutes={activity.reservation_duration_minutes}
+                                    reservationConfirmationMode={activity.reservation_confirmation_mode}
+                                    onActivityChanged={fetchData}
+                                    canManageActivity={canManage}
                                 />
                             ) : (
                                 <TablesEmptyState

@@ -10,7 +10,6 @@ import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChan
 import { Menu } from "@/components/ui/Menu";
 import { ConfigAccordionSection } from "./components/ConfigAccordionSection";
 import { updateActivity } from "@/services/supabase/activities";
-import { getMappedSeatsSummary } from "@/services/supabase/tables";
 import { listTenantMembers } from "@/services/supabase/team";
 import type { TenantMemberRow } from "@/types/team";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -89,11 +88,14 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
 
     const isPrivacyEmailDirty = privacyEmailDraft.trim() !== savedPrivacyEmail;
 
-    // ── Capacity & availability draft state (Step 3 wires:
-    //    capacity, duration_minutes, overbooking_form, confirmation_mode) ──
+    // ── Regole di accettazione (draft) ───────────────────────────────────────
+    // Capienza e durata vivono in Sala (FASE 6 passo 5): qui restano solo
+    // le regole. Questo draft scrive SOLO i suoi cinque campi, mai
+    // `reservation_capacity` / `reservation_duration_minutes`.
+    // La capienza si LEGGE dalla riga sede (`activity.reservation_capacity`),
+    // ricaricata dalla pagina dopo ogni salvataggio in Sala.
+    const hasCapacity = activity.reservation_capacity != null;
     type CapacityDraft = {
-        capacity: string;            // text input → empty string = "no limit"
-        durationMinutes: string;     // text input, defaults to 120
         overbookingForm: "hard" | "soft";
         confirmationMode: "manuale" | "auto";
         // Pacing: stringa vuota = nessun limite, coerente con `capacity`.
@@ -103,10 +105,6 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
         pacingMaxBookings: string;
     };
     const savedCapacity: CapacityDraft = useMemo(() => ({
-        capacity: activity.reservation_capacity == null
-            ? ""
-            : String(activity.reservation_capacity),
-        durationMinutes: String(activity.reservation_duration_minutes ?? 120),
         overbookingForm: activity.reservation_overbooking_form ?? "hard",
         confirmationMode: activity.reservation_confirmation_mode ?? "manuale",
         pacingSlotMinutes: String(activity.reservation_pacing_slot_minutes ?? 15),
@@ -117,8 +115,6 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
             ? ""
             : String(activity.reservation_pacing_max_bookings)
     }), [
-        activity.reservation_capacity,
-        activity.reservation_duration_minutes,
         activity.reservation_overbooking_form,
         activity.reservation_confirmation_mode,
         activity.reservation_pacing_slot_minutes,
@@ -139,8 +135,6 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
         const newSaved = savedCapacity;
         const prevSaved = lastSavedCapacityRef.current;
         if (
-            newSaved.capacity === prevSaved.capacity &&
-            newSaved.durationMinutes === prevSaved.durationMinutes &&
             newSaved.overbookingForm === prevSaved.overbookingForm &&
             newSaved.confirmationMode === prevSaved.confirmationMode &&
             newSaved.pacingSlotMinutes === prevSaved.pacingSlotMinutes &&
@@ -151,8 +145,6 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
         }
         setCapacityDraft(prev => {
             const isDraftEqualToOldSaved =
-                prev.capacity === prevSaved.capacity &&
-                prev.durationMinutes === prevSaved.durationMinutes &&
                 prev.overbookingForm === prevSaved.overbookingForm &&
                 prev.confirmationMode === prevSaved.confirmationMode &&
                 prev.pacingSlotMinutes === prevSaved.pacingSlotMinutes &&
@@ -163,53 +155,7 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
         lastSavedCapacityRef.current = newSaved;
     }, [savedCapacity]);
 
-    // ── Controllo di realtà sulla capienza ──────────────────────────────────
-    // La capienza è un numero che il ristoratore digita (capienza OPERATIVA:
-    // può essere piu bassa dei posti fisici perche la cucina non regge). Non
-    // viene derivata dai tavoli e non viene mai corretta d'ufficio: qui si
-    // mostra solo la somma dei posti mappati, perche una divergenza forte di
-    // solito e' una svista, non una scelta. Avviso informativo, mai bloccante.
-    const [seatsSummary, setSeatsSummary] = useState<{
-        totalSeats: number;
-        tablesCount: number;
-        tablesWithoutSeats: number;
-    } | null>(null);
-
-    useEffect(() => {
-        if (!activity.enable_reservations || !tenantId || !activity.id) {
-            setSeatsSummary(null);
-            return;
-        }
-        let cancelled = false;
-        void (async () => {
-            try {
-                const summary = await getMappedSeatsSummary(tenantId, activity.id);
-                if (!cancelled) setSeatsSummary(summary);
-            } catch {
-                // Silente: il confronto e' un aiuto, non un requisito della pagina.
-                if (!cancelled) setSeatsSummary(null);
-            }
-        })();
-        return () => {
-            cancelled = true;
-        };
-    }, [tenantId, activity.id, activity.enable_reservations]);
-
-    // Divergenza rilevante: oltre il 20% della capienza dichiarata e almeno 4
-    // coperti di scarto. Sotto quella soglia il rumore supererebbe il segnale.
-    const capacityMismatch = useMemo(() => {
-        if (!seatsSummary || seatsSummary.tablesCount === 0) return null;
-        const declared = Number(capacityDraft.capacity.trim());
-        if (!Number.isFinite(declared) || declared <= 0) return null;
-        const delta = seatsSummary.totalSeats - declared;
-        const isRelevant =
-            Math.abs(delta) >= 4 && Math.abs(delta) >= declared * 0.2;
-        return isRelevant ? { delta } : null;
-    }, [seatsSummary, capacityDraft.capacity]);
-
     const isCapacityDirty =
-        capacityDraft.capacity !== savedCapacity.capacity ||
-        capacityDraft.durationMinutes !== savedCapacity.durationMinutes ||
         capacityDraft.overbookingForm !== savedCapacity.overbookingForm ||
         capacityDraft.confirmationMode !== savedCapacity.confirmationMode ||
         capacityDraft.pacingSlotMinutes !== savedCapacity.pacingSlotMinutes ||
@@ -310,32 +256,10 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
     }, [savedPrivacyEmail]);
 
     const saveCapacity = useCallback(async () => {
-        // Parse + validate locally (CHECK constraints mirror these). Empty
-        // capacity string → NULL (no limit). Duration must stay in 15..600.
-        // Auto-confirmation also requires capacity (DB constraint enforces it;
-        // we surface a friendlier error before the round-trip).
-        const trimmedCapacity = capacityDraft.capacity.trim();
-        let capacityValue: number | null = null;
-        if (trimmedCapacity.length > 0) {
-            const parsed = parseInt(trimmedCapacity, 10);
-            if (!Number.isFinite(parsed) || parsed <= 0) {
-                showToast({
-                    message: "La capienza deve essere un numero maggiore di zero.",
-                    type: "error"
-                });
-                return;
-            }
-            capacityValue = parsed;
-        }
-        const durationParsed = parseInt(capacityDraft.durationMinutes.trim(), 10);
-        if (!Number.isFinite(durationParsed) || durationParsed < 15 || durationParsed > 600) {
-            showToast({
-                message: "La durata deve essere compresa tra 15 e 600 minuti.",
-                type: "error"
-            });
-            return;
-        }
-        if (capacityDraft.confirmationMode === "auto" && capacityValue === null) {
+        // Rete di sicurezza: la regola "auto richiede capienza" è dichiarata
+        // nella UI (radio disabilitato + spiegazione); qui si intercetta solo
+        // un draft rimasto su "auto" mentre la capienza veniva svuotata in Sala.
+        if (capacityDraft.confirmationMode === "auto" && !hasCapacity) {
             showToast({
                 message: "La conferma automatica richiede una capienza impostata.",
                 type: "error"
@@ -379,8 +303,6 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
         setIsSavingCapacity(true);
         try {
             await updateActivity(activity.id, tenantId, {
-                reservation_capacity: capacityValue,
-                reservation_duration_minutes: durationParsed,
                 reservation_overbooking_form: capacityDraft.overbookingForm,
                 reservation_confirmation_mode: capacityDraft.confirmationMode,
                 reservation_pacing_slot_minutes: pacingSlotParsed,
@@ -388,16 +310,16 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
                 reservation_pacing_max_bookings: pacingBookingsValue
             });
             await onReload();
-            showToast({ message: "Capacità salvata.", type: "success" });
+            showToast({ message: "Regole di prenotazione salvate.", type: "success" });
         } catch {
             showToast({
-                message: "Impossibile salvare le impostazioni di capacità.",
+                message: "Impossibile salvare le regole di prenotazione.",
                 type: "error"
             });
         } finally {
             setIsSavingCapacity(false);
         }
-    }, [activity.id, tenantId, capacityDraft, onReload, showToast]);
+    }, [activity.id, tenantId, capacityDraft, hasCapacity, onReload, showToast]);
 
     const cancelCapacity = useCallback(() => {
         setCapacityDraft(savedCapacity);
@@ -645,7 +567,7 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
                         {activity.enable_reservations && (
                             <div className={styles.capacityAccordionWrap}>
                                 <ConfigAccordionSection
-                                    title="Capacità e disponibilità"
+                                    title="Regole di accettazione"
                                     isOpen={isCapacityOpen}
                                     onToggle={() => setIsCapacityOpen(open => !open)}
                                     isLast
@@ -656,66 +578,6 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
                                         isSaving: isSavingCapacity
                                     }}
                                 >
-                                    <div className={styles.capacityRow}>
-                                        <div className={styles.capacityField}>
-                                            <NumberInput
-                                                label="Capienza (coperti)"
-                                                placeholder="Es. 40"
-                                                min={1}
-                                                value={capacityDraft.capacity}
-                                                onChange={e =>
-                                                    setCapacityDraft(d => ({
-                                                        ...d,
-                                                        capacity: e.target.value
-                                                    }))
-                                                }
-                                                disabled={isSavingCapacity}
-                                            />
-                                            {capacityDraft.capacity.trim() === "" && (
-                                                <p className={styles.capacityHint}>
-                                                    Senza capienza impostata, le prenotazioni online non hanno limiti.
-                                                </p>
-                                            )}
-                                            {/* Controllo di realtà: la somma dei posti
-                                                mappati sui tavoli. Informativo, non
-                                                blocca né corregge il numero digitato. */}
-                                            {seatsSummary && seatsSummary.tablesCount > 0 && (
-                                                <>
-                                                    <p className={styles.capacityHint}>
-                                                        {`Posti mappati sui tavoli: ${seatsSummary.totalSeats} su ${seatsSummary.tablesCount} ${seatsSummary.tablesCount === 1 ? "tavolo" : "tavoli"}.`}
-                                                        {seatsSummary.tablesWithoutSeats > 0 &&
-                                                            ` ${seatsSummary.tablesWithoutSeats} ${seatsSummary.tablesWithoutSeats === 1 ? "tavolo non dichiara" : "tavoli non dichiarano"} i posti, quindi la somma è parziale.`}
-                                                    </p>
-                                                    {capacityMismatch && (
-                                                        <p className={styles.capacityWarning}>
-                                                            {capacityMismatch.delta > 0
-                                                                ? `I tavoli hanno ${capacityMismatch.delta} posti in più della capienza impostata. Se è voluto (per esempio la cucina non regge la sala piena) va bene così.`
-                                                                : `I tavoli hanno ${Math.abs(capacityMismatch.delta)} posti in meno della capienza impostata. Se è voluto (per esempio mancano ancora dei tavoli da mappare) va bene così.`}
-                                                        </p>
-                                                    )}
-                                                </>
-                                            )}
-                                        </div>
-                                        <div className={styles.capacityField}>
-                                            <NumberInput
-                                                label="Durata media tavolo (minuti)"
-                                                placeholder="120"
-                                                min={15}
-                                                max={600}
-                                                value={capacityDraft.durationMinutes}
-                                                onChange={e =>
-                                                    setCapacityDraft(d => ({
-                                                        ...d,
-                                                        durationMinutes: e.target.value
-                                                    }))
-                                                }
-                                                disabled={isSavingCapacity}
-                                            />
-                                            <p className={styles.capacityHint}>
-                                                Durata occupazione tipica di un tavolo. Default 120.
-                                            </p>
-                                        </div>
-                                    </div>
                                     <div className={styles.capacityField}>
                                         <span className={styles.capacityLabel}>
                                             Quando è pieno
@@ -784,8 +646,9 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
                                         </div>
                                     </div>
                                     {(() => {
-                                        const capacityEmpty = capacityDraft.capacity.trim() === "";
-                                        const autoDisabled = capacityEmpty;
+                                        // Condizione dichiarata, non errore al salvataggio:
+                                        // senza capienza non esiste un "entro capienza".
+                                        const autoDisabled = !hasCapacity;
                                         return (
                                             <div className={styles.capacityField}>
                                                 <span className={styles.capacityLabel}>
@@ -848,9 +711,19 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
                                                                 Conferma automatica entro capienza
                                                             </span>
                                                             <span className={styles.capacityRadioDescription}>
-                                                                {autoDisabled
-                                                                    ? "Imposta una capienza per attivare la conferma automatica."
-                                                                    : "Le prenotazioni online entro la capienza vengono confermate subito."}
+                                                                {autoDisabled ? (
+                                                                    <>
+                                                                        Serve la capienza della sala: senza, non c'è un "entro capienza".{" "}
+                                                                        <Link
+                                                                            to={`/business/${tenantId}/locations/${activity.id}?tab=sala`}
+                                                                            className={ownStyles.inlineLink}
+                                                                        >
+                                                                            Impostala in Sala
+                                                                        </Link>
+                                                                    </>
+                                                                ) : (
+                                                                    "Le prenotazioni online entro la capienza vengono confermate subito."
+                                                                )}
                                                             </span>
                                                         </span>
                                                     </label>
