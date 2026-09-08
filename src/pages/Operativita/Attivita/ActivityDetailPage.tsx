@@ -19,17 +19,47 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnActivity } from "@/lib/permissions";
 import styles from "./ActivityDetailPage.module.scss";
 
-type TabValue = "profile" | "availability" | "tables" | "settings";
+// Ordine = sequenza in cui affrontarle (FASE 6). `availability` (visibilità
+// prodotti per sede) resta col suo nome: la sua destinazione è ancora aperta.
+type TabValue =
+    | "profile"
+    | "hours"
+    | "sala"
+    | "availability"
+    | "ordering"
+    | "reservations"
+    | "settings";
+
+const TAB_VALUES: readonly TabValue[] = [
+    "profile",
+    "hours",
+    "sala",
+    "availability",
+    "ordering",
+    "reservations",
+    "settings"
+];
+
+const TAB_LABELS: Record<TabValue, string> = {
+    profile: "Profilo",
+    hours: "Orari",
+    sala: "Sala",
+    availability: "Disponibilità",
+    ordering: "Ordinazioni",
+    reservations: "Prenotazioni",
+    settings: "Impostazioni"
+};
 
 const LEGACY_TAB_MAP: Record<string, TabValue> = {
     info: "profile",
     media: "profile",
     "hours-services": "settings",
-    "access-control": "settings"
+    "access-control": "settings",
+    tables: "sala"
 };
 
 const isTabValue = (v: string): v is TabValue =>
-    v === "profile" || v === "availability" || v === "tables" || v === "settings";
+    (TAB_VALUES as readonly string[]).includes(v);
 
 const ActivityDetailPage: React.FC = () => {
     const { activityId, businessId } = useParams<{ activityId: string; businessId: string }>();
@@ -117,10 +147,9 @@ const ActivityDetailPage: React.FC = () => {
     const leading = useMemo(() => (
         <Tabs<TabValue> value={activeTab} onChange={handleTabChange} variant="line">
             <Tabs.List>
-                <Tabs.Tab value="profile">Profilo</Tabs.Tab>
-                <Tabs.Tab value="availability">Disponibilità</Tabs.Tab>
-                <Tabs.Tab value="tables">Tavoli</Tabs.Tab>
-                <Tabs.Tab value="settings">Impostazioni</Tabs.Tab>
+                {TAB_VALUES.map(value => (
+                    <Tabs.Tab key={value} value={value}>{TAB_LABELS[value]}</Tabs.Tab>
+                ))}
             </Tabs.List>
         </Tabs>
     ), [activeTab, handleTabChange]);
@@ -129,12 +158,7 @@ const ActivityDetailPage: React.FC = () => {
     // lista e nella tab Impostazioni, vedi sopra), quindi in compatto la riga
     // è il solo picker.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        sections: [
-            { value: "profile", label: "Profilo" },
-            { value: "availability", label: "Disponibilità" },
-            { value: "tables", label: "Tavoli" },
-            { value: "settings", label: "Impostazioni" }
-        ],
+        sections: TAB_VALUES.map(value => ({ value, label: TAB_LABELS[value] })),
         activeSection: activeTab,
         onSectionChange: value => handleTabChange(value as TabValue)
     }), [activeTab, handleTabChange]);
@@ -187,7 +211,7 @@ const ActivityDetailPage: React.FC = () => {
                         onReload={fetchData}
                     />
                 )}
-                {activeTab === "tables" && (
+                {activeTab === "sala" && (
                     <PageGate readPermission="tables.read" activityId={activity.id}>
                         {() => (
                             // I tavoli servono a due domini: ordinazioni QR e
@@ -203,13 +227,20 @@ const ActivityDetailPage: React.FC = () => {
                                 />
                             ) : (
                                 <TablesEmptyState
-                                    onGoToSettings={() => handleTabChange("settings")}
+                                    onGoToOrdering={() => handleTabChange("ordering")}
+                                    onGoToReservations={() => handleTabChange("reservations")}
                                 />
                             )
                         )}
                     </PageGate>
                 )}
-                {activeTab === "settings" && (
+                {/* Ponte FASE 6 (passo 1): Orari / Ordinazioni / Prenotazioni
+                    montano ancora l'intera tab Impostazioni. I blocchi vengono
+                    spostati uno alla volta nei passi successivi. */}
+                {(activeTab === "hours" ||
+                    activeTab === "ordering" ||
+                    activeTab === "reservations" ||
+                    activeTab === "settings") && (
                     <ActivitySettingsTab
                         activity={activity}
                         tenantId={businessId!}
