@@ -9,6 +9,7 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityProfileTab } from "./tabs/ActivityProfileTab";
 import { ActivityAvailabilityTab } from "./tabs/ActivityAvailabilityTab";
 import { ActivitySettingsTab } from "./tabs/ActivitySettingsTab";
+import { ActivityOrderingTab } from "./tabs/ActivityOrderingTab";
 import { TablesManagement } from "@/components/Tables/TablesManagement/TablesManagement";
 import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmptyState";
 import { PageGate } from "@/components/PageGate/PageGate";
@@ -234,11 +235,18 @@ const ActivityDetailPage: React.FC = () => {
                         )}
                     </PageGate>
                 )}
-                {/* Ponte FASE 6 (passo 1): Orari / Ordinazioni / Prenotazioni
-                    montano ancora l'intera tab Impostazioni. I blocchi vengono
-                    spostati uno alla volta nei passi successivi. */}
+                {activeTab === "ordering" && (
+                    <ActivityOrderingTab
+                        activity={activity}
+                        tenantId={businessId!}
+                        onReload={fetchData}
+                        canWrite={canManage}
+                    />
+                )}
+                {/* Ponte FASE 6: Orari / Prenotazioni montano ancora l'intera
+                    tab Impostazioni. I blocchi vengono spostati uno alla volta
+                    nei passi successivi. */}
                 {(activeTab === "hours" ||
-                    activeTab === "ordering" ||
                     activeTab === "reservations" ||
                     activeTab === "settings") && (
                     <ActivitySettingsTab

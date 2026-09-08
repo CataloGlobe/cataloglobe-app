@@ -53,11 +53,9 @@ import {
 } from "./hours-services/FeesSection";
 import { ExportCatalogDrawer } from "./ExportCatalogDrawer";
 import { ConfigAccordionSection } from "./components/ConfigAccordionSection";
-import { PrintersSection } from "./printers/PrintersSection";
 import {
     deleteActivityAtomic,
-    updateActivity,
-    updateActivityOrderingEnabled
+    updateActivity
 } from "@/services/supabase/activities";
 import { getMappedSeatsSummary } from "@/services/supabase/tables";
 import { listActivityHours } from "@/services/supabase/activityHours";
@@ -115,7 +113,6 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     // not include a feature, the related toggle is disabled and locked; the
     // saved DB value is NOT mutated.
     const { hasFeature } = usePlanFeatures();
-    const isOrderingLocked = !hasFeature("table_ordering");
     const isReservationsLocked = !hasFeature("table_reservation");
 
     // ── Reservation alert recipients state ──────────────────────────────────
@@ -626,27 +623,6 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
             } catch {
                 showToast({
                     message: "Impossibile aggiornare la visibilità.",
-                    type: "error"
-                });
-            }
-        },
-        [activity.id, tenantId, onReload, showToast]
-    );
-
-    const handleOrderingEnabledToggle = useCallback(
-        async (checked: boolean) => {
-            try {
-                await updateActivityOrderingEnabled(activity.id, tenantId, checked);
-                showToast({
-                    message: checked
-                        ? "Ordinazioni QR riattivate"
-                        : "Ordinazioni QR sospese. I clienti vedranno il menu ma non potranno ordinare.",
-                    type: "success"
-                });
-                await onReload();
-            } catch {
-                showToast({
-                    message: "Impossibile aggiornare lo stato delle ordinazioni.",
                     type: "error"
                 });
             }
@@ -1234,54 +1210,6 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                         </div>
                     </Card>
                 </div>
-
-                {/* ── Row 2b: Ordinazioni QR maintenance toggle (full width) ── */}
-                <Card className={styles.card}>
-                    <div className={styles.cardHeader}>
-                        <div className={styles.cardHeaderText}>
-                            <h3 className={styles.cardTitle}>Ordinazioni dal tavolo</h3>
-                            <p className={styles.cardSubtitle}>
-                                Sospendi temporaneamente la ricezione di ordini dal QR senza chiudere la sede.
-                            </p>
-                        </div>
-                    </div>
-                    <div className={styles.cardBodyFlat} style={{ padding: "16px 24px" }}>
-                        <Switch
-                            checked={activity.ordering_enabled}
-                            onChange={handleOrderingEnabledToggle}
-                            disabled={isOrderingLocked}
-                            label="Ordinazioni QR abilitate"
-                            description={
-                                activity.ordering_enabled
-                                    ? "I clienti possono ordinare scansionando il QR del tavolo."
-                                    : "I clienti vedono il menu in sola lettura. Il tasto Invia ordine e' disabilitato. Riattiva quando vuoi accettare nuovamente ordini al tavolo."
-                            }
-                        />
-                        {isOrderingLocked && (
-                            <div className={styles.lockedFeatureCaption}>
-                                <Lock size={14} strokeWidth={1.5} />
-                                <span>Disponibile con il piano Pro</span>
-                            </div>
-                        )}
-                    </div>
-                </Card>
-
-                {/* ── Row 2b-bis: Stampanti Sunmi (solo con ordinazioni attive) ── */}
-                {activity.ordering_enabled && (
-                    <Card className={styles.card}>
-                        <div className={styles.cardHeader}>
-                            <div className={styles.cardHeaderText}>
-                                <h3 className={styles.cardTitle}>Stampanti</h3>
-                                <p className={styles.cardSubtitle}>
-                                    Collega le stampanti cloud Sunmi della sede per ricevere le comande in cucina.
-                                </p>
-                            </div>
-                        </div>
-                        <div className={styles.cardBodyFlat}>
-                            <PrintersSection tenantId={tenantId} activityId={activity.id} />
-                        </div>
-                    </Card>
-                )}
 
                 {/* ── Row 2c: Prenotazioni toggle (full width) ──────────────── */}
                 <Card className={styles.card}>
