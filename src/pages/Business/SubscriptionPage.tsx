@@ -330,6 +330,12 @@ export default function SubscriptionPage() {
         return formatDate(selectedTenant.current_period_end ?? null);
     })();
 
+    // Visibile solo in prova con una data nota: comunica quando scatta il primo
+    // addebito reale, non solo quando finisce la prova.
+    const firstChargeNote = status === "trialing" && trialDaysLeft !== null
+        ? `Il primo addebito di ${formatEuro(displayMonthly)}/mese parte il ${formatDate(selectedTenant.trial_until)}.`
+        : null;
+
     const handleCheckout = async () => {
         setCheckoutLoading(true);
         try {
@@ -560,7 +566,12 @@ export default function SubscriptionPage() {
             setSubState(next);
             setScheduledChange(null);
             setIsCancelOpen(false);
-            showToast({ message: "Abbonamento disdetto: resterà attivo fino a fine periodo.", type: "success" });
+            showToast({
+                message: status === "trialing"
+                    ? "Prova disdetta: resterà attiva fino alla fine della prova, poi non ti verrà addebitato nulla."
+                    : "Abbonamento disdetto: resterà attivo fino a fine periodo.",
+                type: "success"
+            });
         } catch (err) {
             const name = err instanceof Error ? err.name : "";
             showToast({
@@ -710,6 +721,11 @@ export default function SubscriptionPage() {
                         <Text variant="title-sm" weight={700}>
                             {renewalDateText}
                         </Text>
+                        {firstChargeNote && (
+                            <Text variant="body-sm" colorVariant="muted">
+                                {firstChargeNote}
+                            </Text>
+                        )}
                     </div>
 
                     <div className={styles.summaryItem}>
@@ -769,7 +785,9 @@ export default function SubscriptionPage() {
                     <div className={styles.cancelNote}>
                         <AlertTriangle size={16} />
                         <Text variant="body-sm" weight={500}>
-                            Abbonamento attivo fino al {formatDate(periodEndDate)}, poi disdetto.
+                            {status === "trialing"
+                                ? `Prova attiva fino al ${formatDate(periodEndDate)}, poi disdetta: non ti verrà addebitato nulla.`
+                                : `Abbonamento attivo fino al ${formatDate(periodEndDate)}, poi disdetto.`}
                         </Text>
                         {canCancelBilling && (
                             <Button
@@ -906,7 +924,9 @@ export default function SubscriptionPage() {
                                 Disdici abbonamento
                             </Text>
                             <Text variant="body-sm" colorVariant="muted">
-                                La disdetta ha effetto a fine periodo. Nessun rimborso; tutto resta attivo fino ad allora.
+                                {status === "trialing"
+                                    ? `La disdetta avrà effetto alla fine della prova, il ${formatDate(periodEndDate)}. Non ti verrà addebitato nulla.`
+                                    : "La disdetta ha effetto a fine periodo. Nessun rimborso; tutto resta attivo fino ad allora."}
                             </Text>
                         </div>
                         <Button
@@ -1232,14 +1252,25 @@ export default function SubscriptionPage() {
                 >
                     <div className={styles.changeBody}>
                         <Text variant="body">
-                            L&apos;abbonamento resterà attivo fino al <strong>{formatDate(periodEndDate)}</strong>,
-                            poi verrà disdetto. <strong>Nessun rimborso</strong> per il periodo già pagato.
+                            {status === "trialing" ? (
+                                <>
+                                    La prova resterà attiva fino al <strong>{formatDate(periodEndDate)}</strong>,
+                                    poi verrà disdetta. <strong>Non ti verrà addebitato nulla</strong>: la prova è gratuita.
+                                </>
+                            ) : (
+                                <>
+                                    L&apos;abbonamento resterà attivo fino al <strong>{formatDate(periodEndDate)}</strong>,
+                                    poi verrà disdetto. <strong>Nessun rimborso</strong> per il periodo già pagato.
+                                </>
+                            )}
                         </Text>
                         <div className={styles.changeWarning}>
                             <AlertTriangle size={16} />
                             <Text variant="body-sm" weight={500}>
-                                Fino a quella data ordini, prenotazioni e cataloghi restano pienamente attivi.
-                                Potrai annullare la disdetta in qualsiasi momento prima del rinnovo.
+                                Fino a quella data ordini, prenotazioni e cataloghi restano pienamente attivi.{" "}
+                                {status === "trialing"
+                                    ? "Potrai annullare la disdetta in qualsiasi momento prima di quella data."
+                                    : "Potrai annullare la disdetta in qualsiasi momento prima del rinnovo."}
                             </Text>
                         </div>
                     </div>

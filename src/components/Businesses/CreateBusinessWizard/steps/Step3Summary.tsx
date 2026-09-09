@@ -16,6 +16,7 @@ interface Step3SummaryProps {
     onTogglePromoInput: () => void;
     promoError: string | null;
     submitError: string | null;
+    isFirstSubscription: boolean;
 }
 
 function formatEuro(value: number): string {
@@ -34,6 +35,7 @@ export function Step3Summary({
     onTogglePromoInput,
     promoError,
     submitError,
+    isFirstSubscription,
 }: Step3SummaryProps) {
     return (
         <div className={styles.stepRoot}>
@@ -111,7 +113,9 @@ export function Step3Summary({
                 <div className={styles.infoBlock}>
                     <span className={styles.infoTitle}>Cosa succede al click su "Vai al pagamento"</span>
                     <span className={styles.infoText}>
-                        Sarai reindirizzato alla pagina sicura di Stripe. Inserirai la carta e il primo addebito partirà solo dopo la conferma. Puoi cancellare l'abbonamento in qualsiasi momento dalla pagina Abbonamento.
+                        {isFirstSubscription
+                            ? "Sarai reindirizzato alla pagina sicura di Stripe. Inserirai la carta, ma non ti verrà addebitato nulla fino alla fine del periodo di prova di 30 giorni. Puoi cancellare l'abbonamento in qualsiasi momento dalla pagina Abbonamento."
+                            : "Sarai reindirizzato alla pagina sicura di Stripe. Inserirai la carta e l'addebito partirà subito. Puoi cancellare l'abbonamento in qualsiasi momento dalla pagina Abbonamento."}
                     </span>
                 </div>
 
