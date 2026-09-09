@@ -9,8 +9,8 @@ import { useToast } from "@/context/Toast/ToastContext";
 import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import type { V2ActivityClosure } from "@/types/activity-closures";
-// Card e layout condivisi con le altre tab della sede (vedi ActivityOrderingTab).
-import cardStyles from "./ActivitySettingsTab.module.scss";
+// Card e layout dal modulo condiviso delle tab sede.
+import cardStyles from "./ActivityTabCards.module.scss";
 
 interface ActivityHoursTabProps {
     activity: V2Activity;

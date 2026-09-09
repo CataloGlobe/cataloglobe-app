@@ -9,11 +9,9 @@ import { PrintersSection } from "./printers/PrintersSection";
 import { updateActivityOrderingEnabled } from "@/services/supabase/activities";
 import { useToast } from "@/context/Toast/ToastContext";
 import type { V2Activity } from "@/types/activity";
-// Card, header e caption "piano Pro" sono le stesse delle altre tab della
-// sede: il modulo di Impostazioni resta l'unica fonte (stesso precedente di
-// `ActivityHoursSection` / `ActivityClosuresSection`). Qui solo ciò che è
-// specifico di questa tab.
-import cardStyles from "./ActivitySettingsTab.module.scss";
+// Card, header e caption "piano Pro" dal modulo condiviso delle tab sede.
+// Qui solo ciò che è specifico di questa tab.
+import cardStyles from "./ActivityTabCards.module.scss";
 import styles from "./ActivityOrderingTab.module.scss";
 
 interface ActivityOrderingTabProps {

@@ -18,8 +18,10 @@ import { canDoOnTenant } from "@/lib/permissions";
 import { useToast } from "@/context/Toast/ToastContext";
 import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
-// Card, accordion e classi della card Prenotazioni vivono nel modulo di
-// Impostazioni (stesso precedente di Orari e Ordinazioni).
+// Card e layout dal modulo condiviso delle tab sede; le classi proprie della
+// card Prenotazioni (email, capacità, radio) vivono nel modulo di Impostazioni
+// da cui il blocco è stato estratto.
+import cards from "./ActivityTabCards.module.scss";
 import styles from "./ActivitySettingsTab.module.scss";
 import ownStyles from "./ActivityReservationsTab.module.scss";
 
@@ -414,19 +416,19 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
     ];
 
     return (
-        <div className={styles.layout}>
+        <div className={cards.layout}>
             <PrerequisitesRow items={prerequisites} loading={isHoursLoading || legalName === undefined} />
                 {/* ── Row 2c: Prenotazioni toggle (full width) ──────────────── */}
-                <Card className={styles.card}>
-                    <div className={styles.cardHeader}>
-                        <div className={styles.cardHeaderText}>
-                            <h3 className={styles.cardTitle}>Prenotazioni</h3>
-                            <p className={styles.cardSubtitle}>
+                <Card className={cards.card}>
+                    <div className={cards.cardHeader}>
+                        <div className={cards.cardHeaderText}>
+                            <h3 className={cards.cardTitle}>Prenotazioni</h3>
+                            <p className={cards.cardSubtitle}>
                                 Abilita il modulo di prenotazione tavolo sulla pagina pubblica della sede.
                             </p>
                         </div>
                     </div>
-                    <div className={styles.cardBodyFlat} style={{ padding: "16px 24px" }}>
+                    <div className={cards.cardBodyFlat} style={{ padding: "16px 24px" }}>
                         <Switch
                             checked={activity.enable_reservations}
                             onChange={handleEnableReservationsToggle}
@@ -439,7 +441,7 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
                             }
                         />
                         {isReservationsLocked && (
-                            <div className={styles.lockedFeatureCaption}>
+                            <div className={cards.lockedFeatureCaption}>
                                 <Lock size={14} strokeWidth={1.5} />
                                 <span>Disponibile con il piano Pro</span>
                             </div>
