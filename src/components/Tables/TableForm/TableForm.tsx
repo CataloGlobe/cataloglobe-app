@@ -1,8 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { FormEvent } from "react";
 
 import { TextInput } from "@/components/ui/Input/TextInput";
+import { InputBase } from "@/components/ui/Input/InputBase";
 import { Switch } from "@/components/ui/Switch/Switch";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection/CollapsibleSection";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { createTable, updateTable } from "@/services/supabase/tables";
@@ -28,6 +32,22 @@ export interface TableFormProps {
     onSavingChange: (saving: boolean) => void;
 }
 
+// 0/50/100 → fasce di lettura, non uguaglianze: protegge da valori messi a
+// mano in SQL che non cadono esattamente su uno dei tre bottoni.
+function priorityToBucket(raw: string): 0 | 50 | 100 {
+    const n = Number(raw.trim());
+    if (!Number.isFinite(n)) return 50;
+    if (n >= 75) return 100;
+    if (n <= 25) return 0;
+    return 50;
+}
+
+const PRIORITY_OPTIONS: { value: 0 | 50 | 100; label: string }[] = [
+    { value: 100, label: "Per primo" },
+    { value: 50, label: "Normale" },
+    { value: 0, label: "Per ultimo" }
+];
+
 export function TableForm({
     formId,
     mode,
@@ -48,7 +68,7 @@ export function TableForm({
     const [formMinSeats, setFormMinSeats] = useState<string>("");
     const [formMaxSeats, setFormMaxSeats] = useState<string>("");
     const [formGroupId, setFormGroupId] = useState<string | null>(null);
-    const [formPriority, setFormPriority] = useState<string>("0");
+    const [formPriority, setFormPriority] = useState<string>("50");
     const [formBookableOnline, setFormBookableOnline] = useState(true);
     // Guardrail: true mentre il mini-form "Crea zona"/"Crea gruppo" e' aperto.
     // Blocca submit per evitare creazione tavolo con zone_id/gruppo mancante
@@ -64,7 +84,7 @@ export function TableForm({
             setFormMinSeats(entityData.min_seats?.toString() ?? "");
             setFormMaxSeats(entityData.max_seats?.toString() ?? "");
             setFormGroupId(entityData.combination_group_id);
-            setFormPriority(entityData.assignment_priority?.toString() ?? "0");
+            setFormPriority(entityData.assignment_priority?.toString() ?? "50");
             setFormBookableOnline(entityData.bookable_online ?? true);
         } else {
             setFormLabel("");
@@ -73,11 +93,36 @@ export function TableForm({
             setFormMinSeats("");
             setFormMaxSeats("");
             setFormGroupId(null);
-            setFormPriority("0");
+            setFormPriority("50");
             setFormBookableOnline(true);
         }
         setIsCreatingZone(false);
         setIsCreatingGroup(false);
+    }, [entityData]);
+
+    // I trigger di riassegnazione stanno su `reservations`, non su `tables`
+    // (FASE 1, rischio 6): cambiare uno di questi campi non sposta le
+    // prenotazioni già assegnate. Il drawer lo dice, non lo lascia intendere.
+    const affectsAssignment =
+        mode === "edit" &&
+        entityData !== null &&
+        (formSeats !== (entityData.seats?.toString() ?? "") ||
+            formMinSeats !== (entityData.min_seats?.toString() ?? "") ||
+            formMaxSeats !== (entityData.max_seats?.toString() ?? "") ||
+            formGroupId !== entityData.combination_group_id ||
+            formPriority !== (entityData.assignment_priority?.toString() ?? "50") ||
+            formBookableOnline !== (entityData.bookable_online ?? true));
+
+    // Sezione aperta di default se il tavolo ha già preferenze non-neutre:
+    // chi le ha configurate le rivede subito, chi non le ha mai toccate non
+    // trova una sezione vuota già spalancata.
+    const groupsDefaultOpen = useMemo(() => {
+        if (!entityData) return false;
+        return (
+            entityData.min_seats != null ||
+            entityData.max_seats != null ||
+            priorityToBucket(entityData.assignment_priority?.toString() ?? "50") !== 50
+        );
     }, [entityData]);
 
     async function handleSubmit(e: FormEvent) {
@@ -105,17 +150,17 @@ export function TableForm({
         }
 
         const trimmedSeats = formSeats.trim();
-        let seatsParsed: number | undefined = undefined;
-        if (trimmedSeats.length > 0) {
-            const n = Number(trimmedSeats);
-            if (!Number.isInteger(n) || n <= 0) {
-                showToast({
-                    message: "I posti devono essere un numero intero positivo",
-                    type: "error"
-                });
-                return;
-            }
-            seatsParsed = n;
+        if (!trimmedSeats) {
+            showToast({ message: "I posti sono obbligatori", type: "error" });
+            return;
+        }
+        const seatsParsed = Number(trimmedSeats);
+        if (!Number.isInteger(seatsParsed) || seatsParsed <= 0) {
+            showToast({
+                message: "I posti devono essere un numero intero positivo",
+                type: "error"
+            });
+            return;
         }
 
         // Campi prenotazione: validati e inviati SOLO se la sede prenota. Con
@@ -142,44 +187,41 @@ export function TableForm({
             const maxParsed = parseOptionalCount(formMaxSeats);
             if (minParsed === "invalid" || maxParsed === "invalid") {
                 showToast({
-                    message:
-                        "Capienza minima e massima devono essere numeri interi positivi",
+                    message: "I due estremi devono essere numeri interi positivi",
                     type: "error"
                 });
                 return;
             }
             if (minParsed !== null && maxParsed !== null && minParsed > maxParsed) {
                 showToast({
-                    message: "La capienza minima non può superare la massima",
+                    message: "Il primo estremo non può superare il secondo",
                     type: "error"
                 });
                 return;
             }
-            if (seatsParsed !== undefined) {
-                if (minParsed !== null && seatsParsed < minParsed) {
-                    showToast({
-                        message: "I posti non possono essere meno della capienza minima",
-                        type: "error"
-                    });
-                    return;
-                }
-                if (maxParsed !== null && seatsParsed > maxParsed) {
-                    showToast({
-                        message: "I posti non possono superare la capienza massima",
-                        type: "error"
-                    });
-                    return;
-                }
+            if (minParsed !== null && seatsParsed < minParsed) {
+                showToast({
+                    message: "I posti non possono essere meno del primo estremo",
+                    type: "error"
+                });
+                return;
+            }
+            if (maxParsed !== null && seatsParsed > maxParsed) {
+                showToast({
+                    message: "I posti non possono superare la capienza massima",
+                    type: "error"
+                });
+                return;
             }
 
-            const priorityParsed = Number(formPriority.trim() || "0");
+            const priorityParsed = Number(formPriority.trim() || "50");
             if (
                 !Number.isInteger(priorityParsed) ||
                 priorityParsed < 0 ||
                 priorityParsed > 100
             ) {
                 showToast({
-                    message: "La priorità deve essere un numero intero fra 0 e 100",
+                    message: "L'ordine di scelta non è valido",
                     type: "error"
                 });
                 return;
@@ -200,7 +242,7 @@ export function TableForm({
                 await updateTable(entityData.id, tenantId, {
                     label: formLabel.trim(),
                     zone_id: formZoneId,
-                    seats: seatsParsed ?? null,
+                    seats: seatsParsed,
                     ...(reservationFields ?? {})
                 });
                 showToast({ message: "Tavolo aggiornato", type: "success" });
@@ -238,6 +280,16 @@ export function TableForm({
                 onChange={e => setFormLabel(e.target.value)}
                 placeholder="es. T1, Tavolo 5, Sala A-3"
             />
+            <TextInput
+                label="Posti"
+                required
+                type="number"
+                min={1}
+                value={formSeats}
+                onChange={e => setFormSeats(e.target.value)}
+                placeholder="2"
+                helperText="Quante persone ci stanno normalmente al tavolo."
+            />
             <ZoneSelectField
                 // key remount per forzare refresh lista zone post-CRUD drawer.
                 key={`zone-select-${zoneReloadKey}`}
@@ -247,19 +299,6 @@ export function TableForm({
                 onChange={setFormZoneId}
                 onModeChange={m => setIsCreatingZone(m === "create")}
                 label="Zona (opzionale)"
-            />
-            <TextInput
-                label="Posti (opzionale)"
-                type="number"
-                min={1}
-                value={formSeats}
-                onChange={e => setFormSeats(e.target.value)}
-                placeholder="2"
-                helperText={
-                    reservationsEnabled
-                        ? "Posti apparecchiati di norma. Se lo lasci vuoto la capienza del tavolo resta sconosciuta e le prenotazioni non gli vengono assegnate in automatico."
-                        : "Posti apparecchiati di norma."
-                }
             />
 
             {/* Campi di assegnazione: solo se la sede prende prenotazioni.
@@ -272,25 +311,59 @@ export function TableForm({
                         </Text>
                     </div>
 
-                    <TextInput
-                        label="Capienza minima (opzionale)"
-                        type="number"
-                        min={1}
-                        value={formMinSeats}
-                        onChange={e => setFormMinSeats(e.target.value)}
-                        placeholder="2"
-                        helperText="Sotto questo numero il tavolo non viene proposto: evita la coppia al tavolo grande. Vuoto = nessun minimo, va bene qualsiasi gruppo che ci stia."
+                    {affectsAssignment && (
+                        <InlineBanner variant="warning">
+                            Questo cambia solo le assegnazioni future: le prenotazioni
+                            già assegnate a questo tavolo restano dove sono. Per
+                            spostarle usa &laquo;Riorganizza i tavoli&raquo; in
+                            Prenotazioni.
+                        </InlineBanner>
+                    )}
+
+                    <Switch
+                        label="Assegnabile"
+                        checked={formBookableOnline}
+                        onChange={setFormBookableOnline}
+                        helperText="Attivo per impostazione predefinita. Da spento, il motore di assegnazione automatica non lo propone più — ma resta assegnabile a mano dall'operatore in qualsiasi momento, non è escluso dalle prenotazioni."
                     />
 
-                    <TextInput
-                        label="Capienza massima (opzionale)"
-                        type="number"
-                        min={1}
-                        value={formMaxSeats}
-                        onChange={e => setFormMaxSeats(e.target.value)}
-                        placeholder="6"
-                        helperText="Massimo raggiungibile aggiungendo sedie. Vuoto = nessuna sedia in più, il tetto resta il numero di posti."
-                    />
+                    <CollapsibleSection
+                        label="Gruppi di persone e preferenze"
+                        defaultOpen={groupsDefaultOpen}
+                    >
+                        <TextInput
+                            label="Preferito da (opzionale)"
+                            type="number"
+                            min={1}
+                            value={formMinSeats}
+                            onChange={e => setFormMinSeats(e.target.value)}
+                            placeholder="2"
+                            helperText="Non è un vincolo. Sotto questo numero il tavolo viene proposto solo se non c'è nient'altro di adatto. Nell'accostamento di più tavoli non conta affatto."
+                        />
+
+                        <TextInput
+                            label="Capienza massima (opzionale)"
+                            type="number"
+                            min={1}
+                            value={formMaxSeats}
+                            onChange={e => setFormMaxSeats(e.target.value)}
+                            placeholder="6"
+                            helperText="Questo sì è un tetto vero: sopra questo numero il tavolo non viene proposto. Vuoto = vale il numero di posti."
+                        />
+
+                        <InputBase
+                            label="Ordine di scelta"
+                            helperText="Il sistema propone comunque il tavolo della misura più adatta: questa impostazione conta solo quando due tavoli vanno bene allo stesso modo."
+                        >
+                            {() => (
+                                <SegmentedControl
+                                    value={priorityToBucket(formPriority)}
+                                    onChange={v => setFormPriority(String(v))}
+                                    options={PRIORITY_OPTIONS}
+                                />
+                            )}
+                        </InputBase>
+                    </CollapsibleSection>
 
                     <CombinationGroupSelectField
                         tenantId={tenantId}
@@ -299,24 +372,6 @@ export function TableForm({
                         onChange={setFormGroupId}
                         onModeChange={m => setIsCreatingGroup(m === "create")}
                         label="Gruppo di accostamento (opzionale)"
-                    />
-
-                    <TextInput
-                        label="Priorità di assegnazione"
-                        type="number"
-                        min={0}
-                        max={100}
-                        value={formPriority}
-                        onChange={e => setFormPriority(e.target.value)}
-                        placeholder="0"
-                        helperText="Da 0 a 100: a parità di condizioni viene scelto prima il tavolo con il numero più alto. Lascia 0 se non hai preferenze — tutti i tavoli restano pari."
-                    />
-
-                    <Switch
-                        label="Prenotabile online"
-                        checked={formBookableOnline}
-                        onChange={setFormBookableOnline}
-                        helperText="Attivo per impostazione predefinita. Disattivalo per tenere il tavolo ai clienti che arrivano senza prenotare: resta assegnabile a mano, ma il sistema non lo propone mai."
                     />
                 </>
             )}

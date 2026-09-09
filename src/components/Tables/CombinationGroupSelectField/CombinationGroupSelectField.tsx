@@ -170,7 +170,8 @@ export function CombinationGroupSelectField({
                     </select>
                     <Text variant="body-sm" className={styles.hint}>
                         I tavoli dello stesso gruppo vengono considerati accostabili
-                        tutti fra loro. Tieni i gruppi piccoli e vicini di fatto (es.
+                        tutti fra loro, ma il sistema ne unisce al massimo 3 per
+                        volta. Tieni i gruppi piccoli e vicini di fatto (es.
                         &laquo;Fila finestra&raquo;): un gruppo troppo largo fa
                         proporre unioni fra tavoli lontani. Se lasci
                         &laquo;Nessuno&raquo; il tavolo viene assegnato sempre da solo.

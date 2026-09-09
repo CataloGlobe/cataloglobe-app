@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Grid2X2, Layers, MoreHorizontal, Plus, QrCode, RotateCw } from "lucide-react";
+import { AlertTriangle, Grid2X2, Layers, MoreHorizontal, Plus, QrCode, RotateCw } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -93,6 +93,12 @@ export function TablesManagement({
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<V2Table | null>(null);
     const [isSaving, setIsSaving] = useState(false);
+    // Bump ad ogni apertura (create o edit, anche sullo stesso tavolo): la
+    // sola identità di `editingItem` non basta a forzare il remount, perché
+    // se il drawer riapre prima che l'uscita di SystemDrawer finisca (~250ms,
+    // AnimatePresence) l'istanza di TableForm viene riesumata invece che
+    // ricreata, e i campi non salvati dell'apertura precedente restano.
+    const [formInstanceKey, setFormInstanceKey] = useState(0);
 
     // Delete drawer
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -299,11 +305,13 @@ export function TablesManagement({
     // ── Handlers ──
     function openCreate() {
         setEditingItem(null);
+        setFormInstanceKey(k => k + 1);
         setIsDrawerOpen(true);
     }
 
     function openEdit(item: V2Table) {
         setEditingItem(item);
+        setFormInstanceKey(k => k + 1);
         setIsDrawerOpen(true);
     }
 
@@ -451,6 +459,16 @@ export function TablesManagement({
     const isFieldMissing = (row: V2TableWithState, key: keyof V2TableWithState) =>
         (row as Partial<V2TableWithState>)[key] === undefined;
 
+    // Predicato IDENTICO a quello del motore (`assign_tables_for_reservation`,
+    // P1/P2/P3): COALESCE(max_seats, seats) IS NULL. NON `seats IS NULL` — un
+    // tavolo senza posti ma con capienza massima resta candidabile e non va
+    // segnalato. `isFieldMissing` protegge dal caso in cui la view non abbia
+    // ancora la colonna: senza il dato non si può affermare l'esclusione.
+    const isExcludedFromEngine = (row: V2TableWithState) => {
+        if (isFieldMissing(row, "max_seats") || isFieldMissing(row, "seats")) return false;
+        return row.max_seats == null && row.seats == null;
+    };
+
     const missingCell = (
         <Tooltip content="Dato non disponibile: ricaricare la pagina o verificare le migration della vista tavoli">
             <span>
@@ -469,9 +487,21 @@ export function TablesManagement({
             accessor: row => row.label,
             cell: (_v, row) => (
                 <div className={styles.labelCell}>
-                    <Text variant="body-sm" weight={600}>
-                        {row.label}
-                    </Text>
+                    <div className={styles.labelRow}>
+                        <Text variant="body-sm" weight={600}>
+                            {row.label}
+                        </Text>
+                        {/* Unico uso dell'ambra della schermata: tavolo davvero
+                            escluso dal motore (non un tavolo senza `seats` ma
+                            con `max_seats` valorizzato — quello resta candidabile). */}
+                        {reservationsEnabled && isExcludedFromEngine(row) && (
+                            <Tooltip content="Capienza non dichiarata (né posti né capienza massima): il motore di assegnazione automatica non propone questo tavolo alle prenotazioni. Resta assegnabile a mano.">
+                                <span className={styles.exclusionWarningIcon}>
+                                    <AlertTriangle size={14} strokeWidth={2} aria-label="Escluso dall'assegnazione automatica" />
+                                </span>
+                            </Tooltip>
+                        )}
+                    </div>
                 </div>
             )
         },
@@ -546,17 +576,17 @@ export function TablesManagement({
                   },
                   {
                       id: "bookable_online",
-                      header: "Prenotabile",
+                      header: "Assegnabile",
                       width: "110px",
                       accessor: row => row.bookable_online,
                       cell: (_v, row) => {
                           if (isFieldMissing(row, "bookable_online")) return missingCell;
+                          // Configurazione voluta, non un'anomalia: nessun badge
+                          // colorato per il caso "no". Il tavolo resta assegnabile
+                          // a mano — non e' escluso dalle prenotazioni.
                           return (
-                              <Text
-                                  variant="body-sm"
-                                  colorVariant={row.bookable_online ? undefined : "muted"}
-                              >
-                                  {row.bookable_online ? "Sì" : "Solo walk-in"}
+                              <Text variant="body-sm">
+                                  {row.bookable_online ? "Sì" : "Solo a mano"}
                               </Text>
                           );
                       }
@@ -832,7 +862,7 @@ export function TablesManagement({
                         // Key forza remount ad ogni apertura: senza, riaprire lo stesso
                         // tavolo (o "Nuovo tavolo" due volte) dopo un Annulla riusa
                         // l'istanza e trascina i campi non salvati della volta prima.
-                        key={editingItem ? `edit-${editingItem.id}` : "create"}
+                        key={formInstanceKey}
                         formId="table-form"
                         mode={editingItem ? "edit" : "create"}
                         entityData={editingItem}

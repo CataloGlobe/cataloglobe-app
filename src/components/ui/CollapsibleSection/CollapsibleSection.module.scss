@@ -1,0 +1,36 @@
+.wrapper {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.15s ease-out;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.content {
+  padding: 4px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
