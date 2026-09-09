@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Grid2X2, Layers, MoreHorizontal, Plus, QrCode, RotateCw } from "lucide-react";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 
@@ -12,8 +12,6 @@ import { IconButton } from "@/components/ui/Button/IconButton";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
-import { TextInput } from "@/components/ui/Input/TextInput";
-import { Switch } from "@/components/ui/Switch/Switch";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
 import { Card } from "@/components/ui/Card/Card";
@@ -25,18 +23,15 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity } from "@/lib/permissions";
 
 import {
-    createTable,
     deleteTable,
     generateTableQrsPdf,
     listTablesWithState,
-    regenerateTableQrToken,
-    updateTable
+    regenerateTableQrToken
 } from "@/services/supabase/tables";
 import type { V2Table, V2TableWithState } from "@/types/orders";
 
-import { ZoneSelectField } from "@/components/Tables/ZoneSelectField/ZoneSelectField";
-import { CombinationGroupSelectField } from "@/components/Tables/CombinationGroupSelectField/CombinationGroupSelectField";
 import { TableZoneManagementDrawer } from "@/components/Tables/TableZoneManagementDrawer/TableZoneManagementDrawer";
+import { TableForm } from "@/components/Tables/TableForm/TableForm";
 
 import TableDeleteDrawer from "@/pages/Dashboard/Tables/TableDeleteDrawer";
 import TableRegenerateTokenDrawer from "@/pages/Dashboard/Tables/TableRegenerateTokenDrawer";
@@ -97,22 +92,7 @@ export function TablesManagement({
     // Drawer Create/Edit
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [editingItem, setEditingItem] = useState<V2Table | null>(null);
-    const [formLabel, setFormLabel] = useState("");
-    const [formZoneId, setFormZoneId] = useState<string | null>(null);
-    const [formSeats, setFormSeats] = useState<string>("");
-    // Campi prenotazione. Stringhe vuote = "non dichiarato" (NULL a DB).
-    const [formMinSeats, setFormMinSeats] = useState<string>("");
-    const [formMaxSeats, setFormMaxSeats] = useState<string>("");
-    const [formGroupId, setFormGroupId] = useState<string | null>(null);
-    const [formPriority, setFormPriority] = useState<string>("0");
-    const [formBookableOnline, setFormBookableOnline] = useState(true);
-    // Stesso guardrail di `isCreatingZone` per il mini-form gruppo.
-    const [isCreatingGroup, setIsCreatingGroup] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    // Guardrail: true mentre il mini-form "Crea zona" e' aperto. Blocca
-    // submit del form tavolo per evitare creazione tavolo con zone_id=null
-    // quando l'utente sta ancora compilando la nuova zona.
-    const [isCreatingZone, setIsCreatingZone] = useState(false);
 
     // Delete drawer
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -319,31 +299,11 @@ export function TablesManagement({
     // ── Handlers ──
     function openCreate() {
         setEditingItem(null);
-        setFormLabel("");
-        setFormZoneId(null);
-        setFormSeats("");
-        setFormMinSeats("");
-        setFormMaxSeats("");
-        setFormGroupId(null);
-        setFormPriority("0");
-        setFormBookableOnline(true);
-        setIsCreatingZone(false);
-        setIsCreatingGroup(false);
         setIsDrawerOpen(true);
     }
 
     function openEdit(item: V2Table) {
         setEditingItem(item);
-        setFormLabel(item.label);
-        setFormZoneId(item.zone_id);
-        setFormSeats(item.seats?.toString() ?? "");
-        setFormMinSeats(item.min_seats?.toString() ?? "");
-        setFormMaxSeats(item.max_seats?.toString() ?? "");
-        setFormGroupId(item.combination_group_id);
-        setFormPriority(item.assignment_priority?.toString() ?? "0");
-        setFormBookableOnline(item.bookable_online ?? true);
-        setIsCreatingZone(false);
-        setIsCreatingGroup(false);
         setIsDrawerOpen(true);
     }
 
@@ -352,154 +312,9 @@ export function TablesManagement({
         setIsDeleteOpen(true);
     }
 
-    async function handleSave(e: React.FormEvent) {
-        e.preventDefault();
-        if (isCreatingZone) {
-            showToast({
-                message:
-                    "Conferma o annulla la creazione zona prima di salvare il tavolo",
-                type: "error"
-            });
-            return;
-        }
-        if (isCreatingGroup) {
-            showToast({
-                message:
-                    "Conferma o annulla la creazione del gruppo prima di salvare il tavolo",
-                type: "error"
-            });
-            return;
-        }
-        if (!tenantId || !activityId) return;
-        if (!formLabel.trim()) {
-            showToast({ message: "Il nome del tavolo è obbligatorio", type: "error" });
-            return;
-        }
-
-        const trimmedSeats = formSeats.trim();
-        let seatsParsed: number | undefined = undefined;
-        if (trimmedSeats.length > 0) {
-            const n = Number(trimmedSeats);
-            if (!Number.isInteger(n) || n <= 0) {
-                showToast({
-                    message: "I posti devono essere un numero intero positivo",
-                    type: "error"
-                });
-                return;
-            }
-            seatsParsed = n;
-        }
-
-        // Campi prenotazione: validati e inviati SOLO se la sede prenota. Con
-        // le prenotazioni spente il form non li mostra, e non vanno scritti —
-        // un update con i valori del form azzererebbe quanto configurato prima
-        // di disattivarle.
-        let reservationFields: {
-            min_seats: number | null;
-            max_seats: number | null;
-            combination_group_id: string | null;
-            assignment_priority: number;
-            bookable_online: boolean;
-        } | null = null;
-
-        if (reservationsEnabled) {
-            const parseOptionalCount = (raw: string): number | null | "invalid" => {
-                const trimmed = raw.trim();
-                if (trimmed.length === 0) return null;
-                const n = Number(trimmed);
-                return Number.isInteger(n) && n > 0 ? n : "invalid";
-            };
-
-            const minParsed = parseOptionalCount(formMinSeats);
-            const maxParsed = parseOptionalCount(formMaxSeats);
-            if (minParsed === "invalid" || maxParsed === "invalid") {
-                showToast({
-                    message:
-                        "Capienza minima e massima devono essere numeri interi positivi",
-                    type: "error"
-                });
-                return;
-            }
-            if (minParsed !== null && maxParsed !== null && minParsed > maxParsed) {
-                showToast({
-                    message: "La capienza minima non può superare la massima",
-                    type: "error"
-                });
-                return;
-            }
-            if (seatsParsed !== undefined) {
-                if (minParsed !== null && seatsParsed < minParsed) {
-                    showToast({
-                        message: "I posti non possono essere meno della capienza minima",
-                        type: "error"
-                    });
-                    return;
-                }
-                if (maxParsed !== null && seatsParsed > maxParsed) {
-                    showToast({
-                        message: "I posti non possono superare la capienza massima",
-                        type: "error"
-                    });
-                    return;
-                }
-            }
-
-            const priorityParsed = Number(formPriority.trim() || "0");
-            if (
-                !Number.isInteger(priorityParsed) ||
-                priorityParsed < 0 ||
-                priorityParsed > 100
-            ) {
-                showToast({
-                    message: "La priorità deve essere un numero intero fra 0 e 100",
-                    type: "error"
-                });
-                return;
-            }
-
-            reservationFields = {
-                min_seats: minParsed,
-                max_seats: maxParsed,
-                combination_group_id: formGroupId,
-                assignment_priority: priorityParsed,
-                bookable_online: formBookableOnline
-            };
-        }
-
-        setIsSaving(true);
-        try {
-            if (editingItem) {
-                await updateTable(editingItem.id, tenantId, {
-                    label: formLabel.trim(),
-                    zone_id: formZoneId,
-                    seats: seatsParsed ?? null,
-                    ...(reservationFields ?? {})
-                });
-                showToast({ message: "Tavolo aggiornato", type: "success" });
-            } else {
-                await createTable(tenantId, {
-                    activity_id: activityId,
-                    label: formLabel.trim(),
-                    zone_id: formZoneId,
-                    seats: seatsParsed,
-                    ...(reservationFields ?? {})
-                });
-                showToast({ message: "Tavolo creato", type: "success" });
-            }
-            setIsDrawerOpen(false);
-            await loadData();
-        } catch (err) {
-            if (err instanceof Error && err.message === "TABLE_LABEL_CONFLICT") {
-                showToast({
-                    message: "Esiste già un tavolo con questo nome in questa sede",
-                    type: "error"
-                });
-            } else {
-                showToast({ message: "Errore durante il salvataggio", type: "error" });
-            }
-        } finally {
-            setIsSaving(false);
-        }
+    async function handleFormSuccess() {
+        setIsDrawerOpen(false);
+        await loadData();
     }
 
     async function handleDelete() {
@@ -984,10 +799,7 @@ export function TablesManagement({
             {/* Drawer Create/Edit */}
             <SystemDrawer
                 open={isDrawerOpen}
-                onClose={() => {
-                    setIsDrawerOpen(false);
-                    setIsCreatingZone(false);
-                }}
+                onClose={() => setIsDrawerOpen(false)}
                 width={480}
             >
                 <DrawerLayout
@@ -1000,10 +812,7 @@ export function TablesManagement({
                         <>
                             <Button
                                 variant="secondary"
-                                onClick={() => {
-                                    setIsDrawerOpen(false);
-                                    setIsCreatingZone(false);
-                                }}
+                                onClick={() => setIsDrawerOpen(false)}
                                 disabled={isSaving}
                             >
                                 Annulla
@@ -1019,97 +828,21 @@ export function TablesManagement({
                         </>
                     }
                 >
-                    <form id="table-form" onSubmit={handleSave} className={styles.form}>
-                        <TextInput
-                            label="Nome tavolo"
-                            required
-                            value={formLabel}
-                            onChange={e => setFormLabel(e.target.value)}
-                            placeholder="es. T1, Tavolo 5, Sala A-3"
-                        />
-                        <ZoneSelectField
-                            // key remount per forzare refresh lista zone post-CRUD drawer.
-                            key={`zone-select-${zoneReloadKey}`}
-                            tenantId={tenantId}
-                            activityId={activityId}
-                            value={formZoneId}
-                            onChange={setFormZoneId}
-                            onModeChange={m => setIsCreatingZone(m === "create")}
-                            label="Zona (opzionale)"
-                        />
-                        <TextInput
-                            label="Posti (opzionale)"
-                            type="number"
-                            min={1}
-                            value={formSeats}
-                            onChange={e => setFormSeats(e.target.value)}
-                            placeholder="2"
-                            helperText={
-                                reservationsEnabled
-                                    ? "Posti apparecchiati di norma. Se lo lasci vuoto la capienza del tavolo resta sconosciuta e le prenotazioni non gli vengono assegnate in automatico."
-                                    : "Posti apparecchiati di norma."
-                            }
-                        />
-
-                        {/* Campi di assegnazione: solo se la sede prende prenotazioni.
-                            A chi usa i soli QR non servono e non compaiono. */}
-                        {reservationsEnabled && (
-                            <>
-                                <div className={styles.formSectionTitle}>
-                                    <Text variant="body-sm" weight={600}>
-                                        Assegnazione prenotazioni
-                                    </Text>
-                                </div>
-
-                                <TextInput
-                                    label="Capienza minima (opzionale)"
-                                    type="number"
-                                    min={1}
-                                    value={formMinSeats}
-                                    onChange={e => setFormMinSeats(e.target.value)}
-                                    placeholder="2"
-                                    helperText="Sotto questo numero il tavolo non viene proposto: evita la coppia al tavolo grande. Vuoto = nessun minimo, va bene qualsiasi gruppo che ci stia."
-                                />
-
-                                <TextInput
-                                    label="Capienza massima (opzionale)"
-                                    type="number"
-                                    min={1}
-                                    value={formMaxSeats}
-                                    onChange={e => setFormMaxSeats(e.target.value)}
-                                    placeholder="6"
-                                    helperText="Massimo raggiungibile aggiungendo sedie. Vuoto = nessuna sedia in più, il tetto resta il numero di posti."
-                                />
-
-                                <CombinationGroupSelectField
-                                    tenantId={tenantId}
-                                    activityId={activityId}
-                                    value={formGroupId}
-                                    onChange={setFormGroupId}
-                                    onModeChange={m => setIsCreatingGroup(m === "create")}
-                                    label="Gruppo di accostamento (opzionale)"
-                                />
-
-                                <TextInput
-                                    label="Priorità di assegnazione"
-                                    type="number"
-                                    min={0}
-                                    max={100}
-                                    value={formPriority}
-                                    onChange={e => setFormPriority(e.target.value)}
-                                    placeholder="0"
-                                    helperText="Da 0 a 100: a parità di condizioni viene scelto prima il tavolo con il numero più alto. Lascia 0 se non hai preferenze — tutti i tavoli restano pari."
-                                />
-
-                                <Switch
-                                    label="Prenotabile online"
-                                    checked={formBookableOnline}
-                                    onChange={setFormBookableOnline}
-                                    helperText="Attivo per impostazione predefinita. Disattivalo per tenere il tavolo ai clienti che arrivano senza prenotare: resta assegnabile a mano, ma il sistema non lo propone mai."
-                                />
-                            </>
-                        )}
-                    </form>
+                    <TableForm
+                        // Key forza remount ad ogni apertura: senza, riaprire lo stesso
+                        // tavolo (o "Nuovo tavolo" due volte) dopo un Annulla riusa
+                        // l'istanza e trascina i campi non salvati della volta prima.
+                        key={editingItem ? `edit-${editingItem.id}` : "create"}
+                        formId="table-form"
+                        mode={editingItem ? "edit" : "create"}
+                        entityData={editingItem}
+                        tenantId={tenantId}
+                        activityId={activityId}
+                        reservationsEnabled={reservationsEnabled}
+                        zoneReloadKey={zoneReloadKey}
+                        onSuccess={handleFormSuccess}
+                        onSavingChange={setIsSaving}
+                    />
                 </DrawerLayout>
             </SystemDrawer>
 
