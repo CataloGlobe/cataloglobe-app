@@ -9,16 +9,31 @@
   // vero non solo estetico. Stesso breakpoint di `.cappello` in
   // StoryView.module.scss (@container collection, mai @media viewport: la
   // preview Style Editor misura il device frame).
-  // padding-bottom: clearance sotto PublicBottomScrim (che copre anche la
-  // bottom bar) — token `--pub-scrim-clearance` (120px scrim + 16px respiro,
-  // PublicBottomScrim.module.scss) + safe-area SOMMATA, mai `max()` — protegge
-  // davvero la coda del contenuto (didascalia ultima immagine, card "Dal menu")
-  // ora che il lettore vive IN FLUSSO.
-  padding: var(--pub-space-4) 0 calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
+  // padding-bottom: ingombro REALE della bottom bar flottante (token
+  // `--pub-bottombar-clearance`, PublicBottomBar.module.scss) — fallback per i
+  // viewport dove scrim e barra non esistono (desktop). Sotto i 640px / in
+  // preview mobile lo scrim copre anche la barra: la clearance sale (gating
+  // sotto, identico a PublicFooter.module.scss).
+  padding: var(--pub-space-4) 0 max(var(--pub-bottombar-clearance), env(safe-area-inset-bottom));
 
   @container collection (min-width: 700px) {
     padding-top: var(--pub-space-7);
   }
+}
+
+// padding-bottom: clearance sotto PublicBottomScrim (che copre anche la
+// bottom bar) — token `--pub-scrim-clearance` (120px scrim + 16px respiro,
+// PublicBottomScrim.module.scss) + safe-area SOMMATA, mai `max()` — protegge
+// davvero la coda del contenuto (didascalia ultima immagine, card "Dal menu")
+// ora che il lettore vive IN FLUSSO. Solo dove scrim e barra esistono davvero.
+@media (max-width: 640px) {
+  .root {
+    padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+:global(.preview-mobile) .root {
+  padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
 }
 
 // Colonna di lettura (~640px, tokenizzata) centrata dentro `.root`. Contiene
