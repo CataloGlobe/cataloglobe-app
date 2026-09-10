@@ -64,6 +64,11 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     // tenant has no fiscal data yet. With data present, the step is skipped.
     const resumeNeedsBilling = resumeMode && !!existingTenant && !tenantHasFiscalData(existingTenant);
 
+    // Mirrors `isFirstSubscription` in stripe-checkout/index.ts: `stripe_subscription_id`
+    // is set only once, at the first checkout, and never cleared. In create mode there
+    // is no existingTenant yet, so the trial is always certain.
+    const isFirstSubscription = !existingTenant?.stripe_subscription_id;
+
     const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
     const [name, setName] = useState("");
     const [subtype, setSubtype] = useState<BusinessSubtype>(DEFAULT_SUBTYPE);
@@ -595,6 +600,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         breakdown={breakdown}
                         total={breakdown.subtotal}
                         discountPercent={discountPercent}
+                        isFirstSubscription={isFirstSubscription}
                         promotionCode={promotionCode}
                         onPromotionCodeChange={value => {
                             setPromotionCode(value);

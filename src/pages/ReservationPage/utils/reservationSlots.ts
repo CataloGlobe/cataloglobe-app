@@ -20,7 +20,14 @@ import {
 
 export const RESERVATION_HORIZON_DAYS = 90;
 
-const SLOT_STEP_MIN = 15;
+// Passo del picker ADMIN (creazione/modifica manuale) — SOLO quello. Il
+// modulo pubblico usa `activities.reservation_pacing_slot_minutes` (passato
+// dal chiamante come `stepMinutes`, obbligatorio, nessun default qui): i
+// vincoli di pacing chiudono il canale online, mai l'operatore, che deve
+// poter piazzare una prenotazione a un quarto d'ora qualsiasi anche su una
+// sede con fascia da 30 o 60. Nominato in un posto solo: chi ha bisogno del
+// passo più fine importa questa costante, non un letterale.
+export const SLOT_STEP_MIN = 15;
 const HHMM_RE = /^\d{2}:\d{2}/;
 
 export type ReservationSlotState = "available" | "past" | "soldout";
@@ -93,8 +100,8 @@ function toIsoLocal(date: Date): string {
 type RawSlot = ReservationSlot;
 
 /**
- * Emits the flat list of 15-minute slots for a given date, honoring the
- * overnight rule:
+ * Emits the flat list of slots (step = `stepMinutes`) for a given date,
+ * honoring the overnight rule:
  *   - `closes_next_day === false` → iterate `[opens_at, closes_at)`.
  *   - `closes_next_day === true`  → iterate `[opens_at, "24:00")` (up to
  *     and including 23:45). The portion after midnight is intentionally
@@ -120,6 +127,7 @@ function generateDaySlots(
     hours: OpeningHoursEntry[],
     closures: UpcomingClosure[],
     now: Date,
+    stepMinutes: number,
     unavailableTimes?: ReadonlySet<string>
 ): RawSlot[] {
     const ranges = getDaySlots(isoDate, hours, closures);
@@ -138,7 +146,7 @@ function generateDaySlots(
         const endMinExclusive = range.closes_next_day ? 24 * 60 : closeMin;
         if (endMinExclusive <= startMin) continue;
 
-        for (let m = startMin; m < endMinExclusive; m += SLOT_STEP_MIN) {
+        for (let m = startMin; m < endMinExclusive; m += stepMinutes) {
             const time = minToHHMM(m);
             const state: ReservationSlotState =
                 isToday && m <= nowMin
@@ -186,19 +194,24 @@ export function classifyPeriod(time: string): ReservationPeriodKey | null {
 
 /**
  * Returns the day's slots regrouped by time-of-day period. The underlying
- * generation rule (overnight, 15-minute step, past/available state) is
- * unchanged — this only flattens `getDaySlots`'s opening ranges and re-buckets
- * the result by period. Empty periods are omitted; ordering follows
- * `PERIOD_ORDER`.
+ * generation rule (overnight, step from `stepMinutes`, past/available state)
+ * is unchanged — this only flattens `getDaySlots`'s opening ranges and
+ * re-buckets the result by period. Empty periods are omitted; ordering
+ * follows `PERIOD_ORDER`.
+ *
+ * `stepMinutes` è obbligatorio, nessun default: il modulo pubblico passa
+ * `reservation_pacing_slot_minutes` della sede, il picker admin passa
+ * `SLOT_STEP_MIN`. Un chiamante che dimentica il parametro non compila.
  */
 export function getReservationPeriodsForDate(
     isoDate: string,
     hours: OpeningHoursEntry[],
     closures: UpcomingClosure[],
     now: Date,
+    stepMinutes: number,
     unavailableTimes?: ReadonlySet<string>
 ): ReservationPeriodGroup[] {
-    const flat = generateDaySlots(isoDate, hours, closures, now, unavailableTimes);
+    const flat = generateDaySlots(isoDate, hours, closures, now, stepMinutes, unavailableTimes);
     if (flat.length === 0) return [];
 
     const buckets: Record<ReservationPeriodKey, ReservationSlot[]> = {

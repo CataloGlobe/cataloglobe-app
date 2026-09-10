@@ -23,7 +23,7 @@ interface PrintersSectionProps {
 }
 
 /**
- * Corpo della Card "Stampanti" (tab Impostazioni sede): lista stampanti Sunmi
+ * Corpo della Card "Stampanti" (tab Ordinazioni della sede): lista stampanti Sunmi
  * collegate + CTA "Collega stampante" + azione "Scollega" per riga.
  *
  * Gating come TablesManagement: `tables.manage` (permesso) + `canEdit`

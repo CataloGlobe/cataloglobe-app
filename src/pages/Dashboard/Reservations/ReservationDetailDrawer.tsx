@@ -1,5 +1,6 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+    Armchair,
     CalendarDays,
     Clock,
     Globe,
@@ -7,6 +8,7 @@ import {
     MapPin,
     PencilLine,
     Phone,
+    TriangleAlert,
     User,
     Users
 } from "lucide-react";
@@ -15,6 +17,11 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import type { TableAssignmentView } from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
+import { formatTableLabels } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
+import { TableMultiSelect } from "@/components/ui/TableMultiSelect/TableMultiSelect";
+import { OCCUPYING_STATUSES } from "@/utils/reservationTableConflicts";
+import type { V2Table } from "@/types/orders";
 import GuestConfirmedMark from "./GuestConfirmedMark";
 import { statusMeta } from "@/utils/reservationStatusMeta";
 import {
@@ -39,6 +46,27 @@ interface Props {
      *  via `get_tenant_member_names`. Used to attribute manual reservations
      *  to the operator. Optional: missing/empty map → "Staff" fallback. */
     operatorNames?: Map<string, string>;
+    /**
+     * Tavoli assegnati a QUESTA prenotazione, già ordinati e con i conflitti
+     * spiegati (calcolati dal parent una volta per tutte). NULL = nessuna
+     * assegnazione: la sezione non compare, non è un errore.
+     */
+    tableView?: TableAssignmentView | null;
+    /**
+     * Tavoli della sede per "Cambia tavolo" (senza soft-deleted). `undefined`
+     * = non ancora caricati; il parent li carica quando il drawer si apre con
+     * `canManage`. Nessun fetch qui dentro.
+     */
+    tables?: V2Table[];
+    /** table_id → chi lo occupa nella finestra di QUESTA prenotazione. */
+    tableOccupancy?: ReadonlyMap<string, string>;
+    /**
+     * Gesti sui tavoli (RPC immediate, il drawer resta aperto). Ritornano
+     * true se l'operazione è riuscita: il parent ha già ricaricato e mostrato
+     * il toast. Assenti = nessun bottone.
+     */
+    onSetTables?: (tableIds: string[]) => Promise<boolean>;
+    onResetTables?: () => Promise<boolean>;
     /** Same-list reservations (with overrides applied) for the peak engine. */
     allReservations: V2Reservation[];
     /** Sede capienza coperti (NULL = nessun limite configurato). */
@@ -104,6 +132,11 @@ export default function ReservationDetailDrawer({
     reservation,
     activityName,
     operatorNames,
+    tableView = null,
+    tables,
+    tableOccupancy,
+    onSetTables,
+    onResetTables,
     allReservations,
     activityCapacity,
     activityDurationMinutes,
@@ -115,6 +148,43 @@ export default function ReservationDetailDrawer({
     onEdit
 }: Props) {
     const durationMin = activityDurationMinutes ?? DEFAULT_DURATION_MINUTES;
+
+    // ── Gesti sui tavoli ─────────────────────────────────────────────
+    // Il picker vive inline nella sezione: un secondo SystemDrawer sopra il
+    // primo romperebbe il pattern (un drawer per volta) e nasconderebbe
+    // proprio la prenotazione di cui si sta scegliendo il tavolo.
+    const [pickerOpen, setPickerOpen] = useState(false);
+    const [pickerIds, setPickerIds] = useState<string[]>([]);
+    const [savingTables, setSavingTables] = useState(false);
+    const [resettingTables, setResettingTables] = useState(false);
+
+    // Cambiare prenotazione o chiudere il drawer azzera il picker: una scelta
+    // a metà non deve sopravvivere a un'altra prenotazione.
+    const reservationId = reservation?.id ?? null;
+    useEffect(() => {
+        setPickerOpen(false);
+        setPickerIds([]);
+    }, [reservationId, open]);
+
+    const openPicker = () => {
+        setPickerIds(tableView ? tableView.rows.map(r => r.table_id) : []);
+        setPickerOpen(true);
+    };
+
+    const handleConfirmTables = async () => {
+        if (!onSetTables || pickerIds.length === 0) return;
+        setSavingTables(true);
+        const ok = await onSetTables(pickerIds);
+        setSavingTables(false);
+        if (ok) setPickerOpen(false);
+    };
+
+    const handleResetTables = async () => {
+        if (!onResetTables) return;
+        setResettingTables(true);
+        await onResetTables();
+        setResettingTables(false);
+    };
 
     // Peak concurrent covers in the window [start, start+duration), via the
     // shared capacity engine. Counts pending + confirmed for THIS activity;
@@ -182,6 +252,11 @@ export default function ReservationDetailDrawer({
 
     const st = statusMeta(reservation.status);
     const isPast = isInThePast(reservation);
+    // Le RPC sui tavoli accettano solo prenotazioni attive (22023 altrimenti):
+    // i gesti compaiono solo dove possono riuscire.
+    const canEditTables =
+        canManage && onSetTables !== undefined && OCCUPYING_STATUSES.has(reservation.status);
+    const hasTables = tableView !== null && tableView.rows.length > 0;
     const canEdit =
         canManage &&
         onEdit !== undefined &&
@@ -333,6 +408,132 @@ export default function ReservationDetailDrawer({
                             {activityName ?? "—"}
                         </div>
                     </section>
+
+                    {/* ── Tavolo ────────────────────────────────────────
+                         Solo se c'è un'assegnazione, oppure se l'operatore
+                         può assegnarne una. "Proposto" = scelta del sistema,
+                         ricalcolabile; la decisione dell'operatore non si
+                         annuncia. Il conflitto è l'unica riga colorata della
+                         sezione. I gesti sono RPC immediate: il drawer resta
+                         aperto e mostra il risultato. */}
+                    {(hasTables || canEditTables) && (
+                        <section className={styles.drawerSection}>
+                            <div className={styles.drawerSectionHead}>
+                                <h3 className={styles.drawerSectionTitle}>
+                                    {hasTables && tableView.rows.length > 1 ? "Tavoli" : "Tavolo"}
+                                </h3>
+                                {canEditTables && !pickerOpen && (
+                                    <div className={styles.drawerTableActions}>
+                                        {hasTables && !tableView.proposed && onResetTables && (
+                                            <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                loading={resettingTables}
+                                                disabled={savingTables}
+                                                onClick={handleResetTables}
+                                            >
+                                                Restituisci al sistema
+                                            </Button>
+                                        )}
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            disabled={resettingTables}
+                                            onClick={openPicker}
+                                        >
+                                            {hasTables ? "Cambia tavolo" : "Scegli tavolo"}
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+
+                            {pickerOpen ? (
+                                <div className={styles.drawerTablePicker}>
+                                    {tables === undefined ? (
+                                        <p className={styles.drawerTableHint}>Carico i tavoli…</p>
+                                    ) : (
+                                        <TableMultiSelect
+                                            tables={tables}
+                                            value={pickerIds}
+                                            onChange={setPickerIds}
+                                            occupiedBy={tableOccupancy}
+                                            disabled={savingTables}
+                                        />
+                                    )}
+                                    <div className={styles.drawerTablePickerActions}>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            disabled={savingTables}
+                                            onClick={() => setPickerOpen(false)}
+                                        >
+                                            Annulla
+                                        </Button>
+                                        {/* Array vuoto rifiutato dalla RPC: chi vuole liberare
+                                            la prenotazione usa "Restituisci al sistema". */}
+                                        <Button
+                                            variant="primary"
+                                            size="sm"
+                                            loading={savingTables}
+                                            disabled={pickerIds.length === 0 || tables === undefined}
+                                            onClick={handleConfirmTables}
+                                        >
+                                            Conferma
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : hasTables ? (
+                                <>
+                                    <ul className={styles.drawerTableList}>
+                                        {tableView.rows.map(row => (
+                                            <li key={row.table_id} className={styles.drawerTableRow}>
+                                                <Armchair
+                                                    size={15}
+                                                    strokeWidth={2}
+                                                    aria-hidden
+                                                    className={styles.drawerTableIcon}
+                                                />
+                                                <span className={styles.drawerTableLabel}>
+                                                    {formatTableLabels([row.label])}
+                                                </span>
+                                                {row.zone_name && (
+                                                    <span className={styles.drawerTableZone}>
+                                                        {row.zone_name}
+                                                    </span>
+                                                )}
+                                                {row.deleted && (
+                                                    <span className={styles.drawerTableRemoved}>
+                                                        rimosso dalla sala
+                                                    </span>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                    {tableView.proposed && (
+                                        <p className={styles.drawerTableHint}>
+                                            Proposto dal sistema. Se la prenotazione viene spostata o
+                                            cambia il numero di persone, la proposta viene rifatta.
+                                        </p>
+                                    )}
+                                    {tableView.conflict && (
+                                        <div className={styles.drawerTableConflict} role="status">
+                                            <TriangleAlert
+                                                size={15}
+                                                strokeWidth={2.25}
+                                                aria-hidden
+                                                className={styles.drawerTableConflictIcon}
+                                            />
+                                            <span>{tableView.conflict.message}.</span>
+                                        </div>
+                                    )}
+                                </>
+                            ) : (
+                                <p className={styles.drawerTableHint}>
+                                    Nessun tavolo assegnato.
+                                </p>
+                            )}
+                        </section>
+                    )}
 
                     {/* ── Cliente ───────────────────────────────────────── */}
                     <section className={styles.drawerSection}>

@@ -341,7 +341,7 @@ export function TablesLiveView({
                     }
                     description={
                         items.length === 0
-                            ? "Configura i tavoli dalla scheda Tavoli della sede."
+                            ? "Configura i tavoli dalla scheda Sala della sede."
                             : "Cambia filtro per vedere altri tavoli."
                     }
                 />

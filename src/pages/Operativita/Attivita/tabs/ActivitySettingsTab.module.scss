@@ -1,90 +1,11 @@
-// ── Layout ───────────────────────────────────────────────────────────────────
-
-.layout {
-    display: flex;
-    flex-direction: column;
-    gap: 18px;
-    min-width: 0;
-    min-height: 0;
-
-    // Reset global <p> margin-bottom (1em from typography.scss) that
-    // accumulates across many paragraph elements in this tab.
-    p {
-        margin: 0;
-    }
-}
-
-.row {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 18px;
-    align-items: start;
-
-    @media (max-width: 900px) {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-
-// ── Card ─────────────────────────────────────────────────────────────────────
-
-.card {
-    display: flex;
-    flex-direction: column;
-}
-
-.cardHeader {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 16px;
-    padding: 20px 24px;
-    border-bottom: 1px solid #F3F4F6;
-}
-
-.cardHeaderText {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    min-width: 0;
-    flex: 1;
-}
-
-.cardTitle {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-    color: #111827;
-    letter-spacing: -0.01em;
-}
-
-.cardSubtitle {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: #6B7280;
-}
+// Classi proprie della tab Impostazioni (Accesso pubblico, Stato pubblicazione,
+// Azioni distruttive, modale QR). Card e layout: ActivityTabCards.module.scss.
 
 .cardBody {
     display: flex;
     flex-direction: column;
     gap: 0;
     padding: 18px 24px 22px;
-}
-
-.cardBodyFlat {
-    padding: 0;
-}
-
-.skeletonCard {
-    min-height: 240px;
-    background-color: #F9FAFB;
-    border: 1px solid #F3F4F6;
-    border-radius: 12px;
-    animation: pulse 1.4s ease-in-out infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
 }
 
 // ── Section labels & dividers ────────────────────────────────────────────────
@@ -209,26 +130,6 @@
     &:focus-visible {
         outline: 2px solid #6366F1;
         outline-offset: 2px;
-    }
-}
-
-.qrExpandBadge {
-    position: absolute;
-    top: 4px;
-    right: 4px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 20px;
-    height: 20px;
-    background-color: rgba(255, 255, 255, 0.9);
-    border-radius: 6px;
-    color: #4B5563;
-    opacity: 0;
-    transition: opacity 0.12s ease;
-
-    .qrThumb:hover & {
-        opacity: 1;
     }
 }
 
@@ -444,12 +345,6 @@
     width: 100%;
 }
 
-/* Margin wrapper for the inline note shown under the "Accetta prenotazioni"
-   Switch when the venue has no opening hours configured. */
-.reservationsHoursNote {
-    margin-top: 12px;
-}
-
 /* Evening-before reminder toggle, shown under the reservations switch when
    activity.enable_reservations === true. Same separator treatment as the
    recipients field below it, so the sub-settings read as one stack. */
@@ -490,21 +385,6 @@
     font-size: 12px;
     line-height: 1.4;
     color: var(--color-text-muted, #6b7280);
-}
-
-/* Avviso "manca la ragione sociale": prerequisito dell'informativa privacy
-   prenotazioni, non una dimenticanza da correggere in due secondi. */
-.privacyNoticeAlert {
-    margin-top: 16px;
-    padding-top: 16px;
-    border-top: 1px solid var(--color-border, #e5e7eb);
-}
-
-.privacyNoticeAlertLink {
-    font-weight: 600;
-    color: inherit;
-    text-decoration: underline;
-    white-space: nowrap;
 }
 
 /* Privacy contact email for the reservations privacy notice. Stessa cornice a
@@ -599,16 +479,6 @@
     margin: 0;
 }
 
-/* Divergenza fra capienza digitata e somma dei posti mappati: segnala, non
-   impedisce. Tono d'avviso (warning), non d'errore — la divergenza puo'
-   essere voluta. */
-.capacityWarning {
-    font-size: 11px;
-    line-height: 1.4;
-    color: var(--color-warning-700);
-    margin: 4px 0 0;
-}
-
 /* Two-column grid for the radio options ("Quando è pieno" / "Modalità di
    conferma"). Equal-height cells via grid's default stretch. Collapses to
    a single column on the same narrow breakpoint as `.capacityRow` for
@@ -696,16 +566,3 @@
     color: var(--color-text-muted, #6b7280);
 }
 
-/* Caption rendered under a Pro-only Switch when the tenant's plan does not
-   include the feature. Lock icon uses currentColor + opacity, no hex hardcoded;
-   matches the language of the muted lock indicator in the Sidebar. */
-.lockedFeatureCaption {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    margin-top: 10px;
-    font-size: 12px;
-    line-height: 1.4;
-    color: var(--color-text-muted, #6b7280);
-    opacity: 0.85;
-}

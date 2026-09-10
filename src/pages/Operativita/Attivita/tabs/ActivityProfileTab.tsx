@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
     DndContext,
     KeyboardSensor,
@@ -52,7 +52,29 @@ import { ActivityIdentityDrawer } from "./info/ActivityIdentityDrawer";
 import { ActivitySlugDrawer } from "./info/ActivitySlugDrawer";
 import { ActivityGoogleReviewsDrawer } from "./contacts/ActivityGoogleReviewsDrawer";
 import { InlineEditableField } from "./components/InlineEditableField";
+import { PaymentMethodsSection } from "./hours-services/PaymentMethodsSection";
+import { ServicesSection } from "./hours-services/ServicesSection";
+import {
+    FeesSection,
+    feesToState,
+    buildFeesPayload,
+    feesStateEqual,
+    type FeesState
+} from "./hours-services/FeesSection";
+import { ConfigAccordionSection } from "./components/ConfigAccordionSection";
+import { FEE_DEFINITIONS_BY_KEY } from "@/constants/activityFees";
 import styles from "./ActivityProfileTab.module.scss";
+// Solo per `cardBodyFlat` (accordion a filo card): le altre classi card sono
+// quelle di Profilo.
+import cards from "./ActivityTabCards.module.scss";
+
+function arraysSameMembers(a: string[], b: string[]): boolean {
+    if (a.length !== b.length) return false;
+    const set = new Set(a);
+    for (const x of b) if (!set.has(x)) return false;
+    return true;
+}
+
 
 interface ActivityProfileTabProps {
     activity: V2Activity;
@@ -319,6 +341,219 @@ export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
     const cityLine = [activity.postal_code, activity.province, activity.city]
         .filter(Boolean)
         .join(" · ");
+
+    // ── Draft state: payment methods / services / fees ───────────────────────
+    const savedPaymentMethods = useMemo(
+        () => activity.payment_methods ?? [],
+        [activity.payment_methods]
+    );
+    const savedServices = useMemo(
+        () => activity.services ?? [],
+        [activity.services]
+    );
+    const savedFees = useMemo(() => feesToState(activity.fees), [activity.fees]);
+
+    const [paymentsDraft, setPaymentsDraft] = useState<string[]>(savedPaymentMethods);
+    const [servicesDraft, setServicesDraft] = useState<string[]>(savedServices);
+    const [feesDraft, setFeesDraft] = useState<FeesState>(savedFees);
+
+    const [isSavingPayments, setIsSavingPayments] = useState(false);
+    const [isSavingServices, setIsSavingServices] = useState(false);
+    const [isSavingFees, setIsSavingFees] = useState(false);
+
+    const lastSavedPaymentsRef = useRef<string[]>(savedPaymentMethods);
+    const lastSavedServicesRef = useRef<string[]>(savedServices);
+    const lastSavedFeesRef = useRef<FeesState>(savedFees);
+
+    // Re-sync drafts when the saved value changes externally,
+    // but preserve user's dirty draft.
+    useEffect(() => {
+        const newSaved = activity.payment_methods ?? [];
+        if (arraysSameMembers(newSaved, lastSavedPaymentsRef.current)) return;
+        setPaymentsDraft(prev =>
+            arraysSameMembers(prev, lastSavedPaymentsRef.current) ? newSaved : prev
+        );
+        lastSavedPaymentsRef.current = newSaved;
+    }, [activity.payment_methods]);
+
+    useEffect(() => {
+        const newSaved = activity.services ?? [];
+        if (arraysSameMembers(newSaved, lastSavedServicesRef.current)) return;
+        setServicesDraft(prev =>
+            arraysSameMembers(prev, lastSavedServicesRef.current) ? newSaved : prev
+        );
+        lastSavedServicesRef.current = newSaved;
+    }, [activity.services]);
+
+    useEffect(() => {
+        const newSaved = feesToState(activity.fees);
+        if (feesStateEqual(newSaved, lastSavedFeesRef.current)) return;
+        setFeesDraft(prev =>
+            feesStateEqual(prev, lastSavedFeesRef.current) ? newSaved : prev
+        );
+        lastSavedFeesRef.current = newSaved;
+    }, [activity.fees]);
+
+    const isPaymentsDirty = !arraysSameMembers(paymentsDraft, savedPaymentMethods);
+    const isServicesDirty = !arraysSameMembers(servicesDraft, savedServices);
+    const isFeesDirty = !feesStateEqual(feesDraft, savedFees);
+
+    // ── Single-open accordion state ──────────────────────────────────────────
+    type AccordionKey = "payments" | "services" | "fees" | null;
+    const [openAccordion, setOpenAccordion] = useState<AccordionKey>(null);
+
+    const handleToggleAccordion = useCallback(
+        (key: Exclude<AccordionKey, null>) => {
+            if (key === openAccordion) {
+                setOpenAccordion(null);
+                return;
+            }
+            const currentlyOpenIsDirty =
+                (openAccordion === "payments" && isPaymentsDirty) ||
+                (openAccordion === "services" && isServicesDirty) ||
+                (openAccordion === "fees" && isFeesDirty);
+            if (currentlyOpenIsDirty) {
+                showToast({
+                    message:
+                        "Salva o annulla le modifiche prima di continuare",
+                    type: "warning"
+                });
+                return;
+            }
+            setOpenAccordion(key);
+        },
+        [openAccordion, isPaymentsDirty, isServicesDirty, isFeesDirty, showToast]
+    );
+
+    // ── Draft save / cancel handlers ─────────────────────────────────────────
+    const savePayments = useCallback(async () => {
+        setIsSavingPayments(true);
+        try {
+            await updateActivity(activity.id, tenantId, {
+                payment_methods: paymentsDraft
+            });
+            await onReload();
+            showToast({ message: "Metodi di pagamento salvati.", type: "success" });
+        } catch {
+            showToast({
+                message: "Impossibile salvare i metodi di pagamento.",
+                type: "error"
+            });
+        } finally {
+            setIsSavingPayments(false);
+        }
+    }, [activity.id, tenantId, paymentsDraft, onReload, showToast]);
+
+    const cancelPayments = useCallback(() => {
+        setPaymentsDraft(savedPaymentMethods);
+    }, [savedPaymentMethods]);
+
+    const saveServices = useCallback(async () => {
+        setIsSavingServices(true);
+        try {
+            await updateActivity(activity.id, tenantId, {
+                services: servicesDraft
+            });
+            await onReload();
+            showToast({ message: "Servizi salvati.", type: "success" });
+        } catch {
+            showToast({ message: "Impossibile salvare i servizi.", type: "error" });
+        } finally {
+            setIsSavingServices(false);
+        }
+    }, [activity.id, tenantId, servicesDraft, onReload, showToast]);
+
+    const cancelServices = useCallback(() => {
+        setServicesDraft(savedServices);
+    }, [savedServices]);
+
+    const saveFees = useCallback(async () => {
+        setIsSavingFees(true);
+        try {
+            await updateActivity(activity.id, tenantId, {
+                fees: buildFeesPayload(feesDraft)
+            });
+            await onReload();
+            showToast({ message: "Tariffe salvate.", type: "success" });
+        } catch {
+            showToast({ message: "Impossibile salvare le tariffe.", type: "error" });
+        } finally {
+            setIsSavingFees(false);
+        }
+    }, [activity.id, tenantId, feesDraft, onReload, showToast]);
+
+    const cancelFees = useCallback(() => {
+        setFeesDraft(savedFees);
+    }, [savedFees]);
+
+    // ── Public toggles (immediate save) ──────────────────────────────────────
+    const handlePaymentsPublicToggle = useCallback(
+        async (checked: boolean) => {
+            try {
+                await updateActivity(activity.id, tenantId, {
+                    payment_methods_public: checked
+                });
+                await onReload();
+            } catch {
+                showToast({
+                    message: "Impossibile aggiornare la visibilità.",
+                    type: "error"
+                });
+            }
+        },
+        [activity.id, tenantId, onReload, showToast]
+    );
+
+    const handleServicesPublicToggle = useCallback(
+        async (checked: boolean) => {
+            try {
+                await updateActivity(activity.id, tenantId, {
+                    services_public: checked
+                });
+                await onReload();
+            } catch {
+                showToast({
+                    message: "Impossibile aggiornare la visibilità.",
+                    type: "error"
+                });
+            }
+        },
+        [activity.id, tenantId, onReload, showToast]
+    );
+
+    const handleFeesPublicToggle = useCallback(
+        async (checked: boolean) => {
+            try {
+                await updateActivity(activity.id, tenantId, {
+                    fees_public: checked
+                });
+                await onReload();
+            } catch {
+                showToast({
+                    message: "Impossibile aggiornare la visibilità.",
+                    type: "error"
+                });
+            }
+        },
+        [activity.id, tenantId, onReload, showToast]
+    );
+
+    // ── Preview badges for accordion (use SAVED, not draft) ──────────────────
+    const paymentPreviewBadges = useMemo<string[]>(
+        () => savedPaymentMethods,
+        [savedPaymentMethods]
+    );
+    const servicesPreviewBadges = useMemo<string[]>(
+        () => savedServices,
+        [savedServices]
+    );
+    const feesPreviewBadges = useMemo<string[]>(
+        () =>
+            (activity.fees ?? [])
+                .filter(f => f.value && f.value.trim() !== "")
+                .map(f => FEE_DEFINITIONS_BY_KEY[f.key]?.label ?? f.key),
+        [activity.fees]
+    );
 
     return (
         <>
@@ -661,6 +896,87 @@ export const ActivityProfileTab: React.FC<ActivityProfileTabProps> = ({
                         </div>
                     </Card>
                 </div>
+                {/* ── Cosa offre il locale: pagamenti, servizi, tariffe ─── */}
+                {/* Card: Configurazione sede (accordion) */}
+                <Card className={styles.card}>
+                    <div className={styles.cardHeader}>
+                        <div className={styles.cardHeaderText}>
+                            <h3 className={styles.cardTitle}>Configurazione sede</h3>
+                            <p className={styles.cardSubtitle}>
+                                Pagamenti, servizi e tariffe mostrati nel footer pubblico
+                            </p>
+                        </div>
+                    </div>
+                    <div className={cards.cardBodyFlat}>
+                        <ConfigAccordionSection
+                            title="Metodi di pagamento"
+                            previewBadges={paymentPreviewBadges}
+                            isOpen={openAccordion === "payments"}
+                            onToggle={() => handleToggleAccordion("payments")}
+                            publicToggle={{
+                                value: activity.payment_methods_public,
+                                onChange: handlePaymentsPublicToggle
+                            }}
+                            draft={{
+                                isDirty: isPaymentsDirty,
+                                onSave: savePayments,
+                                onCancel: cancelPayments,
+                                isSaving: isSavingPayments
+                            }}
+                        >
+                            <PaymentMethodsSection
+                                value={paymentsDraft}
+                                onChange={setPaymentsDraft}
+                                disabled={isSavingPayments}
+                            />
+                        </ConfigAccordionSection>
+                        <ConfigAccordionSection
+                            title="Servizi offerti"
+                            previewBadges={servicesPreviewBadges}
+                            isOpen={openAccordion === "services"}
+                            onToggle={() => handleToggleAccordion("services")}
+                            publicToggle={{
+                                value: activity.services_public,
+                                onChange: handleServicesPublicToggle
+                            }}
+                            draft={{
+                                isDirty: isServicesDirty,
+                                onSave: saveServices,
+                                onCancel: cancelServices,
+                                isSaving: isSavingServices
+                            }}
+                        >
+                            <ServicesSection
+                                value={servicesDraft}
+                                onChange={setServicesDraft}
+                                disabled={isSavingServices}
+                            />
+                        </ConfigAccordionSection>
+                        <ConfigAccordionSection
+                            title="Tariffe"
+                            previewBadges={feesPreviewBadges}
+                            isLast
+                            isOpen={openAccordion === "fees"}
+                            onToggle={() => handleToggleAccordion("fees")}
+                            publicToggle={{
+                                value: activity.fees_public,
+                                onChange: handleFeesPublicToggle
+                            }}
+                            draft={{
+                                isDirty: isFeesDirty,
+                                onSave: saveFees,
+                                onCancel: cancelFees,
+                                isSaving: isSavingFees
+                            }}
+                        >
+                            <FeesSection
+                                value={feesDraft}
+                                onChange={setFeesDraft}
+                                disabled={isSavingFees}
+                            />
+                        </ConfigAccordionSection>
+                    </div>
+                </Card>
             </div>
 
             {/* ── Drawers ──────────────────────────────────────────── */}

@@ -1,11 +1,83 @@
 .container {
-    // Catena flex vincolata (tab Tavoli, bounded via data-active-tab su
+    // Catena flex vincolata (tab Sala, bounded via data-active-tab su
     // ActivityDetailPage): propaga l'altezza fino al probe del DataTable.
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
     flex-direction: column;
     gap: 16px;
+}
+
+// ── Capienza della sala ───────────────────────────────────────────────────
+// Card fissa sopra la tabella: non partecipa alla catena flex vincolata.
+.capacityCard {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+}
+
+.capacityHeader {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 20px 24px;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.capacityTitle {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #111827;
+    letter-spacing: -0.01em;
+}
+
+.capacitySubtitle {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: #6B7280;
+}
+
+.capacityBody {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 18px 24px 22px;
+
+    p {
+        margin: 0;
+    }
+}
+
+.capacityRow {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+
+    @media (max-width: 767px) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+.capacityField {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.capacityHint {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--color-text-muted, #6b7280);
+}
+
+// Divergenza fra capienza digitata e posti mappati: segnala, non impedisce.
+.capacityWarning {
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--color-warning-700);
+    margin-top: 4px;
 }
 
 .content {
@@ -81,6 +153,20 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+}
+
+.labelRow {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+// Unico uso dell'ambra in questa schermata: tavolo davvero escluso dal
+// motore di assegnazione (COALESCE(max_seats, seats) IS NULL), non un
+// tavolo senza `seats` ma con `max_seats` valorizzato.
+.exclusionWarningIcon {
+    flex-shrink: 0;
+    color: var(--color-warning-500);
 }
 
 // Cella azioni di riga: icona QR inline (IconButton ghost) prima del kebab

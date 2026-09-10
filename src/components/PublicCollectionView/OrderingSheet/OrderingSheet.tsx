@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { Minus, Plus, Trash2, RefreshCw, X, AlertCircle } from "lucide-react";
@@ -8,6 +8,8 @@ import AssistanceActions from "../AssistanceActions/AssistanceActions";
 import OrderStatusStepper from "./OrderStatusStepper";
 import ItemNoteEditor from "./ItemNoteEditor";
 import OrderNoteEditor from "./OrderNoteEditor";
+import type { NoteEditorHandle } from "./noteEditorHandle";
+import type { SubmitOrderOverrides } from "./submitOrderOverrides";
 import { getOrdersForSession, cancelOrderCustomer, subscribeToSessionOrders } from "@/services/supabase/orders";
 import { useCustomerSession } from "@/context/CustomerSession/CustomerSessionContext";
 import type { SessionOrderSummary } from "@/types/orders";
@@ -91,7 +93,7 @@ interface OrderingSheetProps {
     onOrderNoteRemove?: () => void;
 
     orderingActive?: boolean;
-    onSubmitOrder?: () => void;
+    onSubmitOrder?: (overrides?: SubmitOrderOverrides) => void;
     isSubmitting?: boolean;
 
     /**
@@ -148,6 +150,27 @@ export default function OrderingSheet({
     const [ordersError, setOrdersError] = useState<string | null>(null);
     const [confirmingCancelId, setConfirmingCancelId] = useState<string | null>(null);
     const [processingCancelId, setProcessingCancelId] = useState<string | null>(null);
+
+    // Refs verso gli editor nota montati (per index cart-line + uno order-level),
+    // usati SOLO al submit per "flushare" un draft aperto e non confermato
+    // (vedi handleSubmitClick) — mai letti altrove.
+    const itemNoteRefs = useRef(new Map<number, NoteEditorHandle>());
+    const orderNoteRef = useRef<NoteEditorHandle>(null);
+
+    const handleSubmitClick = useCallback(() => {
+        if (maintenance || !onSubmitOrder) return;
+        const itemNoteOverrides = new Map<number, string>();
+        itemNoteRefs.current.forEach((handle, index) => {
+            const flushed = handle.flushPendingNote();
+            if (flushed !== undefined) itemNoteOverrides.set(index, flushed);
+        });
+        const orderNoteOverride = orderNoteRef.current?.flushPendingNote();
+        const overrides: SubmitOrderOverrides | undefined =
+            itemNoteOverrides.size > 0 || orderNoteOverride !== undefined
+                ? { itemNoteOverrides, orderNoteOverride }
+                : undefined;
+        onSubmitOrder(overrides);
+    }, [maintenance, onSubmitOrder]);
 
     const cartCount = items.reduce((sum, it) => sum + it.qty, 0);
     const cartTotal = items.reduce((sum, it) => sum + it.qty * it.unitPrice, 0);
@@ -427,6 +450,10 @@ export default function OrderingSheet({
                                             </div>
                                             {onItemNoteSave && onItemNoteRemove && (
                                                 <ItemNoteEditor
+                                                    ref={el => {
+                                                        if (el) itemNoteRefs.current.set(index, el);
+                                                        else itemNoteRefs.current.delete(index);
+                                                    }}
                                                     note={item.note ?? null}
                                                     onSave={note => onItemNoteSave(index, note)}
                                                     onRemove={() => onItemNoteRemove(index)}
@@ -438,6 +465,7 @@ export default function OrderingSheet({
                             )}
                             {!isEmptyCart && onOrderNoteSave && onOrderNoteRemove && (
                                 <OrderNoteEditor
+                                    ref={orderNoteRef}
                                     note={orderNote}
                                     onSave={onOrderNoteSave}
                                     onRemove={onOrderNoteRemove}
@@ -471,7 +499,7 @@ export default function OrderingSheet({
                                         <button
                                             type="button"
                                             className={`${styles.submitCta}${maintenance ? ` ${styles.submitDisabled}` : ""}`}
-                                            onClick={maintenance ? undefined : onSubmitOrder}
+                                            onClick={maintenance ? undefined : handleSubmitClick}
                                             disabled={
                                                 maintenance != null ||
                                                 isSubmitting ||

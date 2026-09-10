@@ -1,0 +1,100 @@
+// ── Card e layout condivisi dalle tab della sede ─────────────────────────
+// Usato da Impostazioni, Orari, Ordinazioni, Prenotazioni (e dal blocco
+// Configurazione sede in Profilo). Le classi proprie di una sola tab restano
+// nel modulo di quella tab.
+
+// ── Layout ───────────────────────────────────────────────────────────────────
+
+.layout {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-width: 0;
+    min-height: 0;
+
+    // Reset global <p> margin-bottom (1em from typography.scss) that
+    // accumulates across many paragraph elements in this tab.
+    p {
+        margin: 0;
+    }
+}
+
+.row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 18px;
+    align-items: start;
+
+    @media (max-width: 900px) {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+// ── Card ─────────────────────────────────────────────────────────────────────
+
+.card {
+    display: flex;
+    flex-direction: column;
+}
+
+.cardHeader {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 24px;
+    border-bottom: 1px solid #F3F4F6;
+}
+
+.cardHeaderText {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+    flex: 1;
+}
+
+.cardTitle {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #111827;
+    letter-spacing: -0.01em;
+}
+
+.cardSubtitle {
+    margin: 0;
+    font-size: 0.8125rem;
+    color: #6B7280;
+}
+
+.cardBodyFlat {
+    padding: 0;
+}
+
+.skeletonCard {
+    min-height: 240px;
+    background-color: #F9FAFB;
+    border: 1px solid #F3F4F6;
+    border-radius: 12px;
+    animation: pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+/* Caption rendered under a Pro-only Switch when the tenant's plan does not
+   include the feature. Lock icon uses currentColor + opacity, no hex hardcoded;
+   matches the language of the muted lock indicator in the Sidebar. */
+.lockedFeatureCaption {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 10px;
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--color-text-muted, #6b7280);
+    opacity: 0.85;
+}

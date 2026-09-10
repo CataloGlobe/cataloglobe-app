@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { Plus, X, Pencil, Check } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useAutoGrow } from "./useAutoGrow";
+import type { NoteEditorHandle } from "./noteEditorHandle";
 import styles from "./OrderNoteEditor.module.scss";
 
 const ORDER_NOTE_MAX = 300;
@@ -16,7 +17,7 @@ interface Props {
 
 type Mode = "hidden" | "editing" | "saved";
 
-export default function OrderNoteEditor({ note, onSave, onRemove }: Props) {
+function OrderNoteEditor({ note, onSave, onRemove }: Props, ref: React.Ref<NoteEditorHandle>) {
     const { t } = useTranslation("public");
     const [mode, setMode] = useState<Mode>(note ? "saved" : "hidden");
     const [draft, setDraft] = useState(note ?? "");
@@ -39,18 +40,30 @@ export default function OrderNoteEditor({ note, onSave, onRemove }: Props) {
         setTimeout(() => textareaRef.current?.focus(), 50);
     };
 
-    const handleConfirm = () => {
+    const commitDraft = (): string | undefined => {
         const trimmed = draft.trim().replace(/\s+/g, " ");
         if (trimmed === "") {
             onRemove();
             setMode("hidden");
             setDraft("");
-        } else {
-            onSave(trimmed);
-            setMode("saved");
-            setDraft(trimmed);
+            return undefined;
         }
+        onSave(trimmed);
+        setMode("saved");
+        setDraft(trimmed);
+        return trimmed;
     };
+
+    const handleConfirm = () => {
+        commitDraft();
+    };
+
+    useImperativeHandle(ref, () => ({
+        flushPendingNote: () => {
+            if (mode !== "editing" || draft.trim() === "") return undefined;
+            return commitDraft();
+        }
+    }));
 
     const handleCancelEdit = () => {
         if (note) {
@@ -151,3 +164,5 @@ export default function OrderNoteEditor({ note, onSave, onRemove }: Props) {
         </div>
     );
 }
+
+export default forwardRef(OrderNoteEditor);

@@ -32,6 +32,10 @@ function corsHeaders(req: Request): Record<string, string> {
 const ALLOWED_PLAN_CODES = new Set(["base", "pro"]);
 const DEFAULT_PLAN_CODE = "pro";
 const MAX_SELF_SERVICE_SEATS = 5;
+// Free trial length. Lives here (not on `plans`) because it is a checkout-time
+// policy — "how long is the first subscription free" — not a per-plan price
+// attribute; every plan gets the same trial.
+const TRIAL_PERIOD_DAYS = 30;
 
 function json(req: Request, status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
@@ -223,7 +227,7 @@ serve(async req => {
         // --- Ownership check ---
         const { data: tenantData, error: tenantError } = await supabaseUser
             .from("tenants")
-            .select("id, owner_user_id, stripe_customer_id")
+            .select("id, owner_user_id, stripe_customer_id, stripe_subscription_id")
             .eq("id", tenantId)
             .maybeSingle();
 
@@ -399,12 +403,21 @@ serve(async req => {
             subscriptionMetadata.promotion_code_id = resolvedPromotionId;
         }
 
+        // One trial per tenant: `stripe_subscription_id` is set only once, at the
+        // FIRST checkout.session.completed (stripe-webhook/index.ts), and is never
+        // cleared afterwards — not even on customer.subscription.deleted, which
+        // only flips subscription_status. So a NULL here reliably means "this
+        // tenant has never had a Stripe subscription"; a re-subscribe after
+        // cancellation must not grant a second free month.
+        const isFirstSubscription = !tenantData.stripe_subscription_id;
+
         const sessionParams: Stripe.Checkout.SessionCreateParams = {
             mode: "subscription",
             customer: stripeCustomerId,
             line_items: [{ price: resolvedPriceId, quantity }],
             subscription_data: {
-                metadata: subscriptionMetadata
+                metadata: subscriptionMetadata,
+                ...(isFirstSubscription ? { trial_period_days: TRIAL_PERIOD_DAYS } : {})
             },
             metadata: sessionMetadata,
             success_url: successUrl,

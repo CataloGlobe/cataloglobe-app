@@ -1,0 +1,115 @@
+/* Stessa grammatica di ActivityMultiSelect (lista di checkbox in un riquadro),
+   con i gruppi per zona. L'occupazione è testo ambrato a destra: si legge,
+   non impedisce di spuntare. */
+.wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 6px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  background: var(--color-surface, #ffffff);
+}
+
+.zone {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.zoneTitle {
+  padding: 6px 8px 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  user-select: none;
+  transition: background-color 120ms ease;
+
+  &:hover:not(:has(input:disabled)) {
+    background: color-mix(
+      in srgb,
+      var(--color-text-muted, #6b7280) 6%,
+      var(--color-surface, #ffffff)
+    );
+  }
+}
+
+.checked {
+  background: var(--brand-primary-soft, rgba(99, 102, 241, 0.1));
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  accent-color: var(--brand-primary, #6366f1);
+  cursor: pointer;
+
+  &:disabled {
+    cursor: not-allowed;
+  }
+}
+
+.optionMain {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-wrap: wrap;
+}
+
+.optionLabel {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary, #111827);
+}
+
+.optionSeats {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.optionNote {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+  font-style: italic;
+}
+
+.optionOccupied {
+  flex-shrink: 0;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-warning-700, #b45309);
+}
+
+.footer {
+  font-size: 12px;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.empty {
+  padding: 14px;
+  border: 1px solid var(--color-border, #e5e7eb);
+  border-radius: 8px;
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+  text-align: center;
+}

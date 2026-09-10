@@ -3,6 +3,10 @@ import { CalendarCheck, MessageSquare } from "lucide-react";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
 import { todayIsoDate } from "@/utils/dateLocal";
+import {
+    TableAssignmentBadge,
+    type TableAssignmentView
+} from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
 import type { V2Reservation } from "@/types/reservation";
 import type { DeferredAction } from "./useDeferredCommit";
 import ChannelMark from "./ChannelMark";
@@ -11,6 +15,8 @@ import styles from "./Reservations.module.scss";
 interface Props {
     /** Pending reservations within the current scope (already filtered). */
     pendingItems: V2Reservation[];
+    /** Tavoli assegnati per prenotazione: aiuta a decidere se confermare. */
+    tableViews: ReadonlyMap<string, TableAssignmentView>;
     /** Activity name lookup for site pill. */
     activityNames: Map<string, string>;
     /** When true the inbox shows the site pill on each row (scope = "All sites"). */
@@ -41,6 +47,7 @@ function formatRowDate(isoDate: string): string {
 
 export default function ReservationsInbox({
     pendingItems,
+    tableViews,
     activityNames,
     showSitePill,
     canManageActivity,
@@ -82,6 +89,7 @@ export default function ReservationsInbox({
     const renderRow = (r: V2Reservation, isStale: boolean) => {
         const canManage = canManageActivity(r.activity_id);
         const siteName = activityNames.get(r.activity_id);
+        const tableView = tableViews.get(r.id);
         return (
             <div
                 key={r.id}
@@ -126,6 +134,7 @@ export default function ReservationsInbox({
                     </div>
                 </div>
                 <div className={styles.rowRight}>
+                    {tableView && <TableAssignmentBadge view={tableView} />}
                     {canManage && (
                         <div
                             className={styles.rowActions}

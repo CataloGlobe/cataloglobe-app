@@ -9,27 +9,63 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityProfileTab } from "./tabs/ActivityProfileTab";
 import { ActivityAvailabilityTab } from "./tabs/ActivityAvailabilityTab";
 import { ActivitySettingsTab } from "./tabs/ActivitySettingsTab";
+import { ActivityOrderingTab } from "./tabs/ActivityOrderingTab";
+import { ActivityHoursTab } from "./tabs/ActivityHoursTab";
+import { ActivityReservationsTab } from "./tabs/ActivityReservationsTab";
 import { TablesManagement } from "@/components/Tables/TablesManagement/TablesManagement";
 import { TablesEmptyState } from "@/components/Tables/TablesManagement/TablesEmptyState";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { getActivityById } from "@/services/supabase/activities";
+import { listActivityHours } from "@/services/supabase/activityHours";
+import { getTenantFiscalProfile } from "@/services/supabase/tenants";
 import { V2Activity } from "@/types/activity";
+import type { V2ActivityHours } from "@/types/activity-hours";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnActivity } from "@/lib/permissions";
 import styles from "./ActivityDetailPage.module.scss";
 
-type TabValue = "profile" | "availability" | "tables" | "settings";
+// Ordine = sequenza in cui affrontarle (FASE 6). `availability` (visibilità
+// prodotti per sede) resta col suo nome: la sua destinazione è ancora aperta.
+type TabValue =
+    | "profile"
+    | "hours"
+    | "sala"
+    | "availability"
+    | "ordering"
+    | "reservations"
+    | "settings";
+
+const TAB_VALUES: readonly TabValue[] = [
+    "profile",
+    "hours",
+    "sala",
+    "availability",
+    "ordering",
+    "reservations",
+    "settings"
+];
+
+const TAB_LABELS: Record<TabValue, string> = {
+    profile: "Profilo",
+    hours: "Orari",
+    sala: "Sala",
+    availability: "Disponibilità",
+    ordering: "Ordinazioni",
+    reservations: "Prenotazioni",
+    settings: "Impostazioni"
+};
 
 const LEGACY_TAB_MAP: Record<string, TabValue> = {
     info: "profile",
     media: "profile",
     "hours-services": "settings",
-    "access-control": "settings"
+    "access-control": "settings",
+    tables: "sala"
 };
 
 const isTabValue = (v: string): v is TabValue =>
-    v === "profile" || v === "availability" || v === "tables" || v === "settings";
+    (TAB_VALUES as readonly string[]).includes(v);
 
 const ActivityDetailPage: React.FC = () => {
     const { activityId, businessId } = useParams<{ activityId: string; businessId: string }>();
@@ -101,6 +137,51 @@ const ActivityDetailPage: React.FC = () => {
         fetchData();
     }, [fetchData]);
 
+    // Orari a livello pagina: dato della sede, non di una tab. Li scrive la
+    // tab Orari, li legge anche Prenotazioni (nota "mancano gli orari"); una
+    // sola fonte, ricaricata dopo ogni scrittura via `loadHours`.
+    const [hours, setHours] = useState<V2ActivityHours[]>([]);
+    const [isHoursLoading, setIsHoursLoading] = useState(true);
+
+    const loadHours = useCallback(async () => {
+        if (!activityId || !businessId) return;
+        try {
+            setIsHoursLoading(true);
+            setHours(await listActivityHours(activityId, businessId));
+        } catch {
+            showToast({ message: "Errore nel caricamento degli orari.", type: "error" });
+        } finally {
+            setIsHoursLoading(false);
+        }
+    }, [activityId, businessId, showToast]);
+
+    useEffect(() => {
+        loadHours();
+    }, [loadHours]);
+
+    // Ragione sociale a livello pagina: `get_user_tenants()` (fonte di
+    // `selectedTenant`) non espone i campi fiscali, quindi il contesto non
+    // basta. Una lettura per apertura sede; la legge Prenotazioni per il
+    // prerequisito dell'informativa privacy. `null` = non ancora letta.
+    const [legalName, setLegalName] = useState<string | null | undefined>(undefined);
+
+    useEffect(() => {
+        if (!businessId) return;
+        let cancelled = false;
+        getTenantFiscalProfile(businessId)
+            .then(profile => {
+                if (!cancelled) setLegalName(profile.legal_name ?? null);
+            })
+            .catch(() => {
+                // Silente: il prerequisito resta "in caricamento" e la riga
+                // non dichiara nulla di falso.
+                if (!cancelled) setLegalName(undefined);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [businessId]);
+
     const breadcrumbItems = useMemo(
         () => [
             { label: "Sedi", to: `/business/${businessId}/locations` },
@@ -117,10 +198,9 @@ const ActivityDetailPage: React.FC = () => {
     const leading = useMemo(() => (
         <Tabs<TabValue> value={activeTab} onChange={handleTabChange} variant="line">
             <Tabs.List>
-                <Tabs.Tab value="profile">Profilo</Tabs.Tab>
-                <Tabs.Tab value="availability">Disponibilità</Tabs.Tab>
-                <Tabs.Tab value="tables">Tavoli</Tabs.Tab>
-                <Tabs.Tab value="settings">Impostazioni</Tabs.Tab>
+                {TAB_VALUES.map(value => (
+                    <Tabs.Tab key={value} value={value}>{TAB_LABELS[value]}</Tabs.Tab>
+                ))}
             </Tabs.List>
         </Tabs>
     ), [activeTab, handleTabChange]);
@@ -129,12 +209,7 @@ const ActivityDetailPage: React.FC = () => {
     // lista e nella tab Impostazioni, vedi sopra), quindi in compatto la riga
     // è il solo picker.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        sections: [
-            { value: "profile", label: "Profilo" },
-            { value: "availability", label: "Disponibilità" },
-            { value: "tables", label: "Tavoli" },
-            { value: "settings", label: "Impostazioni" }
-        ],
+        sections: TAB_VALUES.map(value => ({ value, label: TAB_LABELS[value] })),
         activeSection: activeTab,
         onSectionChange: value => handleTabChange(value as TabValue)
     }), [activeTab, handleTabChange]);
@@ -187,7 +262,7 @@ const ActivityDetailPage: React.FC = () => {
                         onReload={fetchData}
                     />
                 )}
-                {activeTab === "tables" && (
+                {activeTab === "sala" && (
                     <PageGate readPermission="tables.read" activityId={activity.id}>
                         {() => (
                             // I tavoli servono a due domini: ordinazioni QR e
@@ -200,14 +275,50 @@ const ActivityDetailPage: React.FC = () => {
                                     activityId={activity.id}
                                     orderingEnabled={activity.ordering_enabled}
                                     reservationsEnabled={activity.enable_reservations}
+                                    reservationCapacity={activity.reservation_capacity}
+                                    reservationDurationMinutes={activity.reservation_duration_minutes}
+                                    reservationConfirmationMode={activity.reservation_confirmation_mode}
+                                    onActivityChanged={fetchData}
+                                    canManageActivity={canManage}
                                 />
                             ) : (
                                 <TablesEmptyState
-                                    onGoToSettings={() => handleTabChange("settings")}
+                                    onGoToOrdering={() => handleTabChange("ordering")}
+                                    onGoToReservations={() => handleTabChange("reservations")}
                                 />
                             )
                         )}
                     </PageGate>
+                )}
+                {activeTab === "hours" && (
+                    <ActivityHoursTab
+                        activity={activity}
+                        tenantId={businessId!}
+                        hours={hours}
+                        isHoursLoading={isHoursLoading}
+                        onHoursChanged={loadHours}
+                        onReload={fetchData}
+                        canManageHours={canManageHours}
+                    />
+                )}
+                {activeTab === "ordering" && (
+                    <ActivityOrderingTab
+                        activity={activity}
+                        tenantId={businessId!}
+                        onReload={fetchData}
+                        canWrite={canManage}
+                    />
+                )}
+                {activeTab === "reservations" && (
+                    <ActivityReservationsTab
+                        activity={activity}
+                        tenantId={businessId!}
+                        onReload={fetchData}
+                        canWrite={canManage}
+                        hours={hours}
+                        isHoursLoading={isHoursLoading}
+                        legalName={legalName}
+                    />
                 )}
                 {activeTab === "settings" && (
                     <ActivitySettingsTab
@@ -215,7 +326,6 @@ const ActivityDetailPage: React.FC = () => {
                         tenantId={businessId!}
                         onReload={fetchData}
                         canWrite={canManage}
-                        canManageHours={canManageHours}
                     />
                 )}
             </div>

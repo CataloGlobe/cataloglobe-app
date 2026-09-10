@@ -439,6 +439,13 @@
   gap: 4px;
 }
 
+/* Badge tavolo nella colonna destra dell'agenda: sotto lo StatusBadge, stessa
+   larghezza massima della colonna. Tre tavoli accostati → l'ellissi vive
+   dentro il chip (vedi TableAssignmentBadge.module.scss), mai fuori. */
+.timelineTableBadge {
+  max-width: 200px;
+}
+
 .timelineCovers {
   font-size: 13px;
   color: var(--color-text-secondary, #4b5563);
@@ -1092,6 +1099,116 @@
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
   border: 0;
+}
+
+/* ── Sezione "Tavolo" del drawer di dettaglio ──────────────────────────────
+   Lista piatta, un tavolo per riga, nessuna card: è un fatto, non un
+   pannello. L'unica riga colorata è il conflitto, ambra come lo StatusBadge
+   warning che l'operatore già conosce. */
+.drawerSectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 28px;
+}
+
+.drawerTableActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.drawerTablePicker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.drawerTablePickerActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+/* Bottone "Riorganizza i tavoli" nell'intestazione del giorno: agisce sul
+   giorno che sta sotto, quindi vive lì e non nell'header di pagina. */
+.dayHeaderAction {
+  margin-left: auto;
+  align-self: center;
+}
+
+.drawerTableList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.drawerTableRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--color-text-primary, #111827);
+}
+
+.drawerTableIcon {
+  flex-shrink: 0;
+  color: var(--color-text-muted, #6b7280);
+}
+
+.drawerTableLabel {
+  font-weight: 600;
+}
+
+.drawerTableZone {
+  font-size: 13px;
+  color: var(--color-text-muted, #6b7280);
+
+  &::before {
+    content: "· ";
+  }
+}
+
+.drawerTableRemoved {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--color-warning-700, #b45309);
+}
+
+.drawerTableHint {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-text-muted, #6b7280);
+  max-width: 60ch;
+}
+
+.drawerTableConflict {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-warning-200, #fde68a);
+  background: var(--color-warning-50, #fffbeb);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-warning-800, #92400e);
+}
+
+.drawerTableConflictIcon {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--color-warning-700, #b45309);
 }
 
 /* Riga della conferma cliente nell'hero del drawer di dettaglio. */
