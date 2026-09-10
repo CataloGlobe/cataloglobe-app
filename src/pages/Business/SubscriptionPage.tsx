@@ -143,7 +143,7 @@ export default function SubscriptionPage() {
     const canReadBilling = permissions ? canDoOnTenant(permissions, "billing.read") : false;
     const canManageBilling = permissions ? canDoOnTenant(permissions, "billing.manage") : false;
     const canCancelBilling = permissions ? canDoOnTenant(permissions, "billing.cancel") : false;
-    const { status, trialDaysLeft, hasPaymentMethod } = useSubscriptionGuard();
+    const { status, trialDaysLeft, hasSubscriptionRecord, canStartCheckout } = useSubscriptionGuard();
     const { showToast } = useToast();
     const navigate = useNavigate();
 
@@ -875,7 +875,7 @@ export default function SubscriptionPage() {
                     </Text>
                 </div>
 
-                {status === "trialing" && !hasPaymentMethod && (
+                {status === "trialing" && !hasSubscriptionRecord && (
                     <div className={styles.actionCard}>
                         <div>
                             <Text variant="body" weight={500}>
@@ -896,7 +896,7 @@ export default function SubscriptionPage() {
                     </div>
                 )}
 
-                {hasPaymentMethod && (
+                {hasSubscriptionRecord && (
                     <div className={styles.actionCard}>
                         <div>
                             <Text variant="body" weight={500}>
@@ -917,7 +917,7 @@ export default function SubscriptionPage() {
                     </div>
                 )}
 
-                {canCancelBilling && hasPaymentMethod && !isTerminal && !cancelAtPeriodEnd && (
+                {canCancelBilling && hasSubscriptionRecord && !isTerminal && !cancelAtPeriodEnd && (
                     <div className={styles.actionCard}>
                         <div>
                             <Text variant="body" weight={500}>
@@ -939,7 +939,7 @@ export default function SubscriptionPage() {
                     </div>
                 )}
 
-                {status === "canceled" && (
+                {hasSubscriptionRecord && canStartCheckout && (
                     <>
                         <div className={styles.actionCard}>
                             <div>
@@ -947,16 +947,16 @@ export default function SubscriptionPage() {
                                     Riattiva abbonamento
                                 </Text>
                                 <Text variant="body-sm" colorVariant="muted">
-                                    Il tuo abbonamento è stato cancellato. Riattivalo per riprendere a modificare i contenuti.
+                                    {`Il tuo abbonamento è stato cancellato. Riattivalo per tornare operativo: l'addebito di ${formatEuro(displayMonthly)}/mese parte subito.`}
                                 </Text>
                             </div>
                             <Button
                                 variant="primary"
-                                onClick={hasPaymentMethod ? handlePortal : handleCheckout}
-                                disabled={checkoutLoading || portalLoading}
+                                onClick={handleCheckout}
+                                disabled={checkoutLoading}
                                 leftIcon={<CreditCard size={16} />}
                             >
-                                {(checkoutLoading || portalLoading) ? "Reindirizzamento..." : "Riattiva abbonamento"}
+                                {checkoutLoading ? "Reindirizzamento..." : "Riattiva abbonamento"}
                             </Button>
                         </div>
                         {isTerminal && (

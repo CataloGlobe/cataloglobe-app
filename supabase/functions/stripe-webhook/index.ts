@@ -56,12 +56,21 @@ type UpdateResult = { ok: boolean; rowsAffected: number };
 async function updateTenantStatus(
     admin: ReturnType<typeof createClient>,
     stripeCustomerId: string,
-    updates: Record<string, unknown>
+    updates: Record<string, unknown>,
+    // Optional extra equality filter, folded into the same WHERE clause so the
+    // check-and-write is one atomic statement (no separate SELECT). Used by
+    // customer.subscription.deleted to require stripe_subscription_id still
+    // matches the deleted subscription — otherwise a resubscribe's newer
+    // checkout.session.completed write could land between a SELECT and this
+    // UPDATE and get clobbered by a stale deleted event for the old subscription.
+    extraEq?: readonly [column: string, value: string]
 ): Promise<UpdateResult> {
-    const { error, count } = await admin
+    let query = admin
         .from("tenants")
         .update(updates, { count: "exact" })
         .eq("stripe_customer_id", stripeCustomerId);
+    if (extraEq) query = query.eq(extraEq[0], extraEq[1]);
+    const { error, count } = await query;
 
     if (error) {
         console.error(`stripe-webhook: DB update failed for customer ${stripeCustomerId}:`, error.message);
@@ -441,19 +450,28 @@ serve(async req => {
                 const subscription = event.data.object as Stripe.Subscription;
                 const stripeCustomerId = subscription.customer as string;
 
-                const result = await updateTenantStatus(admin, stripeCustomerId, {
-                    subscription_status: "canceled",
-                    current_period_end: null,
-                    // Mirror di current_period_end: nessun periodo su canceled.
-                    // plan_monthly_value_cents resta com'è (tenant non eleggibile
-                    // comunque; il valore storico non nuoce).
-                    current_period_start: null
-                });
+                const result = await updateTenantStatus(
+                    admin,
+                    stripeCustomerId,
+                    {
+                        subscription_status: "canceled",
+                        current_period_end: null,
+                        // Mirror di current_period_end: nessun periodo su canceled.
+                        // plan_monthly_value_cents resta com'è (tenant non eleggibile
+                        // comunque; il valore storico non nuoce).
+                        current_period_start: null
+                    },
+                    // Guard atomico: scrive solo se stripe_subscription_id è ANCORA
+                    // quello cancellato. Un resubscribe (nuovo id già scritto da
+                    // checkout.session.completed) fa fallire il match e l'evento
+                    // stale viene ignorato invece di sovrascrivere la subscription nuova.
+                    ["stripe_subscription_id", subscription.id]
+                );
 
                 if (result.ok && result.rowsAffected > 0) {
                     console.log(`stripe-webhook: Subscription deleted for customer ${stripeCustomerId} (event ${event.id})`);
                 } else if (result.ok && result.rowsAffected === 0) {
-                    console.warn(`stripe-webhook: NO TENANT MATCHED customer ${stripeCustomerId} for event ${event.id} (${event.type}). Possibile causa: evento da ambiente diverso o tenant eliminato.`);
+                    console.log(`stripe-webhook: customer.subscription.deleted for ${subscription.id} ignored (customer ${stripeCustomerId} current subscription no longer matches, or tenant not found, for event ${event.id}). Possibile causa: resubscribe successivo, evento da ambiente diverso, o tenant eliminato.`);
                 }
                 break;
             }
