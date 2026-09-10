@@ -491,7 +491,11 @@ serve(async req => {
             console.log(`stripe-change-subscription: CANCEL scheduled tenant=${tenantId} result=${result}`);
             try {
                 const to = await getRecipient();
-                if (to) await sendEmail({ to, ...cancelEmail({ activeUntilIso: periodEndIso }) });
+                if (to)
+                    await sendEmail({
+                        to,
+                        ...cancelEmail({ activeUntilIso: periodEndIso, isTrialing: sub.status === "trialing" })
+                    });
             } catch (err) {
                 console.error("[stripe-change-subscription] cancel email error:", err);
             }
@@ -1109,7 +1113,8 @@ serve(async req => {
                             ...combinedChangeEmail({
                                 seats: newSeats,
                                 targetPlan,
-                                effectiveDateIso: periodEndIso
+                                effectiveDateIso: periodEndIso,
+                                isTrialing: sub.status === "trialing"
                             })
                         });
                     }
@@ -1289,7 +1294,8 @@ serve(async req => {
                             ...combinedChangeEmail({
                                 seats: newSeats,
                                 targetPlan,
-                                effectiveDateIso: periodEndIso
+                                effectiveDateIso: periodEndIso,
+                                isTrialing: sub.status === "trialing"
                             })
                         });
                     }
@@ -1321,7 +1327,11 @@ serve(async req => {
                     if (to) {
                         await sendEmail({
                             to,
-                            ...combinedChangePartialFailureEmail({ seats: newSeats, targetPlan })
+                            ...combinedChangePartialFailureEmail({
+                                seats: newSeats,
+                                targetPlan,
+                                isTrialing: sub.status === "trialing"
+                            })
                         });
                     }
                 } catch (mailErr) {
@@ -1464,7 +1474,8 @@ serve(async req => {
                                 ...combinedChangeEmail({
                                     seats: newSeats,
                                     targetPlan: b2FuturePlanCode,
-                                    effectiveDateIso: periodEndIso
+                                    effectiveDateIso: periodEndIso,
+                                    isTrialing: sub.status === "trialing"
                                 })
                             });
                         }
@@ -1547,7 +1558,8 @@ serve(async req => {
                             seats: newSeats,
                             amountPaidTodayCents,
                             monthlyTotalCents,
-                            renewalDateIso: periodEndIso
+                            renewalDateIso: periodEndIso,
+                            isTrialing: sub.status === "trialing"
                         })
                     });
                 }
