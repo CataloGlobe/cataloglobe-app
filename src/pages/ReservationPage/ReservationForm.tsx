@@ -24,6 +24,8 @@ type Props = {
     slug: string;
     hours: OpeningHoursEntry[];
     closures: UpcomingClosure[];
+    /** Passo (minuti) della griglia oraria pubblica = pacing della sede. */
+    pacingSlotMinutes: number;
     onSuccess: (snapshot: FormFields, status: SubmitReservationStatus) => void;
     onResolveErrorCode: (code: SubmitErrorCode) => void;
 };
@@ -32,6 +34,7 @@ export default function ReservationForm({
     slug,
     hours,
     closures,
+    pacingSlotMinutes,
     onSuccess,
     onResolveErrorCode
 }: Props) {
@@ -222,6 +225,7 @@ export default function ReservationForm({
                 errors={effectiveErrors}
                 hours={hours}
                 closures={closures}
+                pacingSlotMinutes={pacingSlotMinutes}
                 slug={slug}
                 onChange={handleChange}
                 onBlur={handleBlur}

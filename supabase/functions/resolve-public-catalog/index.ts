@@ -318,7 +318,7 @@ serve(async (req: Request) => {
 
         const ACTIVITY_SELECT =
             "id, tenant_id, name, slug, cover_image, status, " +
-            "ordering_enabled, enable_reservations, " +
+            "ordering_enabled, enable_reservations, reservation_pacing_slot_minutes, " +
             "address, street_number, postal_code, city, province, " +
             "instagram, instagram_public, facebook, facebook_public, " +
             "whatsapp, whatsapp_public, website, website_public, " +
@@ -401,6 +401,10 @@ serve(async (req: Request) => {
             // proprietario via query diretta ad `activities` nella dashboard.
             ordering_enabled: orderingEnabledResolved,
             enable_reservations: reservationsEnabledResolved,
+            // Passo della griglia oraria del modulo pubblico di prenotazione
+            // (FASE 2 unificazione pacing/griglia). NOT NULL a schema: nessun
+            // fallback qui, un valore assente è un payload rotto.
+            reservation_pacing_slot_minutes: activity.reservation_pacing_slot_minutes,
             address: activity.address ?? null,
             street_number: activity.street_number ?? null,
             postal_code: activity.postal_code ?? null,

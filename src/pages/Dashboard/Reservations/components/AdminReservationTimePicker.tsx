@@ -6,7 +6,8 @@ import type {
 } from "@pages/ReservationPage/availability";
 import {
     findDefaultPeriodIndex,
-    getReservationPeriodsForDate
+    getReservationPeriodsForDate,
+    SLOT_STEP_MIN
 } from "@pages/ReservationPage/utils/reservationSlots";
 import styles from "./AdminReservationTimePicker.module.scss";
 
@@ -52,9 +53,13 @@ export default function AdminReservationTimePicker({
     errorId,
     invalid
 }: Props) {
+    // Passo cablato a SLOT_STEP_MIN, MAI al pacing della sede: i vincoli di
+    // pacing chiudono il canale online, non l'operatore. Deve poter piazzare
+    // una prenotazione a un quarto d'ora qualsiasi anche su una sede con
+    // fascia da 30 o 60 — "Altro orario" resta comunque disponibile sotto.
     const periods = useMemo(() => {
         if (!date) return [];
-        return getReservationPeriodsForDate(date, hours, closures, new Date());
+        return getReservationPeriodsForDate(date, hours, closures, new Date(), SLOT_STEP_MIN);
     }, [date, hours, closures]);
 
     const valueInGrid = useMemo(

@@ -16,6 +16,11 @@ export type Brand = {
     hours: OpeningHoursEntry[];
     /** Upcoming closures (max 10 from resolve-public-catalog). */
     closures: UpcomingClosure[];
+    /** Passo (minuti) della griglia oraria pubblica = `activities.
+     *  reservation_pacing_slot_minutes`. Colonna NOT NULL a schema: nessun
+     *  fallback qui, un valore mancante nel payload è un guasto da far
+     *  vedere, non da mascherare con un `?? 15`. */
+    pacingSlotMinutes: number;
     /** Lingue attive del tenant (base-first). Dal payload `available_languages`. */
     languages: AvailableLanguage[];
     /** Lingua base del tenant (senza segmento URL). Dal payload `base_language_code`. */

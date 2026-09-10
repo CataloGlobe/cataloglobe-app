@@ -17,6 +17,8 @@ type Props = {
     errors: FieldErrors;
     hours: OpeningHoursEntry[];
     closures: UpcomingClosure[];
+    /** Passo (minuti) della griglia oraria pubblica = pacing della sede. */
+    pacingSlotMinutes: number;
     /** Slug della sede: serve alla lettura di disponibilità. */
     slug: string;
     onChange: (name: keyof FormFields, value: string) => void;
@@ -40,6 +42,7 @@ export default function WhenSection({
     errors,
     hours,
     closures,
+    pacingSlotMinutes,
     slug,
     onChange,
     onBlur
@@ -82,7 +85,8 @@ export default function WhenSection({
             values.reservation_date,
             hours,
             closures,
-            new Date()
+            new Date(),
+            pacingSlotMinutes
         );
         const out: string[] = [];
         for (const p of periods) {
@@ -94,7 +98,7 @@ export default function WhenSection({
             }
         }
         return out.slice(0, MAX_TIMES);
-    }, [values.reservation_date, hours, closures]);
+    }, [values.reservation_date, hours, closures, pacingSlotMinutes]);
 
     // Chiave di cache e di richiesta. Cambia con la data o con i coperti:
     // quattro posti liberi bastano per due e non per sei, quindi una griglia
@@ -177,9 +181,10 @@ export default function WhenSection({
             hours,
             closures,
             new Date(),
+            pacingSlotMinutes,
             unavailable ?? undefined
         );
-    }, [values.reservation_date, hours, closures, unavailable]);
+    }, [values.reservation_date, hours, closures, pacingSlotMinutes, unavailable]);
 
     const handleDateChange = (iso: string) => {
         if (iso === values.reservation_date) return;

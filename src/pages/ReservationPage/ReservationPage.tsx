@@ -61,6 +61,9 @@ export default function ReservationPage() {
                     name?: string;
                     status?: string;
                     enable_reservations?: boolean;
+                    // NOT NULL a schema — non opzionale nel tipo: un payload
+                    // che lo omette è un guasto, non una sede senza pacing.
+                    reservation_pacing_slot_minutes: number;
                     cover_image?: string | null;
                     phone?: string | null;
                     phone_public?: boolean;
@@ -88,6 +91,7 @@ export default function ReservationPage() {
                 phonePublic: business.phone_public ?? false,
                 hours: payload.opening_hours ?? [],
                 closures: payload.upcoming_closures ?? [],
+                pacingSlotMinutes: business.reservation_pacing_slot_minutes,
                 languages: payload.available_languages ?? [],
                 baseLanguage: payload.base_language_code ?? "it"
             };
@@ -289,6 +293,7 @@ export default function ReservationPage() {
                                 slug={slug}
                                 hours={brand.hours}
                                 closures={brand.closures}
+                                pacingSlotMinutes={brand.pacingSlotMinutes}
                                 onSuccess={handleSuccess}
                                 onResolveErrorCode={handleResolveErrorCode}
                             />

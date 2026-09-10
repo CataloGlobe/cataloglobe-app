@@ -808,10 +808,12 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
                                             ))}
                                         </div>
                                         <p className={styles.capacityHint}>
-                                            I limiti qui sotto valgono per ogni fascia di
-                                            questa ampiezza. Con 30 minuti, una
-                                            prenotazione alle 20:15 rientra nella fascia
-                                            20:00–20:30.
+                                            È anche il passo degli orari proposti nel
+                                            modulo di prenotazione: con 30 minuti il
+                                            cliente vede 20:00, 20:30, 21:00. I limiti
+                                            qui sotto valgono per ogni fascia di questa
+                                            ampiezza — con 30 minuti, una prenotazione
+                                            alle 20:15 rientra nella fascia 20:00–20:30.
                                         </p>
                                     </div>
 
