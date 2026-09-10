@@ -28,6 +28,8 @@ export interface TableFormProps {
     /** Bump quando le zone cambiano fuori dal dropdown (drawer gestione zone):
      *  forza reload del select via key remount. */
     zoneReloadKey: number;
+    /** Idem per i gruppi di accostamento. */
+    combinationGroupReloadKey: number;
     onSuccess: () => Promise<void> | void;
     onSavingChange: (saving: boolean) => void;
 }
@@ -56,6 +58,7 @@ export function TableForm({
     activityId,
     reservationsEnabled,
     zoneReloadKey,
+    combinationGroupReloadKey,
     onSuccess,
     onSavingChange
 }: TableFormProps) {
@@ -366,6 +369,8 @@ export function TableForm({
                     </CollapsibleSection>
 
                     <CombinationGroupSelectField
+                        // key remount per forzare refresh lista gruppi post-CRUD drawer.
+                        key={`combination-group-select-${combinationGroupReloadKey}`}
                         tenantId={tenantId}
                         activityId={activityId}
                         value={formGroupId}

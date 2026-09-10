@@ -16,7 +16,22 @@
     margin-top: -4px;
 }
 
-.zoneList {
+.sectionTitle {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding-top: 4px;
+
+    &:first-child {
+        padding-top: 0;
+    }
+}
+
+.sectionHint {
+    color: var(--color-text-muted, #64748b);
+}
+
+.itemList {
     list-style: none;
     padding: 0;
     margin: 0;
@@ -25,7 +40,7 @@
     gap: 8px;
 }
 
-.zoneRow {
+.itemRow {
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -35,14 +50,14 @@
     background-color: var(--color-surface, #ffffff);
 }
 
-.zoneRowHeader {
+.itemRowHeader {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
 }
 
-.zoneRowName {
+.itemRowName {
     flex: 1 1 auto;
     min-width: 0;
     overflow: hidden;
@@ -50,11 +65,30 @@
     white-space: nowrap;
 }
 
-.zoneRowMeta {
+.itemRowMeta {
     display: flex;
     align-items: center;
     gap: 8px;
     flex-shrink: 0;
+}
+
+.chipRow {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.chip {
+    font-size: 0.75rem;
+    color: var(--color-text, #0f172a);
+    background-color: var(--color-surface-muted, #f1f5f9);
+    padding: 3px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+.emptyGroupHint {
+    color: var(--color-text-muted, #64748b);
 }
 
 .countBadge {
@@ -67,7 +101,7 @@
     white-space: nowrap;
 }
 
-.zoneActions {
+.itemActions {
     display: flex;
     align-items: center;
     gap: 4px;

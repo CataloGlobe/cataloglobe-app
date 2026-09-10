@@ -30,7 +30,7 @@ import {
 } from "@/services/supabase/tables";
 import type { V2Table, V2TableWithState } from "@/types/orders";
 
-import { TableZoneManagementDrawer } from "@/components/Tables/TableZoneManagementDrawer/TableZoneManagementDrawer";
+import { TableZonesAndGroupsDrawer } from "@/components/Tables/TableZonesAndGroupsDrawer/TableZonesAndGroupsDrawer";
 import { TableForm } from "@/components/Tables/TableForm/TableForm";
 
 import TableDeleteDrawer from "@/pages/Dashboard/Tables/TableDeleteDrawer";
@@ -108,10 +108,11 @@ export function TablesManagement({
     const [isRegenOpen, setIsRegenOpen] = useState(false);
     const [itemToRegen, setItemToRegen] = useState<V2Table | null>(null);
 
-    // Zone management drawer
+    // Drawer "Zone e accostamenti"
     const [isZoneDrawerOpen, setIsZoneDrawerOpen] = useState(false);
-    // Bumped quando zone cambiano fuori dal dropdown → forza reload del select via key remount.
+    // Bumped quando zone/gruppi cambiano fuori dal dropdown → forza reload dei select via key remount.
     const [zoneReloadKey, setZoneReloadKey] = useState(0);
+    const [combinationGroupReloadKey, setCombinationGroupReloadKey] = useState(0);
 
     // QR generation flags
     const [isGeneratingQrAll, setIsGeneratingQrAll] = useState(false);
@@ -759,7 +760,7 @@ export function TablesManagement({
                                             disabled={!activityId || !canEdit}
                                         >
                                             <Layers size={14} />
-                                            <span>Gestisci zone</span>
+                                            <span>Zone e accostamenti</span>
                                         </DropdownMenu.Item>
                                         {orderingEnabled && (
                                             <DropdownMenu.Item
@@ -870,6 +871,7 @@ export function TablesManagement({
                         activityId={activityId}
                         reservationsEnabled={reservationsEnabled}
                         zoneReloadKey={zoneReloadKey}
+                        combinationGroupReloadKey={combinationGroupReloadKey}
                         onSuccess={handleFormSuccess}
                         onSavingChange={setIsSaving}
                     />
@@ -905,15 +907,17 @@ export function TablesManagement({
                 isDownloadingPdf={isQrPreviewDownloadingPdf}
             />
 
-            <TableZoneManagementDrawer
+            <TableZonesAndGroupsDrawer
                 isOpen={isZoneDrawerOpen}
                 onClose={() => setIsZoneDrawerOpen(false)}
-                onZonesChanged={() => {
+                onChanged={() => {
                     setZoneReloadKey(k => k + 1);
+                    setCombinationGroupReloadKey(k => k + 1);
                     void loadData();
                 }}
                 tenantId={tenantId}
                 activityId={activityId}
+                tables={items}
             />
         </section>
     );
