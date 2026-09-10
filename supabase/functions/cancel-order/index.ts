@@ -37,6 +37,7 @@ import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { verifyCustomerJwt } from "../_shared/customerJwt.ts";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { enqueueAndDispatchPrintJobs } from "../_shared/printJobs.ts";
 
 // ============================================================
 // Constants
@@ -77,6 +78,8 @@ interface UpdatedOrderRow {
 
 interface ExistingOrderRow {
     id: string;
+    tenant_id: string;
+    activity_id: string;
     customer_session_id: string;
     status: string;
     version: number;
@@ -154,7 +157,7 @@ async function _readAndCancelOrder(
     orderId: string,
     customerSessionId: string
 ): Promise<
-    | { kind: "ok"; row: UpdatedOrderRow }
+    | { kind: "ok"; row: UpdatedOrderRow; tenantId: string; activityId: string }
     | { kind: "not_found" }
     | { kind: "forbidden" }
     | { kind: "invalid_state"; currentStatus: string }
@@ -164,7 +167,7 @@ async function _readAndCancelOrder(
     // ── Step 1: read current order (auth + state + version) ──
     const { data: current, error: readErr } = await supabase
         .from("orders")
-        .select("id, customer_session_id, status, version")
+        .select("id, tenant_id, activity_id, customer_session_id, status, version")
         .eq("id", orderId)
         .maybeSingle();
 
@@ -209,7 +212,12 @@ async function _readAndCancelOrder(
         // staff acknowledging concurrently).
         return { kind: "lock_conflict" };
     }
-    return { kind: "ok", row: updated as UpdatedOrderRow };
+    return {
+        kind: "ok",
+        row: updated as UpdatedOrderRow,
+        tenantId: currentRow.tenant_id,
+        activityId: currentRow.activity_id
+    };
 }
 
 // ============================================================
@@ -326,6 +334,17 @@ serve(async (req: Request) => {
                 customer_session_id: customerSessionId,
                 order_id: result.row.id,
                 version: result.row.version
+            });
+            // ── Print job (blocco 3a, best-effort, non-blocking) ──
+            // Deferred: mai push inline, lo sweeper rilegge lo stato ordine
+            // prima di stampare. Nessun errore di stampa tocca la risposta.
+            await enqueueAndDispatchPrintJobs(supabase, {
+                orderId: result.row.id,
+                tenantId: result.tenantId,
+                activityId: result.activityId,
+                kind: "annullo",
+                dispatch: "deferred",
+                logPrefix: "[cancel-order]"
             });
             return jsonResponse(200, {
                 order_id: result.row.id,

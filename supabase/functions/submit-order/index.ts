@@ -50,6 +50,7 @@ import {
     orderingStateMessage
 } from "../_shared/checkOrderingState.ts";
 import { isActivityOpen, nowInRomeParts } from "../_shared/openingHours.ts";
+import { enqueueAndDispatchPrintJobs } from "../_shared/printJobs.ts";
 
 // ============================================================
 // Constants
@@ -715,6 +716,23 @@ serve(async (req: Request) => {
                     cleared_sessions_count: cleared.length
                 });
             }
+        }
+
+        // ── Print job (best-effort, non-blocking) ──
+        // Su idempotent_replay NON si stampa: l'ordine e' quello del primo
+        // tentativo e la comanda e' gia' stata accodata allora. Rischio n.1 di
+        // doppia comanda. Fresh order: INSERT sincrono di un print_job per
+        // stampante attiva della sede + push Sunmi in background
+        // (EdgeRuntime.waitUntil). Nessun errore di stampa tocca il 201.
+        if (!rpc.payload.idempotent_replay) {
+            await enqueueAndDispatchPrintJobs(supabase, {
+                orderId: rpc.payload.order_id,
+                tenantId: validated.tenant_id,
+                activityId: validated.activity_id,
+                kind: "comanda",
+                dispatch: "inline",
+                logPrefix: "[submit-order]"
+            });
         }
 
         // ── Success ──

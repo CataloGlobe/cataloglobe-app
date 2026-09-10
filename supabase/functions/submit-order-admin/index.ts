@@ -33,6 +33,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { enqueueAndDispatchPrintJobs } from "../_shared/printJobs.ts";
 import {
     validateAndSnapshotOrderItems,
     ValidateOrderItemsError,
@@ -927,6 +928,21 @@ serve(async (req: Request) => {
                 cleared_sessions_count: cleared.length
             });
         }
+
+        // ── Print job (best-effort, non-blocking) ──
+        // Gemello di submit-order. submit_order_atomic qui e' invocata SENZA
+        // idempotency key (nessun replay possibile): ogni 201 e' un ordine
+        // nuovo → stampa sempre. INSERT sincrono di un print_job per stampante
+        // attiva della sede + push Sunmi in background. Nessun errore di
+        // stampa tocca il 201.
+        await enqueueAndDispatchPrintJobs(supabaseService, {
+            orderId: rpc.payload.order_id,
+            tenantId: table.tenant_id,
+            activityId: table.activity_id,
+            kind: "comanda",
+            dispatch: "inline",
+            logPrefix: "[submit-order-admin]"
+        });
 
         // ── Success ──
         console.log("[submit-order-admin] order_submitted", {

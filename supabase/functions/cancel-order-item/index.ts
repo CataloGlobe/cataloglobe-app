@@ -25,6 +25,7 @@
 import { serve } from "https://deno.land/std@0.224.0/http/server.ts";
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "../_shared/rateLimit.ts";
+import { enqueueAndDispatchPrintJobs } from "../_shared/printJobs.ts";
 
 // ============================================================
 // Constants
@@ -426,6 +427,23 @@ serve(async (req: Request) => {
             item_id: payload.item_id,
             order_cancelled: payload.order_cancelled
         });
+
+        // ── Print job (blocco 3a, best-effort, non-blocking) ──
+        // Solo se annullare la riga ha auto-cancellato l'intero ordine
+        // (nessuna riga attiva rimasta): quello e' un annullamento vero,
+        // stesso trattamento di cancel-order/cancel-order-admin. Se l'ordine
+        // resta attivo (solo la riga e' annullata) non si stampa nulla —
+        // caso diverso, fuori da questo blocco. Deferred: mai push inline.
+        if (payload.order_cancelled === true) {
+            await enqueueAndDispatchPrintJobs(supabaseService, {
+                orderId: payload.order_id,
+                tenantId,
+                activityId: orderActivityId,
+                kind: "annullo",
+                dispatch: "deferred",
+                logPrefix: "[cancel-order-item]"
+            });
+        }
 
         return jsonResponse(200, {
             order_id: payload.order_id,
