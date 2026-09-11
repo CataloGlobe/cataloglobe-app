@@ -49,7 +49,11 @@ import { Select } from "@components/ui/Select/Select";
 const REDESIGN_FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: "Quanto costa?",
-    a: "Due piani per sede: Base €39/mese, Pro €59/mese (IVA inclusa). Dalla seconda sede in poi, ogni sede costa il 10% in meno. Per attivare, ci lasci i tuoi contatti e ti seguiamo noi nella configurazione. Ai primi clienti inviamo anche un codice per provare il primo mese gratuitamente.",
+    a: "Due piani per sede: Base €39/mese, Pro €59/mese (IVA inclusa). Dalla seconda sede in poi, ogni sede costa il 10% in meno. Ti registri online e parti subito con 30 giorni di prova gratuita.",
+  },
+  {
+    q: "Mi addebitate subito la carta?",
+    a: "No. Al momento dell'iscrizione ti chiediamo la carta ma non addebitiamo nulla. Il primo addebito parte alla fine dei 30 giorni di prova. Puoi disdire prima, in autonomia, dalla pagina Abbonamento — senza costi.",
   },
   {
     q: "Posso disdire quando voglio?",
@@ -96,6 +100,7 @@ interface MockupPricingAddition {
 interface MockupPricingPlan {
   key: "base" | "pro";
   name: string;
+  trialNote: string;
   priceLabel: string;
   discountNote: string;
   framing: string;
@@ -103,10 +108,13 @@ interface MockupPricingPlan {
   additions?: MockupPricingAddition[];
   popular: boolean;
 }
+const PLAN_TRIAL_NOTE =
+  "30 giorni gratis. Ti chiediamo la carta, ma non addebitiamo nulla oggi.";
 const MOCKUP_PRICING_PLANS: MockupPricingPlan[] = [
   {
     key: "base",
     name: "Base",
+    trialNote: PLAN_TRIAL_NOTE,
     priceLabel: "€39/sede/mese",
     discountNote: "dalla 2ª sede −10% · €35,10/sede · IVA inclusa",
     framing: "Il tuo locale online, che si aggiorna da solo.",
@@ -127,6 +135,7 @@ const MOCKUP_PRICING_PLANS: MockupPricingPlan[] = [
   {
     key: "pro",
     name: "Pro",
+    trialNote: PLAN_TRIAL_NOTE,
     priceLabel: "€59/sede/mese",
     discountNote: "dalla 2ª sede −10% · €53,10/sede · IVA inclusa",
     framing: "Tutto il piano Base — e in più i clienti fanno da soli:",
@@ -1150,8 +1159,8 @@ function RedesignHeader({ daypart }: { daypart: DaypartKey }) {
           <a href="/login" className={s.appbarLogin}>
             Accedi
           </a>
-          <a href="#waitlist" className={s.appbarCta}>
-            Richiedi accesso
+          <a href="/sign-up" className={s.appbarCta}>
+            Provalo gratis
           </a>
         </nav>
       </div>
@@ -1254,8 +1263,8 @@ export default function LandingPage() {
                 quando serve — mentre tu pensi al locale.
               </p>
               <div className={s.heroCtas}>
-                <a className={s.ctaPrimary} href="#waitlist">
-                  Richiedi accesso <ArrowRight size={17} strokeWidth={2.2} />
+                <a className={s.ctaPrimary} href="/sign-up">
+                  Inizia la prova gratuita <ArrowRight size={17} strokeWidth={2.2} />
                 </a>
                 <a className={s.ctaGhost} href="#prova">
                   Guarda com'è fatto
@@ -1597,6 +1606,7 @@ export default function LandingPage() {
                       <span className={s.planBadge}>Consigliato</span>
                     )}
                     <span className={s.planName}>{plan.name}</span>
+                    <span className={s.planTrial}>{plan.trialNote}</span>
                     <span className={s.planPrice}>{plan.priceLabel}</span>
                     <span className={s.planDiscount}>{plan.discountNote}</span>
                     <p className={s.planFraming}>{plan.framing}</p>
@@ -1626,12 +1636,12 @@ export default function LandingPage() {
                       </ul>
                     )}
                     <a
-                      href="#waitlist"
+                      href="/sign-up"
                       className={`${s.planCta} ${
                         plan.popular ? s.planCtaPrimary : s.planCtaGhost
                       }`}
                     >
-                      Richiedi accesso
+                      Inizia la prova gratuita
                     </a>
                   </Reveal>
                 );
@@ -1670,11 +1680,11 @@ export default function LandingPage() {
             </Reveal>
             <Reveal as="div" y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
               <p className={s.closeOffer}>
-                Il primo mese è gratuito, provi con calma e decidi.
+                Preferisci parlarne prima con noi?
               </p>
               <p className={s.closeSub}>
-                Lasciaci i tuoi dati: ti ricontattiamo noi e seguiamo insieme
-                l'attivazione.
+                Lasciaci i tuoi dati: ti ricontattiamo e ti accompagniamo
+                nell'attivazione.
               </p>
             </Reveal>
           </div>
@@ -1800,7 +1810,7 @@ function ContactForm() {
         type="submit"
         disabled={status === "submitting"}
       >
-        {status === "submitting" ? "Invio in corso…" : "Richiedi accesso"}
+        {status === "submitting" ? "Invio in corso…" : "Parliamone"}
       </button>
       {status === "error" && (
         <p className={s.contactError}>Si è verificato un errore. Riprova.</p>
