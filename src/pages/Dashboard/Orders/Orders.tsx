@@ -271,7 +271,8 @@ export default function Orders() {
         isLoading: isLoadingOrders,
         error: ordersError,
         refetch: refetchOrders,
-        applyLocalPatch
+        applyLocalPatch,
+        failedComandaOrderIds
     } = useActiveOrdersRealtime(tenantId, selectedActivityId, {
         onNewOrder: () => triggerAlertRef.current()
     });
@@ -1006,6 +1007,7 @@ export default function Orders() {
                             orders={filteredOrders}
                             tables={tables}
                             operatorNames={operatorNames}
+                            failedComandaOrderIds={failedComandaOrderIds}
                             isLoading={isLoadingOrders}
                             error={ordersError}
                             onRetry={() => void refetchOrders()}

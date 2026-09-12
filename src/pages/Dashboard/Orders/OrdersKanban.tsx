@@ -31,6 +31,11 @@ interface Props {
      * Map vuota = fallback "Staff" generico.
      */
     operatorNames?: Map<string, string>;
+    /**
+     * Id ordine con almeno una comanda che non e' mai uscita (job stampa
+     * `failed`). Propagata a `OrderCard` per il badge "Comanda non stampata".
+     */
+    failedComandaOrderIds?: Set<string>;
     isLoading: boolean;
     error: string | null;
     onRetry: () => void;
@@ -75,6 +80,7 @@ export default function OrdersKanban({
     orders,
     tables,
     operatorNames,
+    failedComandaOrderIds,
     isLoading,
     error,
     onRetry,
@@ -180,6 +186,7 @@ export default function OrdersKanban({
                                             tableLabel={table?.label ?? "?"}
                                             tableZone={table?.zone_name ?? null}
                                             operatorNames={operatorNames}
+                                            comandaFailed={failedComandaOrderIds?.has(order.id) ?? false}
                                             onAcknowledge={onAcknowledge}
                                             onMarkReady={onMarkReady}
                                             onDeliver={onDeliver}

@@ -335,6 +335,9 @@ export type OrderStatus =
 
 export type CancelledBy = "customer" | "admin";
 
+export type PrintJobStatus = "pending" | "processing" | "done" | "failed";
+export type PrintJobKind = "comanda" | "annullo";
+
 /**
  * Riga grezza della tabella `orders`.
  * total_amount è normalizzato a number nei service (sourcing da SELECT diretti).

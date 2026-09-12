@@ -58,6 +58,12 @@ interface Props {
      * Lookup mancante → fallback label "Staff" senza nome.
      */
     operatorNames?: Map<string, string>;
+    /**
+     * true quando almeno una comanda (kind='comanda') di questo ordine ha
+     * esaurito i tentativi di stampa (print_jobs.status='failed'). Non
+     * uscira' mai: lo staff deve avvisare la cucina a voce.
+     */
+    comandaFailed?: boolean;
     canManage?: boolean;
     canEdit?: boolean;
 }
@@ -116,6 +122,7 @@ export default function OrderCard({
     tableLabel,
     tableZone,
     operatorNames,
+    comandaFailed,
     canManage,
     canEdit
 }: Props) {
@@ -205,6 +212,18 @@ export default function OrderCard({
                     >
                         <AlertCircle size={13} aria-hidden />
                         Primo ordine · verifica il tavolo
+                    </span>
+                </div>
+            )}
+
+            {comandaFailed && (
+                <div className={styles.printFailedRow}>
+                    <span
+                        className={styles.printFailedBadge}
+                        title="La stampa in cucina non è riuscita: avvisa a voce"
+                    >
+                        <Printer size={13} aria-hidden />
+                        Comanda non stampata
                     </span>
                 </div>
             )}
