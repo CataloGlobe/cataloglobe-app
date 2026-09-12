@@ -60,22 +60,33 @@ const SEATING_BY_RESERVATION_SELECT =
  * delle prenotazioni non ha nessuno seduto. Lanciare qui costringerebbe ogni
  * apertura di drawer a un try/catch per un esito previsto.
  *
- * Solo le aperte: una tavolata chiusa è un servizio concluso, e per il drawer
- * conta solo se c'è gente al tavolo ADESSO. `limit(1)` sull'apertura più
- * vecchia — due tavolate aperte per la stessa prenotazione sono un dato rotto
- * che le RPC impediscono, ma se ci fosse si mostrerebbe la prima, non una a
- * caso.
+ * Di default solo le aperte: per DECIDERE un gesto conta solo se c'è gente al
+ * tavolo ADESSO, e trovare una tavolata chiusa dove serve quella aperta
+ * porterebbe a chiudere due volte o ad annullare un servizio concluso.
+ *
+ * `includeClosed` serve al caso opposto, che è di sola lettura: una
+ * prenotazione `completed` ha una tavolata e l'ha chiusa, e il drawer deve
+ * poter mostrare dove hanno mangiato. Chi passa questo flag NON deve usarne il
+ * risultato per una scrittura.
+ *
+ * `limit(1)` sull'apertura più vecchia — due tavolate per la stessa
+ * prenotazione sono un dato rotto che le RPC impediscono, ma se ci fosse si
+ * mostrerebbe la prima, non una a caso.
  */
 export async function getSeatingForReservation(
     reservationId: string,
-    tenantId: string
+    tenantId: string,
+    options?: { includeClosed?: boolean }
 ): Promise<Seating | null> {
-    const { data, error } = await supabase
+    let query = supabase
         .from("seatings")
         .select(SEATING_BY_RESERVATION_SELECT)
         .eq("seating_reservations.reservation_id", reservationId)
-        .eq("tenant_id", tenantId)
-        .eq("status", "open")
+        .eq("tenant_id", tenantId);
+
+    if (options?.includeClosed !== true) query = query.eq("status", "open");
+
+    const { data, error } = await query
         .order("opened_at", { ascending: true })
         .limit(1)
         .maybeSingle();

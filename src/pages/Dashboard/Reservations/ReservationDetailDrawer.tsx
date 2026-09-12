@@ -20,11 +20,11 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import type { TableAssignmentView } from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
 import { formatTableLabels } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import { TableMultiSelect } from "@/components/ui/TableMultiSelect/TableMultiSelect";
-import { OCCUPYING_STATUSES } from "@/utils/reservationTableConflicts";
 import type { V2Table } from "@/types/orders";
 import GuestConfirmedMark from "./GuestConfirmedMark";
 import ReminderStatusMark from "./ReminderStatusMark";
 import { seatingActionsFor, type SeatingActionKey } from "./seatingActions";
+import { tableSectionFor, type TableSectionNote } from "./tableSection";
 import { statusMeta } from "@/utils/reservationStatusMeta";
 import {
     canAccept,
@@ -54,6 +54,23 @@ interface Props {
      * assegnazione: la sezione non compare, non è un errore.
      */
     tableView?: TableAssignmentView | null;
+    /**
+     * I tavoli REALMENTE occupati dalla tavolata, nella stessa forma del
+     * piano (il render è lo stesso: un elenco di etichette con la zona).
+     * `conflict` è sempre null — il rilevamento conflitti lavora sul piano,
+     * vedi il commento della sezione TAVOLO.
+     *
+     * `undefined` = non caricati; `null` = nessuna tavolata.
+     */
+    seatingTableView?: TableAssignmentView | null;
+    /**
+     * La tavolata collegata alla prenotazione.
+     *   `undefined` = non ancora caricata, oppure mai cercata (sugli stati di
+     *                 piano non serve).
+     *   `null`      = cercata e non trovata.
+     * Decide, insieme allo stato, se la sezione guarda il piano o il fatto.
+     */
+    seatingId?: string | null;
     /**
      * Tavoli della sede per "Cambia tavolo" (senza soft-deleted). `undefined`
      * = non ancora caricati; il parent li carica quando il drawer si apre con
@@ -149,6 +166,66 @@ function isInThePast(reservation: V2Reservation, now: Date = new Date()): boolea
     return new Date(y, m - 1, d, hh, mm).getTime() < now.getTime();
 }
 
+/**
+ * La frase sotto l'elenco dei tavoli. `null` = nessuna frase.
+ *
+ * È la sola cosa che distingue le quattro forme della sezione: il titolo resta
+ * "Tavolo"/"Tavoli" in tutti i casi, perché a cambiare non è l'argomento ma da
+ * dove viene la risposta.
+ *
+ * `plan_live` tace quando la scelta è dell'operatore: il sistema annuncia le
+ * proprie proposte, non le decisioni altrui. `plan_past` parla sempre — un
+ * elenco di tavoli su una prenotazione annullata, senza una frase, si legge
+ * come un fatto avvenuto.
+ */
+function tableSectionHint(
+    note: TableSectionNote | undefined,
+    view: TableAssignmentView | null
+): string | null {
+    const many = (view?.rows.length ?? 0) > 1;
+    switch (note) {
+        case "plan_live":
+            return view?.proposed === true
+                ? "Proposto dal sistema. Se la prenotazione viene spostata o cambia il numero di persone, la proposta viene rifatta."
+                : null;
+        case "plan_past":
+            return many ? "Erano i tavoli previsti." : "Era il tavolo previsto.";
+        case "seated":
+            return "Sono seduti qui. Cambiando tavolo sposti la tavolata, non la proposta.";
+        case "closed":
+            // Non "hanno mangiato": in un bar non si mangia, e la frase deve
+            // valere per ogni tipo di locale.
+            return "Erano seduti qui.";
+        // Senza tavolata non ci sono righe da commentare: la frase la dà il
+        // caso vuoto, qui non serve.
+        default:
+            return null;
+    }
+}
+
+/** La frase quando non c'è nessun tavolo da elencare. */
+function tableSectionEmptyHint(note: TableSectionNote | undefined): string {
+    switch (note) {
+        case "plan_past":
+            return "Nessun tavolo era previsto.";
+        case "seated":
+            return "Sono seduti senza un tavolo assegnato.";
+        case "closed":
+            // Parallela al caso "seduti": stessa frase, stesso tempo verbale.
+            return "Erano seduti senza un tavolo assegnato.";
+        case "fact_loading":
+            // Impersonale: l'applicazione non parla in prima persona altrove.
+            return "Caricamento della tavolata…";
+        // Stato `seated`/`completed` senza tavolata: è una divergenza col
+        // database, non un esito normale. Si dice che manca invece di
+        // mostrare il piano al suo posto.
+        case "fact_missing":
+            return "Nessuna tavolata collegata a questa prenotazione.";
+        default:
+            return "Nessun tavolo assegnato.";
+    }
+}
+
 export default function ReservationDetailDrawer({
     open,
     onClose,
@@ -156,6 +233,8 @@ export default function ReservationDetailDrawer({
     activityName,
     operatorNames,
     tableView = null,
+    seatingTableView,
+    seatingId,
     tables,
     tableOccupancy,
     onSetTables,
@@ -176,6 +255,24 @@ export default function ReservationDetailDrawer({
     onUndoArrival
 }: Props) {
     const durationMin = activityDurationMinutes ?? DEFAULT_DURATION_MINUTES;
+
+    // ── Quale tavolo si sta guardando ────────────────────────────────
+    // Piano o fatto: la regola sta in `tableSection.ts`, testata. Qui si
+    // sceglie solo la vista da rendere, che ha la stessa forma per entrambi.
+    const tableSection = reservation
+        ? tableSectionFor({
+              status: reservation.status,
+              seatingId,
+              canManage,
+              canManageSeatings
+          })
+        : null;
+    const activeTableView: TableAssignmentView | null =
+        tableSection === null
+            ? null
+            : tableSection.source === "seating"
+              ? seatingTableView ?? null
+              : tableView;
 
     // ── Gesti sui tavoli ─────────────────────────────────────────────
     // Il picker vive inline nella sezione: un secondo SystemDrawer sopra il
@@ -200,7 +297,7 @@ export default function ReservationDetailDrawer({
     }, [reservationId, open]);
 
     const openPicker = () => {
-        setPickerIds(tableView ? tableView.rows.map(r => r.table_id) : []);
+        setPickerIds(activeTableView ? activeTableView.rows.map(r => r.table_id) : []);
         setPickerOpen(true);
     };
 
@@ -285,11 +382,14 @@ export default function ReservationDetailDrawer({
 
     const st = statusMeta(reservation.status);
     const isPast = isInThePast(reservation);
-    // Le RPC sui tavoli accettano solo prenotazioni attive (22023 altrimenti):
-    // i gesti compaiono solo dove possono riuscire.
+    // Il gesto esiste solo dove ha una destinazione: `tableSection` la nega
+    // quando lo stato è terminale, quando manca il permesso giusto per quella
+    // tabella, e quando la fonte è la tavolata ma la tavolata non si trova.
     const canEditTables =
-        canManage && onSetTables !== undefined && OCCUPYING_STATUSES.has(reservation.status);
-    const hasTables = tableView !== null && tableView.rows.length > 0;
+        tableSection !== null && tableSection.target !== null && onSetTables !== undefined;
+    const hasTables = activeTableView !== null && activeTableView.rows.length > 0;
+    const tableHint = tableSectionHint(tableSection?.note, activeTableView);
+    const tableEmptyHint = tableSectionEmptyHint(tableSection?.note);
     const canEdit =
         canManage &&
         onEdit !== undefined &&
@@ -530,20 +630,49 @@ export default function ReservationDetailDrawer({
 
                     {/* ── Tavolo ────────────────────────────────────────
                          Solo se c'è un'assegnazione, oppure se l'operatore
-                         può assegnarne una. "Proposto" = scelta del sistema,
-                         ricalcolabile; la decisione dell'operatore non si
-                         annuncia. Il conflitto è l'unica riga colorata della
-                         sezione. I gesti sono RPC immediate: il drawer resta
-                         aperto e mostra il risultato. */}
+                         può cambiarla. La sezione ha QUATTRO forme, decise da
+                         `tableSection.ts`: prima del servizio mostra e cambia
+                         il PIANO (`reservation_tables`), da quando sono seduti
+                         mostra e cambia il FATTO (`seating_tables`), a servizio
+                         concluso mostra il fatto in sola lettura, e sugli stati
+                         terminali senza tavolata mostra il piano al passato.
+                         "Proposto" = scelta del sistema, ricalcolabile; la
+                         decisione dell'operatore non si annuncia. Il conflitto
+                         è l'unica riga colorata della sezione. I gesti sono RPC
+                         immediate: il drawer resta aperto e mostra il risultato.
+
+                         Tre cose che questa sezione NON fa, per scelta e non
+                         per dimenticanza:
+                         1. I coperti reali della tavolata (`seatings.party_size`)
+                            non si modificano: manca la RPC, e quel gesto
+                            appartiene alla vista di servizio — è all'ingresso
+                            che l'host scopre che sono in cinque invece di
+                            quattro. Arriva nella 2.5.
+                         2. Il rilevamento conflitti continua a lavorare solo su
+                            `reservation_tables`, quindi sul fatto non compare:
+                            estenderlo alle tavolate aperte richiede i dati
+                            dell'intera giornata, che è ciò che la vista di
+                            servizio caricherà. Farlo a metà qui darebbe
+                            avvisi incompleti, che sono peggio di nessun avviso.
+                         3. La vista di servizio non esiste ancora. */}
                     {(hasTables || canEditTables) && (
                         <section className={styles.drawerSection}>
                             <div className={styles.drawerSectionHead}>
                                 <h3 className={styles.drawerSectionTitle}>
-                                    {hasTables && tableView.rows.length > 1 ? "Tavoli" : "Tavolo"}
+                                    {hasTables && activeTableView.rows.length > 1
+                                        ? "Tavoli"
+                                        : "Tavolo"}
                                 </h3>
                                 {canEditTables && !pickerOpen && (
                                     <div className={styles.drawerTableActions}>
-                                        {hasTables && !tableView.proposed && onResetTables && (
+                                        {/* "Restituisci al sistema" riguarda la
+                                            proposta, e la proposta esiste solo
+                                            nel piano: sul fatto non c'è niente
+                                            che il motore possa rifare. */}
+                                        {tableSection?.source === "plan" &&
+                                            hasTables &&
+                                            !activeTableView.proposed &&
+                                            onResetTables && (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
@@ -588,8 +717,11 @@ export default function ReservationDetailDrawer({
                                         >
                                             Annulla
                                         </Button>
-                                        {/* Array vuoto rifiutato dalla RPC: chi vuole liberare
-                                            la prenotazione usa "Restituisci al sistema". */}
+                                        {/* Array vuoto rifiutato dalla RPC del piano: chi vuole
+                                            liberare la prenotazione usa "Restituisci al sistema".
+                                            `set_seating_tables` lo accetterebbe, ma "togli tutti i
+                                            tavoli alla tavolata" è un gesto che oggi non esiste
+                                            altrove: non lo si introduce di sponda da un picker. */}
                                         <Button
                                             variant="primary"
                                             size="sm"
@@ -604,7 +736,7 @@ export default function ReservationDetailDrawer({
                             ) : hasTables ? (
                                 <>
                                     <ul className={styles.drawerTableList}>
-                                        {tableView.rows.map(row => (
+                                        {activeTableView.rows.map(row => (
                                             <li key={row.table_id} className={styles.drawerTableRow}>
                                                 <Armchair
                                                     size={15}
@@ -628,13 +760,10 @@ export default function ReservationDetailDrawer({
                                             </li>
                                         ))}
                                     </ul>
-                                    {tableView.proposed && (
-                                        <p className={styles.drawerTableHint}>
-                                            Proposto dal sistema. Se la prenotazione viene spostata o
-                                            cambia il numero di persone, la proposta viene rifatta.
-                                        </p>
+                                    {tableHint !== null && (
+                                        <p className={styles.drawerTableHint}>{tableHint}</p>
                                     )}
-                                    {tableView.conflict && (
+                                    {activeTableView.conflict && (
                                         <div className={styles.drawerTableConflict} role="status">
                                             <TriangleAlert
                                                 size={15}
@@ -642,14 +771,12 @@ export default function ReservationDetailDrawer({
                                                 aria-hidden
                                                 className={styles.drawerTableConflictIcon}
                                             />
-                                            <span>{tableView.conflict.message}.</span>
+                                            <span>{activeTableView.conflict.message}.</span>
                                         </div>
                                     )}
                                 </>
                             ) : (
-                                <p className={styles.drawerTableHint}>
-                                    Nessun tavolo assegnato.
-                                </p>
+                                <p className={styles.drawerTableHint}>{tableEmptyHint}</p>
                             )}
                         </section>
                     )}

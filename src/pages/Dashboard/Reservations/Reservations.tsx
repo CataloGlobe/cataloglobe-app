@@ -25,7 +25,9 @@ import {
 import {
     closeSeating,
     getSeatingForReservation,
+    listSeatingTables,
     openSeatingForReservation,
+    setSeatingTables,
     undoSeating
 } from "@/services/supabase/seatings";
 import { listTables } from "@/services/supabase/tables";
@@ -39,6 +41,7 @@ import type {
     V2Reservation
 } from "@/types/reservation";
 import type { ReservationGuestSummary } from "@/types/reservationGuest";
+import type { SeatingTableWithTable } from "@/types/seating";
 import {
     DEFAULT_TABLE_DURATION_MINUTES,
     OCCUPYING_STATUSES,
@@ -55,6 +58,7 @@ import ReservationDetailDrawer from "./ReservationDetailDrawer";
 import ReservationCreateEditDrawer from "./ReservationCreateEditDrawer";
 import ReservationsInbox from "./ReservationsInbox";
 import ReservationsAgenda from "./ReservationsAgenda";
+import { tableWriteTargetFor } from "./tableSection";
 import { useDeferredCommit, type DeferredAction } from "./useDeferredCommit";
 import { useReservationsRealtime } from "./hooks/useReservationsRealtime";
 import styles from "./Reservations.module.scss";
@@ -79,6 +83,33 @@ const EMPTY_VIEWS: ReadonlyMap<string, TableAssignmentView> = new Map();
 /** Etichette tavolo in ordine umano: "2" < "10", "A1" < "A2". */
 function compareTableLabels(a: string, b: string): number {
     return a.localeCompare(b, "it", { numeric: true, sensitivity: "base" });
+}
+
+/**
+ * I tavoli REALMENTE occupati da una tavolata, nella stessa forma del piano:
+ * la sezione TAVOLO del drawer rende un elenco di etichette con la zona, e
+ * quell'elenco non cambia a seconda di dove viene il dato.
+ *
+ * `proposed: false` perché "proposto" è una qualità del piano — il motore non
+ * propone tavolate, le registra. `conflict: null` perché il rilevamento
+ * conflitti lavora su `reservation_tables` (vedi il commento della sezione
+ * TAVOLO nel drawer).
+ */
+function seatingTableView(rows: SeatingTableWithTable[]): TableAssignmentView {
+    const mapped = rows
+        .map(r => ({
+            table_id: r.table_id,
+            label: r.table?.label ?? "sconosciuto",
+            zone_name: r.table?.zone_name ?? null,
+            deleted: r.table === null || r.table.deleted_at !== null
+        }))
+        .sort((x, y) => compareTableLabels(x.label, y.label));
+    return {
+        labels: mapped.map(r => r.label),
+        rows: mapped,
+        proposed: false,
+        conflict: null
+    };
 }
 
 /**
@@ -590,8 +621,13 @@ export default function Reservations() {
     );
 
     // ── Tavoli: dati e gesti per il drawer ────────────────────────────
+    // I tavoli della sede servono al picker, che su una prenotazione seduta
+    // sposta la TAVOLATA: il permesso che lo apre è `seatings.manage`, non
+    // `reservations.manage`. Caricarli solo per il secondo lascerebbe l'host
+    // di sala davanti a un "Carico i tavoli…" che non finisce mai.
     const selectedCanManage = selectedReservation
-        ? canManageActivity(selectedReservation.activity_id)
+        ? canManageActivity(selectedReservation.activity_id) ||
+          canManageSeatingsOn(selectedReservation.activity_id)
         : false;
     const selectedActivityId = selectedReservation?.activity_id ?? null;
 
@@ -641,6 +677,71 @@ export default function Reservations() {
         return out;
     }, [selectedReservation, selectedActivity, effectiveReservations, tableAssignments]);
 
+    // ── La tavolata della prenotazione aperta ─────────────────────────
+    // Serve solo a chi si è seduto: `seated` e `completed` sono gli unici
+    // stati che hanno una tavolata, e sono anche gli unici in cui la sezione
+    // TAVOLO del drawer guarda il fatto invece del piano.
+    //
+    // `undefined` = non ancora caricata; `{ id: null }` = cercata e non
+    // trovata. Il drawer tratta i due casi diversamente, e vanno tenuti
+    // distinti: "sto caricando" e "non c'è" dicono cose opposte all'operatore.
+    const [detailSeating, setDetailSeating] = useState<
+        { id: string | null; view: TableAssignmentView | null } | undefined
+    >(undefined);
+    // Le scritture sulla tavolata non passano da `loadData` (che ricarica
+    // prenotazioni e piano): questo token le fa ricaricare.
+    const [seatingReloadToken, setSeatingReloadToken] = useState(0);
+
+    const detailReservationId = selectedReservation?.id ?? null;
+    const detailReservationStatus = selectedReservation?.status ?? null;
+    const detailHasSeating =
+        detailReservationStatus === "seated" || detailReservationStatus === "completed";
+
+    useEffect(() => {
+        if (!isDrawerOpen || !tenantId || !detailReservationId || !detailHasSeating) {
+            setDetailSeating(undefined);
+            return;
+        }
+        let alive = true;
+        setDetailSeating(undefined);
+        (async () => {
+            try {
+                const seating = await getSeatingForReservation(detailReservationId, tenantId, {
+                    // Una prenotazione conclusa ha una tavolata CHIUSA: senza
+                    // questo la si cercherebbe solo fra le aperte e non la si
+                    // troverebbe mai. Sola lettura: nessun gesto parte da qui.
+                    includeClosed: detailReservationStatus === "completed"
+                });
+                if (!alive) return;
+                if (!seating) {
+                    setDetailSeating({ id: null, view: null });
+                    return;
+                }
+                const rows = await listSeatingTables(seating.id, tenantId);
+                if (!alive) return;
+                setDetailSeating({ id: seating.id, view: seatingTableView(rows) });
+            } catch {
+                if (!alive) return;
+                // Non si ripiega su `{ id: null }` in silenzio: "non c'è
+                // tavolata" e "non sono riuscito a leggerla" portano
+                // l'operatore a due conclusioni diverse.
+                setDetailSeating({ id: null, view: null });
+                showToast({ message: "Errore nel caricamento della tavolata.", type: "error" });
+            }
+        })();
+        return () => {
+            alive = false;
+        };
+    }, [
+        isDrawerOpen,
+        tenantId,
+        detailReservationId,
+        detailReservationStatus,
+        detailHasSeating,
+        seatingReloadToken,
+        showToast
+    ]);
+
     const labelForTableId = useCallback(
         (tableId: string): string => {
             const fromTables = selectedTables?.find(t => t.id === tableId)?.label;
@@ -651,14 +752,57 @@ export default function Reservations() {
         [selectedTables, tableAssignments]
     );
 
+    // "Cambia tavolo" sceglie la destinazione dallo STATO della prenotazione,
+    // non da dove si trova il bottone: prima del servizio riscrive il piano,
+    // da quando sono seduti sposta la tavolata. La regola è la stessa che
+    // decide cosa disegnare (`tableSection.ts`), così bottone e scrittura non
+    // possono divergere.
     const handleSetTables = useCallback(
         async (tableIds: string[]): Promise<boolean> => {
             if (!selectedReservation || !tenantId) return false;
-            try {
-                await setReservationTables(selectedReservation.id, tableIds, tenantId);
+            const seatingId = detailSeating === undefined ? undefined : detailSeating.id;
+            const target = tableWriteTargetFor({
+                status: selectedReservation.status,
+                seatingId,
+                canManage: canManageActivity(selectedReservation.activity_id),
+                canManageSeatings: canManageSeatingsOn(selectedReservation.activity_id)
+            });
+
+            if (target === null || (target === "seating" && !seatingId)) {
+                // La tavolata non si trova (o il permesso è cambiato sotto le
+                // mani). NON si ripiega sul piano: scrivere nel posto
+                // sbagliato perché quello giusto non risponde produce due
+                // verità. Stessa reazione di `handleCompleteService`.
                 await loadData();
+                setSeatingReloadToken(t => t + 1);
                 showToast({
-                    message: `${formatTableLabels(tableIds.map(labelForTableId))}: assegnazione confermata.`,
+                    message:
+                        selectedReservation.status === "seated"
+                            ? "Nessuna tavolata aperta per questa prenotazione."
+                            : "Questa prenotazione non accetta più cambi di tavolo.",
+                    type: "error"
+                });
+                return false;
+            }
+
+            try {
+                if (target === "seating" && seatingId) {
+                    await setSeatingTables(seatingId, tableIds, tenantId);
+                    setSeatingReloadToken(t => t + 1);
+                } else {
+                    await setReservationTables(selectedReservation.id, tableIds, tenantId);
+                }
+                await loadData();
+                const labels = formatTableLabels(tableIds.map(labelForTableId));
+                showToast({
+                    message:
+                        target === "seating"
+                            ? // Frase intera invece di "Tavolo 4: tavolata spostata": lo
+                              // spostamento è il fatto, il tavolo è dove è finito.
+                              // `formatTableLabels` produce "Tavolo 4" o "Tavoli 3 + 4",
+                              // quindi l'articolo va concordato col numero di tavoli.
+                              `Tavolata spostata a${tableIds.length > 1 ? "i" : "l"} ${labels}.`
+                            : `${labels}: assegnazione confermata.`,
                     type: "success"
                 });
                 return true;
@@ -670,7 +814,16 @@ export default function Reservations() {
                 return false;
             }
         },
-        [selectedReservation, tenantId, loadData, showToast, labelForTableId]
+        [
+            selectedReservation,
+            tenantId,
+            detailSeating,
+            canManageActivity,
+            canManageSeatingsOn,
+            loadData,
+            showToast,
+            labelForTableId
+        ]
     );
 
     const handleResetTables = useCallback(async (): Promise<boolean> => {
@@ -986,6 +1139,8 @@ export default function Reservations() {
                 tableView={
                     selectedReservation ? tableViews.get(selectedReservation.id) ?? null : null
                 }
+                seatingTableView={detailSeating === undefined ? undefined : detailSeating.view}
+                seatingId={detailSeating === undefined ? undefined : detailSeating.id}
                 tables={selectedTables}
                 tableOccupancy={selectedTableOccupancy}
                 onSetTables={handleSetTables}
