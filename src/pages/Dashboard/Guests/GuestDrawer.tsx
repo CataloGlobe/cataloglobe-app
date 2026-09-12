@@ -194,8 +194,12 @@ export default function GuestDrawer({
     const footer = (
         <div className={styles.drawerFooter}>
             {!canManage && (
+                // Si dice cosa non si può fare, non quale permesso manca: la
+                // rubrica si consulta durante il servizio, quindi è sala e non
+                // amministrazione. Il nome del permesso vive nella schermata
+                // Team, dove serve a chi lo assegna.
                 <p className={styles.drawerFooterHint}>
-                    Solo chi ha il permesso "Gestione clienti" può modificare note e marcature.
+                    Non hai i permessi per modificare note e marcature di questo cliente.
                 </p>
             )}
             <Button variant="secondary" onClick={onClose}>Chiudi</Button>

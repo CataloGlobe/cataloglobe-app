@@ -33,6 +33,13 @@ import styles from "./Guests.module.scss";
 interface Props {
     guests: ReservationGuestSummary[];
     isLoading: boolean;
+    /**
+     * Il primo caricamento è già avvenuto: da qui in poi un aggiornamento
+     * trova dati in mano e non deve più sostituire l'elenco con lo scheletro.
+     * Senza, ogni ricarica (ricerca, gesto sul cliente) fa lampeggiare
+     * l'intera griglia. Stessa forma di `Reservations.tsx`.
+     */
+    hasLoadedOnce: boolean;
     /** C'è un termine di ricerca attivo: cambia solo il testo dello stato
      *  vuoto ("nessun risultato" vs "rubrica ancora vuota"). Il campo di
      *  ricerca vive nella barra azioni dell'header, non qui. */
@@ -45,13 +52,17 @@ interface Props {
 export default function GuestsDirectory({
     guests,
     isLoading,
+    hasLoadedOnce,
     isSearching,
     onOpenGuest,
     tenantWide
 }: Props) {
     const footnote = useMemo(() => visibilityFootnote(tenantWide), [tenantWide]);
 
-    if (isLoading) {
+    // SOLO al primo caricamento, quando non c'è ancora niente da mostrare.
+    // Dopo, l'elenco resta in piedi e si aggiorna sotto: un aggiornamento con
+    // dati in mano non deve cambiare il layout.
+    if (isLoading && !hasLoadedOnce) {
         return (
             <div className={styles.cards}>
                 <div className={styles.skeleton} />
