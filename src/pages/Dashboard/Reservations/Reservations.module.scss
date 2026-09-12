@@ -958,6 +958,14 @@
   flex-wrap: wrap;
 }
 
+/* Spinge "Servizio concluso" lontano da "Annulla arrivo". I due gesti dicono
+   cose opposte — "è finito" contro "non è successo" — e affiancarli li
+   farebbe sembrare due varianti della stessa azione. */
+.drawerFooterSpacer {
+  flex: 1 1 24px;
+  min-width: 24px;
+}
+
 .drawerFooterHint {
   width: 100%;
   margin: 0;
@@ -1214,6 +1222,52 @@
 /* Riga della conferma cliente nell'hero del drawer di dettaglio. */
 .drawerHeroConfirmed {
   margin-top: 6px;
+}
+
+/* Riga dello stato promemoria, subito sotto la conferma cliente. */
+.drawerHeroReminder {
+  margin-top: 6px;
+}
+
+/* Casi normali: inviato, in attesa, non previsto. Nessun colore d'allarme —
+   "in attesa" e "non previsto" sono la vita normale di una prenotazione, e
+   colorarli allenerebbe a ignorare i colori. */
+.reminderMark {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* Le due perdite: rivendicato-non-consegnato e non-inviato. Sono l'eccezione,
+   e sono le uniche a meritare il colore. */
+.reminderMarkAlert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-warning-200, #fde68a);
+  background: var(--color-warning-50, #fffbeb);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--color-warning-800, #92400e);
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--color-warning-700, #b45309);
+  }
+}
+
+/* Spiegazione e motivo tecnico: presenti ma subordinati alla riga principale. */
+.reminderMarkDetail {
+  font-weight: 400;
+  opacity: 0.85;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────

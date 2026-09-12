@@ -75,11 +75,71 @@ export interface V2Reservation {
     // service_role). Read-only from the frontend perspective.
     created_by_user_id: string | null;
     /**
+     * Quando l'ospite si è seduto. Colonna esistente dal 15 giugno (migration
+     * 20260615140000) e rimasta senza scrittore fino alla tavolata.
+     *
+     * NULL = non si è (ancora) seduto. Su una prenotazione passata vuol dire
+     * che nessuno ha registrato l'arrivo: può essere un no-show, ma molto più
+     * spesso è un locale che non usa la vista di sala. NON leggerlo come
+     * "non è venuto".
+     *
+     * SCRITTO SOLO dal ciclo della tavolata: `open_seating_for_reservation` lo
+     * valorizza, `undo_seating` lo riazzera (migrations 20260911130000 /
+     * 130400). Mai dall'operatore direttamente — la tavolata è la sorgente di
+     * verità dell'occupazione e questa colonna la rispecchia, e due scrittori
+     * per lo stesso fatto sono il modo in cui i due stati iniziano a
+     * contraddirsi.
+     */
+    seated_at: string | null;
+    /**
+     * Quando il servizio a quel tavolo è finito. Insieme a `seated_at` dà il
+     * tempo di permanenza, che è la ragione per cui le due colonne furono
+     * create.
+     *
+     * NULL = servizio non concluso, il che comprende sia "sono ancora seduti"
+     * sia "non si sono mai seduti": è `seated_at` a distinguere i due casi.
+     *
+     * SCRITTO SOLO da `close_seating` (migration 20260911130300), e solo sulle
+     * prenotazioni che erano davvero in `seated`.
+     */
+    completed_at: string | null;
+    /**
      * Quando è partito il promemoria della sera prima. NULL = non ancora
      * inviato. Scritto solo dall'Edge `send-reservation-reminders`, che lo usa
      * come lucchetto contro il doppio invio (migration 20260829120000).
      */
     reminder_sent_at: string | null;
+    /**
+     * Quante volte si è tentato di inviare il promemoria, riusciti e falliti.
+     *
+     * 0 significa MAI TENTATO. Su una prenotazione passata vuol dire che non è
+     * mai stata un candidato: non confermata all'ora del giro, sede con il
+     * promemoria spento, oppure tenant fuori abbonamento. Non è un errore da
+     * mostrare.
+     *
+     * Non si azzera mai: è un contatore, non uno stato.
+     */
+    reminder_attempts: number;
+    /**
+     * Quando è fallito l'ULTIMO tentativo (migration 20260911110000).
+     *
+     * NULL non significa "riuscito": significa MAI FALLITO. Va sempre letto
+     * insieme a `reminder_sent_at`, perché è la coppia a dire cosa è successo:
+     *   - sent pieno, failed NULL   → inviato;
+     *   - sent pieno, failed pieno  → rivendicato ma non consegnato (il claim è
+     *     passato, l'email no). È una perdita, e va detta in chiaro;
+     *   - sent NULL, failed pieno   → non inviato, con il motivo;
+     *   - entrambi NULL             → in attesa, oppure non previsto.
+     */
+    reminder_failed_at: string | null;
+    /**
+     * Motivo in chiaro dell'ULTIMO fallimento (es. `claim: Gateway Timeout`).
+     *
+     * Sovrascritto a ogni nuovo tentativo fallito: è l'ultimo stato, non uno
+     * storico. NULL = nessun fallimento registrato. Scritto solo dall'Edge, che
+     * redige il messaggio prima di salvarlo.
+     */
+    reminder_last_error: string | null;
     /**
      * Quando il cliente ha confermato la presenza dal link nel promemoria.
      *

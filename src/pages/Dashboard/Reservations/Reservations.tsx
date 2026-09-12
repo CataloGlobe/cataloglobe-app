@@ -22,6 +22,12 @@ import {
     resetReservationTablesToSystem,
     setReservationTables
 } from "@/services/supabase/reservations";
+import {
+    closeSeating,
+    getSeatingForReservation,
+    openSeatingForReservation,
+    undoSeating
+} from "@/services/supabase/seatings";
 import { listTables } from "@/services/supabase/tables";
 import type { V2Table } from "@/types/orders";
 import { getActivities } from "@/services/supabase/activities";
@@ -171,6 +177,13 @@ export default function Reservations() {
         () => new Map()
     );
     const [isLoading, setIsLoading] = useState(true);
+    // Distingue "non ho ancora niente da mostrare" da "sto aggiornando ciò che
+    // già mostro". Senza, lo scheletro sostituisce l'intera pagina a OGNI
+    // `loadData` — drawer compreso, che viene smontato e rimontato: ogni gesto
+    // lo fa lampeggiare due volte, una per il ricaricamento esplicito
+    // dell'handler e una per quello che il realtime scatena sull'UPDATE della
+    // riga. Un aggiornamento con dati in mano non deve cambiare il layout.
+    const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
     const initialTab: TabKey = useMemo(() => {
         const t = searchParams.get("tab");
@@ -263,6 +276,16 @@ export default function Reservations() {
         [permissions]
     );
 
+    // Permesso separato da `reservations.manage`: chi gestisce la sala non è
+    // necessariamente chi decide se accettare una prenotazione.
+    const canManageSeatingsOn = useCallback(
+        (activityId: string) => {
+            if (!permissions) return false;
+            return canDoOnActivity(permissions, "seatings.manage", activityId);
+        },
+        [permissions]
+    );
+
     const manageableActivities = useMemo(
         () =>
             activities
@@ -310,6 +333,11 @@ export default function Reservations() {
             showToast({ message: "Errore nel caricamento delle prenotazioni.", type: "error" });
         } finally {
             setIsLoading(false);
+            // Nel `finally` e non nel `try`: anche un caricamento fallito ha
+            // già mostrato il suo toast, e ripresentare lo scheletro al
+            // tentativo successivo nasconderebbe la pagina invece di spiegare
+            // cosa non va.
+            setHasLoadedOnce(true);
         }
     }, [tenantId, showToast]);
 
@@ -670,6 +698,91 @@ export default function Reservations() {
         }
     }, [selectedReservation, tenantId, loadData, showToast, labelForTableId]);
 
+    // ── Gesti della tavolata ──────────────────────────────────────────
+    // Immediati, non differiti come `handleAction`: in sala cinque secondi di
+    // finestra di annullamento sono cinque secondi in cui il tavolo risulta
+    // libero a chiunque altro stia guardando. Stessa forma di
+    // `handleSetTables`: RPC → loadData → toast, drawer aperto.
+
+    const handleArrive = useCallback(async (): Promise<boolean> => {
+        if (!selectedReservation || !tenantId) return false;
+        try {
+            await openSeatingForReservation(selectedReservation.id, tenantId);
+            await loadData();
+            showToast({ message: "Ospite al tavolo.", type: "success" });
+            return true;
+        } catch (err) {
+            showToast({
+                message: err instanceof Error ? err.message : "Errore inatteso",
+                type: "error"
+            });
+            return false;
+        }
+    }, [selectedReservation, tenantId, loadData, showToast]);
+
+    // Chiusura e annullamento partono dalla prenotazione, non dalla tavolata:
+    // il drawer conosce la prima e non la seconda. La si risolve al momento
+    // del gesto invece di tenerla in stato — una tavolata caricata all'apertura
+    // del drawer sarebbe già vecchia quando l'host preme il bottone.
+    const resolveOpenSeatingId = useCallback(async (): Promise<string | null> => {
+        if (!selectedReservation || !tenantId) return null;
+        const seating = await getSeatingForReservation(selectedReservation.id, tenantId);
+        return seating?.id ?? null;
+    }, [selectedReservation, tenantId]);
+
+    const handleCompleteService = useCallback(async (): Promise<boolean> => {
+        if (!tenantId) return false;
+        try {
+            const seatingId = await resolveOpenSeatingId();
+            if (!seatingId) {
+                // Nessuna tavolata aperta ma la prenotazione risulta `seated`:
+                // è una divergenza, e ricaricare è il modo di vederla invece
+                // di insistere su una riga che non c'è.
+                await loadData();
+                showToast({
+                    message: "Nessuna tavolata aperta per questa prenotazione.",
+                    type: "error"
+                });
+                return false;
+            }
+            await closeSeating(seatingId, "operator", tenantId);
+            await loadData();
+            showToast({ message: "Servizio concluso.", type: "success" });
+            return true;
+        } catch (err) {
+            showToast({
+                message: err instanceof Error ? err.message : "Errore inatteso",
+                type: "error"
+            });
+            return false;
+        }
+    }, [tenantId, resolveOpenSeatingId, loadData, showToast]);
+
+    const handleUndoArrival = useCallback(async (): Promise<boolean> => {
+        if (!tenantId) return false;
+        try {
+            const seatingId = await resolveOpenSeatingId();
+            if (!seatingId) {
+                await loadData();
+                showToast({
+                    message: "Nessuna tavolata aperta per questa prenotazione.",
+                    type: "error"
+                });
+                return false;
+            }
+            await undoSeating(seatingId, tenantId);
+            await loadData();
+            showToast({ message: "Arrivo annullato.", type: "info" });
+            return true;
+        } catch (err) {
+            showToast({
+                message: err instanceof Error ? err.message : "Errore inatteso",
+                type: "error"
+            });
+            return false;
+        }
+    }, [tenantId, resolveOpenSeatingId, loadData, showToast]);
+
     const handleReassignDay = useCallback(
         async (date: string): Promise<boolean> => {
             if (scope === "__all__" || !tenantId) return false;
@@ -775,7 +888,9 @@ export default function Reservations() {
         );
     }
 
-    if (isLoading) {
+    // SOLO al primo caricamento: dopo, la pagina resta in piedi e si aggiorna
+    // sotto. Vedi la nota su `hasLoadedOnce`.
+    if (isLoading && !hasLoadedOnce) {
         return (
             <div className={styles.page}>
                 <div className={styles.cards}>
@@ -883,6 +998,15 @@ export default function Reservations() {
                 canManage={
                     selectedReservation ? canManageActivity(selectedReservation.activity_id) : false
                 }
+                activityReminderEnabled={selectedActivity?.reservation_reminder_enabled}
+                canManageSeatings={
+                    selectedReservation
+                        ? canManageSeatingsOn(selectedReservation.activity_id)
+                        : false
+                }
+                onArrive={handleArrive}
+                onCompleteService={handleCompleteService}
+                onUndoArrival={handleUndoArrival}
                 guestSummary={detailGuest}
                 tenantWide={tenantWide}
                 onOpenGuest={

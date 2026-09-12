@@ -23,6 +23,8 @@ import { TableMultiSelect } from "@/components/ui/TableMultiSelect/TableMultiSel
 import { OCCUPYING_STATUSES } from "@/utils/reservationTableConflicts";
 import type { V2Table } from "@/types/orders";
 import GuestConfirmedMark from "./GuestConfirmedMark";
+import ReminderStatusMark from "./ReminderStatusMark";
+import { seatingActionsFor, type SeatingActionKey } from "./seatingActions";
 import { statusMeta } from "@/utils/reservationStatusMeta";
 import {
     canAccept,
@@ -76,6 +78,12 @@ interface Props {
     /** True if the caller has reservations.manage on this reservation's activity. */
     canManage: boolean;
     /**
+     * `activities.reservation_reminder_enabled` della sede. `undefined` = sede
+     * non ancora caricata: lo stato promemoria assume acceso, perché dichiarare
+     * "non previsto" senza saperlo è peggio che tacere.
+     */
+    activityReminderEnabled?: boolean;
+    /**
      * Profilo del cliente, se la prenotazione è agganciata a uno e il caller ha
      * `guests.read`. NULL è normale in tre casi diversi che l'UI non distingue:
      * telefono non canonicalizzabile, prenotazione anteriore alla rubrica,
@@ -90,6 +98,21 @@ interface Props {
     onAction: (action: DeferredAction) => void;
     /** Apre il drawer di modifica dati. Visibile solo se canManage e stato non terminale. */
     onEdit?: () => void;
+    /** `canDoOnActivity(perms, 'seatings.manage', activityId)`. */
+    canManageSeatings?: boolean;
+    /**
+     * I tre gesti della tavolata. IMMEDIATI, non differiti come le azioni di
+     * `onAction`: in sala un tavolo che risulta libero per cinque secondi dopo
+     * che l'host ha premuto "arrivato" è un tavolo che qualcun altro può
+     * assegnare. L'annullamento esiste ed è un gesto esplicito, che è anche
+     * più onesto di una finestra che scade da sola.
+     *
+     * Il drawer resta aperto e mostra il risultato; il parent ha già ricaricato
+     * e mostrato il toast. Assenti = nessun bottone.
+     */
+    onArrive?: () => Promise<boolean>;
+    onCompleteService?: () => Promise<boolean>;
+    onUndoArrival?: () => Promise<boolean>;
 }
 
 function formatDateIt(isoDate: string): string {
@@ -141,11 +164,16 @@ export default function ReservationDetailDrawer({
     activityCapacity,
     activityDurationMinutes,
     canManage,
+    activityReminderEnabled,
     guestSummary,
     tenantWide = false,
     onOpenGuest,
     onAction,
-    onEdit
+    onEdit,
+    canManageSeatings = false,
+    onArrive,
+    onCompleteService,
+    onUndoArrival
 }: Props) {
     const durationMin = activityDurationMinutes ?? DEFAULT_DURATION_MINUTES;
 
@@ -158,12 +186,17 @@ export default function ReservationDetailDrawer({
     const [savingTables, setSavingTables] = useState(false);
     const [resettingTables, setResettingTables] = useState(false);
 
+    // Quale gesto della tavolata è in volo. Uno per volta: sono operazioni che
+    // si escludono a vicenda, e due spinner insieme sarebbero solo confusione.
+    const [seatingBusy, setSeatingBusy] = useState<SeatingActionKey | null>(null);
+
     // Cambiare prenotazione o chiudere il drawer azzera il picker: una scelta
     // a metà non deve sopravvivere a un'altra prenotazione.
     const reservationId = reservation?.id ?? null;
     useEffect(() => {
         setPickerOpen(false);
         setPickerIds([]);
+        setSeatingBusy(null);
     }, [reservationId, open]);
 
     const openPicker = () => {
@@ -262,11 +295,37 @@ export default function ReservationDetailDrawer({
         onEdit !== undefined &&
         (reservation.status === "pending" || reservation.status === "confirmed");
 
+    // ── Gesti della tavolata ─────────────────────────────────────────
+    const seatingActions = seatingActionsFor({
+        status: reservation.status,
+        canManageSeatings
+    });
+
+    const runSeatingAction = async (
+        key: SeatingActionKey,
+        handler: (() => Promise<boolean>) | undefined
+    ) => {
+        if (!handler || seatingBusy !== null) return;
+        setSeatingBusy(key);
+        await handler();
+        setSeatingBusy(null);
+    };
+
+    const showArrive = seatingActions.includes("arrive") && onArrive !== undefined;
+    const showComplete =
+        seatingActions.includes("complete") && onCompleteService !== undefined;
+    const showUndoArrival =
+        seatingActions.includes("undo_arrival") && onUndoArrival !== undefined;
+
     const footer = (
         <div className={styles.drawerFooter}>
             {!canManage ? (
+                // Come l'hint dei gesti della tavolata più sotto: si dice cosa
+                // non si può fare, non quale permesso manca. Il nome del
+                // permesso vive nella schermata Team, dove serve a chi lo
+                // assegna.
                 <p className={styles.drawerFooterHint}>
-                    Solo chi ha il permesso "Gestione prenotazioni" sulla sede può confermare, rifiutare o annullare.
+                    Non hai i permessi per gestire questa prenotazione.
                 </p>
             ) : reservation.status === "pending" ? (
                 <>
@@ -298,6 +357,55 @@ export default function ReservationDetailDrawer({
                     <Button variant="danger" onClick={() => handleAction("cancel")}>
                         Annulla
                     </Button>
+                    {/* Immediato, non differito: vedi la nota sulle props. */}
+                    {showArrive && (
+                        <Button
+                            variant="primary"
+                            loading={seatingBusy === "arrive"}
+                            onClick={() => void runSeatingAction("arrive", onArrive)}
+                        >
+                            Arrivato
+                        </Button>
+                    )}
+                </>
+            ) : reservation.status === "seated" ? (
+                <>
+                    {/* "Annulla arrivo" e "Servizio concluso" dicono due cose
+                        opposte — "non è successo" contro "è finito" — e la
+                        prima cancella mentre la seconda conserva. Lo spazio in
+                        mezzo è il modo in cui l'interfaccia dice che non sono
+                        due varianti dello stesso gesto: chi ha fretta non deve
+                        poterle scambiare guardando la posizione. */}
+                    {showUndoArrival && (
+                        <Button
+                            variant="ghost"
+                            loading={seatingBusy === "undo_arrival"}
+                            disabled={seatingBusy !== null}
+                            onClick={() => void runSeatingAction("undo_arrival", onUndoArrival)}
+                        >
+                            Annulla arrivo
+                        </Button>
+                    )}
+                    <span className={styles.drawerFooterSpacer} aria-hidden />
+                    {showComplete && (
+                        <Button
+                            variant="primary"
+                            loading={seatingBusy === "complete"}
+                            disabled={seatingBusy !== null}
+                            onClick={() => void runSeatingAction("complete", onCompleteService)}
+                        >
+                            Servizio concluso
+                        </Button>
+                    )}
+                    {/* Si dice cosa non si può fare, non quale permesso manca:
+                        il nome del permesso vive nella schermata Team, dove
+                        serve a chi lo assegna. Qui, in sala, citarlo chiede a
+                        chi lavora di tradurre. */}
+                    {!showUndoArrival && !showComplete && (
+                        <p className={styles.drawerFooterHint}>
+                            Non hai i permessi per gestire il servizio su questa sede.
+                        </p>
+                    )}
                 </>
             ) : reservation.status === "no_show" ? (
                 <>
@@ -353,6 +461,17 @@ export default function ReservationDetailDrawer({
                                 />
                             </div>
                         )}
+
+                        {/* Stato del promemoria della sera prima. A differenza
+                            della conferma cliente questo compare SEMPRE: il
+                            silenzio del cliente è normale e non si commenta,
+                            un promemoria che non è partito no. */}
+                        <div className={styles.drawerHeroReminder}>
+                            <ReminderStatusMark
+                                reservation={reservation}
+                                reminderEnabled={activityReminderEnabled}
+                            />
+                        </div>
 
                         <div className={styles.drawerHeroMeta}>
                             <span className={styles.drawerHeroMetaItem}>
