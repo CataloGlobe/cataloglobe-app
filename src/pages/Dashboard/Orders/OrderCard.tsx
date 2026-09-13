@@ -348,7 +348,7 @@ export default function OrderCard({
                         variant="destructive"
                         onSelect={() => onCancel(order)}
                     >
-                        Elimina comanda
+                        Annulla ordine
                     </Menu.Item>
                 </Menu>
 

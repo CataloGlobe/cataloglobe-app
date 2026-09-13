@@ -48,7 +48,7 @@ export default function OrderCancelDrawer({
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>
-                        Cancella ordine
+                        Annulla ordine
                     </Text>
                 }
                 footer={
@@ -58,7 +58,7 @@ export default function OrderCancelDrawer({
                             onClick={onClose}
                             disabled={isProcessing}
                         >
-                            Annulla
+                            Torna indietro
                         </Button>
                         <Button
                             variant="danger"
@@ -66,7 +66,7 @@ export default function OrderCancelDrawer({
                             loading={isProcessing}
                             disabled={isOverLimit}
                         >
-                            Cancella ordine
+                            Annulla ordine
                         </Button>
                     </>
                 }
