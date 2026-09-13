@@ -1,6 +1,11 @@
 import { BellRing, BellOff, Clock3, TriangleAlert } from "lucide-react";
 import type { V2Reservation } from "@/types/reservation";
-import { reminderFailureReason, reminderState, RESERVATION_TIMEZONE } from "./reminderStatus";
+import {
+    reminderFailureReason,
+    reminderState,
+    showReminderStatus,
+    RESERVATION_TIMEZONE
+} from "./reminderStatus";
 import styles from "./Reservations.module.scss";
 
 // Stato del promemoria della sera prima, nel drawer di dettaglio, accanto alla
@@ -57,6 +62,9 @@ function formatDateAndTime(iso: string): string | null {
 }
 
 export default function ReminderStatusMark({ reservation, reminderEnabled }: Props) {
+    // Al tavolo o servita: la domanda non esiste più (vedi `showReminderStatus`).
+    if (!showReminderStatus(reservation.status)) return null;
+
     const state = reminderState(reservation, { reminderEnabled });
 
     if (state === "sent") {

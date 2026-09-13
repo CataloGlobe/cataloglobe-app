@@ -191,7 +191,9 @@ function tableSectionHint(
         case "plan_past":
             return many ? "Erano i tavoli previsti." : "Era il tavolo previsto.";
         case "seated":
-            return "Sono seduti qui. Cambiando tavolo sposti la tavolata, non la proposta.";
+            // Non conta le persone: su una prenotazione per uno "sono seduti"
+            // si rompe, e al bar è la norma.
+            return "Tavolo occupato adesso. Cambiando tavolo sposti la tavolata, non la proposta.";
         case "closed":
             // Non "hanno mangiato": in un bar non si mangia, e la frase deve
             // valere per ogni tipo di locale.
@@ -563,9 +565,11 @@ export default function ReservationDetailDrawer({
                         )}
 
                         {/* Stato del promemoria della sera prima. A differenza
-                            della conferma cliente questo compare SEMPRE: il
-                            silenzio del cliente è normale e non si commenta,
-                            un promemoria che non è partito no. */}
+                            della conferma cliente questo compare sempre finché
+                            la prenotazione è prima del servizio: il silenzio
+                            del cliente è normale e non si commenta, un
+                            promemoria che non è partito no. Al tavolo o
+                            servita, il componente non rende niente. */}
                         <div className={styles.drawerHeroReminder}>
                             <ReminderStatusMark
                                 reservation={reservation}
@@ -598,9 +602,13 @@ export default function ReservationDetailDrawer({
                                     </>
                                 )}
                             </span>
+                            {/* Puntino e "Creata da" in UN blocco che non si
+                                spezza: la riga va a capo, e lasciare il
+                                separatore in coda alla riga sopra con il
+                                nome sotto è il "·" penzolante. */}
                             {reservation.source === "manual" &&
                                 reservation.created_by_user_id && (
-                                    <>
+                                    <span className={styles.drawerHeroMetaGroup}>
                                         <span
                                             className={styles.drawerHeroMetaDot}
                                             aria-hidden
@@ -618,7 +626,7 @@ export default function ReservationDetailDrawer({
                                                 reservation.created_by_user_id
                                             ) ?? "Staff"}
                                         </span>
-                                    </>
+                                    </span>
                                 )}
                         </div>
 

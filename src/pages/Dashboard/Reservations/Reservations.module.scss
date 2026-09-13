@@ -831,6 +831,15 @@
   font-weight: 500;
 }
 
+/* Separatore + voce in un blocco solo, così il wrap della riga meta non
+   lascia mai il "·" in coda a una riga e la voce sotto. */
+.drawerHeroMetaGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
 /* Compact channel chip used inside the hero meta line. */
 .drawerHeroChannel {
   display: inline-flex;
@@ -1374,4 +1383,142 @@
   gap: 10px;
   font-size: 13px;
   color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+}
+
+/* ── Servizio ──────────────────────────────────────────────
+   Righe NON cliccabili: l'affordance sta sul nome (`.serviceNameButton`),
+   non sulla riga. Quando arriverà il drawer della tavolata (2.7) la riga
+   tornerà `.row` e i nomi resteranno scorciatoie. */
+
+.serviceRow {
+  @extend .row;
+  cursor: default;
+
+  &:hover {
+    border-color: var(--color-border, #e5e7eb);
+  }
+
+  &:active {
+    transform: none;
+  }
+}
+
+.serviceRowDone {
+  @extend .serviceRow;
+  opacity: 0.7;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 4%,
+    var(--color-surface, #ffffff)
+  );
+}
+
+/* Il nome come bottone: stesso peso di `.rowName`, sottolineatura al
+   passaggio per dire che si può premere. Niente colore link: in sala il
+   nome è la cosa che si legge, non un collegamento. */
+.serviceNameButton {
+  all: unset;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  border-radius: 6px;
+  text-decoration-color: transparent;
+  text-decoration-line: underline;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration-color: currentColor;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary, #6366f1);
+    outline-offset: 2px;
+  }
+}
+
+.serviceNameSep {
+  color: var(--color-text-muted, #6b7280);
+  font-weight: 400;
+}
+
+/* Il walk-in si dice, con la stessa pillola neutra della sede. */
+.serviceWalkinMark {
+  @extend .rowSitePill;
+  font-size: 12px;
+}
+
+.serviceTables {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #4b5563);
+  white-space: nowrap;
+}
+
+.serviceTablesConflict {
+  @extend .serviceTables;
+  color: var(--color-warning-800, #92400e);
+}
+
+/* Il conflitto è UNA riga dentro la riga della tavolata, non una banda: il
+   colore segnala l'eccezione, non occupa la schermata. Stessa griglia del
+   resto del contenuto (`.rowContent`), quindi niente gradino a destra. */
+.serviceConflict {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-warning-800, #92400e);
+}
+
+.serviceConflictIcon {
+  flex-shrink: 0;
+  color: var(--color-warning-700, #b45309);
+}
+
+/* Orario in arrivo: come `.timelineTime` dell'Agenda, così le due schede
+   parlano la stessa lingua. Il colore arriva SOLO col ritardo. */
+.serviceTime {
+  @extend .timelineTime;
+  min-width: 52px;
+}
+
+.serviceTimeLate {
+  @extend .serviceTime;
+  color: var(--color-warning-800, #92400e);
+}
+
+.serviceLateMark {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--color-warning-200, #fde68a);
+  background: var(--color-warning-50, #fffbeb);
+  color: var(--color-warning-800, #92400e);
+}
+
+.serviceClosedToggle {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+  color: var(--color-text-muted, #6b7280);
+  border-radius: 6px;
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary, #6366f1);
+    outline-offset: 2px;
+  }
 }

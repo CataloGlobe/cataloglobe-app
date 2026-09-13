@@ -134,6 +134,18 @@ export function lastReminderOpportunity(isoDate: string): Date | null {
     return eveningBefore;
 }
 
+/**
+ * Se la riga del promemoria va mostrata affatto.
+ *
+ * Su `seated` e `completed` no: il cliente è (o è stato) nel locale, e il
+ * promemoria della sera prima non è "non previsto" — è una domanda che non
+ * esiste più. Dire qualsiasi cosa, anche "inviato", commenterebbe un
+ * passato che non interessa più a nessuno in sala.
+ */
+export function showReminderStatus(status: ReservationStatus): boolean {
+    return status !== "seated" && status !== "completed";
+}
+
 export function reminderState(
     reservation: ReminderStatusInput,
     options: ReminderStatusOptions = {}

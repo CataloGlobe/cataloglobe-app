@@ -7,6 +7,22 @@ import {
     RESERVATION_TIMEZONE,
     type ReminderStatusInput
 } from "@/pages/Dashboard/Reservations/reminderStatus";
+import { showReminderStatus } from "@/pages/Dashboard/Reservations/reminderStatus";
+
+describe("showReminderStatus — quando la riga non ha più senso", () => {
+    it("seated e completed: nessuna riga", () => {
+        expect(showReminderStatus("seated")).toBe(false);
+        expect(showReminderStatus("completed")).toBe(false);
+    });
+
+    it("tutti gli altri stati la mostrano, anche i terminali", () => {
+        // Su una `no_show` "promemoria non consegnato" è proprio l'informazione
+        // che serve: forse non è venuto perché non l'ha ricevuto.
+        for (const s of ["pending", "confirmed", "declined", "cancelled", "no_show"] as const) {
+            expect(showReminderStatus(s)).toBe(true);
+        }
+    });
+});
 
 // I cinque casi dello stato promemoria. Il punto della suite non è la
 // copertura: è che ognuno dei cinque dica una cosa DIVERSA, perché il modo di

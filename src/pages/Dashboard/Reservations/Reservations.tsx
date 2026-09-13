@@ -25,6 +25,7 @@ import {
 import {
     closeSeating,
     getSeatingForReservation,
+    listSeatingsWithState,
     listSeatingTables,
     openSeatingForReservation,
     setSeatingTables,
@@ -41,7 +42,7 @@ import type {
     V2Reservation
 } from "@/types/reservation";
 import type { ReservationGuestSummary } from "@/types/reservationGuest";
-import type { SeatingTableWithTable } from "@/types/seating";
+import type { SeatingTableWithTable, SeatingWithState } from "@/types/seating";
 import {
     DEFAULT_TABLE_DURATION_MINUTES,
     OCCUPYING_STATUSES,
@@ -52,18 +53,22 @@ import {
 import type { TableAssignmentView } from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
 import {
     bareTableLabel,
+    compareTableLabels,
     formatTableLabels
 } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import ReservationDetailDrawer from "./ReservationDetailDrawer";
 import ReservationCreateEditDrawer from "./ReservationCreateEditDrawer";
 import ReservationsInbox from "./ReservationsInbox";
 import ReservationsAgenda from "./ReservationsAgenda";
+import ReservationsService from "./ReservationsService";
+import { composeServiceBoard } from "./serviceBoard";
 import { tableWriteTargetFor } from "./tableSection";
 import { useDeferredCommit, type DeferredAction } from "./useDeferredCommit";
 import { useReservationsRealtime } from "./hooks/useReservationsRealtime";
+import { useSeatingsRealtime } from "./hooks/useSeatingsRealtime";
 import styles from "./Reservations.module.scss";
 
-type TabKey = "inbox" | "agenda";
+type TabKey = "inbox" | "agenda" | "service";
 type Scope = string | "__all__";
 type ChannelFilter = "all" | "online" | "manual";
 
@@ -79,11 +84,6 @@ function nowHmm(): string {
 }
 
 const EMPTY_VIEWS: ReadonlyMap<string, TableAssignmentView> = new Map();
-
-/** Etichette tavolo in ordine umano: "2" < "10", "A1" < "A2". */
-function compareTableLabels(a: string, b: string): number {
-    return a.localeCompare(b, "it", { numeric: true, sensitivity: "base" });
-}
 
 /**
  * I tavoli REALMENTE occupati da una tavolata, nella stessa forma del piano:
@@ -218,7 +218,7 @@ export default function Reservations() {
 
     const initialTab: TabKey = useMemo(() => {
         const t = searchParams.get("tab");
-        return t === "agenda" ? "agenda" : "inbox";
+        return t === "agenda" || t === "service" ? t : "inbox";
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     const [tab, setTab] = useState<TabKey>(initialTab);
@@ -360,6 +360,10 @@ export default function Reservations() {
             setActivities(acts);
             setOperatorNames(names);
             setTableAssignments(assignments);
+            // La sala si ricarica insieme: ogni gesto della tavolata passa da
+            // qui, e la scheda Servizio deve rispecchiarlo senza aspettare
+            // l'evento realtime (che arriva, ma dopo).
+            setServiceReloadToken(t => t + 1);
         } catch {
             showToast({ message: "Errore nel caricamento delle prenotazioni.", type: "error" });
         } finally {
@@ -497,6 +501,9 @@ export default function Reservations() {
                     Da gestire
                 </Tabs.Tab>
                 <Tabs.Tab value="agenda">Agenda</Tabs.Tab>
+                {/* "Servizio", non "Sala": Sala è dove i tavoli si definiscono
+                    (tab della sede). Qui si dice cosa sta succedendo. */}
+                <Tabs.Tab value="service">Servizio</Tabs.Tab>
             </Tabs.List>
         </Tabs>
     ), [tab, handleTabChange, pendingInScope.length]);
@@ -519,7 +526,8 @@ export default function Reservations() {
                     ? `Da gestire · ${pendingInScope.length}`
                     : "Da gestire"
             },
-            { value: "agenda", label: "Agenda" }
+            { value: "agenda", label: "Agenda" },
+            { value: "service", label: "Servizio" }
         ],
         activeSection: tab,
         onSectionChange: value => handleTabChange(value as TabKey),
@@ -974,14 +982,87 @@ export default function Reservations() {
         [scope, tenantId, loadData, showToast]
     );
 
+    // ── Servizio: la sala della sede in scope ─────────────────────────
+    // Caricata solo quando la scheda è aperta, su UNA sede, e chi guarda ha
+    // `seatings.read` su quella sede. Il gate va PRIMA del fetch: la view è
+    // `security_invoker` e a chi non può leggere risponde `[]`, non un errore
+    // — senza il pre-check, "nessuno in sala" e "non puoi vederlo" sarebbero
+    // la stessa risposta.
+    const serviceActivityId = scope === "__all__" ? null : scope;
+    const canReadService =
+        serviceActivityId !== null && permissions !== null
+            ? canDoOnActivity(permissions, "seatings.read", serviceActivityId)
+            : false;
+    const serviceEnabled = tab === "service" && canReadService;
+
+    const [serviceSeatings, setServiceSeatings] = useState<SeatingWithState[] | null>(null);
+    // Le scritture della tavolata dal drawer passano tutte da `loadData`, che
+    // ricarica prenotazioni e piano ma non la sala: questo token la fa
+    // ricaricare insieme. Separato da `seatingReloadToken` (quello del
+    // drawer) perché azzerare `detailSeating` a ogni `loadData` farebbe
+    // lampeggiare "Caricamento della tavolata…" sotto ogni evento realtime.
+    const [serviceReloadToken, setServiceReloadToken] = useState(0);
+
+    const loadService = useCallback(async () => {
+        if (!tenantId || !serviceActivityId || !canReadService) return;
+        try {
+            const rows = await listSeatingsWithState(serviceActivityId, tenantId, {
+                date: todayIsoDate()
+            });
+            setServiceSeatings(rows);
+        } catch {
+            showToast({ message: "Errore nel caricamento della sala.", type: "error" });
+        }
+    }, [tenantId, serviceActivityId, canReadService, showToast]);
+
+    useEffect(() => {
+        // Cambiare sede azzera la sala: la precedente non deve restare a
+        // schermo sotto il nome della nuova mentre arriva il fetch.
+        setServiceSeatings(null);
+        if (!serviceEnabled) return;
+        void loadService();
+    }, [serviceEnabled, loadService, serviceReloadToken]);
+
+    useSeatingsRealtime(serviceActivityId, serviceEnabled, loadService);
+
+    const serviceBoard = useMemo(() => {
+        if (serviceSeatings === null || serviceActivityId === null) return null;
+        return composeServiceBoard({
+            seatings: serviceSeatings,
+            reservations: effectiveReservations.filter(
+                r => r.activity_id === serviceActivityId
+            ),
+            today: todayIsoDate(),
+            now: new Date()
+        });
+    }, [serviceSeatings, serviceActivityId, effectiveReservations]);
+
+    const reservationsById = useMemo(
+        () => new Map(effectiveReservations.map(r => [r.id, r])),
+        [effectiveReservations]
+    );
+
     // ── Today bar ─────────────────────────────────────────────────────
+    // Il banner conta quello che il locale ha accettato e quello che è già
+    // successo: `confirmed + seated + completed`, UN insieme solo per conteggio
+    // e coperti. Due insiemi nella stessa frase ("2 prenotazioni · ~2
+    // coperti" con due tavoli da due) producono una domanda senza risposta.
+    //
+    // Fuori le `pending`: non sono ancora parte del servizio e sono già
+    // contate in "Da gestire", nella stessa barra — contarle due volte con
+    // due significati non aiuta nessuno. Fuori le sedute? No: una
+    // prenotazione al tavolo non è sparita, e un conteggio che scala man mano
+    // che la gente si siede direbbe "Oggi · 0 prenotazioni" a fine serata,
+    // nel momento in cui il locale è più pieno.
     const today = todayIsoDate();
     const todayItems = useMemo(
         () =>
             scopedReservations.filter(
                 r =>
                     r.reservation_date === today &&
-                    (r.status === "pending" || r.status === "confirmed")
+                    (r.status === "confirmed" ||
+                        r.status === "seated" ||
+                        r.status === "completed")
             ),
         [scopedReservations, today]
     );
@@ -990,16 +1071,18 @@ export default function Reservations() {
         () =>
             scope === "__all__"
                 ? null
-                : todayItems
-                      .filter(r => r.status === "confirmed")
-                      .reduce((s, r) => s + r.party_size, 0),
+                : todayItems.reduce((s, r) => s + r.party_size, 0),
         [todayItems, scope]
     );
 
+    // "Prossima" è un arrivo futuro: solo le `confirmed` con orario ≥ adesso.
+    // Se sono tutte in ritardo non si disegna — corretto: non c'è nessun
+    // arrivo futuro, solo ritardi, e quelli sono segnalati uno per uno nella
+    // scheda Servizio.
     const nextToday = useMemo(() => {
         const now = nowHmm();
         const upcoming = todayItems
-            .filter(r => r.reservation_time.slice(0, 5) >= now)
+            .filter(r => r.status === "confirmed" && r.reservation_time.slice(0, 5) >= now)
             .sort((a, b) => a.reservation_time.localeCompare(b.reservation_time));
         return upcoming[0] ?? null;
     }, [todayItems]);
@@ -1114,13 +1197,22 @@ export default function Reservations() {
                         onOpenDetail={handleOpenDetail}
                         onAction={handleAction}
                     />
-                ) : (
+                ) : tab === "agenda" ? (
                     <ReservationsAgenda
                         items={scopedReservations}
                         tableViews={tableViews}
                         activityName={scopedActivityName}
                         canManage={scope !== "__all__" && canManageActivity(scope)}
                         onReassignDay={handleReassignDay}
+                        onOpenDetail={handleOpenDetail}
+                    />
+                ) : (
+                    <ReservationsService
+                        board={serviceBoard}
+                        activityName={scopedActivityName}
+                        canRead={canReadService}
+                        reservationsById={reservationsById}
+                        tableViews={tableViews}
                         onOpenDetail={handleOpenDetail}
                     />
                 )}

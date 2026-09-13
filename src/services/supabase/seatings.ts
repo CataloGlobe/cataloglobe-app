@@ -16,7 +16,8 @@ import { supabase } from "./client";
 import type {
     Seating,
     SeatingTable,
-    SeatingTableWithTable
+    SeatingTableWithTable,
+    SeatingWithState
 } from "@/types/seating";
 
 /**
@@ -155,6 +156,57 @@ export async function listSeatingTables(
     return ((data ?? []) as unknown as Array<Record<string, unknown> & { table?: JoinedTable }>).map(
         mapJoinedSeatingTable
     );
+}
+
+/**
+ * Inizio e fine (esclusa) di un giorno locale, come ISO per PostgREST. Le
+ * colonne della tavolata sono `timestamptz`, e "oggi" per l'host è il giorno
+ * del suo orologio, non quello UTC.
+ */
+function localDayBounds(isoDate: string): { start: string; end: string } {
+    const [y, m, d] = isoDate.split("-").map(n => parseInt(n, 10));
+    const start = new Date(y, (m ?? 1) - 1, d ?? 1);
+    const end = new Date(y, (m ?? 1) - 1, (d ?? 1) + 1);
+    return { start: start.toISOString(), end: end.toISOString() };
+}
+
+/**
+ * Cosa c'è in sala: le tavolate di una sede da `v_seatings_with_state`, con
+ * tavoli e prenotazioni già aggregati.
+ *
+ * Prende TUTTE le aperte, qualunque sia il giorno: una tavolata aperta ieri
+ * sera e mai chiusa è ancora in sala per il software, e nasconderla perché
+ * "non è di oggi" la farebbe sparire proprio quando qualcuno dovrebbe
+ * chiuderla. Le chiuse invece solo se chiuse nel giorno `date` (per
+ * `closed_at`, non `opened_at`: "a che ora si è liberato il 4" è una domanda
+ * sulla chiusura, e una tavolata aperta alle 23:50 e chiusa alle 00:20 sta
+ * nel giorno in cui si è liberata).
+ *
+ * Ordine: `opened_at` crescente — la prima entrata è la prima riga, ed è
+ * quella che di solito si libera prima. Chi presenta può rigruppare.
+ *
+ * `.eq('tenant_id')` e `.eq('activity_id')` espliciti oltre la RLS della
+ * view, come ovunque. Ricorda che la view è `security_invoker`: chi non ha
+ * `seatings.read` riceve `[]`, non un errore — il gate va messo PRIMA di
+ * chiamare, sennò "nessuno in sala" e "non puoi vederlo" sono la stessa
+ * risposta.
+ */
+export async function listSeatingsWithState(
+    activityId: string,
+    tenantId: string,
+    options: { date: string }
+): Promise<SeatingWithState[]> {
+    const { start, end } = localDayBounds(options.date);
+    const { data, error } = await supabase
+        .from("v_seatings_with_state")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId)
+        .or(`status.eq.open,and(status.eq.closed,closed_at.gte.${start},closed_at.lt.${end})`)
+        .order("opened_at", { ascending: true });
+
+    if (error) throw error;
+    return (data ?? []) as SeatingWithState[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

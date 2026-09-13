@@ -1,3 +1,5 @@
+import type { ReservationStatus } from "./reservation";
+
 // La tavolata: un gruppo di persone che occupa uno o più tavoli in una
 // finestra di tempo. È l'unità operativa di sala, e vive anche dove il locale
 // non usa gli ordini da QR — per questo è un'entità propria e non una
@@ -118,4 +120,59 @@ export interface SeatingReservation {
     seating_id: string;
     reservation_id: string;
     created_at: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// v_seatings_with_state — la tavolata con dentro già tutto ciò che la vista di
+// servizio deve dire di lei (migration 20260912120000).
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Un tavolo occupato, come lo aggrega la view. */
+export interface SeatingStateTable {
+    table_id: string;
+    label: string;
+    zone_name: string | null;
+    /**
+     * Non NULL = tavolo soft-deleted dopo che la tavolata l'ha preso. Resta
+     * nell'elenco: l'host deve vederlo, non scoprire che manca.
+     */
+    deleted_at: string | null;
+}
+
+/** Una prenotazione onorata, come la aggrega la view. */
+export interface SeatingStateReservation {
+    reservation_id: string;
+    customer_name: string;
+    /** "HH:MM:SS", come `V2Reservation.reservation_time`. */
+    reservation_time: string;
+    party_size: number;
+    status: ReservationStatus;
+}
+
+/**
+ * Riga di `v_seatings_with_state`. Le nove colonne di `Seating` che contano
+ * in sala (niente `notes`, `created_at`, `updated_at`), più i due aggregati.
+ *
+ * `reservations = []` è un'informazione, non un'assenza: è il walk-in, e la
+ * vista lo deve distinguere a colpo d'occhio da chi aveva prenotato.
+ *
+ * L'ordine dentro `tables` è per etichetta grezza ("10" < "2"): chi presenta
+ * riordina con `compareTableLabels`, come già fa per il piano.
+ *
+ * View `security_invoker`: chi non ha `tables.read` riceve `tables = []`,
+ * chi non ha `reservations.read` riceve `reservations = []`. Non sono
+ * errori, e il chiamante non può distinguerli da liste davvero vuote.
+ */
+export interface SeatingWithState {
+    id: string;
+    tenant_id: string;
+    activity_id: string;
+    status: SeatingStatus;
+    party_size: number | null;
+    opened_at: string;
+    closed_at: string | null;
+    closed_reason: SeatingClosedReason | null;
+    opened_by_user_id: string | null;
+    tables: SeatingStateTable[];
+    reservations: SeatingStateReservation[];
 }
