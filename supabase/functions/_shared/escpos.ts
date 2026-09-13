@@ -52,6 +52,10 @@ export interface ComandaPayload {
     order_id: string;
     /** ISO 8601 (orders.submitted_at). */
     submitted_at: string;
+    /** ISO 8601 (orders.cancelled_at). Solo per il ticket di annullo. */
+    cancelled_at: string | null;
+    /** orders.cancellation_reason. Solo per il ticket di annullo, spesso vuoto. */
+    cancellation_reason: string | null;
     table_label: string;
     table_zone: string | null;
     /** Nome operatore se ordine inserito dallo staff, altrimenti null. */
@@ -370,9 +374,10 @@ export function renderAnnulloEscPos(payload: ComandaPayload): string {
     _writeWrapped(b, tableLine, LINE_WIDTH);
     b.bold(false);
 
-    // ── Meta: solo data-ora (niente operatore/cliente — non serve al cuoco).
+    // ── Meta: solo data-ora, ma DELL'ANNULLO (non dell'invio) — chi legge deve
+    // sapere quando fermare il piatto, non quando e' stato ordinato.
     b.align("left");
-    b.line(formatComandaDateTime(payload.submitted_at));
+    b.line(formatComandaDateTime(payload.cancelled_at ?? payload.submitted_at));
 
     const divider = "-".repeat(LINE_WIDTH);
     b.line(divider);
@@ -385,6 +390,11 @@ export function renderAnnulloEscPos(payload: ComandaPayload): string {
     }
 
     b.line(divider);
+
+    // ── Motivo annullo: solo se presente (spesso vuoto), stessa forma delle note comanda.
+    if (payload.cancellation_reason) {
+        _writeWrapped(b, `Motivo: ${payload.cancellation_reason}`, LINE_WIDTH);
+    }
 
     // ── Footer: stesso id troncato della comanda, per riconciliazione.
     b.align("right").line(`#${payload.order_id.slice(0, 8).toUpperCase()}`).align("left");

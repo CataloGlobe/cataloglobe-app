@@ -196,6 +196,8 @@ function printableLines(hex: string): string[] {
 const BASE_PAYLOAD: ComandaPayload = {
     order_id: "0a1b2c3d-4e5f-6071-8293-a4b5c6d7e8f9",
     submitted_at: "2026-09-07T19:15:00Z",
+    cancelled_at: null,
+    cancellation_reason: null,
     table_label: "12",
     table_zone: "Sala",
     operator_label: null,
@@ -348,6 +350,44 @@ describe("renderAnnulloEscPos", () => {
     it("omette la zona se assente", () => {
         const hex = renderAnnulloEscPos({ ...BASE_PAYLOAD, table_zone: null });
         expect(printableLines(hex)).toContain("TAVOLO 12");
+    });
+
+    it("usa cancelled_at come orario, non submitted_at", () => {
+        const hex = renderAnnulloEscPos({
+            ...BASE_PAYLOAD,
+            submitted_at: "2026-09-07T19:15:00Z",
+            cancelled_at: "2026-09-07T19:20:00Z"
+        });
+        const lines = printableLines(hex);
+        expect(lines).toContain("07/09/2026, 21:20");
+        expect(lines).not.toContain("07/09/2026, 21:15");
+    });
+
+    it("ricade su submitted_at se cancelled_at e' nullo", () => {
+        const hex = renderAnnulloEscPos({ ...BASE_PAYLOAD, cancelled_at: null });
+        expect(printableLines(hex)).toContain("07/09/2026, 21:15");
+    });
+
+    it("stampa il motivo di annullo se presente, sopra l'id", () => {
+        const hex = renderAnnulloEscPos({ ...BASE_PAYLOAD, cancellation_reason: "Ingredienti finiti" });
+        const lines = printableLines(hex);
+        expect(lines).toContain("Motivo: Ingredienti finiti");
+        expect(lines.indexOf("Motivo: Ingredienti finiti")).toBeLessThan(lines.indexOf("#0A1B2C3D"));
+    });
+
+    it("omette la riga motivo se assente (nessuna riga vuota)", () => {
+        const hex = renderAnnulloEscPos({ ...BASE_PAYLOAD, cancellation_reason: null });
+        const lines = printableLines(hex);
+        expect(lines).toEqual([
+            "ANNULLATO",
+            "TAVOLO 12 · Sala",
+            "07/09/2026, 21:15",
+            "-".repeat(LINE_WIDTH),
+            "2x Pizza Margherita",
+            "1x Acqua naturale",
+            "-".repeat(LINE_WIDTH),
+            "#0A1B2C3D"
+        ]);
     });
 
     it("il titolo in doppia dimensione e' preceduto da GS ! 0x11 e seguito da GS ! 0", () => {

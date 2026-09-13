@@ -31,6 +31,8 @@ const COMANDA_SELECT = [
     "tenant_id",
     "activity_id",
     "submitted_at",
+    "cancelled_at",
+    "cancellation_reason",
     "notes",
     "customer_name_snapshot",
     "created_by_user_id",
@@ -60,6 +62,8 @@ interface OrderRow {
     tenant_id: string;
     activity_id: string;
     submitted_at: string;
+    cancelled_at: string | null;
+    cancellation_reason: string | null;
     notes: string | null;
     customer_name_snapshot: string | null;
     created_by_user_id: string | null;
@@ -155,6 +159,8 @@ export async function buildComanda(
     const payload: ComandaPayload = {
         order_id: row.id,
         submitted_at: row.submitted_at,
+        cancelled_at: row.cancelled_at,
+        cancellation_reason: _str(row.cancellation_reason),
         table_label: row.tables?.label ?? "?",
         table_zone: _str(row.tables?.table_zones?.name),
         operator_label: operatorLabel,

@@ -34,6 +34,8 @@ const ORDER_ROW = {
     tenant_id: "t1",
     activity_id: "a1",
     submitted_at: "2026-09-07T19:15:00Z",
+    cancelled_at: "2026-09-07T19:20:00Z",
+    cancellation_reason: "Ingredienti finiti",
     notes: "  ",
     customer_name_snapshot: "Marco",
     created_by_user_id: null,
@@ -83,7 +85,11 @@ describe("buildComanda", () => {
 
         expect(selects.orders).toContain("order_items(");
         expect(selects.orders).toContain("cancelled_at");
+        expect(selects.orders).toContain("cancellation_reason");
         expect(selects.orders).toContain("tables(label, table_zones(name))");
+
+        expect(res.payload.cancelled_at).toBe("2026-09-07T19:20:00Z");
+        expect(res.payload.cancellation_reason).toBe("Ingredienti finiti");
 
         expect(res.tenant_id).toBe("t1");
         expect(res.activity_id).toBe("a1");
