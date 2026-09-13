@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Plus, Printer as PrinterIcon, Unlink } from "lucide-react";
+import { CircleHelp, Plus, Printer as PrinterIcon, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
@@ -7,6 +7,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity } from "@/lib/permissions";
+import { PRINTER_PURCHASE_URL } from "@/config/printers";
 import {
   listPrinters,
   unbindPrinter,
@@ -15,6 +16,7 @@ import {
 import type { Printer } from "@/types/printers";
 import { PrinterBindDrawer } from "./PrinterBindDrawer";
 import { PrinterUnbindDrawer } from "./PrinterUnbindDrawer";
+import { PrinterGuideModal } from "./components/PrinterGuideModal";
 import styles from "./PrintersSection.module.scss";
 
 interface PrintersSectionProps {
@@ -48,6 +50,7 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isBindOpen, setIsBindOpen] = useState(false);
   const [printerToUnbind, setPrinterToUnbind] = useState<Printer | null>(null);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!canRead) {
@@ -116,16 +119,26 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
           Le stampanti collegate ricevono le comande della sede. Puoi collegarne
           più di una, per esempio cucina e bar.
         </p>
-        {canManage && (
+        <div className={styles.toolbarActions}>
           <Button
-            variant="primary"
+            variant="ghost"
             size="sm"
-            leftIcon={<Plus size={16} />}
-            onClick={() => setIsBindOpen(true)}
+            leftIcon={<CircleHelp size={16} />}
+            onClick={() => setIsGuideOpen(true)}
           >
-            Collega stampante
+            Come collegare una stampante
           </Button>
-        )}
+          {canManage && (
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus size={16} />}
+              onClick={() => setIsBindOpen(true)}
+            >
+              Collega stampante
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -138,6 +151,25 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
             canManage
               ? "Collega una stampante Sunmi per ricevere le comande in cucina."
               : "Non ci sono stampanti collegate a questa sede."
+          }
+          action={
+            canManage && (
+              <div className={styles.emptyActions}>
+                <Button variant="secondary" size="sm" onClick={() => setIsGuideOpen(true)}>
+                  Come collegare una stampante
+                </Button>
+                <Button
+                  as="a"
+                  href={PRINTER_PURCHASE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="ghost"
+                  size="sm"
+                >
+                  Compra una stampante
+                </Button>
+              </div>
+            )
           }
           compact
         />
@@ -188,6 +220,8 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
         onClose={() => setPrinterToUnbind(null)}
         onConfirm={handleUnbindConfirm}
       />
+
+      <PrinterGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
     </div>
   );
 };
