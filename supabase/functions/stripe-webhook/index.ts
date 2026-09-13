@@ -243,6 +243,101 @@ async function computePlanMonthlyValueCents(
 // single writer for tenants.subscription_status. Nothing in this file may write
 // that column from an event type; go through syncSubscriptionStatus instead.
 
+/**
+ * Registra un incasso reale in customer_invoices (archivio fiscale, righe
+ * permanenti — vedi migration 20260912130000_create_customer_invoices.sql).
+ *
+ * Best-effort per design: un fallimento qui non deve MAI bloccare o far
+ * ritornare 5xx per la sincronizzazione dello stato subscription, che ha
+ * priorità. Ogni errore è loggato e la funzione ritorna senza rilanciare.
+ *
+ * Filtro sull'importo (amount_paid > 0), non sulla causale dell'evento: le
+ * fatture a zero non arrivano solo dalle prove gratuite — esistono già
+ * abbonamenti con sconto 100% che generano invoice.payment_succeeded a zero
+ * su un normale rinnovo.
+ *
+ * Dedup: UNIQUE(stripe_invoice_id) lato DB + upsert/ignoreDuplicates qui,
+ * non il completion marker di stripe_processed_events (quello deduplica per
+ * event_id/consegna, non per fattura).
+ */
+async function recordCustomerInvoice(
+    admin: ReturnType<typeof createClient>,
+    invoice: Stripe.Invoice
+): Promise<void> {
+    try {
+        if (!invoice.amount_paid || invoice.amount_paid <= 0) return;
+
+        const stripeCustomerId = invoice.customer as string;
+
+        const { data: tenant, error: tenantError } = await admin
+            .from("tenants")
+            .select(
+                "id, plan, paid_seats, legal_entity_type, legal_name, vat_number, fiscal_code, first_name, last_name, address, street_number, postal_code, city, province, country, pec, codice_destinatario"
+            )
+            .eq("stripe_customer_id", stripeCustomerId)
+            .maybeSingle();
+
+        if (tenantError || !tenant) {
+            console.error(
+                `stripe-webhook: recordCustomerInvoice — tenant lookup failed for customer ${stripeCustomerId}, invoice ${invoice.id} NOT recorded:`,
+                tenantError?.message ?? "tenant not found"
+            );
+            return;
+        }
+
+        const paidAt = invoice.status_transitions?.paid_at
+            ? toIsoTimestamp(invoice.status_transitions.paid_at)
+            : toIsoTimestamp(invoice.created);
+
+        const { error: insertError } = await admin
+            .from("customer_invoices")
+            .upsert(
+                {
+                    tenant_id: tenant.id,
+                    amount_cents: invoice.amount_paid,
+                    currency: invoice.currency,
+                    paid_at: paidAt,
+                    // Nullable by design: una riga contabile si registra comunque
+                    // anche se, per qualunque motivo, plan/paid_seats non fossero
+                    // leggibili dalla stessa riga tenant appena letta.
+                    plan_code: tenant.plan ?? null,
+                    seats: tenant.paid_seats ?? null,
+                    legal_entity_type: tenant.legal_entity_type ?? null,
+                    legal_name: tenant.legal_name ?? null,
+                    vat_number: tenant.vat_number ?? null,
+                    fiscal_code: tenant.fiscal_code ?? null,
+                    first_name: tenant.first_name ?? null,
+                    last_name: tenant.last_name ?? null,
+                    address: tenant.address ?? null,
+                    street_number: tenant.street_number ?? null,
+                    postal_code: tenant.postal_code ?? null,
+                    city: tenant.city ?? null,
+                    province: tenant.province ?? null,
+                    country: tenant.country ?? null,
+                    pec: tenant.pec ?? null,
+                    codice_destinatario: tenant.codice_destinatario ?? null,
+                    stripe_invoice_id: invoice.id,
+                    stripe_invoice_number: invoice.number ?? null,
+                    stripe_hosted_invoice_url: invoice.hosted_invoice_url ?? null,
+                    stripe_invoice_pdf: invoice.invoice_pdf ?? null,
+                    stripe_subscription_id: getInvoiceSubscriptionId(invoice),
+                    stripe_customer_id: stripeCustomerId
+                },
+                { onConflict: "stripe_invoice_id", ignoreDuplicates: true }
+            );
+
+        if (insertError) {
+            console.error(`stripe-webhook: recordCustomerInvoice — insert failed for invoice ${invoice.id}:`, insertError.message);
+            return;
+        }
+
+        console.log(`stripe-webhook: customer_invoices row recorded for invoice ${invoice.id} (tenant ${tenant.id}, amount ${invoice.amount_paid} ${invoice.currency})`);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`stripe-webhook: recordCustomerInvoice — unexpected error for invoice ${invoice.id}:`, message);
+    }
+}
+
 serve(async req => {
     // Stripe sends only POST; no OPTIONS preflight needed (server-to-server).
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
@@ -494,6 +589,13 @@ serve(async req => {
                     // back to the tenant's own subscription for one-off invoices.
                     subscriptionId: getInvoiceSubscriptionId(invoice)
                 });
+
+                // Registrazione fiscale: solo sugli incassi riusciti, mai sui
+                // falliti. Chiamata DOPO syncSubscriptionStatus — non deve mai
+                // condizionarla, ed è totalmente best-effort al suo interno.
+                if (event.type === "invoice.payment_succeeded") {
+                    await recordCustomerInvoice(admin, invoice);
+                }
                 break;
             }
 
