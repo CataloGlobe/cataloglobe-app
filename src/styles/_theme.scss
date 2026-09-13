@@ -4,7 +4,7 @@
   --card-bg: #ffffff;
   --border: #e2e8f0;
   --hover-bg: #f1f5f9;
-  --brand-primary: #6265f1;
+  --brand-primary: #6366f1;
   --brand-primary-hover: #4648c6;
   --brand-primary-soft: rgba(99, 102, 241, 0.1);
   --brand-primary-soft-hover: rgba(99, 102, 241, 0.15);
@@ -47,6 +47,73 @@
   --color-green-500: #10b981;
   --color-green-800: #065f46;
   --color-green-900: #14532d;
+
+  // === FASE 2 gap-closing (2026-09-13) ===
+  // Layer di compatibilità: chiude i var() referenziati nel perimetro admin
+  // ma mai definiti (audit "custom property fantasma"). Due categorie:
+  // 1) alias verso un token GIA' esistente, mai un hex nuovo — evita di
+  //    biforcare la stessa intenzione visiva su due nomi;
+  // 2) valore proprio SOLO per i nomi senza equivalente, calcolato come
+  //    fallback dominante tra le occorrenze reali (var(--x, <fallback>)).
+  // Chiuso solo chi ha almeno 1 occorrenza SENZA fallback (proprietà CSS
+  // altrimenti invalida, es. i 3 .warningBox con angoli retti). I nomi
+  // coperti al 100% da fallback restano non definiti: si eliminano quando
+  // la pagina viene riscritta sul token canonico, non prima.
+  // Si svuota progressivamente via refactor pagina-per-pagina.
+
+  // --- Scale strutturali (radius/shadow/spacing) ---
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  // Alpha, non colore pieno: --brand-primary-soft è un fill, questo è un ring.
+  --shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.25);
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-12: 48px;
+
+  // --- Colori senza equivalente esistente (fallback dominante) ---
+  // Canonico testo-muto: dominante aggregato su text-muted + color-text-muted
+  // + color-text-secondary + color-muted (71/226 occorrenze reali, tie-break
+  // su varianti maiuscole incluse).
+  --text-muted: #6b7280;
+  --color-danger: #dc2626; // = $error in _variables.scss
+  --color-gray-300: #d1d5db;
+  --color-gray-400: #9ca3af;
+  --color-gray-500: #64748b;
+  --color-gray-600: #475569; // fallback in parità 3/3 con #4b5563, tenuto sulla family slate di gray-500
+  --color-gray-800: #1e293b;
+  --color-white: #ffffff;
+  --color-bg-subtle: #f9fafb;
+
+  // --- Alias verso token esistenti (stesso valore o stessa intenzione) ---
+  --color-border: var(--border);
+  --border-default: var(--border);
+  --color-surface: var(--card-bg);
+  --color-primary: var(--brand-primary);
+  --text-primary: var(--text);
+  --color-text-primary: var(--text);
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-secondary: var(--text-muted);
+  --color-muted: var(--text-muted);
+  --color-danger-light: var(--color-red-100);
+  --color-error-600: var(--color-danger);
+  // Valore letterale del fallback combacia esattamente coi token esistenti.
+  --color-gray-50: var(--bg);
+  --color-gray-100: var(--hover-bg);
+  --color-gray-200: var(--border);
+  --color-gray-900: var(--text);
+  --gray-900: var(--text); // refuso storico per --color-gray-900
+  --color-border-strong: var(--color-gray-300);
+  --color-border-tertiary: var(--hover-bg);
+  --color-surface-hover: var(--hover-bg);
+  --border-radius-lg: var(--radius-lg); // refuso storico per --radius-lg
+  --app-background: var(--bg);
 }
 
 [data-theme="dark"] {
@@ -67,4 +134,18 @@
   --color-green-200: #bbf7d0;
   --color-green-500: #10b981;
   --color-green-900: #14532d;
+
+  // FASE 2 gap-closing: --text-muted più chiaro su sfondo scuro (#6b7280
+  // del root scende sotto 3:1 su --bg dark).
+  --text-muted: #94a3b8;
+
+  // Rampa grigi FASE 2: mirror simmetrico sulla scala slate (300↔600,
+  // 400↔500, 800→chiaro) per restare leggibile su sfondo scuro. Nessun
+  // dato reale da fallback (nessun consumer li usa ancora in dark) —
+  // euristica, non misura: rivedere al primo audit contrasto dark.
+  --color-gray-300: #475569;
+  --color-gray-400: #64748b;
+  --color-gray-500: #94a3b8;
+  --color-gray-600: #cbd5e1;
+  --color-gray-800: #e2e8f0;
 }
