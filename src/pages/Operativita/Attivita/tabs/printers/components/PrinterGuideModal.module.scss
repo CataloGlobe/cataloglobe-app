@@ -169,6 +169,19 @@
     color: $gray-500;
 }
 
+.troubleshootList {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.troubleshootItemTitle {
+    margin: 0 0 4px;
+    font-size: 0.90625rem;
+    font-weight: 600;
+    color: $text-color;
+}
+
 /* ---------- Footer ---------- */
 .footerRow {
     display: flex;

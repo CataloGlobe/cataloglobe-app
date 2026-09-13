@@ -175,6 +175,62 @@ const STEPS: GuideStep[] = [
     }
 ];
 
+type TroubleshootItem = {
+    title: string;
+    body: ReactNode;
+};
+
+/**
+ * Sezione "Se qualcosa non funziona", visibile solo nella vista "Vedi tutti
+ * i passaggi": chi sta installando non ha ancora questi problemi, non va
+ * mescolata agli 8 step guidati.
+ */
+const TROUBLESHOOT_ITEMS: TroubleshootItem[] = [
+    {
+        title: "La stampante era spenta o senza rete",
+        body: (
+            <p>
+                Le comande non si perdono: restano in attesa e vengono stampate
+                quando la stampante torna online. Se ne arrivano diverse tutte
+                insieme, sono gli ordini ricevuti mentre era offline.
+            </p>
+        )
+    },
+    {
+        title: "Non esce nessuna comanda",
+        body: (
+            <p>
+                Controlla che ci sia carta e che la spia blu sia accesa. Se un
+                ordine non è stato stampato, nella pagina Ordini compare un
+                avviso sulla comanda: avvisa la cucina a voce.
+            </p>
+        )
+    },
+    {
+        title: "Ho cambiato router o password del Wi-Fi",
+        body: (
+            <p>
+                Ripeti la procedura dal passo 3. Il collegamento a CataloGlobe
+                resta valido, non serve reinserire il codice.
+            </p>
+        )
+    },
+    {
+        title: "Non riesco ad aprire il pannello della stampante",
+        body: (
+            <p>
+                Verifica di essere collegato alla stessa rete della stampante.
+                Se l&apos;indirizzo non risponde, ristampa il foglio con il
+                doppio click: potrebbe essere cambiato.
+            </p>
+        )
+    },
+    {
+        title: "La stampante stampa fogli bianchi",
+        body: <p>Il rotolo è inserito al contrario. Aprilo e giralo.</p>
+    }
+];
+
 const TOTAL_STEPS = STEPS.length;
 
 type Props = {
@@ -239,6 +295,17 @@ export function PrinterGuideModal({ isOpen, onClose }: Props) {
                                     )}
                                 </section>
                             ))}
+                            <section className={styles.allStep}>
+                                <h3 className={styles.stepTitle}>Se qualcosa non funziona</h3>
+                                <div className={styles.troubleshootList}>
+                                    {TROUBLESHOOT_ITEMS.map(item => (
+                                        <div key={item.title} className={styles.troubleshootItem}>
+                                            <p className={styles.troubleshootItemTitle}>{item.title}</p>
+                                            <div className={styles.stepBody}>{item.body}</div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </section>
                         </div>
                     ) : (
                         <div className={styles.body}>
