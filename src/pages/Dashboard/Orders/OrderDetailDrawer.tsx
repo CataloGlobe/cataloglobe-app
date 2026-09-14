@@ -39,6 +39,14 @@ interface Props {
      * ("Comanda manuale") viene soppresso: è un placeholder, non un cliente.
      */
     operatorNames?: Map<string, string>;
+    /** true = la sede ha stampanti cloud Sunmi attive. Cambia la label del bottone. */
+    hasPrinters?: boolean;
+    /**
+     * Optional. Quando fornita, il bottone "Stampa"/"Ristampa comanda" la
+     * invoca invece del dialogo di stampa del browser (stesso pattern di
+     * `OrderCard.onPrint`).
+     */
+    onPrint?: (order: V2OrderWithItems) => void;
     onClose: () => void;
 }
 
@@ -87,11 +95,17 @@ export default function OrderDetailDrawer({
     tableLabel,
     tableZone,
     operatorNames,
+    hasPrinters,
+    onPrint,
     onClose
 }: Props) {
     const printRef = useRef<HTMLDivElement>(null);
 
     function handlePrint() {
+        if (onPrint) {
+            if (order) onPrint(order);
+            return;
+        }
         if (printRef.current) {
             printRef.current.setAttribute("data-printing", "true");
             window.print();
@@ -152,7 +166,7 @@ export default function OrderDetailDrawer({
                                 leftIcon={<Printer size={14} />}
                                 onClick={handlePrint}
                             >
-                                Stampa
+                                {hasPrinters ? "Ristampa comanda" : "Stampa"}
                             </Button>
                         )}
                     </div>

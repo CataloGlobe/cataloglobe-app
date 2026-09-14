@@ -43,15 +43,27 @@ export interface PrinterStatusResult {
     statuses: Record<string, boolean>;
 }
 
-// Codici applicativi restituiti dalle edge function sunmi-*-printer.
+// Risposta dell'edge function `sunmi-reprint-order`: conteggio per stampante.
+// `failed > 0` con `printed > 0` e' un successo parziale (alcune stampanti
+// hanno accettato, altre no) — il chiamante decide come renderlo nel toast.
+export interface ReprintOrderResult {
+    total: number;
+    printed: number;
+    failed: number;
+}
+
+// Codici applicativi restituiti dalle edge function sunmi-*-printer e
+// sunmi-reprint-order.
 export type PrinterErrorCode =
     | "INVALID_BODY"
     | "UNAUTHORIZED"
     | "FORBIDDEN"
     | "ACTIVITY_NOT_FOUND"
+    | "ORDER_NOT_FOUND"
     | "PRINTER_NOT_FOUND"
     | "PRINTER_SN_IN_USE"
     | "ORDERING_DISABLED"
+    | "NO_ACTIVE_PRINTERS"
     | "SUNMI_DEVICE_REJECTED"
     | "SUNMI_CONFIG_ERROR"
     | "SUNMI_ERROR"

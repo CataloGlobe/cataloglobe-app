@@ -35,6 +35,8 @@ interface MakeColumnsOptions {
     onViewDetail: (order: HistoryRow) => void;
     onRestore: (order: HistoryRow) => Promise<void>;
     onPrint: (order: HistoryRow) => void;
+    /** true = la sede ha stampanti cloud Sunmi attive. Cambia la label dell'azione. */
+    hasPrinters?: boolean;
     canManage?: boolean;
 }
 
@@ -44,6 +46,7 @@ export function makeHistoryColumns({
     onViewDetail,
     onRestore,
     onPrint,
+    hasPrinters,
     canManage
 }: MakeColumnsOptions): ColumnDefinition<HistoryRow>[] {
     return [
@@ -189,7 +192,7 @@ export function makeHistoryColumns({
                                 canManage === false
                         },
                         {
-                            label: "Stampa",
+                            label: hasPrinters ? "Ristampa comanda" : "Stampa",
                             icon: Printer,
                             onClick: () => onPrint(row),
                             separator: true

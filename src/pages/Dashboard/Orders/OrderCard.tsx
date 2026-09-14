@@ -15,6 +15,7 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Menu } from "@/components/ui/Menu/Menu";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import type { V2OrderItem, V2OrderWithItems } from "@/types/orders";
 import PrintReceipt from "./PrintReceipt";
@@ -64,6 +65,12 @@ interface Props {
      * uscira' mai: lo staff deve avvisare la cucina a voce.
      */
     comandaFailed?: boolean;
+    /**
+     * true quando la sede ha almeno una stampante cloud Sunmi attiva: il
+     * tooltip dell'icona stampa diventa "Ristampa comanda" (invia un nuovo
+     * job a Sunmi via `onPrint`) invece di "Stampa" (dialogo del browser).
+     */
+    hasPrinters?: boolean;
     canManage?: boolean;
     canEdit?: boolean;
 }
@@ -123,6 +130,7 @@ export default function OrderCard({
     tableZone,
     operatorNames,
     comandaFailed,
+    hasPrinters,
     canManage,
     canEdit
 }: Props) {
@@ -337,11 +345,6 @@ export default function OrderCard({
                     <Menu.Item icon={Eye} onSelect={() => onViewDetail(order)}>
                         Vedi dettaglio
                     </Menu.Item>
-                    {order.status !== "cancelled" && (
-                        <Menu.Item icon={Printer} onSelect={handlePrint}>
-                            Stampa
-                        </Menu.Item>
-                    )}
                     <Menu.Separator />
                     <Menu.Item
                         icon={Trash2}
@@ -352,15 +355,17 @@ export default function OrderCard({
                     </Menu.Item>
                 </Menu>
 
-                {order.status === "submitted" && (
-                    <IconButton
-                        icon={<Printer size={16} />}
-                        aria-label="Stampa"
-                        variant="secondary"
-                        className={styles.footerIconBtn}
-                        onClick={handlePrint}
-                        disabled={isProcessing}
-                    />
+                {order.status !== "cancelled" && (
+                    <Tooltip content={hasPrinters ? "Ristampa comanda" : "Stampa"}>
+                        <IconButton
+                            icon={<Printer size={16} />}
+                            aria-label={hasPrinters ? "Ristampa comanda" : "Stampa"}
+                            variant="secondary"
+                            className={styles.footerIconBtn}
+                            onClick={handlePrint}
+                            disabled={isProcessing}
+                        />
+                    </Tooltip>
                 )}
 
                 {order.status === "submitted" && (

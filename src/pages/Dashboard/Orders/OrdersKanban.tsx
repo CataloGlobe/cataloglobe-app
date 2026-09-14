@@ -36,6 +36,8 @@ interface Props {
      * `failed`). Propagata a `OrderCard` per il badge "Comanda non stampata".
      */
     failedComandaOrderIds?: Set<string>;
+    /** true = la sede ha stampanti cloud Sunmi attive. Propagata a OrderCard. */
+    hasPrinters?: boolean;
     isLoading: boolean;
     error: string | null;
     onRetry: () => void;
@@ -81,6 +83,7 @@ export default function OrdersKanban({
     tables,
     operatorNames,
     failedComandaOrderIds,
+    hasPrinters,
     isLoading,
     error,
     onRetry,
@@ -187,6 +190,7 @@ export default function OrdersKanban({
                                             tableZone={table?.zone_name ?? null}
                                             operatorNames={operatorNames}
                                             comandaFailed={failedComandaOrderIds?.has(order.id) ?? false}
+                                            hasPrinters={hasPrinters}
                                             onAcknowledge={onAcknowledge}
                                             onMarkReady={onMarkReady}
                                             onDeliver={onDeliver}
