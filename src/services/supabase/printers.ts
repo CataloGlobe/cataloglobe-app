@@ -5,6 +5,7 @@ import type {
     BindPrinterResult,
     Printer,
     PrinterErrorCode,
+    PrinterStatusResult,
     UnbindPrinterResult
 } from "@/types/printers";
 
@@ -88,6 +89,32 @@ export async function unbindPrinter(
     if (!data?.deleted) {
         throw new PrinterServiceError("UNKNOWN", "Risposta inattesa dal server.", null);
     }
+}
+
+/**
+ * Stato online delle stampanti di una sede via edge function
+ * `sunmi-printer-status`. Letto on-demand (apertura tab + pulsante
+ * "Aggiorna stato"), MAI persistito. Richiede tables.read sulla sede.
+ *
+ * `available: false` nel risultato = stato non determinato lato Sunmi
+ * (irraggiungibile/timeout), NON "tutte offline" — il chiamante deve
+ * distinguerlo. Un errore lanciato da questa funzione, invece, e' un vero
+ * problema applicativo (permessi, rate limit, config Sunmi).
+ */
+export async function fetchPrintersStatus(
+    tenantId: string,
+    activityId: string
+): Promise<PrinterStatusResult> {
+    void tenantId;
+    const { data, error } = await supabase.functions.invoke<PrinterStatusResult>(
+        "sunmi-printer-status",
+        { body: { activity_id: activityId } }
+    );
+    if (error) throw await mapInvokeError(error);
+    if (!data || typeof data.available !== "boolean" || typeof data.statuses !== "object") {
+        throw new PrinterServiceError("UNKNOWN", "Risposta inattesa dal server.", null);
+    }
+    return data;
 }
 
 // ============================================================

@@ -32,6 +32,17 @@ export interface UnbindPrinterResult {
     printer_id: string;
 }
 
+// Risposta dell'edge function `sunmi-printer-status`. Letta on-demand, MAI
+// persistita (vedi commento su `last_online_at` sopra). `available: false`
+// significa "stato non determinato" (Sunmi irraggiungibile/timeout o rifiuto
+// non di configurazione) — MAI da leggere come "stampante offline".
+// `statuses` mappa `sn → is_online`; un sn assente dalla mappa (mismatch
+// improbabile con la lista locale) va trattato come stato non disponibile.
+export interface PrinterStatusResult {
+    available: boolean;
+    statuses: Record<string, boolean>;
+}
+
 // Codici applicativi restituiti dalle edge function sunmi-*-printer.
 export type PrinterErrorCode =
     | "INVALID_BODY"

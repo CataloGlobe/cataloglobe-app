@@ -364,3 +364,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/sunmi-unbind-printer/index.ts"
+
+[functions.sunmi-printer-status]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/sunmi-printer-status/index.ts"

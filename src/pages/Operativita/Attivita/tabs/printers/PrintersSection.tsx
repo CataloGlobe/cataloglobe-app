@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { CircleHelp, Plus, Printer as PrinterIcon, Unlink } from "lucide-react";
+import { CircleHelp, Plus, Printer as PrinterIcon, RefreshCw, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -9,11 +10,12 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity } from "@/lib/permissions";
 import { PRINTER_PURCHASE_URL } from "@/config/printers";
 import {
+  fetchPrintersStatus,
   listPrinters,
   unbindPrinter,
   PrinterServiceError,
 } from "@/services/supabase/printers";
-import type { Printer } from "@/types/printers";
+import type { Printer, PrinterStatusResult } from "@/types/printers";
 import { PrinterBindDrawer } from "./PrinterBindDrawer";
 import { PrinterUnbindDrawer } from "./PrinterUnbindDrawer";
 import { PrinterGuideModal } from "./components/PrinterGuideModal";
@@ -51,10 +53,33 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
   const [isBindOpen, setIsBindOpen] = useState(false);
   const [printerToUnbind, setPrinterToUnbind] = useState<Printer | null>(null);
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [statusResult, setStatusResult] = useState<PrinterStatusResult | null>(null);
+  const [isStatusLoading, setIsStatusLoading] = useState(false);
+
+  const loadStatus = useCallback(async () => {
+    if (!canRead) return;
+    try {
+      setIsStatusLoading(true);
+      const result = await fetchPrintersStatus(tenantId, activityId);
+      setStatusResult(result);
+    } catch (err) {
+      setStatusResult(null);
+      showToast({
+        message:
+          err instanceof PrinterServiceError
+            ? err.message
+            : "Impossibile verificare lo stato delle stampanti.",
+        type: "error",
+      });
+    } finally {
+      setIsStatusLoading(false);
+    }
+  }, [tenantId, activityId, canRead, showToast]);
 
   const loadData = useCallback(async () => {
     if (!canRead) {
       setItems([]);
+      setStatusResult(null);
       setIsLoading(false);
       return;
     }
@@ -62,6 +87,12 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
       setIsLoading(true);
       const data = await listPrinters(tenantId, activityId);
       setItems(data);
+      if (data.length > 0) {
+        // Non bloccante: la lista si vede subito, lo stato arriva dopo.
+        void loadStatus();
+      } else {
+        setStatusResult(null);
+      }
     } catch {
       showToast({
         message: "Impossibile caricare le stampanti.",
@@ -70,7 +101,7 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [tenantId, activityId, canRead, showToast]);
+  }, [tenantId, activityId, canRead, showToast, loadStatus]);
 
   useEffect(() => {
     loadData();
@@ -112,6 +143,21 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
     }
   }, [printerToUnbind, tenantId, loadData, showToast]);
 
+  const renderStatusBadge = (printer: Printer) => {
+    if (!statusResult) {
+      return <StatusBadge variant="neutral" label="Verifica..." />;
+    }
+    const isOnline = statusResult.available
+      ? statusResult.statuses[printer.sn]
+      : undefined;
+    if (isOnline === undefined) {
+      return <StatusBadge variant="neutral" label="Stato non disponibile" />;
+    }
+    return isOnline
+      ? <StatusBadge variant="success" label="Online" />
+      : <StatusBadge variant="warning" label="Offline" />;
+  };
+
   return (
     <div className={styles.body}>
       <div className={styles.toolbar}>
@@ -120,6 +166,17 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
           più di una, per esempio cucina e bar.
         </p>
         <div className={styles.toolbarActions}>
+          {items.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={<RefreshCw size={16} />}
+              loading={isStatusLoading}
+              onClick={() => loadStatus()}
+            >
+              Aggiorna stato
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -186,6 +243,7 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
                 <span className={styles.rowLabel}>{p.label}</span>
                 <span className={styles.rowSn}>SN {p.sn}</span>
               </div>
+              <div className={styles.rowStatus}>{renderStatusBadge(p)}</div>
               {canManage && (
                 <div className={styles.rowActions}>
                   <TableRowActions

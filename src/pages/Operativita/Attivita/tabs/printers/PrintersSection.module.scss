@@ -89,6 +89,10 @@
     letter-spacing: 0.02em;
 }
 
+.rowStatus {
+    flex-shrink: 0;
+}
+
 .rowActions {
     flex-shrink: 0;
 }

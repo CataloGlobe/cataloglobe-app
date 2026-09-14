@@ -299,8 +299,15 @@ export interface SunmiOnlineStatusEntry {
     is_online: number | boolean;
 }
 
+export interface SunmiOnlineStatusPage {
+    total: number;
+    page_no: number;
+    page_size: number;
+}
+
 export interface SunmiOnlineStatusData {
     list?: SunmiOnlineStatusEntry[];
+    page?: SunmiOnlineStatusPage;
 }
 
 export function sunmiOnlineStatusBySn(
@@ -308,4 +315,24 @@ export function sunmiOnlineStatusBySn(
     options?: SunmiRequestOptions
 ): Promise<SunmiResult<SunmiOnlineStatusData>> {
     return sunmiRequest<SunmiOnlineStatusData>(SUNMI_PATHS.onlineStatus, { sn }, options);
+}
+
+/**
+ * Stato online di TUTTE le stampanti di un negozio Sunmi (una sede = un
+ * negozio) in una sola chiamata, invece di una per singolo `sn`.
+ * `pageSize` di default copre ampiamente il numero di stampanti realistico
+ * per una sede; se `data.page.total` eccede la pagina richiesta il chiamante
+ * lo puo' rilevare confrontando `page.total` con `list.length` e loggarlo,
+ * non troncare in silenzio.
+ */
+export function sunmiOnlineStatusByShop(
+    shopId: number,
+    pageSize = 100,
+    options?: SunmiRequestOptions
+): Promise<SunmiResult<SunmiOnlineStatusData>> {
+    return sunmiRequest<SunmiOnlineStatusData>(
+        SUNMI_PATHS.onlineStatus,
+        { shop_id: shopId, page_no: 1, page_size: pageSize },
+        options
+    );
 }
