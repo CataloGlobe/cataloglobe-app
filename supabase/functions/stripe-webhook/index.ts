@@ -8,6 +8,12 @@ import {
     mapStripeStatus,
     syncSubscriptionStatus
 } from "../_shared/subscriptionStatusSync.ts";
+import {
+    ALLOWED_PLAN_CODES,
+    intervalFromSubscription,
+    lookupPlanPriceByStripeId,
+    type BillingInterval
+} from "../_shared/planPrices.ts";
 
 // Note: this endpoint is called server-to-server by Stripe. CORS headers
 // not needed — never call from a browser.
@@ -113,36 +119,36 @@ function getSubscriptionQuantity(subscription: Stripe.Subscription): number {
  * Returns null if missing or not in the allowed set — caller MUST skip the
  * `plan` update in that case to avoid poisoning the tenants row.
  */
-const ALLOWED_PLAN_CODES = new Set(["base", "pro"]);
 function getSubscriptionPlanCode(subscription: Stripe.Subscription): string | null {
     const code = subscription.metadata?.plan_code?.toLowerCase();
     return code && ALLOWED_PLAN_CODES.has(code) ? code : null;
 }
 
 /**
- * Reverse-lookup del plan_code dal price ID del primo line item via tabella
- * `plans` (stripe_price_id → code). Fonte di verità complementare al metadata:
- * un cambio piano via subscriptions.update / subscription schedule che NON
- * propaga metadata.plan_code viene comunque sincronizzato dal Price (source of
- * truth usata in checkout). Ritorna null se il price non mappa un piano valido.
+ * Piano + intervallo di fatturazione della subscription, risolti dal Price
+ * del primo line item via `plan_prices` (stripe_price_id → plan_code +
+ * billing_interval). Fonte di verità complementare al metadata per il piano:
+ * un cambio via subscriptions.update / subscription schedule che NON propaga
+ * metadata.plan_code viene comunque sincronizzato dal Price. Per l'intervallo
+ * il Price è l'UNICA fonte (i metadata non vengono riscritti da uno schedule
+ * release): se `plan_prices` non risolve, fallback su
+ * items[0].price.recurring.interval; mai sui metadata.
+ *
+ * Ritorna `plan` null se il Price non mappa un piano valido (il caller NON
+ * scrive `plan` in quel caso) e `interval` null se non determinabile (il
+ * caller NON scrive `billing_interval`: mai azzerare un valore buono).
  */
-async function lookupPlanCodeByPriceId(
+async function resolvePlanAndInterval(
     admin: ReturnType<typeof createClient>,
     subscription: Stripe.Subscription
-): Promise<string | null> {
+): Promise<{ plan: string | null; interval: BillingInterval | null }> {
     const priceId = subscription.items?.data?.[0]?.price?.id;
-    if (!priceId) return null;
-    const { data, error } = await admin
-        .from("plans")
-        .select("code")
-        .eq("stripe_price_id", priceId)
-        .maybeSingle();
-    if (error) {
-        console.warn(`stripe-webhook: plans reverse-lookup failed for price ${priceId}:`, error.message);
-        return null;
+    const match = await lookupPlanPriceByStripeId(admin, priceId);
+    if (match) return { plan: match.planCode, interval: match.billingInterval };
+    if (priceId) {
+        console.warn(`stripe-webhook: price ${priceId} not in plan_prices (subscription ${subscription.id}); falling back to recurring.interval`);
     }
-    const code = data?.code?.toLowerCase();
-    return code && ALLOWED_PLAN_CODES.has(code) ? code : null;
+    return { plan: null, interval: intervalFromSubscription(subscription) };
 }
 
 function toIsoTimestamp(seconds: number | null | undefined): string | null {
@@ -437,6 +443,7 @@ serve(async req => {
                 let currentPeriodStart: string | null = null;
                 let planMonthlyValueCents: number | null = null;
                 let planCode: string | null = null;
+                let billingInterval: BillingInterval | null = null;
                 try {
                     const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
                     paidSeats = getSubscriptionQuantity(sub);
@@ -445,7 +452,12 @@ serve(async req => {
                     currentPeriodEnd = getSubscriptionCurrentPeriodEnd(sub);
                     currentPeriodStart = getSubscriptionCurrentPeriodStart(sub);
                     planMonthlyValueCents = await computePlanMonthlyValueCents(stripe, sub);
+                    // Piano: dai metadata (scritti dal checkout), come prima — il
+                    // fallback al Price qui e' volutamente NON applicato per non
+                    // cambiare il comportamento del checkout mensile in questo passo.
+                    // Intervallo: SOLO dal Price (plan_prices → recurring.interval).
                     planCode = getSubscriptionPlanCode(sub);
+                    billingInterval = (await resolvePlanAndInterval(admin, sub)).interval;
                 } catch (err) {
                     console.warn("stripe-webhook: Could not retrieve subscription on checkout:", err.message);
                 }
@@ -469,6 +481,8 @@ serve(async req => {
                     current_period_start: currentPeriodStart
                 };
                 if (planCode) updates.plan = planCode;
+                // Only write when resolved — never wipe a known interval.
+                if (billingInterval !== null) updates.billing_interval = billingInterval;
                 // Only write when computed — a transient Stripe API failure must
                 // never wipe a previously good contractual value.
                 if (planMonthlyValueCents !== null) updates.plan_monthly_value_cents = planMonthlyValueCents;
@@ -490,7 +504,7 @@ serve(async req => {
                 } else if (count === 0) {
                     console.warn(`stripe-webhook: NO TENANT MATCHED id ${tenantId} for event ${event.id} (${event.type}). Possible cause: stale tenant_id metadata or tenant deleted.`);
                 } else {
-                    console.log(`stripe-webhook: Tenant ${tenantId} linked to subscription ${stripeSubscriptionId} (plan=${planCode ?? "unchanged"}, status=${subscriptionStatus}, seats=${paidSeats}, period_end=${currentPeriodEnd ?? "null"})`);
+                    console.log(`stripe-webhook: Tenant ${tenantId} linked to subscription ${stripeSubscriptionId} (plan=${planCode ?? "unchanged"}, interval=${billingInterval ?? "unchanged"}, status=${subscriptionStatus}, seats=${paidSeats}, period_end=${currentPeriodEnd ?? "null"})`);
                 }
                 break;
             }
@@ -515,13 +529,12 @@ serve(async req => {
                         const currentPeriodEnd = getSubscriptionCurrentPeriodEnd(liveSub);
                         const currentPeriodStart = getSubscriptionCurrentPeriodStart(liveSub);
                         const planMonthlyValueCents = await computePlanMonthlyValueCents(stripe, liveSub);
-                        // Priorità al metadata; se assente/non valido (es. cambio piano via
-                        // subscriptions.update o subscription schedule senza metadata),
-                        // deriva il piano dal price ID (source of truth in `plans`).
-                        let planCode = getSubscriptionPlanCode(liveSub);
-                        if (!planCode) {
-                            planCode = await lookupPlanCodeByPriceId(admin, liveSub);
-                        }
+                        // Piano: priorità al metadata; se assente/non valido (es. cambio
+                        // piano via subscriptions.update o subscription schedule senza
+                        // metadata), deriva dal Price (plan_prices). Intervallo: SOLO dal
+                        // Price (plan_prices → recurring.interval), mai dai metadata.
+                        const resolved = await resolvePlanAndInterval(admin, liveSub);
+                        const planCode = getSubscriptionPlanCode(liveSub) ?? resolved.plan;
 
                         const extras: Record<string, unknown> = {
                             paid_seats: paidSeats,
@@ -529,6 +542,8 @@ serve(async req => {
                             current_period_start: currentPeriodStart
                         };
                         if (planCode) extras.plan = planCode;
+                        // Only write when resolved — never wipe a known interval.
+                        if (resolved.interval !== null) extras.billing_interval = resolved.interval;
                         // Only write when computed — a transient Stripe API failure must
                         // never wipe a previously good contractual value.
                         if (planMonthlyValueCents !== null) extras.plan_monthly_value_cents = planMonthlyValueCents;

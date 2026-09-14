@@ -5,7 +5,6 @@ export interface Plan {
     name: string;
     description: string | null;
     monthly_price_cents: number | null;
-    stripe_price_id: string | null;
     features_json: Record<string, unknown>;
     sort_order: number;
     is_public: boolean;

@@ -235,8 +235,13 @@ export async function updateScheduledChange(
 // persistente: cambio programmato e/o disdetta a fine periodo).
 // ---------------------------------------------------------------------------
 
+/** Intervallo di fatturazione, stesso dominio di Stripe `recurring.interval`. */
+export type BillingInterval = "month" | "year";
+
 export type SubscriptionPendingChange = {
     targetPlan: PlanCode | null;
+    /** Intervallo del Price della fase futura (da `plan_prices`), null se non risolto. */
+    targetInterval: BillingInterval | null;
     targetSeats: number | null;
     /** ISO della data di effetto (fine periodo corrente). */
     effectiveDate: string | null;
@@ -266,6 +271,11 @@ export type ConsumedDiscountThisPeriod = SubscriptionDiscount & {
 export type SubscriptionState = {
     /** ISO del fine periodo corrente. */
     currentPeriodEnd: string | null;
+    /**
+     * Intervallo di fatturazione corrente (dal Price live via `plan_prices`),
+     * null se non risolvibile. Popolato solo dall'action "state".
+     */
+    currentInterval?: BillingInterval | null;
     /** true se l'abbonamento è disdetto a fine periodo. */
     cancelAtPeriodEnd: boolean;
     /** Cambio piano/sedi programmato al rinnovo, o null. */

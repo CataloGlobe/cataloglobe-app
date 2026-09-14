@@ -9,6 +9,7 @@ import {
     STRIPE_CUSTOMER_DESCRIPTION_MAX,
     STRIPE_CUSTOMER_NAME_MAX
 } from "../_shared/stripeLimits.ts";
+import { lookupStripePriceId, type BillingInterval } from "../_shared/planPrices.ts";
 
 const ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -36,6 +37,9 @@ const MAX_SELF_SERVICE_SEATS = 5;
 // policy — "how long is the first subscription free" — not a per-plan price
 // attribute; every plan gets the same trial.
 const TRIAL_PERIOD_DAYS = 30;
+// Intervallo di fatturazione del checkout self-service. Fisso finche' la scelta
+// mensile/annuale non entra nel body (passo 2 dell'epic annuale).
+const BILLING_INTERVAL: BillingInterval = "month";
 
 function json(req: Request, status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
@@ -245,22 +249,14 @@ serve(async req => {
         const stripe = new Stripe(STRIPE_SECRET_KEY, stripeClientOptions());
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // --- Resolve price_id from plans.stripe_price_id (DB-driven, single source of truth) ---
-        const { data: planRow, error: planError } = await supabaseAdmin
-            .from("plans")
-            .select("code, stripe_price_id")
-            .eq("code", planCode)
-            .maybeSingle();
-
-        if (planError) {
-            console.error(`stripe-checkout: plans lookup failed for ${planCode}:`, planError);
-            return json(req, 500, { error: "plan_lookup_failed" });
-        }
-
-        const resolvedPriceId = planRow?.stripe_price_id?.trim();
+        // --- Resolve price_id from plan_prices (DB-driven, single source of truth) ---
+        // Intervallo fisso a 'month' in questa fase: la scelta dell'annuale arriva
+        // con il passo successivo (campo body + validazione). `plans.stripe_price_id`
+        // e' deprecata e non va piu' letta.
+        const resolvedPriceId = await lookupStripePriceId(supabaseAdmin, planCode, BILLING_INTERVAL);
         if (!resolvedPriceId) {
             console.error(
-                `stripe-checkout: plans.${planCode}.stripe_price_id is NULL or empty — DB misconfigured`
+                `stripe-checkout: plan_prices has no row for ${planCode}/${BILLING_INTERVAL} — DB misconfigured`
             );
             return json(req, 500, { error: "plan_not_configured" });
         }
