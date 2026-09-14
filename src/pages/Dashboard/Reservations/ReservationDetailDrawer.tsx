@@ -20,6 +20,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import type { TableAssignmentView } from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
 import { formatTableLabels } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import { TableMultiSelect } from "@/components/ui/TableMultiSelect/TableMultiSelect";
+import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import type { V2Table } from "@/types/orders";
 import GuestConfirmedMark from "./GuestConfirmedMark";
 import ReminderStatusMark from "./ReminderStatusMark";
@@ -130,6 +131,18 @@ interface Props {
     onArrive?: () => Promise<boolean>;
     onCompleteService?: () => Promise<boolean>;
     onUndoArrival?: () => Promise<boolean>;
+    /**
+     * `seatings.party_size` della tavolata aperta: i coperti REALI. `null` =
+     * non indicati; `undefined` = tavolata non caricata (o non c'è).
+     * Rilevante solo nella forma `seated` della sezione TAVOLO.
+     */
+    seatingPartySize?: number | null;
+    /**
+     * Corregge i coperti reali (`set_seating_party_size`). Scrive sulla
+     * TAVOLATA, non sulla prenotazione: la prenotazione è la promessa fatta
+     * ieri e resta quella che era. Stessa regola piano/fatto dei tavoli.
+     */
+    onSetSeatingPartySize?: (partySize: number) => Promise<boolean>;
 }
 
 function formatDateIt(isoDate: string): string {
@@ -195,9 +208,11 @@ function tableSectionHint(
             // si rompe, e al bar è la norma.
             return "Tavolo occupato adesso. Cambiando tavolo sposti la tavolata, non la proposta.";
         case "closed":
-            // Non "hanno mangiato": in un bar non si mangia, e la frase deve
-            // valere per ogni tipo di locale.
-            return "Erano seduti qui.";
+            // In coppia con "Era il tavolo previsto." dei terminali senza
+            // tavolata: stesso tempo, stesso soggetto (il tavolo). Non conta
+            // le persone — su una prenotazione per uno "erano seduti" si
+            // rompe — e non dice "mangiato": in un bar non si mangia.
+            return many ? "Erano i tavoli occupati." : "Era il tavolo occupato.";
         // Senza tavolata non ci sono righe da commentare: la frase la dà il
         // caso vuoto, qui non serve.
         default:
@@ -210,11 +225,11 @@ function tableSectionEmptyHint(note: TableSectionNote | undefined): string {
     switch (note) {
         case "plan_past":
             return "Nessun tavolo era previsto.";
+        // Seduti o conclusi senza tavolo: la stessa frase del drawer della
+        // tavolata, senza contare le persone.
         case "seated":
-            return "Sono seduti senza un tavolo assegnato.";
         case "closed":
-            // Parallela al caso "seduti": stessa frase, stesso tempo verbale.
-            return "Erano seduti senza un tavolo assegnato.";
+            return "Nessun tavolo assegnato.";
         case "fact_loading":
             // Impersonale: l'applicazione non parla in prima persona altrove.
             return "Caricamento della tavolata…";
@@ -254,7 +269,9 @@ export default function ReservationDetailDrawer({
     canManageSeatings = false,
     onArrive,
     onCompleteService,
-    onUndoArrival
+    onUndoArrival,
+    seatingPartySize,
+    onSetSeatingPartySize
 }: Props) {
     const durationMin = activityDurationMinutes ?? DEFAULT_DURATION_MINUTES;
 
@@ -285,6 +302,12 @@ export default function ReservationDetailDrawer({
     const [savingTables, setSavingTables] = useState(false);
     const [resettingTables, setResettingTables] = useState(false);
 
+    // Coperti reali, inline: stepper + conferma. Parte dai coperti della
+    // tavolata, o da quelli prenotati se la tavolata non li ha ancora.
+    const [coversOpen, setCoversOpen] = useState(false);
+    const [coversDraft, setCoversDraft] = useState(2);
+    const [savingCovers, setSavingCovers] = useState(false);
+
     // Quale gesto della tavolata è in volo. Uno per volta: sono operazioni che
     // si escludono a vicenda, e due spinner insieme sarebbero solo confusione.
     const [seatingBusy, setSeatingBusy] = useState<SeatingActionKey | null>(null);
@@ -295,8 +318,17 @@ export default function ReservationDetailDrawer({
     useEffect(() => {
         setPickerOpen(false);
         setPickerIds([]);
+        setCoversOpen(false);
         setSeatingBusy(null);
     }, [reservationId, open]);
+
+    const handleConfirmCovers = async () => {
+        if (!onSetSeatingPartySize) return;
+        setSavingCovers(true);
+        const ok = await onSetSeatingPartySize(coversDraft);
+        setSavingCovers(false);
+        if (ok) setCoversOpen(false);
+    };
 
     const openPicker = () => {
         setPickerIds(activeTableView ? activeTableView.rows.map(r => r.table_id) : []);
@@ -785,6 +817,78 @@ export default function ReservationDetailDrawer({
                                 </>
                             ) : (
                                 <p className={styles.drawerTableHint}>{tableEmptyHint}</p>
+                            )}
+                        </section>
+                    )}
+
+                    {/* ── Coperti reali ──────────────────────────────────
+                         Solo nella forma `seated`: è la regola della sezione
+                         TAVOLO estesa dai tavoli ai coperti. La prenotazione
+                         diceva quattro, ne sono arrivati cinque: cambia la
+                         tavolata (`seatings.party_size`), non la prenotazione,
+                         che è la promessa fatta ieri e resta quella che era.
+                         Su `completed` i coperti sono storia e non si toccano
+                         (la RPC rifiuta con 22023, e qui il gesto non c'è). */}
+                    {tableSection?.note === "seated" && (
+                        <section className={styles.drawerSection}>
+                            <div className={styles.drawerSectionHead}>
+                                <h3 className={styles.drawerSectionTitle}>Coperti</h3>
+                                {tableSection.target === "seating" &&
+                                    onSetSeatingPartySize &&
+                                    !coversOpen && (
+                                        <div className={styles.drawerTableActions}>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setCoversDraft(
+                                                        seatingPartySize ??
+                                                            reservation.party_size
+                                                    );
+                                                    setCoversOpen(true);
+                                                }}
+                                            >
+                                                Correggi i coperti
+                                            </Button>
+                                        </div>
+                                    )}
+                            </div>
+                            {coversOpen ? (
+                                <div className={styles.drawerTablePicker}>
+                                    <SeatsInput
+                                        value={coversDraft}
+                                        onChange={setCoversDraft}
+                                        min={1}
+                                        max={99}
+                                        disabled={savingCovers}
+                                    />
+                                    <div className={styles.drawerTablePickerActions}>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            disabled={savingCovers}
+                                            onClick={() => setCoversOpen(false)}
+                                        >
+                                            Annulla
+                                        </Button>
+                                        <Button
+                                            variant="primary"
+                                            size="sm"
+                                            loading={savingCovers}
+                                            onClick={handleConfirmCovers}
+                                        >
+                                            Conferma
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <p className={styles.drawerTableHint}>
+                                    {seatingPartySize === undefined || seatingPartySize === null
+                                        ? `Al tavolo: non indicati · prenotati ${reservation.party_size}`
+                                        : seatingPartySize === reservation.party_size
+                                          ? `Al tavolo: ${seatingPartySize}, come prenotato`
+                                          : `Al tavolo: ${seatingPartySize} · prenotati ${reservation.party_size}`}
+                                </p>
                             )}
                         </section>
                     )}

@@ -1522,3 +1522,10 @@
     outline-offset: 2px;
   }
 }
+
+/* Azione di sezione (es. "+ Senza prenotazione" in "In sala adesso"):
+   a destra, sulla stessa riga del titolo. */
+.serviceSectionAction {
+  margin-left: auto;
+  align-self: center;
+}

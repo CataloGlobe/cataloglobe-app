@@ -6,6 +6,7 @@ import {
     Clock,
     Lock,
     MapPin,
+    Plus,
     TriangleAlert,
     Users
 } from "lucide-react";
@@ -21,27 +22,23 @@ import {
 import type { V2Reservation } from "@/types/reservation";
 import type { SeatingWithState } from "@/types/seating";
 import { seatingDisplayName, type ServiceBoard } from "./serviceBoard";
+import { formatCovers, formatOpenFor, seatingDrawerFor, walkinTitle } from "./seatingDrawer";
+import { Button } from "@/components/ui/Button/Button";
 import styles from "./Reservations.module.scss";
 
 // ── La schermata di servizio ──────────────────────────────────────────────
-// Quella che l'host tiene aperta all'ingresso. In questa fase MOSTRA e APRE,
-// non crea: le righe portano al drawer della prenotazione che esiste già,
-// con i gesti che esistono già (arrivato / servizio concluso / annulla).
+// Quella che l'host tiene aperta all'ingresso. Mostra, apre e — dalla 2.7 —
+// crea: "+ Senza prenotazione" apre una tavolata senza passare da una
+// prenotazione finta, e il drawer della tavolata la corregge e la chiude.
 //
 // Fuori da questa fase, per scelta e non per dimenticanza:
-//   - aprire una tavolata senza prenotazione (walk-in) → 2.7
-//   - correggere i coperti reali (`set_seating_party_size` esiste già lato
-//     SQL e qui non ha chiamanti) → 2.7
-//   - la tavolata aperta troppo a lungo (a staging ce n'è una da 28 ore senza
-//     nessun segnale) → 2.7 (D6). Esiste solo perché manca la chiusura
-//     automatica di fine giornata, e un avviso costruito adesso segnalerebbe
-//     una condizione che la 2.7 rende impossibile. La soglia giusta non è
-//     una durata — "più di X ore" è arbitrario, "ancora aperta dopo la
-//     chiusura del locale" è un fatto, e la 2.7 deve comunque conoscere
-//     l'orario di chiusura.
-//   - realtime sullo SPOSTAMENTO di una tavolata (`seating_tables` non è
-//     nella publication: aprire/chiudere/annullare propagano, spostare no)
-//     → 2.7
+//   - la chiusura automatica di fine giornata → 2.8, con una ricognizione
+//     sul modello degli orari di apertura prima.
+//   - la tavolata aperta troppo a lungo → 2.8: la soglia giusta è "ancora
+//     aperta dopo la chiusura del locale", non un numero di ore, e nasce
+//     dallo stesso dato dell'auto-close.
+//   - collegare a posteriori un walk-in a una prenotazione ("avevamo
+//     prenotato a un altro nome") → non ora: raro, e va progettato a parte.
 //   - l'incontro con Ordini → Tavoli (`v_tables_with_state`) → BLOCCO 3
 //
 // Stati vuoti: si mostra quello che c'è. "In arrivo" e "Concluse" vuoti
@@ -51,11 +48,13 @@ import styles from "./Reservations.module.scss";
 // "nessun dato": chi non può vedere trova il gate di `seatings.read` più
 // sopra, non una sala che sembra deserta.
 //
-// L'elemento cliccabile è il NOME, mai la riga. Una riga che sembra uguale
-// ovunque ma a volte non fa niente insegna a non fidarsi del click; con
-// l'affordance sul nome, zero, uno e molti nomi sono lo stesso comportamento
-// invece di tre eccezioni — e quando arriverà il drawer della tavolata la
-// riga diventerà cliccabile ovunque senza abitudini da disimparare.
+// La RIGA è cliccabile ovunque e apre il drawer dell'entità che ha più da
+// dire (`seatingDrawerFor`): quello della prenotazione se ce n'è una, quello
+// della tavolata per un walk-in. I NOMI restano scorciatoie verso la singola
+// prenotazione — con due prenotazioni sulla stessa tavolata, ogni nome apre
+// la sua. Nessuna riga che sembra uguale alle altre e non fa niente.
+//
+// Per un walk-in i tavoli SONO il nome ("il sette"), non un'etichetta finta.
 
 interface Props {
     /** `null` = non ancora caricato per questa sede. */
@@ -77,6 +76,10 @@ interface Props {
     /** Piano tavoli delle prenotazioni in arrivo (badge). */
     tableViews: ReadonlyMap<string, TableAssignmentView>;
     onOpenDetail: (r: V2Reservation) => void;
+    /** Apre il drawer della tavolata (walk-in). */
+    onOpenSeating: (s: SeatingWithState) => void;
+    /** "+ Senza prenotazione". Assente = nessun bottone (niente permesso). */
+    onOpenWalkin?: () => void;
 }
 
 const TIME_FORMATTER = new Intl.DateTimeFormat("it-IT", {
@@ -86,27 +89,6 @@ const TIME_FORMATTER = new Intl.DateTimeFormat("it-IT", {
 
 function formatClock(iso: string): string {
     return TIME_FORMATTER.format(new Date(iso));
-}
-
-/** "da 45 min" · "da 1 h 20 min". Sotto il minuto: "da poco". */
-function formatOpenFor(openedAtIso: string, now: Date): string {
-    const ms = now.getTime() - new Date(openedAtIso).getTime();
-    const totalMin = Math.floor(ms / 60_000);
-    // "da poco", non "appena": stessa forma di "da 23 h 11 min" nella riga
-    // accanto.
-    if (totalMin < 1) return "da poco";
-    if (totalMin < 60) return `da ${totalMin} min`;
-    const h = Math.floor(totalMin / 60);
-    const m = totalMin % 60;
-    return m === 0 ? `da ${h} h` : `da ${h} h ${m} min`;
-}
-
-function formatCovers(n: number | null): string {
-    // "non indicati", non "da dichiarare": il gesto per dichiararli non
-    // esiste ancora (arriva nella 2.7), e una frase che suona come un invito
-    // a fare qualcosa che non si può fare è una frase sbagliata.
-    if (n === null) return "coperti non indicati";
-    return `${n} ${n === 1 ? "coperto" : "coperti"}`;
 }
 
 /** Etichette dei tavoli di una tavolata, in ordine umano. */
@@ -120,7 +102,9 @@ export default function ReservationsService({
     canRead,
     reservationsById,
     tableViews,
-    onOpenDetail
+    onOpenDetail,
+    onOpenSeating,
+    onOpenWalkin
 }: Props) {
     // "da 45 min" deve restare vero anche se non succede niente: un tick al
     // minuto, senza refetch. I dati cambiano via realtime, l'orologio da qui.
@@ -174,20 +158,53 @@ export default function ReservationsService({
         );
     }
 
+    // La riga apre il drawer dell'entità che ha più da dire. Con più
+    // prenotazioni, la prima; i nomi restano scorciatoie verso ciascuna.
+    const openRow = (s: SeatingWithState) => {
+        if (seatingDrawerFor(s) === "seating") {
+            onOpenSeating(s);
+            return;
+        }
+        const first = reservationsById.get(s.reservations[0].reservation_id);
+        if (first) onOpenDetail(first);
+        else onOpenSeating(s);
+    };
+
     const renderSeatingRow = (s: SeatingWithState, done: boolean) => {
         const labels = seatingTableLabels(s);
         const conflicts = done ? [] : (board.conflicts.get(s.id) ?? []);
         const removed = s.tables.filter(t => t.deleted_at !== null);
+        const isWalkin = s.reservations.length === 0;
+        const covers = formatCovers(s.party_size);
         return (
-            <div key={s.id} className={done ? styles.serviceRowDone : styles.serviceRow}>
+            <div
+                key={s.id}
+                role="button"
+                tabIndex={0}
+                className={done ? styles.rowDimmed : styles.row}
+                onClick={() => openRow(s)}
+                onKeyDown={e => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        openRow(s);
+                    }
+                }}
+            >
                 <div className={styles.rowMain}>
                     <div className={styles.rowContent}>
                         <div className={styles.rowTopLine}>
-                            {s.reservations.length === 0 ? (
-                                // Il walk-in non è un caso di bordo: si dice,
-                                // non si lascia vuoto. E non c'è niente da
-                                // premere finché non esiste il suo drawer.
-                                <span className={styles.serviceWalkinMark}>Senza prenotazione</span>
+                            {isWalkin ? (
+                                // I tavoli sono il nome. Senza tavoli la riga
+                                // vive di coperti e durata: è una tavolata di
+                                // cui davvero si sa poco, e va bene che si veda.
+                                <>
+                                    {walkinTitle(s) !== null && (
+                                        <span className={styles.rowName}>{walkinTitle(s)}</span>
+                                    )}
+                                    <span className={styles.serviceWalkinMark}>
+                                        Senza prenotazione
+                                    </span>
+                                </>
                             ) : (
                                 s.reservations.map((r, i) => {
                                     const full = reservationsById.get(r.reservation_id);
@@ -202,7 +219,10 @@ export default function ReservationsService({
                                                 <button
                                                     type="button"
                                                     className={styles.serviceNameButton}
-                                                    onClick={() => onOpenDetail(full)}
+                                                    onClick={e => {
+                                                        e.stopPropagation();
+                                                        onOpenDetail(full);
+                                                    }}
                                                 >
                                                     {r.customer_name}
                                                 </button>
@@ -214,9 +234,12 @@ export default function ReservationsService({
                                 })
                             )}
                             <span className={styles.rowMeta}>
-                                <Users size={13} strokeWidth={2} aria-hidden />{" "}
-                                {formatCovers(s.party_size)}
-                                <span className={styles.todayBarSeparator}> · </span>
+                                {covers !== null && (
+                                    <>
+                                        <Users size={13} strokeWidth={2} aria-hidden /> {covers}
+                                        <span className={styles.todayBarSeparator}> · </span>
+                                    </>
+                                )}
                                 <Clock size={13} strokeWidth={2} aria-hidden />{" "}
                                 {done
                                     ? s.closed_at
@@ -259,18 +282,22 @@ export default function ReservationsService({
                         )}
                     </div>
                 </div>
-                <div className={styles.rowRight}>
-                    <span
-                        className={
-                            conflicts.length > 0
-                                ? styles.serviceTablesConflict
-                                : styles.serviceTables
-                        }
-                    >
-                        <Armchair size={13} strokeWidth={2} aria-hidden />
-                        {labels.length > 0 ? formatTableLabels(labels) : "Nessun tavolo"}
-                    </span>
-                </div>
+                {/* Per un walk-in i tavoli sono già il titolo: la colonna
+                    destra non li ripete. */}
+                {!isWalkin && (
+                    <div className={styles.rowRight}>
+                        <span
+                            className={
+                                conflicts.length > 0
+                                    ? styles.serviceTablesConflict
+                                    : styles.serviceTables
+                            }
+                        >
+                            <Armchair size={13} strokeWidth={2} aria-hidden />
+                            {labels.length > 0 ? formatTableLabels(labels) : "Nessun tavolo"}
+                        </span>
+                    </div>
+                )}
             </div>
         );
     };
@@ -283,6 +310,21 @@ export default function ReservationsService({
                     <h2 className={styles.inboxSectionTitle}>In sala adesso</h2>
                     {board.inRoom.length > 0 && (
                         <span className={styles.inboxSectionCount}>{board.inRoom.length}</span>
+                    )}
+                    {/* Qui e non nel PageHeader: lì vive "+ Nuova
+                        prenotazione", condivisa con Inbox e Agenda, ed è
+                        un'altra cosa. "Senza prenotazione" dice l'unica cosa
+                        che lo distingue, ed è la parola che un host userebbe. */}
+                    {onOpenWalkin && (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            className={styles.serviceSectionAction}
+                            leftIcon={<Plus size={14} />}
+                            onClick={onOpenWalkin}
+                        >
+                            Senza prenotazione
+                        </Button>
                     )}
                 </div>
                 {board.inRoom.length === 0 ? (

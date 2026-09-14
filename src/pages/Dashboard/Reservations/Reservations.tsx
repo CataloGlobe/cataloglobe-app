@@ -28,6 +28,8 @@ import {
     listSeatingsWithState,
     listSeatingTables,
     openSeatingForReservation,
+    openWalkinSeating,
+    setSeatingPartySize,
     setSeatingTables,
     undoSeating
 } from "@/services/supabase/seatings";
@@ -61,7 +63,9 @@ import ReservationCreateEditDrawer from "./ReservationCreateEditDrawer";
 import ReservationsInbox from "./ReservationsInbox";
 import ReservationsAgenda from "./ReservationsAgenda";
 import ReservationsService from "./ReservationsService";
-import { composeServiceBoard } from "./serviceBoard";
+import SeatingDetailDrawer from "./SeatingDetailDrawer";
+import WalkinCreateDrawer from "./WalkinCreateDrawer";
+import { composeServiceBoard, seatingDisplayName } from "./serviceBoard";
 import { tableWriteTargetFor } from "./tableSection";
 import { useDeferredCommit, type DeferredAction } from "./useDeferredCommit";
 import { useReservationsRealtime } from "./hooks/useReservationsRealtime";
@@ -639,14 +643,24 @@ export default function Reservations() {
         : false;
     const selectedActivityId = selectedReservation?.activity_id ?? null;
 
+    // Sede di cui servono i tavoli, ADESSO: quella della prenotazione aperta
+    // nel drawer, oppure quella della scheda Servizio (walk-in e drawer
+    // della tavolata usano lo stesso picker). Una sola cache per sede.
+    const tablesWantedFor: string | null =
+        isDrawerOpen && selectedActivityId && selectedCanManage
+            ? selectedActivityId
+            : tab === "service" && scope !== "__all__" && canManageSeatingsOn(scope)
+              ? scope
+              : null;
+
     useEffect(() => {
-        if (!isDrawerOpen || !tenantId || !selectedActivityId || !selectedCanManage) return;
-        if (tablesByActivity.has(selectedActivityId)) return;
+        if (!tenantId || !tablesWantedFor) return;
+        if (tablesByActivity.has(tablesWantedFor)) return;
         let alive = true;
-        listTables(tenantId, selectedActivityId)
+        listTables(tenantId, tablesWantedFor)
             .then(rows => {
                 if (!alive) return;
-                setTablesByActivity(prev => new Map(prev).set(selectedActivityId, rows));
+                setTablesByActivity(prev => new Map(prev).set(tablesWantedFor, rows));
             })
             .catch(() => {
                 if (!alive) return;
@@ -655,7 +669,7 @@ export default function Reservations() {
         return () => {
             alive = false;
         };
-    }, [isDrawerOpen, tenantId, selectedActivityId, selectedCanManage, tablesByActivity, showToast]);
+    }, [tenantId, tablesWantedFor, tablesByActivity, showToast]);
 
     const selectedTables = selectedActivityId
         ? tablesByActivity.get(selectedActivityId)
@@ -694,7 +708,8 @@ export default function Reservations() {
     // trovata. Il drawer tratta i due casi diversamente, e vanno tenuti
     // distinti: "sto caricando" e "non c'è" dicono cose opposte all'operatore.
     const [detailSeating, setDetailSeating] = useState<
-        { id: string | null; view: TableAssignmentView | null } | undefined
+        | { id: string | null; view: TableAssignmentView | null; partySize: number | null }
+        | undefined
     >(undefined);
     // Le scritture sulla tavolata non passano da `loadData` (che ricarica
     // prenotazioni e piano): questo token le fa ricaricare.
@@ -722,18 +737,22 @@ export default function Reservations() {
                 });
                 if (!alive) return;
                 if (!seating) {
-                    setDetailSeating({ id: null, view: null });
+                    setDetailSeating({ id: null, view: null, partySize: null });
                     return;
                 }
                 const rows = await listSeatingTables(seating.id, tenantId);
                 if (!alive) return;
-                setDetailSeating({ id: seating.id, view: seatingTableView(rows) });
+                setDetailSeating({
+                    id: seating.id,
+                    view: seatingTableView(rows),
+                    partySize: seating.party_size
+                });
             } catch {
                 if (!alive) return;
                 // Non si ripiega su `{ id: null }` in silenzio: "non c'è
                 // tavolata" e "non sono riuscito a leggerla" portano
                 // l'operatore a due conclusioni diverse.
-                setDetailSeating({ id: null, view: null });
+                setDetailSeating({ id: null, view: null, partySize: null });
                 showToast({ message: "Errore nel caricamento della tavolata.", type: "error" });
             }
         })();
@@ -1042,6 +1061,166 @@ export default function Reservations() {
         [effectiveReservations]
     );
 
+    // ── La tavolata: drawer proprio (walk-in) e apertura senza prenotazione ──
+    // La tavolata selezionata si legge DAL board, non da uno snapshot: così
+    // il drawer segue il realtime (un collega la sposta, il drawer lo vede).
+    const [isWalkinOpen, setIsWalkinOpen] = useState(false);
+    const [isSeatingDrawerOpen, setIsSeatingDrawerOpen] = useState(false);
+    const [selectedSeatingId, setSelectedSeatingId] = useState<string | null>(null);
+    const selectedSeating = useMemo(
+        () =>
+            selectedSeatingId
+                ? (serviceSeatings ?? []).find(s => s.id === selectedSeatingId) ?? null
+                : null,
+        [selectedSeatingId, serviceSeatings]
+    );
+    const serviceCanManage =
+        serviceActivityId !== null ? canManageSeatingsOn(serviceActivityId) : false;
+    const serviceTables = serviceActivityId ? tablesByActivity.get(serviceActivityId) : undefined;
+
+    // table_id → chi lo occupa ADESSO (tavolate aperte), per il picker. Si
+    // mostra, non si impedisce: la doppia occupazione è un fatto di sala che
+    // va visto, non un errore da bloccare. Esclusa la tavolata che si sta
+    // modificando: non può essere in conflitto con sé stessa.
+    const serviceTableOccupancy = useMemo<ReadonlyMap<string, string>>(() => {
+        const out = new Map<string, string>();
+        for (const s of serviceBoard?.inRoom ?? []) {
+            if (s.id === selectedSeatingId) continue;
+            const name = seatingDisplayName(s);
+            for (const t of s.tables) {
+                const prev = out.get(t.table_id);
+                out.set(t.table_id, prev ? `${prev}, ${name}` : name);
+            }
+        }
+        return out;
+    }, [serviceBoard, selectedSeatingId]);
+
+    const handleOpenSeating = useCallback((s: SeatingWithState) => {
+        setSelectedSeatingId(s.id);
+        setIsSeatingDrawerOpen(true);
+    }, []);
+
+    // Stessa forma dei gesti del drawer della prenotazione: RPC → ricarica →
+    // toast, ritorna true se riuscito. La ricarica passa dal token della
+    // scheda Servizio, che è l'unica cosa che una tavolata senza
+    // prenotazione può cambiare.
+    const reloadService = useCallback(() => setServiceReloadToken(t => t + 1), []);
+
+    const handleOpenWalkin = useCallback(
+        async (tableIds: string[], partySize: number | null): Promise<boolean> => {
+            if (!tenantId || !serviceActivityId) return false;
+            try {
+                await openWalkinSeating(serviceActivityId, tableIds, partySize, tenantId);
+                reloadService();
+                showToast({ message: "Tavolata aperta.", type: "success" });
+                return true;
+            } catch (err) {
+                showToast({
+                    message: err instanceof Error ? err.message : "Errore inatteso",
+                    type: "error"
+                });
+                return false;
+            }
+        },
+        [tenantId, serviceActivityId, reloadService, showToast]
+    );
+
+    const runSeatingGesture = useCallback(
+        async (gesture: () => Promise<unknown>, successMessage: string, type: "success" | "info") => {
+            try {
+                await gesture();
+                reloadService();
+                showToast({ message: successMessage, type });
+                return true;
+            } catch (err) {
+                showToast({
+                    message: err instanceof Error ? err.message : "Errore inatteso",
+                    type: "error"
+                });
+                return false;
+            }
+        },
+        [reloadService, showToast]
+    );
+
+    const handleSeatingSetTables = useCallback(
+        async (tableIds: string[]): Promise<boolean> => {
+            if (!tenantId || !selectedSeatingId) return false;
+            return runSeatingGesture(
+                () => setSeatingTables(selectedSeatingId, tableIds, tenantId),
+                tableIds.length === 0
+                    ? "Tavolata senza tavolo."
+                    : `Tavolata spostata a${tableIds.length > 1 ? "i" : "l"} ${formatTableLabels(tableIds.map(labelForTableId))}.`,
+                "success"
+            );
+        },
+        [tenantId, selectedSeatingId, runSeatingGesture, labelForTableId]
+    );
+
+    const handleSeatingSetPartySize = useCallback(
+        async (partySize: number): Promise<boolean> => {
+            if (!tenantId || !selectedSeatingId) return false;
+            return runSeatingGesture(
+                () => setSeatingPartySize(selectedSeatingId, partySize, tenantId),
+                `Coperti al tavolo: ${partySize}.`,
+                "success"
+            );
+        },
+        [tenantId, selectedSeatingId, runSeatingGesture]
+    );
+
+    const handleSeatingComplete = useCallback(async (): Promise<boolean> => {
+        if (!tenantId || !selectedSeatingId) return false;
+        return runSeatingGesture(
+            () => closeSeating(selectedSeatingId, "operator", tenantId),
+            "Servizio concluso.",
+            "success"
+        );
+    }, [tenantId, selectedSeatingId, runSeatingGesture]);
+
+    const handleSeatingUndo = useCallback(async (): Promise<boolean> => {
+        if (!tenantId || !selectedSeatingId) return false;
+        return runSeatingGesture(
+            () => undoSeating(selectedSeatingId, tenantId),
+            "Tavolata annullata.",
+            "info"
+        );
+    }, [tenantId, selectedSeatingId, runSeatingGesture]);
+
+    // I coperti reali dal drawer della PRENOTAZIONE (forma `seated`): scrive
+    // sulla tavolata collegata, mai su `reservations.party_size`.
+    const handleSetSeatingPartySizeFromReservation = useCallback(
+        async (partySize: number): Promise<boolean> => {
+            if (!tenantId) return false;
+            const seatingId = detailSeating?.id ?? null;
+            if (!seatingId) {
+                await loadData();
+                setSeatingReloadToken(t => t + 1);
+                showToast({
+                    message: "Nessuna tavolata aperta per questa prenotazione.",
+                    type: "error"
+                });
+                return false;
+            }
+            try {
+                const row = await setSeatingPartySize(seatingId, partySize, tenantId);
+                setDetailSeating(prev =>
+                    prev && prev.id === seatingId ? { ...prev, partySize: row.party_size } : prev
+                );
+                reloadService();
+                showToast({ message: `Coperti al tavolo: ${partySize}.`, type: "success" });
+                return true;
+            } catch (err) {
+                showToast({
+                    message: err instanceof Error ? err.message : "Errore inatteso",
+                    type: "error"
+                });
+                return false;
+            }
+        },
+        [tenantId, detailSeating, loadData, reloadService, showToast]
+    );
+
     // ── Today bar ─────────────────────────────────────────────────────
     // Il banner conta quello che il locale ha accettato e quello che è già
     // successo: `confirmed + seated + completed`, UN insieme solo per conteggio
@@ -1214,9 +1393,32 @@ export default function Reservations() {
                         reservationsById={reservationsById}
                         tableViews={tableViews}
                         onOpenDetail={handleOpenDetail}
+                        onOpenSeating={handleOpenSeating}
+                        onOpenWalkin={serviceCanManage ? () => setIsWalkinOpen(true) : undefined}
                     />
                 )}
             </div>
+
+            <SeatingDetailDrawer
+                open={isSeatingDrawerOpen}
+                onClose={() => setIsSeatingDrawerOpen(false)}
+                seating={selectedSeating}
+                tables={serviceTables}
+                tableOccupancy={serviceTableOccupancy}
+                canManageSeatings={serviceCanManage}
+                onSetTables={handleSeatingSetTables}
+                onSetPartySize={handleSeatingSetPartySize}
+                onComplete={handleSeatingComplete}
+                onUndo={handleSeatingUndo}
+            />
+
+            <WalkinCreateDrawer
+                open={isWalkinOpen}
+                onClose={() => setIsWalkinOpen(false)}
+                tables={serviceTables}
+                occupiedBy={serviceTableOccupancy}
+                onSubmit={handleOpenWalkin}
+            />
 
             <ReservationDetailDrawer
                 open={isDrawerOpen}
@@ -1254,6 +1456,8 @@ export default function Reservations() {
                 onArrive={handleArrive}
                 onCompleteService={handleCompleteService}
                 onUndoArrival={handleUndoArrival}
+                seatingPartySize={detailSeating === undefined ? undefined : detailSeating.partySize}
+                onSetSeatingPartySize={handleSetSeatingPartySizeFromReservation}
                 guestSummary={detailGuest}
                 tenantWide={tenantWide}
                 onOpenGuest={

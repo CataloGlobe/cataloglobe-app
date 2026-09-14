@@ -14,9 +14,11 @@ vi.mock("@/services/supabase/client", () => ({
 
 import {
     openSeatingForReservation,
+    openWalkinSeating,
     closeSeating,
     undoSeating,
     setSeatingTables,
+    setSeatingPartySize,
     getSeatingForReservation
 } from "@/services/supabase/seatings";
 
@@ -187,6 +189,79 @@ describe("getSeatingForReservation", () => {
         );
         await expect(getSeatingForReservation("r1", "t1")).rejects.toMatchObject({
             code: "PGRST301"
+        });
+    });
+});
+
+describe("openWalkinSeating — arriva gente senza prenotazione", () => {
+    it("tavoli e coperti facoltativi arrivano alla RPC come sono, anche vuoti/null", async () => {
+        rpc.mockResolvedValue({ data: { id: "s1", status: "open" }, error: null });
+        await openWalkinSeating("a1", [], null, "t1");
+        expect(rpc).toHaveBeenCalledWith("open_walkin_seating", {
+            p_activity_id: "a1",
+            p_table_ids: [],
+            p_party_size: null
+        });
+    });
+
+    it("42501 → 'Operazione non autorizzata' (sede non tua, o tavolo non di questa sede)", async () => {
+        rpc.mockResolvedValue({
+            data: null,
+            error: { code: "42501", message: "FORBIDDEN: one or more tables not accessible" }
+        });
+        await expect(openWalkinSeating("a1", ["x"], 2, "t1")).rejects.toMatchObject({
+            message: "Operazione non autorizzata",
+            code: "42501"
+        });
+    });
+
+    it("22023 tiene il messaggio del server (coperti non positivi, duplicati…)", async () => {
+        rpc.mockResolvedValue({
+            data: null,
+            error: { code: "22023", message: "Duplicate table_id in p_table_ids" }
+        });
+        await expect(openWalkinSeating("a1", ["x", "x"], 2, "t1")).rejects.toMatchObject({
+            message: "Duplicate table_id in p_table_ids",
+            code: "22023"
+        });
+    });
+});
+
+describe("setSeatingPartySize — i coperti reali", () => {
+    it("scrive sulla tavolata, non sulla prenotazione", async () => {
+        rpc.mockResolvedValue({ data: { id: "s1", party_size: 5 }, error: null });
+        const row = await setSeatingPartySize("s1", 5, "t1");
+        expect(rpc).toHaveBeenCalledWith("set_seating_party_size", {
+            p_seating_id: "s1",
+            p_party_size: 5
+        });
+        expect(row).toMatchObject({ party_size: 5 });
+    });
+
+    it("42501 → 'Operazione non autorizzata'", async () => {
+        rpc.mockResolvedValue({
+            data: null,
+            error: { code: "42501", message: "FORBIDDEN: seating not accessible" }
+        });
+        await expect(setSeatingPartySize("s1", 5, "t1")).rejects.toMatchObject({
+            message: "Operazione non autorizzata",
+            code: "42501"
+        });
+    });
+
+    it("22023 tiene il messaggio del server: 'chiusa' e 'non positivo' sono cose diverse", async () => {
+        rpc.mockResolvedValue({
+            data: null,
+            error: {
+                code: "22023",
+                message:
+                    "Only an open seating can change party size (status closed). A closed seating is history."
+            }
+        });
+        await expect(setSeatingPartySize("s1", 5, "t1")).rejects.toMatchObject({
+            message:
+                "Only an open seating can change party size (status closed). A closed seating is history.",
+            code: "22023"
         });
     });
 });

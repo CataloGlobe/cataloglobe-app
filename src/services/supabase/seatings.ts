@@ -296,6 +296,38 @@ export async function setSeatingTables(
 }
 
 /**
+ * I coperti reali. La prenotazione diceva quattro, ne sono arrivati cinque:
+ * cambia la tavolata, non la prenotazione — quella è la promessa fatta ieri
+ * e resta quella che era. È la regola della sezione TAVOLO (piano/fatto),
+ * estesa dai tavoli ai coperti.
+ *
+ * Solo intero positivo. `null` NON è ammesso qui benché la colonna lo
+ * accetti: sulla riga NULL significa "ancora ignoto", stato in cui una
+ * tavolata NASCE; tornarci da un numero già dichiarato cancellerebbe un dato
+ * che qualcuno ha inserito, e un NULL in ingresso è quasi sempre un
+ * parametro dimenticato. Il tipo lo dice: `number`, non `number | null`.
+ *
+ * Errori (`.code`):
+ *   42501 → tavolata inesistente o non autorizzata
+ *   22023 → tavolata chiusa, oppure coperti non positivi
+ */
+export async function setSeatingPartySize(
+    seatingId: string,
+    partySize: number,
+    // Firma uniforme del service; tenant e sede vengono dalla riga lato server.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _tenantId: string
+): Promise<Seating> {
+    const { data, error } = await supabase.rpc("set_seating_party_size", {
+        p_seating_id: seatingId,
+        p_party_size: partySize
+    });
+
+    if (error) throw mapSeatingRpcError(error);
+    return data as Seating;
+}
+
+/**
  * Il servizio è finito: chiude la tavolata e porta a `completed` le
  * prenotazioni che ci sedevano. Le righe dei tavoli restano — l'occupazione si
  * deriva dallo stato, e lo storico di chi sedeva dove va conservato.

@@ -14,15 +14,18 @@
  * (`has_permission('seatings.read', activity_id)`): il server non emette
  * eventi per righe che il sottoscrittore non può leggere.
  *
- * Cosa NON arriva da qui: le scritture su `seating_tables` (uno spostamento
- * di tavolata via `set_seating_tables`) non toccano la riga di `seatings` e
- * quella tabella non è nella publication. Da questo tablet il refetch lo fa
- * il gesto stesso; da un altro tablet lo spostamento si vede al prossimo
- * evento utile. Dichiarato, non dimenticato: se servirà, è una migration in
- * più e un secondo binding su questo stesso canale.
+ * Due binding sullo stesso canale, stesso refetch:
+ *   - `seatings`       → aprire / chiudere / annullare (20260912140000)
+ *   - `seating_tables` → spostare la tavolata da un tavolo all'altro
+ *                        (20260914100000): `set_seating_tables` scrive solo
+ *                        la ponte, la riga di `seatings` non cambia, e senza
+ *                        questo binding lo spostamento da un altro tablet
+ *                        non si vedeva.
+ * `seating_reservations` resta fuori: cambia solo insieme a `seatings`.
  *
- * Richiede `public.seatings` nella publication `supabase_realtime`
- * (migration 20260912140000).
+ * Entrambe le tabelle hanno una policy SELECT (`seatings.read`): è ciò che
+ * fa arrivare gli eventi al sottoscrittore. Senza, il sintomo non è un
+ * errore ma un realtime che "a volte non va".
  */
 
 import { useEffect, useRef } from "react";
@@ -67,6 +70,16 @@ export function useSeatingsRealtime(
                     event: "*",
                     schema: "public",
                     table: "seatings",
+                    filter: `activity_id=eq.${activityId}`
+                },
+                () => scheduleRefetch()
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "seating_tables",
                     filter: `activity_id=eq.${activityId}`
                 },
                 () => scheduleRefetch()
