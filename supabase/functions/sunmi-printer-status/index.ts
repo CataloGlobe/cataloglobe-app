@@ -49,7 +49,7 @@ const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const FUNCTION_NAME = "sunmi-printer-status";
-const RATE_LIMIT_PER_USER_PER_MIN = 10;
+const RATE_LIMIT_PER_ACTIVITY_PER_MIN = 10;
 const SHOP_PAGE_SIZE = 100;
 
 const corsHeaders = {
@@ -180,7 +180,7 @@ serve(async (req: Request): Promise<Response> => {
     if (auth.kind === "invalid") {
         return jsonResponse(401, { code: "UNAUTHORIZED", message: "Sessione non valida." });
     }
-    const { userId, supabaseUser } = auth;
+    const { supabaseUser } = auth;
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, {
         auth: { persistSession: false, autoRefreshToken: false }
@@ -211,11 +211,14 @@ serve(async (req: Request): Promise<Response> => {
             });
         }
 
-        // ── Rate limit ──
+        // ── Rate limit per sede (non per utente): piu' operatori sulla stessa
+        // sede condividono lo stesso negozio Sunmi, il limite ha senso solo
+        // se condiviso — altrimenti N operatori = N*limit chiamate reali sullo
+        // stesso shop_id.
         try {
             await checkRateLimit(supabase, {
-                key: `${FUNCTION_NAME}:user:${userId}`,
-                limit: RATE_LIMIT_PER_USER_PER_MIN,
+                key: `${FUNCTION_NAME}:activity:${activity.id}`,
+                limit: RATE_LIMIT_PER_ACTIVITY_PER_MIN,
                 windowSeconds: 60
             });
         } catch (e) {
