@@ -1483,6 +1483,25 @@
   color: var(--color-warning-700, #b45309);
 }
 
+/* La tavolata di un servizio precedente: stessa FORMA del conflitto (una riga
+   sotto il titolo, non una banda) ma NON lo stesso colore. L'ambra chiede
+   un'azione immediata ed è del conflitto; questa è un'informazione — il cron
+   se ne occupa — e sta in grigio secondario, con la sua icona. */
+.serviceStale {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text-secondary, #4b5563);
+}
+
+.serviceStaleIcon {
+  flex-shrink: 0;
+  color: var(--color-text-muted, #6b7280);
+}
+
 /* Orario in arrivo: come `.timelineTime` dell'Agenda, così le due schede
    parlano la stessa lingua. Il colore arriva SOLO col ritardo. */
 .serviceTime {

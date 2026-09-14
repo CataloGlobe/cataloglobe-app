@@ -273,6 +273,8 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 
 **`priceSummary.ts` idem duplicato FE↔Edge** (header `⚠️ SYNC`): `src/utils/priceSummary.ts` ↔ `supabase/functions/_shared/priceSummary.ts`. `resolvePriceSummary` calcola solo i *fatti* sul prezzo sintetico di un gruppo → `{kind: none|single|multi, min, max, count}`. La *presentazione* ("da X" / range) vive SOLO lato FE in `src/utils/formatPriceSummary.ts` (l'edge Deno usa solo i fatti grezzi). Separazione voluta: la regola di sintesi cambia senza toccare il formatting.
 
+**`serviceDay.ts` ↔ `get_service_day_start()` duplicato TS↔SQL** (header `⚠️ SYNC`): `src/pages/Dashboard/Reservations/serviceDay.ts` (`SERVICE_DAY_START_HOUR`) ↔ migration `20260914155000`. Confine della giornata di servizio della sala (05:00 Europe/Rome, non la mezzanotte), letto dal segnale in sala («Aperta da un servizio precedente») e dal cron `close_stale_seatings` che chiude le tavolate dimenticate. Modificare insieme nello stesso commit; l'ora NON è configurabile per sede (decisione FASE 2.8, rinviata al primo locale reale che serve oltre le cinque).
+
 Catalogo completo, bug history (`purgeTenantData` ordine FK, `purgeActivityFolder` ricorsivo, `config.toml` entry obbligatoria, slash `/` nei commenti Deno) + 11 Edge Functions epic ordering → `docs/edge-functions.md`.
 
 **`resolve-table` + `get-orders-for-session`**: post-migration `table_zones` (γ-lite), entrambe fanno JOIN `tables → table_zones` e mappano `zone_data.name → zone` (alias backward-compat) nel payload customer. Customer storage (`localStorage tableZone`) + `ResolveTableResult.table.zone` invariati. Refactor effettuato nella stessa migration di `table_zones` per evitare runtime errors (SELECT su colonna droppata).

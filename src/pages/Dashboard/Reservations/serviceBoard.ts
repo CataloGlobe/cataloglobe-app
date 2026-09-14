@@ -7,6 +7,7 @@
 
 import type { V2Reservation } from "@/types/reservation";
 import type { SeatingWithState } from "@/types/seating";
+import { isFromPreviousServiceDay } from "./serviceDay";
 
 /**
  * Minuti oltre l'orario prenotato dopo i quali un'attesa è "in ritardo".
@@ -83,6 +84,32 @@ export function isLateArrival(
 }
 
 /**
+ * Una tavolata aperta in una giornata di servizio precedente è rimasta
+ * indietro: il cron (`close_stale_seatings`) la chiuderà alla prossima
+ * passata, e nel frattempo in sala va segnalata. È il preavviso, e non ne
+ * serve un altro.
+ *
+ * È LA STESSA regola della chiusura automatica — l'ultima cinque del mattino
+ * trascorsa, Europe/Rome — letta da `serviceDay.ts` (⚠️ SYNC con
+ * `get_service_day_start()`). Il segnale e l'atto leggono un solo confine:
+ * per questo non divergeranno. Non la mezzanotte: alle 00:30 un locale che
+ * chiude alle 02:00 ha tavolate vive, e non sono "di ieri".
+ */
+export function isFromPreviousService(
+    seating: Pick<SeatingWithState, "opened_at">,
+    now: Date
+): boolean {
+    return isFromPreviousServiceDay(seating.opened_at, now);
+}
+
+/**
+ * Come si dice, sulla riga. Dice CHE è di un altro servizio; da quanto lo
+ * dice già la meta (`da 14 ore`, `da 2 giorni`), e non si ripete. Frammento:
+ * niente punto finale.
+ */
+export const PREVIOUS_SERVICE_LABEL = "Aperta da un servizio precedente";
+
+/**
  * Chi occupa lo stesso tavolo, fra le tavolate aperte. Segnalato su ENTRAMBE
  * (o tutte), ciascuna con le altre: l'host deve vedere il problema da
  * qualunque riga stia guardando.
@@ -156,8 +183,13 @@ export function composeServiceBoard({
         .filter(s => s.status === "open")
         .sort((a, b) => a.opened_at.localeCompare(b.opened_at));
 
+    // Le chiuse dal sistema (`closed_reason = 'auto'`, il cron di fine
+    // giornata) non entrano: il loro `closed_at` è l'ora della passata, non
+    // l'ora in cui il tavolo si è liberato, e "Concluse" esiste per
+    // rispondere a "a che ora si è liberato il 4". Appartengono al servizio
+    // di ieri. Si vedono ancora dal drawer della prenotazione.
     const closed = seatings
-        .filter(s => s.status === "closed")
+        .filter(s => s.status === "closed" && s.closed_reason !== "auto")
         .sort((a, b) => (b.closed_at ?? "").localeCompare(a.closed_at ?? ""));
 
     const seatedIds = new Set<string>();

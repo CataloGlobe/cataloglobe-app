@@ -103,13 +103,25 @@ export function formatCovers(n: number | null): string | null {
     return `${n} ${n === 1 ? "coperto" : "coperti"}`;
 }
 
-/** "da poco" · "da 45 min" · "da 1 h" · "da 1 h 20 min". */
+/**
+ * "da poco" · "da 45 min" · "da 1 h" · "da 1 h 20 min" · "da 1 giorno" ·
+ * "da 2 giorni".
+ *
+ * Oltre le 24 ore i minuti non dicono più niente: "da 53 h 1 min" è un
+ * numero da leggere, "da 2 giorni" è un fatto. Giorni interi, troncati: una
+ * tavolata aperta da 47 ore è "da 1 giorno", e la riga di segnale (2.8) dice
+ * già che è di un servizio precedente — qui si dice solo da quanto.
+ */
 export function formatOpenFor(openedAtIso: string, now: Date): string {
     const ms = now.getTime() - new Date(openedAtIso).getTime();
     const totalMin = Math.floor(ms / 60_000);
     if (totalMin < 1) return "da poco";
     if (totalMin < 60) return `da ${totalMin} min`;
     const h = Math.floor(totalMin / 60);
+    if (h >= 24) {
+        const d = Math.floor(h / 24);
+        return d === 1 ? "da 1 giorno" : `da ${d} giorni`;
+    }
     const m = totalMin % 60;
     return m === 0 ? `da ${h} h` : `da ${h} h ${m} min`;
 }

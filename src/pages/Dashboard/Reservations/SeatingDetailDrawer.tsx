@@ -35,7 +35,10 @@ import styles from "./Reservations.module.scss";
 //   - collegare a posteriori un walk-in a una prenotazione ("avevamo
 //     prenotato a un altro nome"): raro, e richiede di decidere cosa succede
 //     ai coperti e allo stato della prenotazione. Si progetta a parte.
-//   - la tavolata aperta troppo a lungo → 2.8, con la chiusura automatica.
+//
+// Dalla 2.8: una tavolata chiusa dal cron di fine servizio
+// (`closed_reason = 'auto'`) non mostra un orario di chiusura — il suo
+// `closed_at` è l'ora della passata, non un fatto di sala.
 
 interface Props {
     open: boolean;
@@ -254,7 +257,14 @@ export default function SeatingDetailDrawer({
                                 <Clock size={15} strokeWidth={2} aria-hidden />
                                 {isOpen
                                     ? `aperta ${formatOpenFor(seating.opened_at, now)}`
-                                    : seating.closed_at
+                                    : seating.closed_reason === "auto"
+                                      // Chiusa dal cron di fine servizio: il
+                                      // `closed_at` è l'ora della passata, non
+                                      // quella in cui il tavolo si è liberato.
+                                      // Si dice che il dato non c'è, invece
+                                      // di mostrarne uno inventato.
+                                      ? "chiusa automaticamente a fine servizio"
+                                      : seating.closed_at
                                       // Soggetto: la tavolata ("aperta da" /
                                       // "conclusa alle"). "liberato" è del
                                       // tavolo e vive sul board.

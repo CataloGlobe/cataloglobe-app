@@ -141,4 +141,12 @@ describe("formatCovers / formatOpenFor", () => {
         expect(formatOpenFor(at(60), NOW)).toBe("da 1 h");
         expect(formatOpenFor(at(80), NOW)).toBe("da 1 h 20 min");
     });
+
+    it("oltre le 24 ore conta i giorni, senza ore né minuti", () => {
+        const at = (minAgo: number) => new Date(NOW.getTime() - minAgo * 60_000).toISOString();
+        expect(formatOpenFor(at(23 * 60 + 59), NOW)).toBe("da 23 h 59 min");
+        expect(formatOpenFor(at(24 * 60), NOW)).toBe("da 1 giorno");
+        expect(formatOpenFor(at(47 * 60), NOW)).toBe("da 1 giorno");
+        expect(formatOpenFor(at(53 * 60 + 1), NOW)).toBe("da 2 giorni");
+    });
 });

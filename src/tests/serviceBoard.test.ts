@@ -1,8 +1,10 @@
 import { describe, it, expect } from "vitest";
 import {
     LATE_GRACE_MINUTES,
+    PREVIOUS_SERVICE_LABEL,
     composeServiceBoard,
     detectSeatingTableConflicts,
+    isFromPreviousService,
     isLateArrival,
     seatingDisplayName
 } from "@/pages/Dashboard/Reservations/serviceBoard";
@@ -272,5 +274,64 @@ describe("composeServiceBoard — i tre gruppi", () => {
             now: NOW
         });
         expect([...board.conflicts.keys()].sort()).toEqual(["s-a", "s-b"]);
+    });
+});
+
+describe("composeServiceBoard — le chiuse dal sistema non stanno in Concluse", () => {
+    it("auto e operator chiuse lo stesso giorno: solo la seconda nel gruppo", () => {
+        const auto = seating({
+            id: "s-auto",
+            status: "closed",
+            closed_at: "2026-09-12T01:03:00.000Z",
+            closed_reason: "auto"
+        });
+        const operator = seating({
+            id: "s-op",
+            status: "closed",
+            closed_at: "2026-09-12T17:30:00.000Z",
+            closed_reason: "operator"
+        });
+        const board = composeServiceBoard({
+            seatings: [auto, operator],
+            reservations: [],
+            today: TODAY,
+            now: NOW
+        });
+        expect(board.closed.map(s => s.id)).toEqual(["s-op"]);
+    });
+
+    it("una chiusa senza motivo (dato vecchio) resta in Concluse", () => {
+        const legacy = seating({
+            id: "s-legacy",
+            status: "closed",
+            closed_at: "2026-09-12T17:30:00.000Z",
+            closed_reason: null
+        });
+        const board = composeServiceBoard({
+            seatings: [legacy],
+            reservations: [],
+            today: TODAY,
+            now: NOW
+        });
+        expect(board.closed.map(s => s.id)).toEqual(["s-legacy"]);
+    });
+});
+
+describe("isFromPreviousService — il segnale legge il confine di serviceDay", () => {
+    // Settembre: Roma è UTC+2. Gli istanti sono scritti con l'offset esplicito,
+    // così il test non dipende dal fuso della macchina. La regola completa
+    // (le cinque righe della specifica) è coperta in serviceDay.test.ts.
+    it("aperta ieri sera, guardata alle 00:30: servizio in corso, nessun segnale", () => {
+        const now = new Date("2026-09-12T00:30:00+02:00");
+        expect(isFromPreviousService({ opened_at: "2026-09-11T21:00:00+02:00" }, now)).toBe(false);
+    });
+
+    it("aperta ieri sera, guardata alle 06:00: servizio precedente", () => {
+        const now = new Date("2026-09-12T06:00:00+02:00");
+        expect(isFromPreviousService({ opened_at: "2026-09-11T21:00:00+02:00" }, now)).toBe(true);
+    });
+
+    it("il testo non conta i giorni: dice solo che è di un altro servizio", () => {
+        expect(PREVIOUS_SERVICE_LABEL).toBe("Aperta da un servizio precedente");
     });
 });

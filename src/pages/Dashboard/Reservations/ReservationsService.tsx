@@ -4,6 +4,7 @@ import {
     ChevronDown,
     ChevronRight,
     Clock,
+    History,
     Lock,
     MapPin,
     Plus,
@@ -21,7 +22,12 @@ import {
 } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import type { V2Reservation } from "@/types/reservation";
 import type { SeatingWithState } from "@/types/seating";
-import { seatingDisplayName, type ServiceBoard } from "./serviceBoard";
+import {
+    PREVIOUS_SERVICE_LABEL,
+    isFromPreviousService,
+    seatingDisplayName,
+    type ServiceBoard
+} from "./serviceBoard";
 import { formatCovers, formatOpenFor, seatingDrawerFor, walkinTitle } from "./seatingDrawer";
 import { Button } from "@/components/ui/Button/Button";
 import styles from "./Reservations.module.scss";
@@ -31,12 +37,13 @@ import styles from "./Reservations.module.scss";
 // crea: "+ Senza prenotazione" apre una tavolata senza passare da una
 // prenotazione finta, e il drawer della tavolata la corregge e la chiude.
 //
+// Dalla 2.8: la tavolata aperta in un servizio precedente (prima dell'ultima
+// cinque del mattino) porta una riga di segnale (`isFromPreviousService`,
+// stessa regola del cron che la chiuderà alla prossima passata), e le
+// chiuse dal sistema NON stanno in "Concluse"
+// (`composeServiceBoard`): il loro orario di chiusura non è un fatto di sala.
+//
 // Fuori da questa fase, per scelta e non per dimenticanza:
-//   - la chiusura automatica di fine giornata → 2.8, con una ricognizione
-//     sul modello degli orari di apertura prima.
-//   - la tavolata aperta troppo a lungo → 2.8: la soglia giusta è "ancora
-//     aperta dopo la chiusura del locale", non un numero di ore, e nasce
-//     dallo stesso dato dell'auto-close.
 //   - collegare a posteriori un walk-in a una prenotazione ("avevamo
 //     prenotato a un altro nome") → non ora: raro, e va progettato a parte.
 //   - l'incontro con Ordini → Tavoli (`v_tables_with_state`) → BLOCCO 3
@@ -176,6 +183,7 @@ export default function ReservationsService({
         const removed = s.tables.filter(t => t.deleted_at !== null);
         const isWalkin = s.reservations.length === 0;
         const covers = formatCovers(s.party_size);
+        const stale = !done && isFromPreviousService(s, now);
         return (
             <div
                 key={s.id}
@@ -252,6 +260,22 @@ export default function ReservationsService({
                             <div className={styles.rowMetaDim}>
                                 {formatTableLabels(removed.map(t => t.label))}{" "}
                                 {removed.length === 1 ? "rimosso" : "rimossi"} dalla sala
+                            </div>
+                        )}
+                        {stale && (
+                            // Di un servizio precedente: il cron la chiuderà
+                            // alla prossima passata. Stessa forma del
+                            // conflitto (una riga, non una banda), colore
+                            // diverso: informa, non chiede un'azione. Da
+                            // quanto lo dice la meta.
+                            <div className={styles.serviceStale} role="status">
+                                <History
+                                    size={15}
+                                    strokeWidth={2}
+                                    aria-hidden
+                                    className={styles.serviceStaleIcon}
+                                />
+                                <span>{PREVIOUS_SERVICE_LABEL}</span>
                             </div>
                         )}
                         {conflicts.length > 0 && (
