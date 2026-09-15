@@ -1,3 +1,13 @@
+// ⚠️ SYNC: la regola di questo file vive in TRE posti. Le altre due copie:
+//   - src/pages/ReservationPage/availability.ts        (fasce del giorno,
+//     coda notturna, chiusure straordinarie)
+//   - supabase/functions/_shared/openingHours.ts        (porto Edge: il
+//     cancello server-side `isReservationTimeBookable` rifà QUESTA griglia —
+//     passo, intervallo semiaperto, orizzonte — per rifiutare ciò che il
+//     picker non avrebbe offerto)
+// Qualsiasi modifica va replicata in TUTTI i file, nello stesso commit
+// (stesso pattern di scheduleResolver.ts e priceSummary.ts).
+//
 // Slot generation utilities for the public reservation date/time picker.
 //
 // Generation logic re-uses `availability.ts:getDaySlots` as the single
@@ -18,6 +28,12 @@ import {
     // risolto da vitest e questo modulo finisce nel grafo dei test.
 } from "@/pages/ReservationPage/availability";
 
+// Orizzonte di FALLBACK, non la regola. Dalla FASE 4.1 il valore vero è
+// `activities.reservation_horizon_days` (DEFAULT 90, stesso numero): il
+// modulo pubblico lo riceve nel payload e lo passa qui come `horizonDays`.
+// Questa costante resta come default dei parametri per il picker admin e per
+// i chiamanti senza payload (pagina menu). Chi legge il valore della sede lo
+// passa esplicito; la costante non deve diventare una seconda fonte.
 export const RESERVATION_HORIZON_DAYS = 90;
 
 // Passo del picker ADMIN (creazione/modifica manuale) — SOLO quello. Il

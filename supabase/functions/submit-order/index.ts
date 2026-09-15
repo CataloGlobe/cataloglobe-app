@@ -49,7 +49,7 @@ import {
     checkOrderingState,
     orderingStateMessage
 } from "../_shared/checkOrderingState.ts";
-import { isActivityOpen, nowInRomeParts } from "../_shared/openingHours.ts";
+import { isActivityOpenNow, nowInRomeParts } from "../_shared/openingHours.ts";
 import { enqueueAndDispatchPrintJobs } from "../_shared/printJobs.ts";
 
 // ============================================================
@@ -583,7 +583,7 @@ serve(async (req: Request) => {
                     .select("closure_date, end_date, is_closed, slots")
                     .eq("activity_id", diag.activityId)
             ]);
-            const open = isActivityOpen(nowInRomeParts(new Date()), hoursRows ?? [], closureRows ?? []);
+            const open = isActivityOpenNow(nowInRomeParts(new Date()), hoursRows ?? [], closureRows ?? []);
             if (!open) {
                 return jsonResponse(423, {
                     code: "ORDERING_CLOSED",

@@ -15,7 +15,7 @@ import ReservationHeader from "./ReservationHeader";
 import ReservationForm from "./ReservationForm";
 import StateCard from "./StateCard";
 import SuccessRecap from "./SuccessRecap";
-import { hasBookableDays } from "./utils/reservationSlots";
+import { hasBookableDays, RESERVATION_HORIZON_DAYS } from "./utils/reservationSlots";
 import { CalendarOffIcon, SearchOffIcon, WifiOffIcon } from "./icons";
 import type { Brand, FormFields, ResolveState } from "./types";
 import styles from "./ReservationPage.module.scss";
@@ -64,6 +64,10 @@ export default function ReservationPage() {
                     // NOT NULL a schema — non opzionale nel tipo: un payload
                     // che lo omette è un guasto, non una sede senza pacing.
                     reservation_pacing_slot_minutes: number;
+                    // Opzionale SOLO per i payload in cache (Redis/localStorage)
+                    // antecedenti alla FASE 4.1: il fallback è la costante,
+                    // lo stesso 90 del DEFAULT di colonna.
+                    reservation_horizon_days?: number;
                     cover_image?: string | null;
                     phone?: string | null;
                     phone_public?: boolean;
@@ -92,6 +96,7 @@ export default function ReservationPage() {
                 hours: payload.opening_hours ?? [],
                 closures: payload.upcoming_closures ?? [],
                 pacingSlotMinutes: business.reservation_pacing_slot_minutes,
+                horizonDays: business.reservation_horizon_days ?? RESERVATION_HORIZON_DAYS,
                 languages: payload.available_languages ?? [],
                 baseLanguage: payload.base_language_code ?? "it"
             };
@@ -106,7 +111,7 @@ export default function ReservationPage() {
             // Toggle attivo ma nessuna fascia prenotabile nei prossimi 90
             // giorni: il form sarebbe un calendario interamente spento senza
             // spiegazione. Stato dedicato con l'alternativa telefonica.
-            if (!hasBookableDays(brand.hours, brand.closures)) {
+            if (!hasBookableDays(brand.hours, brand.closures, brand.horizonDays)) {
                 setResolve({ status: "hours-unconfigured", brand });
                 return;
             }
@@ -294,6 +299,7 @@ export default function ReservationPage() {
                                 hours={brand.hours}
                                 closures={brand.closures}
                                 pacingSlotMinutes={brand.pacingSlotMinutes}
+                                horizonDays={brand.horizonDays}
                                 onSuccess={handleSuccess}
                                 onResolveErrorCode={handleResolveErrorCode}
                             />

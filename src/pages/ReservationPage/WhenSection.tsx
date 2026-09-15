@@ -19,6 +19,8 @@ type Props = {
     closures: UpcomingClosure[];
     /** Passo (minuti) della griglia oraria pubblica = pacing della sede. */
     pacingSlotMinutes: number;
+    /** Orizzonte (giorni) della sede, per il calendario. */
+    horizonDays: number;
     /** Slug della sede: serve alla lettura di disponibilità. */
     slug: string;
     onChange: (name: keyof FormFields, value: string) => void;
@@ -43,6 +45,7 @@ export default function WhenSection({
     hours,
     closures,
     pacingSlotMinutes,
+    horizonDays,
     slug,
     onChange,
     onBlur
@@ -238,6 +241,7 @@ export default function WhenSection({
                     onChange={handleDateChange}
                     hours={hours}
                     closures={closures}
+                    horizonDays={horizonDays}
                     invalid={dateInvalid}
                     errorId={dateInvalid ? "err-reservation_date" : undefined}
                 />

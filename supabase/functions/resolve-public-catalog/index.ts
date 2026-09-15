@@ -319,6 +319,7 @@ serve(async (req: Request) => {
         const ACTIVITY_SELECT =
             "id, tenant_id, name, slug, cover_image, status, " +
             "ordering_enabled, enable_reservations, reservation_pacing_slot_minutes, " +
+            "reservation_min_notice_minutes, reservation_horizon_days, " +
             "address, street_number, postal_code, city, province, " +
             "instagram, instagram_public, facebook, facebook_public, " +
             "whatsapp, whatsapp_public, website, website_public, " +
@@ -405,6 +406,13 @@ serve(async (req: Request) => {
             // (FASE 2 unificazione pacing/griglia). NOT NULL a schema: nessun
             // fallback qui, un valore assente è un payload rotto.
             reservation_pacing_slot_minutes: activity.reservation_pacing_slot_minutes,
+            // FASE 4.1: i due parametri del cancello server-side
+            // (`isReservationTimeBookable`). L'orizzonte serve al calendario
+            // pubblico (quanti giorni mostrare); il preavviso è esposto per
+            // simmetria — il picker oggi non lo usa, spegne solo gli slot già
+            // passati. Entrambi NOT NULL a schema, nessun fallback.
+            reservation_min_notice_minutes: activity.reservation_min_notice_minutes,
+            reservation_horizon_days: activity.reservation_horizon_days,
             address: activity.address ?? null,
             street_number: activity.street_number ?? null,
             postal_code: activity.postal_code ?? null,
