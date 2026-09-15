@@ -1111,6 +1111,102 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_invoices: {
+        Row: {
+          address: string | null
+          amount_cents: number
+          city: string | null
+          codice_destinatario: string | null
+          country: string | null
+          created_at: string
+          currency: string
+          first_name: string | null
+          fiscal_code: string | null
+          id: string
+          last_name: string | null
+          legal_entity_type: string | null
+          legal_name: string | null
+          paid_at: string
+          pec: string | null
+          plan_code: string | null
+          postal_code: string | null
+          province: string | null
+          seats: number | null
+          status: string
+          street_number: string | null
+          stripe_customer_id: string
+          stripe_hosted_invoice_url: string | null
+          stripe_invoice_id: string
+          stripe_invoice_number: string | null
+          stripe_invoice_pdf: string | null
+          stripe_subscription_id: string | null
+          tenant_id: string
+          vat_number: string | null
+        }
+        Insert: {
+          address?: string | null
+          amount_cents: number
+          city?: string | null
+          codice_destinatario?: string | null
+          country?: string | null
+          created_at?: string
+          currency: string
+          first_name?: string | null
+          fiscal_code?: string | null
+          id?: string
+          last_name?: string | null
+          legal_entity_type?: string | null
+          legal_name?: string | null
+          paid_at: string
+          pec?: string | null
+          plan_code?: string | null
+          postal_code?: string | null
+          province?: string | null
+          seats?: number | null
+          status?: string
+          street_number?: string | null
+          stripe_customer_id: string
+          stripe_hosted_invoice_url?: string | null
+          stripe_invoice_id: string
+          stripe_invoice_number?: string | null
+          stripe_invoice_pdf?: string | null
+          stripe_subscription_id?: string | null
+          tenant_id: string
+          vat_number?: string | null
+        }
+        Update: {
+          address?: string | null
+          amount_cents?: number
+          city?: string | null
+          codice_destinatario?: string | null
+          country?: string | null
+          created_at?: string
+          currency?: string
+          first_name?: string | null
+          fiscal_code?: string | null
+          id?: string
+          last_name?: string | null
+          legal_entity_type?: string | null
+          legal_name?: string | null
+          paid_at?: string
+          pec?: string | null
+          plan_code?: string | null
+          postal_code?: string | null
+          province?: string | null
+          seats?: number | null
+          status?: string
+          street_number?: string | null
+          stripe_customer_id?: string
+          stripe_hosted_invoice_url?: string | null
+          stripe_invoice_id?: string
+          stripe_invoice_number?: string | null
+          stripe_invoice_pdf?: string | null
+          stripe_subscription_id?: string | null
+          tenant_id?: string
+          vat_number?: string | null
+        }
+        Relationships: []
+      }
       customer_sessions: {
         Row: {
           activity_id: string
@@ -1916,6 +2012,44 @@ export type Database = {
           scope?: string
         }
         Relationships: []
+      }
+      plan_prices: {
+        Row: {
+          billing_interval: string
+          created_at: string
+          id: string
+          plan_code: string
+          price_cents: number
+          stripe_price_id: string
+          updated_at: string
+        }
+        Insert: {
+          billing_interval: string
+          created_at?: string
+          id?: string
+          plan_code: string
+          price_cents: number
+          stripe_price_id: string
+          updated_at?: string
+        }
+        Update: {
+          billing_interval?: string
+          created_at?: string
+          id?: string
+          plan_code?: string
+          price_cents?: number
+          stripe_price_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_prices_plan_code_fkey"
+            columns: ["plan_code"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["code"]
+          },
+        ]
       }
       plans: {
         Row: {
@@ -4327,6 +4461,7 @@ export type Database = {
           applied_promo_code: string | null
           ateco: string | null
           base_language_code: string
+          billing_interval: string | null
           business_subtype: string | null
           city: string | null
           codice_destinatario: string | null
@@ -4376,6 +4511,7 @@ export type Database = {
           applied_promo_code?: string | null
           ateco?: string | null
           base_language_code?: string
+          billing_interval?: string | null
           business_subtype?: string | null
           city?: string | null
           codice_destinatario?: string | null
@@ -4425,6 +4561,7 @@ export type Database = {
           applied_promo_code?: string | null
           ateco?: string | null
           base_language_code?: string
+          billing_interval?: string | null
           business_subtype?: string | null
           city?: string | null
           codice_destinatario?: string | null
