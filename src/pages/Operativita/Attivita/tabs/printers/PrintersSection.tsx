@@ -87,12 +87,11 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
       setIsLoading(true);
       const data = await listPrinters(tenantId, activityId);
       setItems(data);
-      if (data.length > 0) {
-        // Non bloccante: la lista si vede subito, lo stato arriva dopo.
-        void loadStatus();
-      } else {
-        setStatusResult(null);
-      }
+      // Il badge legge lo stato persistito (scritto dal callback Sunmi) di
+      // default: nessuna chiamata a Sunmi automatica a ogni apertura. Un
+      // eventuale esito di "Aggiorna stato" da una sessione precedente non è
+      // più pertinente dopo un reload della lista.
+      setStatusResult(null);
     } catch {
       showToast({
         message: "Impossibile caricare le stampanti.",
@@ -101,7 +100,7 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
     } finally {
       setIsLoading(false);
     }
-  }, [tenantId, activityId, canRead, showToast, loadStatus]);
+  }, [tenantId, activityId, canRead, showToast]);
 
   useEffect(() => {
     loadData();
@@ -144,16 +143,25 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
   }, [printerToUnbind, tenantId, loadData, showToast]);
 
   const renderStatusBadge = (printer: Printer) => {
-    if (!statusResult) {
-      return <StatusBadge variant="neutral" label="Verifica..." />;
+    // "Aggiorna stato" eseguito in questa sessione: mostra l'esito fresco
+    // dell'on-demand invece del persistito, finché non si ricarica la lista.
+    if (statusResult) {
+      const isOnline = statusResult.available
+        ? statusResult.statuses[printer.sn]
+        : undefined;
+      if (isOnline === undefined) {
+        return <StatusBadge variant="neutral" label="Stato non disponibile" />;
+      }
+      return isOnline
+        ? <StatusBadge variant="success" label="Online" />
+        : <StatusBadge variant="warning" label="Offline" />;
     }
-    const isOnline = statusResult.available
-      ? statusResult.statuses[printer.sn]
-      : undefined;
-    if (isOnline === undefined) {
+    // Default: stato persistito dal callback Sunmi. null = nessun evento
+    // mai ricevuto per questo dispositivo, non "offline".
+    if (printer.is_online === null) {
       return <StatusBadge variant="neutral" label="Stato non disponibile" />;
     }
-    return isOnline
+    return printer.is_online
       ? <StatusBadge variant="success" label="Online" />
       : <StatusBadge variant="warning" label="Offline" />;
   };
@@ -243,7 +251,12 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
                 <span className={styles.rowLabel}>{p.label}</span>
                 <span className={styles.rowSn}>SN {p.sn}</span>
               </div>
-              <div className={styles.rowStatus}>{renderStatusBadge(p)}</div>
+              <div className={styles.rowStatus}>
+                {renderStatusBadge(p)}
+                {p.out_of_paper && (
+                  <StatusBadge variant="warning" label="Carta esaurita" />
+                )}
+              </div>
               {canManage && (
                 <div className={styles.rowActions}>
                   <TableRowActions

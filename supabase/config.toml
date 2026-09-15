@@ -376,3 +376,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/sunmi-reprint-order/index.ts"
+
+[functions.sunmi-device-callback]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/sunmi-device-callback/index.ts"

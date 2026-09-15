@@ -1,7 +1,13 @@
 // Printer — riga della tabella `public.printers`: stampante cloud Sunmi
 // collegata a una sede. `sn` e' il serial number del dispositivo (UNIQUE
 // globale), `label` il nome scelto dall'utente ("Cucina", "Bar").
-// `last_online_at` resta null finche' non esiste un polling di onlineStatus.
+//
+// `is_online` / `last_online_at` / `out_of_paper` sono scritti dal callback
+// Sunmi (edge function `sunmi-device-callback`), non da un polling: `null` su
+// `is_online` significa "nessun evento mai ricevuto", diverso da offline.
+// `lack_paper_count`/`paper_will_end_count` sono i contatori cumulativi grezzi
+// dell'ultimo evento visto (vedi migration 20260915094512): non servono in FE,
+// esposti solo perche' la riga li porta.
 export interface Printer {
     id: string;
     tenant_id: string;
@@ -9,7 +15,12 @@ export interface Printer {
     sn: string;
     label: string;
     is_active: boolean;
+    is_online: boolean | null;
+    lack_paper_count: number | null;
+    paper_will_end_count: number | null;
+    out_of_paper: boolean;
     last_online_at: string | null;
+    last_status_at: string | null;
     created_at: string;
     updated_at: string;
 }

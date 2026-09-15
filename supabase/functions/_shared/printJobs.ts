@@ -247,6 +247,23 @@ async function _dispatchInline(
         }
         const fin = await finalizePrintJob(supabase, job.id, result, 1, PRINT_MAX_ATTEMPTS);
         if (result.ok) {
+            // La comanda e' uscita: la carta c'e'. Spegne l'avviso acceso dal
+            // callback Sunmi (report_type=2, vedi sunmi-device-callback) — un
+            // segnale piu' affidabile del prossimo callback, che puo' non
+            // arrivare mai se non c'e' altro da stampare. Best-effort: un
+            // fallimento qui non deve mai far fallire l'esito della stampa.
+            const { error: clearErr } = await supabase
+                .from("printers")
+                .update({ out_of_paper: false })
+                .eq("id", job.printer_id)
+                .eq("out_of_paper", true);
+            if (clearErr) {
+                console.error(`${logPrefix} printer_out_of_paper_clear_failed`, {
+                    event: "printer_out_of_paper_clear_failed",
+                    printer_id: job.printer_id,
+                    error: clearErr.message
+                });
+            }
             console.log(`${logPrefix} print_job_done`, {
                 event: "print_job_done",
                 order_id: orderId,
