@@ -25,6 +25,7 @@ import {
 import {
     closeSeating,
     getSeatingForReservation,
+    getSeatingState,
     listSeatingsWithState,
     listSeatingTables,
     openSeatingForReservation,
@@ -64,6 +65,7 @@ import ReservationsInbox from "./ReservationsInbox";
 import ReservationsAgenda from "./ReservationsAgenda";
 import ReservationsService from "./ReservationsService";
 import SeatingDetailDrawer from "./SeatingDetailDrawer";
+import type { SeatingCloseAction, SeatingPendingOrders } from "./seatingClose";
 import WalkinCreateDrawer from "./WalkinCreateDrawer";
 import { composeServiceBoard, seatingDisplayName } from "./serviceBoard";
 import { tableWriteTargetFor } from "./tableSection";
@@ -708,7 +710,13 @@ export default function Reservations() {
     // trovata. Il drawer tratta i due casi diversamente, e vanno tenuti
     // distinti: "sto caricando" e "non c'è" dicono cose opposte all'operatore.
     const [detailSeating, setDetailSeating] = useState<
-        | { id: string | null; view: TableAssignmentView | null; partySize: number | null }
+        | {
+              id: string | null;
+              view: TableAssignmentView | null;
+              partySize: number | null;
+              /** Dalla view: serve alla domanda di «Servizio concluso». */
+              pending: SeatingPendingOrders | undefined;
+          }
         | undefined
     >(undefined);
     // Le scritture sulla tavolata non passano da `loadData` (che ricarica
@@ -737,22 +745,31 @@ export default function Reservations() {
                 });
                 if (!alive) return;
                 if (!seating) {
-                    setDetailSeating({ id: null, view: null, partySize: null });
+                    setDetailSeating({ id: null, view: null, partySize: null, pending: undefined });
                     return;
                 }
-                const rows = await listSeatingTables(seating.id, tenantId);
+                const [rows, state] = await Promise.all([
+                    listSeatingTables(seating.id, tenantId),
+                    getSeatingState(seating.id, tenantId)
+                ]);
                 if (!alive) return;
                 setDetailSeating({
                     id: seating.id,
                     view: seatingTableView(rows),
-                    partySize: seating.party_size
+                    partySize: seating.party_size,
+                    pending: state
+                        ? {
+                              pending_orders_count: state.pending_orders_count,
+                              pending_orders_deliverable: state.pending_orders_deliverable
+                          }
+                        : undefined
                 });
             } catch {
                 if (!alive) return;
                 // Non si ripiega su `{ id: null }` in silenzio: "non c'è
                 // tavolata" e "non sono riuscito a leggerla" portano
                 // l'operatore a due conclusioni diverse.
-                setDetailSeating({ id: null, view: null, partySize: null });
+                setDetailSeating({ id: null, view: null, partySize: null, pending: undefined });
                 showToast({ message: "Errore nel caricamento della tavolata.", type: "error" });
             }
         })();
@@ -910,33 +927,40 @@ export default function Reservations() {
         return seating?.id ?? null;
     }, [selectedReservation, tenantId]);
 
-    const handleCompleteService = useCallback(async (): Promise<boolean> => {
-        if (!tenantId) return false;
-        try {
-            const seatingId = await resolveOpenSeatingId();
-            if (!seatingId) {
-                // Nessuna tavolata aperta ma la prenotazione risulta `seated`:
-                // è una divergenza, e ricaricare è il modo di vederla invece
-                // di insistere su una riga che non c'è.
+    const handleCompleteService = useCallback(
+        async (action?: SeatingCloseAction): Promise<boolean> => {
+            if (!tenantId) return false;
+            try {
+                const seatingId = await resolveOpenSeatingId();
+                if (!seatingId) {
+                    // Nessuna tavolata aperta ma la prenotazione risulta
+                    // `seated`: è una divergenza, e ricaricare è il modo di
+                    // vederla invece di insistere su una riga che non c'è.
+                    await loadData();
+                    showToast({
+                        message: "Nessuna tavolata aperta per questa prenotazione.",
+                        type: "error"
+                    });
+                    return false;
+                }
+                await closeSeating(seatingId, "operator", tenantId, action);
                 await loadData();
+                showToast({ message: "Servizio concluso.", type: "success" });
+                return true;
+            } catch (err) {
                 showToast({
-                    message: "Nessuna tavolata aperta per questa prenotazione.",
+                    message: err instanceof Error ? err.message : "Errore inatteso",
                     type: "error"
                 });
+                // La tavolata può essere cambiata sotto le mani (un ordine
+                // arrivato mentre si chiudeva): si rilegge, così la prossima
+                // pressione fa la domanda giusta.
+                setSeatingReloadToken(t => t + 1);
                 return false;
             }
-            await closeSeating(seatingId, "operator", tenantId);
-            await loadData();
-            showToast({ message: "Servizio concluso.", type: "success" });
-            return true;
-        } catch (err) {
-            showToast({
-                message: err instanceof Error ? err.message : "Errore inatteso",
-                type: "error"
-            });
-            return false;
-        }
-    }, [tenantId, resolveOpenSeatingId, loadData, showToast]);
+        },
+        [tenantId, resolveOpenSeatingId, loadData, showToast]
+    );
 
     const handleUndoArrival = useCallback(async (): Promise<boolean> => {
         if (!tenantId) return false;
@@ -1169,14 +1193,17 @@ export default function Reservations() {
         [tenantId, selectedSeatingId, runSeatingGesture]
     );
 
-    const handleSeatingComplete = useCallback(async (): Promise<boolean> => {
-        if (!tenantId || !selectedSeatingId) return false;
-        return runSeatingGesture(
-            () => closeSeating(selectedSeatingId, "operator", tenantId),
-            "Servizio concluso.",
-            "success"
-        );
-    }, [tenantId, selectedSeatingId, runSeatingGesture]);
+    const handleSeatingComplete = useCallback(
+        async (action?: SeatingCloseAction): Promise<boolean> => {
+            if (!tenantId || !selectedSeatingId) return false;
+            return runSeatingGesture(
+                () => closeSeating(selectedSeatingId, "operator", tenantId, action),
+                "Servizio concluso.",
+                "success"
+            );
+        },
+        [tenantId, selectedSeatingId, runSeatingGesture]
+    );
 
     const handleSeatingUndo = useCallback(async (): Promise<boolean> => {
         if (!tenantId || !selectedSeatingId) return false;
@@ -1457,6 +1484,7 @@ export default function Reservations() {
                 onCompleteService={handleCompleteService}
                 onUndoArrival={handleUndoArrival}
                 seatingPartySize={detailSeating === undefined ? undefined : detailSeating.partySize}
+                seatingPendingOrders={detailSeating === undefined ? undefined : detailSeating.pending}
                 onSetSeatingPartySize={handleSetSeatingPartySizeFromReservation}
                 guestSummary={detailGuest}
                 tenantWide={tenantWide}

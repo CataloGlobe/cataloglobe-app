@@ -17,6 +17,8 @@ import {
     walkinTitle,
     type SeatingDrawerActionKey
 } from "./seatingDrawer";
+import { seatingCloseFlowFor, type SeatingCloseAction } from "./seatingClose";
+import { SeatingCloseQuestionBody, SeatingCloseQuestionFooter } from "./SeatingCloseQuestion";
 import styles from "./Reservations.module.scss";
 
 // ── Il drawer della tavolata ──────────────────────────────────────────────
@@ -39,6 +41,12 @@ import styles from "./Reservations.module.scss";
 // Dalla 2.8: una tavolata chiusa dal cron di fine servizio
 // (`closed_reason = 'auto'`) non mostra un orario di chiusura — il suo
 // `closed_at` è l'ora della passata, non un fatto di sala.
+//
+// Dalla 3.2: «Servizio concluso» con ordini ancora aperti NON chiama subito.
+// Il drawer cambia stato (`asking`) e fa la domanda — serviti o annullati?
+// — nella forma di `SeatingCloseQuestion`; da lì si torna indietro senza
+// aver chiuso niente. La regola (chiedere o no, quali risposte) è
+// `seatingCloseFlowFor`, letta dalla view.
 
 interface Props {
     open: boolean;
@@ -57,7 +65,8 @@ interface Props {
      */
     onSetTables?: (tableIds: string[]) => Promise<boolean>;
     onSetPartySize?: (partySize: number) => Promise<boolean>;
-    onComplete?: () => Promise<boolean>;
+    /** `action` solo quando la domanda è stata fatta e risposta. */
+    onComplete?: (action?: SeatingCloseAction) => Promise<boolean>;
     onUndo?: () => Promise<boolean>;
 }
 
@@ -96,11 +105,18 @@ export default function SeatingDetailDrawer({
 
     const [busy, setBusy] = useState<SeatingDrawerActionKey | null>(null);
 
+    // La domanda di «Servizio concluso»: uno stato del drawer, non un altro
+    // drawer. `answering` = quale risposta è in volo.
+    const [asking, setAsking] = useState(false);
+    const [answering, setAnswering] = useState<SeatingCloseAction | null>(null);
+
     const seatingId = seating?.id ?? null;
     useEffect(() => {
         setPickerOpen(false);
         setCoversOpen(false);
         setBusy(null);
+        setAsking(false);
+        setAnswering(null);
     }, [seatingId, open]);
 
     if (!seating) {
@@ -174,6 +190,25 @@ export default function SeatingDetailDrawer({
         if (ok) onClose();
     };
 
+    // «Servizio concluso»: chiede solo se c'è qualcosa da decidere.
+    const closeFlow = seatingCloseFlowFor(seating);
+    const handleCompleteClick = () => {
+        if (closeFlow.kind === "ask") {
+            setAsking(true);
+            return;
+        }
+        void run("complete", onComplete);
+    };
+    const handleAnswer = async (action: SeatingCloseAction) => {
+        if (!onComplete || answering !== null) return;
+        setAnswering(action);
+        const ok = await onComplete(action);
+        setAnswering(null);
+        if (ok) onClose();
+        // Se non è riuscita il parent ha già mostrato il toast; si resta
+        // sulla domanda, che è ancora quella giusta.
+    };
+
     const footer = (
         <div className={styles.drawerFooter}>
             {!canManageSeatings ? (
@@ -204,7 +239,7 @@ export default function SeatingDetailDrawer({
                             variant="primary"
                             loading={busy === "complete"}
                             disabled={busy !== null}
-                            onClick={() => void run("complete", onComplete)}
+                            onClick={handleCompleteClick}
                         >
                             Servizio concluso
                         </Button>
@@ -218,19 +253,38 @@ export default function SeatingDetailDrawer({
         </div>
     );
 
+    const header = (
+        <div className={styles.drawerHeaderTitle}>
+            <Text variant="title-sm" weight={600}>
+                Tavolata
+            </Text>
+            <span className={styles.serviceWalkinMark}>Senza prenotazione</span>
+        </div>
+    );
+
+    if (asking && closeFlow.kind === "ask") {
+        return (
+            <SystemDrawer open={open} onClose={onClose} width={520}>
+                <DrawerLayout
+                    header={header}
+                    footer={
+                        <SeatingCloseQuestionFooter
+                            flow={closeFlow}
+                            busy={answering}
+                            onAnswer={action => void handleAnswer(action)}
+                            onBack={() => setAsking(false)}
+                        />
+                    }
+                >
+                    <SeatingCloseQuestionBody flow={closeFlow} />
+                </DrawerLayout>
+            </SystemDrawer>
+        );
+    }
+
     return (
         <SystemDrawer open={open} onClose={onClose} width={520}>
-            <DrawerLayout
-                header={
-                    <div className={styles.drawerHeaderTitle}>
-                        <Text variant="title-sm" weight={600}>
-                            Tavolata
-                        </Text>
-                        <span className={styles.serviceWalkinMark}>Senza prenotazione</span>
-                    </div>
-                }
-                footer={footer}
-            >
+            <DrawerLayout header={header} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Hero: i tavoli sono il nome ───────────────── */}
                     <section className={styles.drawerHero}>

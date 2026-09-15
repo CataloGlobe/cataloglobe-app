@@ -1502,6 +1502,49 @@
   color: var(--color-text-muted, #6b7280);
 }
 
+/* Ordini ancora aperti sulla tavolata: stessa riga grigia del servizio
+   precedente. La gente sta mangiando, non è un'urgenza — l'ambra resta al
+   conflitto. */
+.servicePending {
+  @extend .serviceStale;
+}
+
+.servicePendingIcon {
+  @extend .serviceStaleIcon;
+}
+
+/* ── La domanda di «Servizio concluso» ───────────────────────────────────
+   Il drawer cambia stato: al posto delle sezioni, una conferma nella forma
+   del progetto — cosa stai chiudendo, cosa succede alle cose collegate, le
+   azioni (nel footer). Nessun colore d'allarme: è una domanda, non un
+   errore. */
+.drawerQuestion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.drawerQuestionTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text-primary, #111827);
+}
+
+.drawerQuestionText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-secondary, #4b5563);
+  max-width: 60ch;
+}
+
+.drawerQuestionNote {
+  @extend .drawerTableHint;
+}
+
 /* Orario in arrivo: come `.timelineTime` dell'Agenda, così le due schede
    parlano la stessa lingua. Il colore arriva SOLO col ritardo. */
 .serviceTime {

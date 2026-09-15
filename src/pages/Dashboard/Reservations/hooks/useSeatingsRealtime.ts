@@ -1,6 +1,6 @@
 /**
  * useSeatingsRealtime — refetch debounced della schermata di servizio, guidato
- * da Supabase Realtime su `public.seatings`.
+ * da Supabase Realtime su `public.seatings`, `seating_tables` e `orders`.
  *
  * Due operatori sullo stesso servizio sono la norma: una tavolata aperta da un
  * tablet deve comparire sull'altro. Stesso schema di `useReservationsRealtime`
@@ -14,13 +14,20 @@
  * (`has_permission('seatings.read', activity_id)`): il server non emette
  * eventi per righe che il sottoscrittore non può leggere.
  *
- * Due binding sullo stesso canale, stesso refetch:
+ * Tre binding sullo stesso canale, stesso refetch:
  *   - `seatings`       → aprire / chiudere / annullare (20260912140000)
  *   - `seating_tables` → spostare la tavolata da un tavolo all'altro
  *                        (20260914100000): `set_seating_tables` scrive solo
  *                        la ponte, la riga di `seatings` non cambia, e senza
  *                        questo binding lo spostamento da un altro tablet
  *                        non si vedeva.
+ *   - `orders`         → `pending_orders_count` nella riga (3.2): un ordine
+ *                        che arriva o viene servito non tocca `seatings`, e
+ *                        senza questo il conteggio è sbagliato per quasi
+ *                        tutta la serata. `orders` è già in publication
+ *                        (Step 4b); la RLS SELECT è `orders.read`, quindi
+ *                        chi non ce l'ha non riceve eventi — e legge 0
+ *                        dalla view comunque.
  * `seating_reservations` resta fuori: cambia solo insieme a `seatings`.
  *
  * Entrambe le tabelle hanno una policy SELECT (`seatings.read`): è ciò che
@@ -80,6 +87,16 @@ export function useSeatingsRealtime(
                     event: "*",
                     schema: "public",
                     table: "seating_tables",
+                    filter: `activity_id=eq.${activityId}`
+                },
+                () => scheduleRefetch()
+            )
+            .on(
+                "postgres_changes",
+                {
+                    event: "*",
+                    schema: "public",
+                    table: "orders",
                     filter: `activity_id=eq.${activityId}`
                 },
                 () => scheduleRefetch()

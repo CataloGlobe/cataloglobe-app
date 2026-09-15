@@ -8,6 +8,7 @@ import {
     Lock,
     MapPin,
     Plus,
+    ReceiptText,
     TriangleAlert,
     Users
 } from "lucide-react";
@@ -29,6 +30,7 @@ import {
     type ServiceBoard
 } from "./serviceBoard";
 import { formatCovers, formatOpenFor, seatingDrawerFor, walkinTitle } from "./seatingDrawer";
+import { formatPendingOrdersRow } from "./seatingClose";
 import { Button } from "@/components/ui/Button/Button";
 import styles from "./Reservations.module.scss";
 
@@ -184,6 +186,7 @@ export default function ReservationsService({
         const isWalkin = s.reservations.length === 0;
         const covers = formatCovers(s.party_size);
         const stale = !done && isFromPreviousService(s, now);
+        const pending = done ? 0 : s.pending_orders_count;
         return (
             <div
                 key={s.id}
@@ -276,6 +279,22 @@ export default function ReservationsService({
                                     className={styles.serviceStaleIcon}
                                 />
                                 <span>{PREVIOUS_SERVICE_LABEL}</span>
+                            </div>
+                        )}
+                        {pending > 0 && (
+                            // Ordini ancora aperti (3.2): la gente sta
+                            // mangiando, non è un'urgenza — grigio come la
+                            // riga qui sopra. Conta soprattutto sulle
+                            // tavolate che lo spazzino ha saltato: nessuno
+                            // le chiuderà al posto dell'host.
+                            <div className={styles.servicePending} role="status">
+                                <ReceiptText
+                                    size={15}
+                                    strokeWidth={2}
+                                    aria-hidden
+                                    className={styles.servicePendingIcon}
+                                />
+                                <span>{formatPendingOrdersRow(pending)}</span>
                             </div>
                         )}
                         {conflicts.length > 0 && (

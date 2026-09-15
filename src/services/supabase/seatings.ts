@@ -13,6 +13,7 @@
 // risultati.
 
 import { supabase } from "./client";
+import { translateSeatingRpcMessage } from "./seatingRpcMessages";
 import type {
     Seating,
     SeatingTable,
@@ -28,10 +29,18 @@ import type {
  * usano per dire cose diverse fra loro ("va confermata prima", "la tavolata è
  * chiusa", "ha dei conti collegati"), e sostituirle tutte con "Richiesta non
  * valida" toglierebbe all'operatore l'unica informazione utile.
+ *
+ * I codici noti (`OPEN_ORDERS_NEED_ACTION:<n>`, `SEATING_HAS_BILLS`,
+ * `GROUP_NOT_VERIFIED`) passano da `translateSeatingRpcMessage`: un codice
+ * non deve mai raggiungere un toast. Vale per qualunque SQLSTATE li porti
+ * (22023 dalle RPC, P0001 dal trigger di verifica).
  */
 function mapSeatingRpcError(error: { code?: string; message?: string }): Error {
     let message: string;
-    if (error.code === "42501") {
+    const translated = translateSeatingRpcMessage(error.message);
+    if (translated !== null && translated !== error.message) {
+        message = translated;
+    } else if (error.code === "42501") {
         message = "Operazione non autorizzata";
     } else if (error.code === "22023") {
         message = error.message ?? "Richiesta non valida";
@@ -209,6 +218,30 @@ export async function listSeatingsWithState(
     return (data ?? []) as SeatingWithState[];
 }
 
+/**
+ * Una tavolata come la vede la sala (view), per id. `null` se non c'è o non
+ * è leggibile (la view risponde con zero righe, non con un errore).
+ *
+ * Serve al drawer della PRENOTAZIONE, che conosce la tavolata da
+ * `getSeatingForReservation` (la riga nuda) ma per fare la domanda di
+ * «Servizio concluso» ha bisogno di `pending_orders_count` e
+ * `pending_orders_deliverable`, che vivono solo qui.
+ */
+export async function getSeatingState(
+    seatingId: string,
+    tenantId: string
+): Promise<SeatingWithState | null> {
+    const { data, error } = await supabase
+        .from("v_seatings_with_state")
+        .select("*")
+        .eq("id", seatingId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+
+    if (error) throw error;
+    return (data as SeatingWithState | null) ?? null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Scritture
 // ─────────────────────────────────────────────────────────────────────────────
@@ -328,28 +361,37 @@ export async function setSeatingPartySize(
 }
 
 /**
- * Il servizio è finito: chiude la tavolata e porta a `completed` le
- * prenotazioni che ci sedevano. Le righe dei tavoli restano — l'occupazione si
- * deriva dallo stato, e lo storico di chi sedeva dove va conservato.
+ * Il servizio è finito: chiude la tavolata, i conti collegati e porta a
+ * `completed` le prenotazioni che ci sedevano. Le righe dei tavoli restano —
+ * l'occupazione si deriva dallo stato, e lo storico di chi sedeva dove va
+ * conservato.
  *
  * Idempotente lato server: richiudere non sposta `closed_at`.
  *
  * `reason` distingue il gesto dell'operatore dalla chiusura automatica di fine
- * giornata. Dalla dashboard è sempre `'operator'`: `'auto'` appartiene al job
- * che oggi non esiste.
+ * servizio. Dalla dashboard è sempre `'operator'`: `'auto'` appartiene al
+ * cron `close_stale_seatings`.
  *
- * Errori (`.code`): 42501 (non autorizzata), 22023 (motivo non ammesso).
+ * `action` dice cosa è successo agli ordini rimasti aperti (`deliver` |
+ * `cancel`). Serve SOLO se un ordine dei conti collegati aspetta una
+ * decisione: la schermata lo sa prima (`pending_orders_count` sulla view) e
+ * fa la domanda; senza niente in sospeso si omette e la chiusura passa.
+ *
+ * Errori (`.code`): 42501 (non autorizzata), 22023 (motivo o azione non
+ * ammessi; `OPEN_ORDERS_NEED_ACTION` se un ordine aspettava una decisione e
+ * non è stata data — già tradotto in italiano, vedi `seatingRpcMessages`).
  */
 export async function closeSeating(
     seatingId: string,
     reason: "operator" | "auto",
     // Firma uniforme del service; tenant e sede vengono dalla riga lato server.
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    _tenantId: string
+    _tenantId: string,
+    action?: "deliver" | "cancel"
 ): Promise<Seating> {
     const { data, error } = await supabase.rpc("close_seating", {
         p_seating_id: seatingId,
-        p_reason: reason
+        p_reason: reason,
+        ...(action !== undefined ? { p_action: action } : {})
     });
 
     if (error) throw mapSeatingRpcError(error);

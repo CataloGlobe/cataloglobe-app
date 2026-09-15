@@ -175,4 +175,18 @@ export interface SeatingWithState {
     opened_by_user_id: string | null;
     tables: SeatingStateTable[];
     reservations: SeatingStateReservation[];
+    /**
+     * Ordini dei conti aperti della tavolata che aspettano una decisione
+     * (`submitted | acknowledged | ready`). Stessa condizione con cui
+     * `close_seating` pretende un'azione: se è > 0 il gesto «Servizio
+     * concluso» deve chiedere "serviti o annullati?" PRIMA di chiamare.
+     * Chi non ha `orders.read` legge 0 (view `security_invoker`).
+     */
+    pending_orders_count: number;
+    /**
+     * Se «serviti» è una risposta possibile: false quando anche un solo
+     * conto con ordini in sospeso non è mai stato confermato dal locale
+     * (il server rifiuterebbe `deliver`). Vacuamente true senza ordini.
+     */
+    pending_orders_deliverable: boolean;
 }

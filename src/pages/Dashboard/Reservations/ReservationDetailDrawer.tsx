@@ -25,6 +25,12 @@ import type { V2Table } from "@/types/orders";
 import GuestConfirmedMark from "./GuestConfirmedMark";
 import ReminderStatusMark from "./ReminderStatusMark";
 import { seatingActionsFor, type SeatingActionKey } from "./seatingActions";
+import {
+    seatingCloseFlowFor,
+    type SeatingCloseAction,
+    type SeatingPendingOrders
+} from "./seatingClose";
+import { SeatingCloseQuestionBody, SeatingCloseQuestionFooter } from "./SeatingCloseQuestion";
 import { tableSectionFor, type TableSectionNote } from "./tableSection";
 import { statusMeta } from "@/utils/reservationStatusMeta";
 import {
@@ -129,8 +135,18 @@ interface Props {
      * e mostrato il toast. Assenti = nessun bottone.
      */
     onArrive?: () => Promise<boolean>;
-    onCompleteService?: () => Promise<boolean>;
+    /**
+     * `action` solo quando la domanda «serviti o annullati?» è stata fatta e
+     * risposta (vedi `seatingPendingOrders`).
+     */
+    onCompleteService?: (action?: SeatingCloseAction) => Promise<boolean>;
     onUndoArrival?: () => Promise<boolean>;
+    /**
+     * Ordini dei conti della tavolata che aspettano una decisione, dalla
+     * view. `undefined` = non caricati: il gesto chiude diretto e, se il
+     * server chiede, la rete di sicurezza lo dice in italiano.
+     */
+    seatingPendingOrders?: SeatingPendingOrders;
     /**
      * `seatings.party_size` della tavolata aperta: i coperti REALI. `null` =
      * non indicati; `undefined` = tavolata non caricata (o non c'è).
@@ -270,6 +286,7 @@ export default function ReservationDetailDrawer({
     onArrive,
     onCompleteService,
     onUndoArrival,
+    seatingPendingOrders,
     seatingPartySize,
     onSetSeatingPartySize
 }: Props) {
@@ -312,6 +329,11 @@ export default function ReservationDetailDrawer({
     // si escludono a vicenda, e due spinner insieme sarebbero solo confusione.
     const [seatingBusy, setSeatingBusy] = useState<SeatingActionKey | null>(null);
 
+    // La domanda di «Servizio concluso» (3.2): uno stato del drawer, non un
+    // altro drawer. `answering` = quale risposta è in volo.
+    const [asking, setAsking] = useState(false);
+    const [answering, setAnswering] = useState<SeatingCloseAction | null>(null);
+
     // Cambiare prenotazione o chiudere il drawer azzera il picker: una scelta
     // a metà non deve sopravvivere a un'altra prenotazione.
     const reservationId = reservation?.id ?? null;
@@ -320,6 +342,8 @@ export default function ReservationDetailDrawer({
         setPickerIds([]);
         setCoversOpen(false);
         setSeatingBusy(null);
+        setAsking(false);
+        setAnswering(null);
     }, [reservationId, open]);
 
     const handleConfirmCovers = async () => {
@@ -445,6 +469,28 @@ export default function ReservationDetailDrawer({
         setSeatingBusy(null);
     };
 
+    // «Servizio concluso»: chiede solo se c'è qualcosa da decidere. Senza il
+    // dato (tavolata non ancora letta) chiude diretto: è il server l'autorità.
+    const closeFlow = seatingCloseFlowFor(
+        seatingPendingOrders ?? { pending_orders_count: 0, pending_orders_deliverable: true }
+    );
+    const handleCompleteClick = () => {
+        if (closeFlow.kind === "ask") {
+            setAsking(true);
+            return;
+        }
+        void runSeatingAction("complete", onCompleteService);
+    };
+    const handleCloseAnswer = async (action: SeatingCloseAction) => {
+        if (!onCompleteService || answering !== null) return;
+        setAnswering(action);
+        const ok = await onCompleteService(action);
+        setAnswering(null);
+        if (ok) setAsking(false);
+        // Se non è riuscita il parent ha già mostrato il toast; si resta
+        // sulla domanda, che è ancora quella giusta.
+    };
+
     const showArrive = seatingActions.includes("arrive") && onArrive !== undefined;
     const showComplete =
         seatingActions.includes("complete") && onCompleteService !== undefined;
@@ -526,7 +572,7 @@ export default function ReservationDetailDrawer({
                             variant="primary"
                             loading={seatingBusy === "complete"}
                             disabled={seatingBusy !== null}
-                            onClick={() => void runSeatingAction("complete", onCompleteService)}
+                            onClick={handleCompleteClick}
                         >
                             Servizio concluso
                         </Button>
@@ -558,17 +604,36 @@ export default function ReservationDetailDrawer({
         </div>
     );
 
+    const header = (
+        <div className={styles.drawerHeaderTitle}>
+            <Text variant="title-sm" weight={600}>Prenotazione</Text>
+            <StatusBadge variant={st.variant} label={st.label} />
+        </div>
+    );
+
+    if (asking && closeFlow.kind === "ask") {
+        return (
+            <SystemDrawer open={open} onClose={onClose} width={560}>
+                <DrawerLayout
+                    header={header}
+                    footer={
+                        <SeatingCloseQuestionFooter
+                            flow={closeFlow}
+                            busy={answering}
+                            onAnswer={action => void handleCloseAnswer(action)}
+                            onBack={() => setAsking(false)}
+                        />
+                    }
+                >
+                    <SeatingCloseQuestionBody flow={closeFlow} />
+                </DrawerLayout>
+            </SystemDrawer>
+        );
+    }
+
     return (
         <SystemDrawer open={open} onClose={onClose} width={560}>
-            <DrawerLayout
-                header={
-                    <div className={styles.drawerHeaderTitle}>
-                        <Text variant="title-sm" weight={600}>Prenotazione</Text>
-                        <StatusBadge variant={st.variant} label={st.label} />
-                    </div>
-                }
-                footer={footer}
-            >
+            <DrawerLayout header={header} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Hero: data eroe + meta + sede ─────────────────── */}
                     <section className={styles.drawerHero}>

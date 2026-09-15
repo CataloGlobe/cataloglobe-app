@@ -48,6 +48,8 @@ function seating(
         opened_by_user_id: null,
         tables: [],
         reservations: [],
+        pending_orders_count: 0,
+        pending_orders_deliverable: true,
         ...over
     };
 }

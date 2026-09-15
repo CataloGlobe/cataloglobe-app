@@ -126,6 +126,61 @@ describe("closeSeating — il motivo viaggia fino alla RPC", () => {
             p_reason: "operator"
         });
     });
+
+    it("senza risposta alla domanda, p_action NON viaggia (il server usa il DEFAULT)", async () => {
+        rpc.mockResolvedValue({ data: { id: "s1", status: "closed" }, error: null });
+        await closeSeating("s1", "operator", "t1", undefined);
+        expect(rpc).toHaveBeenCalledWith("close_seating", {
+            p_seating_id: "s1",
+            p_reason: "operator"
+        });
+    });
+
+    it("con la risposta, p_action viaggia", async () => {
+        rpc.mockResolvedValue({ data: { id: "s1", status: "closed" }, error: null });
+        await closeSeating("s1", "operator", "t1", "cancel");
+        expect(rpc).toHaveBeenCalledWith("close_seating", {
+            p_seating_id: "s1",
+            p_reason: "operator",
+            p_action: "cancel"
+        });
+    });
+
+    it("OPEN_ORDERS_NEED_ACTION non arriva grezzo: italiano, col numero", async () => {
+        rpc.mockResolvedValue({
+            data: null,
+            error: { code: "22023", message: "OPEN_ORDERS_NEED_ACTION:2" }
+        });
+        await expect(closeSeating("s1", "operator", "t1")).rejects.toMatchObject({
+            code: "22023",
+            message:
+                "Ci sono 2 ordini ancora aperti su questa tavolata: vanno chiusi dalle comande prima di concludere il servizio."
+        });
+    });
+
+    it("GROUP_NOT_VERIFIED (P0001 dal trigger) in italiano", async () => {
+        rpc.mockResolvedValue({
+            data: null,
+            error: { code: "P0001", message: "GROUP_NOT_VERIFIED: acknowledge the first order" }
+        });
+        await expect(closeSeating("s1", "operator", "t1", "deliver")).rejects.toMatchObject({
+            code: "P0001",
+            message: expect.stringContaining("non sono mai stati confermati dal locale")
+        });
+    });
+});
+
+describe("undoSeating — SEATING_HAS_BILLS dice il motivo vero", () => {
+    it("in italiano: annullare lascerebbe i conti senza nessuno a cui attribuirli", async () => {
+        rpc.mockResolvedValue({
+            data: null,
+            error: { code: "22023", message: "SEATING_HAS_BILLS: this seating produced orders" }
+        });
+        await expect(undoSeating("s1", "t1")).rejects.toMatchObject({
+            code: "22023",
+            message: expect.stringContaining("senza nessuno a cui attribuirli")
+        });
+    });
 });
 
 describe("setSeatingTables — filtro difensivo sul tenant", () => {
