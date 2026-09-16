@@ -24,7 +24,9 @@ import type {
 import { getPlanByCode, listPublicPlans } from "@/services/supabase/plans";
 import { getActivityCount } from "@/services/supabase/activities";
 import { getTenantBillingInterval } from "@/services/supabase/tenants";
+import { listPlanPrices } from "@/services/supabase/planPrices";
 import { calculateGraduatedFromPlan } from "@/utils/pricing";
+import { DEFAULT_BILLING_INTERVAL, INTERVAL_ADJECTIVE, INTERVAL_RECURRENCE, intervalUnit, priceCentsFor } from "@/utils/planPricing";
 import { canDoOnTenant } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -51,7 +53,7 @@ import {
     RotateCcw,
     BadgePercent
 } from "lucide-react";
-import type { Plan, PlanCode } from "@/types/plan";
+import type { BillingInterval, Plan, PlanCode, PlanPrice } from "@/types/plan";
 import styles from "./SubscriptionPage.module.scss";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "primary" | "warning" | "danger" }> = {
@@ -178,6 +180,12 @@ export default function SubscriptionPage() {
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
     const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
+    // Display prices come from `plan_prices` for the tenant's billing interval,
+    // never from the deprecated `plans.monthly_price_cents`. The interval is read
+    // from `tenants.billing_interval` (not exposed by `user_tenants_view`); a NULL
+    // is a legacy tenant that predates the column and only ever knew monthly.
+    const [planPrices, setPlanPrices] = useState<PlanPrice[]>([]);
+    const [billingInterval, setBillingInterval] = useState<BillingInterval>(DEFAULT_BILLING_INTERVAL);
 
     // --- Stato flusso "Modifica piano" self-service ---
     const [plans, setPlans] = useState<Plan[]>([]);
@@ -200,7 +208,7 @@ export default function SubscriptionPage() {
     // vecchio. Riflettiamo subito il target noto e NON rileggiamo `tenants`.
     const [optimisticPlan, setOptimisticPlan] = useState<PlanCode | null>(null);
     const [optimisticSeats, setOptimisticSeats] = useState<number | null>(null);
-    const [optimisticMonthlyCents, setOptimisticMonthlyCents] = useState<number | null>(null);
+    const [optimisticNextAmountCents, setOptimisticNextAmountCents] = useState<number | null>(null);
     const [scheduledChange, setScheduledChange] = useState<{
         planName: string;
         seats: number;
@@ -240,6 +248,20 @@ export default function SubscriptionPage() {
             });
     }, [selectedTenant?.plan]);
 
+    // Interval + price rows: needed by every reader for the "Prezzo attuale" card.
+    useEffect(() => {
+        if (!tenantId) return;
+        getTenantBillingInterval(tenantId)
+            .then(interval => setBillingInterval(interval ?? DEFAULT_BILLING_INTERVAL))
+            .catch(err => console.error("[SubscriptionPage] billing interval lookup failed:", err));
+        listPlanPrices()
+            .then(setPlanPrices)
+            .catch(err => {
+                console.error("[SubscriptionPage] plan prices list failed:", err);
+                setPlanPrices([]);
+            });
+    }, [tenantId]);
+
     // Carica piani + conteggio sedi (per le card del selettore e il floor).
     useEffect(() => {
         if (!selectedTenant?.id || !canManageBilling) return;
@@ -266,9 +288,9 @@ export default function SubscriptionPage() {
 
     const currentPricing = useMemo(() => {
         if (!currentPlan) return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
-        // This page still shows the monthly price (interval-aware display is a later step).
-        return calculateGraduatedFromPlan({ ...currentPlan, unit_price_cents: currentPlan.monthly_price_cents }, paidSeats);
-    }, [currentPlan, paidSeats]);
+        const unitPriceCents = priceCentsFor(planPrices, currentPlan.code, billingInterval);
+        return calculateGraduatedFromPlan({ ...currentPlan, unit_price_cents: unitPriceCents }, paidSeats);
+    }, [currentPlan, paidSeats, planPrices, billingInterval]);
 
     // --- Derivati del flusso di cambio (sicuri anche prima del load) ---
     const draftPlanObj = plans.find(p => p.code === draftPlan) ?? null;
@@ -278,20 +300,23 @@ export default function SubscriptionPage() {
     const selfServiceCap = currentPlan?.max_self_service_seats ?? 5;
     const selfServiceEligible = activityCount <= selfServiceCap;
 
-    // Card prices for the change-plan drawer: still the monthly figure from
-    // `plans` (interval-aware display on this page is a later step).
+    // Card prices for the change-plan drawer: the tenant's own interval. The
+    // interval itself is not changeable here (no switch is rendered): a yearly
+    // subscriber changes plan and seats while staying yearly.
     const draftUnitPriceCentsByPlan = useMemo(() => {
         const out: Partial<Record<PlanCode, number>> = {};
         for (const p of plans) {
-            if (p.monthly_price_cents !== null) out[p.code] = p.monthly_price_cents;
+            const cents = priceCentsFor(planPrices, p.code, billingInterval);
+            if (cents !== null) out[p.code] = cents;
         }
         return out;
-    }, [plans]);
+    }, [plans, planPrices, billingInterval]);
 
     const draftBreakdown = useMemo(() => {
         if (!draftPlanObj) return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
-        return calculateGraduatedFromPlan({ ...draftPlanObj, unit_price_cents: draftPlanObj.monthly_price_cents }, draftSeats);
-    }, [draftPlanObj, draftSeats]);
+        const unitPriceCents = priceCentsFor(planPrices, draftPlanObj.code, billingInterval);
+        return calculateGraduatedFromPlan({ ...draftPlanObj, unit_price_cents: unitPriceCents }, draftSeats);
+    }, [draftPlanObj, draftSeats, planPrices, billingInterval]);
 
     if (loading || !selectedTenant) return null;
 
@@ -320,14 +345,16 @@ export default function SubscriptionPage() {
         ? (plans.find(p => p.code === optimisticPlan)?.name ?? optimisticPlan)
         : planName;
     const displaySeats = optimisticSeats ?? paidSeats;
-    const displayMonthly = optimisticMonthlyCents != null
-        ? optimisticMonthlyCents / 100
+    // Recurring amount per billing period (month or year), in euros.
+    const displayAmount = optimisticNextAmountCents != null
+        ? optimisticNextAmountCents / 100
         : currentPricing.subtotal;
+    const unit = intervalUnit(billingInterval);
 
     // Coupon Stripe attivo (letto live dall'edge "state"). Il prezzo scontato
     // resta puramente informativo: l'addebito reale lo calcola Stripe.
     const activeDiscount = subState?.discount ?? null;
-    const discountedMonthly = activeDiscount ? applyDiscount(displayMonthly, activeDiscount) : null;
+    const discountedAmount = activeDiscount ? applyDiscount(displayAmount, activeDiscount) : null;
     // Sconto `once` già consumato ma relativo al periodo corrente: nota
     // informativa, niente prezzo barrato (il pieno vale già dal prossimo rinnovo).
     const consumedDiscount = activeDiscount ? null : subState?.consumedDiscountThisPeriod ?? null;
@@ -345,7 +372,7 @@ export default function SubscriptionPage() {
     // Visibile solo in prova con una data nota: comunica quando scatta il primo
     // addebito reale, non solo quando finisce la prova.
     const firstChargeNote = status === "trialing" && trialDaysLeft !== null
-        ? `Il primo addebito di ${formatEuro(displayMonthly)}/mese parte il ${formatDate(selectedTenant.trial_until)}.`
+        ? `Il primo addebito di ${formatEuro(displayAmount)} (${INTERVAL_RECURRENCE[billingInterval]}) parte il ${formatDate(selectedTenant.trial_until)}.`
         : null;
 
     const handleCheckout = async () => {
@@ -518,7 +545,7 @@ export default function SubscriptionPage() {
                 // rileggerà la verità (ormai sincronizzata), che coincide.
                 setOptimisticPlan(draftPlan);
                 setOptimisticSeats(draftSeats);
-                setOptimisticMonthlyCents(preview.nextAmount);
+                setOptimisticNextAmountCents(preview.nextAmount);
                 setScheduledChange(null);
                 // Patch the tenant in memory with the authoritative commit result
                 // (Stripe already applied it). Survives SPA remounts — where the
@@ -755,20 +782,23 @@ export default function SubscriptionPage() {
                         <Text variant="caption" colorVariant="muted">
                             Prezzo attuale
                         </Text>
-                        {activeDiscount && discountedMonthly != null ? (
+                        {activeDiscount && discountedAmount != null ? (
                             <span className={styles.priceRow}>
                                 <Text variant="body" weight={500} colorVariant="muted" className={styles.priceStrikethrough}>
-                                    {formatEuro(displayMonthly)}
+                                    {formatEuro(displayAmount)}
                                 </Text>
                                 <Text variant="title-sm" weight={700}>
-                                    {formatEuro(discountedMonthly)}/mese
+                                    {formatEuro(discountedAmount)}{unit}
                                 </Text>
                             </span>
                         ) : (
                             <Text variant="title-sm" weight={700}>
-                                {formatEuro(displayMonthly)}/mese
+                                {formatEuro(displayAmount)}{unit}
                             </Text>
                         )}
+                        <Text variant="body-sm" colorVariant="muted">
+                            Fatturazione {INTERVAL_ADJECTIVE[billingInterval]}
+                        </Text>
                         {activeDiscount && (
                             <Text variant="body-sm" colorVariant="success" weight={500}>
                                 {formatDiscountLine(activeDiscount)}
@@ -799,7 +829,7 @@ export default function SubscriptionPage() {
                     <div className={styles.consumedNote}>
                         <BadgePercent size={16} />
                         <Text variant="body-sm" weight={500}>
-                            {formatConsumedDiscountNote(consumedDiscount, displayMonthly)}
+                            {formatConsumedDiscountNote(consumedDiscount, displayAmount)}
                         </Text>
                     </div>
                 )}
@@ -970,7 +1000,7 @@ export default function SubscriptionPage() {
                                     Riattiva abbonamento
                                 </Text>
                                 <Text variant="body-sm" colorVariant="muted">
-                                    {`Il tuo abbonamento è stato cancellato. Riattivalo per tornare operativo: l'addebito di ${formatEuro(displayMonthly)}/mese parte subito.`}
+                                    {`Il tuo abbonamento è stato cancellato. Riattivalo per tornare operativo: l'addebito di ${formatEuro(displayAmount)}${unit} parte subito.`}
                                 </Text>
                             </div>
                             <Button
@@ -1062,6 +1092,7 @@ export default function SubscriptionPage() {
                                 planCode={draftPlan}
                                 onPlanChange={handleDraftPlan}
                                 unitPriceCentsByPlan={draftUnitPriceCentsByPlan}
+                                billingInterval={billingInterval}
                                 seats={draftSeats}
                                 onSeatsChange={setDraftSeats}
                                 breakdown={draftBreakdown}
@@ -1194,7 +1225,7 @@ export default function SubscriptionPage() {
                                             <div className={styles.confirmDivider} />
                                             <Text variant="body-sm" colorVariant="muted">
                                                 Il piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)};
-                                                da quella data pagherai {formatCents(preview.nextAmount)}/mese.
+                                                da quella data pagherai {formatCents(preview.nextAmount)}{unit}.
                                             </Text>
                                             <div className={styles.changeWarning}>
                                                 <AlertTriangle size={16} />
@@ -1220,7 +1251,7 @@ export default function SubscriptionPage() {
                                                     Dal {formatDate(preview.nextDate)}
                                                 </Text>
                                                 <Text variant="body" weight={600}>
-                                                    {formatCents(preview.nextAmount)}/mese
+                                                    {formatCents(preview.nextAmount)}{unit}
                                                 </Text>
                                             </div>
                                         </>
@@ -1232,7 +1263,7 @@ export default function SubscriptionPage() {
                                             </div>
                                             <Text variant="body-sm" colorVariant="muted">
                                                 Il tuo piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)}.
-                                                Da quella data pagherai {formatCents(preview.nextAmount)}/mese.
+                                                Da quella data pagherai {formatCents(preview.nextAmount)}{unit}.
                                             </Text>
                                             {isDowngradeToBase && (
                                                 <div className={styles.changeWarning}>

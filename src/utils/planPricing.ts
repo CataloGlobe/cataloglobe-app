@@ -52,3 +52,19 @@ export function coerceInterval(interval: BillingInterval | null | undefined, ava
     if (interval && available.includes(interval)) return interval;
     return available.includes(DEFAULT_BILLING_INTERVAL) ? DEFAULT_BILLING_INTERVAL : (available[0] ?? DEFAULT_BILLING_INTERVAL);
 }
+
+// --- Interval wording (Italian UI copy, single source for wizard + Abbonamento) ---
+
+/** Period noun for price units: "€39/mese", "€390/anno". */
+export const INTERVAL_PERIOD_NOUN: Record<BillingInterval, string> = { month: "mese", year: "anno" };
+
+/** Adjective for the billing-interval line: "Fatturazione mensile" / "annuale". */
+export const INTERVAL_ADJECTIVE: Record<BillingInterval, string> = { month: "mensile", year: "annuale" };
+
+/** Recurrence phrase for charge notes: "€701,00 ogni anno". */
+export const INTERVAL_RECURRENCE: Record<BillingInterval, string> = { month: "ogni mese", year: "ogni anno" };
+
+/** Unit suffix appended to a recurring amount: "/mese" or "/anno". */
+export function intervalUnit(interval: BillingInterval): string {
+    return `/${INTERVAL_PERIOD_NOUN[interval]}`;
+}

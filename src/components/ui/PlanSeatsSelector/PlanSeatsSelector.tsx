@@ -7,6 +7,7 @@ import { COMPANY } from "@/config/company";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import type { BillingInterval, Plan, PlanCode } from "@/types/plan";
 import type { GraduatedBreakdown } from "@/utils/pricing";
+import { INTERVAL_PERIOD_NOUN } from "@/utils/planPricing";
 import { DEFAULT_PLAN_FEATURES, DEFAULT_PLAN_BADGES } from "./planDefaults";
 import styles from "./PlanSeatsSelector.module.scss";
 
@@ -32,7 +33,6 @@ function formatEuroWhole(cents: number): string {
     return `€${Math.round(cents / 100)}`;
 }
 
-const INTERVAL_UNIT: Record<BillingInterval, string> = { month: "/sede/mese", year: "/sede/anno" };
 const INTERVAL_TOTAL_LABEL: Record<BillingInterval, string> = { month: "Totale mensile", year: "Totale annuale" };
 const INTERVAL_OPTION_LABEL: Record<BillingInterval, string> = { month: "Mensile", year: "Annuale · 2 mesi gratis" };
 
@@ -142,7 +142,7 @@ export function PlanSeatsSelector({
                             <span className={styles.planName}>{plan.name}</span>
                             <span className={styles.planPrice}>
                                 <span className={styles.planPriceValue}>{formatEuroWhole(unitCents)}</span>
-                                <span className={styles.planPriceUnit}>{INTERVAL_UNIT[billingInterval]}</span>
+                                <span className={styles.planPriceUnit}>{`/sede/${INTERVAL_PERIOD_NOUN[billingInterval]}`}</span>
                             </span>
                             {monthByMonthCents !== undefined && (
                                 <span className={styles.planPriceCompare}>
