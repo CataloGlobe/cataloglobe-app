@@ -16,6 +16,7 @@ import { listActivityHours } from "@/services/supabase/activityHours";
 import { listActivityClosures } from "@/services/supabase/activityClosures";
 import {
     canAccept,
+    occupiesCapacity,
     type CapacityReservation
 } from "@/utils/reservationCapacity";
 import { todayIsoDate } from "@/utils/dateLocal";
@@ -218,14 +219,10 @@ export function ReservationForm({
         const trimmedTime = reservationTime.trim();
         if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) return null;
         if (!/^\d{2}:\d{2}/.test(trimmedTime)) return null;
-        // `no_show` non è un valore che il motore di capienza conosce: conta
-        // solo pending + confirmed, quindi le righe non attive vengono scartate
-        // qui invece di allargare il tipo del motore (che resta invariato).
+        // Quali stati occupano capienza lo dice il motore (`occupiesCapacity`),
+        // non questo file: stessa terna delle funzioni SQL.
         const rows: CapacityReservation[] = allReservations
-            .filter(
-                (r): r is V2Reservation & { status: CapacityReservation["status"] } =>
-                    r.status === "pending" || r.status === "confirmed"
-            )
+            .filter(r => occupiesCapacity(r.status))
             .map(r => ({
                 id: r.id,
                 activity_id: r.activity_id,
@@ -289,7 +286,7 @@ export function ReservationForm({
         let bucketBookings = 0;
         for (const r of allReservations) {
             if (r.activity_id !== activeActivity.id) continue;
-            if (r.status !== "pending" && r.status !== "confirmed") continue;
+            if (!occupiesCapacity(r.status)) continue;
             if (r.reservation_date !== trimmedDate) continue;
             if (r.party_size <= 0) continue;
             // In modifica la riga stessa non va contata due volte.

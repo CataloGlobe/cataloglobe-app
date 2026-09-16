@@ -35,6 +35,7 @@ import { tableSectionFor, type TableSectionNote } from "./tableSection";
 import { statusMeta } from "@/utils/reservationStatusMeta";
 import {
     canAccept,
+    occupiesCapacity,
     type CapacityReservation
 } from "@/utils/reservationCapacity";
 import type { V2Reservation } from "@/types/reservation";
@@ -383,14 +384,10 @@ export default function ReservationDetailDrawer({
     // without the "/ capienza" comparison.
     const capacityCallout = useMemo(() => {
         if (!reservation) return null;
-        // `no_show` non è un valore che il motore di capienza conosce: conta
-        // solo pending + confirmed, quindi le righe non attive vengono scartate
-        // qui invece di allargare il tipo del motore (che resta invariato).
+        // Quali stati occupano capienza lo dice il motore (`occupiesCapacity`),
+        // non questo file: stessa terna delle funzioni SQL.
         const rows: CapacityReservation[] = allReservations
-            .filter(
-                (r): r is V2Reservation & { status: CapacityReservation["status"] } =>
-                    r.status === "pending" || r.status === "confirmed"
-            )
+            .filter(r => occupiesCapacity(r.status))
             .map(r => ({
                 id: r.id,
                 activity_id: r.activity_id,

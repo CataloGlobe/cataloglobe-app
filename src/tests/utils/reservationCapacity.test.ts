@@ -1,9 +1,11 @@
 import { describe, it, expect } from "vitest";
 import {
     canAccept,
+    occupiesCapacity,
     peakConcurrent,
     type CapacityReservation
 } from "@/utils/reservationCapacity";
+import type { ReservationStatus } from "@/types/reservation";
 
 const ACTIVITY = "act-1";
 
@@ -84,6 +86,39 @@ describe("peakConcurrent", () => {
             party_size: 0
         };
         expect(peakConcurrent(rows, candidate, 120)).toBe(8);
+    });
+
+    // FASE 5.1 — una comitiva seduta occupa ancora i suoi coperti: `seated`
+    // conta come `confirmed`. Stessa terna delle funzioni SQL.
+    it("counts seated rows: a party at the table still occupies its covers", () => {
+        const rows = [
+            row("r1", "2026-06-10", "20:00", 6, "seated"),
+            row("r2", "2026-06-10", "20:00", 4, "confirmed")
+        ];
+        const candidate = {
+            activity_id: ACTIVITY,
+            reservation_date: "2026-06-10",
+            reservation_time: "20:30",
+            party_size: 2
+        };
+        const res = canAccept({ capacity: 10, durationMin: 120 }, rows, candidate);
+        expect(res.ok).toBe(false);
+        expect(res.peakWithCandidate).toBe(12);
+    });
+
+    it("ignores completed and no_show rows: the table was freed for real", () => {
+        const rows = [
+            row("r1", "2026-06-10", "19:30", 10, "completed"),
+            row("r2", "2026-06-10", "19:30", 10, "no_show"),
+            row("r3", "2026-06-10", "19:30", 4,  "seated")
+        ];
+        const candidate = {
+            activity_id: ACTIVITY,
+            reservation_date: "2026-06-10",
+            reservation_time: "20:00",
+            party_size: 0
+        };
+        expect(peakConcurrent(rows, candidate, 120)).toBe(4);
     });
 
     it("handles overlap across midnight via D-1/D/D+1 axis", () => {
@@ -207,5 +242,14 @@ describe("canAccept", () => {
         const res = canAccept({ capacity: 10, durationMin: 120 }, rows, candidate);
         expect(res.ok).toBe(true);
         expect(res.peakWithCandidate).toBe(8);
+    });
+});
+
+describe("occupiesCapacity", () => {
+    it("is exactly the triple pending / confirmed / seated", () => {
+        const all: ReservationStatus[] = [
+            "pending", "confirmed", "seated", "completed", "declined", "cancelled", "no_show"
+        ];
+        expect(all.filter(occupiesCapacity)).toEqual(["pending", "confirmed", "seated"]);
     });
 });

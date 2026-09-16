@@ -10,9 +10,14 @@
 // (e.g. 23:30 vs 00:30) are scored correctly. Same technique as the
 // previous +/-90 aggregate in ReservationDetailDrawer.
 //
-// IMPORTANT - this module is duplicated server-side in
-// supabase/functions/submit-reservation/index.ts (search for the
-// SYNC: src/utils/reservationCapacity.ts block). Keep both in sync.
+// Chi decide sono le due funzioni SQL `reservation_peak_with_candidate` e
+// `reservation_pacing_block` (migration 20260917100000 / 20260917100100),
+// chiamate da `place_online_reservation`. Questo modulo NON è un gemello:
+// produce solo l'avviso non bloccante del pannello (form e drawer) e la
+// regola sugli stati la replica. Se la lista degli stati cambia lato SQL,
+// va cambiata anche qui, in `OCCUPYING_STATUSES`.
+
+import type { ReservationStatus } from "@/types/reservation";
 
 export interface CapacityReservation {
     id: string;
@@ -20,7 +25,7 @@ export interface CapacityReservation {
     reservation_date: string;
     reservation_time: string;
     party_size: number;
-    status: "pending" | "confirmed" | "declined" | "cancelled";
+    status: ReservationStatus;
 }
 
 export interface CapacityCandidate {
@@ -32,10 +37,22 @@ export interface CapacityCandidate {
 }
 
 const MINUTES_PER_DAY = 1440;
-const ACTIVE_STATUSES: ReadonlySet<CapacityReservation["status"]> = new Set([
+
+// Una prenotazione occupa capienza finché è attesa o presente. `completed`
+// non occupa: chi ha finito ha liberato il tavolo davvero, la realtà batte la
+// durata pianificata. `no_show`, `cancelled`, `declined` non occupano.
+// Unica lista del frontend: i call site usano `occupiesCapacity`, non
+// ripetono il confronto.
+const OCCUPYING_STATUSES: ReadonlySet<ReservationStatus> = new Set<ReservationStatus>([
     "pending",
-    "confirmed"
+    "confirmed",
+    "seated"
 ]);
+
+/** True se la prenotazione in questo stato conta ai fini di capienza e pacing. */
+export function occupiesCapacity(status: ReservationStatus): boolean {
+    return OCCUPYING_STATUSES.has(status);
+}
 
 function parseLocalDate(iso: string): Date | null {
     const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
@@ -94,7 +111,7 @@ function buildEvents(
 ): SweepEvent[] {
     const events: SweepEvent[] = [];
     for (const r of rows) {
-        if (!ACTIVE_STATUSES.has(r.status)) continue;
+        if (!occupiesCapacity(r.status)) continue;
         if (r.party_size <= 0) continue;
         const start = toRelativeMinutes(r.reservation_date, r.reservation_time, referenceDate);
         if (Number.isNaN(start)) continue;

@@ -9,11 +9,16 @@
 // `no_show` = il cliente non si è presentato. Raggiungibile solo da
 // `confirmed` ed è reversibile: il dato alimenterà un indice di affidabilità,
 // quindi una marcatura sbagliata deve essere correggibile.
-// `seated` e `completed` sono ammessi dal CHECK del DB (migration
-// 20260615140000) e oggi nessuno li scrive. Stanno nel tipo perché il motore
-// di assegnazione tavoli li considera (`seated` OCCUPA un tavolo): il
-// rilevamento conflitti lato client deve poterli leggere il giorno in cui
-// compariranno, non scoprirlo a runtime.
+// `seated` e `completed` li scrive il ciclo della tavolata (BLOCCO 2:
+// `open_seating_for_reservation` al gesto «Arrivato», `close_seating` /
+// `close_stale_seatings` alla chiusura), non l'endpoint admin delle
+// transizioni. `seated` OCCUPA: un tavolo, e anche la capienza — la comitiva
+// è in sala, i suoi coperti contano finché non è `completed`. Ogni filtro che
+// distingue «attiva» da «chiusa» deve includerlo, lato SQL
+// (`reservation_peak_with_candidate`, `reservation_pacing_block`) come lato
+// frontend (`occupiesCapacity` in src/utils/reservationCapacity.ts). Il bug
+// della FASE 5.1 è nato da una versione di questo commento che diceva «oggi
+// nessuno li scrive».
 export type ReservationStatus =
     | "pending"
     | "confirmed"
