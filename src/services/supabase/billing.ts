@@ -131,6 +131,20 @@ export type SubscriptionChangePreview = {
     nextDate: string | null;
     /** "now" per upgrade immediati, timestamp ISO per downgrade programmati. */
     effective: string;
+    /**
+     * ISO della fine prova se l'abbonamento è in prova al momento della preview,
+     * altrimenti null. Fatto letto live da Stripe nella stessa richiesta: in
+     * prova `chargeToday` è la prima fattura (a fine prova), non un addebito di
+     * oggi, e la UI lo dice. Opzionale per compatibilità con risposte precedenti.
+     */
+    trialEndsAt?: string | null;
+    /**
+     * In prova: importo della prima fattura (a fine prova) per il cambio
+     * richiesto, letto dall'anteprima Stripe. Null fuori prova o se l'anteprima
+     * non è disponibile: in quel caso la UI dice la data senza importo — mai
+     * una cifra ricavata altrimenti.
+     */
+    trialFirstInvoiceCents?: number | null;
 };
 
 export type SubscriptionChangeCommitResult = {
@@ -281,6 +295,8 @@ export type SubscriptionState = {
      * null se non risolvibile. Popolato solo dall'action "state".
      */
     currentInterval?: BillingInterval | null;
+    /** ISO della fine prova se in prova, altrimenti null. Popolato solo dall'action "state". */
+    trialEndsAt?: string | null;
     /** true se l'abbonamento è disdetto a fine periodo. */
     cancelAtPeriodEnd: boolean;
     /** Cambio piano/sedi programmato al rinnovo, o null. */

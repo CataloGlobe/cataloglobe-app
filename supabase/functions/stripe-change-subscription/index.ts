@@ -214,6 +214,34 @@ async function extractConsumedDiscountThisPeriod(
 }
 
 /** Periodo di fatturazione corrente, item-level con fallback top-level (API basil). */
+/**
+ * First invoice at trial end for the target phase, straight from Stripe's own
+ * preview (no proration: the whole first period). Used ONLY for the trial copy
+ * shown to the customer: the figure is displayed if and only if it comes from
+ * here — on any failure the UI shows the date without an amount, never a
+ * number derived elsewhere. Best-effort by design (null, no 502): the preview
+ * amounts and the change itself never depend on it.
+ */
+async function trialFirstInvoiceFromStripe(
+    stripe: Stripe,
+    customerId: string,
+    subscriptionId: string,
+    items: Array<{ id: string; price: string; quantity: number }>
+): Promise<number | null> {
+    try {
+        const preview = await stripe.invoices.createPreview({
+            customer: customerId,
+            subscription: subscriptionId,
+            subscription_details: { items, proration_behavior: "none" }
+        });
+        return typeof preview.total === "number" ? preview.total : null;
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`stripe-change-subscription: trial first-invoice preview failed: ${message}`);
+        return null;
+    }
+}
+
 function periodEndSeconds(sub: Stripe.Subscription): number | null {
     return sub.items?.data?.[0]?.current_period_end ?? sub.current_period_end ?? null;
 }
@@ -418,6 +446,11 @@ serve(async req => {
         const currentPeriodEndSec = periodEndSeconds(sub);
         const currency = sub.currency ?? item.price?.currency ?? "eur";
         const periodEndIso = toIso(currentPeriodEndSec);
+        // Trial fact for the UI copy, read live in the same request that builds
+        // the preview: the moment the trial ends Stripe flips `status` to
+        // "active" and the preview turns into a real proration, so state and
+        // amount always change together. Amounts are NOT affected by this.
+        const trialEndsAt: string | null = sub.status === "trialing" ? toIso(sub.trial_end) : null;
 
         // --- Piano + intervallo correnti dal Price live (plan_prices) ---
         // Piano: metadata → fallback reverse-lookup → tenants.plan (invariato).
@@ -472,6 +505,7 @@ serve(async req => {
             return {
                 currentPeriodEnd: periodEndIso,
                 currentInterval,
+                trialEndsAt,
                 cancelAtPeriodEnd: !!sub.cancel_at_period_end,
                 pendingChange,
                 discount,
@@ -706,7 +740,8 @@ serve(async req => {
                     chargeToday: 0,
                     nextAmount,
                     nextDate: periodEndIso,
-                    effective: periodEndIso
+                    effective: periodEndIso,
+                    trialEndsAt
                 });
             }
 
@@ -872,6 +907,12 @@ serve(async req => {
                         }
                     }
 
+                    // B2 runs on a schedule-managed subscription: Stripe's preview
+                    // ignores the item override and stays anchored to the existing
+                    // phase (see the downgrade note below), so no reliable figure
+                    // from Stripe here → the trial copy shows the date only.
+                    const trialFirstInvoiceCents: number | null = null;
+
                     return json(req, 200, {
                         classification: "combined",
                         plan: b2FuturePlanCode ?? targetPlan,
@@ -881,6 +922,8 @@ serve(async req => {
                         nextAmount: nextAmountB2,
                         nextDate: periodEndIso,
                         effective: periodEndIso,
+                        trialEndsAt,
+                        trialFirstInvoiceCents,
                         // B2 NON scarta il cambio programmato (lo preserva alla nuova qty).
                         willDiscardScheduledChange: false
                     });
@@ -988,6 +1031,14 @@ serve(async req => {
             const previewClassification =
                 change.route === "combined-downgrade-seats-up" ? "combined" : classification;
 
+            // Trial copy only: the first invoice at trial end for the target items,
+            // from Stripe's preview. Null when not trialing, when the preview fails,
+            // or when a schedule is attached (the preview would then reflect the
+            // existing phase, not the requested items — see note above).
+            const trialFirstInvoiceCents = trialEndsAt && !existingScheduleId
+                ? await trialFirstInvoiceFromStripe(stripe, tenant.stripe_customer_id, tenant.stripe_subscription_id, newItems)
+                : null;
+
             return json(req, 200, {
                 classification: previewClassification,
                 plan: targetPlan,
@@ -997,6 +1048,8 @@ serve(async req => {
                 nextAmount,
                 nextDate: periodEndIso,
                 effective,
+                trialEndsAt,
+                trialFirstInvoiceCents,
                 willDiscardScheduledChange: classification === "upgrade" && !!existingScheduleId
             });
         }

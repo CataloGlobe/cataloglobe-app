@@ -708,6 +708,17 @@ export default function SubscriptionPage() {
         ? (plans.find(p => p.code === preview.plan)?.name ?? preview.plan)
         : targetPlanName;
     const previewIsDowngrade = preview ? preview.effective !== "now" : false;
+    // Trial wording. The "when" step runs before any preview exists, so it reads
+    // the live state loaded with the page; the confirm step reads the preview
+    // built in the same request as its amounts, so copy and figures never
+    // disagree at the exact moment the trial ends. Amounts are untouched: in
+    // trial `chargeToday` is the first invoice (issued at trial end), not a
+    // charge of today, and the copy places it in time accordingly.
+    const whenTrialEnds = subState?.trialEndsAt ?? null;
+    const previewTrialEnds = preview?.trialEndsAt ?? null;
+    // Trial figure: shown only when it comes from Stripe's own preview of the
+    // first invoice; otherwise the date alone.
+    const previewTrialFirstInvoice = preview?.trialFirstInvoiceCents ?? null;
 
     return (
         <div className={styles.page}>
@@ -1076,9 +1087,11 @@ export default function SubscriptionPage() {
                                     loading={commitLoading}
                                 >
                                     {preview?.classification === "combined"
-                                        ? "Paga le sedi e programma il cambio"
+                                        ? (previewTrialEnds ? "Aggiungi le sedi e programma il cambio" : "Paga le sedi e programma il cambio")
                                         : previewIsDowngrade
                                         ? "Programma il cambio"
+                                        : previewTrialEnds
+                                        ? "Conferma"
                                         : "Conferma e paga"}
                                 </Button>
                             </>
@@ -1142,8 +1155,9 @@ export default function SubscriptionPage() {
                                         >
                                             <Text variant="body" weight={600}>Attive subito</Text>
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Le sedi in più valgono da ora: paghi il prorata per i giorni
-                                                rimanenti del periodo.
+                                                {whenTrialEnds
+                                                    ? `Le sedi in più valgono da ora. Sei in prova: nessun addebito fino al ${formatDate(whenTrialEnds)}.`
+                                                    : "Le sedi in più valgono da ora: paghi il prorata per i giorni rimanenti del periodo."}
                                             </Text>
                                         </button>
                                         <button
@@ -1164,19 +1178,26 @@ export default function SubscriptionPage() {
                                     {whenKind === "tier-up" && (
                                         <Text variant="body-sm">
                                             L&apos;upgrade si applica <strong>subito</strong>: avrai le nuove
-                                            funzioni da ora e paghi il prorata per i giorni rimanenti del periodo.
+                                            funzioni da ora
+                                            {whenTrialEnds
+                                                ? `. Sei in prova: nessun addebito fino al ${formatDate(whenTrialEnds)}.`
+                                                : " e paghi il prorata per i giorni rimanenti del periodo."}
                                         </Text>
                                     )}
                                     {whenKind === "seats-up" && (
                                         <Text variant="body-sm">
-                                            Le sedi in più si attivano <strong>subito</strong>: paghi il prorata
-                                            per i giorni rimanenti del periodo.
+                                            Le sedi in più si attivano <strong>subito</strong>
+                                            {whenTrialEnds
+                                                ? `. Sei in prova: nessun addebito fino al ${formatDate(whenTrialEnds)}.`
+                                                : ": paghi il prorata per i giorni rimanenti del periodo."}
                                         </Text>
                                     )}
                                     {whenKind === "mixed" && (
                                         <Text variant="body-sm">
-                                            Le sedi in più valgono <strong>subito</strong> (paghi il prorata); il
-                                            passaggio a {targetPlanName} avviene <strong>al rinnovo</strong>{" "}
+                                            Le sedi in più valgono <strong>subito</strong>{" "}
+                                            {whenTrialEnds ? "(sei in prova: nessun addebito)" : "(paghi il prorata)"}; il
+                                            passaggio a {targetPlanName} avviene{" "}
+                                            <strong>{whenTrialEnds ? "alla fine della prova" : "al rinnovo"}</strong>{" "}
                                             ({formatDate(periodEndDate)}).
                                         </Text>
                                     )}
@@ -1214,18 +1235,24 @@ export default function SubscriptionPage() {
                                             <div className={styles.confirmRow}>
                                                 <Text variant="body" weight={600}>Oggi paghi</Text>
                                                 <Text variant="title-sm" weight={700}>
-                                                    {formatCents(preview.chargeToday)}
+                                                    {previewTrialEnds ? formatCents(0) : formatCents(preview.chargeToday)}
                                                 </Text>
                                             </div>
                                             <Text variant="body-sm" colorVariant="muted">
-                                                {seatDir === 1
+                                                {previewTrialEnds
+                                                    ? `Sei in prova gratuita: le sedi aggiunte sono attive subito e non ti viene addebitato nulla fino al ${formatDate(previewTrialEnds)}.`
+                                                    : seatDir === 1
                                                     ? "La sede aggiunta è attiva subito, riproporzionata a tariffa Pro fino al rinnovo."
                                                     : `Le ${seatDir} sedi aggiunte sono attive subito, riproporzionate a tariffa Pro fino al rinnovo.`}
                                             </Text>
                                             <div className={styles.confirmDivider} />
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Il piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)};
-                                                da quella data pagherai {formatCents(preview.nextAmount)}{unit}.
+                                                Il piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)};{" "}
+                                                {previewTrialEnds
+                                                    ? previewTrialFirstInvoice != null
+                                                        ? `il primo addebito, quel giorno, sarà di ${formatCents(previewTrialFirstInvoice)}${unit}.`
+                                                        : "il primo addebito sarà quel giorno."
+                                                    : `da quella data pagherai ${formatCents(preview.nextAmount)}${unit}.`}
                                             </Text>
                                             <div className={styles.changeWarning}>
                                                 <AlertTriangle size={16} />
@@ -1239,20 +1266,32 @@ export default function SubscriptionPage() {
                                             <div className={styles.confirmRow}>
                                                 <Text variant="body" weight={600}>Oggi paghi</Text>
                                                 <Text variant="title-sm" weight={700}>
-                                                    {formatCents(preview.chargeToday)}
+                                                    {previewTrialEnds ? formatCents(0) : formatCents(preview.chargeToday)}
                                                 </Text>
                                             </div>
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Importo riproporzionato per i giorni rimanenti del periodo in corso.
+                                                {previewTrialEnds
+                                                    ? `Sei in prova gratuita: le novità sono attive subito e non ti viene addebitato nulla fino al ${formatDate(previewTrialEnds)}.`
+                                                    : "Importo riproporzionato per i giorni rimanenti del periodo in corso."}
                                             </Text>
                                             <div className={styles.confirmDivider} />
                                             <div className={styles.confirmRow}>
                                                 <Text variant="body-sm" colorVariant="muted">
-                                                    Dal {formatDate(preview.nextDate)}
+                                                    {previewTrialEnds
+                                                        ? `Primo addebito, il ${formatDate(previewTrialEnds)}`
+                                                        : `Dal ${formatDate(preview.nextDate)}`}
                                                 </Text>
-                                                <Text variant="body" weight={600}>
-                                                    {formatCents(preview.nextAmount)}{unit}
-                                                </Text>
+                                                {previewTrialEnds ? (
+                                                    previewTrialFirstInvoice != null && (
+                                                        <Text variant="body" weight={600}>
+                                                            {formatCents(previewTrialFirstInvoice)}{unit}
+                                                        </Text>
+                                                    )
+                                                ) : (
+                                                    <Text variant="body" weight={600}>
+                                                        {formatCents(preview.nextAmount)}{unit}
+                                                    </Text>
+                                                )}
                                             </div>
                                         </>
                                     ) : (
