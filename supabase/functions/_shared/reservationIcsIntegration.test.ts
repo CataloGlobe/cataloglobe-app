@@ -23,6 +23,10 @@ const REMINDERS = readFileSync(
     resolve(process.cwd(), "supabase/functions/send-reservation-reminders/index.ts"),
     "utf-8"
 );
+const UPDATE = readFileSync(
+    resolve(process.cwd(), "supabase/functions/update-reservation/index.ts"),
+    "utf-8"
+);
 
 /** Righe di codice del generatore, senza commenti (che parlano di ATTENDEE). */
 const GENERATOR_CODE = GENERATOR.split("\n")
@@ -39,7 +43,13 @@ describe("evento da aggiungere, mai invito con RSVP", () => {
         // risposta RSVP che nessuno legge.
         expect(GENERATOR_CODE).not.toContain("METHOD:REQUEST");
         expect(GENERATOR_CODE).not.toContain("METHOD:REPLY");
-        expect(GENERATOR_CODE).not.toContain("METHOD:CANCEL");
+    });
+
+    it("il generatore emette METHOD:CANCEL solo nel costruttore dell'annullamento", () => {
+        // RFC 5546: PUBLISH si annulla con CANCEL. È l'unica altra forma
+        // ammessa del file, e vive in una funzione a parte.
+        expect(GENERATOR_CODE.match(/"METHOD:CANCEL"/g) ?? []).toHaveLength(1);
+        expect(GENERATOR_CODE).toContain("export function buildReservationCancelledIcs(");
     });
 
     it("il generatore NON emette ATTENDEE né ORGANIZER", () => {
@@ -51,8 +61,13 @@ describe("evento da aggiungere, mai invito con RSVP", () => {
         expect(GENERATOR_CODE).not.toContain("RSVP");
     });
 
-    it("esiste una sola riga METHOD in tutto il file", () => {
-        expect(GENERATOR_CODE.match(/METHOD:/g) ?? []).toHaveLength(1);
+    it("esistono esattamente due righe METHOD: PUBLISH e CANCEL", () => {
+        expect(GENERATOR_CODE.match(/METHOD:/g) ?? []).toHaveLength(2);
+    });
+
+    it("entrambe le forme emettono SEQUENCE, e nessuna lo calcola", () => {
+        expect(GENERATOR_CODE.match(/`SEQUENCE:\$\{normalizeSequence\(icsSequence\)\}`/g) ?? []).toHaveLength(2);
+        expect(GENERATOR_CODE).not.toMatch(/icsSequence\s*\+\s*1/);
     });
 });
 
@@ -110,9 +125,39 @@ describe("dove l'allegato compare, e dove no", () => {
         expect(SUBMIT.match(/buildReservationIcsAttachment\(/g) ?? []).toHaveLength(1);
     });
 
-    it("respond-reservation allega solo sull'azione confirm", () => {
+    it("respond-reservation allega l'evento su confirm e l'annullamento sulle altre", () => {
         expect(RESPOND).toContain('action === "confirm" && activityRowForIcs');
         expect(RESPOND.match(/buildReservationIcsAttachment\(/g) ?? []).toHaveLength(1);
+        expect(RESPOND).toContain('action !== "confirm" && activityRowForIcs');
+        expect(RESPOND.match(/buildReservationCancelledIcsAttachment\(/g) ?? []).toHaveLength(1);
+    });
+
+    it("update-reservation allega l'evento aggiornato, con il SEQUENCE della riga", () => {
+        expect(UPDATE.match(/buildReservationIcsAttachment\(/g) ?? []).toHaveLength(1);
+        expect(UPDATE).toContain("icsSequence: updated.ics_sequence as number");
+        expect(UPDATE).toContain("...(attachments ? { attachments } : {})");
+        expect(UPDATE).not.toContain("UID:");
+    });
+
+    it("respond-reservation legge ics_sequence dalla riga rilette DOPO l'UPDATE, mai da prima", () => {
+        // La SELECT preliminare (stato corrente, per il 409) non porta la
+        // colonna: l'unico `ics_sequence` è nella `.select()` dell'UPDATE,
+        // cioè il valore già incrementato dal trigger nella stessa
+        // transazione. Letto prima, il CANCEL uscirebbe con lo stesso
+        // SEQUENCE dell'ultimo PUBLISH e il client potrebbe ignorarlo.
+        expect(RESPOND).toContain('.select("id, status, activity_id")');
+        expect(RESPOND).toContain(
+            ".update({ status: newStatus })\n            .eq(\"id\", reservationId)\n            .in(\"status\", expectedFrom)\n            .select(\n                \"id, activity_id, customer_email, customer_name, reservation_date, reservation_time, party_size, status, customer_language, ics_sequence\""
+        );
+        const respondCode = RESPOND.split("\n").filter(l => !l.trim().startsWith("//")).join("\n");
+        expect(respondCode.match(/ics_sequence/g) ?? []).toHaveLength(3); // select + 2 icsSequence
+        expect(RESPOND).not.toContain("current.ics_sequence");
+    });
+
+    it("tutti i chiamanti passano il SEQUENCE della riga, nessuno lo inventa", () => {
+        expect(RESPOND).toContain("icsSequence: updated.ics_sequence as number");
+        expect(REMINDERS).toContain("icsSequence: reservation.ics_sequence");
+        expect(REMINDERS).toContain("ics_sequence, ");
     });
 
     it("il promemoria allega sempre: chi lo riceve è già confermato", () => {

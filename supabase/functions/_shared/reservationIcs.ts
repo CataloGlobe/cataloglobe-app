@@ -6,7 +6,7 @@
 // L'allegato serve a chi si dimentica del tutto, e lo raggiunge nel momento in
 // cui e' piu' disposto ad agire: subito dopo aver prenotato.
 //
-// ── METHOD:PUBLISH, e nessun ATTENDEE ───────────────────────────────────────
+// ── METHOD:PUBLISH (e CANCEL), e nessun ATTENDEE ─────────────────────────────
 // NON aggiungere ATTENDEE ne' passare a METHOD:REQUEST "per completezza".
 // Con quei due campi Gmail e Outlook smettono di trattare il file come un
 // evento da aggiungere e lo trattano come un INVITO A RIUNIONE: compaiono i
@@ -14,6 +14,16 @@
 // l'organizzatore. Il risultato e' un canale di risposte che nessuno legge e
 // un cliente convinto di aver comunicato qualcosa. Un test sul sorgente
 // presidia entrambe le cose.
+//
+// ── SEQUENCE, e METHOD:CANCEL (RFC 5546) ────────────────────────────────────
+// Un evento pubblicato con PUBLISH si aggiorna con un altro PUBLISH e si
+// annulla con CANCEL, a patto che il client sappia quale copia e' la piu'
+// recente: e' SEQUENCE, stesso UID e numero piu' alto. Il numero vive in
+// `reservations.ics_sequence` e lo incrementa un trigger nella stessa
+// transazione del cambio (data/ora, annullamento, rifiuto): qui si EMETTE, non
+// si calcola. `buildReservationCancelledIcs` e' l'unica altra forma del file:
+// METHOD:CANCEL + STATUS:CANCELLED, stesso UID, stesso PRODID. Ne' l'una ne'
+// l'altra portano ATTENDEE: la regola sopra vale per entrambe.
 //
 // ── UTC, non ora locale ─────────────────────────────────────────────────────
 // `reservation_date` + `reservation_time` sono wall-clock italiano. Vengono
@@ -84,6 +94,12 @@ export interface ReservationIcsInput {
      * stringhe nostre; assente o non supportata → italiano. Non fallisce mai.
      */
     language?: string | null;
+    /**
+     * `reservations.ics_sequence`, la versione dell'evento. Assente o non
+     * valida → 0 (la prima pubblicazione). Mai calcolata qui: e' il trigger
+     * che la incrementa, nella stessa transazione del cambio.
+     */
+    icsSequence?: number | null;
     /** Istante di generazione, per DTSTAMP. Iniettato per i test. */
     now: Date;
 }
@@ -188,6 +204,13 @@ function toIcsUtc(instant: Date): string {
     );
 }
 
+/** SEQUENCE: intero non negativo, altrimenti 0. */
+function normalizeSequence(value: unknown): number {
+    if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+    const n = Math.trunc(value);
+    return n < 0 ? 0 : n;
+}
+
 function normalizeDuration(value: unknown): number {
     if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT_DURATION_MINUTES;
     const minutes = Math.trunc(value);
@@ -214,6 +237,7 @@ export function buildReservationIcs(input: ReservationIcsInput): string | null {
         address,
         cancelUrl,
         language,
+        icsSequence,
         now
     } = input;
 
@@ -257,6 +281,9 @@ export function buildReservationIcs(input: ReservationIcsInput): string | null {
         "METHOD:PUBLISH",
         "BEGIN:VEVENT",
         `UID:${buildReservationIcsUid(reservationId)}`,
+        // Versione dell'evento: senza, uno spostamento e' invisibile ai client
+        // che rispettano RFC 5546 (stesso UID, stesso SEQUENCE = stessa cosa).
+        `SEQUENCE:${normalizeSequence(icsSequence)}`,
         `DTSTAMP:${toIcsUtc(now)}`,
         `DTSTART:${toIcsUtc(start)}`,
         `DTEND:${toIcsUtc(end)}`,
@@ -271,6 +298,69 @@ export function buildReservationIcs(input: ReservationIcsInput): string | null {
     lines.push("STATUS:CONFIRMED", "TRANSP:OPAQUE", "END:VEVENT", "END:VCALENDAR");
 
     // CRLF ovunque, terminatore finale compreso.
+    return lines.map(foldLine).join("\r\n") + "\r\n";
+}
+
+/**
+ * Cosa serve per annullare l'evento nel calendario del cliente. Meno della
+ * pubblicazione: un CANCEL si abbina all'evento per UID, e i client non
+ * ridisegnano nulla — tolgono. Data e ora restano nel file perche' alcuni
+ * client (Outlook) rifiutano un VEVENT senza DTSTART.
+ */
+export interface ReservationCancelledIcsInput {
+    reservationId: string;
+    venueName: string;
+    reservationDate: string;
+    reservationTime: string;
+    durationMinutes?: number | null;
+    language?: string | null;
+    /**
+     * `reservations.ics_sequence` DOPO l'annullamento: il trigger l'ha gia'
+     * incrementato nella stessa transazione, e il file deve portare quel
+     * numero — un CANCEL con lo stesso SEQUENCE dell'ultimo PUBLISH viene
+     * ignorato da chi rispetta la specifica.
+     */
+    icsSequence?: number | null;
+    now: Date;
+}
+
+/**
+ * Il file che TOGLIE l'evento dal calendario: METHOD:CANCEL, STATUS:CANCELLED,
+ * stesso UID della pubblicazione. Allegato alle email di annullamento e
+ * rifiuto, che senza di lui lascerebbero un appuntamento fantasma per sempre.
+ *
+ * Stesse garanzie di `buildReservationIcs`: puro, non lancia, null se i dati
+ * non si lasciano interpretare.
+ */
+export function buildReservationCancelledIcs(input: ReservationCancelledIcsInput): string | null {
+    const { reservationId, venueName, reservationDate, reservationTime, durationMinutes, language, icsSequence, now } =
+        input;
+    const copy = reservationCopyFor(language);
+
+    if (typeof reservationId !== "string" || reservationId.trim().length === 0) return null;
+    if (typeof venueName !== "string" || venueName.trim().length === 0) return null;
+    const start = wallClockToInstant(reservationDate, reservationTime);
+    if (start === null) return null;
+    if (!(now instanceof Date) || Number.isNaN(now.getTime())) return null;
+    const end = new Date(start.getTime() + normalizeDuration(durationMinutes) * 60000);
+
+    const lines: string[] = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        `PRODID:${PRODID}`,
+        "CALSCALE:GREGORIAN",
+        "METHOD:CANCEL",
+        "BEGIN:VEVENT",
+        `UID:${buildReservationIcsUid(reservationId)}`,
+        `SEQUENCE:${normalizeSequence(icsSequence)}`,
+        `DTSTAMP:${toIcsUtc(now)}`,
+        `DTSTART:${toIcsUtc(start)}`,
+        `DTEND:${toIcsUtc(end)}`,
+        `SUMMARY:${escapeText(copy.icsSummary(venueName.trim()))}`,
+        "STATUS:CANCELLED",
+        "END:VEVENT",
+        "END:VCALENDAR"
+    ];
     return lines.map(foldLine).join("\r\n") + "\r\n";
 }
 
@@ -326,6 +416,28 @@ export function buildReservationIcsAttachment(
     } catch (err) {
         console.error(
             "[reservationIcs] attachment build failed:",
+            err instanceof Error ? err.message : "unknown error"
+        );
+        return undefined;
+    }
+}
+
+/**
+ * Allegato di annullamento, oppure `undefined`. Stessa promessa dell'altro:
+ * qualunque cosa vada storta, l'email di annullamento parte lo stesso — senza
+ * allegato, non senza email.
+ */
+export function buildReservationCancelledIcsAttachment(
+    input: ReservationCancelledIcsInput
+): ResendAttachment[] | undefined {
+    try {
+        const ics = buildReservationCancelledIcs(input);
+        if (ics === null) return undefined;
+        const filename = reservationCopyFor(input.language).icsFilename;
+        return [{ filename, content: reservationIcsToBase64(ics) }];
+    } catch (err) {
+        console.error(
+            "[reservationIcs] cancelled attachment build failed:",
             err instanceof Error ? err.message : "unknown error"
         );
         return undefined;

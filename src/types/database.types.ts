@@ -3457,6 +3457,7 @@ export type Database = {
           customer_phone_e164: string | null
           guest_confirmed_at: string | null
           guest_id: string | null
+          ics_sequence: number
           id: string
           notes: string | null
           party_size: number
@@ -3484,6 +3485,7 @@ export type Database = {
           customer_phone_e164?: string | null
           guest_confirmed_at?: string | null
           guest_id?: string | null
+          ics_sequence?: number
           id?: string
           notes?: string | null
           party_size: number
@@ -3511,6 +3513,7 @@ export type Database = {
           customer_phone_e164?: string | null
           guest_confirmed_at?: string | null
           guest_id?: string | null
+          ics_sequence?: number
           id?: string
           notes?: string | null
           party_size?: number

@@ -270,7 +270,7 @@ Deno.serve(async (req: Request) => {
             .from("reservations")
             .select(
                 "id, reservation_date, reservation_time, party_size, customer_name, customer_email, " +
-                "customer_language, reminder_attempts, " +
+                "customer_language, reminder_attempts, ics_sequence, " +
                 "activity:activities!inner(id, name, slug, status, reservation_reminder_enabled, " +
                 "reservation_duration_minutes, address, street_number, postal_code, city, province, " +
                 "tenant:tenants!inner(id, subscription_status))"
@@ -455,6 +455,10 @@ Deno.serve(async (req: Request) => {
                     address: activity,
                     cancelUrl,
                     language: reservation.customer_language,
+                    // Stessa versione della conferma (o piu' alta, se nel
+                    // frattempo e' stata spostata): il calendario aggiorna
+                    // l'evento invece di ignorarlo o duplicarlo.
+                    icsSequence: reservation.ics_sequence,
                     now: new Date()
                 });
 

@@ -430,7 +430,7 @@ export function ReservationForm({
             await onSuccess();
         } catch (err: unknown) {
             const code = (err as { code?: string }).code;
-            if (code === "42501") {
+            if (code === "42501" || code === "PERMISSION_DENIED") {
                 showToast({
                     message: "Permesso negato. Non puoi gestire prenotazioni su questa sede.",
                     type: "error"
@@ -600,7 +600,7 @@ export function ReservationForm({
                 value={customerEmail}
                 onChange={e => setCustomerEmail(e.target.value)}
                 placeholder="opzionale"
-                helperText="Facoltativa. Nessuna email viene inviata dal sistema."
+                helperText="Facoltativa. Se la inserisci, il cliente riceve il promemoria del giorno prima e un avviso se sposti o annulli la prenotazione."
                 error={emailError}
             />
 
