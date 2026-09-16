@@ -8,6 +8,13 @@ import { Switch } from "@/components/ui/Switch/Switch";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import {
+    HORIZON_DAYS_MAX,
+    HORIZON_DAYS_MIN,
+    MIN_NOTICE_MINUTES_MAX,
+    noticeExceedsHorizon
+} from "./reservationNoticeHorizon";
 import { Menu } from "@/components/ui/Menu";
 import { ConfigAccordionSection } from "./components/ConfigAccordionSection";
 import { updateActivity } from "@/services/supabase/activities";
@@ -95,7 +102,7 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
 
     // ── Regole di accettazione (draft) ───────────────────────────────────────
     // Capienza e durata vivono in Sala (FASE 6 passo 5): qui restano solo
-    // le regole. Questo draft scrive SOLO i suoi cinque campi, mai
+    // le regole. Questo draft scrive SOLO i suoi sette campi, mai
     // `reservation_capacity` / `reservation_duration_minutes`.
     // La capienza si LEGGE dalla riga sede (`activity.reservation_capacity`),
     // ricaricata dalla pagina dopo ogni salvataggio in Sala.
@@ -108,6 +115,10 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
         pacingSlotMinutes: string;
         pacingMaxCovers: string;
         pacingMaxBookings: string;
+        // Canale online: preavviso (minuti) e orizzonte (giorni, oggi compreso).
+        // Stringhe come il pacing; validate al salvataggio contro i CHECK a schema.
+        minNoticeMinutes: string;
+        horizonDays: string;
     };
     const savedCapacity: CapacityDraft = useMemo(() => ({
         overbookingForm: activity.reservation_overbooking_form ?? "hard",
@@ -118,13 +129,17 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
             : String(activity.reservation_pacing_max_covers),
         pacingMaxBookings: activity.reservation_pacing_max_bookings == null
             ? ""
-            : String(activity.reservation_pacing_max_bookings)
+            : String(activity.reservation_pacing_max_bookings),
+        minNoticeMinutes: String(activity.reservation_min_notice_minutes ?? 0),
+        horizonDays: String(activity.reservation_horizon_days ?? 90)
     }), [
         activity.reservation_overbooking_form,
         activity.reservation_confirmation_mode,
         activity.reservation_pacing_slot_minutes,
         activity.reservation_pacing_max_covers,
-        activity.reservation_pacing_max_bookings
+        activity.reservation_pacing_max_bookings,
+        activity.reservation_min_notice_minutes,
+        activity.reservation_horizon_days
     ]);
     const [capacityDraft, setCapacityDraft] = useState<CapacityDraft>(savedCapacity);
     // Default open: the rest-state has no fill, so a closed header reads as a
@@ -144,7 +159,9 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
             newSaved.confirmationMode === prevSaved.confirmationMode &&
             newSaved.pacingSlotMinutes === prevSaved.pacingSlotMinutes &&
             newSaved.pacingMaxCovers === prevSaved.pacingMaxCovers &&
-            newSaved.pacingMaxBookings === prevSaved.pacingMaxBookings
+            newSaved.pacingMaxBookings === prevSaved.pacingMaxBookings &&
+            newSaved.minNoticeMinutes === prevSaved.minNoticeMinutes &&
+            newSaved.horizonDays === prevSaved.horizonDays
         ) {
             return;
         }
@@ -154,7 +171,9 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
                 prev.confirmationMode === prevSaved.confirmationMode &&
                 prev.pacingSlotMinutes === prevSaved.pacingSlotMinutes &&
                 prev.pacingMaxCovers === prevSaved.pacingMaxCovers &&
-                prev.pacingMaxBookings === prevSaved.pacingMaxBookings;
+                prev.pacingMaxBookings === prevSaved.pacingMaxBookings &&
+                prev.minNoticeMinutes === prevSaved.minNoticeMinutes &&
+                prev.horizonDays === prevSaved.horizonDays;
             return isDraftEqualToOldSaved ? newSaved : prev;
         });
         lastSavedCapacityRef.current = newSaved;
@@ -165,7 +184,16 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
         capacityDraft.confirmationMode !== savedCapacity.confirmationMode ||
         capacityDraft.pacingSlotMinutes !== savedCapacity.pacingSlotMinutes ||
         capacityDraft.pacingMaxCovers !== savedCapacity.pacingMaxCovers ||
-        capacityDraft.pacingMaxBookings !== savedCapacity.pacingMaxBookings;
+        capacityDraft.pacingMaxBookings !== savedCapacity.pacingMaxBookings ||
+        capacityDraft.minNoticeMinutes !== savedCapacity.minNoticeMinutes ||
+        capacityDraft.horizonDays !== savedCapacity.horizonDays;
+
+    // Avviso, non blocco: preavviso oltre l'orizzonte chiude il canale online
+    // (nessuno slot prenotabile), ma e' una configurazione legittima.
+    const showNoticeHorizonWarning = noticeExceedsHorizon(
+        parseInt(capacityDraft.minNoticeMinutes, 10),
+        parseInt(capacityDraft.horizonDays, 10)
+    );
     // Team members loaded lazily (only when reservations are enabled AND the
     // user holds `team.read`). Owner email surfaces here for the auto-fill
     // on toggle-activation and for the "+ Aggiungi dal team" quick-pick.
@@ -305,6 +333,25 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
             });
             return;
         }
+        // Stessi limiti dei CHECK a schema (20260915150000): 0..10080 minuti,
+        // 1..365 giorni. Un valore fuori range o vuoto si ferma qui con un
+        // messaggio, non con un errore Postgres.
+        const minNoticeParsed = parseInt(capacityDraft.minNoticeMinutes.trim(), 10);
+        if (!Number.isFinite(minNoticeParsed) || minNoticeParsed < 0 || minNoticeParsed > MIN_NOTICE_MINUTES_MAX) {
+            showToast({
+                message: "Preavviso minimo: inserisci un numero di minuti da 0 a 10080 (una settimana).",
+                type: "error"
+            });
+            return;
+        }
+        const horizonParsed = parseInt(capacityDraft.horizonDays.trim(), 10);
+        if (!Number.isFinite(horizonParsed) || horizonParsed < HORIZON_DAYS_MIN || horizonParsed > HORIZON_DAYS_MAX) {
+            showToast({
+                message: "Orizzonte: inserisci un numero di giorni da 1 a 365.",
+                type: "error"
+            });
+            return;
+        }
         setIsSavingCapacity(true);
         try {
             await updateActivity(activity.id, tenantId, {
@@ -312,7 +359,9 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
                 reservation_confirmation_mode: capacityDraft.confirmationMode,
                 reservation_pacing_slot_minutes: pacingSlotParsed,
                 reservation_pacing_max_covers: pacingCoversValue,
-                reservation_pacing_max_bookings: pacingBookingsValue
+                reservation_pacing_max_bookings: pacingBookingsValue,
+                reservation_min_notice_minutes: minNoticeParsed,
+                reservation_horizon_days: horizonParsed
             });
             await onReload();
             showToast({ message: "Regole di prenotazione salvate.", type: "success" });
@@ -869,6 +918,76 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
                                             mano puoi sempre inserirle, con un avviso.
                                         </p>
                                     </div>
+
+                                    {/* Canale online: quando si può prenotare. Preavviso
+                                        e orizzonte sono applicati dal server (FASE 4.1)
+                                        e dal picker pubblico; l'operatore non li vede. */}
+                                    <div className={styles.capacityField}>
+                                        <span className={styles.capacityLabel}>
+                                            Quando si può prenotare online
+                                        </span>
+                                        <p className={styles.capacityHint}>
+                                            Quanto tempo prima un cliente può prenotare dalla
+                                            pagina pubblica: al minimo e al massimo. Vale solo
+                                            online — a mano puoi inserire una prenotazione per
+                                            qualsiasi data e ora.
+                                        </p>
+                                    </div>
+
+                                    <div className={styles.capacityRow}>
+                                        <div className={styles.capacityField}>
+                                            <NumberInput
+                                                label="Preavviso minimo (minuti)"
+                                                min={0}
+                                                max={MIN_NOTICE_MINUTES_MAX}
+                                                value={capacityDraft.minNoticeMinutes}
+                                                onChange={e =>
+                                                    setCapacityDraft(d => ({
+                                                        ...d,
+                                                        minNoticeMinutes: e.target.value
+                                                    }))
+                                                }
+                                                disabled={isSavingCapacity}
+                                            />
+                                            <p className={styles.capacityHint}>
+                                                Gli orari più vicini di così non vengono
+                                                proposti: con 120, alle 18:00 spariscono tutti
+                                                gli orari fino alle 20:00. Zero: nessun
+                                                preavviso. Massimo 10080 minuti, cioè una
+                                                settimana.
+                                            </p>
+                                        </div>
+                                        <div className={styles.capacityField}>
+                                            <NumberInput
+                                                label="Orizzonte (giorni)"
+                                                min={HORIZON_DAYS_MIN}
+                                                max={HORIZON_DAYS_MAX}
+                                                value={capacityDraft.horizonDays}
+                                                onChange={e =>
+                                                    setCapacityDraft(d => ({
+                                                        ...d,
+                                                        horizonDays: e.target.value
+                                                    }))
+                                                }
+                                                disabled={isSavingCapacity}
+                                            />
+                                            <p className={styles.capacityHint}>
+                                                Fino a quanti giorni in avanti si può prenotare,{" "}
+                                                <strong>oggi compreso</strong>: con 90
+                                                l'ultimo giorno prenotabile è fra 89 giorni.
+                                                Da 1 a 365.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {showNoticeHorizonWarning && (
+                                        <InlineBanner variant="warning">
+                                            Con questo preavviso nessun orario rientra
+                                            nell'orizzonte: online non sarà prenotabile
+                                            nulla. Puoi salvare comunque, ma probabilmente
+                                            non è quello che vuoi.
+                                        </InlineBanner>
+                                    )}
                                 </ConfigAccordionSection>
                             </div>
                         )}

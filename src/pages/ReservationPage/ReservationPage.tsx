@@ -15,7 +15,7 @@ import ReservationHeader from "./ReservationHeader";
 import ReservationForm from "./ReservationForm";
 import StateCard from "./StateCard";
 import SuccessRecap from "./SuccessRecap";
-import { hasBookableDays, RESERVATION_HORIZON_DAYS } from "./utils/reservationSlots";
+import { hasBookableDays, RESERVATION_HORIZON_DAYS, RESERVATION_MIN_NOTICE_MINUTES } from "./utils/reservationSlots";
 import { CalendarOffIcon, SearchOffIcon, WifiOffIcon } from "./icons";
 import type { Brand, FormFields, ResolveState } from "./types";
 import styles from "./ReservationPage.module.scss";
@@ -68,6 +68,8 @@ export default function ReservationPage() {
                     // antecedenti alla FASE 4.1: il fallback è la costante,
                     // lo stesso 90 del DEFAULT di colonna.
                     reservation_horizon_days?: number;
+                    // Stessa ragione dell'orizzonte: fallback alla costante (0).
+                    reservation_min_notice_minutes?: number;
                     cover_image?: string | null;
                     phone?: string | null;
                     phone_public?: boolean;
@@ -97,6 +99,7 @@ export default function ReservationPage() {
                 closures: payload.upcoming_closures ?? [],
                 pacingSlotMinutes: business.reservation_pacing_slot_minutes,
                 horizonDays: business.reservation_horizon_days ?? RESERVATION_HORIZON_DAYS,
+                minNoticeMinutes: business.reservation_min_notice_minutes ?? RESERVATION_MIN_NOTICE_MINUTES,
                 languages: payload.available_languages ?? [],
                 baseLanguage: payload.base_language_code ?? "it"
             };
@@ -300,6 +303,7 @@ export default function ReservationPage() {
                                 closures={brand.closures}
                                 pacingSlotMinutes={brand.pacingSlotMinutes}
                                 horizonDays={brand.horizonDays}
+                                minNoticeMinutes={brand.minNoticeMinutes}
                                 onSuccess={handleSuccess}
                                 onResolveErrorCode={handleResolveErrorCode}
                             />

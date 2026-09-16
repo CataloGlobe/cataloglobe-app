@@ -21,6 +21,8 @@ type Props = {
     pacingSlotMinutes: number;
     /** Orizzonte (giorni) della sede, per il calendario. */
     horizonDays: number;
+    /** Preavviso minimo online (minuti): gli slot prima di now + preavviso sono `past`. */
+    minNoticeMinutes: number;
     /** Slug della sede: serve alla lettura di disponibilità. */
     slug: string;
     onChange: (name: keyof FormFields, value: string) => void;
@@ -46,6 +48,7 @@ export default function WhenSection({
     closures,
     pacingSlotMinutes,
     horizonDays,
+    minNoticeMinutes,
     slug,
     onChange,
     onBlur
@@ -89,7 +92,9 @@ export default function WhenSection({
             hours,
             closures,
             new Date(),
-            pacingSlotMinutes
+            pacingSlotMinutes,
+            undefined,
+            minNoticeMinutes
         );
         const out: string[] = [];
         for (const p of periods) {
@@ -101,7 +106,7 @@ export default function WhenSection({
             }
         }
         return out.slice(0, MAX_TIMES);
-    }, [values.reservation_date, hours, closures, pacingSlotMinutes]);
+    }, [values.reservation_date, hours, closures, pacingSlotMinutes, minNoticeMinutes]);
 
     // Chiave di cache e di richiesta. Cambia con la data o con i coperti:
     // quattro posti liberi bastano per due e non per sei, quindi una griglia
@@ -185,9 +190,10 @@ export default function WhenSection({
             closures,
             new Date(),
             pacingSlotMinutes,
-            unavailable ?? undefined
+            unavailable ?? undefined,
+            minNoticeMinutes
         );
-    }, [values.reservation_date, hours, closures, pacingSlotMinutes, unavailable]);
+    }, [values.reservation_date, hours, closures, pacingSlotMinutes, unavailable, minNoticeMinutes]);
 
     const handleDateChange = (iso: string) => {
         if (iso === values.reservation_date) return;

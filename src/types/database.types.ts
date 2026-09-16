@@ -47,7 +47,6 @@ export type Database = {
           province: string | null
           qr_bg_color: string | null
           qr_fg_color: string | null
-          reservation_availability_mode: string
           reservation_cancellation_cutoff_minutes: number
           reservation_capacity: number | null
           reservation_confirmation_mode: string
@@ -106,7 +105,6 @@ export type Database = {
           province?: string | null
           qr_bg_color?: string | null
           qr_fg_color?: string | null
-          reservation_availability_mode?: string
           reservation_cancellation_cutoff_minutes?: number
           reservation_capacity?: number | null
           reservation_confirmation_mode?: string
@@ -165,7 +163,6 @@ export type Database = {
           province?: string | null
           qr_bg_color?: string | null
           qr_fg_color?: string | null
-          reservation_availability_mode?: string
           reservation_cancellation_cutoff_minutes?: number
           reservation_capacity?: number | null
           reservation_confirmation_mode?: string

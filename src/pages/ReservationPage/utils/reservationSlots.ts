@@ -36,6 +36,13 @@ import {
 // passa esplicito; la costante non deve diventare una seconda fonte.
 export const RESERVATION_HORIZON_DAYS = 90;
 
+// Preavviso minimo di FALLBACK (minuti), stessa logica dell'orizzonte: il
+// valore vero e' `activities.reservation_min_notice_minutes` (DEFAULT 0,
+// stesso numero), passato esplicito dal modulo pubblico. Il picker admin non
+// lo riceve: l'operatore puo' sempre inserire una prenotazione per fra dieci
+// minuti (FASE 4.3).
+export const RESERVATION_MIN_NOTICE_MINUTES = 0;
+
 // Passo del picker ADMIN (creazione/modifica manuale) — SOLO quello. Il
 // modulo pubblico usa `activities.reservation_pacing_slot_minutes` (passato
 // dal chiamante come `stepMinutes`, obbligatorio, nessun default qui): i
@@ -124,8 +131,12 @@ type RawSlot = ReservationSlot;
  *     NOT emitted here — it appears as the morning tail on day D+1.
  *
  * `state`:
- *   - `"past"` when the date is today AND the slot time has already passed
- *     relative to `now` (slot's start minute `<=` now's minute).
+ *   - `"past"` when the slot's instant is at or before `now + minNoticeMinutes`
+ *     (minute granularity: slot start minute `<=` cutoff minute on the
+ *     cutoff's day, or any earlier day). With notice 0 this is exactly the
+ *     old "today and already passed" rule. The server rejects the same slots
+ *     with `TOO_SOON` (FASE 4.1: `instant < now + notice`); one visual state
+ *     for one rule — the customer does not care why the slot is gone.
  *   - `"soldout"` when the time appears in `unavailableTimes` — l'esito della
  *     lettura di disponibilità server-side (`reservation-availability`).
  *   - `"available"` otherwise.
@@ -144,14 +155,20 @@ function generateDaySlots(
     closures: UpcomingClosure[],
     now: Date,
     stepMinutes: number,
-    unavailableTimes?: ReadonlySet<string>
+    unavailableTimes?: ReadonlySet<string>,
+    minNoticeMinutes: number = RESERVATION_MIN_NOTICE_MINUTES
 ): RawSlot[] {
     const ranges = getDaySlots(isoDate, hours, closures);
     if (ranges.length === 0) return [];
 
-    const nowIso = toIsoLocal(now);
-    const nowMin = now.getHours() * 60 + now.getMinutes();
-    const isToday = isoDate === nowIso;
+    // Cutoff = now + preavviso. Un preavviso che scavalca la mezzanotte sposta
+    // il confine su un altro giorno: il confronto e' (giorno, minuto), non
+    // solo il minuto di oggi.
+    const cutoff = new Date(now.getTime() + Math.max(0, minNoticeMinutes) * 60_000);
+    const cutoffIso = toIsoLocal(cutoff);
+    const cutoffMin = cutoff.getHours() * 60 + cutoff.getMinutes();
+    const beforeCutoffDay = isoDate < cutoffIso;
+    const isCutoffDay = isoDate === cutoffIso;
 
     const out: RawSlot[] = [];
     for (const range of ranges) {
@@ -165,7 +182,7 @@ function generateDaySlots(
         for (let m = startMin; m < endMinExclusive; m += stepMinutes) {
             const time = minToHHMM(m);
             const state: ReservationSlotState =
-                isToday && m <= nowMin
+                beforeCutoffDay || (isCutoffDay && m <= cutoffMin)
                     ? "past"
                     : unavailableTimes?.has(time)
                       ? "soldout"
@@ -218,6 +235,10 @@ export function classifyPeriod(time: string): ReservationPeriodKey | null {
  * `stepMinutes` è obbligatorio, nessun default: il modulo pubblico passa
  * `reservation_pacing_slot_minutes` della sede, il picker admin passa
  * `SLOT_STEP_MIN`. Un chiamante che dimentica il parametro non compila.
+ *
+ * `minNoticeMinutes` (default 0 = regola di oggi): il modulo pubblico passa
+ * `reservation_min_notice_minutes` della sede; il picker admin non lo passa,
+ * perche' il preavviso vale solo per il canale online.
  */
 export function getReservationPeriodsForDate(
     isoDate: string,
@@ -225,9 +246,10 @@ export function getReservationPeriodsForDate(
     closures: UpcomingClosure[],
     now: Date,
     stepMinutes: number,
-    unavailableTimes?: ReadonlySet<string>
+    unavailableTimes?: ReadonlySet<string>,
+    minNoticeMinutes: number = RESERVATION_MIN_NOTICE_MINUTES
 ): ReservationPeriodGroup[] {
-    const flat = generateDaySlots(isoDate, hours, closures, now, stepMinutes, unavailableTimes);
+    const flat = generateDaySlots(isoDate, hours, closures, now, stepMinutes, unavailableTimes, minNoticeMinutes);
     if (flat.length === 0) return [];
 
     const buckets: Record<ReservationPeriodKey, ReservationSlot[]> = {
