@@ -40,6 +40,8 @@ const TRIAL_PERIOD_DAYS = 30;
 // Billing intervals a customer can pick at checkout. Same domain as Stripe
 // `recurring.interval`; the Price for (plan, interval) comes from `plan_prices`.
 const ALLOWED_BILLING_INTERVALS = new Set<BillingInterval>(["month", "year"]);
+// Applied only when the field is absent (older frontend), never when invalid.
+const DEFAULT_BILLING_INTERVAL: BillingInterval = "month";
 
 function json(req: Request, status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
@@ -220,17 +222,15 @@ serve(async req => {
             return json(req, 400, { error: "invalid_plan_code" });
         }
 
-        // Required and allowlisted: a missing interval is an error, never a
-        // silent monthly default — the caller (wizard / Abbonamento page) always
-        // knows which interval it is selling.
+        // Optional, allowlisted when present. An ABSENT interval means a caller
+        // that predates the field, and for those only monthly ever existed: the
+        // default betrays no choice and lets FE and edge ship in either order.
+        // An INVALID value is a client bug and is rejected.
         const rawInterval = (payload?.billingInterval ?? "").trim().toLowerCase();
-        if (rawInterval === "") {
-            return json(req, 400, { error: "missing_billing_interval" });
-        }
-        if (!ALLOWED_BILLING_INTERVALS.has(rawInterval as BillingInterval)) {
+        const billingInterval: BillingInterval = rawInterval === "" ? DEFAULT_BILLING_INTERVAL : (rawInterval as BillingInterval);
+        if (!ALLOWED_BILLING_INTERVALS.has(billingInterval)) {
             return json(req, 400, { error: "invalid_billing_interval" });
         }
-        const billingInterval = rawInterval as BillingInterval;
 
         const promotionCodeInput = payload?.promotionCode?.trim() ?? "";
 

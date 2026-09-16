@@ -10,7 +10,10 @@ export type CreateCheckoutSessionInput = {
     cancelUrl?: string;
     quantity?: number;
     planCode?: PlanCode;
-    /** Required: the edge function rejects a missing interval, never assumes monthly. */
+    /**
+     * Always sent by the frontend. The edge function defaults an ABSENT field
+     * to "month" (older callers) but rejects an invalid value.
+     */
     billingInterval: BillingInterval;
     promotionCode?: string;
 };
