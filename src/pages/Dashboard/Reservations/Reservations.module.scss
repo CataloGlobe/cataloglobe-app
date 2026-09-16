@@ -831,6 +831,15 @@
   font-weight: 500;
 }
 
+/* Separatore + voce in un blocco solo, così il wrap della riga meta non
+   lascia mai il "·" in coda a una riga e la voce sotto. */
+.drawerHeroMetaGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
 /* Compact channel chip used inside the hero meta line. */
 .drawerHeroChannel {
   display: inline-flex;
@@ -956,6 +965,14 @@
   gap: 8px;
   justify-content: flex-end;
   flex-wrap: wrap;
+}
+
+/* Spinge "Servizio concluso" lontano da "Annulla arrivo". I due gesti dicono
+   cose opposte — "è finito" contro "non è successo" — e affiancarli li
+   farebbe sembrare due varianti della stessa azione. */
+.drawerFooterSpacer {
+  flex: 1 1 24px;
+  min-width: 24px;
 }
 
 .drawerFooterHint {
@@ -1216,6 +1233,52 @@
   margin-top: 6px;
 }
 
+/* Riga dello stato promemoria, subito sotto la conferma cliente. */
+.drawerHeroReminder {
+  margin-top: 6px;
+}
+
+/* Casi normali: inviato, in attesa, non previsto. Nessun colore d'allarme —
+   "in attesa" e "non previsto" sono la vita normale di una prenotazione, e
+   colorarli allenerebbe a ignorare i colori. */
+.reminderMark {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* Le due perdite: rivendicato-non-consegnato e non-inviato. Sono l'eccezione,
+   e sono le uniche a meritare il colore. */
+.reminderMarkAlert {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--color-warning-200, #fde68a);
+  background: var(--color-warning-50, #fffbeb);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.45;
+  color: var(--color-warning-800, #92400e);
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--color-warning-700, #b45309);
+  }
+}
+
+/* Spiegazione e motivo tecnico: presenti ma subordinati alla riga principale. */
+.reminderMarkDetail {
+  font-weight: 400;
+  opacity: 0.85;
+}
+
 /* ─────────────────────────────────────────────────────────────────────────
    AGGANCIO ALLA RUBRICA CLIENTI
 
@@ -1320,4 +1383,211 @@
   gap: 10px;
   font-size: 13px;
   color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
+}
+
+/* ── Servizio ──────────────────────────────────────────────
+   Righe NON cliccabili: l'affordance sta sul nome (`.serviceNameButton`),
+   non sulla riga. Quando arriverà il drawer della tavolata (2.7) la riga
+   tornerà `.row` e i nomi resteranno scorciatoie. */
+
+.serviceRow {
+  @extend .row;
+  cursor: default;
+
+  &:hover {
+    border-color: var(--color-border, #e5e7eb);
+  }
+
+  &:active {
+    transform: none;
+  }
+}
+
+.serviceRowDone {
+  @extend .serviceRow;
+  opacity: 0.7;
+  background: color-mix(
+    in srgb,
+    var(--color-text-muted, #6b7280) 4%,
+    var(--color-surface, #ffffff)
+  );
+}
+
+/* Il nome come bottone: stesso peso di `.rowName`, sottolineatura al
+   passaggio per dire che si può premere. Niente colore link: in sala il
+   nome è la cosa che si legge, non un collegamento. */
+.serviceNameButton {
+  all: unset;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-text-primary, #111827);
+  border-radius: 6px;
+  text-decoration-color: transparent;
+  text-decoration-line: underline;
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s ease;
+
+  &:hover,
+  &:focus-visible {
+    text-decoration-color: currentColor;
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary, #6366f1);
+    outline-offset: 2px;
+  }
+}
+
+.serviceNameSep {
+  color: var(--color-text-muted, #6b7280);
+  font-weight: 400;
+}
+
+/* Il walk-in si dice, con la stessa pillola neutra della sede. */
+.serviceWalkinMark {
+  @extend .rowSitePill;
+  font-size: 12px;
+}
+
+.serviceTables {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #4b5563);
+  white-space: nowrap;
+}
+
+.serviceTablesConflict {
+  @extend .serviceTables;
+  color: var(--color-warning-800, #92400e);
+}
+
+/* Il conflitto è UNA riga dentro la riga della tavolata, non una banda: il
+   colore segnala l'eccezione, non occupa la schermata. Stessa griglia del
+   resto del contenuto (`.rowContent`), quindi niente gradino a destra. */
+.serviceConflict {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-warning-800, #92400e);
+}
+
+.serviceConflictIcon {
+  flex-shrink: 0;
+  color: var(--color-warning-700, #b45309);
+}
+
+/* La tavolata di un servizio precedente: stessa FORMA del conflitto (una riga
+   sotto il titolo, non una banda) ma NON lo stesso colore. L'ambra chiede
+   un'azione immediata ed è del conflitto; questa è un'informazione — il cron
+   se ne occupa — e sta in grigio secondario, con la sua icona. */
+.serviceStale {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--color-text-secondary, #4b5563);
+}
+
+.serviceStaleIcon {
+  flex-shrink: 0;
+  color: var(--color-text-muted, #6b7280);
+}
+
+/* Ordini ancora aperti sulla tavolata: stessa riga grigia del servizio
+   precedente. La gente sta mangiando, non è un'urgenza — l'ambra resta al
+   conflitto. */
+.servicePending {
+  @extend .serviceStale;
+}
+
+.servicePendingIcon {
+  @extend .serviceStaleIcon;
+}
+
+/* ── La domanda di «Servizio concluso» ───────────────────────────────────
+   Il drawer cambia stato: al posto delle sezioni, una conferma nella forma
+   del progetto — cosa stai chiudendo, cosa succede alle cose collegate, le
+   azioni (nel footer). Nessun colore d'allarme: è una domanda, non un
+   errore. */
+.drawerQuestion {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.drawerQuestionTitle {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text-primary, #111827);
+}
+
+.drawerQuestionText {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-secondary, #4b5563);
+  max-width: 60ch;
+}
+
+.drawerQuestionNote {
+  @extend .drawerTableHint;
+}
+
+/* Orario in arrivo: come `.timelineTime` dell'Agenda, così le due schede
+   parlano la stessa lingua. Il colore arriva SOLO col ritardo. */
+.serviceTime {
+  @extend .timelineTime;
+  min-width: 52px;
+}
+
+.serviceTimeLate {
+  @extend .serviceTime;
+  color: var(--color-warning-800, #92400e);
+}
+
+.serviceLateMark {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  border: 1px solid var(--color-warning-200, #fde68a);
+  background: var(--color-warning-50, #fffbeb);
+  color: var(--color-warning-800, #92400e);
+}
+
+.serviceClosedToggle {
+  all: unset;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 2px;
+  color: var(--color-text-muted, #6b7280);
+  border-radius: 6px;
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary, #6366f1);
+    outline-offset: 2px;
+  }
+}
+
+/* Azione di sezione (es. "+ Senza prenotazione" in "In sala adesso"):
+   a destra, sulla stessa riga del titolo. */
+.serviceSectionAction {
+  margin-left: auto;
+  align-self: center;
 }

@@ -19,3 +19,8 @@ export function formatTableLabels(labels: string[]): string {
     if (bare.length === 1) return `Tavolo ${bare[0]}`;
     return `Tavoli ${bare.join(" + ")}`;
 }
+
+/** Etichette tavolo in ordine umano: "2" < "10", "A1" < "A2". */
+export function compareTableLabels(a: string, b: string): number {
+    return a.localeCompare(b, "it", { numeric: true, sensitivity: "base" });
+}

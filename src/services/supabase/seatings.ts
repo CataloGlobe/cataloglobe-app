@@ -1,0 +1,425 @@
+// Ciclo di vita della tavolata: le cinque scritture e le due letture che
+// servono al drawer della prenotazione.
+//
+// Le cinque RPC (migrations 20260911130000..130400) sono SECURITY DEFINER con
+// gate interno `has_permission('seatings.manage', activity_id)` → 42501 unico
+// per "non esiste" e "non autorizzato". Il frontend non deve mai dedurre
+// l'esistenza di una riga dall'errore che riceve.
+//
+// Mapping errori come la sezione "Assegnazione tavoli" di `reservations.ts`,
+// da cui questo file prende la forma delle firme: `tenantId` viaggia sempre
+// nella firma anche quando la RPC non ne ha bisogno (tenant e sede vengono
+// dalla riga lato server), sia per uniformità sia per il filtro difensivo sui
+// risultati.
+
+import { supabase } from "./client";
+import { translateSeatingRpcMessage } from "./seatingRpcMessages";
+import type {
+    Seating,
+    SeatingTable,
+    SeatingTableWithTable,
+    SeatingWithState
+} from "@/types/seating";
+
+/**
+ * Mappa gli errori delle RPC della tavolata in Error con `.code` per il
+ * branching UI. 42501 e 22023 hanno un messaggio italiano; il resto passa.
+ *
+ * 22023 tiene il messaggio DEL SERVER e non una frase generica: le RPC lo
+ * usano per dire cose diverse fra loro ("va confermata prima", "la tavolata è
+ * chiusa", "ha dei conti collegati"), e sostituirle tutte con "Richiesta non
+ * valida" toglierebbe all'operatore l'unica informazione utile.
+ *
+ * I codici noti (`OPEN_ORDERS_NEED_ACTION:<n>`, `SEATING_HAS_BILLS`,
+ * `GROUP_NOT_VERIFIED`) passano da `translateSeatingRpcMessage`: un codice
+ * non deve mai raggiungere un toast. Vale per qualunque SQLSTATE li porti
+ * (22023 dalle RPC, P0001 dal trigger di verifica).
+ */
+function mapSeatingRpcError(error: { code?: string; message?: string }): Error {
+    let message: string;
+    const translated = translateSeatingRpcMessage(error.message);
+    if (translated !== null && translated !== error.message) {
+        message = translated;
+    } else if (error.code === "42501") {
+        message = "Operazione non autorizzata";
+    } else if (error.code === "22023") {
+        message = error.message ?? "Richiesta non valida";
+    } else {
+        message = error.message ?? "Errore inatteso";
+    }
+    const err = new Error(message);
+    (err as Error & { code?: string; details?: string }).code = error.code;
+    (err as Error & { code?: string; details?: string }).details = error.message;
+    return err;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Letture
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Embed della ponte per filtrare sulla prenotazione restando su `seatings`:
+// i filtri che contano (`status`, `tenant_id`) sono così colonne di primo
+// livello, non filtri su risorsa annidata.
+const SEATING_BY_RESERVATION_SELECT =
+    "*, seating_reservations!seating_reservations_seating_fkey!inner(reservation_id)";
+
+/**
+ * La tavolata APERTA collegata a una prenotazione, o `null`.
+ *
+ * `null` non è un errore ed è anzi il caso normale: la stragrande maggioranza
+ * delle prenotazioni non ha nessuno seduto. Lanciare qui costringerebbe ogni
+ * apertura di drawer a un try/catch per un esito previsto.
+ *
+ * Di default solo le aperte: per DECIDERE un gesto conta solo se c'è gente al
+ * tavolo ADESSO, e trovare una tavolata chiusa dove serve quella aperta
+ * porterebbe a chiudere due volte o ad annullare un servizio concluso.
+ *
+ * `includeClosed` serve al caso opposto, che è di sola lettura: una
+ * prenotazione `completed` ha una tavolata e l'ha chiusa, e il drawer deve
+ * poter mostrare dove hanno mangiato. Chi passa questo flag NON deve usarne il
+ * risultato per una scrittura.
+ *
+ * `limit(1)` sull'apertura più vecchia — due tavolate per la stessa
+ * prenotazione sono un dato rotto che le RPC impediscono, ma se ci fosse si
+ * mostrerebbe la prima, non una a caso.
+ */
+export async function getSeatingForReservation(
+    reservationId: string,
+    tenantId: string,
+    options?: { includeClosed?: boolean }
+): Promise<Seating | null> {
+    let query = supabase
+        .from("seatings")
+        .select(SEATING_BY_RESERVATION_SELECT)
+        .eq("seating_reservations.reservation_id", reservationId)
+        .eq("tenant_id", tenantId);
+
+    if (options?.includeClosed !== true) query = query.eq("status", "open");
+
+    const { data, error } = await query
+        .order("opened_at", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+    if (error) throw error;
+    if (!data) return null;
+
+    // L'embed serviva solo a filtrare: fuori dal tipo di ritorno.
+    const seating = { ...(data as Record<string, unknown>) };
+    delete seating.seating_reservations;
+    return seating as unknown as Seating;
+}
+
+// Embed del tavolo via FK composita (table_id, activity_id). Il nome del
+// vincolo disambigua fra `tables` e la view `v_tables_with_state`, che
+// PostgREST vede come due bersagli della stessa FK. Si legge da `tables`
+// SENZA filtrare `deleted_at`: una ponte può puntare a un tavolo rimosso e
+// l'UI deve poterlo dire, non nasconderlo. Stesso schema di
+// `reservations.ts:RESERVATION_TABLES_WITH_TABLE_SELECT`.
+const SEATING_TABLES_WITH_TABLE_SELECT =
+    "*, table:tables!seating_tables_table_fkey(label, deleted_at, zone:table_zones!tables_zone_id_fkey(name))";
+
+// supabase-js tipizza un embed 1:1 come oggetto o array a seconda del JOIN.
+type JoinedZone = { name: string } | { name: string }[] | null;
+type JoinedTable =
+    | { label: string; deleted_at: string | null; zone: JoinedZone }
+    | { label: string; deleted_at: string | null; zone: JoinedZone }[]
+    | null;
+
+function mapJoinedSeatingTable(
+    row: Record<string, unknown> & { table?: JoinedTable }
+): SeatingTableWithTable {
+    const { table, ...rest } = row;
+    const t = Array.isArray(table) ? table[0] : table;
+    const zone = t ? (Array.isArray(t.zone) ? t.zone[0] : t.zone) : null;
+    return {
+        ...(rest as unknown as SeatingTable),
+        table: t
+            ? { label: t.label, deleted_at: t.deleted_at, zone_name: zone?.name ?? null }
+            : null
+    };
+}
+
+/**
+ * I tavoli realmente occupati da una tavolata, con l'etichetta embeddata.
+ *
+ * Array vuoto è un esito normale: una tavolata può nascere senza tavoli (il
+ * motore non ha trovato niente, oppure è una sede che non mappa la sala) e
+ * restarci.
+ *
+ * Ordine per `table_id`: stabile, senza significato operativo. L'ordine
+ * sensato — per etichetta — lo decide chi presenta, con l'etichetta in mano.
+ */
+export async function listSeatingTables(
+    seatingId: string,
+    tenantId: string
+): Promise<SeatingTableWithTable[]> {
+    const { data, error } = await supabase
+        .from("seating_tables")
+        .select(SEATING_TABLES_WITH_TABLE_SELECT)
+        .eq("seating_id", seatingId)
+        .eq("tenant_id", tenantId)
+        .order("table_id", { ascending: true });
+
+    if (error) throw error;
+    return ((data ?? []) as unknown as Array<Record<string, unknown> & { table?: JoinedTable }>).map(
+        mapJoinedSeatingTable
+    );
+}
+
+/**
+ * Inizio e fine (esclusa) di un giorno locale, come ISO per PostgREST. Le
+ * colonne della tavolata sono `timestamptz`, e "oggi" per l'host è il giorno
+ * del suo orologio, non quello UTC.
+ */
+function localDayBounds(isoDate: string): { start: string; end: string } {
+    const [y, m, d] = isoDate.split("-").map(n => parseInt(n, 10));
+    const start = new Date(y, (m ?? 1) - 1, d ?? 1);
+    const end = new Date(y, (m ?? 1) - 1, (d ?? 1) + 1);
+    return { start: start.toISOString(), end: end.toISOString() };
+}
+
+/**
+ * Cosa c'è in sala: le tavolate di una sede da `v_seatings_with_state`, con
+ * tavoli e prenotazioni già aggregati.
+ *
+ * Prende TUTTE le aperte, qualunque sia il giorno: una tavolata aperta ieri
+ * sera e mai chiusa è ancora in sala per il software, e nasconderla perché
+ * "non è di oggi" la farebbe sparire proprio quando qualcuno dovrebbe
+ * chiuderla. Le chiuse invece solo se chiuse nel giorno `date` (per
+ * `closed_at`, non `opened_at`: "a che ora si è liberato il 4" è una domanda
+ * sulla chiusura, e una tavolata aperta alle 23:50 e chiusa alle 00:20 sta
+ * nel giorno in cui si è liberata).
+ *
+ * Ordine: `opened_at` crescente — la prima entrata è la prima riga, ed è
+ * quella che di solito si libera prima. Chi presenta può rigruppare.
+ *
+ * `.eq('tenant_id')` e `.eq('activity_id')` espliciti oltre la RLS della
+ * view, come ovunque. Ricorda che la view è `security_invoker`: chi non ha
+ * `seatings.read` riceve `[]`, non un errore — il gate va messo PRIMA di
+ * chiamare, sennò "nessuno in sala" e "non puoi vederlo" sono la stessa
+ * risposta.
+ */
+export async function listSeatingsWithState(
+    activityId: string,
+    tenantId: string,
+    options: { date: string }
+): Promise<SeatingWithState[]> {
+    const { start, end } = localDayBounds(options.date);
+    const { data, error } = await supabase
+        .from("v_seatings_with_state")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId)
+        .or(`status.eq.open,and(status.eq.closed,closed_at.gte.${start},closed_at.lt.${end})`)
+        .order("opened_at", { ascending: true });
+
+    if (error) throw error;
+    return (data ?? []) as SeatingWithState[];
+}
+
+/**
+ * Una tavolata come la vede la sala (view), per id. `null` se non c'è o non
+ * è leggibile (la view risponde con zero righe, non con un errore).
+ *
+ * Serve al drawer della PRENOTAZIONE, che conosce la tavolata da
+ * `getSeatingForReservation` (la riga nuda) ma per fare la domanda di
+ * «Servizio concluso» ha bisogno di `pending_orders_count` e
+ * `pending_orders_deliverable`, che vivono solo qui.
+ */
+export async function getSeatingState(
+    seatingId: string,
+    tenantId: string
+): Promise<SeatingWithState | null> {
+    const { data, error } = await supabase
+        .from("v_seatings_with_state")
+        .select("*")
+        .eq("id", seatingId)
+        .eq("tenant_id", tenantId)
+        .maybeSingle();
+
+    if (error) throw error;
+    return (data as SeatingWithState | null) ?? null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Scritture
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * L'ospite è arrivato: apre la tavolata dalla prenotazione, eredita i tavoli
+ * pianificati e porta la prenotazione a `seated`.
+ *
+ * Idempotente lato server: premere due volte restituisce la stessa tavolata
+ * invece di aprirne una seconda.
+ *
+ * Errori (`.code`):
+ *   42501 → prenotazione inesistente o non autorizzata
+ *   22023 → non è `confirmed`, oppure ha cambiato stato durante l'operazione
+ */
+export async function openSeatingForReservation(
+    reservationId: string,
+    // Firma uniforme del service; tenant e sede vengono dalla riga lato server.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _tenantId: string
+): Promise<Seating> {
+    const { data, error } = await supabase.rpc("open_seating_for_reservation", {
+        p_reservation_id: reservationId
+    });
+
+    if (error) throw mapSeatingRpcError(error);
+    return data as Seating;
+}
+
+/**
+ * Arriva gente senza prenotazione. Tavoli e coperti sono entrambi facoltativi:
+ * chi è in piedi davanti al bancone si siede comunque, e il software o lo
+ * registra o viene aggirato.
+ *
+ * `tableIds` vuoto = nessun tavolo, il che è uno stato legittimo.
+ * `partySize` NULL = ancora ignoto, che è diverso da zero.
+ *
+ * Errori (`.code`):
+ *   42501 → sede non autorizzata, o tavolo non di questa sede
+ *   22023 → coperti non positivi, elementi null o duplicati nei tavoli
+ */
+export async function openWalkinSeating(
+    activityId: string,
+    tableIds: string[],
+    partySize: number | null,
+    // Firma uniforme del service; il tenant viene dalla sede lato server.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _tenantId: string
+): Promise<Seating> {
+    const { data, error } = await supabase.rpc("open_walkin_seating", {
+        p_activity_id: activityId,
+        p_table_ids: tableIds,
+        p_party_size: partySize
+    });
+
+    if (error) throw mapSeatingRpcError(error);
+    return data as Seating;
+}
+
+/**
+ * Sostituisce i tavoli occupati. Serve sia ad assegnarli la prima volta sia a
+ * spostare la tavolata durante il servizio: è la stessa domanda, "dove sono
+ * seduti ORA", che ha una sola risposta per volta.
+ *
+ * Array vuoto ammesso (a differenza di `setReservationTables`): una tavolata
+ * senza tavoli è uno stato legittimo, ed è come nasce un walk-in.
+ *
+ * Errori (`.code`):
+ *   42501 → tavolata non autorizzata, o tavolo non di questa sede
+ *   22023 → tavolata non aperta, elementi null o duplicati
+ */
+export async function setSeatingTables(
+    seatingId: string,
+    tableIds: string[],
+    tenantId: string
+): Promise<SeatingTable[]> {
+    const { data, error } = await supabase.rpc("set_seating_tables", {
+        p_seating_id: seatingId,
+        p_table_ids: tableIds
+    });
+
+    if (error) throw mapSeatingRpcError(error);
+    const rows = (data ?? []) as SeatingTable[];
+    return rows.filter(r => r.tenant_id === tenantId);
+}
+
+/**
+ * I coperti reali. La prenotazione diceva quattro, ne sono arrivati cinque:
+ * cambia la tavolata, non la prenotazione — quella è la promessa fatta ieri
+ * e resta quella che era. È la regola della sezione TAVOLO (piano/fatto),
+ * estesa dai tavoli ai coperti.
+ *
+ * Solo intero positivo. `null` NON è ammesso qui benché la colonna lo
+ * accetti: sulla riga NULL significa "ancora ignoto", stato in cui una
+ * tavolata NASCE; tornarci da un numero già dichiarato cancellerebbe un dato
+ * che qualcuno ha inserito, e un NULL in ingresso è quasi sempre un
+ * parametro dimenticato. Il tipo lo dice: `number`, non `number | null`.
+ *
+ * Errori (`.code`):
+ *   42501 → tavolata inesistente o non autorizzata
+ *   22023 → tavolata chiusa, oppure coperti non positivi
+ */
+export async function setSeatingPartySize(
+    seatingId: string,
+    partySize: number,
+    // Firma uniforme del service; tenant e sede vengono dalla riga lato server.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _tenantId: string
+): Promise<Seating> {
+    const { data, error } = await supabase.rpc("set_seating_party_size", {
+        p_seating_id: seatingId,
+        p_party_size: partySize
+    });
+
+    if (error) throw mapSeatingRpcError(error);
+    return data as Seating;
+}
+
+/**
+ * Il servizio è finito: chiude la tavolata, i conti collegati e porta a
+ * `completed` le prenotazioni che ci sedevano. Le righe dei tavoli restano —
+ * l'occupazione si deriva dallo stato, e lo storico di chi sedeva dove va
+ * conservato.
+ *
+ * Idempotente lato server: richiudere non sposta `closed_at`.
+ *
+ * `reason` distingue il gesto dell'operatore dalla chiusura automatica di fine
+ * servizio. Dalla dashboard è sempre `'operator'`: `'auto'` appartiene al
+ * cron `close_stale_seatings`.
+ *
+ * `action` dice cosa è successo agli ordini rimasti aperti (`deliver` |
+ * `cancel`). Serve SOLO se un ordine dei conti collegati aspetta una
+ * decisione: la schermata lo sa prima (`pending_orders_count` sulla view) e
+ * fa la domanda; senza niente in sospeso si omette e la chiusura passa.
+ *
+ * Errori (`.code`): 42501 (non autorizzata), 22023 (motivo o azione non
+ * ammessi; `OPEN_ORDERS_NEED_ACTION` se un ordine aspettava una decisione e
+ * non è stata data — già tradotto in italiano, vedi `seatingRpcMessages`).
+ */
+export async function closeSeating(
+    seatingId: string,
+    reason: "operator" | "auto",
+    // Firma uniforme del service; tenant e sede vengono dalla riga lato server.
+    _tenantId: string,
+    action?: "deliver" | "cancel"
+): Promise<Seating> {
+    const { data, error } = await supabase.rpc("close_seating", {
+        p_seating_id: seatingId,
+        p_reason: reason,
+        ...(action !== undefined ? { p_action: action } : {})
+    });
+
+    if (error) throw mapSeatingRpcError(error);
+    return data as Seating;
+}
+
+/**
+ * "Ho premuto sul nome sbagliato": cancella la tavolata e riporta le
+ * prenotazioni collegate da `seated` a `confirmed`.
+ *
+ * NON è `closeSeating`. La differenza è fra "non è successo" e "è finito":
+ * qui si cancella perché un errore di battitura non è un fatto di sala, e
+ * lasciarlo nei dati avvelena ogni statistica di permanenza al tavolo con
+ * sedute di trenta secondi. I due gesti non vanno mai avvicinati
+ * nell'interfaccia fino a sembrare varianti l'uno dell'altro.
+ *
+ * Errori (`.code`): 42501 (non autorizzata), 22023 (tavolata chiusa, o con
+ * conti collegati).
+ */
+export async function undoSeating(
+    seatingId: string,
+    // Firma uniforme del service; tenant e sede vengono dalla riga lato server.
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    _tenantId: string
+): Promise<void> {
+    const { error } = await supabase.rpc("undo_seating", {
+        p_seating_id: seatingId
+    });
+
+    if (error) throw mapSeatingRpcError(error);
+}

@@ -9,6 +9,7 @@ import {
     STRIPE_CUSTOMER_DESCRIPTION_MAX,
     STRIPE_CUSTOMER_NAME_MAX
 } from "../_shared/stripeLimits.ts";
+import { lookupStripePriceId, type BillingInterval } from "../_shared/planPrices.ts";
 
 const ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -36,6 +37,11 @@ const MAX_SELF_SERVICE_SEATS = 5;
 // policy — "how long is the first subscription free" — not a per-plan price
 // attribute; every plan gets the same trial.
 const TRIAL_PERIOD_DAYS = 30;
+// Billing intervals a customer can pick at checkout. Same domain as Stripe
+// `recurring.interval`; the Price for (plan, interval) comes from `plan_prices`.
+const ALLOWED_BILLING_INTERVALS = new Set<BillingInterval>(["month", "year"]);
+// Applied only when the field is absent (older frontend), never when invalid.
+const DEFAULT_BILLING_INTERVAL: BillingInterval = "month";
 
 function json(req: Request, status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
@@ -156,6 +162,7 @@ type CheckoutBody = {
     cancelUrl?: string;
     quantity?: number;
     planCode?: string;
+    billingInterval?: string;
     promotionCode?: string;
 };
 
@@ -215,6 +222,16 @@ serve(async req => {
             return json(req, 400, { error: "invalid_plan_code" });
         }
 
+        // Optional, allowlisted when present. An ABSENT interval means a caller
+        // that predates the field, and for those only monthly ever existed: the
+        // default betrays no choice and lets FE and edge ship in either order.
+        // An INVALID value is a client bug and is rejected.
+        const rawInterval = (payload?.billingInterval ?? "").trim().toLowerCase();
+        const billingInterval: BillingInterval = rawInterval === "" ? DEFAULT_BILLING_INTERVAL : (rawInterval as BillingInterval);
+        if (!ALLOWED_BILLING_INTERVALS.has(billingInterval)) {
+            return json(req, 400, { error: "invalid_billing_interval" });
+        }
+
         const promotionCodeInput = payload?.promotionCode?.trim() ?? "";
 
         const successUrl =
@@ -245,22 +262,13 @@ serve(async req => {
         const stripe = new Stripe(STRIPE_SECRET_KEY, stripeClientOptions());
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-        // --- Resolve price_id from plans.stripe_price_id (DB-driven, single source of truth) ---
-        const { data: planRow, error: planError } = await supabaseAdmin
-            .from("plans")
-            .select("code, stripe_price_id")
-            .eq("code", planCode)
-            .maybeSingle();
-
-        if (planError) {
-            console.error(`stripe-checkout: plans lookup failed for ${planCode}:`, planError);
-            return json(req, 500, { error: "plan_lookup_failed" });
-        }
-
-        const resolvedPriceId = planRow?.stripe_price_id?.trim();
+        // --- Resolve price_id from plan_prices (DB-driven, single source of truth) ---
+        // No row for (plan, interval) → clean error, never a fallback to another
+        // interval: a customer who picked yearly must not be sold a monthly Price.
+        const resolvedPriceId = await lookupStripePriceId(supabaseAdmin, planCode, billingInterval);
         if (!resolvedPriceId) {
             console.error(
-                `stripe-checkout: plans.${planCode}.stripe_price_id is NULL or empty — DB misconfigured`
+                `stripe-checkout: plan_prices has no row for ${planCode}/${billingInterval} — interval not purchasable`
             );
             return json(req, 500, { error: "plan_not_configured" });
         }
@@ -439,7 +447,7 @@ serve(async req => {
         const session = await stripe.checkout.sessions.create(sessionParams);
 
         console.log(
-            `stripe-checkout: Session ${session.id} created for tenant ${tenantId} (plan=${planCode}, qty=${quantity}, promo=${resolvedPromotionId ?? "none"})`
+            `stripe-checkout: Session ${session.id} created for tenant ${tenantId} (plan=${planCode}, interval=${billingInterval}, qty=${quantity}, promo=${resolvedPromotionId ?? "none"})`
         );
 
         return json(req, 200, { checkout_url: session.url });

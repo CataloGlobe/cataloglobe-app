@@ -1,0 +1,30 @@
+-- 20260914150000_seating_tables_replica_identity_full.sql
+--
+-- `set_seating_tables` (20260911130200) è DELETE + INSERT. Con REPLICA
+-- IDENTITY DEFAULT il record WAL di un DELETE porta SOLO la chiave primaria:
+-- il filtro della sottoscrizione (`activity_id = eq.<sede>`) non è
+-- valutabile e Realtime scarta l'evento. Risultato: togliere un tavolo a una
+-- tavolata (o spostarla, che è DELETE dei vecchi + INSERT dei nuovi: arriva
+-- solo la seconda metà) non propaga alle altre schede, anche con il binding
+-- su `seating_tables` registrato correttamente (20260914100000).
+--
+-- FULL fa scrivere nel WAL la riga intera anche sul DELETE, così il filtro
+-- per sede si valuta e l'evento parte.
+--
+-- ── Cosa cambia in sicurezza, e va saputo ──────────────────────────────────
+-- Sui DELETE Realtime NON applica la RLS (non c'è più una riga da leggere):
+-- l'`old_record` viene consegnato a chiunque abbia una sottoscrizione il cui
+-- filtro passa. Con DEFAULT era il solo `id`; con FULL è la riga intera —
+-- `seating_id`, `table_id`, `activity_id`, `tenant_id`, timestamp. Un utente
+-- `authenticated` che sottoscrivesse `seating_tables` con l'`activity_id` di
+-- una sede non sua vedrebbe questi campi ai DELETE. Sono identificatori senza
+-- dati personali; è accettato, ed è scritto qui perché non sia scoperto.
+--
+-- Costo: WAL più grande per riga cancellata/aggiornata su una tabella che ha
+-- 8 colonne strette. Trascurabile.
+--
+-- Solo `seating_tables`. `seatings` ha lo stesso problema su `undo_seating`
+-- (DELETE): per una tavolata da prenotazione lo copre il canale
+-- `reservations`, per un walk-in no. È una decisione a parte, non presa qui.
+
+ALTER TABLE public.seating_tables REPLICA IDENTITY FULL;

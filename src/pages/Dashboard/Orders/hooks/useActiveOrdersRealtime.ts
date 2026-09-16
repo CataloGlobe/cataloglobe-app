@@ -35,6 +35,13 @@
  * Tenant safety: the subscription runs on the singleton (user JWT)
  * supabase client — never service_role. The activity_id server filter
  * narrows event volume; the RLS SELECT enforces the security boundary.
+ *
+ * Print job failures: a third `postgres_changes` binding on
+ * `public.print_jobs` (UPDATE, same activity_id filter, same RLS pattern
+ * as orders) feeds a separate `failedComandaOrderIds` set — used by the
+ * kanban to badge orders whose comanda (`kind='comanda'`) reached
+ * `status='failed'`. Deliberately NOT merged into `orders`/version-max
+ * gate: a print job has no version field and is an unrelated entity.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -42,7 +49,14 @@ import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import { supabase } from "@/services/supabase/client";
 import { listOrdersForActivity } from "@/services/supabase/orders";
-import type { OrderStatus, V2Order, V2OrderWithItems } from "@/types/orders";
+import { listFailedComandaOrderIds } from "@/services/supabase/printJobs";
+import type {
+    OrderStatus,
+    PrintJobKind,
+    PrintJobStatus,
+    V2Order,
+    V2OrderWithItems
+} from "@/types/orders";
 
 const ACTIVE_STATUSES: OrderStatus[] = ["submitted", "acknowledged", "ready"];
 
@@ -98,6 +112,14 @@ export interface UseActiveOrdersRealtimeResult {
      * version-max gate inside the UPDATE handler.
      */
     applyLocalPatch: (patch: OrderLocalPatch) => void;
+    /**
+     * Id ordine → almeno una comanda (`kind='comanda'`) che non uscira' mai
+     * (`status='failed'`, cap tentativi esaurito). Badge "Comanda non
+     * stampata" sulla card. Struttura separata dagli ordini: aggiornata da
+     * un canale realtime dedicato su `print_jobs`, non entra nel version-max
+     * gate degli ordini.
+     */
+    failedComandaOrderIds: Set<string>;
 }
 
 export function useActiveOrdersRealtime(
@@ -108,6 +130,12 @@ export function useActiveOrdersRealtime(
     const [orders, setOrders] = useState<V2OrderWithItems[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+
+    // Comande non stampate (badge). Stato separato dagli ordini: niente
+    // version-max gate qui, un job non ha un campo version.
+    const [failedComandaOrderIds, setFailedComandaOrderIds] = useState<
+        Set<string>
+    >(new Set());
 
     // Latest orders + onOrderLeftBoard captured via refs so the realtime
     // subscription can read fresh values without resubscribing on every
@@ -155,6 +183,21 @@ export function useActiveOrdersRealtime(
         await fetchActive();
     }, [fetchActive]);
 
+    // Fetch separato dagli ordini: fallire qui non deve rompere la board,
+    // il badge e' un avviso ausiliario.
+    const fetchFailedComandaOrderIds = useCallback(async (): Promise<void> => {
+        if (!tenantId || !activityId) {
+            setFailedComandaOrderIds(new Set());
+            return;
+        }
+        try {
+            const ids = await listFailedComandaOrderIds(tenantId, activityId);
+            setFailedComandaOrderIds(ids);
+        } catch {
+            /* silent: vedi commento sopra */
+        }
+    }, [tenantId, activityId]);
+
     const applyLocalPatch = useCallback((patch: OrderLocalPatch) => {
         setOrders(prev => {
             const idx = prev.findIndex(o => o.id === patch.id);
@@ -195,6 +238,10 @@ export function useActiveOrdersRealtime(
     useEffect(() => {
         void fetchActive();
     }, [fetchActive]);
+
+    useEffect(() => {
+        void fetchFailedComandaOrderIds();
+    }, [fetchFailedComandaOrderIds]);
 
     // ── Realtime subscription ──
     useEffect(() => {
@@ -264,6 +311,25 @@ export function useActiveOrdersRealtime(
             setOrders(prev => prev.filter(o => o.id !== id));
         }
 
+        function handlePrintJobUpdate(job: {
+            order_id: string;
+            kind: PrintJobKind;
+            status: PrintJobStatus;
+        }): void {
+            if (job.kind !== "comanda") return;
+            setFailedComandaOrderIds(prev => {
+                const isFailed = job.status === "failed";
+                if (prev.has(job.order_id) === isFailed) return prev;
+                const next = new Set(prev);
+                if (isFailed) {
+                    next.add(job.order_id);
+                } else {
+                    next.delete(job.order_id);
+                }
+                return next;
+            });
+        }
+
         function handleGroupVerifiedUpdate(group: {
             id: string;
             verified_at: string | null;
@@ -316,12 +382,32 @@ export function useActiveOrdersRealtime(
                     handleGroupVerifiedUpdate(g);
                 }
             )
+            .on(
+                "postgres_changes",
+                {
+                    event: "UPDATE",
+                    schema: "public",
+                    table: "print_jobs",
+                    filter: `activity_id=eq.${activityId}`
+                },
+                payload => {
+                    if (cancelled) return;
+                    handlePrintJobUpdate(
+                        payload.new as {
+                            order_id: string;
+                            kind: PrintJobKind;
+                            status: PrintJobStatus;
+                        }
+                    );
+                }
+            )
             .subscribe(status => {
                 // On (re)connect refetch to recover any events lost during
                 // the disconnect window. supabase-js emits "SUBSCRIBED" on
                 // every successful resubscribe (including reconnects).
                 if (status === "SUBSCRIBED" && !cancelled) {
                     void fetchActive();
+                    void fetchFailedComandaOrderIds();
                 }
             });
 
@@ -337,7 +423,14 @@ export function useActiveOrdersRealtime(
                 channel = null;
             }
         };
-    }, [tenantId, activityId, fetchActive]);
+    }, [tenantId, activityId, fetchActive, fetchFailedComandaOrderIds]);
 
-    return { orders, isLoading, error, refetch, applyLocalPatch };
+    return {
+        orders,
+        isLoading,
+        error,
+        refetch,
+        applyLocalPatch,
+        failedComandaOrderIds
+    };
 }

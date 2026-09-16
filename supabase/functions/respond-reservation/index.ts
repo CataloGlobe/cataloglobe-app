@@ -9,7 +9,10 @@ import {
     type ReservationEmailContent
 } from "../_shared/reservationEmails.ts";
 import { buildReservationCancelUrl } from "../_shared/publicSiteUrl.ts";
-import { buildReservationIcsAttachment } from "../_shared/reservationIcs.ts";
+import {
+    buildReservationCancelledIcsAttachment,
+    buildReservationIcsAttachment
+} from "../_shared/reservationIcs.ts";
 import { signReservationToken } from "../_shared/reservationToken.ts";
 import {
     ACTION_EXPECTS,
@@ -41,6 +44,12 @@ import {
 // to the customer with the outcome — EXCEPT for the no-show pair, which is
 // silent by design (see `sendsCustomerEmail`). Email failure never fails the
 // state transition: the row is already updated.
+//
+// Calendar attachments (FASE 4.2): `confirm` carries the event
+// (METHOD:PUBLISH, SEQUENCE from `ics_sequence`); `decline` and `cancel` carry
+// the cancellation (METHOD:CANCEL, same UID, SEQUENCE already bumped by the
+// `reservations_bump_ics_sequence` trigger in the same transaction) so the
+// event disappears from the diner's calendar instead of staying forever.
 // =============================================================================
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -127,19 +136,21 @@ function buildActionEmail(args: {
     partySize: number;
     /** Only meaningful for `confirm`; see below. */
     cancelUrl: string | null;
+    /** Only meaningful for `decline` / `cancel`: whether the CANCEL .ics is attached. */
+    hasCancelIcs: boolean;
     /**
      * `reservations.customer_language`: the language the diner booked in.
      * NULL (manual insert, or a row older than the column) → Italian.
      */
     language: string | null;
 }): ReservationEmailContent {
-    const { action, cancelUrl, ...rest } = args;
+    const { action, cancelUrl, hasCancelIcs, ...rest } = args;
     if (action === "confirm") {
         return buildReservationConfirmedEmail({ ...rest, variant: "manual", cancelUrl });
     }
     // `decline` and `cancel` end the reservation: there is nothing left to
     // cancel, so the link is deliberately not passed on.
-    return buildReservationOutcomeEmail({ ...rest, action });
+    return buildReservationOutcomeEmail({ ...rest, action, hasCancelIcs });
 }
 
 // --- Handler ----------------------------------------------------------------
@@ -244,7 +255,7 @@ serve(async (req: Request) => {
             .eq("id", reservationId)
             .in("status", expectedFrom)
             .select(
-                "id, activity_id, customer_email, customer_name, reservation_date, reservation_time, party_size, status, customer_language"
+                "id, activity_id, customer_email, customer_name, reservation_date, reservation_time, party_size, status, customer_language, ics_sequence"
             )
             .maybeSingle();
 
@@ -324,21 +335,11 @@ serve(async (req: Request) => {
             }
 
             try {
-                const email = buildActionEmail({
-                    activityName,
-                    customerName: updated.customer_name as string,
-                    reservationDate: updated.reservation_date as string,
-                    reservationTime: updated.reservation_time as string,
-                    partySize: updated.party_size as number,
-                    // Narrowed by `sendsCustomerEmail`: the no-show pair cannot
-                    // reach this branch.
-                    action: action as ReservationEmailAction,
-                    cancelUrl,
-                    language: (updated.customer_language as string | null) ?? null
-                });
-                // Allegato calendario SOLO sulla conferma: mettere in agenda
-                // una prenotazione rifiutata o annullata darebbe al cliente un
-                // appuntamento fantasma.
+                const language = (updated.customer_language as string | null) ?? null;
+                // Allegato calendario. Sulla conferma l'EVENTO (PUBLISH); su
+                // rifiuto e annullamento il suo ANNULLAMENTO (CANCEL, stesso
+                // UID, SEQUENCE gia' incrementato dal trigger): senza, un
+                // appuntamento rifiutato resterebbe in agenda per sempre.
                 const attachments =
                     action === "confirm" && activityRowForIcs
                         ? buildReservationIcsAttachment({
@@ -351,10 +352,37 @@ serve(async (req: Request) => {
                                   activityRowForIcs.reservation_duration_minutes as number | null,
                               address: activityRowForIcs,
                               cancelUrl,
-                              language: (updated.customer_language as string | null) ?? null,
+                              language,
+                              icsSequence: updated.ics_sequence as number,
                               now: new Date()
                           })
-                        : undefined;
+                        : action !== "confirm" && activityRowForIcs
+                          ? buildReservationCancelledIcsAttachment({
+                                reservationId: updated.id as string,
+                                venueName: activityName,
+                                reservationDate: updated.reservation_date as string,
+                                reservationTime: updated.reservation_time as string,
+                                durationMinutes:
+                                    activityRowForIcs.reservation_duration_minutes as number | null,
+                                language,
+                                icsSequence: updated.ics_sequence as number,
+                                now: new Date()
+                            })
+                          : undefined;
+                const email = buildActionEmail({
+                    activityName,
+                    customerName: updated.customer_name as string,
+                    reservationDate: updated.reservation_date as string,
+                    reservationTime: updated.reservation_time as string,
+                    partySize: updated.party_size as number,
+                    // Narrowed by `sendsCustomerEmail`: the no-show pair cannot
+                    // reach this branch.
+                    action: action as ReservationEmailAction,
+                    cancelUrl,
+                    // La riga che spiega l'allegato compare solo se c'e'.
+                    hasCancelIcs: action !== "confirm" && attachments !== undefined,
+                    language
+                });
 
                 await resend.emails.send({
                     from: COMPANY.email.sender,

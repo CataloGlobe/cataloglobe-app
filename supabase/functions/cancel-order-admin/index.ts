@@ -46,6 +46,10 @@ serve(req =>
         build_extra_response_fields: updated => ({
             cancelled_by: updated.cancelled_by,
             cancellation_reason: updated.cancellation_reason
-        })
+        }),
+        // Blocco 3a: ordine gia' stampato e ora annullato → ticket di
+        // annullamento in cucina. Deferred (solo sweeper, mai inline): vedi
+        // _shared/printJobs.ts e _shared/adminOrderTransition.ts.
+        print_kind: "annullo"
     })
 );

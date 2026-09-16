@@ -3,6 +3,7 @@ import { supabase } from "@/services/supabase/client";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 import type { VerticalType } from "@/constants/verticalTypes";
 import type { LegalEntityType, V2Tenant } from "@/types/tenant";
+import { BILLING_INTERVALS, type BillingInterval } from "@/types/plan";
 
 /**
  * Uploads a logo file to the tenant-assets bucket.
@@ -318,6 +319,23 @@ export async function getTenantFiscalProfile(tenantId: string): Promise<TenantFi
         .single();
     if (error) throw error;
     return data as TenantFiscalProfile;
+}
+
+/**
+ * Reads the billing interval recorded on a tenant. Not exposed by
+ * `user_tenants_view` (explicit column list), so it is read from `tenants`
+ * directly — same RLS as getTenantFiscalProfile. Null when the tenant has no
+ * interval on record (never subscribed, and never pre-set by the wizard).
+ */
+export async function getTenantBillingInterval(tenantId: string): Promise<BillingInterval | null> {
+    const { data, error } = await supabase
+        .from("tenants")
+        .select("billing_interval")
+        .eq("id", tenantId)
+        .single();
+    if (error) throw error;
+    const value = (data as { billing_interval: string | null }).billing_interval;
+    return value && (BILLING_INTERVALS as readonly string[]).includes(value) ? (value as BillingInterval) : null;
 }
 
 /**

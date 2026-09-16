@@ -21,6 +21,13 @@ export type Brand = {
      *  fallback qui, un valore mancante nel payload è un guasto da far
      *  vedere, non da mascherare con un `?? 15`. */
     pacingSlotMinutes: number;
+    /** Orizzonte (giorni, oggi compreso) = `activities.reservation_horizon_days`.
+     *  NOT NULL a schema: nessun fallback qui, come `pacingSlotMinutes`. */
+    horizonDays: number;
+    /** Preavviso minimo online (minuti) = `activities.reservation_min_notice_minutes`.
+     *  Il picker spegne gli slot prima di `now + preavviso`, gli stessi che il
+     *  server rifiuta con TOO_SOON. */
+    minNoticeMinutes: number;
     /** Lingue attive del tenant (base-first). Dal payload `available_languages`. */
     languages: AvailableLanguage[];
     /** Lingua base del tenant (senza segmento URL). Dal payload `base_language_code`. */

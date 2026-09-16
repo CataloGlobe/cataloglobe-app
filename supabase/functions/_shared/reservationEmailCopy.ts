@@ -108,6 +108,19 @@ export interface ReservationEmailCopy {
     // --- Esiti non confermanti -------------------------------------------------
     outcomeTitle(action: ReservationOutcomeAction): string;
     outcomeBody(venue: string, action: ReservationOutcomeAction, em: Emphasize): string;
+    /** Spiega l'allegato METHOD:CANCEL. Compare SOLO quando l'allegato c'e'. */
+    outcomeIcsNote: string;
+
+    // --- Spostamento (l'operatore cambia data o ora) ---------------------------
+    updatedSubject(venue: string): string;
+    updatedTitle: string;
+    updatedBody(venue: string, em: Emphasize): string;
+    /** Il «qual era»: senza, il cliente non distingue uno spostamento da una conferma doppia. */
+    updatedPrevious(date: string, time: string, em: Emphasize): string;
+    /** Didascalia del blocco dettagli con i valori NUOVI. */
+    updatedDetailsCaption: string;
+    /** Chiude: niente da fare, l'allegato aggiorna il calendario da solo. */
+    updatedNoAction: string;
 
     // --- Frase di disdetta -----------------------------------------------------
     /** Apertura, condivisa da HTML e testo. Termina con uno spazio. */
@@ -140,8 +153,9 @@ const IT: ReservationEmailCopy = {
     detailsTime: "Ora",
     detailsPeople: "Persone",
 
-    customerReason: venue =>
-        `Hai ricevuto questa email perché hai richiesto una prenotazione presso ${venue} tramite CataloGlobe.`,
+    // Nessun nome sede: «il locale» regge per online, manuale e annullata.
+    customerReason: () =>
+        `Ricevi questa email perché il locale ha registrato una prenotazione a tuo nome e gestisce le prenotazioni con CataloGlobe.`,
 
     receiptSubject: venue => `Abbiamo ricevuto la tua richiesta di prenotazione — ${venue}`,
     receiptTitle: "Richiesta di prenotazione ricevuta",
@@ -166,13 +180,25 @@ const IT: ReservationEmailCopy = {
     outcomeBody: (venue, action, em) =>
         action === "decline"
             ? `Ci dispiace, la tua richiesta di prenotazione presso ${em(venue)} ${em("non è stata confermata")}. Puoi provare con una data o un orario diverso.`
-            : `La tua prenotazione presso ${em(venue)} è stata ${em("annullata")}. Se ritieni che ci sia stato un errore, contatta direttamente la sede.`,
+            : `La tua prenotazione presso ${em(venue)} è stata ${em("annullata")}. Se ritieni che ci sia stato un errore, contatta direttamente il locale.`,
+    outcomeIcsNote: "Se avevi salvato l'appuntamento nel calendario, l'allegato lo rimuove.",
+
+    updatedSubject: venue => `La tua prenotazione è stata spostata — ${venue}`,
+    updatedTitle: "Prenotazione spostata",
+    // La sede come soggetto: dice CHI ha spostato, e il cliente non si chiede
+    // se l'ha fatto lui.
+    updatedBody: (venue, em) => `${em(venue)} ha spostato la tua prenotazione.`,
+    updatedPrevious: (date, time, em) => `Era prevista per il ${em(date)} alle ${em(time)}.`,
+    updatedDetailsCaption: "Nuova data e ora",
+    // Condizionale: chi non ha mai aperto l'.ics (la maggioranza) non ha
+    // niente che si aggiorna «da solo».
+    updatedNoAction: "Non devi fare niente. Se avevi salvato l'appuntamento nel calendario, l'allegato lo aggiorna.",
 
     cancelLead: "Non puoi più venire? ",
     cancelLinkLabel: "Annulla la prenotazione",
     cancelLinkSuffix: " in un clic.",
     cancelTextIntro: "Annulla la prenotazione da qui:",
-    cancelFallback: "Contatta direttamente la sede per annullare la prenotazione.",
+    cancelFallback: "Contatta direttamente il locale per annullare la prenotazione.",
 
     confirmButtonLabel: "Confermo che vengo",
     confirmTextLead: "Confermi che vieni? Basta un tocco:",
@@ -215,6 +241,14 @@ const EN: ReservationEmailCopy = {
         action === "decline"
             ? `We're sorry — your booking request for ${em(venue)} ${em("wasn't confirmed")}. You're welcome to try a different date or time.`
             : `Your booking at ${em(venue)} has been ${em("cancelled")}. If you think this is a mistake, please contact the venue directly.`,
+    outcomeIcsNote: "The attached file updates your calendar: the event will disappear on its own.",
+
+    updatedSubject: venue => `Your booking has been moved — ${venue}`,
+    updatedTitle: "Booking moved",
+    updatedBody: (venue, em) => `your booking at ${em(venue)} has been ${em("moved")}.`,
+    updatedPrevious: (date, time, em) => `It was set for ${em(date)} at ${em(time)}.`,
+    updatedDetailsCaption: "New date and time",
+    updatedNoAction: "Nothing to do on your side: the attachment updates the event in your calendar.",
 
     cancelLead: "Can't make it? ",
     cancelLinkLabel: "Cancel your booking",
@@ -266,6 +300,14 @@ const FR: ReservationEmailCopy = {
         action === "decline"
             ? `Nous sommes désolés, votre demande de réservation chez ${em(venue)} ${em("n'a pas été confirmée")}. Vous pouvez tenter une autre date ou un autre horaire.`
             : `Votre réservation chez ${em(venue)} a été ${em("annulée")}. Si vous pensez qu'il s'agit d'une erreur, contactez directement l'établissement.`,
+    outcomeIcsNote: "La pièce jointe met à jour votre agenda : le rendez-vous disparaîtra tout seul.",
+
+    updatedSubject: venue => `Votre réservation a été déplacée — ${venue}`,
+    updatedTitle: "Réservation déplacée",
+    updatedBody: (venue, em) => `votre réservation chez ${em(venue)} a été ${em("déplacée")}.`,
+    updatedPrevious: (date, time, em) => `Elle était prévue le ${em(date)} à ${em(time)}.`,
+    updatedDetailsCaption: "Nouvelle date et heure",
+    updatedNoAction: "Vous n'avez rien à faire : la pièce jointe met à jour le rendez-vous dans votre agenda.",
 
     cancelLead: "Un empêchement ? ",
     cancelLinkLabel: "Annulez votre réservation",
@@ -321,6 +363,14 @@ const DE: ReservationEmailCopy = {
         action === "decline"
             ? `Leider wurde Ihre Reservierungsanfrage bei ${em(venue)} ${em("nicht bestätigt")}. Versuchen Sie es gerne an einem anderen Tag oder zu einer anderen Uhrzeit.`
             : `Ihre Reservierung bei ${em(venue)} wurde ${em("storniert")}. Sollte das ein Versehen sein, wenden Sie sich bitte direkt an das Lokal.`,
+    outcomeIcsNote: "Der Anhang aktualisiert Ihren Kalender: der Termin verschwindet von selbst.",
+
+    updatedSubject: venue => `Ihre Reservierung wurde verschoben — ${venue}`,
+    updatedTitle: "Reservierung verschoben",
+    updatedBody: (venue, em) => `Ihre Reservierung bei ${em(venue)} wurde ${em("verschoben")}.`,
+    updatedPrevious: (date, time, em) => `Sie war für ${em(date)} um ${em(time)} geplant.`,
+    updatedDetailsCaption: "Neues Datum und neue Uhrzeit",
+    updatedNoAction: "Sie müssen nichts tun: der Anhang aktualisiert den Termin in Ihrem Kalender.",
 
     cancelLead: "Sie schaffen es doch nicht? ",
     cancelLinkLabel: "Reservierung stornieren",
@@ -370,6 +420,14 @@ const ES: ReservationEmailCopy = {
         action === "decline"
             ? `Lo sentimos, tu solicitud de reserva en ${em(venue)} ${em("no se ha confirmado")}. Puedes probar con otra fecha u otra hora.`
             : `Tu reserva en ${em(venue)} se ha ${em("cancelado")}. Si crees que ha sido un error, ponte en contacto directamente con el local.`,
+    outcomeIcsNote: "El archivo adjunto actualiza tu calendario: la cita desaparecerá sola.",
+
+    updatedSubject: venue => `Tu reserva se ha trasladado — ${venue}`,
+    updatedTitle: "Reserva trasladada",
+    updatedBody: (venue, em) => `tu reserva en ${em(venue)} se ha ${em("trasladado")}.`,
+    updatedPrevious: (date, time, em) => `Estaba prevista para el ${em(date)} a las ${em(time)}.`,
+    updatedDetailsCaption: "Nueva fecha y hora",
+    updatedNoAction: "No tienes que hacer nada: el archivo adjunto actualiza la cita en tu calendario.",
 
     cancelLead: "¿No puedes venir? ",
     cancelLinkLabel: "Cancela la reserva",

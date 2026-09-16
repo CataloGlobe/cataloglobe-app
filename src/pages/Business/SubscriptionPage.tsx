@@ -23,7 +23,10 @@ import type {
 } from "@/services/supabase/billing";
 import { getPlanByCode, listPublicPlans } from "@/services/supabase/plans";
 import { getActivityCount } from "@/services/supabase/activities";
+import { getTenantBillingInterval } from "@/services/supabase/tenants";
+import { listPlanPrices } from "@/services/supabase/planPrices";
 import { calculateGraduatedFromPlan } from "@/utils/pricing";
+import { DEFAULT_BILLING_INTERVAL, INTERVAL_ADJECTIVE, INTERVAL_RECURRENCE, intervalUnit, priceCentsFor } from "@/utils/planPricing";
 import { canDoOnTenant } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -50,7 +53,7 @@ import {
     RotateCcw,
     BadgePercent
 } from "lucide-react";
-import type { Plan, PlanCode } from "@/types/plan";
+import type { BillingInterval, Plan, PlanCode, PlanPrice } from "@/types/plan";
 import styles from "./SubscriptionPage.module.scss";
 
 const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "primary" | "warning" | "danger" }> = {
@@ -177,6 +180,12 @@ export default function SubscriptionPage() {
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [portalLoading, setPortalLoading] = useState(false);
     const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
+    // Display prices come from `plan_prices` for the tenant's billing interval,
+    // never from the deprecated `plans.monthly_price_cents`. The interval is read
+    // from `tenants.billing_interval` (not exposed by `user_tenants_view`); a NULL
+    // is a legacy tenant that predates the column and only ever knew monthly.
+    const [planPrices, setPlanPrices] = useState<PlanPrice[]>([]);
+    const [billingInterval, setBillingInterval] = useState<BillingInterval>(DEFAULT_BILLING_INTERVAL);
 
     // --- Stato flusso "Modifica piano" self-service ---
     const [plans, setPlans] = useState<Plan[]>([]);
@@ -199,7 +208,7 @@ export default function SubscriptionPage() {
     // vecchio. Riflettiamo subito il target noto e NON rileggiamo `tenants`.
     const [optimisticPlan, setOptimisticPlan] = useState<PlanCode | null>(null);
     const [optimisticSeats, setOptimisticSeats] = useState<number | null>(null);
-    const [optimisticMonthlyCents, setOptimisticMonthlyCents] = useState<number | null>(null);
+    const [optimisticNextAmountCents, setOptimisticNextAmountCents] = useState<number | null>(null);
     const [scheduledChange, setScheduledChange] = useState<{
         planName: string;
         seats: number;
@@ -239,6 +248,20 @@ export default function SubscriptionPage() {
             });
     }, [selectedTenant?.plan]);
 
+    // Interval + price rows: needed by every reader for the "Prezzo attuale" card.
+    useEffect(() => {
+        if (!tenantId) return;
+        getTenantBillingInterval(tenantId)
+            .then(interval => setBillingInterval(interval ?? DEFAULT_BILLING_INTERVAL))
+            .catch(err => console.error("[SubscriptionPage] billing interval lookup failed:", err));
+        listPlanPrices()
+            .then(setPlanPrices)
+            .catch(err => {
+                console.error("[SubscriptionPage] plan prices list failed:", err);
+                setPlanPrices([]);
+            });
+    }, [tenantId]);
+
     // Carica piani + conteggio sedi (per le card del selettore e il floor).
     useEffect(() => {
         if (!selectedTenant?.id || !canManageBilling) return;
@@ -265,8 +288,9 @@ export default function SubscriptionPage() {
 
     const currentPricing = useMemo(() => {
         if (!currentPlan) return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
-        return calculateGraduatedFromPlan(currentPlan, paidSeats);
-    }, [currentPlan, paidSeats]);
+        const unitPriceCents = priceCentsFor(planPrices, currentPlan.code, billingInterval);
+        return calculateGraduatedFromPlan({ ...currentPlan, unit_price_cents: unitPriceCents }, paidSeats);
+    }, [currentPlan, paidSeats, planPrices, billingInterval]);
 
     // --- Derivati del flusso di cambio (sicuri anche prima del load) ---
     const draftPlanObj = plans.find(p => p.code === draftPlan) ?? null;
@@ -276,10 +300,23 @@ export default function SubscriptionPage() {
     const selfServiceCap = currentPlan?.max_self_service_seats ?? 5;
     const selfServiceEligible = activityCount <= selfServiceCap;
 
+    // Card prices for the change-plan drawer: the tenant's own interval. The
+    // interval itself is not changeable here (no switch is rendered): a yearly
+    // subscriber changes plan and seats while staying yearly.
+    const draftUnitPriceCentsByPlan = useMemo(() => {
+        const out: Partial<Record<PlanCode, number>> = {};
+        for (const p of plans) {
+            const cents = priceCentsFor(planPrices, p.code, billingInterval);
+            if (cents !== null) out[p.code] = cents;
+        }
+        return out;
+    }, [plans, planPrices, billingInterval]);
+
     const draftBreakdown = useMemo(() => {
         if (!draftPlanObj) return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
-        return calculateGraduatedFromPlan(draftPlanObj, draftSeats);
-    }, [draftPlanObj, draftSeats]);
+        const unitPriceCents = priceCentsFor(planPrices, draftPlanObj.code, billingInterval);
+        return calculateGraduatedFromPlan({ ...draftPlanObj, unit_price_cents: unitPriceCents }, draftSeats);
+    }, [draftPlanObj, draftSeats, planPrices, billingInterval]);
 
     if (loading || !selectedTenant) return null;
 
@@ -308,14 +345,16 @@ export default function SubscriptionPage() {
         ? (plans.find(p => p.code === optimisticPlan)?.name ?? optimisticPlan)
         : planName;
     const displaySeats = optimisticSeats ?? paidSeats;
-    const displayMonthly = optimisticMonthlyCents != null
-        ? optimisticMonthlyCents / 100
+    // Recurring amount per billing period (month or year), in euros.
+    const displayAmount = optimisticNextAmountCents != null
+        ? optimisticNextAmountCents / 100
         : currentPricing.subtotal;
+    const unit = intervalUnit(billingInterval);
 
     // Coupon Stripe attivo (letto live dall'edge "state"). Il prezzo scontato
     // resta puramente informativo: l'addebito reale lo calcola Stripe.
     const activeDiscount = subState?.discount ?? null;
-    const discountedMonthly = activeDiscount ? applyDiscount(displayMonthly, activeDiscount) : null;
+    const discountedAmount = activeDiscount ? applyDiscount(displayAmount, activeDiscount) : null;
     // Sconto `once` già consumato ma relativo al periodo corrente: nota
     // informativa, niente prezzo barrato (il pieno vale già dal prossimo rinnovo).
     const consumedDiscount = activeDiscount ? null : subState?.consumedDiscountThisPeriod ?? null;
@@ -333,15 +372,26 @@ export default function SubscriptionPage() {
     // Visibile solo in prova con una data nota: comunica quando scatta il primo
     // addebito reale, non solo quando finisce la prova.
     const firstChargeNote = status === "trialing" && trialDaysLeft !== null
-        ? `Il primo addebito di ${formatEuro(displayMonthly)}/mese parte il ${formatDate(selectedTenant.trial_until)}.`
+        ? `Il primo addebito di ${formatEuro(displayAmount)} (${INTERVAL_RECURRENCE[billingInterval]}) parte il ${formatDate(selectedTenant.trial_until)}.`
         : null;
 
     const handleCheckout = async () => {
         setCheckoutLoading(true);
         try {
+            // Re-activation keeps the interval the tenant already has. A NULL
+            // interval is a legacy tenant that predates the column and never
+            // chose anything (monthly was the only interval that ever existed):
+            // no choice to betray, so 'month' is the honest reading — logged,
+            // not blocked.
+            const storedInterval = await getTenantBillingInterval(selectedTenant.id);
+            if (storedInterval === null) {
+                console.warn(`[SubscriptionPage] tenant ${selectedTenant.id} has no billing_interval on record; checkout as month`);
+            }
+            const billingInterval = storedInterval ?? "month";
             const url = await createCheckoutSession({
                 tenantId: selectedTenant.id,
                 planCode: selectedTenant.plan,
+                billingInterval,
                 quantity: paidSeats > 0 ? paidSeats : 1,
                 successUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=success`,
                 cancelUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=cancel`
@@ -495,7 +545,7 @@ export default function SubscriptionPage() {
                 // rileggerà la verità (ormai sincronizzata), che coincide.
                 setOptimisticPlan(draftPlan);
                 setOptimisticSeats(draftSeats);
-                setOptimisticMonthlyCents(preview.nextAmount);
+                setOptimisticNextAmountCents(preview.nextAmount);
                 setScheduledChange(null);
                 // Patch the tenant in memory with the authoritative commit result
                 // (Stripe already applied it). Survives SPA remounts — where the
@@ -658,6 +708,17 @@ export default function SubscriptionPage() {
         ? (plans.find(p => p.code === preview.plan)?.name ?? preview.plan)
         : targetPlanName;
     const previewIsDowngrade = preview ? preview.effective !== "now" : false;
+    // Trial wording. The "when" step runs before any preview exists, so it reads
+    // the live state loaded with the page; the confirm step reads the preview
+    // built in the same request as its amounts, so copy and figures never
+    // disagree at the exact moment the trial ends. Amounts are untouched: in
+    // trial `chargeToday` is the first invoice (issued at trial end), not a
+    // charge of today, and the copy places it in time accordingly.
+    const whenTrialEnds = subState?.trialEndsAt ?? null;
+    const previewTrialEnds = preview?.trialEndsAt ?? null;
+    // Trial figure: shown only when it comes from Stripe's own preview of the
+    // first invoice; otherwise the date alone.
+    const previewTrialFirstInvoice = preview?.trialFirstInvoiceCents ?? null;
 
     return (
         <div className={styles.page}>
@@ -732,20 +793,23 @@ export default function SubscriptionPage() {
                         <Text variant="caption" colorVariant="muted">
                             Prezzo attuale
                         </Text>
-                        {activeDiscount && discountedMonthly != null ? (
+                        {activeDiscount && discountedAmount != null ? (
                             <span className={styles.priceRow}>
                                 <Text variant="body" weight={500} colorVariant="muted" className={styles.priceStrikethrough}>
-                                    {formatEuro(displayMonthly)}
+                                    {formatEuro(displayAmount)}
                                 </Text>
                                 <Text variant="title-sm" weight={700}>
-                                    {formatEuro(discountedMonthly)}/mese
+                                    {formatEuro(discountedAmount)}{unit}
                                 </Text>
                             </span>
                         ) : (
                             <Text variant="title-sm" weight={700}>
-                                {formatEuro(displayMonthly)}/mese
+                                {formatEuro(displayAmount)}{unit}
                             </Text>
                         )}
+                        <Text variant="body-sm" colorVariant="muted">
+                            Fatturazione {INTERVAL_ADJECTIVE[billingInterval]}
+                        </Text>
                         {activeDiscount && (
                             <Text variant="body-sm" colorVariant="success" weight={500}>
                                 {formatDiscountLine(activeDiscount)}
@@ -776,7 +840,7 @@ export default function SubscriptionPage() {
                     <div className={styles.consumedNote}>
                         <BadgePercent size={16} />
                         <Text variant="body-sm" weight={500}>
-                            {formatConsumedDiscountNote(consumedDiscount, displayMonthly)}
+                            {formatConsumedDiscountNote(consumedDiscount, displayAmount)}
                         </Text>
                     </div>
                 )}
@@ -947,7 +1011,7 @@ export default function SubscriptionPage() {
                                     Riattiva abbonamento
                                 </Text>
                                 <Text variant="body-sm" colorVariant="muted">
-                                    {`Il tuo abbonamento è stato cancellato. Riattivalo per tornare operativo: l'addebito di ${formatEuro(displayMonthly)}/mese parte subito.`}
+                                    {`Il tuo abbonamento è stato cancellato. Riattivalo per tornare operativo: l'addebito di ${formatEuro(displayAmount)}${unit} parte subito.`}
                                 </Text>
                             </div>
                             <Button
@@ -1023,9 +1087,11 @@ export default function SubscriptionPage() {
                                     loading={commitLoading}
                                 >
                                     {preview?.classification === "combined"
-                                        ? "Paga le sedi e programma il cambio"
+                                        ? (previewTrialEnds ? "Aggiungi le sedi e programma il cambio" : "Paga le sedi e programma il cambio")
                                         : previewIsDowngrade
                                         ? "Programma il cambio"
+                                        : previewTrialEnds
+                                        ? "Conferma"
                                         : "Conferma e paga"}
                                 </Button>
                             </>
@@ -1038,6 +1104,8 @@ export default function SubscriptionPage() {
                                 plans={plans}
                                 planCode={draftPlan}
                                 onPlanChange={handleDraftPlan}
+                                unitPriceCentsByPlan={draftUnitPriceCentsByPlan}
+                                billingInterval={billingInterval}
                                 seats={draftSeats}
                                 onSeatsChange={setDraftSeats}
                                 breakdown={draftBreakdown}
@@ -1087,8 +1155,9 @@ export default function SubscriptionPage() {
                                         >
                                             <Text variant="body" weight={600}>Attive subito</Text>
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Le sedi in più valgono da ora: paghi il prorata per i giorni
-                                                rimanenti del periodo.
+                                                {whenTrialEnds
+                                                    ? `Le sedi in più valgono da ora. Sei in prova: nessun addebito fino al ${formatDate(whenTrialEnds)}.`
+                                                    : "Le sedi in più valgono da ora: paghi il prorata per i giorni rimanenti del periodo."}
                                             </Text>
                                         </button>
                                         <button
@@ -1109,19 +1178,26 @@ export default function SubscriptionPage() {
                                     {whenKind === "tier-up" && (
                                         <Text variant="body-sm">
                                             L&apos;upgrade si applica <strong>subito</strong>: avrai le nuove
-                                            funzioni da ora e paghi il prorata per i giorni rimanenti del periodo.
+                                            funzioni da ora
+                                            {whenTrialEnds
+                                                ? `. Sei in prova: nessun addebito fino al ${formatDate(whenTrialEnds)}.`
+                                                : " e paghi il prorata per i giorni rimanenti del periodo."}
                                         </Text>
                                     )}
                                     {whenKind === "seats-up" && (
                                         <Text variant="body-sm">
-                                            Le sedi in più si attivano <strong>subito</strong>: paghi il prorata
-                                            per i giorni rimanenti del periodo.
+                                            Le sedi in più si attivano <strong>subito</strong>
+                                            {whenTrialEnds
+                                                ? `. Sei in prova: nessun addebito fino al ${formatDate(whenTrialEnds)}.`
+                                                : ": paghi il prorata per i giorni rimanenti del periodo."}
                                         </Text>
                                     )}
                                     {whenKind === "mixed" && (
                                         <Text variant="body-sm">
-                                            Le sedi in più valgono <strong>subito</strong> (paghi il prorata); il
-                                            passaggio a {targetPlanName} avviene <strong>al rinnovo</strong>{" "}
+                                            Le sedi in più valgono <strong>subito</strong>{" "}
+                                            {whenTrialEnds ? "(sei in prova: nessun addebito)" : "(paghi il prorata)"}; il
+                                            passaggio a {targetPlanName} avviene{" "}
+                                            <strong>{whenTrialEnds ? "alla fine della prova" : "al rinnovo"}</strong>{" "}
                                             ({formatDate(periodEndDate)}).
                                         </Text>
                                     )}
@@ -1159,18 +1235,24 @@ export default function SubscriptionPage() {
                                             <div className={styles.confirmRow}>
                                                 <Text variant="body" weight={600}>Oggi paghi</Text>
                                                 <Text variant="title-sm" weight={700}>
-                                                    {formatCents(preview.chargeToday)}
+                                                    {previewTrialEnds ? formatCents(0) : formatCents(preview.chargeToday)}
                                                 </Text>
                                             </div>
                                             <Text variant="body-sm" colorVariant="muted">
-                                                {seatDir === 1
+                                                {previewTrialEnds
+                                                    ? `Sei in prova gratuita: le sedi aggiunte sono attive subito e non ti viene addebitato nulla fino al ${formatDate(previewTrialEnds)}.`
+                                                    : seatDir === 1
                                                     ? "La sede aggiunta è attiva subito, riproporzionata a tariffa Pro fino al rinnovo."
                                                     : `Le ${seatDir} sedi aggiunte sono attive subito, riproporzionate a tariffa Pro fino al rinnovo.`}
                                             </Text>
                                             <div className={styles.confirmDivider} />
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Il piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)};
-                                                da quella data pagherai {formatCents(preview.nextAmount)}/mese.
+                                                Il piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)};{" "}
+                                                {previewTrialEnds
+                                                    ? previewTrialFirstInvoice != null
+                                                        ? `il primo addebito, quel giorno, sarà di ${formatCents(previewTrialFirstInvoice)}${unit}.`
+                                                        : "il primo addebito sarà quel giorno."
+                                                    : `da quella data pagherai ${formatCents(preview.nextAmount)}${unit}.`}
                                             </Text>
                                             <div className={styles.changeWarning}>
                                                 <AlertTriangle size={16} />
@@ -1184,20 +1266,32 @@ export default function SubscriptionPage() {
                                             <div className={styles.confirmRow}>
                                                 <Text variant="body" weight={600}>Oggi paghi</Text>
                                                 <Text variant="title-sm" weight={700}>
-                                                    {formatCents(preview.chargeToday)}
+                                                    {previewTrialEnds ? formatCents(0) : formatCents(preview.chargeToday)}
                                                 </Text>
                                             </div>
                                             <Text variant="body-sm" colorVariant="muted">
-                                                Importo riproporzionato per i giorni rimanenti del periodo in corso.
+                                                {previewTrialEnds
+                                                    ? `Sei in prova gratuita: le novità sono attive subito e non ti viene addebitato nulla fino al ${formatDate(previewTrialEnds)}.`
+                                                    : "Importo riproporzionato per i giorni rimanenti del periodo in corso."}
                                             </Text>
                                             <div className={styles.confirmDivider} />
                                             <div className={styles.confirmRow}>
                                                 <Text variant="body-sm" colorVariant="muted">
-                                                    Dal {formatDate(preview.nextDate)}
+                                                    {previewTrialEnds
+                                                        ? `Primo addebito, il ${formatDate(previewTrialEnds)}`
+                                                        : `Dal ${formatDate(preview.nextDate)}`}
                                                 </Text>
-                                                <Text variant="body" weight={600}>
-                                                    {formatCents(preview.nextAmount)}/mese
-                                                </Text>
+                                                {previewTrialEnds ? (
+                                                    previewTrialFirstInvoice != null && (
+                                                        <Text variant="body" weight={600}>
+                                                            {formatCents(previewTrialFirstInvoice)}{unit}
+                                                        </Text>
+                                                    )
+                                                ) : (
+                                                    <Text variant="body" weight={600}>
+                                                        {formatCents(preview.nextAmount)}{unit}
+                                                    </Text>
+                                                )}
                                             </div>
                                         </>
                                     ) : (
@@ -1208,7 +1302,7 @@ export default function SubscriptionPage() {
                                             </div>
                                             <Text variant="body-sm" colorVariant="muted">
                                                 Il tuo piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)}.
-                                                Da quella data pagherai {formatCents(preview.nextAmount)}/mese.
+                                                Da quella data pagherai {formatCents(preview.nextAmount)}{unit}.
                                             </Text>
                                             {isDowngradeToBase && (
                                                 <div className={styles.changeWarning}>

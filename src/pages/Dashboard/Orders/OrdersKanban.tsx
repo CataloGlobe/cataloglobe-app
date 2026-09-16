@@ -31,6 +31,13 @@ interface Props {
      * Map vuota = fallback "Staff" generico.
      */
     operatorNames?: Map<string, string>;
+    /**
+     * Id ordine con almeno una comanda che non e' mai uscita (job stampa
+     * `failed`). Propagata a `OrderCard` per il badge "Comanda non stampata".
+     */
+    failedComandaOrderIds?: Set<string>;
+    /** true = la sede ha stampanti cloud Sunmi attive. Propagata a OrderCard. */
+    hasPrinters?: boolean;
     isLoading: boolean;
     error: string | null;
     onRetry: () => void;
@@ -75,6 +82,8 @@ export default function OrdersKanban({
     orders,
     tables,
     operatorNames,
+    failedComandaOrderIds,
+    hasPrinters,
     isLoading,
     error,
     onRetry,
@@ -180,6 +189,8 @@ export default function OrdersKanban({
                                             tableLabel={table?.label ?? "?"}
                                             tableZone={table?.zone_name ?? null}
                                             operatorNames={operatorNames}
+                                            comandaFailed={failedComandaOrderIds?.has(order.id) ?? false}
+                                            hasPrinters={hasPrinters}
                                             onAcknowledge={onAcknowledge}
                                             onMarkReady={onMarkReady}
                                             onDeliver={onDeliver}

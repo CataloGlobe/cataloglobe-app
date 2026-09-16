@@ -17,6 +17,21 @@
     flex-wrap: wrap;
 }
 
+.toolbarActions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.emptyActions {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
 .hint {
     margin: 0;
     font-size: 0.8125rem;
@@ -72,6 +87,13 @@
     font-size: 0.75rem;
     color: #6B7280;
     letter-spacing: 0.02em;
+}
+
+.rowStatus {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 .rowActions {

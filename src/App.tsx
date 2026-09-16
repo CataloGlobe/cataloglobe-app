@@ -51,7 +51,6 @@ const WorkspaceSettingsPage = lazy(() => import("./pages/Workspace/WorkspaceSett
 
 // Onboarding — lazy
 const CreateBusiness = lazy(() => import("./pages/Onboarding/CreateBusiness"));
-const ActivateTrial = lazy(() => import("./pages/Onboarding/ActivateTrial"));
 
 // Setup guidato — lazy (percorso a schermo pieno, fuori da MainLayout)
 const SetupWizardPage = lazy(() => import("./pages/Setup/SetupWizardPage"));
@@ -184,14 +183,6 @@ export default function App() {
                 element={
                     <ProtectedRoute>
                         <CreateBusiness />
-                    </ProtectedRoute>
-                }
-            />
-            <Route
-                path="/onboarding/activate-trial"
-                element={
-                    <ProtectedRoute>
-                        <ActivateTrial />
                     </ProtectedRoute>
                 }
             />

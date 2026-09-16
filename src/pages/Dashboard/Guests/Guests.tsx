@@ -67,6 +67,12 @@ export default function Guests() {
 
     const [guests, setGuests] = useState<ReservationGuestSummary[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    // Distingue "non ho ancora niente da mostrare" da "sto aggiornando ciò che
+    // già mostro". Vive qui e scende come prop alle due viste, così tabella e
+    // griglia si comportano allo stesso modo: senza, la griglia sostituiva
+    // l'intero elenco con lo scheletro a ogni ricarica mentre la tabella
+    // teneva il layout. Stessa forma di `Reservations.tsx`.
+    const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
     const [search, setSearch] = useState("");
     // useDeferredValue e non un timer manuale: React salta i valori intermedi
     // mentre si digita, senza reintrodurre il debounce a mano che il progetto
@@ -153,6 +159,11 @@ export default function Guests() {
             showToast({ message: "Errore nel caricamento della rubrica.", type: "error" });
         } finally {
             setIsLoading(false);
+            // Nel `finally` e non nel `try`: un caricamento fallito ha già
+            // mostrato il suo toast, e ripresentare lo scheletro al tentativo
+            // successivo nasconderebbe la rubrica invece di spiegare cosa non
+            // va.
+            setHasLoadedOnce(true);
         }
     }, [tenantId, canRead, deferredSearch, showToast]);
 
@@ -267,6 +278,7 @@ export default function Guests() {
                     <GuestsDirectory
                         guests={guests}
                         isLoading={isLoading}
+                        hasLoadedOnce={hasLoadedOnce}
                         isSearching={search.trim().length > 0}
                         onOpenGuest={handleOpenGuest}
                         tenantWide={tenantWide}

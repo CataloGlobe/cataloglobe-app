@@ -133,44 +133,74 @@ export async function createReservation(
 /**
  * Aggiorna SOLO i campi dati della prenotazione. Lo status NON e' modificabile
  * qui: le transizioni restano sotto `respond-reservation` (confirm/decline/
- * cancel). Nessuna email su edit in questa versione.
+ * cancel).
  *
- * Auth: UPDATE diretto via client autenticato. RLS gate USING + WITH CHECK:
- *   has_permission('reservations.manage', activity_id)
+ * Dalla FASE 4.2 passa dalla Edge `update-reservation`, non da un UPDATE
+ * diretto: se cambiano data o ora il cliente riceve la mail «Prenotazione
+ * spostata» con l'.ics aggiornato, e le mail partono solo dalle Edge. La
+ * Edge scrive sotto il JWT del chiamante: il gate resta la RLS
+ * `has_permission('reservations.manage', activity_id)`, come prima.
+ * Nessuna validazione nuova: l'operatore puo' spostare dove vuole.
+ *
+ * Errori (`.code` su Error per branching UI):
+ *   UNAUTHORIZED          → 401
+ *   INVALID_PAYLOAD       → 400, forma dei campi
+ *   RESERVATION_NOT_FOUND → 404, riga inesistente o non leggibile
+ *   PERMISSION_DENIED     → 403, manca `reservations.manage` sulla sede
+ *   SERVER_ERROR          → 500 / rete
  */
 export async function updateReservation(
     id: string,
     tenantId: string,
     input: UpdateReservationInput
 ): Promise<V2Reservation> {
-    const { data, error } = await supabase
-        .from("reservations")
-        .update({
+    const { data, error } = await supabase.functions.invoke<{
+        success: true;
+        reservation: V2Reservation;
+    }>("update-reservation", {
+        body: {
+            reservation_id: id,
+            tenant_id: tenantId,
             reservation_date: input.reservation_date,
             reservation_time: input.reservation_time,
             party_size: input.party_size,
             customer_name: input.customer_name,
             customer_email: input.customer_email,
             customer_phone: input.customer_phone,
-            // Ricalcolata a ogni edit: il grezzo può cambiare, la canonica
-            // deve seguirlo (o tornare null se il nuovo valore non è
-            // interpretabile — mai lasciare la canonica di un altro numero).
-            customer_phone_e164: normalizePhoneToE164(input.customer_phone),
-            notes: input.notes ?? null,
-            updated_at: new Date().toISOString()
-        })
-        .eq("id", id)
-        .eq("tenant_id", tenantId)
-        .select("*")
-        .maybeSingle();
+            notes: input.notes ?? null
+        }
+    });
 
-    if (error) throw error;
-    if (!data) {
-        const notFound = new Error("Prenotazione non trovata");
-        (notFound as unknown as { code: string }).code = "PGRST116";
-        throw notFound;
+    if (error) {
+        let code = "SERVER_ERROR";
+        let message: string | undefined;
+        let details: unknown;
+        if (error instanceof FunctionsHttpError) {
+            try {
+                const body = (await error.context.clone().json()) as {
+                    error_code?: unknown;
+                    message?: unknown;
+                    details?: unknown;
+                };
+                if (typeof body?.error_code === "string") code = body.error_code;
+                if (typeof body?.message === "string") message = body.message;
+                details = body?.details;
+            } catch {
+                // body not JSON → keep defaults
+            }
+        }
+        const err = new Error(message ?? code);
+        (err as Error & { code?: string; details?: unknown }).code = code;
+        (err as Error & { code?: string; details?: unknown }).details = details;
+        throw err;
     }
-    return data as V2Reservation;
+
+    if (!data?.reservation) {
+        const err = new Error("Risposta vuota dal server");
+        (err as unknown as { code: string }).code = "SERVER_ERROR";
+        throw err;
+    }
+    return data.reservation;
 }
 
 // ─── CUSTOMER-SIDE (edge function `submit-reservation`, public) ─────────────

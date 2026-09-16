@@ -26,6 +26,9 @@ type Props = {
     closures: UpcomingClosure[];
     /** Passo (minuti) della griglia oraria pubblica = pacing della sede. */
     pacingSlotMinutes: number;
+    /** Orizzonte (giorni) della sede: quanto avanti il calendario arriva. */
+    horizonDays: number;
+    minNoticeMinutes: number;
     onSuccess: (snapshot: FormFields, status: SubmitReservationStatus) => void;
     onResolveErrorCode: (code: SubmitErrorCode) => void;
 };
@@ -35,6 +38,8 @@ export default function ReservationForm({
     hours,
     closures,
     pacingSlotMinutes,
+    horizonDays,
+    minNoticeMinutes,
     onSuccess,
     onResolveErrorCode
 }: Props) {
@@ -226,6 +231,8 @@ export default function ReservationForm({
                 hours={hours}
                 closures={closures}
                 pacingSlotMinutes={pacingSlotMinutes}
+                horizonDays={horizonDays}
+                minNoticeMinutes={minNoticeMinutes}
                 slug={slug}
                 onChange={handleChange}
                 onBlur={handleBlur}

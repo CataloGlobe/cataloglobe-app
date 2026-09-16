@@ -1,5 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
+    buildReservationCancelledIcs,
+    buildReservationCancelledIcsAttachment,
     buildReservationIcs,
     buildReservationIcsUid,
     formatVenueAddress,
@@ -407,5 +409,127 @@ describe("base64", () => {
             Uint8Array.from(atob(reservationIcsToBase64(ics)), c => c.charCodeAt(0))
         );
         expect(decoded).toContain("Caffè Perù");
+    });
+});
+
+// ── SEQUENCE e annullamento (RFC 5546) ──────────────────────────────────────
+
+describe("SEQUENCE — la versione dell'evento", () => {
+    it("è 0 quando non viene passata: la prima pubblicazione", () => {
+        expect(lineFor(buildReservationIcs(BASE)!, "SEQUENCE")).toBe("SEQUENCE:0");
+    });
+
+    it("emette il valore della riga, non lo calcola", () => {
+        expect(lineFor(buildReservationIcs({ ...BASE, icsSequence: 3 })!, "SEQUENCE")).toBe("SEQUENCE:3");
+    });
+
+    it("valori non validi degradano a 0, mai un file senza SEQUENCE", () => {
+        for (const bad of [null, -1, Number.NaN, 2.7]) {
+            const ics = buildReservationIcs({ ...BASE, icsSequence: bad as number })!;
+            expect(lineFor(ics, "SEQUENCE")).toBe(bad === 2.7 ? "SEQUENCE:2" : "SEQUENCE:0");
+        }
+    });
+
+    it("conferma e aggiornamento: stesso UID, SEQUENCE più alto, DTSTART diverso", () => {
+        const conferma = buildReservationIcs({ ...BASE, icsSequence: 0 })!;
+        const spostata = buildReservationIcs({
+            ...BASE,
+            reservationTime: "22:00:00",
+            icsSequence: 1,
+            now: new Date(Date.UTC(2026, 6, 14, 12, 0, 0))
+        })!;
+        expect(lineFor(conferma, "UID")).toBe(lineFor(spostata, "UID"));
+        expect(lineFor(conferma, "SEQUENCE")).toBe("SEQUENCE:0");
+        expect(lineFor(spostata, "SEQUENCE")).toBe("SEQUENCE:1");
+        expect(lineFor(conferma, "DTSTART")).not.toBe(lineFor(spostata, "DTSTART"));
+        expect(lineFor(spostata, "METHOD")).toBe("METHOD:PUBLISH");
+    });
+});
+
+describe("annullamento — METHOD:CANCEL", () => {
+    const cancelled = () =>
+        buildReservationCancelledIcs({
+            reservationId: RID,
+            venueName: "Trattoria da Ciro",
+            reservationDate: "2026-07-15",
+            reservationTime: "20:00:00",
+            durationMinutes: 120,
+            icsSequence: 2,
+            now: NOW
+        })!;
+
+    it("è un VCALENDAR METHOD:CANCEL con STATUS:CANCELLED", () => {
+        const ics = cancelled();
+        expect(lineFor(ics, "METHOD")).toBe("METHOD:CANCEL");
+        expect(lineFor(ics, "STATUS")).toBe("STATUS:CANCELLED");
+        expect(ics).toContain("BEGIN:VEVENT");
+        expect(ics.endsWith("END:VCALENDAR\r\n")).toBe(true);
+    });
+
+    it("porta lo STESSO UID della pubblicazione: è l'evento da togliere", () => {
+        expect(lineFor(cancelled(), "UID")).toBe(lineFor(buildReservationIcs(BASE)!, "UID"));
+        expect(lineFor(cancelled(), "UID")).toBe(`UID:${buildReservationIcsUid(RID)}`);
+    });
+
+    it("porta il SEQUENCE incrementato che gli passa la riga", () => {
+        expect(lineFor(cancelled(), "SEQUENCE")).toBe("SEQUENCE:2");
+    });
+
+    it("sequence(CANCEL) > sequence(ultimo PUBLISH), a parità di UID", () => {
+        // Il numero lo alza il trigger nella stessa transazione
+        // dell'annullamento (supabase/tests/reservation_ics_sequence.test.sql,
+        // casi 8/10/11); qui si fissa che il file lo riporti tale e quale.
+        const seq = (ics: string) => Number(lineFor(ics, "SEQUENCE")!.slice("SEQUENCE:".length));
+        const lastPublish = buildReservationIcs({ ...BASE, icsSequence: 1 })!;
+        const cancel = buildReservationCancelledIcs({
+            reservationId: RID,
+            venueName: "Trattoria da Ciro",
+            reservationDate: "2026-07-15",
+            reservationTime: "20:00:00",
+            icsSequence: 2,
+            now: NOW
+        })!;
+        expect(lineFor(cancel, "UID")).toBe(lineFor(lastPublish, "UID"));
+        expect(seq(cancel)).toBeGreaterThan(seq(lastPublish));
+    });
+
+    it("conserva DTSTART/DTEND (Outlook rifiuta un VEVENT senza) e nessun ATTENDEE", () => {
+        const ics = cancelled();
+        expect(lineFor(ics, "DTSTART")).toBe("DTSTART:20260715T180000Z");
+        expect(lineFor(ics, "DTEND")).toBe("DTEND:20260715T200000Z");
+        expect(ics).not.toContain("ATTENDEE");
+        expect(ics).not.toContain("ORGANIZER");
+        expect(ics).not.toContain("DESCRIPTION:");
+    });
+
+    it("dati non interpretabili → null; l'allegato → undefined, senza lanciare", () => {
+        expect(
+            buildReservationCancelledIcs({
+                reservationId: RID,
+                venueName: "X",
+                reservationDate: "2026-13-40",
+                reservationTime: "20:00",
+                now: NOW
+            })
+        ).toBeNull();
+        expect(
+            buildReservationCancelledIcsAttachment({
+                reservationId: "",
+                venueName: "X",
+                reservationDate: "2026-07-15",
+                reservationTime: "20:00",
+                now: NOW
+            })
+        ).toBeUndefined();
+        const att = buildReservationCancelledIcsAttachment({
+            reservationId: RID,
+            venueName: "Trattoria da Ciro",
+            reservationDate: "2026-07-15",
+            reservationTime: "20:00",
+            icsSequence: 1,
+            now: NOW
+        });
+        expect(att).toHaveLength(1);
+        expect(att![0].filename).toBe("prenotazione.ics");
     });
 });

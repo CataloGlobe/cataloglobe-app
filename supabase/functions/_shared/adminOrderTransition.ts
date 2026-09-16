@@ -25,6 +25,7 @@
 
 import { createClient, SupabaseClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { checkRateLimit, RateLimitExceededError } from "./rateLimit.ts";
+import { enqueueAndDispatchPrintJobs } from "./printJobs.ts";
 
 // ============================================================
 // Constants
@@ -103,6 +104,17 @@ export interface TransitionConfig {
      * adds "cancellation_reason".
      */
     extra_returning_columns?: string[];
+    /**
+     * Blocco 3a: quando valorizzato, su transizione riuscita accoda un
+     * print_job deferred di questo kind (oggi solo "annullo", da
+     * cancel-order-admin). Deferred = niente push inline: lo sweeper
+     * process-print-jobs rilegge lo stato dell'ordine prima di stampare,
+     * cosi' un uncancel-to-* (undo del toast "Annulla") entro il minuto
+     * evita il ticket. Opzionale e dichiarativo: tutti gli altri wrapper
+     * (acknowledge, deliver, i tre uncancel-to-*, restore, unacknowledge,
+     * unready) non lo passano e non stampano nulla.
+     */
+    print_kind?: "annullo";
 }
 
 // ============================================================
@@ -117,6 +129,7 @@ interface BaseRequestBody {
 interface OrderRow {
     id: string;
     tenant_id: string;
+    activity_id: string;
     status: string;
     version: number;
     customer_session_id: string;
@@ -238,7 +251,7 @@ async function _fetchOrder(
 > {
     const { data, error } = await supabase
         .from("orders")
-        .select("id, tenant_id, status, version, customer_session_id")
+        .select("id, tenant_id, activity_id, status, version, customer_session_id")
         .eq("id", orderId)
         .maybeSingle();
 
@@ -512,6 +525,20 @@ export async function performAdminOrderTransition(
             });
         }
         const updated = updateResult.row;
+
+        // ── Print job (blocco 3a, best-effort, non-blocking) ──
+        // Deferred: solo accodato, mai push inline (vedi TransitionConfig.print_kind).
+        // Nessun errore di stampa deve toccare la risposta 200.
+        if (config.print_kind) {
+            await enqueueAndDispatchPrintJobs(supabaseService, {
+                orderId: updated.id,
+                tenantId: order.tenant_id,
+                activityId: order.activity_id,
+                kind: config.print_kind,
+                dispatch: "deferred",
+                logPrefix: `[${config.function_name}]`
+            });
+        }
 
         // ── Success ──
         console.log(`[${config.function_name}] order_transition`, {

@@ -152,6 +152,12 @@ function renderCopyValue(
                 ["(decline)", copy.outcomeBody(VENUE, "decline", s => s)],
                 ["(cancel)", copy.outcomeBody(VENUE, "cancel", s => s)]
             ];
+        case "updatedSubject":
+            return [["", copy.updatedSubject(VENUE)]];
+        case "updatedBody":
+            return [["", copy.updatedBody(VENUE, s => s)]];
+        case "updatedPrevious":
+            return [["", copy.updatedPrevious("14 luglio 2026", "20:00", s => s)]];
         case "icsSummary":
             return [["", copy.icsSummary(VENUE)]];
         case "icsPeople":

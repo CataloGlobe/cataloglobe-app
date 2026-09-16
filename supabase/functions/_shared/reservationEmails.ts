@@ -108,9 +108,10 @@ function renderReservationDetails(
     copy: ReservationEmailCopy,
     date: string,
     time: string,
-    partySize: number
+    partySize: number,
+    caption: string = copy.detailsCaption
 ): string {
-    return renderInfoBlock(copy.detailsCaption, [
+    return renderInfoBlock(caption, [
         renderDetailRow(copy.detailsDate, escapeHtml(date)),
         renderDetailRow(copy.detailsTime, escapeHtml(time)),
         renderDetailRow(copy.detailsPeople, String(partySize))
@@ -122,10 +123,11 @@ function renderDetailsText(
     copy: ReservationEmailCopy,
     date: string,
     time: string,
-    partySize: number
+    partySize: number,
+    caption: string = copy.detailsCaption
 ): string {
     return (
-        `${copy.detailsCaption}\n` +
+        `${caption}\n` +
         `${copy.detailsDate}: ${date}\n` +
         `${copy.detailsTime}: ${time}\n` +
         `${copy.detailsPeople}: ${partySize}\n`
@@ -386,14 +388,28 @@ export function buildReservationReminderEmail(
 
 export interface ReservationOutcomeEmailArgs extends ReservationEmailBase {
     action: ReservationOutcomeAction;
+    /**
+     * True quando l'email porta l'allegato METHOD:CANCEL. La riga che lo
+     * spiega compare solo allora: promettere un allegato che non c'e' e'
+     * peggio di non dire niente.
+     */
+    hasCancelIcs?: boolean;
 }
 
 /** "Prenotazione non confermata" / "Prenotazione annullata". */
 export function buildReservationOutcomeEmail(
     args: ReservationOutcomeEmailArgs
 ): ReservationEmailContent {
-    const { activityName, customerName, reservationDate, reservationTime, partySize, action, language } =
-        args;
+    const {
+        activityName,
+        customerName,
+        reservationDate,
+        reservationTime,
+        partySize,
+        action,
+        hasCancelIcs,
+        language
+    } = args;
     const copy = reservationCopyFor(language);
     const eActivityName = escapeHtml(activityName);
     const eCustomerName = escapeHtml(customerName);
@@ -414,7 +430,8 @@ export function buildReservationOutcomeEmail(
             renderTitle(title),
             `<p ${PARAGRAPH_LEAD}>${copy.greeting(eCustomerName)}</p>`,
             `<p ${PARAGRAPH_BODY}>${copy.outcomeBody(eActivityName, action, EMPHASIZE_HTML)}</p>`,
-            renderReservationDetails(copy, date, time, partySize)
+            renderReservationDetails(copy, date, time, partySize),
+            ...(hasCancelIcs ? [`<p ${PARAGRAPH_NOTE}>${copy.outcomeIcsNote}</p>`] : [])
         ],
         reasonHtml,
         language
@@ -423,6 +440,79 @@ export function buildReservationOutcomeEmail(
         `${copy.greeting(customerName)}\n\n` +
         `${copy.outcomeBody(activityName, action, EMPHASIZE_TEXT)}\n\n` +
         renderDetailsText(copy, date, time, partySize) +
+        `\n` +
+        (hasCancelIcs ? `${copy.outcomeIcsNote}\n\n` : "") +
+        `${getEmailFooterText(reason, language)}`;
+
+    return { subject, html, text };
+}
+
+export interface ReservationUpdatedEmailArgs extends ReservationEmailBase {
+    /** Data e ora PRIMA dello spostamento, `YYYY-MM-DD` e `HH:MM[:SS]`. */
+    previousDate: string;
+    previousTime: string;
+}
+
+/**
+ * "Prenotazione spostata" — l'operatore ha cambiato data o ora.
+ *
+ * Nell'ordine: che e' stata spostata, QUAL ERA, qual e' adesso, che non c'e'
+ * niente da fare. Il «qual era» non e' un dettaglio: senza, il cliente non sa
+ * se sta leggendo una conferma duplicata o un cambiamento. L'allegato .ics
+ * (stesso UID, SEQUENCE incrementato) sposta l'evento nel calendario senza
+ * duplicarlo; il link di disdetta resta, perche' un orario nuovo puo' non
+ * andare bene.
+ */
+export function buildReservationUpdatedEmail(
+    args: ReservationUpdatedEmailArgs
+): ReservationEmailContent {
+    const {
+        activityName,
+        customerName,
+        reservationDate,
+        reservationTime,
+        partySize,
+        previousDate,
+        previousTime,
+        cancelUrl,
+        language
+    } = args;
+    const copy = reservationCopyFor(language);
+    const eActivityName = escapeHtml(activityName);
+    const eCustomerName = escapeHtml(customerName);
+    const lang = resolveEmailLang(language);
+    const date = formatDate(reservationDate, lang);
+    const time = formatTimeIt(reservationTime);
+    const prevDate = formatDate(previousDate, lang);
+    const prevTime = formatTimeIt(previousTime);
+    // Due forme della stessa riga: l'HTML riceve il nome della sede ESCAPATO.
+    // Il footer inietta questa stringa cosi' com'e' nel markup, quindi un nome
+    // con `<` o `&` uscirebbe come tag. Il nome lo scrive l'admin del locale,
+    // ma chi legge l'email e' il cliente.
+    const reason = copy.customerReason(activityName);
+    const reasonHtml = copy.customerReason(eActivityName);
+
+    const subject = copy.updatedSubject(activityName);
+    const html = renderCard(
+        [
+            renderTitle(copy.updatedTitle),
+            `<p ${PARAGRAPH_LEAD}>${copy.greeting(eCustomerName)}</p>`,
+            `<p ${PARAGRAPH_BODY}>${copy.updatedBody(eActivityName, EMPHASIZE_HTML)} ${copy.updatedPrevious(escapeHtml(prevDate), escapeHtml(prevTime), EMPHASIZE_HTML)}</p>`,
+            renderReservationDetails(copy, date, time, partySize, copy.updatedDetailsCaption),
+            `<p ${PARAGRAPH_NOTE}>${copy.updatedNoAction}</p>`,
+            renderCancelSentenceHtml(copy, cancelUrl)
+        ],
+        reasonHtml,
+        language
+    );
+    const text =
+        `${copy.greeting(customerName)}\n\n` +
+        `${copy.updatedBody(activityName, EMPHASIZE_TEXT)}\n` +
+        `${copy.updatedPrevious(prevDate, prevTime, EMPHASIZE_TEXT)}\n\n` +
+        renderDetailsText(copy, date, time, partySize, copy.updatedDetailsCaption) +
+        `\n` +
+        `${copy.updatedNoAction}\n\n` +
+        renderCancelSentenceText(copy, cancelUrl) +
         `\n` +
         `${getEmailFooterText(reason, language)}`;
 

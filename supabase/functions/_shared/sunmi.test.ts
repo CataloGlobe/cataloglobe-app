@@ -7,6 +7,7 @@ import {
     buildSunmiSignature,
     categorizeSunmiCode,
     sunmiNonce,
+    sunmiOnlineStatusByShop,
     sunmiRequest,
     sunmiTimestamp
 } from "./sunmi";
@@ -141,5 +142,44 @@ describe("sunmiRequest", () => {
     it("returns config_error when credentials are missing", async () => {
         const res = await sunmiRequest("/x", { sn: "A" }, { fetchImpl: fakeFetch({ json: { code: 1 } }) });
         expect(res.kind).toBe("config_error");
+    });
+});
+
+describe("sunmiOnlineStatusByShop", () => {
+    it("sends shop_id + pagination and maps the list back", async () => {
+        const capture: { url?: string; init?: RequestInit } = {};
+        const fetchImpl = (async (url: string | URL | Request, init?: RequestInit) => {
+            capture.url = String(url);
+            capture.init = init;
+            return new Response(
+                JSON.stringify({
+                    code: 1,
+                    msg: "ok",
+                    data: {
+                        list: [
+                            { sn: "N411ABC", is_online: 1 },
+                            { sn: "N411DEF", is_online: 0 }
+                        ],
+                        page: { total: 2, page_no: 1, page_size: 100 }
+                    }
+                }),
+                { status: 200, headers: { "Content-Type": "application/json" } }
+            );
+        }) as typeof fetch;
+
+        const res = await sunmiOnlineStatusByShop(1000, 100, { credentials: CREDS, fetchImpl });
+
+        expect(capture.url).toBe(`${SUNMI_API_BASE}/v2/printer/open/open/device/onlineStatus`);
+        expect(capture.init?.body).toBe(
+            JSON.stringify({ shop_id: 1000, page_no: 1, page_size: 100 })
+        );
+        expect(res.kind).toBe("ok");
+        if (res.kind === "ok") {
+            expect(res.data.list).toEqual([
+                { sn: "N411ABC", is_online: 1 },
+                { sn: "N411DEF", is_online: 0 }
+            ]);
+            expect(res.data.page).toEqual({ total: 2, page_no: 1, page_size: 100 });
+        }
     });
 });

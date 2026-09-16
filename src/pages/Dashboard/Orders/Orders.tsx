@@ -37,6 +37,7 @@ import type { CancelOrderItemResult } from "@/services/supabase/orders";
 import type { V2OrderWithItems } from "@/types/orders";
 
 import { listTables } from "@/services/supabase/tables";
+import { listPrinters, reprintOrder, PrinterServiceError } from "@/services/supabase/printers";
 import { getTenantMemberNames } from "@/services/supabase/team";
 import type { V2Table } from "@/types/orders";
 
@@ -174,6 +175,10 @@ export default function Orders() {
 
     // Data
     const [tables, setTables] = useState<V2Table[]>([]);
+    // true = la sede ha almeno una stampante cloud Sunmi attiva: la voce
+    // "Stampa" del menu ordine diventa "Ristampa comanda" (job Sunmi invece
+    // del dialogo di stampa del browser).
+    const [hasPrinters, setHasPrinters] = useState(false);
 
     // Attribuzione operatore: user_id → display_name. Fetch UNA volta per
     // tenantId (membri del tenant cambiano raramente, no realtime). Map
@@ -271,7 +276,8 @@ export default function Orders() {
         isLoading: isLoadingOrders,
         error: ordersError,
         refetch: refetchOrders,
-        applyLocalPatch
+        applyLocalPatch,
+        failedComandaOrderIds
     } = useActiveOrdersRealtime(tenantId, selectedActivityId, {
         onNewOrder: () => triggerAlertRef.current()
     });
@@ -307,6 +313,24 @@ export default function Orders() {
     useEffect(() => {
         void loadTables();
     }, [loadTables]);
+
+    // ── Stampanti (per decidere "Stampa" vs "Ristampa comanda" nel menu) ──
+    const loadPrinters = useCallback(async () => {
+        if (!tenantId || !selectedActivityId) {
+            setHasPrinters(false);
+            return;
+        }
+        try {
+            const data = await listPrinters(tenantId, selectedActivityId);
+            setHasPrinters(data.some(p => p.is_active));
+        } catch {
+            /* silent: lookup ottimizzazione, come loadTables */
+        }
+    }, [tenantId, selectedActivityId]);
+
+    useEffect(() => {
+        void loadPrinters();
+    }, [loadPrinters]);
 
     // Fetch nomi operatori una volta per tenant. Cancellation via flag locale
     // per evitare setState dopo unmount o swap tenantId rapido.
@@ -738,6 +762,10 @@ export default function Orders() {
     }
 
     function handlePrint(order: V2OrderWithItems) {
+        if (hasPrinters) {
+            void handleReprint(order);
+            return;
+        }
         // flushSync forces a synchronous DOM update so standalonePrintRef is
         // populated before window.print() is called — no useEffect/flag needed.
         flushSync(() => setOrderToPrint(order));
@@ -747,6 +775,40 @@ export default function Orders() {
             standalonePrintRef.current.removeAttribute("data-printing");
         }
         setOrderToPrint(null);
+    }
+
+    // Ristampa cloud: aspetta la risposta reale di Sunmi (non ottimistico) e
+    // mostra un toast vero. La stampante spenta NON e' un errore: Sunmi
+    // accetta comunque il lavoro e lo consegna alla riaccensione.
+    async function handleReprint(order: V2OrderWithItems) {
+        if (!tenantId) return;
+        try {
+            const res = await reprintOrder(order.id, tenantId);
+            if (res.printed === 0) {
+                showToast({
+                    message: "Ristampa non riuscita su nessuna stampante. Riprova tra poco.",
+                    type: "error"
+                });
+            } else if (res.failed > 0) {
+                showToast({
+                    message: `Ristampa inviata a ${res.printed} di ${res.total} stampanti. Se una stampante è spenta, la comanda uscirà alla riaccensione.`,
+                    type: "info"
+                });
+            } else {
+                showToast({
+                    message: "Ristampa inviata. Se la stampante è spenta, la comanda uscirà alla riaccensione.",
+                    type: "success"
+                });
+            }
+        } catch (err) {
+            showToast({
+                message:
+                    err instanceof PrinterServiceError
+                        ? err.message
+                        : "Errore durante la ristampa.",
+                type: "error"
+            });
+        }
     }
 
     function handleCancelOpen(order: V2OrderWithItems) {
@@ -969,6 +1031,7 @@ export default function Orders() {
         onViewDetail: handleViewDetail,
         onRestore: handleRestore,
         onPrint: handlePrint,
+        hasPrinters,
         canManage
     });
 
@@ -1006,6 +1069,8 @@ export default function Orders() {
                             orders={filteredOrders}
                             tables={tables}
                             operatorNames={operatorNames}
+                            failedComandaOrderIds={failedComandaOrderIds}
+                            hasPrinters={hasPrinters}
                             isLoading={isLoadingOrders}
                             error={ordersError}
                             onRetry={() => void refetchOrders()}
@@ -1165,6 +1230,8 @@ export default function Orders() {
                     tables.find(t => t.id === orderInDetail?.table_id)?.zone_name ?? null
                 }
                 operatorNames={operatorNames}
+                hasPrinters={hasPrinters}
+                onPrint={handlePrint}
                 onClose={() => {
                     setIsDetailOpen(false);
                     setOrderInDetail(null);

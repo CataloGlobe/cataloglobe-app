@@ -1,0 +1,54 @@
+-- 20260914150100_seatings_replica_identity_full.sql
+--
+-- `undo_seating` (20260911130400) è un DELETE su `seatings`. Con REPLICA
+-- IDENTITY DEFAULT il record WAL porta solo la chiave primaria: il filtro
+-- della sottoscrizione (`activity_id = eq.<sede>`) non è valutabile e
+-- Realtime scarta l'evento.
+--
+-- Per una tavolata nata da prenotazione non si vedeva: `undo_seating`
+-- riporta anche la prenotazione a `confirmed`, e quell'UPDATE passa dal
+-- canale `reservations` che ricarica tutto. Per un WALK-IN non c'è nessuna
+-- prenotazione da toccare: l'annullo scrive solo il DELETE, e l'altra scheda
+-- resta con una tavolata fantasma aperta finché qualcuno non ricarica —
+-- esattamente la riga su cui un host potrebbe premere "Servizio concluso".
+--
+-- FULL fa scrivere nel WAL la riga intera anche sul DELETE, così il filtro
+-- per sede si valuta e l'evento parte. Gemella di 20260914150000
+-- (`seating_tables`).
+--
+-- ── Cosa cambia in sicurezza, e va saputo ──────────────────────────────────
+-- Sui DELETE Realtime NON applica la RLS: l'`old_record` viene consegnato a
+-- chiunque abbia una sottoscrizione il cui filtro passa. Con DEFAULT era il
+-- solo `id`; con FULL è la riga intera di `seatings`:
+--
+--   id, tenant_id, activity_id, status, opened_at, closed_at, closed_reason,
+--   created_at, updated_at        → identificatori e timestamp
+--   party_size                    → quanti erano al tavolo
+--   opened_by_user_id             → l'id auth di un membro dello STAFF
+--   notes                         → note dell'host sulla tavolata (testo libero)
+--
+-- Chi può vederli: un utente `authenticated` — quindi un membro di QUALCHE
+-- tenant, non un anonimo — che sottoscriva `seatings` con l'`activity_id`
+-- di una sede non sua, e solo nell'istante in cui una tavolata di quella
+-- sede viene ANNULLATA (non aperta, non chiusa: quelle passano dalla RLS).
+--
+-- Perché è accettato:
+--   - `opened_by_user_id` è un uuid, non un nome né un'email: risolverlo a
+--     una persona richiede `get_tenant_member_names`, che è già gated sul
+--     tenant. Fuori dal tenant resta un identificatore opaco.
+--   - `party_size` di una tavolata annullata è un numero senza contesto:
+--     nessun nome, nessuna prenotazione, nessun tavolo (le ponti sono già
+--     cancellate a cascata).
+--   - `notes` è il campo più esposto. Oggi nessuna interfaccia lo scrive
+--     (nessuna RPC lo popola, il drawer non lo mostra): è NULL su ogni riga.
+--     Il giorno in cui verrà scritto, questa nota è il posto in cui
+--     ricordarsi che sul DELETE viaggia in chiaro verso chi indovina
+--     l'`activity_id` — e valutare se serve una policy diversa (es. non
+--     annullare via DELETE ma via soft-delete con UPDATE, che la RLS copre).
+--   - L'alternativa — nessun evento sull'annullo — lascia una tavolata
+--     fantasma in sala sull'altro tablet, che è un rischio operativo
+--     concreto e quotidiano contro uno teorico e a bassissimo valore.
+--
+-- Costo WAL: righe strette, poche cancellazioni al giorno. Trascurabile.
+
+ALTER TABLE public.seatings REPLICA IDENTITY FULL;

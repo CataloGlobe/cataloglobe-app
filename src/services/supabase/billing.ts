@@ -1,6 +1,8 @@
 import { supabase } from "@/services/supabase/client";
+import type { BillingInterval } from "@/types/plan";
 
 export type PlanCode = "base" | "pro";
+export type { BillingInterval };
 
 export type CreateCheckoutSessionInput = {
     tenantId: string;
@@ -8,6 +10,11 @@ export type CreateCheckoutSessionInput = {
     cancelUrl?: string;
     quantity?: number;
     planCode?: PlanCode;
+    /**
+     * Always sent by the frontend. The edge function defaults an ABSENT field
+     * to "month" (older callers) but rejects an invalid value.
+     */
+    billingInterval: BillingInterval;
     promotionCode?: string;
 };
 
@@ -27,6 +34,7 @@ export async function createCheckoutSession(input: CreateCheckoutSessionInput): 
             cancelUrl: input.cancelUrl,
             quantity: input.quantity ?? 1,
             planCode: input.planCode,
+            billingInterval: input.billingInterval,
             promotionCode: input.promotionCode
         }
     });
@@ -123,6 +131,20 @@ export type SubscriptionChangePreview = {
     nextDate: string | null;
     /** "now" per upgrade immediati, timestamp ISO per downgrade programmati. */
     effective: string;
+    /**
+     * ISO della fine prova se l'abbonamento è in prova al momento della preview,
+     * altrimenti null. Fatto letto live da Stripe nella stessa richiesta: in
+     * prova `chargeToday` è la prima fattura (a fine prova), non un addebito di
+     * oggi, e la UI lo dice. Opzionale per compatibilità con risposte precedenti.
+     */
+    trialEndsAt?: string | null;
+    /**
+     * In prova: importo della prima fattura (a fine prova) per il cambio
+     * richiesto, letto dall'anteprima Stripe. Null fuori prova o se l'anteprima
+     * non è disponibile: in quel caso la UI dice la data senza importo — mai
+     * una cifra ricavata altrimenti.
+     */
+    trialFirstInvoiceCents?: number | null;
 };
 
 export type SubscriptionChangeCommitResult = {
@@ -237,6 +259,8 @@ export async function updateScheduledChange(
 
 export type SubscriptionPendingChange = {
     targetPlan: PlanCode | null;
+    /** Intervallo del Price della fase futura (da `plan_prices`), null se non risolto. */
+    targetInterval: BillingInterval | null;
     targetSeats: number | null;
     /** ISO della data di effetto (fine periodo corrente). */
     effectiveDate: string | null;
@@ -266,6 +290,13 @@ export type ConsumedDiscountThisPeriod = SubscriptionDiscount & {
 export type SubscriptionState = {
     /** ISO del fine periodo corrente. */
     currentPeriodEnd: string | null;
+    /**
+     * Intervallo di fatturazione corrente (dal Price live via `plan_prices`),
+     * null se non risolvibile. Popolato solo dall'action "state".
+     */
+    currentInterval?: BillingInterval | null;
+    /** ISO della fine prova se in prova, altrimenti null. Popolato solo dall'action "state". */
+    trialEndsAt?: string | null;
     /** true se l'abbonamento è disdetto a fine periodo. */
     cancelAtPeriodEnd: boolean;
     /** Cambio piano/sedi programmato al rinnovo, o null. */

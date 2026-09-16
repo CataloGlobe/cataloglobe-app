@@ -1,3 +1,11 @@
+// ⚠️ SYNC: la regola di questo file vive in TRE posti. Le altre due copie:
+//   - supabase/functions/_shared/openingHours.ts   (porto Edge: il cancello
+//     server-side `isReservationTimeBookable` e il gate ordini)
+//   - src/pages/ReservationPage/utils/reservationSlots.ts (la griglia offerta
+//     al cliente: passo, intervallo semiaperto, preavviso, orizzonte)
+// Qualsiasi modifica va replicata in TUTTI i file, nello stesso commit
+// (stesso pattern di scheduleResolver.ts e priceSummary.ts).
+
 import type { TFunction } from "i18next";
 import { addDays } from "@/utils/dateLocal";
 import type {
@@ -173,6 +181,13 @@ export function isWeekdayFullyClosed(
 // 24:00 (the slot extends past midnight); the early-morning portion is
 // already prepended as a separate "00:00–closes_at" tail by getDaySlots, so
 // the standard range check on it is correct.
+//
+// Intervallo SEMIAPERTO `[apre, chiude)`: l'orario esatto di chiusura NON è
+// dentro la fascia. Fino alla FASE 4.1 era `t <= c` (chiusura inclusa) e
+// divergeva dalla griglia (`reservationSlots.ts`, `< endMinExclusive`) e dal
+// server (`openingHours.ts`): un locale che chiude alle 23:00 offriva come
+// ultimo slot le 22:45 ma qui accettava le 23:00. Vince la griglia — è quello
+// che il cliente vede.
 export function isTimeWithinSlots(time: string, slots: Slot[]): boolean {
     const t = timeToMin(time);
     if (t < 0) return false;
@@ -183,7 +198,7 @@ export function isTimeWithinSlots(time: string, slots: Slot[]): boolean {
         if (s.closes_next_day) {
             if (t >= o) return true; // no upper bound today
         } else {
-            if (t >= o && t <= c) return true;
+            if (t >= o && t < c) return true;
         }
     }
     return false;

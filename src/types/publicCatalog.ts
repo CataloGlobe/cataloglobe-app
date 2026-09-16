@@ -35,6 +35,19 @@ export type PublicBusiness = {
      * campo → fallback `?? false` lato consumer (sede deve esplicitamente abilitarle).
      */
     enable_reservations: boolean;
+    /**
+     * Orizzonte di prenotazione online (giorni, oggi compreso) =
+     * `activities.reservation_horizon_days`. Opzionale solo per i payload in
+     * cache antecedenti alla FASE 4.1: il consumer ricade sulla costante
+     * `RESERVATION_HORIZON_DAYS` (lo stesso 90 del DEFAULT di colonna).
+     */
+    reservation_horizon_days?: number;
+    /**
+     * Preavviso minimo online (minuti) = `activities.reservation_min_notice_minutes`.
+     * Opzionale per la stessa ragione dell'orizzonte (payload in cache pre-4.1):
+     * il consumer ricade su `RESERVATION_MIN_NOTICE_MINUTES` (0, il DEFAULT di colonna).
+     */
+    reservation_min_notice_minutes?: number;
     address: string | null;
     street_number: string | null;
     postal_code: string | null;

@@ -50,10 +50,26 @@
 
 .root {
   width: 100%;
-  // Clearance sotto PublicBottomScrim (che copre anche la bottom bar): token
-  // `--pub-scrim-clearance` (120px scrim + 16px respiro, PublicBottomScrim
-  // .module.scss) + safe-area SOMMATA, mai `max()`. Sul `.root`, non su
-  // `.grid`, così vale anche quando c'è solo il cappello senza lista storie.
+  // Ingombro reale della bottom bar (token `--pub-bottombar-clearance`,
+  // PublicBottomBar.module.scss) — fallback per i viewport dove scrim e barra
+  // non esistono (desktop). Sotto i 640px / in preview mobile lo scrim copre
+  // anche la barra: la clearance sale (vedi gating sotto).
+  padding-bottom: max(var(--pub-bottombar-clearance), env(safe-area-inset-bottom));
+}
+
+// Clearance sotto PublicBottomScrim (che copre anche la bottom bar): token
+// `--pub-scrim-clearance` (120px scrim + 16px respiro, PublicBottomScrim
+// .module.scss) + safe-area SOMMATA, mai `max()`. Sul `.root`, non su `.grid`,
+// così vale anche quando c'è solo il cappello senza lista storie. Gating
+// identico a PublicFooter.module.scss: solo dove scrim e barra esistono
+// davvero (≤640px runtime pubblico + preview mobile Style Editor).
+@media (max-width: 640px) {
+  .root {
+    padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+:global(.preview-mobile) .root {
   padding-bottom: calc(var(--pub-scrim-clearance) + env(safe-area-inset-bottom, 0px));
 }
 

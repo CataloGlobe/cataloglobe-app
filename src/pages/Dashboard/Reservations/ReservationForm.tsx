@@ -247,7 +247,7 @@ export function ReservationForm({
             }
         );
         if (result.ok) return null;
-        return `Questa prenotazione porta a ${result.peakWithCandidate} / ${cap} coperti, oltre la capienza. Salvabile, ma in overbooking.`;
+        return `Questa prenotazione porta a ${result.peakWithCandidate} coperti su ${cap} di capienza. Puoi salvarla lo stesso.`;
     }, [
         activeActivity,
         allReservations,
@@ -319,7 +319,7 @@ export function ReservationForm({
         }
         if (messages.length === 0) return null;
 
-        return `Nella fascia ${slotLabel} questa prenotazione porta a ${messages.join(" e ")}. Salvabile: il limite vale solo per le prenotazioni online.`;
+        return `Nella fascia ${slotLabel} questa prenotazione porta a ${messages.join(" e ")}. Puoi salvarla lo stesso: il limite vale solo per le prenotazioni online.`;
     }, [
         activeActivity,
         allReservations,
@@ -430,7 +430,7 @@ export function ReservationForm({
             await onSuccess();
         } catch (err: unknown) {
             const code = (err as { code?: string }).code;
-            if (code === "42501") {
+            if (code === "42501" || code === "PERMISSION_DENIED") {
                 showToast({
                     message: "Permesso negato. Non puoi gestire prenotazioni su questa sede.",
                     type: "error"
@@ -599,8 +599,8 @@ export function ReservationForm({
                 type="email"
                 value={customerEmail}
                 onChange={e => setCustomerEmail(e.target.value)}
-                placeholder="opzionale"
-                helperText="Facoltativa. Nessuna email viene inviata dal sistema."
+                placeholder="es. mario.rossi@esempio.it"
+                helperText="Facoltativa. Se la inserisci, il cliente riceve il promemoria del giorno prima e un avviso se sposti o annulli la prenotazione."
                 error={emailError}
             />
 

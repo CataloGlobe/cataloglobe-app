@@ -5,6 +5,7 @@ import {
     buildReservationOutcomeEmail,
     buildReservationReceiptEmail,
     buildReservationReminderEmail,
+    buildReservationUpdatedEmail,
     buildReservationVenueAlertEmail,
     type ReservationEmailBase,
     type ReservationEmailContent,
@@ -179,6 +180,58 @@ describe("reservation email builders (_shared)", () => {
             expect(email.subject).toBe("Prenotazione annullata — Trattoria da Ciro");
             expect(email.html).toContain("annullata");
         });
+
+        it("spiega l'allegato SOLO quando c'è", () => {
+            const senza = buildReservationOutcomeEmail({ ...BASE, action: "cancel" });
+            const con = buildReservationOutcomeEmail({ ...BASE, action: "decline", hasCancelIcs: true });
+            for (const body of [senza.html, senza.text]) expect(body).not.toContain("l'allegato lo rimuove");
+            for (const body of [con.html, con.text]) expect(body).toContain("Se avevi salvato l'appuntamento nel calendario, l'allegato lo rimuove.");
+        });
+    });
+
+    describe("prenotazione spostata", () => {
+        const moved = () =>
+            buildReservationUpdatedEmail({
+                ...BASE,
+                previousDate: "2026-06-14",
+                previousTime: "19:00:00",
+                cancelUrl: "https://cataloglobe.com/ciro/prenotazione/annulla?token=v1.a.b"
+            });
+
+        it("dice che è stata spostata, qual era, qual è, e che non serve fare niente — in quest'ordine", () => {
+            const email = moved();
+            expect(email.subject).toBe("La tua prenotazione è stata spostata — Trattoria da Ciro");
+            // Il testo semplice porta la frase intera; l'HTML la spezza con
+            // <strong> intorno ai valori, quindi lì si controllano i pezzi.
+            // Stesso formatter della conferma: un solo formato di data in
+            // tutta la famiglia di email.
+            expect(email.text).toContain("Trattoria da Ciro ha spostato la tua prenotazione.");
+            expect(email.text).toContain("Era prevista per il 14 giugno 2026 alle 19:00.");
+            for (const body of [email.html, email.text]) {
+                const i = (s: string) => body.indexOf(s);
+                expect(i("ha spostato la tua prenotazione")).toBeGreaterThan(-1);
+                expect(i("Era prevista per il")).toBeGreaterThan(i("ha spostato la tua prenotazione"));
+                expect(i("14 giugno 2026")).toBeGreaterThan(i("Era prevista per il"));
+                expect(i("19:00")).toBeGreaterThan(i("14 giugno 2026"));
+                expect(i("Nuova data e ora")).toBeGreaterThan(i("19:00"));
+                expect(i("15 giugno 2026")).toBeGreaterThan(i("Nuova data e ora"));
+                expect(i("Non devi fare niente")).toBeGreaterThan(i("15 giugno 2026"));
+            }
+        });
+
+        it("tiene il link di disdetta: l'orario nuovo può non andare bene", () => {
+            expect(moved().html).toContain("prenotazione/annulla?token=v1.a.b");
+        });
+
+        it("il «qual era» è escapato nell'HTML come tutto il resto", () => {
+            const email = buildReservationUpdatedEmail({
+                ...BASE,
+                customerName: XSS_NAME,
+                previousDate: "2026-06-14",
+                previousTime: "19:00"
+            });
+            expect(email.html).not.toContain("<script>");
+        });
     });
 
     describe("venue alert", () => {
@@ -338,8 +391,8 @@ describe("reservation email builders (_shared)", () => {
             ])("senza URL (%s) resta una frase, e l'email parte comunque", (_label, value) => {
                 const email = build(value);
                 expect(cardBody(email.html)).not.toContain("<a href");
-                expect(email.html).toContain("Contatta direttamente la sede");
-                expect(email.text).toContain("Contatta direttamente la sede");
+                expect(email.html).toContain("Contatta direttamente il locale");
+                expect(email.text).toContain("Contatta direttamente il locale");
                 expectNonEmptyContent(email);
             });
 
@@ -352,12 +405,12 @@ describe("reservation email builders (_shared)", () => {
                 const email = build(value);
                 expect(cardBody(email.html)).not.toContain("<a href");
                 expect(email.html).not.toContain(value);
-                expect(email.html).toContain("Contatta direttamente la sede");
+                expect(email.html).toContain("Contatta direttamente il locale");
             });
 
             it("nessun vicolo cieco: senza link dice comunque cosa fare", () => {
                 const email = build(null);
-                expect(email.text).toMatch(/Contatta direttamente la sede per annullare/);
+                expect(email.text).toMatch(/Contatta direttamente il locale per annullare/);
             });
         });
 

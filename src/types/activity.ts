@@ -49,8 +49,19 @@ export interface V2Activity {
     reservation_capacity: number | null;
     /** Durata standard del tavolo in minuti (default 120, range 15-600). */
     reservation_duration_minutes: number;
-    /** Step 1: solo `continua` cablata. `turni` riservata a Step 2. */
-    reservation_availability_mode: "continua" | "turni";
+    /**
+     * Preavviso minimo per le prenotazioni ONLINE, in minuti (0..10080, default
+     * 0 = nessuno). Il server rifiuta con TOO_SOON uno slot prima di
+     * `now + preavviso`; il picker pubblico spegne gli stessi slot. Non vale
+     * per l'operatore (FASE 4.1 / 4.3).
+     */
+    reservation_min_notice_minutes: number;
+    /**
+     * Orizzonte di prenotazione online in giorni, OGGI COMPRESO (1..365,
+     * default 90): 90 = fino a oggi+89. Stessa semantica del server e del
+     * picker pubblico (FASE 4.1 / 4.3).
+     */
+    reservation_horizon_days: number;
     /** Step 1: solo `manuale` cablata. `auto` riservata a Step 3. */
     reservation_confirmation_mode: "manuale" | "auto";
     /**

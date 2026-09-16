@@ -22,6 +22,12 @@ import {
 } from "../_shared/subscriptionEmails.ts";
 import { buildIdempotencyKey } from "../_shared/idempotency.ts";
 import { classifyChange } from "../_shared/classifyChange.ts";
+import {
+    intervalFromSubscription,
+    lookupPlanPriceByStripeId,
+    lookupStripePriceId,
+    type BillingInterval
+} from "../_shared/planPrices.ts";
 
 // ---------------------------------------------------------------------------
 // stripe-change-subscription
@@ -208,23 +214,50 @@ async function extractConsumedDiscountThisPeriod(
 }
 
 /** Periodo di fatturazione corrente, item-level con fallback top-level (API basil). */
+/**
+ * First invoice at trial end for the target phase, straight from Stripe's own
+ * preview (no proration: the whole first period). Used ONLY for the trial copy
+ * shown to the customer: the figure is displayed if and only if it comes from
+ * here — on any failure the UI shows the date without an amount, never a
+ * number derived elsewhere. Best-effort by design (null, no 502): the preview
+ * amounts and the change itself never depend on it.
+ */
+async function trialFirstInvoiceFromStripe(
+    stripe: Stripe,
+    customerId: string,
+    subscriptionId: string,
+    items: Array<{ id: string; price: string; quantity: number }>
+): Promise<number | null> {
+    try {
+        const preview = await stripe.invoices.createPreview({
+            customer: customerId,
+            subscription: subscriptionId,
+            subscription_details: { items, proration_behavior: "none" }
+        });
+        return typeof preview.total === "number" ? preview.total : null;
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`stripe-change-subscription: trial first-invoice preview failed: ${message}`);
+        return null;
+    }
+}
+
 function periodEndSeconds(sub: Stripe.Subscription): number | null {
     return sub.items?.data?.[0]?.current_period_end ?? sub.current_period_end ?? null;
 }
 
-/** Reverse-lookup plan_code dal price ID via tabella `plans` (source of truth). */
+/**
+ * Reverse-lookup plan_code dal price ID via `plan_prices` (source of truth).
+ * Wrapper a firma invariata su lookupPlanPriceByStripeId: i chiamanti di
+ * questo file usano solo il piano; l'intervallo e' esposto a parte (vedi
+ * `currentInterval` / `pendingChange.targetInterval` in buildSubscriptionState).
+ */
 async function lookupPlanCodeByPriceId(
     admin: ReturnType<typeof createClient>,
     priceId: string | null | undefined
 ): Promise<string | null> {
-    if (!priceId) return null;
-    const { data } = await admin
-        .from("plans")
-        .select("code")
-        .eq("stripe_price_id", priceId)
-        .maybeSingle();
-    const code = data?.code?.toLowerCase();
-    return code && ALLOWED_PLAN_CODES.has(code) ? code : null;
+    const match = await lookupPlanPriceByStripeId(admin, priceId);
+    return match?.planCode ?? null;
 }
 
 /**
@@ -413,13 +446,23 @@ serve(async req => {
         const currentPeriodEndSec = periodEndSeconds(sub);
         const currency = sub.currency ?? item.price?.currency ?? "eur";
         const periodEndIso = toIso(currentPeriodEndSec);
+        // Trial fact for the UI copy, read live in the same request that builds
+        // the preview: the moment the trial ends Stripe flips `status` to
+        // "active" and the preview turns into a real proration, so state and
+        // amount always change together. Amounts are NOT affected by this.
+        const trialEndsAt: string | null = sub.status === "trialing" ? toIso(sub.trial_end) : null;
 
-        // --- Piano corrente: metadata → fallback reverse-lookup su price ---
+        // --- Piano + intervallo correnti dal Price live (plan_prices) ---
+        // Piano: metadata → fallback reverse-lookup → tenants.plan (invariato).
+        // Intervallo: SOLO dal Price (plan_prices → recurring.interval), mai dai
+        // metadata (uno schedule release non li riscrive). Null se indeterminabile.
+        const currentMatch = await lookupPlanPriceByStripeId(admin, currentPriceId);
         let currentPlan = sub.metadata?.plan_code?.toLowerCase();
         if (!currentPlan || !ALLOWED_PLAN_CODES.has(currentPlan)) {
-            currentPlan =
-                (await lookupPlanCodeByPriceId(admin, currentPriceId)) ?? (tenant.plan as string)?.toLowerCase();
+            currentPlan = currentMatch?.planCode ?? (tenant.plan as string)?.toLowerCase();
         }
+        const currentInterval: BillingInterval | null =
+            currentMatch?.billingInterval ?? intervalFromSubscription(sub);
 
         // --- Stato abbonamento live (cambio programmato + disdetta) ---
         // Cambio programmato letto dall'ULTIMA fase dello schedule attivo.
@@ -436,8 +479,10 @@ serve(async req => {
                         const targetPhase = phases[phases.length - 1];
                         const pItem = targetPhase.items?.[0];
                         const pPriceId = typeof pItem?.price === "string" ? pItem.price : pItem?.price?.id;
+                        const targetMatch = await lookupPlanPriceByStripeId(admin, pPriceId);
                         pendingChange = {
-                            targetPlan: await lookupPlanCodeByPriceId(admin, pPriceId),
+                            targetPlan: targetMatch?.planCode ?? null,
+                            targetInterval: targetMatch?.billingInterval ?? null,
                             targetSeats: pItem?.quantity ?? null,
                             effectiveDate: toIso(targetPhase.start_date)
                         };
@@ -459,6 +504,8 @@ serve(async req => {
                   );
             return {
                 currentPeriodEnd: periodEndIso,
+                currentInterval,
+                trialEndsAt,
                 cancelAtPeriodEnd: !!sub.cancel_at_period_end,
                 pendingChange,
                 discount,
@@ -491,7 +538,11 @@ serve(async req => {
             console.log(`stripe-change-subscription: CANCEL scheduled tenant=${tenantId} result=${result}`);
             try {
                 const to = await getRecipient();
-                if (to) await sendEmail({ to, ...cancelEmail({ activeUntilIso: periodEndIso }) });
+                if (to)
+                    await sendEmail({
+                        to,
+                        ...cancelEmail({ activeUntilIso: periodEndIso, isTrialing: sub.status === "trialing" })
+                    });
             } catch (err) {
                 console.error("[stripe-change-subscription] cancel email error:", err);
             }
@@ -596,18 +647,31 @@ serve(async req => {
             return json(req, 400, { error: "invalid_seats" });
         }
 
-        // Piano target → price ID + cap self-service (DB = source of truth).
+        // Piano target → cap self-service (plans) + price ID (plan_prices, DB =
+        // source of truth). Il cambio di intervallo non e' ancora supportato: il
+        // Price target e' quello del piano target SULLO STESSO intervallo della
+        // subscription corrente. Intervallo indeterminabile → fail-closed.
         const { data: targetPlanRow, error: targetPlanError } = await admin
             .from("plans")
-            .select("code, stripe_price_id, max_self_service_seats")
+            .select("code, max_self_service_seats")
             .eq("code", targetPlan)
             .maybeSingle();
 
-        if (targetPlanError || !targetPlanRow?.stripe_price_id) {
+        if (targetPlanError || !targetPlanRow) {
             console.error(`stripe-change-subscription: plan ${targetPlan} not configured`);
             return json(req, 500, { error: "plan_not_configured" });
         }
-        const newPriceId = targetPlanRow.stripe_price_id.trim();
+        if (!currentInterval) {
+            console.error(
+                `stripe-change-subscription: billing interval of price ${currentPriceId} not resolvable (tenant=${tenantId})`
+            );
+            return json(req, 500, { error: "plan_not_configured" });
+        }
+        const newPriceId = await lookupStripePriceId(admin, targetPlan, currentInterval);
+        if (!newPriceId) {
+            console.error(`stripe-change-subscription: plan_prices has no row for ${targetPlan}/${currentInterval}`);
+            return json(req, 500, { error: "plan_not_configured" });
+        }
         const maxSeats = Number(targetPlanRow.max_self_service_seats) || 0;
 
         if (newSeats > maxSeats) {
@@ -676,7 +740,8 @@ serve(async req => {
                     chargeToday: 0,
                     nextAmount,
                     nextDate: periodEndIso,
-                    effective: periodEndIso
+                    effective: periodEndIso,
+                    trialEndsAt
                 });
             }
 
@@ -842,6 +907,12 @@ serve(async req => {
                         }
                     }
 
+                    // B2 runs on a schedule-managed subscription: Stripe's preview
+                    // ignores the item override and stays anchored to the existing
+                    // phase (see the downgrade note below), so no reliable figure
+                    // from Stripe here → the trial copy shows the date only.
+                    const trialFirstInvoiceCents: number | null = null;
+
                     return json(req, 200, {
                         classification: "combined",
                         plan: b2FuturePlanCode ?? targetPlan,
@@ -851,6 +922,8 @@ serve(async req => {
                         nextAmount: nextAmountB2,
                         nextDate: periodEndIso,
                         effective: periodEndIso,
+                        trialEndsAt,
+                        trialFirstInvoiceCents,
                         // B2 NON scarta il cambio programmato (lo preserva alla nuova qty).
                         willDiscardScheduledChange: false
                     });
@@ -958,6 +1031,14 @@ serve(async req => {
             const previewClassification =
                 change.route === "combined-downgrade-seats-up" ? "combined" : classification;
 
+            // Trial copy only: the first invoice at trial end for the target items,
+            // from Stripe's preview. Null when not trialing, when the preview fails,
+            // or when a schedule is attached (the preview would then reflect the
+            // existing phase, not the requested items — see note above).
+            const trialFirstInvoiceCents = trialEndsAt && !existingScheduleId
+                ? await trialFirstInvoiceFromStripe(stripe, tenant.stripe_customer_id, tenant.stripe_subscription_id, newItems)
+                : null;
+
             return json(req, 200, {
                 classification: previewClassification,
                 plan: targetPlan,
@@ -967,6 +1048,8 @@ serve(async req => {
                 nextAmount,
                 nextDate: periodEndIso,
                 effective,
+                trialEndsAt,
+                trialFirstInvoiceCents,
                 willDiscardScheduledChange: classification === "upgrade" && !!existingScheduleId
             });
         }
@@ -1109,7 +1192,8 @@ serve(async req => {
                             ...combinedChangeEmail({
                                 seats: newSeats,
                                 targetPlan,
-                                effectiveDateIso: periodEndIso
+                                effectiveDateIso: periodEndIso,
+                                isTrialing: sub.status === "trialing"
                             })
                         });
                     }
@@ -1289,7 +1373,8 @@ serve(async req => {
                             ...combinedChangeEmail({
                                 seats: newSeats,
                                 targetPlan,
-                                effectiveDateIso: periodEndIso
+                                effectiveDateIso: periodEndIso,
+                                isTrialing: sub.status === "trialing"
                             })
                         });
                     }
@@ -1321,7 +1406,11 @@ serve(async req => {
                     if (to) {
                         await sendEmail({
                             to,
-                            ...combinedChangePartialFailureEmail({ seats: newSeats, targetPlan })
+                            ...combinedChangePartialFailureEmail({
+                                seats: newSeats,
+                                targetPlan,
+                                isTrialing: sub.status === "trialing"
+                            })
                         });
                     }
                 } catch (mailErr) {
@@ -1464,7 +1553,8 @@ serve(async req => {
                                 ...combinedChangeEmail({
                                     seats: newSeats,
                                     targetPlan: b2FuturePlanCode,
-                                    effectiveDateIso: periodEndIso
+                                    effectiveDateIso: periodEndIso,
+                                    isTrialing: sub.status === "trialing"
                                 })
                             });
                         }
@@ -1547,7 +1637,8 @@ serve(async req => {
                             seats: newSeats,
                             amountPaidTodayCents,
                             monthlyTotalCents,
-                            renewalDateIso: periodEndIso
+                            renewalDateIso: periodEndIso,
+                            isTrialing: sub.status === "trialing"
                         })
                     });
                 }

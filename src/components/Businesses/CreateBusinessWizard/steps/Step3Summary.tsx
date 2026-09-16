@@ -1,12 +1,13 @@
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import type { Plan } from "@/types/plan";
+import type { BillingInterval, Plan } from "@/types/plan";
 import type { GraduatedBreakdown } from "@/utils/pricing";
 import styles from "../CreateBusinessWizard.module.scss";
 
 interface Step3SummaryProps {
     name: string;
     plan: Plan;
+    billingInterval: BillingInterval;
     breakdown: GraduatedBreakdown;
     total: number;
     discountPercent: number;
@@ -23,9 +24,13 @@ function formatEuro(value: number): string {
     return `€${value.toFixed(2).replace(".", ",")}`;
 }
 
+const INTERVAL_TOTAL_LABEL: Record<BillingInterval, string> = { month: "Totale mensile", year: "Totale annuale" };
+const INTERVAL_PLAN_SUFFIX: Record<BillingInterval, string> = { month: "mensile", year: "annuale" };
+
 export function Step3Summary({
     name,
     plan,
+    billingInterval,
     breakdown,
     total,
     discountPercent,
@@ -55,7 +60,7 @@ export function Step3Summary({
                         </div>
                         <div className={`${styles.summaryMeta} ${styles.summaryMetaRight}`}>
                             <span className={styles.summaryMetaLabel}>Piano</span>
-                            <span className={styles.summaryMetaValue}>{plan.name}</span>
+                            <span className={styles.summaryMetaValue}>{plan.name} · {INTERVAL_PLAN_SUFFIX[billingInterval]}</span>
                         </div>
                     </div>
 
@@ -77,7 +82,7 @@ export function Step3Summary({
 
                     <div className={styles.summaryTotals}>
                         <div className={styles.summaryGrandRow}>
-                            <span>Totale mensile</span>
+                            <span>{INTERVAL_TOTAL_LABEL[billingInterval]}</span>
                             <span>{formatEuro(total)}</span>
                         </div>
                     </div>

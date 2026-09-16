@@ -1,0 +1,237 @@
+@use "@styles/variables" as *;
+
+/* `ModalLayout` è sempre su superficie chiara, nessun override tema scuro:
+   qui solo colori statici stabili fra i due temi (vedi RuleTypeHelpModal). */
+
+.closeButton {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: $gray-600;
+    cursor: pointer;
+
+    &:hover {
+        background: $gray-100;
+        color: $gray-800;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: 2px;
+    }
+}
+
+/* ---------- Progress ---------- */
+.progressBlock {
+    margin-bottom: 4px;
+}
+
+.progress {
+    display: flex;
+    gap: 6px;
+}
+
+.seg {
+    height: 4px;
+    flex: 1;
+    border-radius: 2px;
+    background: $gray-200;
+
+    &[data-state="done"] {
+        background: var(--brand-primary);
+    }
+
+    &[data-state="current"] {
+        background: var(--brand-primary);
+        opacity: 0.45;
+    }
+}
+
+.stepMeta {
+    margin: 10px 0 0;
+    font-size: 0.78125rem;
+    color: $gray-500;
+}
+
+/* ---------- Viewport (altezza fissa fra step) ---------- */
+/* Header, barra progresso e footer restano fermi: solo questo blocco
+   cambia contenuto da uno step all'altro. Altezza fissa dimensionata sullo
+   step più alto (Wi-Fi, testo + callout + immagine) cosi la modale non
+   salta su/giù cambiando step. overflow-y auto come rete di sicurezza,
+   max-height in vh la fa degradare su viewport bassi invece di uscire
+   dallo schermo. */
+.viewport {
+    height: 480px;
+    max-height: 65vh;
+    overflow-y: auto;
+}
+
+/* ---------- Step body ---------- */
+.body {
+    display: flex;
+    flex-direction: column;
+}
+
+.stepTitle {
+    margin: 4px 0 10px;
+    font-size: 1.125rem;
+    font-weight: 600;
+    color: $text-color;
+}
+
+.stepBody {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+
+    p {
+        margin: 0;
+        font-size: 0.90625rem;
+        line-height: 1.6;
+        color: $gray-700;
+    }
+
+    strong {
+        font-weight: 600;
+        color: $text-color;
+    }
+
+    code {
+        background: $gray-100;
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+        font-size: 0.8125rem;
+    }
+}
+
+.imageFigure {
+    margin: 4px 0 0;
+
+    img {
+        display: block;
+        width: 100%;
+        height: auto;
+        border-radius: 10px;
+        border: 1px solid $gray-200;
+    }
+}
+
+/* ---------- Callout ---------- */
+.callout {
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 0.84375rem;
+    line-height: 1.55;
+}
+
+.calloutAmber {
+    background: var(--color-warning-50);
+    border: 1px solid var(--color-warning-300);
+    color: var(--color-warning-800);
+}
+
+.calloutBlue {
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    color: #1e40af;
+}
+
+/* ---------- Vedi tutti i passaggi ---------- */
+.allSteps {
+    display: flex;
+    flex-direction: column;
+    gap: 28px;
+}
+
+.allStep {
+    padding-top: 20px;
+    border-top: 1px solid $gray-200;
+
+    &:first-child {
+        padding-top: 0;
+        border-top: none;
+    }
+}
+
+.allStepNumber {
+    margin: 0 0 4px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: $gray-500;
+}
+
+.troubleshootList {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.troubleshootItemTitle {
+    margin: 0 0 4px;
+    font-size: 0.90625rem;
+    font-weight: 600;
+    color: $text-color;
+}
+
+/* ---------- Footer ---------- */
+.footerRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    width: 100%;
+}
+
+.footerRight {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.hidden {
+    visibility: hidden;
+}
+
+.link {
+    padding: 0 4px;
+    border: 0;
+    background: none;
+    font-family: inherit;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: $gray-500;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+
+    &:hover {
+        color: $gray-800;
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--brand-primary);
+        outline-offset: 2px;
+        border-radius: 4px;
+    }
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 480px) {
+    .footerRow {
+        flex-wrap: wrap;
+    }
+
+    .footerRight {
+        flex: 1;
+        justify-content: space-between;
+    }
+}

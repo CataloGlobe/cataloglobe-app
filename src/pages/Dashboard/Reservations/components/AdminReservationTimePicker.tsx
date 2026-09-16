@@ -184,7 +184,7 @@ export default function AdminReservationTimePicker({
                 </p>
             ) : periods.length === 0 ? (
                 <p className={styles.placeholder}>
-                    Nessuno slot negli orari di apertura — usa “Altro orario”.
+                    Nessun orario proposto per questo giorno. Usa “Altro orario…” per inserirlo a mano.
                 </p>
             ) : (
                 <>

@@ -8,6 +8,12 @@ import {
     mapStripeStatus,
     syncSubscriptionStatus
 } from "../_shared/subscriptionStatusSync.ts";
+import {
+    ALLOWED_PLAN_CODES,
+    intervalFromSubscription,
+    lookupPlanPriceByStripeId,
+    type BillingInterval
+} from "../_shared/planPrices.ts";
 
 // Note: this endpoint is called server-to-server by Stripe. CORS headers
 // not needed — never call from a browser.
@@ -113,36 +119,36 @@ function getSubscriptionQuantity(subscription: Stripe.Subscription): number {
  * Returns null if missing or not in the allowed set — caller MUST skip the
  * `plan` update in that case to avoid poisoning the tenants row.
  */
-const ALLOWED_PLAN_CODES = new Set(["base", "pro"]);
 function getSubscriptionPlanCode(subscription: Stripe.Subscription): string | null {
     const code = subscription.metadata?.plan_code?.toLowerCase();
     return code && ALLOWED_PLAN_CODES.has(code) ? code : null;
 }
 
 /**
- * Reverse-lookup del plan_code dal price ID del primo line item via tabella
- * `plans` (stripe_price_id → code). Fonte di verità complementare al metadata:
- * un cambio piano via subscriptions.update / subscription schedule che NON
- * propaga metadata.plan_code viene comunque sincronizzato dal Price (source of
- * truth usata in checkout). Ritorna null se il price non mappa un piano valido.
+ * Piano + intervallo di fatturazione della subscription, risolti dal Price
+ * del primo line item via `plan_prices` (stripe_price_id → plan_code +
+ * billing_interval). Fonte di verità complementare al metadata per il piano:
+ * un cambio via subscriptions.update / subscription schedule che NON propaga
+ * metadata.plan_code viene comunque sincronizzato dal Price. Per l'intervallo
+ * il Price è l'UNICA fonte (i metadata non vengono riscritti da uno schedule
+ * release): se `plan_prices` non risolve, fallback su
+ * items[0].price.recurring.interval; mai sui metadata.
+ *
+ * Ritorna `plan` null se il Price non mappa un piano valido (il caller NON
+ * scrive `plan` in quel caso) e `interval` null se non determinabile (il
+ * caller NON scrive `billing_interval`: mai azzerare un valore buono).
  */
-async function lookupPlanCodeByPriceId(
+async function resolvePlanAndInterval(
     admin: ReturnType<typeof createClient>,
     subscription: Stripe.Subscription
-): Promise<string | null> {
+): Promise<{ plan: string | null; interval: BillingInterval | null }> {
     const priceId = subscription.items?.data?.[0]?.price?.id;
-    if (!priceId) return null;
-    const { data, error } = await admin
-        .from("plans")
-        .select("code")
-        .eq("stripe_price_id", priceId)
-        .maybeSingle();
-    if (error) {
-        console.warn(`stripe-webhook: plans reverse-lookup failed for price ${priceId}:`, error.message);
-        return null;
+    const match = await lookupPlanPriceByStripeId(admin, priceId);
+    if (match) return { plan: match.planCode, interval: match.billingInterval };
+    if (priceId) {
+        console.warn(`stripe-webhook: price ${priceId} not in plan_prices (subscription ${subscription.id}); falling back to recurring.interval`);
     }
-    const code = data?.code?.toLowerCase();
-    return code && ALLOWED_PLAN_CODES.has(code) ? code : null;
+    return { plan: null, interval: intervalFromSubscription(subscription) };
 }
 
 function toIsoTimestamp(seconds: number | null | undefined): string | null {
@@ -243,6 +249,101 @@ async function computePlanMonthlyValueCents(
 // single writer for tenants.subscription_status. Nothing in this file may write
 // that column from an event type; go through syncSubscriptionStatus instead.
 
+/**
+ * Registra un incasso reale in customer_invoices (archivio fiscale, righe
+ * permanenti — vedi migration 20260912130000_create_customer_invoices.sql).
+ *
+ * Best-effort per design: un fallimento qui non deve MAI bloccare o far
+ * ritornare 5xx per la sincronizzazione dello stato subscription, che ha
+ * priorità. Ogni errore è loggato e la funzione ritorna senza rilanciare.
+ *
+ * Filtro sull'importo (amount_paid > 0), non sulla causale dell'evento: le
+ * fatture a zero non arrivano solo dalle prove gratuite — esistono già
+ * abbonamenti con sconto 100% che generano invoice.payment_succeeded a zero
+ * su un normale rinnovo.
+ *
+ * Dedup: UNIQUE(stripe_invoice_id) lato DB + upsert/ignoreDuplicates qui,
+ * non il completion marker di stripe_processed_events (quello deduplica per
+ * event_id/consegna, non per fattura).
+ */
+async function recordCustomerInvoice(
+    admin: ReturnType<typeof createClient>,
+    invoice: Stripe.Invoice
+): Promise<void> {
+    try {
+        if (!invoice.amount_paid || invoice.amount_paid <= 0) return;
+
+        const stripeCustomerId = invoice.customer as string;
+
+        const { data: tenant, error: tenantError } = await admin
+            .from("tenants")
+            .select(
+                "id, plan, paid_seats, legal_entity_type, legal_name, vat_number, fiscal_code, first_name, last_name, address, street_number, postal_code, city, province, country, pec, codice_destinatario"
+            )
+            .eq("stripe_customer_id", stripeCustomerId)
+            .maybeSingle();
+
+        if (tenantError || !tenant) {
+            console.error(
+                `stripe-webhook: recordCustomerInvoice — tenant lookup failed for customer ${stripeCustomerId}, invoice ${invoice.id} NOT recorded:`,
+                tenantError?.message ?? "tenant not found"
+            );
+            return;
+        }
+
+        const paidAt = invoice.status_transitions?.paid_at
+            ? toIsoTimestamp(invoice.status_transitions.paid_at)
+            : toIsoTimestamp(invoice.created);
+
+        const { error: insertError } = await admin
+            .from("customer_invoices")
+            .upsert(
+                {
+                    tenant_id: tenant.id,
+                    amount_cents: invoice.amount_paid,
+                    currency: invoice.currency,
+                    paid_at: paidAt,
+                    // Nullable by design: una riga contabile si registra comunque
+                    // anche se, per qualunque motivo, plan/paid_seats non fossero
+                    // leggibili dalla stessa riga tenant appena letta.
+                    plan_code: tenant.plan ?? null,
+                    seats: tenant.paid_seats ?? null,
+                    legal_entity_type: tenant.legal_entity_type ?? null,
+                    legal_name: tenant.legal_name ?? null,
+                    vat_number: tenant.vat_number ?? null,
+                    fiscal_code: tenant.fiscal_code ?? null,
+                    first_name: tenant.first_name ?? null,
+                    last_name: tenant.last_name ?? null,
+                    address: tenant.address ?? null,
+                    street_number: tenant.street_number ?? null,
+                    postal_code: tenant.postal_code ?? null,
+                    city: tenant.city ?? null,
+                    province: tenant.province ?? null,
+                    country: tenant.country ?? null,
+                    pec: tenant.pec ?? null,
+                    codice_destinatario: tenant.codice_destinatario ?? null,
+                    stripe_invoice_id: invoice.id,
+                    stripe_invoice_number: invoice.number ?? null,
+                    stripe_hosted_invoice_url: invoice.hosted_invoice_url ?? null,
+                    stripe_invoice_pdf: invoice.invoice_pdf ?? null,
+                    stripe_subscription_id: getInvoiceSubscriptionId(invoice),
+                    stripe_customer_id: stripeCustomerId
+                },
+                { onConflict: "stripe_invoice_id", ignoreDuplicates: true }
+            );
+
+        if (insertError) {
+            console.error(`stripe-webhook: recordCustomerInvoice — insert failed for invoice ${invoice.id}:`, insertError.message);
+            return;
+        }
+
+        console.log(`stripe-webhook: customer_invoices row recorded for invoice ${invoice.id} (tenant ${tenant.id}, amount ${invoice.amount_paid} ${invoice.currency})`);
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`stripe-webhook: recordCustomerInvoice — unexpected error for invoice ${invoice.id}:`, message);
+    }
+}
+
 serve(async req => {
     // Stripe sends only POST; no OPTIONS preflight needed (server-to-server).
     if (req.method !== "POST") return json(405, { error: "method_not_allowed" });
@@ -342,6 +443,7 @@ serve(async req => {
                 let currentPeriodStart: string | null = null;
                 let planMonthlyValueCents: number | null = null;
                 let planCode: string | null = null;
+                let billingInterval: BillingInterval | null = null;
                 try {
                     const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
                     paidSeats = getSubscriptionQuantity(sub);
@@ -350,7 +452,12 @@ serve(async req => {
                     currentPeriodEnd = getSubscriptionCurrentPeriodEnd(sub);
                     currentPeriodStart = getSubscriptionCurrentPeriodStart(sub);
                     planMonthlyValueCents = await computePlanMonthlyValueCents(stripe, sub);
+                    // Piano: dai metadata (scritti dal checkout), come prima — il
+                    // fallback al Price qui e' volutamente NON applicato per non
+                    // cambiare il comportamento del checkout mensile in questo passo.
+                    // Intervallo: SOLO dal Price (plan_prices → recurring.interval).
                     planCode = getSubscriptionPlanCode(sub);
+                    billingInterval = (await resolvePlanAndInterval(admin, sub)).interval;
                 } catch (err) {
                     console.warn("stripe-webhook: Could not retrieve subscription on checkout:", err.message);
                 }
@@ -374,6 +481,8 @@ serve(async req => {
                     current_period_start: currentPeriodStart
                 };
                 if (planCode) updates.plan = planCode;
+                // Only write when resolved — never wipe a known interval.
+                if (billingInterval !== null) updates.billing_interval = billingInterval;
                 // Only write when computed — a transient Stripe API failure must
                 // never wipe a previously good contractual value.
                 if (planMonthlyValueCents !== null) updates.plan_monthly_value_cents = planMonthlyValueCents;
@@ -395,7 +504,7 @@ serve(async req => {
                 } else if (count === 0) {
                     console.warn(`stripe-webhook: NO TENANT MATCHED id ${tenantId} for event ${event.id} (${event.type}). Possible cause: stale tenant_id metadata or tenant deleted.`);
                 } else {
-                    console.log(`stripe-webhook: Tenant ${tenantId} linked to subscription ${stripeSubscriptionId} (plan=${planCode ?? "unchanged"}, status=${subscriptionStatus}, seats=${paidSeats}, period_end=${currentPeriodEnd ?? "null"})`);
+                    console.log(`stripe-webhook: Tenant ${tenantId} linked to subscription ${stripeSubscriptionId} (plan=${planCode ?? "unchanged"}, interval=${billingInterval ?? "unchanged"}, status=${subscriptionStatus}, seats=${paidSeats}, period_end=${currentPeriodEnd ?? "null"})`);
                 }
                 break;
             }
@@ -420,13 +529,12 @@ serve(async req => {
                         const currentPeriodEnd = getSubscriptionCurrentPeriodEnd(liveSub);
                         const currentPeriodStart = getSubscriptionCurrentPeriodStart(liveSub);
                         const planMonthlyValueCents = await computePlanMonthlyValueCents(stripe, liveSub);
-                        // Priorità al metadata; se assente/non valido (es. cambio piano via
-                        // subscriptions.update o subscription schedule senza metadata),
-                        // deriva il piano dal price ID (source of truth in `plans`).
-                        let planCode = getSubscriptionPlanCode(liveSub);
-                        if (!planCode) {
-                            planCode = await lookupPlanCodeByPriceId(admin, liveSub);
-                        }
+                        // Piano: priorità al metadata; se assente/non valido (es. cambio
+                        // piano via subscriptions.update o subscription schedule senza
+                        // metadata), deriva dal Price (plan_prices). Intervallo: SOLO dal
+                        // Price (plan_prices → recurring.interval), mai dai metadata.
+                        const resolved = await resolvePlanAndInterval(admin, liveSub);
+                        const planCode = getSubscriptionPlanCode(liveSub) ?? resolved.plan;
 
                         const extras: Record<string, unknown> = {
                             paid_seats: paidSeats,
@@ -434,6 +542,8 @@ serve(async req => {
                             current_period_start: currentPeriodStart
                         };
                         if (planCode) extras.plan = planCode;
+                        // Only write when resolved — never wipe a known interval.
+                        if (resolved.interval !== null) extras.billing_interval = resolved.interval;
                         // Only write when computed — a transient Stripe API failure must
                         // never wipe a previously good contractual value.
                         if (planMonthlyValueCents !== null) extras.plan_monthly_value_cents = planMonthlyValueCents;
@@ -494,6 +604,13 @@ serve(async req => {
                     // back to the tenant's own subscription for one-off invoices.
                     subscriptionId: getInvoiceSubscriptionId(invoice)
                 });
+
+                // Registrazione fiscale: solo sugli incassi riusciti, mai sui
+                // falliti. Chiamata DOPO syncSubscriptionStatus — non deve mai
+                // condizionarla, ed è totalmente best-effort al suo interno.
+                if (event.type === "invoice.payment_succeeded") {
+                    await recordCustomerInvoice(admin, invoice);
+                }
                 break;
             }
 

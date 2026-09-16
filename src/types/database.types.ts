@@ -47,11 +47,12 @@ export type Database = {
           province: string | null
           qr_bg_color: string | null
           qr_fg_color: string | null
-          reservation_availability_mode: string
           reservation_cancellation_cutoff_minutes: number
           reservation_capacity: number | null
           reservation_confirmation_mode: string
           reservation_duration_minutes: number
+          reservation_horizon_days: number
+          reservation_min_notice_minutes: number
           reservation_notification_emails: string[]
           reservation_overbooking_form: string
           reservation_pacing_max_bookings: number | null
@@ -104,11 +105,12 @@ export type Database = {
           province?: string | null
           qr_bg_color?: string | null
           qr_fg_color?: string | null
-          reservation_availability_mode?: string
           reservation_cancellation_cutoff_minutes?: number
           reservation_capacity?: number | null
           reservation_confirmation_mode?: string
           reservation_duration_minutes?: number
+          reservation_horizon_days?: number
+          reservation_min_notice_minutes?: number
           reservation_notification_emails?: string[]
           reservation_overbooking_form?: string
           reservation_pacing_max_bookings?: number | null
@@ -161,11 +163,12 @@ export type Database = {
           province?: string | null
           qr_bg_color?: string | null
           qr_fg_color?: string | null
-          reservation_availability_mode?: string
           reservation_cancellation_cutoff_minutes?: number
           reservation_capacity?: number | null
           reservation_confirmation_mode?: string
           reservation_duration_minutes?: number
+          reservation_horizon_days?: number
+          reservation_min_notice_minutes?: number
           reservation_notification_emails?: string[]
           reservation_overbooking_form?: string
           reservation_pacing_max_bookings?: number | null
@@ -1111,6 +1114,102 @@ export type Database = {
         }
         Relationships: []
       }
+      customer_invoices: {
+        Row: {
+          address: string | null
+          amount_cents: number
+          city: string | null
+          codice_destinatario: string | null
+          country: string | null
+          created_at: string
+          currency: string
+          first_name: string | null
+          fiscal_code: string | null
+          id: string
+          last_name: string | null
+          legal_entity_type: string | null
+          legal_name: string | null
+          paid_at: string
+          pec: string | null
+          plan_code: string | null
+          postal_code: string | null
+          province: string | null
+          seats: number | null
+          status: string
+          street_number: string | null
+          stripe_customer_id: string
+          stripe_hosted_invoice_url: string | null
+          stripe_invoice_id: string
+          stripe_invoice_number: string | null
+          stripe_invoice_pdf: string | null
+          stripe_subscription_id: string | null
+          tenant_id: string
+          vat_number: string | null
+        }
+        Insert: {
+          address?: string | null
+          amount_cents: number
+          city?: string | null
+          codice_destinatario?: string | null
+          country?: string | null
+          created_at?: string
+          currency: string
+          first_name?: string | null
+          fiscal_code?: string | null
+          id?: string
+          last_name?: string | null
+          legal_entity_type?: string | null
+          legal_name?: string | null
+          paid_at: string
+          pec?: string | null
+          plan_code?: string | null
+          postal_code?: string | null
+          province?: string | null
+          seats?: number | null
+          status?: string
+          street_number?: string | null
+          stripe_customer_id: string
+          stripe_hosted_invoice_url?: string | null
+          stripe_invoice_id: string
+          stripe_invoice_number?: string | null
+          stripe_invoice_pdf?: string | null
+          stripe_subscription_id?: string | null
+          tenant_id: string
+          vat_number?: string | null
+        }
+        Update: {
+          address?: string | null
+          amount_cents?: number
+          city?: string | null
+          codice_destinatario?: string | null
+          country?: string | null
+          created_at?: string
+          currency?: string
+          first_name?: string | null
+          fiscal_code?: string | null
+          id?: string
+          last_name?: string | null
+          legal_entity_type?: string | null
+          legal_name?: string | null
+          paid_at?: string
+          pec?: string | null
+          plan_code?: string | null
+          postal_code?: string | null
+          province?: string | null
+          seats?: number | null
+          status?: string
+          street_number?: string | null
+          stripe_customer_id?: string
+          stripe_hosted_invoice_url?: string | null
+          stripe_invoice_id?: string
+          stripe_invoice_number?: string | null
+          stripe_invoice_pdf?: string | null
+          stripe_subscription_id?: string | null
+          tenant_id?: string
+          vat_number?: string | null
+        }
+        Relationships: []
+      }
       customer_sessions: {
         Row: {
           activity_id: string
@@ -1451,6 +1550,7 @@ export type Database = {
           closed_at: string | null
           created_at: string
           id: string
+          seating_id: string | null
           status: string
           table_id: string
           tenant_id: string
@@ -1462,6 +1562,7 @@ export type Database = {
           closed_at?: string | null
           created_at?: string
           id?: string
+          seating_id?: string | null
           status?: string
           table_id: string
           tenant_id: string
@@ -1473,6 +1574,7 @@ export type Database = {
           closed_at?: string | null
           created_at?: string
           id?: string
+          seating_id?: string | null
           status?: string
           table_id?: string
           tenant_id?: string
@@ -1485,6 +1587,20 @@ export type Database = {
             columns: ["activity_id"]
             isOneToOne: false
             referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_groups_seating_id_fkey"
+            columns: ["seating_id"]
+            isOneToOne: false
+            referencedRelation: "seatings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_groups_seating_id_fkey"
+            columns: ["seating_id"]
+            isOneToOne: false
+            referencedRelation: "v_seatings_with_state"
             referencedColumns: ["id"]
           },
           {
@@ -1917,6 +2033,44 @@ export type Database = {
         }
         Relationships: []
       }
+      plan_prices: {
+        Row: {
+          billing_interval: string
+          created_at: string
+          id: string
+          plan_code: string
+          price_cents: number
+          stripe_price_id: string
+          updated_at: string
+        }
+        Insert: {
+          billing_interval: string
+          created_at?: string
+          id?: string
+          plan_code: string
+          price_cents: number
+          stripe_price_id: string
+          updated_at?: string
+        }
+        Update: {
+          billing_interval?: string
+          created_at?: string
+          id?: string
+          plan_code?: string
+          price_cents?: number
+          stripe_price_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "plan_prices_plan_code_fkey"
+            columns: ["plan_code"]
+            isOneToOne: false
+            referencedRelation: "plans"
+            referencedColumns: ["code"]
+          },
+        ]
+      }
       plans: {
         Row: {
           ai_quota_nanos_usd_per_seat: number | null
@@ -1998,14 +2152,167 @@ export type Database = {
         }
         Relationships: []
       }
+      print_jobs: {
+        Row: {
+          activity_id: string
+          attempts: number
+          claimed_at: string | null
+          created_at: string
+          id: string
+          kind: string
+          last_error: string | null
+          order_id: string
+          printer_id: string
+          processed_at: string | null
+          status: string
+          tenant_id: string
+          trade_no: string
+          updated_at: string
+        }
+        Insert: {
+          activity_id: string
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          last_error?: string | null
+          order_id: string
+          printer_id: string
+          processed_at?: string | null
+          status?: string
+          tenant_id: string
+          trade_no: string
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string
+          attempts?: number
+          claimed_at?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          last_error?: string | null
+          order_id?: string
+          printer_id?: string
+          processed_at?: string | null
+          status?: string
+          tenant_id?: string
+          trade_no?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "print_jobs_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "print_jobs_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "print_jobs_printer_id_fkey"
+            columns: ["printer_id"]
+            isOneToOne: false
+            referencedRelation: "printers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "print_jobs_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      print_reprints: {
+        Row: {
+          activity_id: string
+          created_at: string
+          id: string
+          last_error: string | null
+          order_id: string
+          printer_id: string
+          requested_by: string | null
+          status: string
+          tenant_id: string
+          trade_no: string
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          order_id: string
+          printer_id: string
+          requested_by?: string | null
+          status: string
+          tenant_id: string
+          trade_no: string
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string
+          id?: string
+          last_error?: string | null
+          order_id?: string
+          printer_id?: string
+          requested_by?: string | null
+          status?: string
+          tenant_id?: string
+          trade_no?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "print_reprints_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "print_reprints_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "print_reprints_printer_id_fkey"
+            columns: ["printer_id"]
+            isOneToOne: false
+            referencedRelation: "printers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "print_reprints_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       printers: {
         Row: {
           activity_id: string
           created_at: string
           id: string
           is_active: boolean
+          is_online: boolean | null
           label: string
+          lack_paper_count: number | null
           last_online_at: string | null
+          last_status_at: string | null
+          out_of_paper: boolean
+          paper_will_end_count: number | null
           sn: string
           tenant_id: string
           updated_at: string
@@ -2015,8 +2322,13 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_online?: boolean | null
           label: string
+          lack_paper_count?: number | null
           last_online_at?: string | null
+          last_status_at?: string | null
+          out_of_paper?: boolean
+          paper_will_end_count?: number | null
           sn: string
           tenant_id: string
           updated_at?: string
@@ -2026,8 +2338,13 @@ export type Database = {
           created_at?: string
           id?: string
           is_active?: boolean
+          is_online?: boolean | null
           label?: string
+          lack_paper_count?: number | null
           last_online_at?: string | null
+          last_status_at?: string | null
+          out_of_paper?: boolean
+          paper_will_end_count?: number | null
           sn?: string
           tenant_id?: string
           updated_at?: string
@@ -3003,6 +3320,48 @@ export type Database = {
           },
         ]
       }
+      reservation_reminder_runs: {
+        Row: {
+          candidates: number
+          created_at: string
+          errors: Json
+          failed: number
+          finished_at: string | null
+          id: string
+          sent: number
+          skipped: Json
+          started_at: string
+          target_date: string
+          trigger_source: string
+        }
+        Insert: {
+          candidates?: number
+          created_at?: string
+          errors?: Json
+          failed?: number
+          finished_at?: string | null
+          id?: string
+          sent?: number
+          skipped?: Json
+          started_at?: string
+          target_date: string
+          trigger_source: string
+        }
+        Update: {
+          candidates?: number
+          created_at?: string
+          errors?: Json
+          failed?: number
+          finished_at?: string | null
+          id?: string
+          sent?: number
+          skipped?: Json
+          started_at?: string
+          target_date?: string
+          trigger_source?: string
+        }
+        Relationships: []
+      }
       reservation_tables: {
         Row: {
           activity_id: string
@@ -3095,9 +3454,13 @@ export type Database = {
           customer_phone_e164: string | null
           guest_confirmed_at: string | null
           guest_id: string | null
+          ics_sequence: number
           id: string
           notes: string | null
           party_size: number
+          reminder_attempts: number
+          reminder_failed_at: string | null
+          reminder_last_error: string | null
           reminder_sent_at: string | null
           reservation_date: string
           reservation_time: string
@@ -3119,9 +3482,13 @@ export type Database = {
           customer_phone_e164?: string | null
           guest_confirmed_at?: string | null
           guest_id?: string | null
+          ics_sequence?: number
           id?: string
           notes?: string | null
           party_size: number
+          reminder_attempts?: number
+          reminder_failed_at?: string | null
+          reminder_last_error?: string | null
           reminder_sent_at?: string | null
           reservation_date: string
           reservation_time: string
@@ -3143,9 +3510,13 @@ export type Database = {
           customer_phone_e164?: string | null
           guest_confirmed_at?: string | null
           guest_id?: string | null
+          ics_sequence?: number
           id?: string
           notes?: string | null
           party_size?: number
+          reminder_attempts?: number
+          reminder_failed_at?: string | null
+          reminder_last_error?: string | null
           reminder_sent_at?: string | null
           reservation_date?: string
           reservation_time?: string
@@ -3589,6 +3960,212 @@ export type Database = {
           },
         ]
       }
+      seating_reservations: {
+        Row: {
+          activity_id: string
+          created_at: string
+          id: string
+          reservation_id: string
+          seating_id: string
+          tenant_id: string
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string
+          id?: string
+          reservation_id: string
+          seating_id: string
+          tenant_id: string
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string
+          id?: string
+          reservation_id?: string
+          seating_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seating_reservations_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seating_reservations_reservation_fkey"
+            columns: ["reservation_id", "activity_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id", "activity_id"]
+          },
+          {
+            foreignKeyName: "seating_reservations_reservation_fkey"
+            columns: ["reservation_id", "activity_id"]
+            isOneToOne: false
+            referencedRelation: "v_reservation_guest_visits"
+            referencedColumns: ["reservation_id", "activity_id"]
+          },
+          {
+            foreignKeyName: "seating_reservations_seating_fkey"
+            columns: ["seating_id", "activity_id"]
+            isOneToOne: false
+            referencedRelation: "seatings"
+            referencedColumns: ["id", "activity_id"]
+          },
+          {
+            foreignKeyName: "seating_reservations_seating_fkey"
+            columns: ["seating_id", "activity_id"]
+            isOneToOne: false
+            referencedRelation: "v_seatings_with_state"
+            referencedColumns: ["id", "activity_id"]
+          },
+          {
+            foreignKeyName: "seating_reservations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seating_tables: {
+        Row: {
+          activity_id: string
+          assigned_at: string
+          created_at: string
+          id: string
+          seating_id: string
+          table_id: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          activity_id: string
+          assigned_at?: string
+          created_at?: string
+          id?: string
+          seating_id: string
+          table_id: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string
+          assigned_at?: string
+          created_at?: string
+          id?: string
+          seating_id?: string
+          table_id?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seating_tables_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seating_tables_seating_fkey"
+            columns: ["seating_id", "activity_id"]
+            isOneToOne: false
+            referencedRelation: "seatings"
+            referencedColumns: ["id", "activity_id"]
+          },
+          {
+            foreignKeyName: "seating_tables_seating_fkey"
+            columns: ["seating_id", "activity_id"]
+            isOneToOne: false
+            referencedRelation: "v_seatings_with_state"
+            referencedColumns: ["id", "activity_id"]
+          },
+          {
+            foreignKeyName: "seating_tables_table_fkey"
+            columns: ["table_id", "activity_id"]
+            isOneToOne: false
+            referencedRelation: "tables"
+            referencedColumns: ["id", "activity_id"]
+          },
+          {
+            foreignKeyName: "seating_tables_table_fkey"
+            columns: ["table_id", "activity_id"]
+            isOneToOne: false
+            referencedRelation: "v_tables_with_state"
+            referencedColumns: ["id", "activity_id"]
+          },
+          {
+            foreignKeyName: "seating_tables_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      seatings: {
+        Row: {
+          activity_id: string
+          closed_at: string | null
+          closed_reason: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by_user_id: string | null
+          party_size: number | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        Insert: {
+          activity_id: string
+          closed_at?: string | null
+          closed_reason?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by_user_id?: string | null
+          party_size?: number | null
+          status?: string
+          tenant_id: string
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string
+          closed_at?: string | null
+          closed_reason?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          opened_at?: string
+          opened_by_user_id?: string | null
+          party_size?: number | null
+          status?: string
+          tenant_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seatings_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seatings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       status_checks: {
         Row: {
           checked_at: string
@@ -3865,6 +4442,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      sunmi_callback_events: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          notify_type: string
+          sn: string
+          sunmi_nonce: string
+          sunmi_timestamp: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          notify_type: string
+          sn: string
+          sunmi_nonce: string
+          sunmi_timestamp: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          notify_type?: string
+          sn?: string
+          sunmi_nonce?: string
+          sunmi_timestamp?: string
+        }
+        Relationships: []
       }
       support_messages: {
         Row: {
@@ -4327,6 +4931,7 @@ export type Database = {
           applied_promo_code: string | null
           ateco: string | null
           base_language_code: string
+          billing_interval: string | null
           business_subtype: string | null
           city: string | null
           codice_destinatario: string | null
@@ -4376,6 +4981,7 @@ export type Database = {
           applied_promo_code?: string | null
           ateco?: string | null
           base_language_code?: string
+          billing_interval?: string | null
           business_subtype?: string | null
           city?: string | null
           codice_destinatario?: string | null
@@ -4425,6 +5031,7 @@ export type Database = {
           applied_promo_code?: string | null
           ateco?: string | null
           base_language_code?: string
+          billing_interval?: string | null
           business_subtype?: string | null
           city?: string | null
           codice_destinatario?: string | null
@@ -4797,6 +5404,39 @@ export type Database = {
           },
         ]
       }
+      v_seatings_with_state: {
+        Row: {
+          activity_id: string | null
+          closed_at: string | null
+          closed_reason: string | null
+          id: string | null
+          opened_at: string | null
+          opened_by_user_id: string | null
+          party_size: number | null
+          pending_orders_count: number | null
+          pending_orders_deliverable: boolean | null
+          reservations: Json | null
+          status: string | null
+          tables: Json | null
+          tenant_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "seatings_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "seatings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       v_tables_with_state: {
         Row: {
           active_orders: Json | null
@@ -4860,6 +5500,41 @@ export type Database = {
       }
     }
     Functions: {
+      _close_order_group_unchecked: {
+        Args: {
+          p_action: string
+          p_cancellation_reason: string
+          p_group_id: string
+        }
+        Returns: Json
+      }
+      _close_seating_unchecked: {
+        Args: { p_reason: string; p_seating_id: string }
+        Returns: {
+          activity_id: string
+          closed_at: string | null
+          closed_reason: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by_user_id: string | null
+          party_size: number | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "seatings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      _open_seating_for_table_unchecked: {
+        Args: { p_activity_id: string; p_table_id: string; p_tenant_id: string }
+        Returns: string
+      }
       accept_invite_by_token: { Args: { p_token: string }; Returns: string }
       accept_tenant_invite: {
         Args: { p_tenant_id: string }
@@ -5192,6 +5867,23 @@ export type Database = {
         }
         Returns: string
       }
+      claim_pending_print_jobs: {
+        Args: {
+          p_limit: number
+          p_max_attempts?: number
+          p_reclaim_after_minutes?: number
+        }
+        Returns: {
+          activity_id: string
+          attempts: number
+          id: string
+          kind: string
+          order_id: string
+          printer_id: string
+          tenant_id: string
+          trade_no: string
+        }[]
+      }
       claim_pending_translation_jobs: {
         Args: {
           p_limit: number
@@ -5211,6 +5903,30 @@ export type Database = {
         }[]
       }
       clear_account_deleted: { Args: { p_user_id: string }; Returns: undefined }
+      close_seating: {
+        Args: { p_action?: string; p_reason: string; p_seating_id: string }
+        Returns: {
+          activity_id: string
+          closed_at: string | null
+          closed_reason: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by_user_id: string | null
+          party_size: number | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "seatings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      close_stale_seatings: { Args: never; Returns: Json }
       close_table_with_resolution: {
         Args: { p_action: string; p_table_id: string; p_tenant_id: string }
         Returns: Json
@@ -5372,6 +6088,7 @@ export type Database = {
         Args: { p_schedule_id: string; p_tenant_id: string }
         Returns: Json
       }
+      get_service_day_start: { Args: never; Returns: string }
       get_stale_translations: {
         Args: { p_language_code: string; p_tenant_id: string }
         Returns: Json
@@ -5509,6 +6226,56 @@ export type Database = {
         Args: { p_ticket_id: string }
         Returns: undefined
       }
+      open_seating_for_reservation: {
+        Args: { p_reservation_id: string }
+        Returns: {
+          activity_id: string
+          closed_at: string | null
+          closed_reason: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by_user_id: string | null
+          party_size: number | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "seatings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      open_walkin_seating: {
+        Args: {
+          p_activity_id: string
+          p_party_size: number
+          p_table_ids: string[]
+        }
+        Returns: {
+          activity_id: string
+          closed_at: string | null
+          closed_reason: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by_user_id: string | null
+          party_size: number | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "seatings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       place_online_reservation: {
         Args: {
           p_activity_id: string
@@ -5531,6 +6298,14 @@ export type Database = {
       }
       purge_locked_expired_tenants: { Args: never; Returns: number }
       purge_user_data: { Args: { p_user_id: string }; Returns: Json }
+      reassign_activity_tables: {
+        Args: { p_activity_id: string; p_date: string }
+        Returns: {
+          reassigned: number
+          skipped_manual: number
+          unassigned: number
+        }[]
+      }
       rectify_order_atomic: {
         Args: {
           p_items_to_storno: Json
@@ -5594,6 +6369,14 @@ export type Database = {
         }
         Returns: number
       }
+      reset_reservation_tables_to_system: {
+        Args: { p_reservation_id: string }
+        Returns: {
+          assigned: boolean
+          reason: string
+          table_id: string
+        }[]
+      }
       resolve_table_by_token: {
         Args: { p_token: string }
         Returns: {
@@ -5621,6 +6404,68 @@ export type Database = {
         Returns: undefined
       }
       revoke_invite: { Args: { p_membership_id: string }; Returns: boolean }
+      set_reservation_tables: {
+        Args: { p_reservation_id: string; p_table_ids: string[] }
+        Returns: {
+          activity_id: string
+          assigned_at: string
+          assignment_source: string
+          created_at: string
+          id: string
+          reservation_id: string
+          table_id: string
+          tenant_id: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "reservation_tables"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      set_seating_party_size: {
+        Args: { p_party_size: number; p_seating_id: string }
+        Returns: {
+          activity_id: string
+          closed_at: string | null
+          closed_reason: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          opened_at: string
+          opened_by_user_id: string | null
+          party_size: number | null
+          status: string
+          tenant_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "seatings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_seating_tables: {
+        Args: { p_seating_id: string; p_table_ids: string[] }
+        Returns: {
+          activity_id: string
+          assigned_at: string
+          created_at: string
+          id: string
+          seating_id: string
+          table_id: string
+          tenant_id: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "seating_tables"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       simple_slug: { Args: { input: string }; Returns: string }
       submit_order_atomic: {
         Args: {
@@ -5642,6 +6487,7 @@ export type Database = {
         Args: { p_new_owner_user_id: string; p_tenant_id: string }
         Returns: undefined
       }
+      undo_seating: { Args: { p_seating_id: string }; Returns: undefined }
       unlock_owned_tenants: { Args: { p_user_id: string }; Returns: number }
       update_schedule_targets: {
         Args: { p_schedule_id: string; p_targets: Json }

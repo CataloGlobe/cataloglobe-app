@@ -5,6 +5,8 @@ import type {
     BindPrinterResult,
     Printer,
     PrinterErrorCode,
+    PrinterStatusResult,
+    ReprintOrderResult,
     UnbindPrinterResult
 } from "@/types/printers";
 
@@ -90,6 +92,60 @@ export async function unbindPrinter(
     }
 }
 
+/**
+ * Stato online delle stampanti di una sede via edge function
+ * `sunmi-printer-status`. Letto on-demand (apertura tab + pulsante
+ * "Aggiorna stato"), MAI persistito. Richiede tables.read sulla sede.
+ *
+ * `available: false` nel risultato = stato non determinato lato Sunmi
+ * (irraggiungibile/timeout), NON "tutte offline" — il chiamante deve
+ * distinguerlo. Un errore lanciato da questa funzione, invece, e' un vero
+ * problema applicativo (permessi, rate limit, config Sunmi).
+ */
+export async function fetchPrintersStatus(
+    tenantId: string,
+    activityId: string
+): Promise<PrinterStatusResult> {
+    void tenantId;
+    const { data, error } = await supabase.functions.invoke<PrinterStatusResult>(
+        "sunmi-printer-status",
+        { body: { activity_id: activityId } }
+    );
+    if (error) throw await mapInvokeError(error);
+    if (!data || typeof data.available !== "boolean" || typeof data.statuses !== "object") {
+        throw new PrinterServiceError("UNKNOWN", "Risposta inattesa dal server.", null);
+    }
+    return data;
+}
+
+/**
+ * Ristampa manuale della comanda via edge function `sunmi-reprint-order`.
+ * A differenza della stampa automatica (`enqueueAndDispatchPrintJobs`), ogni
+ * chiamata produce un nuovo tentativo verso Sunmi: nessuna deduplicazione,
+ * l'operatore puo' richiederla quante volte vuole. Richiede `orders.manage`
+ * sulla sede dell'ordine.
+ */
+export async function reprintOrder(
+    orderId: string,
+    tenantId: string
+): Promise<ReprintOrderResult> {
+    void tenantId;
+    const { data, error } = await supabase.functions.invoke<ReprintOrderResult>(
+        "sunmi-reprint-order",
+        { body: { order_id: orderId } }
+    );
+    if (error) throw await mapInvokeError(error);
+    if (
+        !data ||
+        typeof data.total !== "number" ||
+        typeof data.printed !== "number" ||
+        typeof data.failed !== "number"
+    ) {
+        throw new PrinterServiceError("UNKNOWN", "Risposta inattesa dal server.", null);
+    }
+    return data;
+}
+
 // ============================================================
 // Error mapping
 // ============================================================
@@ -99,10 +155,12 @@ const MESSAGES: Record<PrinterErrorCode, string> = {
     UNAUTHORIZED: "Sessione scaduta. Accedi di nuovo.",
     FORBIDDEN: "Non hai i permessi per gestire le stampanti di questa sede.",
     ACTIVITY_NOT_FOUND: "Sede non trovata.",
+    ORDER_NOT_FOUND: "Ordine non trovato.",
     PRINTER_NOT_FOUND: "Stampante non trovata. Potrebbe essere già stata rimossa.",
     PRINTER_SN_IN_USE:
         "Questo dispositivo è collegato a un'altra sede. Scollegalo da quella sede prima di collegarlo qui.",
     ORDERING_DISABLED: "Attiva le ordinazioni dal tavolo prima di collegare una stampante.",
+    NO_ACTIVE_PRINTERS: "Nessuna stampante collegata a questa sede.",
     SUNMI_DEVICE_REJECTED: "Sunmi non riconosce questo numero di serie. Controlla l'SN sul dispositivo.",
     SUNMI_CONFIG_ERROR: "Integrazione Sunmi non configurata. Contatta l'assistenza.",
     SUNMI_ERROR: "Sunmi ha rifiutato l'operazione. Riprova più tardi.",

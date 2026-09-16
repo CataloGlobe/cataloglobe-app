@@ -1,20 +1,24 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { Plus, Printer as PrinterIcon, Unlink } from "lucide-react";
+import { CircleHelp, Plus, Printer as PrinterIcon, RefreshCw, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity } from "@/lib/permissions";
+import { PRINTER_PURCHASE_URL } from "@/config/printers";
 import {
+  fetchPrintersStatus,
   listPrinters,
   unbindPrinter,
   PrinterServiceError,
 } from "@/services/supabase/printers";
-import type { Printer } from "@/types/printers";
+import type { Printer, PrinterStatusResult } from "@/types/printers";
 import { PrinterBindDrawer } from "./PrinterBindDrawer";
 import { PrinterUnbindDrawer } from "./PrinterUnbindDrawer";
+import { PrinterGuideModal } from "./components/PrinterGuideModal";
 import styles from "./PrintersSection.module.scss";
 
 interface PrintersSectionProps {
@@ -48,10 +52,34 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [isBindOpen, setIsBindOpen] = useState(false);
   const [printerToUnbind, setPrinterToUnbind] = useState<Printer | null>(null);
+  const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const [statusResult, setStatusResult] = useState<PrinterStatusResult | null>(null);
+  const [isStatusLoading, setIsStatusLoading] = useState(false);
+
+  const loadStatus = useCallback(async () => {
+    if (!canRead) return;
+    try {
+      setIsStatusLoading(true);
+      const result = await fetchPrintersStatus(tenantId, activityId);
+      setStatusResult(result);
+    } catch (err) {
+      setStatusResult(null);
+      showToast({
+        message:
+          err instanceof PrinterServiceError
+            ? err.message
+            : "Impossibile verificare lo stato delle stampanti.",
+        type: "error",
+      });
+    } finally {
+      setIsStatusLoading(false);
+    }
+  }, [tenantId, activityId, canRead, showToast]);
 
   const loadData = useCallback(async () => {
     if (!canRead) {
       setItems([]);
+      setStatusResult(null);
       setIsLoading(false);
       return;
     }
@@ -59,6 +87,11 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
       setIsLoading(true);
       const data = await listPrinters(tenantId, activityId);
       setItems(data);
+      // Il badge legge lo stato persistito (scritto dal callback Sunmi) di
+      // default: nessuna chiamata a Sunmi automatica a ogni apertura. Un
+      // eventuale esito di "Aggiorna stato" da una sessione precedente non è
+      // più pertinente dopo un reload della lista.
+      setStatusResult(null);
     } catch {
       showToast({
         message: "Impossibile caricare le stampanti.",
@@ -109,6 +142,30 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
     }
   }, [printerToUnbind, tenantId, loadData, showToast]);
 
+  const renderStatusBadge = (printer: Printer) => {
+    // "Aggiorna stato" eseguito in questa sessione: mostra l'esito fresco
+    // dell'on-demand invece del persistito, finché non si ricarica la lista.
+    if (statusResult) {
+      const isOnline = statusResult.available
+        ? statusResult.statuses[printer.sn]
+        : undefined;
+      if (isOnline === undefined) {
+        return <StatusBadge variant="neutral" label="Stato non disponibile" />;
+      }
+      return isOnline
+        ? <StatusBadge variant="success" label="Online" />
+        : <StatusBadge variant="warning" label="Offline" />;
+    }
+    // Default: stato persistito dal callback Sunmi. null = nessun evento
+    // mai ricevuto per questo dispositivo, non "offline".
+    if (printer.is_online === null) {
+      return <StatusBadge variant="neutral" label="Stato non disponibile" />;
+    }
+    return printer.is_online
+      ? <StatusBadge variant="success" label="Online" />
+      : <StatusBadge variant="warning" label="Offline" />;
+  };
+
   return (
     <div className={styles.body}>
       <div className={styles.toolbar}>
@@ -116,16 +173,37 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
           Le stampanti collegate ricevono le comande della sede. Puoi collegarne
           più di una, per esempio cucina e bar.
         </p>
-        {canManage && (
+        <div className={styles.toolbarActions}>
+          {items.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              leftIcon={<RefreshCw size={16} />}
+              loading={isStatusLoading}
+              onClick={() => loadStatus()}
+            >
+              Aggiorna stato
+            </Button>
+          )}
           <Button
-            variant="primary"
+            variant="ghost"
             size="sm"
-            leftIcon={<Plus size={16} />}
-            onClick={() => setIsBindOpen(true)}
+            leftIcon={<CircleHelp size={16} />}
+            onClick={() => setIsGuideOpen(true)}
           >
-            Collega stampante
+            Come collegare una stampante
           </Button>
-        )}
+          {canManage && (
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={<Plus size={16} />}
+              onClick={() => setIsBindOpen(true)}
+            >
+              Collega stampante
+            </Button>
+          )}
+        </div>
       </div>
 
       {isLoading ? (
@@ -138,6 +216,25 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
             canManage
               ? "Collega una stampante Sunmi per ricevere le comande in cucina."
               : "Non ci sono stampanti collegate a questa sede."
+          }
+          action={
+            canManage && (
+              <div className={styles.emptyActions}>
+                <Button variant="secondary" size="sm" onClick={() => setIsGuideOpen(true)}>
+                  Come collegare una stampante
+                </Button>
+                <Button
+                  as="a"
+                  href={PRINTER_PURCHASE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  variant="ghost"
+                  size="sm"
+                >
+                  Compra una stampante
+                </Button>
+              </div>
+            )
           }
           compact
         />
@@ -153,6 +250,12 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
               <div className={styles.rowText}>
                 <span className={styles.rowLabel}>{p.label}</span>
                 <span className={styles.rowSn}>SN {p.sn}</span>
+              </div>
+              <div className={styles.rowStatus}>
+                {renderStatusBadge(p)}
+                {p.out_of_paper && (
+                  <StatusBadge variant="warning" label="Carta esaurita" />
+                )}
               </div>
               {canManage && (
                 <div className={styles.rowActions}>
@@ -188,6 +291,8 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
         onClose={() => setPrinterToUnbind(null)}
         onConfirm={handleUnbindConfirm}
       />
+
+      <PrinterGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
     </div>
   );
 };

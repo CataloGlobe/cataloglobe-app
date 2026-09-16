@@ -44,6 +44,12 @@ type ViewMode = "days" | "week";
 // com'è andata la serata, quindi resta visibile nella vista del giorno —
 // distinto dal badge "Non presentato". Vale anche per la correzione: annullare
 // una marcatura sbagliata non deve stare dietro il toggle "mostra terminali".
+//
+// `completed` non ci sta per lo stesso motivo di `no_show`, e non per
+// distrazione: una tavolata servita È com'è andata la serata, ed è proprio il
+// dato che l'host guarda per capire quanto ha girato la sala. Nasconderla
+// svuoterebbe la vista del giorno mano a mano che il servizio procede, fino a
+// mostrare solo ciò che non è ancora successo. `seated`, ovviamente, resta.
 const TERMINAL = new Set<V2Reservation["status"]>(["declined", "cancelled"]);
 
 // ── Date helpers (local to this view; shared primitives in @utils/dateLocal)

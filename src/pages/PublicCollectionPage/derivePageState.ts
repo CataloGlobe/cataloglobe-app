@@ -227,7 +227,8 @@ export function derivePageState(
     // configurazione interna raggiunge il menù.
     const hasReservationHours = hasBookableDays(
         opening_hours ?? [],
-        upcoming_closures ?? []
+        upcoming_closures ?? [],
+        business.reservation_horizon_days
     );
 
     // Comportamento storico, INVARIATO da prima di questo lavoro: nessun

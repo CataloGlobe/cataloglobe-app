@@ -15,6 +15,7 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Menu } from "@/components/ui/Menu/Menu";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import type { V2OrderItem, V2OrderWithItems } from "@/types/orders";
 import PrintReceipt from "./PrintReceipt";
@@ -58,6 +59,18 @@ interface Props {
      * Lookup mancante → fallback label "Staff" senza nome.
      */
     operatorNames?: Map<string, string>;
+    /**
+     * true quando almeno una comanda (kind='comanda') di questo ordine ha
+     * esaurito i tentativi di stampa (print_jobs.status='failed'). Non
+     * uscira' mai: lo staff deve avvisare la cucina a voce.
+     */
+    comandaFailed?: boolean;
+    /**
+     * true quando la sede ha almeno una stampante cloud Sunmi attiva: il
+     * tooltip dell'icona stampa diventa "Ristampa comanda" (invia un nuovo
+     * job a Sunmi via `onPrint`) invece di "Stampa" (dialogo del browser).
+     */
+    hasPrinters?: boolean;
     canManage?: boolean;
     canEdit?: boolean;
 }
@@ -116,6 +129,8 @@ export default function OrderCard({
     tableLabel,
     tableZone,
     operatorNames,
+    comandaFailed,
+    hasPrinters,
     canManage,
     canEdit
 }: Props) {
@@ -205,6 +220,18 @@ export default function OrderCard({
                     >
                         <AlertCircle size={13} aria-hidden />
                         Primo ordine · verifica il tavolo
+                    </span>
+                </div>
+            )}
+
+            {comandaFailed && (
+                <div className={styles.printFailedRow}>
+                    <span
+                        className={styles.printFailedBadge}
+                        title="La stampa in cucina non è riuscita: avvisa a voce"
+                    >
+                        <Printer size={13} aria-hidden />
+                        Comanda non stampata
                     </span>
                 </div>
             )}
@@ -318,30 +345,27 @@ export default function OrderCard({
                     <Menu.Item icon={Eye} onSelect={() => onViewDetail(order)}>
                         Vedi dettaglio
                     </Menu.Item>
-                    {order.status !== "cancelled" && (
-                        <Menu.Item icon={Printer} onSelect={handlePrint}>
-                            Stampa
-                        </Menu.Item>
-                    )}
                     <Menu.Separator />
                     <Menu.Item
                         icon={Trash2}
                         variant="destructive"
                         onSelect={() => onCancel(order)}
                     >
-                        Elimina comanda
+                        Annulla ordine
                     </Menu.Item>
                 </Menu>
 
-                {order.status === "submitted" && (
-                    <IconButton
-                        icon={<Printer size={16} />}
-                        aria-label="Stampa"
-                        variant="secondary"
-                        className={styles.footerIconBtn}
-                        onClick={handlePrint}
-                        disabled={isProcessing}
-                    />
+                {order.status !== "cancelled" && (
+                    <Tooltip content={hasPrinters ? "Ristampa comanda" : "Stampa"}>
+                        <IconButton
+                            icon={<Printer size={16} />}
+                            aria-label={hasPrinters ? "Ristampa comanda" : "Stampa"}
+                            variant="secondary"
+                            className={styles.footerIconBtn}
+                            onClick={handlePrint}
+                            disabled={isProcessing}
+                        />
+                    </Tooltip>
                 )}
 
                 {order.status === "submitted" && (

@@ -20,6 +20,8 @@
 // Modulo senza side-effect a import-time (niente Deno.env al top-level):
 // testabile sotto vitest (Node) iniettando credenziali e fetch.
 
+import { timingSafeEqualStr } from "./timingSafeEqual.ts";
+
 export const SUNMI_API_BASE = "https://openapi.sunmi.com";
 
 export const SUNMI_PATHS = {
@@ -130,6 +132,59 @@ export async function buildSunmiSignature(
         enc.encode(bodyJson + appId + timestamp + nonce)
     );
     return _toHex(sig);
+}
+
+/**
+ * Header di una notifica callback in ingresso (device information callback,
+ * capitolo 5 di Cloud Printer V2). Formula DIVERSA da `buildSunmiSignature`:
+ * la stringa firmata include anche `Sunmi-NotifyType` (confermato in
+ * "Signature & Verification", sezione IV) — non e' un typo, non va
+ * "semplificato" riusando `buildSunmiSignature`.
+ */
+export interface SunmiCallbackHeaders {
+    appId: string;
+    timestamp: string;
+    nonce: string;
+    notifyType: string;
+    sign: string;
+}
+
+/**
+ * Verifica una notifica di callback Sunmi in ingresso (device information
+ * callback). Due controlli, entrambi timing-safe (`timingSafeEqualStr`):
+ *   1. `Sunmi-Appid` deve essere il nostro — una firma valida per un'altra
+ *      app non deve passare.
+ *   2. `Sunmi-Sign` deve combaciare con
+ *      HMAC-SHA256(bodyJson + appId + timestamp + nonce + notifyType, appKey),
+ *      hex minuscolo.
+ * `bodyJson` DEVE essere il testo RAW ricevuto (mai un body re-serializzato):
+ * la firma e' calcolata sui byte esatti che Sunmi ha spedito.
+ * Non lancia mai: un header malformato o assente e' responsabilita' del
+ * chiamante, che deve validare la presenza prima di invocare questa funzione.
+ */
+export async function verifySunmiCallbackSignature(
+    bodyJson: string,
+    headers: SunmiCallbackHeaders,
+    expectedAppId: string,
+    appKey: string
+): Promise<boolean> {
+    if (!timingSafeEqualStr(headers.appId, expectedAppId)) return false;
+
+    const enc = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(appKey),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+    );
+    const sig = await crypto.subtle.sign(
+        "HMAC",
+        key,
+        enc.encode(bodyJson + headers.appId + headers.timestamp + headers.nonce + headers.notifyType)
+    );
+    const expectedHex = _toHex(sig);
+    return timingSafeEqualStr(expectedHex, headers.sign.toLowerCase());
 }
 
 /** Unix seconds, 10 cifre. */
@@ -299,8 +354,15 @@ export interface SunmiOnlineStatusEntry {
     is_online: number | boolean;
 }
 
+export interface SunmiOnlineStatusPage {
+    total: number;
+    page_no: number;
+    page_size: number;
+}
+
 export interface SunmiOnlineStatusData {
     list?: SunmiOnlineStatusEntry[];
+    page?: SunmiOnlineStatusPage;
 }
 
 export function sunmiOnlineStatusBySn(
@@ -308,4 +370,24 @@ export function sunmiOnlineStatusBySn(
     options?: SunmiRequestOptions
 ): Promise<SunmiResult<SunmiOnlineStatusData>> {
     return sunmiRequest<SunmiOnlineStatusData>(SUNMI_PATHS.onlineStatus, { sn }, options);
+}
+
+/**
+ * Stato online di TUTTE le stampanti di un negozio Sunmi (una sede = un
+ * negozio) in una sola chiamata, invece di una per singolo `sn`.
+ * `pageSize` di default copre ampiamente il numero di stampanti realistico
+ * per una sede; se `data.page.total` eccede la pagina richiesta il chiamante
+ * lo puo' rilevare confrontando `page.total` con `list.length` e loggarlo,
+ * non troncare in silenzio.
+ */
+export function sunmiOnlineStatusByShop(
+    shopId: number,
+    pageSize = 100,
+    options?: SunmiRequestOptions
+): Promise<SunmiResult<SunmiOnlineStatusData>> {
+    return sunmiRequest<SunmiOnlineStatusData>(
+        SUNMI_PATHS.onlineStatus,
+        { shop_id: shopId, page_no: 1, page_size: pageSize },
+        options
+    );
 }

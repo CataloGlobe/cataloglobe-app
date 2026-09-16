@@ -4,8 +4,10 @@ import Text from "@/components/ui/Text/Text";
 import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import { Mail } from "lucide-react";
 import { COMPANY } from "@/config/company";
-import type { Plan, PlanCode } from "@/types/plan";
+import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import type { BillingInterval, Plan, PlanCode } from "@/types/plan";
 import type { GraduatedBreakdown } from "@/utils/pricing";
+import { INTERVAL_PERIOD_NOUN } from "@/utils/planPricing";
 import { DEFAULT_PLAN_FEATURES, DEFAULT_PLAN_BADGES } from "./planDefaults";
 import styles from "./PlanSeatsSelector.module.scss";
 
@@ -26,6 +28,14 @@ function formatEuro(value: number): string {
     return `€${value.toFixed(2).replace(".", ",")}`;
 }
 
+/** Whole euros for the big price figure ("€39", "€390"). */
+function formatEuroWhole(cents: number): string {
+    return `€${Math.round(cents / 100)}`;
+}
+
+const INTERVAL_TOTAL_LABEL: Record<BillingInterval, string> = { month: "Totale mensile", year: "Totale annuale" };
+const INTERVAL_OPTION_LABEL: Record<BillingInterval, string> = { month: "Mensile", year: "Annuale · 2 mesi gratis" };
+
 /** Costruisce un mailto precompilato per richiesta offerta multi-sede. */
 function buildMultiSeatQuoteMailto(seats: number, planName: string | undefined): string {
     const subject = "Richiesta offerta multi-sede — CataloGlobe";
@@ -40,6 +50,19 @@ export interface PlanSeatsSelectorProps {
     plans: Plan[];
     planCode: PlanCode;
     onPlanChange: (code: PlanCode) => void;
+    /** First-seat unit price per plan for the CURRENT interval, in cents (from `plan_prices`). */
+    unitPriceCentsByPlan: Partial<Record<PlanCode, number>>;
+    /** Current billing interval. Drives the price unit and the total label. Default "month". */
+    billingInterval?: BillingInterval;
+    /**
+     * Intervals the customer can actually buy. The switch is rendered only when
+     * there is more than one; with a single interval the selector looks exactly
+     * as it did before the yearly option existed.
+     */
+    availableIntervals?: BillingInterval[];
+    onIntervalChange?: (interval: BillingInterval) => void;
+    /** Per plan, what the same period would cost paying month by month (yearly only), in cents. */
+    monthByMonthCentsByPlan?: Partial<Record<PlanCode, number>>;
     seats: number;
     onSeatsChange: (value: number) => void;
     breakdown: GraduatedBreakdown;
@@ -63,6 +86,11 @@ export function PlanSeatsSelector({
     plans,
     planCode,
     onPlanChange,
+    unitPriceCentsByPlan,
+    billingInterval = "month",
+    availableIntervals = ["month"],
+    onIntervalChange,
+    monthByMonthCentsByPlan = {},
     seats,
     onSeatsChange,
     breakdown,
@@ -77,15 +105,30 @@ export function PlanSeatsSelector({
     footerHint
 }: PlanSeatsSelectorProps) {
     const seatStepperMax = stepperMax ?? maxSeats;
+    const showIntervalSwitch = availableIntervals.length > 1 && !!onIntervalChange;
 
     return (
         <div className={styles.root}>
+            {showIntervalSwitch && (
+                <div className={styles.intervalSwitch}>
+                    <SegmentedControl<BillingInterval>
+                        value={billingInterval}
+                        onChange={onIntervalChange}
+                        options={availableIntervals.map(interval => ({
+                            value: interval,
+                            label: INTERVAL_OPTION_LABEL[interval]
+                        }))}
+                    />
+                </div>
+            )}
+
             <div className={styles.planGrid}>
                 {plans.map(plan => {
                     const selected = plan.code === planCode;
                     const features = planFeatures[plan.code] ?? [];
                     const badge = planBadges[plan.code];
-                    const monthly = (plan.monthly_price_cents ?? 0) / 100;
+                    const unitCents = unitPriceCentsByPlan[plan.code] ?? 0;
+                    const monthByMonthCents = monthByMonthCentsByPlan[plan.code];
                     return (
                         <button
                             type="button"
@@ -98,9 +141,14 @@ export function PlanSeatsSelector({
                             {badge && <span className={styles.planBadge}>{badge}</span>}
                             <span className={styles.planName}>{plan.name}</span>
                             <span className={styles.planPrice}>
-                                <span className={styles.planPriceValue}>€{Math.round(monthly)}</span>
-                                <span className={styles.planPriceUnit}>/sede/mese</span>
+                                <span className={styles.planPriceValue}>{formatEuroWhole(unitCents)}</span>
+                                <span className={styles.planPriceUnit}>{`/sede/${INTERVAL_PERIOD_NOUN[billingInterval]}`}</span>
                             </span>
+                            {monthByMonthCents !== undefined && (
+                                <span className={styles.planPriceCompare}>
+                                    {formatEuroWhole(monthByMonthCents)} pagando mese per mese
+                                </span>
+                            )}
                             {plan.description && (
                                 <span className={styles.planDescription}>{plan.description}</span>
                             )}
@@ -154,7 +202,7 @@ export function PlanSeatsSelector({
                             </div>
                         ))}
                         <div className={styles.breakdownTotalRow}>
-                            <span>Totale mensile</span>
+                            <span>{INTERVAL_TOTAL_LABEL[billingInterval]}</span>
                             <span>{formatEuro(breakdown.subtotal)}</span>
                         </div>
                     </div>

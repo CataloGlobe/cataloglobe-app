@@ -10,7 +10,6 @@ import {
     compareMonth,
     monthOfHorizonEnd,
     monthOfIso,
-    RESERVATION_HORIZON_DAYS,
     shiftMonth,
     type CalendarMonthView,
     type ReservationDayCell
@@ -23,6 +22,9 @@ type Props = {
     onChange: (iso: string) => void;
     hours: OpeningHoursEntry[];
     closures: UpcomingClosure[];
+    /** Orizzonte (giorni, oggi compreso) della sede. Dal payload: la
+     *  costante `RESERVATION_HORIZON_DAYS` qui NON si usa. */
+    horizonDays: number;
     /** Optional id wired by parent for aria-describedby on the field error. */
     errorId?: string;
     invalid?: boolean;
@@ -91,6 +93,7 @@ export default function ReservationDatePicker({
     onChange,
     hours,
     closures,
+    horizonDays,
     errorId,
     invalid
 }: Props) {
@@ -99,8 +102,8 @@ export default function ReservationDatePicker({
 
     const minView = useMemo(() => monthOfIso(today), [today]);
     const maxView = useMemo(
-        () => monthOfHorizonEnd(today, RESERVATION_HORIZON_DAYS),
-        [today]
+        () => monthOfHorizonEnd(today, horizonDays),
+        [today, horizonDays]
     );
 
     const [view, setView] = useState<CalendarMonthView>(() => monthOfIso(value || today));
@@ -123,11 +126,11 @@ export default function ReservationDatePicker({
                 view.month,
                 hours,
                 closures,
-                RESERVATION_HORIZON_DAYS,
+                horizonDays,
                 today,
                 formatWeekdayShort
             ),
-        [view, hours, closures, today]
+        [view, hours, closures, horizonDays, today]
     );
 
     const canPrev = compareMonth(view, minView) > 0;

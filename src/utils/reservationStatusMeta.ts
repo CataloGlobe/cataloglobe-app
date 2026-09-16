@@ -20,7 +20,11 @@ export function statusMeta(status: ReservationStatus): ReservationStatusMeta {
         case "pending":   return { variant: "warning", label: "Da gestire" };
         case "confirmed": return { variant: "success", label: "Confermata" };
         case "seated":    return { variant: "success", label: "Al tavolo" };
-        case "completed": return { variant: "neutral", label: "Completata" };
+        // "Servita", non "Completata": la seconda è la traduzione del nome
+        // della colonna, non una parola che un cameriere direbbe guardando la
+        // sala. Neutra e non success: è la fine normale di un servizio, non un
+        // risultato da festeggiare ogni sera.
+        case "completed": return { variant: "neutral", label: "Servita" };
         case "declined":  return { variant: "neutral", label: "Rifiutata" };
         case "cancelled": return { variant: "neutral", label: "Annullata" };
         case "no_show":   return { variant: "neutral", label: "Non presentato" };

@@ -130,6 +130,57 @@ describe("separazione admin / cliente", () => {
     });
 });
 
+describe("confine con il ciclo della tavolata", () => {
+    // La tavolata è la sorgente di verità dell'occupazione, la prenotazione la
+    // rispecchia. Queste asserzioni tengono il confine: `seated` e `completed`
+    // li scrive il ciclo della tavolata (open_seating_for_reservation,
+    // close_seating, undo_seating), mai un'azione dell'endpoint admin.
+
+    it("nessuna azione scrive seated o completed", () => {
+        // Se un giorno qualcuno aggiungesse un'azione admin "segna seduto",
+        // esisterebbero due scrittori per lo stesso fatto e basterebbe un bug
+        // perché prenotazione e tavolata raccontino cose diverse.
+        for (const action of RESERVATION_ACTIONS) {
+            expect(ACTION_TO_STATUS[action]).not.toBe("seated");
+            expect(ACTION_TO_STATUS[action]).not.toBe("completed");
+        }
+    });
+
+    it("nessuna azione parte da seated o da completed", () => {
+        for (const action of RESERVATION_ACTIONS) {
+            expect(isTransitionAllowed("seated", action)).toBe(false);
+            expect(isTransitionAllowed("completed", action)).toBe(false);
+        }
+    });
+
+    it("cancel resta ammessa solo da confirmed, non da seated", () => {
+        // Annullare qualcuno che è al tavolo lascerebbe una tavolata aperta
+        // attaccata a una prenotazione annullata: due stati che si
+        // contraddicono, e nessuno dei due sbagliato in modo riconoscibile.
+        expect(ACTION_EXPECTS.cancel).toEqual(["confirmed"]);
+        expect(isTransitionAllowed("seated", "cancel")).toBe(false);
+    });
+
+    it("mark_no_show resta ammessa solo da confirmed, non da seated", () => {
+        // Chi è seduto al tavolo si è presentato, per definizione.
+        expect(ACTION_EXPECTS.mark_no_show).toEqual(["confirmed"]);
+        expect(isTransitionAllowed("seated", "mark_no_show")).toBe(false);
+    });
+
+    it("nemmeno il cliente può disdire da seduto", () => {
+        // Il link firmato nell'email resta valido anche mentre si è al tavolo:
+        // la matrice è l'unica cosa che impedisce la disdetta a cena iniziata.
+        expect(isTransitionAllowed("seated", "cancel_by_customer")).toBe(false);
+    });
+
+    it("seated e completed restano fuori dalle azioni riconosciute", () => {
+        expect(isReservationAction("seated")).toBe(false);
+        expect(isReservationAction("completed")).toBe(false);
+        expect(isAdminAction("seated")).toBe(false);
+        expect(isAdminAction("completed")).toBe(false);
+    });
+});
+
 describe("compare-and-set", () => {
     it("ACTION_EXPECTS copre ogni azione (è la lista passata a .in('status', …))", () => {
         for (const action of RESERVATION_ACTIONS) {

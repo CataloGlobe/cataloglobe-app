@@ -8,16 +8,18 @@ import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Text from "@/components/ui/Text/Text";
 
-import { uploadTenantLogo, updateTenantLogoUrl, updateTenantBillingDetails, type TenantBillingDetails } from "@/services/supabase/tenants";
+import { uploadTenantLogo, updateTenantLogoUrl, updateTenantBillingDetails, getTenantBillingInterval, type TenantBillingDetails } from "@/services/supabase/tenants";
 import { createCheckoutSession } from "@/services/supabase/billing";
 import { listPublicPlans } from "@/services/supabase/plans";
+import { listPlanPrices } from "@/services/supabase/planPrices";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { calculateGraduatedFromPlan } from "@/utils/pricing";
+import { availableIntervals, coerceInterval, monthByMonthEquivalentCents, priceCentsFor } from "@/utils/planPricing";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
 import { DEFAULT_SUBTYPE, type BusinessSubtype } from "@/constants/verticalTypes";
 import { getStoredPromo, clearStoredPromo } from "@/utils/promoCode";
-import type { Plan, PlanCode } from "@/types/plan";
+import type { BillingInterval, Plan, PlanCode, PlanPrice } from "@/types/plan";
 import type { V2Tenant, LegalEntityType } from "@/types/tenant";
 import type { AddressResult } from "@/components/ui/AddressAutocomplete/AddressAutocomplete";
 import { isValidPartitaIva, isValidCodiceFiscale } from "@/utils/fiscalValidators";
@@ -75,6 +77,12 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     const [logoFile, setLogoFile] = useState<File | null>(null);
     const [planCode, setPlanCode] = useState<PlanCode>(DEFAULT_PLAN);
     const [seats, setSeats] = useState(1);
+    // Interval explicitly picked in this session (null = untouched). The
+    // effective interval also considers what is on the tenant (resume) and what
+    // is actually purchasable — see `billingInterval` below.
+    const [pickedInterval, setPickedInterval] = useState<BillingInterval | null>(null);
+    // Interval already recorded on the tenant (resume mode), read on open.
+    const [storedInterval, setStoredInterval] = useState<BillingInterval | null>(null);
     const [promotionCode, setPromotionCode] = useState("");
     const [showPromoInput, setShowPromoInput] = useState(false);
 
@@ -90,6 +98,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     const [billingAddress, setBillingAddress] = useState<AddressResult | null>(null);
 
     const [plans, setPlans] = useState<Plan[]>([]);
+    const [planPrices, setPlanPrices] = useState<PlanPrice[]>([]);
     const [plansLoading, setPlansLoading] = useState(false);
     const [plansError, setPlansError] = useState<string | null>(null);
 
@@ -118,6 +127,8 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             setPlanCode(existingTenant.plan);
             setSeats(Math.max(1, existingTenant.paid_seats));
             initialResumeRef.current = { plan: existingTenant.plan, seats: Math.max(1, existingTenant.paid_seats) };
+            setPickedInterval(null);
+            setStoredInterval(null);
 
             // Pre-fill billing from any data already on the tenant (covers partial).
             setEntityType(existingTenant.legal_entity_type ?? "");
@@ -151,6 +162,8 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             setSubtype(DEFAULT_SUBTYPE);
             setPlanCode(DEFAULT_PLAN);
             setSeats(1);
+            setPickedInterval(null);
+            setStoredInterval(null);
             initialResumeRef.current = null;
 
             // A fresh, intentional create starts with a new idempotency key. The
@@ -184,16 +197,35 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         setShowCloseConfirm(false);
     }, [open, resumeMode, existingTenant]);
 
-    // Fetch plans once per open
+    // Resume: the interval chosen before an abandoned checkout lives on
+    // `tenants.billing_interval` (written together with plan/paid_seats), but
+    // `user_tenants_view` does not expose it — read it directly. Best-effort: a
+    // failure here only loses the pre-selection, never blocks the wizard.
+    useEffect(() => {
+        if (!open || !resumeMode || !existingTenant) return;
+        let cancelled = false;
+        getTenantBillingInterval(existingTenant.id)
+            .then(interval => {
+                if (!cancelled) setStoredInterval(interval);
+            })
+            .catch(err => {
+                console.error("[CreateBusinessWizard] billing interval read failed:", err);
+            });
+        return () => { cancelled = true; };
+    }, [open, resumeMode, existingTenant]);
+
+    // Fetch plans + prices once per open. Prices come from `plan_prices` (per
+    // interval); the deprecated `plans.monthly_price_cents` is no longer read.
     useEffect(() => {
         if (!open) return;
         let cancelled = false;
         setPlansLoading(true);
         setPlansError(null);
-        listPublicPlans()
-            .then(rows => {
+        Promise.all([listPublicPlans(), listPlanPrices()])
+            .then(([rows, prices]) => {
                 if (cancelled) return;
                 setPlans(rows);
+                setPlanPrices(prices);
                 const hasDefault = rows.some(r => r.code === DEFAULT_PLAN);
                 if (!hasDefault && rows.length > 0) {
                     setPlanCode(rows[0].code);
@@ -216,19 +248,58 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         [plans, planCode]
     );
 
+    // Intervals every public plan can be bought on. Production may expose only
+    // "month": then the switch is hidden and the wizard behaves as before.
+    const intervals = useMemo(
+        () => availableIntervals(planPrices, plans.map(p => p.code)),
+        [planPrices, plans]
+    );
+    // Effective interval: explicit pick → tenant record (resume) → month, always
+    // clamped to what is purchasable.
+    const billingInterval = coerceInterval(pickedInterval ?? storedInterval, intervals);
+
+    const unitPriceCents = selectedPlan ? priceCentsFor(planPrices, selectedPlan.code, billingInterval) : null;
+
     const breakdown = useMemo(() => {
-        if (!selectedPlan) {
+        if (!selectedPlan || unitPriceCents === null) {
             return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
         }
-        return calculateGraduatedFromPlan(selectedPlan, seats);
-    }, [selectedPlan, seats]);
+        return calculateGraduatedFromPlan(
+            {
+                unit_price_cents: unitPriceCents,
+                volume_discount_threshold: selectedPlan.volume_discount_threshold,
+                volume_discount_percent: selectedPlan.volume_discount_percent
+            },
+            seats
+        );
+    }, [selectedPlan, unitPriceCents, seats]);
+
+    const unitPriceCentsByPlan = useMemo(() => {
+        const out: Partial<Record<PlanCode, number>> = {};
+        for (const p of plans) {
+            const cents = priceCentsFor(planPrices, p.code, billingInterval);
+            if (cents !== null) out[p.code] = cents;
+        }
+        return out;
+    }, [plans, planPrices, billingInterval]);
+
+    const monthByMonthCentsByPlan = useMemo(() => {
+        const out: Partial<Record<PlanCode, number>> = {};
+        for (const p of plans) {
+            const cents = monthByMonthEquivalentCents(planPrices, p.code, billingInterval);
+            if (cents !== null) out[p.code] = cents;
+        }
+        return out;
+    }, [plans, planPrices, billingInterval]);
 
     const maxSelfServiceSeats = selectedPlan?.max_self_service_seats ?? 5;
     const discountPercent = selectedPlan?.volume_discount_percent ?? 10;
     const overLimit = seats > maxSelfServiceSeats;
 
     const canProceedFromStep1 = name.trim().length >= 2;
-    const canProceedFromStep2 = !!selectedPlan && seats >= 1 && !overLimit;
+    // No price for (plan, interval) → nothing to sell: the checkout would reject
+    // it anyway (plan_not_configured), so the wizard does not let it through.
+    const canProceedFromStep2 = !!selectedPlan && unitPriceCents !== null && seats >= 1 && !overLimit;
 
     // Civico (street_number) is optional — NumeroCivico is not required by FatturaPA.
     const billingAddressComplete =
@@ -282,7 +353,8 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         ? (
             !!initialResumeRef.current && (
                 planCode !== initialResumeRef.current.plan ||
-                seats !== initialResumeRef.current.seats
+                seats !== initialResumeRef.current.seats ||
+                billingInterval !== coerceInterval(storedInterval, intervals)
             )
         ) || promotionCode.length > 0 || step > 2
         : (
@@ -385,11 +457,12 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                 const initial = initialResumeRef.current;
                 const planChanged = !initial || planCode !== initial.plan;
                 const seatsChanged = !initial || seats !== initial.seats;
+                const intervalChanged = storedInterval !== billingInterval;
 
-                if (planChanged || seatsChanged) {
+                if (planChanged || seatsChanged || intervalChanged) {
                     const { error: alignError } = await supabase
                         .from("tenants")
-                        .update({ plan: selectedPlan.code, paid_seats: seats })
+                        .update({ plan: selectedPlan.code, paid_seats: seats, billing_interval: billingInterval })
                         .eq("id", tenantId);
 
                     if (alignError) {
@@ -450,13 +523,14 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                     tenantId = tenantRow.id as string;
                 }
 
-                // Align plan + paid_seats to wizard selection. tenants defaults are
-                // plan='base' + paid_seats=1; without this update, if the user abandons
-                // Stripe Checkout the tenant stays in DB with wrong values and the
-                // "Attiva abbonamento" retry would charge the wrong plan/quantity.
+                // Align plan + paid_seats + billing_interval to wizard selection.
+                // tenants defaults are plan='base' + paid_seats=1 + interval NULL;
+                // without this update, if the user abandons Stripe Checkout the
+                // tenant stays in DB with wrong values and the "Attiva abbonamento"
+                // retry would charge the wrong plan/quantity/interval.
                 const { error: alignError } = await supabase
                     .from("tenants")
-                    .update({ plan: selectedPlan.code, paid_seats: seats })
+                    .update({ plan: selectedPlan.code, paid_seats: seats, billing_interval: billingInterval })
                     .eq("id", tenantId);
 
                 if (alignError) {
@@ -485,6 +559,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             const checkoutUrl = await createCheckoutSession({
                 tenantId,
                 planCode: selectedPlan.code,
+                billingInterval,
                 quantity: seats,
                 promotionCode: promotionCode.trim() || undefined,
                 // Ritorno da Stripe sul setup guidato, non sulla Panoramica: qui
@@ -559,6 +634,11 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         plans={plans}
                         planCode={planCode}
                         onPlanChange={setPlanCode}
+                        unitPriceCentsByPlan={unitPriceCentsByPlan}
+                        billingInterval={billingInterval}
+                        availableIntervals={intervals}
+                        onIntervalChange={setPickedInterval}
+                        monthByMonthCentsByPlan={monthByMonthCentsByPlan}
                         seats={seats}
                         onSeatsChange={handleSeatsChange}
                         breakdown={breakdown}
@@ -597,6 +677,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                     <Step3Summary
                         name={name}
                         plan={selectedPlan}
+                        billingInterval={billingInterval}
                         breakdown={breakdown}
                         total={breakdown.subtotal}
                         discountPercent={discountPercent}

@@ -11,6 +11,7 @@ import {
 } from "../_shared/publicSiteUrl.ts";
 import { resolveAlertRecipients } from "../_shared/reservationAlertRecipients.ts";
 import { buildReservationIcsAttachment } from "../_shared/reservationIcs.ts";
+import { isReservationTimeBookable } from "../_shared/openingHours.ts";
 import { signReservationToken } from "../_shared/reservationToken.ts";
 import { normalizePhoneToE164 } from "../_shared/phoneNormalize.ts";
 import { normalizeCustomerLanguageInput } from "../_shared/emailLang.ts";
@@ -60,6 +61,8 @@ const VALID_SUBSCRIPTION_STATUSES = new Set(["active", "trialing", "past_due"]);
 //   - tenant_id ALWAYS derived from the server-resolved activity, NEVER from
 //     the request body. The body only contains the public `slug`.
 //   - Activity must be `status='active'` AND `enable_reservations=true`.
+//   - The requested instant must pass `isReservationTimeBookable` (opening
+//     hours, closures, picker grid, minimum notice, horizon) — FASE 4.1.
 //   - Tenant subscription_status must be in the diner-facing allowlist
 //     (active|trialing|past_due); canceled/suspended are blocked (423).
 //   - Email failures NEVER fail the reservation: the row is already saved.
@@ -80,7 +83,6 @@ const ERROR_MESSAGES: Record<string, string> = {
     INVALID_EMAIL:             "Email non valida",
     INVALID_PARTY_SIZE:        "Numero di persone non valido (1-50)",
     INVALID_DATE:              "Data non valida",
-    DATE_IN_PAST:              "La data non può essere nel passato",
     INVALID_TIME:              "Orario non valido",
     NOTES_TOO_LONG:            "Le note possono contenere al massimo 500 caratteri",
     ACTIVITY_NOT_FOUND:        "Sede non trovata",
@@ -96,6 +98,26 @@ const ERROR_MESSAGES: Record<string, string> = {
     // pubblico (`reservation.err_pacing_full`, 5 lingue); questo è il
     // fallback IT per chi chiama l'endpoint direttamente.
     PACING_FULL:               "A quest'ora sono già attese troppe prenotazioni. Prova un orario poco prima o poco dopo",
+    // ── Il cancello su orari e istante (FASE 4.1) ─────────────────────────
+    // Un codice per controllo, così la risposta dice COSA è sbagliato senza
+    // rivelare la configurazione (niente fasce, niente numeri).
+    //
+    // Quattro su cinque un cliente con la pagina fresca non li vede mai: il
+    // picker li impedisce a monte. Se arrivano qui, la pagina che ha davanti
+    // è vecchia, e il rimedio è sempre lo stesso — aggiornarla. L'unico che
+    // incontrerà davvero è TOO_SOON: apre alle 12:40, sceglie le 13:00,
+    // compila con calma, invia alle 13:05. Una frase sola per i due fatti
+    // («ora già passata» e «serve più preavviso»): in entrambi i casi era
+    // prenotabile e ora non lo è più.
+    //
+    // VENUE_NOT_BOOKABLE dice la stessa cosa, parola per parola, di
+    // `reservation.unconfigured_text` (public.json): due formulazioni dello
+    // stesso fatto sono un bug di prodotto.
+    VENUE_NOT_BOOKABLE:        "La sede non ha ancora attivato la prenotazione online",
+    VENUE_CLOSED:              "Il locale non è aperto all'orario che hai scelto. Aggiorna la pagina e scegli fra gli orari disponibili.",
+    TIME_NOT_ON_GRID:          "L'orario che hai scelto non è fra quelli prenotabili. Aggiorna la pagina e scegli fra gli orari disponibili.",
+    TOO_SOON:                  "Questo orario non è più prenotabile. Scegline uno più avanti",
+    BEYOND_HORIZON:            "La data che hai scelto è troppo lontana per prenotare online. Scegline una più vicina",
     RATE_LIMITED:              "Troppe richieste. Riprova più tardi.",
     SERVER_ERROR:              "Errore durante l'invio della richiesta"
 };
@@ -150,11 +172,6 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/;
 
-function todayUtcIsoDate(): string {
-    const d = new Date();
-    return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
-}
-
 // --- Handler -----------------------------------------------------------------
 
 serve(async (req: Request) => {
@@ -178,9 +195,10 @@ serve(async (req: Request) => {
         if (!reservationDate || !DATE_RE.test(reservationDate)) {
             return errorResponse("INVALID_DATE", 400);
         }
-        if (reservationDate < todayUtcIsoDate()) {
-            return errorResponse("DATE_IN_PAST", 400);
-        }
+        // «Non nel passato» NON si controlla qui: era un confronto fra DATE
+        // in UTC, e fra mezzanotte e le 01/02 italiane accettava «ieri». Il
+        // controllo vero è fra ISTANTI in Europe/Rome, dentro il cancello
+        // `isReservationTimeBookable` più sotto (TOO_SOON, preavviso 0 = ora).
 
         const reservationTime = typeof body.reservation_time === "string" ? body.reservation_time.trim() : "";
         if (!reservationTime || !TIME_RE.test(reservationTime)) {
@@ -287,6 +305,8 @@ serve(async (req: Request) => {
             .select(
                 "id, tenant_id, name, slug, status, enable_reservations, " +
                 "reservation_notification_emails, reservation_duration_minutes, " +
+                "reservation_pacing_slot_minutes, reservation_min_notice_minutes, " +
+                "reservation_horizon_days, " +
                 "address, street_number, postal_code, city, province"
             )
             .eq("slug", slug)
@@ -337,6 +357,58 @@ serve(async (req: Request) => {
             });
         if (featErr || hasReservationFeature !== true) {
             return errorResponse("FEATURE_NOT_AVAILABLE", 409);
+        }
+
+        // ── Il cancello su orari e istante (FASE 4.1) ─────────────────
+        // Mette sul server quello che il modulo pubblico applica già da solo:
+        // sede con orari, chiusure straordinarie, orario dentro una fascia E
+        // sulla griglia del picker, preavviso minimo (che con 0 copre «ora
+        // già passata»), orizzonte. Vive QUI e non nella RPC: gli orari non
+        // cambiano nel millisecondo fra controllo e insert, a differenza di
+        // capienza e pacing che restano sotto advisory lock. Un secondo
+        // chiamante della RPC deve ripetere questo blocco (vedi COMMENT ON
+        // FUNCTION place_online_reservation, 20260915150100).
+        //
+        // Fail-CLOSED: un errore nella lettura degli orari è un 500, non una
+        // prenotazione accettata alla cieca. Diverso da submit-order, dove il
+        // gate orari è UX e fallisce aperto.
+        const [{ data: hoursRows, error: hoursError }, { data: closureRows, error: closuresError }] =
+            await Promise.all([
+                supabase
+                    .from("activity_hours")
+                    .select("day_of_week, opens_at, closes_at, closes_next_day, is_closed, slot_index")
+                    .eq("activity_id", activity.id),
+                supabase
+                    .from("activity_closures")
+                    .select("closure_date, end_date, is_closed, slots")
+                    .eq("activity_id", activity.id)
+            ]);
+        if (hoursError) throw hoursError;
+        if (closuresError) throw closuresError;
+
+        const bookability = isReservationTimeBookable({
+            hours: hoursRows ?? [],
+            closures: closureRows ?? [],
+            reservationDate,
+            reservationTime,
+            slotMinutes: activity.reservation_pacing_slot_minutes,
+            minNoticeMinutes: activity.reservation_min_notice_minutes,
+            horizonDays: activity.reservation_horizon_days,
+            now: new Date()
+        });
+        if (!bookability.ok) {
+            // 409 come CAPACITY_FULL: la richiesta è ben formata, è lo STATO
+            // della sede (orari, calendario, istante) a rifiutarla. I details
+            // dicono solo ciò che il cliente può usare per correggere.
+            return errorResponse(bookability.reason, 409, {
+                reason: bookability.reason,
+                ...(bookability.reason === "BEYOND_HORIZON"
+                    ? { horizon_days: activity.reservation_horizon_days }
+                    : {}),
+                ...(bookability.reason === "TOO_SOON"
+                    ? { min_notice_minutes: activity.reservation_min_notice_minutes }
+                    : {})
+            });
         }
 
         // ── Atomic capacity gate + insert (Step 3) ─────────────────────

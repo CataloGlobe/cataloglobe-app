@@ -53,6 +53,7 @@ export function upgradeEmail(opts: {
     amountPaidTodayCents?: number | null;
     monthlyTotalCents: number;
     renewalDateIso: string | null;
+    isTrialing: boolean;
 }): { subject: string; html: string; text: string } {
     const label = planLabel(opts.plan);
     const seats = seatsLabel(opts.seats);
@@ -60,9 +61,12 @@ export function upgradeEmail(opts: {
     const renewal = formatDateIt(opts.renewalDateIso);
     const hasCharge = opts.amountPaidTodayCents != null && opts.amountPaidTodayCents > 0;
 
+    const noChargeLine = opts.isTrialing
+        ? `Non ti verrà addebitato nulla finché sei in prova.`
+        : `L'importo di oggi è stato riproporzionato per i giorni rimanenti del periodo.`;
     const chargeLine = hasCharge
         ? `Addebito di oggi (riproporzionato per i giorni rimanenti del periodo): <strong>${formatEuroCents(opts.amountPaidTodayCents!)}</strong>.`
-        : `L'importo di oggi è stato riproporzionato per i giorni rimanenti del periodo.`;
+        : noChargeLine;
 
     const subject = "Piano aggiornato — CataloGlobe";
     const html = card(
@@ -74,7 +78,7 @@ export function upgradeEmail(opts: {
     const text = `Piano aggiornato — CataloGlobe
 
 Il tuo piano è ora ${label} · ${seats}.
-${hasCharge ? `Addebito di oggi (riproporzionato): ${formatEuroCents(opts.amountPaidTodayCents!)}.` : `L'importo di oggi è stato riproporzionato per i giorni rimanenti del periodo.`}
+${hasCharge ? `Addebito di oggi (riproporzionato): ${formatEuroCents(opts.amountPaidTodayCents!)}.` : noChargeLine}
 Dal ${renewal} pagherai ${monthly}/mese.
 
 ${getEmailFooterText()}`;
@@ -112,21 +116,27 @@ ${getEmailFooterText()}`;
 }
 
 // --- Disdetta ----------------------------------------------------------------
-export function cancelEmail(opts: { activeUntilIso: string | null }): {
+export function cancelEmail(opts: { activeUntilIso: string | null; isTrialing: boolean }): {
     subject: string;
     html: string;
     text: string;
 } {
     const date = formatDateIt(opts.activeUntilIso);
     const subject = "Disdetta confermata — CataloGlobe";
+    const mainLine = opts.isTrialing
+        ? `La tua prova è stata disdetta. Resterà <strong>attiva fino al ${date}</strong> e non ti verrà addebitato nulla: la prova è gratuita.`
+        : `Il tuo abbonamento è stato disdetto. Resterà <strong>attivo fino al ${date}</strong>; nessun rimborso per il periodo già pagato.`;
+    const mainLineText = opts.isTrialing
+        ? `La tua prova è stata disdetta. Resterà attiva fino al ${date} e non ti verrà addebitato nulla: la prova è gratuita.`
+        : `Il tuo abbonamento è stato disdetto. Resterà attivo fino al ${date}; nessun rimborso per il periodo già pagato.`;
     const html = card(
         "Disdetta confermata",
-        p(`Il tuo abbonamento è stato disdetto. Resterà <strong>attivo fino al ${date}</strong>; nessun rimborso per il periodo già pagato.`) +
+        p(mainLine) +
             p("Puoi riattivarlo in qualsiasi momento prima del rinnovo dalla pagina Abbonamento.")
     );
     const text = `Disdetta confermata — CataloGlobe
 
-Il tuo abbonamento è stato disdetto. Resterà attivo fino al ${date}; nessun rimborso per il periodo già pagato.
+${mainLineText}
 Puoi riattivarlo in qualsiasi momento prima del rinnovo dalla pagina Abbonamento.
 
 ${getEmailFooterText()}`;
@@ -163,14 +173,18 @@ export function combinedChangeEmail(opts: {
     targetPlan: string;
     chargedAmountCents?: number | null;
     effectiveDateIso: string | null;
+    isTrialing: boolean;
 }): { subject: string; html: string; text: string } {
     const label = planLabel(opts.targetPlan);
     const seats = seatsLabel(opts.seats);
     const date = formatDateIt(opts.effectiveDateIso);
     const charged = opts.chargedAmountCents != null && opts.chargedAmountCents > 0;
+    const noChargeLine = opts.isTrialing
+        ? `Non ti verrà addebitato nulla finché sei in prova.`
+        : "Le sedi sono state riproporzionate a tariffa Pro per i giorni rimanenti del periodo.";
     const chargeLine = charged
         ? `Le sedi sono state addebitate oggi, riproporzionate a tariffa Pro per i giorni rimanenti del periodo: <strong>${formatEuroCents(opts.chargedAmountCents!)}</strong>.`
-        : "Le sedi sono state riproporzionate a tariffa Pro per i giorni rimanenti del periodo.";
+        : noChargeLine;
 
     const subject = "Sedi aggiunte e cambio programmato — CataloGlobe";
     const html = card(
@@ -183,7 +197,7 @@ export function combinedChangeEmail(opts: {
     const text = `Sedi aggiunte e cambio programmato — CataloGlobe
 
 Le ${seats} aggiunte sono attive da subito.
-${charged ? `Le sedi sono state addebitate oggi, riproporzionate a tariffa Pro: ${formatEuroCents(opts.chargedAmountCents!)}.` : "Le sedi sono state riproporzionate a tariffa Pro per i giorni rimanenti del periodo."}
+${charged ? `Le sedi sono state addebitate oggi, riproporzionate a tariffa Pro: ${formatEuroCents(opts.chargedAmountCents!)}.` : noChargeLine}
 Il piano passerà a ${label} il ${date}; da quella data si applicherà la tariffa ${label}.
 Ordini e prenotazioni da QR verranno disattivati al rinnovo.
 
@@ -196,22 +210,33 @@ ${getEmailFooterText()}`;
 export function combinedChangePartialFailureEmail(opts: {
     seats: number;
     targetPlan: string;
+    isTrialing: boolean;
 }): { subject: string; html: string; text: string } {
     const label = planLabel(opts.targetPlan);
     const seats = seatsLabel(opts.seats);
 
+    const seatsLine = opts.isTrialing
+        ? `Le <strong>${seats}</strong> aggiunte sono <strong>attive</strong>. Non ti verrà addebitato nulla finché sei in prova.`
+        : `Le <strong>${seats}</strong> aggiunte sono <strong>attive e già pagate</strong>.`;
+    const seatsLineText = opts.isTrialing
+        ? `Le ${seats} aggiunte sono attive. Non ti verrà addebitato nulla finché sei in prova.`
+        : `Le ${seats} aggiunte sono attive e già pagate.`;
+    const retryLine = opts.isTrialing
+        ? "Riprova il cambio di piano dalla pagina Abbonamento."
+        : "Riprova il cambio di piano dalla pagina Abbonamento: le sedi già pagate non verranno riaddebitate.";
+
     const subject = "Sedi aggiunte — cambio piano da completare — CataloGlobe";
     const html = card(
         "Sedi aggiunte, cambio piano da completare",
-        p(`Le <strong>${seats}</strong> aggiunte sono <strong>attive e già pagate</strong>.`) +
+        p(seatsLine) +
             p(`Il passaggio a <strong>${label}</strong> al rinnovo <strong>non</strong> è stato programmato per un problema temporaneo.`) +
-            p("Riprova il cambio di piano dalla pagina Abbonamento: le sedi già pagate non verranno riaddebitate.")
+            p(retryLine)
     );
     const text = `Sedi aggiunte — cambio piano da completare — CataloGlobe
 
-Le ${seats} aggiunte sono attive e già pagate.
+${seatsLineText}
 Il passaggio a ${label} al rinnovo non è stato programmato per un problema temporaneo.
-Riprova il cambio di piano dalla pagina Abbonamento: le sedi già pagate non verranno riaddebitate.
+${retryLine}
 
 ${getEmailFooterText()}`;
 

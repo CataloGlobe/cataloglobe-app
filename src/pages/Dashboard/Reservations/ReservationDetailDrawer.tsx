@@ -20,9 +20,18 @@ import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import type { TableAssignmentView } from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
 import { formatTableLabels } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import { TableMultiSelect } from "@/components/ui/TableMultiSelect/TableMultiSelect";
-import { OCCUPYING_STATUSES } from "@/utils/reservationTableConflicts";
+import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import type { V2Table } from "@/types/orders";
 import GuestConfirmedMark from "./GuestConfirmedMark";
+import ReminderStatusMark from "./ReminderStatusMark";
+import { seatingActionsFor, type SeatingActionKey } from "./seatingActions";
+import {
+    seatingCloseFlowFor,
+    type SeatingCloseAction,
+    type SeatingPendingOrders
+} from "./seatingClose";
+import { SeatingCloseQuestionBody, SeatingCloseQuestionFooter } from "./SeatingCloseQuestion";
+import { tableSectionFor, type TableSectionNote } from "./tableSection";
 import { statusMeta } from "@/utils/reservationStatusMeta";
 import {
     canAccept,
@@ -53,6 +62,23 @@ interface Props {
      */
     tableView?: TableAssignmentView | null;
     /**
+     * I tavoli REALMENTE occupati dalla tavolata, nella stessa forma del
+     * piano (il render è lo stesso: un elenco di etichette con la zona).
+     * `conflict` è sempre null — il rilevamento conflitti lavora sul piano,
+     * vedi il commento della sezione TAVOLO.
+     *
+     * `undefined` = non caricati; `null` = nessuna tavolata.
+     */
+    seatingTableView?: TableAssignmentView | null;
+    /**
+     * La tavolata collegata alla prenotazione.
+     *   `undefined` = non ancora caricata, oppure mai cercata (sugli stati di
+     *                 piano non serve).
+     *   `null`      = cercata e non trovata.
+     * Decide, insieme allo stato, se la sezione guarda il piano o il fatto.
+     */
+    seatingId?: string | null;
+    /**
      * Tavoli della sede per "Cambia tavolo" (senza soft-deleted). `undefined`
      * = non ancora caricati; il parent li carica quando il drawer si apre con
      * `canManage`. Nessun fetch qui dentro.
@@ -76,6 +102,12 @@ interface Props {
     /** True if the caller has reservations.manage on this reservation's activity. */
     canManage: boolean;
     /**
+     * `activities.reservation_reminder_enabled` della sede. `undefined` = sede
+     * non ancora caricata: lo stato promemoria assume acceso, perché dichiarare
+     * "non previsto" senza saperlo è peggio che tacere.
+     */
+    activityReminderEnabled?: boolean;
+    /**
      * Profilo del cliente, se la prenotazione è agganciata a uno e il caller ha
      * `guests.read`. NULL è normale in tre casi diversi che l'UI non distingue:
      * telefono non canonicalizzabile, prenotazione anteriore alla rubrica,
@@ -90,6 +122,43 @@ interface Props {
     onAction: (action: DeferredAction) => void;
     /** Apre il drawer di modifica dati. Visibile solo se canManage e stato non terminale. */
     onEdit?: () => void;
+    /** `canDoOnActivity(perms, 'seatings.manage', activityId)`. */
+    canManageSeatings?: boolean;
+    /**
+     * I tre gesti della tavolata. IMMEDIATI, non differiti come le azioni di
+     * `onAction`: in sala un tavolo che risulta libero per cinque secondi dopo
+     * che l'host ha premuto "arrivato" è un tavolo che qualcun altro può
+     * assegnare. L'annullamento esiste ed è un gesto esplicito, che è anche
+     * più onesto di una finestra che scade da sola.
+     *
+     * Il drawer resta aperto e mostra il risultato; il parent ha già ricaricato
+     * e mostrato il toast. Assenti = nessun bottone.
+     */
+    onArrive?: () => Promise<boolean>;
+    /**
+     * `action` solo quando la domanda «serviti o annullati?» è stata fatta e
+     * risposta (vedi `seatingPendingOrders`).
+     */
+    onCompleteService?: (action?: SeatingCloseAction) => Promise<boolean>;
+    onUndoArrival?: () => Promise<boolean>;
+    /**
+     * Ordini dei conti della tavolata che aspettano una decisione, dalla
+     * view. `undefined` = non caricati: il gesto chiude diretto e, se il
+     * server chiede, la rete di sicurezza lo dice in italiano.
+     */
+    seatingPendingOrders?: SeatingPendingOrders;
+    /**
+     * `seatings.party_size` della tavolata aperta: i coperti REALI. `null` =
+     * non indicati; `undefined` = tavolata non caricata (o non c'è).
+     * Rilevante solo nella forma `seated` della sezione TAVOLO.
+     */
+    seatingPartySize?: number | null;
+    /**
+     * Corregge i coperti reali (`set_seating_party_size`). Scrive sulla
+     * TAVOLATA, non sulla prenotazione: la prenotazione è la promessa fatta
+     * ieri e resta quella che era. Stessa regola piano/fatto dei tavoli.
+     */
+    onSetSeatingPartySize?: (partySize: number) => Promise<boolean>;
 }
 
 function formatDateIt(isoDate: string): string {
@@ -126,6 +195,70 @@ function isInThePast(reservation: V2Reservation, now: Date = new Date()): boolea
     return new Date(y, m - 1, d, hh, mm).getTime() < now.getTime();
 }
 
+/**
+ * La frase sotto l'elenco dei tavoli. `null` = nessuna frase.
+ *
+ * È la sola cosa che distingue le quattro forme della sezione: il titolo resta
+ * "Tavolo"/"Tavoli" in tutti i casi, perché a cambiare non è l'argomento ma da
+ * dove viene la risposta.
+ *
+ * `plan_live` tace quando la scelta è dell'operatore: il sistema annuncia le
+ * proprie proposte, non le decisioni altrui. `plan_past` parla sempre — un
+ * elenco di tavoli su una prenotazione annullata, senza una frase, si legge
+ * come un fatto avvenuto.
+ */
+function tableSectionHint(
+    note: TableSectionNote | undefined,
+    view: TableAssignmentView | null
+): string | null {
+    const many = (view?.rows.length ?? 0) > 1;
+    switch (note) {
+        case "plan_live":
+            return view?.proposed === true
+                ? "Proposto dal sistema. Se la prenotazione viene spostata o cambia il numero di persone, la proposta viene rifatta."
+                : null;
+        case "plan_past":
+            return many ? "Erano i tavoli previsti." : "Era il tavolo previsto.";
+        case "seated":
+            // Non conta le persone: su una prenotazione per uno "sono seduti"
+            // si rompe, e al bar è la norma.
+            return "Tavolo occupato adesso. Cambiando tavolo sposti la tavolata, non la proposta.";
+        case "closed":
+            // In coppia con "Era il tavolo previsto." dei terminali senza
+            // tavolata: stesso tempo, stesso soggetto (il tavolo). Non conta
+            // le persone — su una prenotazione per uno "erano seduti" si
+            // rompe — e non dice "mangiato": in un bar non si mangia.
+            return many ? "Erano i tavoli occupati." : "Era il tavolo occupato.";
+        // Senza tavolata non ci sono righe da commentare: la frase la dà il
+        // caso vuoto, qui non serve.
+        default:
+            return null;
+    }
+}
+
+/** La frase quando non c'è nessun tavolo da elencare. */
+function tableSectionEmptyHint(note: TableSectionNote | undefined): string {
+    switch (note) {
+        case "plan_past":
+            return "Nessun tavolo era previsto.";
+        // Seduti o conclusi senza tavolo: la stessa frase del drawer della
+        // tavolata, senza contare le persone.
+        case "seated":
+        case "closed":
+            return "Nessun tavolo assegnato.";
+        case "fact_loading":
+            // Impersonale: l'applicazione non parla in prima persona altrove.
+            return "Caricamento della tavolata…";
+        // Stato `seated`/`completed` senza tavolata: è una divergenza col
+        // database, non un esito normale. Si dice che manca invece di
+        // mostrare il piano al suo posto.
+        case "fact_missing":
+            return "Nessuna tavolata collegata a questa prenotazione.";
+        default:
+            return "Nessun tavolo assegnato.";
+    }
+}
+
 export default function ReservationDetailDrawer({
     open,
     onClose,
@@ -133,6 +266,8 @@ export default function ReservationDetailDrawer({
     activityName,
     operatorNames,
     tableView = null,
+    seatingTableView,
+    seatingId,
     tables,
     tableOccupancy,
     onSetTables,
@@ -141,13 +276,39 @@ export default function ReservationDetailDrawer({
     activityCapacity,
     activityDurationMinutes,
     canManage,
+    activityReminderEnabled,
     guestSummary,
     tenantWide = false,
     onOpenGuest,
     onAction,
-    onEdit
+    onEdit,
+    canManageSeatings = false,
+    onArrive,
+    onCompleteService,
+    onUndoArrival,
+    seatingPendingOrders,
+    seatingPartySize,
+    onSetSeatingPartySize
 }: Props) {
     const durationMin = activityDurationMinutes ?? DEFAULT_DURATION_MINUTES;
+
+    // ── Quale tavolo si sta guardando ────────────────────────────────
+    // Piano o fatto: la regola sta in `tableSection.ts`, testata. Qui si
+    // sceglie solo la vista da rendere, che ha la stessa forma per entrambi.
+    const tableSection = reservation
+        ? tableSectionFor({
+              status: reservation.status,
+              seatingId,
+              canManage,
+              canManageSeatings
+          })
+        : null;
+    const activeTableView: TableAssignmentView | null =
+        tableSection === null
+            ? null
+            : tableSection.source === "seating"
+              ? seatingTableView ?? null
+              : tableView;
 
     // ── Gesti sui tavoli ─────────────────────────────────────────────
     // Il picker vive inline nella sezione: un secondo SystemDrawer sopra il
@@ -158,16 +319,43 @@ export default function ReservationDetailDrawer({
     const [savingTables, setSavingTables] = useState(false);
     const [resettingTables, setResettingTables] = useState(false);
 
+    // Coperti reali, inline: stepper + conferma. Parte dai coperti della
+    // tavolata, o da quelli prenotati se la tavolata non li ha ancora.
+    const [coversOpen, setCoversOpen] = useState(false);
+    const [coversDraft, setCoversDraft] = useState(2);
+    const [savingCovers, setSavingCovers] = useState(false);
+
+    // Quale gesto della tavolata è in volo. Uno per volta: sono operazioni che
+    // si escludono a vicenda, e due spinner insieme sarebbero solo confusione.
+    const [seatingBusy, setSeatingBusy] = useState<SeatingActionKey | null>(null);
+
+    // La domanda di «Servizio concluso» (3.2): uno stato del drawer, non un
+    // altro drawer. `answering` = quale risposta è in volo.
+    const [asking, setAsking] = useState(false);
+    const [answering, setAnswering] = useState<SeatingCloseAction | null>(null);
+
     // Cambiare prenotazione o chiudere il drawer azzera il picker: una scelta
     // a metà non deve sopravvivere a un'altra prenotazione.
     const reservationId = reservation?.id ?? null;
     useEffect(() => {
         setPickerOpen(false);
         setPickerIds([]);
+        setCoversOpen(false);
+        setSeatingBusy(null);
+        setAsking(false);
+        setAnswering(null);
     }, [reservationId, open]);
 
+    const handleConfirmCovers = async () => {
+        if (!onSetSeatingPartySize) return;
+        setSavingCovers(true);
+        const ok = await onSetSeatingPartySize(coversDraft);
+        setSavingCovers(false);
+        if (ok) setCoversOpen(false);
+    };
+
     const openPicker = () => {
-        setPickerIds(tableView ? tableView.rows.map(r => r.table_id) : []);
+        setPickerIds(activeTableView ? activeTableView.rows.map(r => r.table_id) : []);
         setPickerOpen(true);
     };
 
@@ -252,21 +440,72 @@ export default function ReservationDetailDrawer({
 
     const st = statusMeta(reservation.status);
     const isPast = isInThePast(reservation);
-    // Le RPC sui tavoli accettano solo prenotazioni attive (22023 altrimenti):
-    // i gesti compaiono solo dove possono riuscire.
+    // Il gesto esiste solo dove ha una destinazione: `tableSection` la nega
+    // quando lo stato è terminale, quando manca il permesso giusto per quella
+    // tabella, e quando la fonte è la tavolata ma la tavolata non si trova.
     const canEditTables =
-        canManage && onSetTables !== undefined && OCCUPYING_STATUSES.has(reservation.status);
-    const hasTables = tableView !== null && tableView.rows.length > 0;
+        tableSection !== null && tableSection.target !== null && onSetTables !== undefined;
+    const hasTables = activeTableView !== null && activeTableView.rows.length > 0;
+    const tableHint = tableSectionHint(tableSection?.note, activeTableView);
+    const tableEmptyHint = tableSectionEmptyHint(tableSection?.note);
     const canEdit =
         canManage &&
         onEdit !== undefined &&
         (reservation.status === "pending" || reservation.status === "confirmed");
 
+    // ── Gesti della tavolata ─────────────────────────────────────────
+    const seatingActions = seatingActionsFor({
+        status: reservation.status,
+        canManageSeatings
+    });
+
+    const runSeatingAction = async (
+        key: SeatingActionKey,
+        handler: (() => Promise<boolean>) | undefined
+    ) => {
+        if (!handler || seatingBusy !== null) return;
+        setSeatingBusy(key);
+        await handler();
+        setSeatingBusy(null);
+    };
+
+    // «Servizio concluso»: chiede solo se c'è qualcosa da decidere. Senza il
+    // dato (tavolata non ancora letta) chiude diretto: è il server l'autorità.
+    const closeFlow = seatingCloseFlowFor(
+        seatingPendingOrders ?? { pending_orders_count: 0, pending_orders_deliverable: true }
+    );
+    const handleCompleteClick = () => {
+        if (closeFlow.kind === "ask") {
+            setAsking(true);
+            return;
+        }
+        void runSeatingAction("complete", onCompleteService);
+    };
+    const handleCloseAnswer = async (action: SeatingCloseAction) => {
+        if (!onCompleteService || answering !== null) return;
+        setAnswering(action);
+        const ok = await onCompleteService(action);
+        setAnswering(null);
+        if (ok) setAsking(false);
+        // Se non è riuscita il parent ha già mostrato il toast; si resta
+        // sulla domanda, che è ancora quella giusta.
+    };
+
+    const showArrive = seatingActions.includes("arrive") && onArrive !== undefined;
+    const showComplete =
+        seatingActions.includes("complete") && onCompleteService !== undefined;
+    const showUndoArrival =
+        seatingActions.includes("undo_arrival") && onUndoArrival !== undefined;
+
     const footer = (
         <div className={styles.drawerFooter}>
             {!canManage ? (
+                // Come l'hint dei gesti della tavolata più sotto: si dice cosa
+                // non si può fare, non quale permesso manca. Il nome del
+                // permesso vive nella schermata Team, dove serve a chi lo
+                // assegna.
                 <p className={styles.drawerFooterHint}>
-                    Solo chi ha il permesso "Gestione prenotazioni" sulla sede può confermare, rifiutare o annullare.
+                    Non hai i permessi per gestire questa prenotazione.
                 </p>
             ) : reservation.status === "pending" ? (
                 <>
@@ -298,6 +537,55 @@ export default function ReservationDetailDrawer({
                     <Button variant="danger" onClick={() => handleAction("cancel")}>
                         Annulla
                     </Button>
+                    {/* Immediato, non differito: vedi la nota sulle props. */}
+                    {showArrive && (
+                        <Button
+                            variant="primary"
+                            loading={seatingBusy === "arrive"}
+                            onClick={() => void runSeatingAction("arrive", onArrive)}
+                        >
+                            Arrivato
+                        </Button>
+                    )}
+                </>
+            ) : reservation.status === "seated" ? (
+                <>
+                    {/* "Annulla arrivo" e "Servizio concluso" dicono due cose
+                        opposte — "non è successo" contro "è finito" — e la
+                        prima cancella mentre la seconda conserva. Lo spazio in
+                        mezzo è il modo in cui l'interfaccia dice che non sono
+                        due varianti dello stesso gesto: chi ha fretta non deve
+                        poterle scambiare guardando la posizione. */}
+                    {showUndoArrival && (
+                        <Button
+                            variant="ghost"
+                            loading={seatingBusy === "undo_arrival"}
+                            disabled={seatingBusy !== null}
+                            onClick={() => void runSeatingAction("undo_arrival", onUndoArrival)}
+                        >
+                            Annulla arrivo
+                        </Button>
+                    )}
+                    <span className={styles.drawerFooterSpacer} aria-hidden />
+                    {showComplete && (
+                        <Button
+                            variant="primary"
+                            loading={seatingBusy === "complete"}
+                            disabled={seatingBusy !== null}
+                            onClick={handleCompleteClick}
+                        >
+                            Servizio concluso
+                        </Button>
+                    )}
+                    {/* Si dice cosa non si può fare, non quale permesso manca:
+                        il nome del permesso vive nella schermata Team, dove
+                        serve a chi lo assegna. Qui, in sala, citarlo chiede a
+                        chi lavora di tradurre. */}
+                    {!showUndoArrival && !showComplete && (
+                        <p className={styles.drawerFooterHint}>
+                            Non hai i permessi per gestire il servizio su questa sede.
+                        </p>
+                    )}
                 </>
             ) : reservation.status === "no_show" ? (
                 <>
@@ -316,17 +604,36 @@ export default function ReservationDetailDrawer({
         </div>
     );
 
+    const header = (
+        <div className={styles.drawerHeaderTitle}>
+            <Text variant="title-sm" weight={600}>Prenotazione</Text>
+            <StatusBadge variant={st.variant} label={st.label} />
+        </div>
+    );
+
+    if (asking && closeFlow.kind === "ask") {
+        return (
+            <SystemDrawer open={open} onClose={onClose} width={560}>
+                <DrawerLayout
+                    header={header}
+                    footer={
+                        <SeatingCloseQuestionFooter
+                            flow={closeFlow}
+                            busy={answering}
+                            onAnswer={action => void handleCloseAnswer(action)}
+                            onBack={() => setAsking(false)}
+                        />
+                    }
+                >
+                    <SeatingCloseQuestionBody flow={closeFlow} />
+                </DrawerLayout>
+            </SystemDrawer>
+        );
+    }
+
     return (
         <SystemDrawer open={open} onClose={onClose} width={560}>
-            <DrawerLayout
-                header={
-                    <div className={styles.drawerHeaderTitle}>
-                        <Text variant="title-sm" weight={600}>Prenotazione</Text>
-                        <StatusBadge variant={st.variant} label={st.label} />
-                    </div>
-                }
-                footer={footer}
-            >
+            <DrawerLayout header={header} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Hero: data eroe + meta + sede ─────────────────── */}
                     <section className={styles.drawerHero}>
@@ -354,6 +661,19 @@ export default function ReservationDetailDrawer({
                             </div>
                         )}
 
+                        {/* Stato del promemoria della sera prima. A differenza
+                            della conferma cliente questo compare sempre finché
+                            la prenotazione è prima del servizio: il silenzio
+                            del cliente è normale e non si commenta, un
+                            promemoria che non è partito no. Al tavolo o
+                            servita, il componente non rende niente. */}
+                        <div className={styles.drawerHeroReminder}>
+                            <ReminderStatusMark
+                                reservation={reservation}
+                                reminderEnabled={activityReminderEnabled}
+                            />
+                        </div>
+
                         <div className={styles.drawerHeroMeta}>
                             <span className={styles.drawerHeroMetaItem}>
                                 <Clock size={15} strokeWidth={2} aria-hidden />
@@ -379,9 +699,13 @@ export default function ReservationDetailDrawer({
                                     </>
                                 )}
                             </span>
+                            {/* Puntino e "Creata da" in UN blocco che non si
+                                spezza: la riga va a capo, e lasciare il
+                                separatore in coda alla riga sopra con il
+                                nome sotto è il "·" penzolante. */}
                             {reservation.source === "manual" &&
                                 reservation.created_by_user_id && (
-                                    <>
+                                    <span className={styles.drawerHeroMetaGroup}>
                                         <span
                                             className={styles.drawerHeroMetaDot}
                                             aria-hidden
@@ -399,7 +723,7 @@ export default function ReservationDetailDrawer({
                                                 reservation.created_by_user_id
                                             ) ?? "Staff"}
                                         </span>
-                                    </>
+                                    </span>
                                 )}
                         </div>
 
@@ -411,20 +735,49 @@ export default function ReservationDetailDrawer({
 
                     {/* ── Tavolo ────────────────────────────────────────
                          Solo se c'è un'assegnazione, oppure se l'operatore
-                         può assegnarne una. "Proposto" = scelta del sistema,
-                         ricalcolabile; la decisione dell'operatore non si
-                         annuncia. Il conflitto è l'unica riga colorata della
-                         sezione. I gesti sono RPC immediate: il drawer resta
-                         aperto e mostra il risultato. */}
+                         può cambiarla. La sezione ha QUATTRO forme, decise da
+                         `tableSection.ts`: prima del servizio mostra e cambia
+                         il PIANO (`reservation_tables`), da quando sono seduti
+                         mostra e cambia il FATTO (`seating_tables`), a servizio
+                         concluso mostra il fatto in sola lettura, e sugli stati
+                         terminali senza tavolata mostra il piano al passato.
+                         "Proposto" = scelta del sistema, ricalcolabile; la
+                         decisione dell'operatore non si annuncia. Il conflitto
+                         è l'unica riga colorata della sezione. I gesti sono RPC
+                         immediate: il drawer resta aperto e mostra il risultato.
+
+                         Tre cose che questa sezione NON fa, per scelta e non
+                         per dimenticanza:
+                         1. I coperti reali della tavolata (`seatings.party_size`)
+                            non si modificano: manca la RPC, e quel gesto
+                            appartiene alla vista di servizio — è all'ingresso
+                            che l'host scopre che sono in cinque invece di
+                            quattro. Arriva nella 2.5.
+                         2. Il rilevamento conflitti continua a lavorare solo su
+                            `reservation_tables`, quindi sul fatto non compare:
+                            estenderlo alle tavolate aperte richiede i dati
+                            dell'intera giornata, che è ciò che la vista di
+                            servizio caricherà. Farlo a metà qui darebbe
+                            avvisi incompleti, che sono peggio di nessun avviso.
+                         3. La vista di servizio non esiste ancora. */}
                     {(hasTables || canEditTables) && (
                         <section className={styles.drawerSection}>
                             <div className={styles.drawerSectionHead}>
                                 <h3 className={styles.drawerSectionTitle}>
-                                    {hasTables && tableView.rows.length > 1 ? "Tavoli" : "Tavolo"}
+                                    {hasTables && activeTableView.rows.length > 1
+                                        ? "Tavoli"
+                                        : "Tavolo"}
                                 </h3>
                                 {canEditTables && !pickerOpen && (
                                     <div className={styles.drawerTableActions}>
-                                        {hasTables && !tableView.proposed && onResetTables && (
+                                        {/* "Restituisci al sistema" riguarda la
+                                            proposta, e la proposta esiste solo
+                                            nel piano: sul fatto non c'è niente
+                                            che il motore possa rifare. */}
+                                        {tableSection?.source === "plan" &&
+                                            hasTables &&
+                                            !activeTableView.proposed &&
+                                            onResetTables && (
                                             <Button
                                                 variant="ghost"
                                                 size="sm"
@@ -469,8 +822,11 @@ export default function ReservationDetailDrawer({
                                         >
                                             Annulla
                                         </Button>
-                                        {/* Array vuoto rifiutato dalla RPC: chi vuole liberare
-                                            la prenotazione usa "Restituisci al sistema". */}
+                                        {/* Array vuoto rifiutato dalla RPC del piano: chi vuole
+                                            liberare la prenotazione usa "Restituisci al sistema".
+                                            `set_seating_tables` lo accetterebbe, ma "togli tutti i
+                                            tavoli alla tavolata" è un gesto che oggi non esiste
+                                            altrove: non lo si introduce di sponda da un picker. */}
                                         <Button
                                             variant="primary"
                                             size="sm"
@@ -485,7 +841,7 @@ export default function ReservationDetailDrawer({
                             ) : hasTables ? (
                                 <>
                                     <ul className={styles.drawerTableList}>
-                                        {tableView.rows.map(row => (
+                                        {activeTableView.rows.map(row => (
                                             <li key={row.table_id} className={styles.drawerTableRow}>
                                                 <Armchair
                                                     size={15}
@@ -509,13 +865,10 @@ export default function ReservationDetailDrawer({
                                             </li>
                                         ))}
                                     </ul>
-                                    {tableView.proposed && (
-                                        <p className={styles.drawerTableHint}>
-                                            Proposto dal sistema. Se la prenotazione viene spostata o
-                                            cambia il numero di persone, la proposta viene rifatta.
-                                        </p>
+                                    {tableHint !== null && (
+                                        <p className={styles.drawerTableHint}>{tableHint}</p>
                                     )}
-                                    {tableView.conflict && (
+                                    {activeTableView.conflict && (
                                         <div className={styles.drawerTableConflict} role="status">
                                             <TriangleAlert
                                                 size={15}
@@ -523,13 +876,83 @@ export default function ReservationDetailDrawer({
                                                 aria-hidden
                                                 className={styles.drawerTableConflictIcon}
                                             />
-                                            <span>{tableView.conflict.message}.</span>
+                                            <span>{activeTableView.conflict.message}.</span>
                                         </div>
                                     )}
                                 </>
                             ) : (
+                                <p className={styles.drawerTableHint}>{tableEmptyHint}</p>
+                            )}
+                        </section>
+                    )}
+
+                    {/* ── Coperti reali ──────────────────────────────────
+                         Solo nella forma `seated`: è la regola della sezione
+                         TAVOLO estesa dai tavoli ai coperti. La prenotazione
+                         diceva quattro, ne sono arrivati cinque: cambia la
+                         tavolata (`seatings.party_size`), non la prenotazione,
+                         che è la promessa fatta ieri e resta quella che era.
+                         Su `completed` i coperti sono storia e non si toccano
+                         (la RPC rifiuta con 22023, e qui il gesto non c'è). */}
+                    {tableSection?.note === "seated" && (
+                        <section className={styles.drawerSection}>
+                            <div className={styles.drawerSectionHead}>
+                                <h3 className={styles.drawerSectionTitle}>Coperti</h3>
+                                {tableSection.target === "seating" &&
+                                    onSetSeatingPartySize &&
+                                    !coversOpen && (
+                                        <div className={styles.drawerTableActions}>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                onClick={() => {
+                                                    setCoversDraft(
+                                                        seatingPartySize ??
+                                                            reservation.party_size
+                                                    );
+                                                    setCoversOpen(true);
+                                                }}
+                                            >
+                                                Correggi i coperti
+                                            </Button>
+                                        </div>
+                                    )}
+                            </div>
+                            {coversOpen ? (
+                                <div className={styles.drawerTablePicker}>
+                                    <SeatsInput
+                                        value={coversDraft}
+                                        onChange={setCoversDraft}
+                                        min={1}
+                                        max={99}
+                                        disabled={savingCovers}
+                                    />
+                                    <div className={styles.drawerTablePickerActions}>
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            disabled={savingCovers}
+                                            onClick={() => setCoversOpen(false)}
+                                        >
+                                            Annulla
+                                        </Button>
+                                        <Button
+                                            variant="primary"
+                                            size="sm"
+                                            loading={savingCovers}
+                                            onClick={handleConfirmCovers}
+                                        >
+                                            Conferma
+                                        </Button>
+                                    </div>
+                                </div>
+                            ) : (
                                 <p className={styles.drawerTableHint}>
-                                    Nessun tavolo assegnato.
+                                    {seatingPartySize === undefined || seatingPartySize === null
+                                        ? `Al tavolo: non indicati · prenotati ${reservation.party_size}`
+                                        : seatingPartySize === reservation.party_size
+                                          ? `Al tavolo: ${seatingPartySize}, come prenotato`
+                                          : `Al tavolo: ${seatingPartySize} · prenotati ${reservation.party_size}`}
                                 </p>
                             )}
                         </section>
