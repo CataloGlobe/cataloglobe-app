@@ -1,6 +1,8 @@
 import { supabase } from "@/services/supabase/client";
+import type { BillingInterval } from "@/types/plan";
 
 export type PlanCode = "base" | "pro";
+export type { BillingInterval };
 
 export type CreateCheckoutSessionInput = {
     tenantId: string;
@@ -8,6 +10,8 @@ export type CreateCheckoutSessionInput = {
     cancelUrl?: string;
     quantity?: number;
     planCode?: PlanCode;
+    /** Required: the edge function rejects a missing interval, never assumes monthly. */
+    billingInterval: BillingInterval;
     promotionCode?: string;
 };
 
@@ -27,6 +31,7 @@ export async function createCheckoutSession(input: CreateCheckoutSessionInput): 
             cancelUrl: input.cancelUrl,
             quantity: input.quantity ?? 1,
             planCode: input.planCode,
+            billingInterval: input.billingInterval,
             promotionCode: input.promotionCode
         }
     });
@@ -234,9 +239,6 @@ export async function updateScheduledChange(
 // Fonte di verità = Stripe (la pagina lo legge on mount per il banner
 // persistente: cambio programmato e/o disdetta a fine periodo).
 // ---------------------------------------------------------------------------
-
-/** Intervallo di fatturazione, stesso dominio di Stripe `recurring.interval`. */
-export type BillingInterval = "month" | "year";
 
 export type SubscriptionPendingChange = {
     targetPlan: PlanCode | null;

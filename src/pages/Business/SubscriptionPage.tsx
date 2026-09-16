@@ -23,6 +23,7 @@ import type {
 } from "@/services/supabase/billing";
 import { getPlanByCode, listPublicPlans } from "@/services/supabase/plans";
 import { getActivityCount } from "@/services/supabase/activities";
+import { getTenantBillingInterval } from "@/services/supabase/tenants";
 import { calculateGraduatedFromPlan } from "@/utils/pricing";
 import { canDoOnTenant } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -265,7 +266,8 @@ export default function SubscriptionPage() {
 
     const currentPricing = useMemo(() => {
         if (!currentPlan) return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
-        return calculateGraduatedFromPlan(currentPlan, paidSeats);
+        // This page still shows the monthly price (interval-aware display is a later step).
+        return calculateGraduatedFromPlan({ ...currentPlan, unit_price_cents: currentPlan.monthly_price_cents }, paidSeats);
     }, [currentPlan, paidSeats]);
 
     // --- Derivati del flusso di cambio (sicuri anche prima del load) ---
@@ -276,9 +278,19 @@ export default function SubscriptionPage() {
     const selfServiceCap = currentPlan?.max_self_service_seats ?? 5;
     const selfServiceEligible = activityCount <= selfServiceCap;
 
+    // Card prices for the change-plan drawer: still the monthly figure from
+    // `plans` (interval-aware display on this page is a later step).
+    const draftUnitPriceCentsByPlan = useMemo(() => {
+        const out: Partial<Record<PlanCode, number>> = {};
+        for (const p of plans) {
+            if (p.monthly_price_cents !== null) out[p.code] = p.monthly_price_cents;
+        }
+        return out;
+    }, [plans]);
+
     const draftBreakdown = useMemo(() => {
         if (!draftPlanObj) return { lines: [], subtotal: 0, fullPrice: 0, discountedPrice: 0 };
-        return calculateGraduatedFromPlan(draftPlanObj, draftSeats);
+        return calculateGraduatedFromPlan({ ...draftPlanObj, unit_price_cents: draftPlanObj.monthly_price_cents }, draftSeats);
     }, [draftPlanObj, draftSeats]);
 
     if (loading || !selectedTenant) return null;
@@ -339,9 +351,20 @@ export default function SubscriptionPage() {
     const handleCheckout = async () => {
         setCheckoutLoading(true);
         try {
+            // Re-activation keeps the interval the tenant already has. A NULL
+            // interval is a legacy tenant that predates the column and never
+            // chose anything (monthly was the only interval that ever existed):
+            // no choice to betray, so 'month' is the honest reading — logged,
+            // not blocked.
+            const storedInterval = await getTenantBillingInterval(selectedTenant.id);
+            if (storedInterval === null) {
+                console.warn(`[SubscriptionPage] tenant ${selectedTenant.id} has no billing_interval on record; checkout as month`);
+            }
+            const billingInterval = storedInterval ?? "month";
             const url = await createCheckoutSession({
                 tenantId: selectedTenant.id,
                 planCode: selectedTenant.plan,
+                billingInterval,
                 quantity: paidSeats > 0 ? paidSeats : 1,
                 successUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=success`,
                 cancelUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=cancel`
@@ -1038,6 +1061,7 @@ export default function SubscriptionPage() {
                                 plans={plans}
                                 planCode={draftPlan}
                                 onPlanChange={handleDraftPlan}
+                                unitPriceCentsByPlan={draftUnitPriceCentsByPlan}
                                 seats={draftSeats}
                                 onSeatsChange={setDraftSeats}
                                 breakdown={draftBreakdown}

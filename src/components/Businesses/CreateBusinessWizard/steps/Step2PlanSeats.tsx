@@ -1,6 +1,6 @@
 import Text from "@/components/ui/Text/Text";
 import { PlanSeatsSelector } from "@/components/ui/PlanSeatsSelector/PlanSeatsSelector";
-import type { Plan, PlanCode } from "@/types/plan";
+import type { BillingInterval, Plan, PlanCode } from "@/types/plan";
 import type { GraduatedBreakdown } from "@/utils/pricing";
 import styles from "../CreateBusinessWizard.module.scss";
 
@@ -8,6 +8,11 @@ interface Step2PlanSeatsProps {
     plans: Plan[];
     planCode: PlanCode;
     onPlanChange: (code: PlanCode) => void;
+    unitPriceCentsByPlan: Partial<Record<PlanCode, number>>;
+    billingInterval: BillingInterval;
+    availableIntervals: BillingInterval[];
+    onIntervalChange: (interval: BillingInterval) => void;
+    monthByMonthCentsByPlan: Partial<Record<PlanCode, number>>;
     seats: number;
     onSeatsChange: (value: number) => void;
     breakdown: GraduatedBreakdown;
@@ -21,6 +26,11 @@ export function Step2PlanSeats({
     plans,
     planCode,
     onPlanChange,
+    unitPriceCentsByPlan,
+    billingInterval,
+    availableIntervals,
+    onIntervalChange,
+    monthByMonthCentsByPlan,
     seats,
     onSeatsChange,
     breakdown,
@@ -42,6 +52,11 @@ export function Step2PlanSeats({
                 plans={plans}
                 planCode={planCode}
                 onPlanChange={onPlanChange}
+                unitPriceCentsByPlan={unitPriceCentsByPlan}
+                billingInterval={billingInterval}
+                availableIntervals={availableIntervals}
+                onIntervalChange={onIntervalChange}
+                monthByMonthCentsByPlan={monthByMonthCentsByPlan}
                 seats={seats}
                 onSeatsChange={onSeatsChange}
                 breakdown={breakdown}

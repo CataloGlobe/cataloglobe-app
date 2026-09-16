@@ -2,9 +2,11 @@
 // Per-plan graduated pricing (used by the create-business wizard)
 // =============================================================================
 //
-// The DB `plans` table carries `monthly_price_cents`, `volume_discount_threshold`
-// and `volume_discount_percent`. Stripe applies the *real* graduated pricing at
-// checkout; the helpers below are only for client-side display in the wizard.
+// `unit_price_cents` is the first-seat price for the CHOSEN billing interval
+// (from `plan_prices`: 3900 monthly, 39000 yearly); `volume_discount_threshold`
+// and `volume_discount_percent` come from `plans` and are interval-agnostic.
+// Stripe applies the *real* graduated pricing at checkout; the helpers below
+// are only for client-side display (wizard + Abbonamento page).
 
 export interface GraduatedSeatLine {
     seat: number;
@@ -25,10 +27,10 @@ export interface GraduatedBreakdown {
  * the threshold onward get the volume discount.
  */
 export function calculateGraduatedFromPlan(
-    plan: { monthly_price_cents: number | null; volume_discount_threshold: number; volume_discount_percent: number },
+    plan: { unit_price_cents: number | null; volume_discount_threshold: number; volume_discount_percent: number },
     seats: number
 ): GraduatedBreakdown {
-    const fullPrice = (plan.monthly_price_cents ?? 0) / 100;
+    const fullPrice = (plan.unit_price_cents ?? 0) / 100;
     const discountFactor = 1 - plan.volume_discount_percent / 100;
     const discountedPrice = Math.round(fullPrice * discountFactor * 100) / 100;
     const threshold = Math.max(1, plan.volume_discount_threshold);

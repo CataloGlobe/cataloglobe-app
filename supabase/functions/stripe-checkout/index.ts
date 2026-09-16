@@ -37,9 +37,9 @@ const MAX_SELF_SERVICE_SEATS = 5;
 // policy — "how long is the first subscription free" — not a per-plan price
 // attribute; every plan gets the same trial.
 const TRIAL_PERIOD_DAYS = 30;
-// Intervallo di fatturazione del checkout self-service. Fisso finche' la scelta
-// mensile/annuale non entra nel body (passo 2 dell'epic annuale).
-const BILLING_INTERVAL: BillingInterval = "month";
+// Billing intervals a customer can pick at checkout. Same domain as Stripe
+// `recurring.interval`; the Price for (plan, interval) comes from `plan_prices`.
+const ALLOWED_BILLING_INTERVALS = new Set<BillingInterval>(["month", "year"]);
 
 function json(req: Request, status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
@@ -160,6 +160,7 @@ type CheckoutBody = {
     cancelUrl?: string;
     quantity?: number;
     planCode?: string;
+    billingInterval?: string;
     promotionCode?: string;
 };
 
@@ -219,6 +220,18 @@ serve(async req => {
             return json(req, 400, { error: "invalid_plan_code" });
         }
 
+        // Required and allowlisted: a missing interval is an error, never a
+        // silent monthly default — the caller (wizard / Abbonamento page) always
+        // knows which interval it is selling.
+        const rawInterval = (payload?.billingInterval ?? "").trim().toLowerCase();
+        if (rawInterval === "") {
+            return json(req, 400, { error: "missing_billing_interval" });
+        }
+        if (!ALLOWED_BILLING_INTERVALS.has(rawInterval as BillingInterval)) {
+            return json(req, 400, { error: "invalid_billing_interval" });
+        }
+        const billingInterval = rawInterval as BillingInterval;
+
         const promotionCodeInput = payload?.promotionCode?.trim() ?? "";
 
         const successUrl =
@@ -250,13 +263,12 @@ serve(async req => {
         const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
         // --- Resolve price_id from plan_prices (DB-driven, single source of truth) ---
-        // Intervallo fisso a 'month' in questa fase: la scelta dell'annuale arriva
-        // con il passo successivo (campo body + validazione). `plans.stripe_price_id`
-        // e' deprecata e non va piu' letta.
-        const resolvedPriceId = await lookupStripePriceId(supabaseAdmin, planCode, BILLING_INTERVAL);
+        // No row for (plan, interval) → clean error, never a fallback to another
+        // interval: a customer who picked yearly must not be sold a monthly Price.
+        const resolvedPriceId = await lookupStripePriceId(supabaseAdmin, planCode, billingInterval);
         if (!resolvedPriceId) {
             console.error(
-                `stripe-checkout: plan_prices has no row for ${planCode}/${BILLING_INTERVAL} — DB misconfigured`
+                `stripe-checkout: plan_prices has no row for ${planCode}/${billingInterval} — interval not purchasable`
             );
             return json(req, 500, { error: "plan_not_configured" });
         }
@@ -435,7 +447,7 @@ serve(async req => {
         const session = await stripe.checkout.sessions.create(sessionParams);
 
         console.log(
-            `stripe-checkout: Session ${session.id} created for tenant ${tenantId} (plan=${planCode}, qty=${quantity}, promo=${resolvedPromotionId ?? "none"})`
+            `stripe-checkout: Session ${session.id} created for tenant ${tenantId} (plan=${planCode}, interval=${billingInterval}, qty=${quantity}, promo=${resolvedPromotionId ?? "none"})`
         );
 
         return json(req, 200, { checkout_url: session.url });
