@@ -2,7 +2,7 @@
 //   - supabase/functions/_shared/openingHours.ts   (porto Edge: il cancello
 //     server-side `isReservationTimeBookable` e il gate ordini)
 //   - src/pages/ReservationPage/utils/reservationSlots.ts (la griglia offerta
-//     al cliente: passo, intervallo semiaperto, orizzonte)
+//     al cliente: passo, intervallo semiaperto, preavviso, orizzonte)
 // Qualsiasi modifica va replicata in TUTTI i file, nello stesso commit
 // (stesso pattern di scheduleResolver.ts e priceSummary.ts).
 

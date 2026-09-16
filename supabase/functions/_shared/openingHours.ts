@@ -3,7 +3,7 @@
 //   - src/pages/ReservationPage/availability.ts        (fasce del giorno,
 //     coda notturna, chiusure straordinarie, orario dentro le fasce)
 //   - src/pages/ReservationPage/utils/reservationSlots.ts (griglia offerta
-//     al cliente: passo, intervallo semiaperto, orizzonte)
+//     al cliente: passo, intervallo semiaperto, preavviso, orizzonte)
 // Qualsiasi modifica alla regola va replicata in TUTTI i file, nello stesso
 // commit (stesso pattern di scheduleResolver.ts e priceSummary.ts).
 //

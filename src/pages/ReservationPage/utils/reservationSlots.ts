@@ -3,7 +3,7 @@
 //     coda notturna, chiusure straordinarie)
 //   - supabase/functions/_shared/openingHours.ts        (porto Edge: il
 //     cancello server-side `isReservationTimeBookable` rifà QUESTA griglia —
-//     passo, intervallo semiaperto, orizzonte — per rifiutare ciò che il
+//     passo, intervallo semiaperto, preavviso, orizzonte — per rifiutare ciò che il
 //     picker non avrebbe offerto)
 // Qualsiasi modifica va replicata in TUTTI i file, nello stesso commit
 // (stesso pattern di scheduleResolver.ts e priceSummary.ts).

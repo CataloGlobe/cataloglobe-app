@@ -153,8 +153,9 @@ const IT: ReservationEmailCopy = {
     detailsTime: "Ora",
     detailsPeople: "Persone",
 
-    customerReason: venue =>
-        `Hai ricevuto questa email perché hai richiesto una prenotazione presso ${venue} tramite CataloGlobe.`,
+    // Nessun nome sede: «il locale» regge per online, manuale e annullata.
+    customerReason: () =>
+        `Ricevi questa email perché il locale ha registrato una prenotazione a tuo nome e gestisce le prenotazioni con CataloGlobe.`,
 
     receiptSubject: venue => `Abbiamo ricevuto la tua richiesta di prenotazione — ${venue}`,
     receiptTitle: "Richiesta di prenotazione ricevuta",
@@ -179,7 +180,7 @@ const IT: ReservationEmailCopy = {
     outcomeBody: (venue, action, em) =>
         action === "decline"
             ? `Ci dispiace, la tua richiesta di prenotazione presso ${em(venue)} ${em("non è stata confermata")}. Puoi provare con una data o un orario diverso.`
-            : `La tua prenotazione presso ${em(venue)} è stata ${em("annullata")}. Se ritieni che ci sia stato un errore, contatta direttamente la sede.`,
+            : `La tua prenotazione presso ${em(venue)} è stata ${em("annullata")}. Se ritieni che ci sia stato un errore, contatta direttamente il locale.`,
     outcomeIcsNote: "Se avevi salvato l'appuntamento nel calendario, l'allegato lo rimuove.",
 
     updatedSubject: venue => `La tua prenotazione è stata spostata — ${venue}`,
@@ -197,7 +198,7 @@ const IT: ReservationEmailCopy = {
     cancelLinkLabel: "Annulla la prenotazione",
     cancelLinkSuffix: " in un clic.",
     cancelTextIntro: "Annulla la prenotazione da qui:",
-    cancelFallback: "Contatta direttamente la sede per annullare la prenotazione.",
+    cancelFallback: "Contatta direttamente il locale per annullare la prenotazione.",
 
     confirmButtonLabel: "Confermo che vengo",
     confirmTextLead: "Confermi che vieni? Basta un tocco:",

@@ -391,8 +391,8 @@ describe("reservation email builders (_shared)", () => {
             ])("senza URL (%s) resta una frase, e l'email parte comunque", (_label, value) => {
                 const email = build(value);
                 expect(cardBody(email.html)).not.toContain("<a href");
-                expect(email.html).toContain("Contatta direttamente la sede");
-                expect(email.text).toContain("Contatta direttamente la sede");
+                expect(email.html).toContain("Contatta direttamente il locale");
+                expect(email.text).toContain("Contatta direttamente il locale");
                 expectNonEmptyContent(email);
             });
 
@@ -405,12 +405,12 @@ describe("reservation email builders (_shared)", () => {
                 const email = build(value);
                 expect(cardBody(email.html)).not.toContain("<a href");
                 expect(email.html).not.toContain(value);
-                expect(email.html).toContain("Contatta direttamente la sede");
+                expect(email.html).toContain("Contatta direttamente il locale");
             });
 
             it("nessun vicolo cieco: senza link dice comunque cosa fare", () => {
                 const email = build(null);
-                expect(email.text).toMatch(/Contatta direttamente la sede per annullare/);
+                expect(email.text).toMatch(/Contatta direttamente il locale per annullare/);
             });
         });
 
