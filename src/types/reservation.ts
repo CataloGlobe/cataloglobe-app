@@ -28,6 +28,17 @@ export type ReservationStatus =
     | "cancelled"
     | "no_show";
 
+/**
+ * Intervallo di date inclusivo (`YYYY-MM-DD`, confrontabile come stringa).
+ * `listReservations` lo esige: la pagina chiede al server solo le date che
+ * mostra, mai l'intera tabella (FASE 5.2a — PostgREST tronca a 1000 righe
+ * e in ordine crescente sparisce il futuro, in silenzio).
+ */
+export interface ReservationDateRange {
+    from: string;
+    to: string;
+}
+
 // "online" = submitted via the public form (submit-reservation edge function);
 // "manual" = inserted by an admin via the dashboard (createReservation).
 export type ReservationSource = "online" | "manual";

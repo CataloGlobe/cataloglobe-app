@@ -22,27 +22,80 @@ import type {
     ReassignActivityTablesSummary,
     ReservationTableAssignment,
     ReservationTableAssignmentOutcome,
+    ReservationDateRange,
     ReservationTableAssignmentWithTable,
     V2Reservation
 } from "@/types/reservation";
 
 /**
- * Lista prenotazioni di un tenant. Ordinate per data + ora ascendente
- * (prossime in cima).
+ * Prenotazioni di un tenant in un intervallo di date, inclusivo, ordinate per
+ * data + ora ascendente. L'intervallo è obbligatorio: senza filtro PostgREST
+ * tronca a 1000 righe (`config.toml` non alza `max_rows`) e, con l'ordine
+ * crescente, a sparire è il futuro — in silenzio. La pagina passa solo le
+ * date che sta mostrando (`loadWindow.ts`), e il tetto diventa
+ * irraggiungibile invece che spostato. `from > to` → `[]` senza rete.
  *
  * RLS activity-scoped filtra automaticamente alle sedi su cui il caller
  * ha il permesso `reservations.read`.
  */
-export async function listReservations(tenantId: string): Promise<V2Reservation[]> {
+export async function listReservations(
+    tenantId: string,
+    range: ReservationDateRange
+): Promise<V2Reservation[]> {
+    if (range.from > range.to) return [];
+
     const { data, error } = await supabase
         .from("reservations")
         .select("*")
         .eq("tenant_id", tenantId)
+        .gte("reservation_date", range.from)
+        .lte("reservation_date", range.to)
         .order("reservation_date", { ascending: true })
         .order("reservation_time", { ascending: true });
 
     if (error) throw error;
     return (data ?? []) as V2Reservation[];
+}
+
+/**
+ * Tetto della coda «Da gestire». Non è una pagina: è il punto oltre il quale
+ * la pagina smette di fingere di mostrare tutto e lo dice (`truncated`).
+ * Una coda che lo tocca è un locale che non risponde da settimane, non un
+ * caso d'uso da servire meglio.
+ */
+export const PENDING_QUEUE_LIMIT = 200;
+
+export interface PendingReservationsPage {
+    rows: V2Reservation[];
+    /** True se esistono altre pending oltre `PENDING_QUEUE_LIMIT`. */
+    truncated: boolean;
+}
+
+/**
+ * La coda delle richieste in attesa, a qualunque data: la scheda «Da gestire»
+ * le mostra tutte, anche quelle di ieri (vanno chiuse, non nascoste).
+ * Ordinate dalla più vecchia: una pending della settimana scorsa si risponde
+ * prima di una per giugno. Si chiede una riga in più del tetto per sapere se
+ * il tetto è stato toccato senza una seconda query di conteggio.
+ */
+export async function listPendingReservations(
+    tenantId: string
+): Promise<PendingReservationsPage> {
+    const { data, error } = await supabase
+        .from("reservations")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .eq("status", "pending")
+        .order("reservation_date", { ascending: true })
+        .order("reservation_time", { ascending: true })
+        .limit(PENDING_QUEUE_LIMIT + 1);
+
+    if (error) throw error;
+    const rows = (data ?? []) as V2Reservation[];
+    return {
+        rows: rows.slice(0, PENDING_QUEUE_LIMIT),
+        truncated: rows.length > PENDING_QUEUE_LIMIT
+    };
 }
 
 /**

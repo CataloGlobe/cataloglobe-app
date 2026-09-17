@@ -13,13 +13,25 @@ import {
 } from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
 import { formatTableLabels } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
 import type { V2Reservation } from "@/types/reservation";
+import { agendaWeekRange } from "./loadWindow";
 import ChannelMark from "./ChannelMark";
 import GuestConfirmedMark from "./GuestConfirmedMark";
 import styles from "./Reservations.module.scss";
 
 interface Props {
-    /** Reservations belonging to the single selected activity, all statuses. */
+    /**
+     * Reservations belonging to the single selected activity, all statuses.
+     * Il parent le ha chieste al server per la settimana `weekOffset` (più
+     * oggi e i giorni aperti nei drawer): qui si filtra solo per sicurezza.
+     */
     items: V2Reservation[];
+    /**
+     * Settimana mostrata, in settimane da quella di oggi. Vive nel parent
+     * perché decide COSA si carica (FASE 5.2a): la settimana è la finestra
+     * della fetch, non un dettaglio della vista.
+     */
+    weekOffset: number;
+    onWeekOffsetChange: (next: number) => void;
     /** Tavoli assegnati per prenotazione (solo chi ne ha uno). Calcolato dal parent. */
     tableViews: ReadonlyMap<string, TableAssignmentView>;
     /** Activity name to render in headers (also serves as gate: null = "All sites"). */
@@ -61,13 +73,6 @@ function isoDateOf(d: Date): string {
 function parseLocalDate(iso: string): Date {
     const [y, m, d] = iso.split("-").map(n => parseInt(n, 10));
     return new Date(y, (m ?? 1) - 1, d ?? 1);
-}
-
-/** Monday of the ISO-style week (Mon..Sun) containing `d`. */
-function mondayOf(d: Date): Date {
-    const day = d.getDay(); // 0=Sun..6=Sat
-    const shift = day === 0 ? -6 : 1 - day; // back to Mon
-    return addDays(d, shift);
 }
 
 function formatDayHeader(isoDate: string): string {
@@ -142,6 +147,8 @@ const WEEKDAY_ABBR_IT = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"];
 
 export default function ReservationsAgenda({
     items,
+    weekOffset,
+    onWeekOffsetChange,
     tableViews,
     activityName,
     canManage = false,
@@ -152,26 +159,24 @@ export default function ReservationsAgenda({
     // Giorno in attesa di conferma per "Riorganizza i tavoli".
     const [reassignDate, setReassignDate] = useState<string | null>(null);
     const [showTerminal, setShowTerminal] = useState(false);
-    const [weekOffset, setWeekOffset] = useState(0);
     const today = todayIsoDate();
 
     // ── Range derivation ────────────────────────────────────────────────────
-    const todayDate = useMemo(() => parseLocalDate(today), [today]);
-    const weekStart = useMemo(
-        () => addDays(mondayOf(todayDate), weekOffset * 7),
-        [todayDate, weekOffset]
+    // Stessa regola della finestra di caricamento: se divergessero, la
+    // griglia mostrerebbe giorni che il server non ha mandato.
+    const { from: weekStartIso, to: weekEndIso } = useMemo(
+        () => agendaWeekRange(today, weekOffset),
+        [today, weekOffset]
     );
-    const weekEnd = useMemo(() => addDays(weekStart, 6), [weekStart]);
-    const weekStartIso = useMemo(() => isoDateOf(weekStart), [weekStart]);
-    const weekEndIso = useMemo(() => isoDateOf(weekEnd), [weekEnd]);
+    const weekStart = useMemo(() => parseLocalDate(weekStartIso), [weekStartIso]);
+    const weekEnd = useMemo(() => parseLocalDate(weekEndIso), [weekEndIso]);
     const rangeLabel = useMemo(
         () => formatRangeLabel(weekStart, weekEnd),
         [weekStart, weekEnd]
     );
 
-    // Range filter replaces the old `>= today` gate so the user can navigate
-    // backward in time. Dataset is already filtered upstream by tenant scope +
-    // channel, so this is a pure date-window narrowing.
+    // Il parent carica anche oggi e i giorni aperti nei drawer: qui restano
+    // solo i sette della settimana.
     const rangeItems = useMemo(
         () =>
             items.filter(
@@ -261,7 +266,7 @@ export default function ReservationsAgenda({
                             type="button"
                             className={styles.weekNavToday}
                             aria-label="Torna a oggi"
-                            onClick={() => setWeekOffset(0)}
+                            onClick={() => onWeekOffsetChange(0)}
                         >
                             Oggi
                         </button>
@@ -275,7 +280,7 @@ export default function ReservationsAgenda({
                     type="button"
                     className={styles.weekNavArrow}
                     aria-label="Settimana precedente"
-                    onClick={() => setWeekOffset(o => o - 1)}
+                    onClick={() => onWeekOffsetChange(weekOffset - 1)}
                 >
                     <ChevronLeft size={16} strokeWidth={2} />
                 </button>
@@ -286,7 +291,7 @@ export default function ReservationsAgenda({
                     type="button"
                     className={styles.weekNavArrow}
                     aria-label="Settimana successiva"
-                    onClick={() => setWeekOffset(o => o + 1)}
+                    onClick={() => onWeekOffsetChange(weekOffset + 1)}
                 >
                     <ChevronRight size={16} strokeWidth={2} />
                 </button>

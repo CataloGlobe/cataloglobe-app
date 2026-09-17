@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { Select } from "@/components/ui/Select/Select";
@@ -47,12 +47,22 @@ interface ReservationFormProps {
     /** Sedi su cui il caller ha `reservations.manage`. In create mode: usate
      *  per popolare il Select. In edit mode: solo per risolvere il nome. */
     manageableActivities: FormActivity[];
-    /** Prenotazioni del tenant (per il warning over-capacity). */
+    /**
+     * Prenotazioni in memoria nella pagina (per il warning over-capacity).
+     * Contengono il giorno scelto qui sotto solo perché la pagina lo carica
+     * su richiesta di `onDateChange`: vedi `loadWindow` in Reservations.tsx.
+     */
     allReservations: V2Reservation[];
     /** Riga corrente in edit mode. */
     entityData?: V2Reservation;
     onSuccess: () => void | Promise<void>;
     onSavingChange: (saving: boolean) => void;
+    /**
+     * La data che il form sta guardando (`null` se vuota o quando il form si
+     * smonta). La pagina la usa per caricare le prenotazioni di quel giorno,
+     * senza le quali l'avviso di capienza qui sopra non vedrebbe niente.
+     */
+    onDateChange?: (iso: string | null) => void;
 }
 
 function normalizeTime(value: string): string {
@@ -69,11 +79,13 @@ export function ReservationForm({
     allReservations,
     entityData,
     onSuccess,
-    onSavingChange
+    onSavingChange,
+    onDateChange
 }: ReservationFormProps) {
     const { showToast } = useToast();
     const { permissions } = usePermissions();
     const isEditing = mode === "edit";
+
 
     // ── Riconoscimento del cliente durante l'inserimento ──────────────────
     // È il punto di maggior valore quotidiano della rubrica: l'operatore
@@ -94,6 +106,20 @@ export function ReservationForm({
 
     const [activityId, setActivityId] = useState(defaultActivityId);
     const [reservationDate, setReservationDate] = useState(entityData?.reservation_date ?? "");
+
+    // Ref per non riagganciare l'effetto a ogni render del parent; l'effetto
+    // segue SOLO la data. Allo smontaggio si segnala `null`: il giorno non
+    // serve più e la pagina può smettere di caricarlo.
+    const onDateChangeRef = useRef(onDateChange);
+    useEffect(() => {
+        onDateChangeRef.current = onDateChange;
+    }, [onDateChange]);
+    useEffect(() => {
+        const iso = reservationDate.trim();
+        onDateChangeRef.current?.(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null);
+        return () => onDateChangeRef.current?.(null);
+    }, [reservationDate]);
+
     const [reservationTime, setReservationTime] = useState(
         entityData?.reservation_time ? entityData.reservation_time.slice(0, 5) : ""
     );

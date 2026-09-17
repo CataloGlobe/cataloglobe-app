@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { CalendarCheck, Clock, Lock, Plus } from "lucide-react";
+import { Clock, Lock, Plus } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -16,7 +16,9 @@ import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import { shiftIsoDate, todayIsoDate } from "@/utils/dateLocal";
 import {
+    listPendingReservations,
     listReservations,
+    PENDING_QUEUE_LIMIT,
     listReservationTablesForReservations,
     reassignActivityTables,
     resetReservationTablesToSystem,
@@ -70,6 +72,14 @@ import WalkinCreateDrawer from "./WalkinCreateDrawer";
 import { composeServiceBoard, seatingDisplayName } from "./serviceBoard";
 import { tableWriteTargetFor } from "./tableSection";
 import { useDeferredCommit, type DeferredAction } from "./useDeferredCommit";
+import {
+    agendaWeekRange,
+    applyRealtimeEvents,
+    dayContextRange,
+    mergeDateRanges,
+    type DateRange,
+    type ReservationRealtimeEvent
+} from "./loadWindow";
 import { useReservationsRealtime } from "./hooks/useReservationsRealtime";
 import { useSeatingsRealtime } from "./hooks/useSeatingsRealtime";
 import styles from "./Reservations.module.scss";
@@ -193,6 +203,9 @@ export default function Reservations() {
     );
 
     const [reservations, setReservations] = useState<V2Reservation[]>([]);
+    // La coda «Da gestire» ha un tetto (`PENDING_QUEUE_LIMIT`): se il server
+    // ne ha di più, la pagina lo dice invece di troncare in silenzio.
+    const [pendingTruncated, setPendingTruncated] = useState(false);
     const [activities, setActivities] = useState<V2Activity[]>([]);
     // Tenant-scoped map (user_id → display name) used to attribute manual
     // reservations to the operator who created them. Mirrors the pattern in
@@ -245,6 +258,15 @@ export default function Reservations() {
 
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(null);
+
+    // ── La finestra di caricamento ────────────────────────────────────────
+    // FASE 5.2a: la pagina chiede al server solo le date che mostra. Le tre
+    // sorgenti della finestra vivono qui, non nei figli, perché decidono cosa
+    // si carica: la settimana dell'Agenda, oggi, e il giorno aperto nei
+    // drawer (vedi `loadRanges`).
+    const [weekOffset, setWeekOffset] = useState(0);
+    // La data che il form crea/modifica sta guardando (`null` a form chiuso).
+    const [formDate, setFormDate] = useState<string | null>(null);
 
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
     const [createEditMode, setCreateEditMode] = useState<"create" | "edit">("create");
@@ -345,24 +367,83 @@ export default function Reservations() {
     );
 
     // ── Load ──────────────────────────────────────────────────────────
+    // Il giorno della prenotazione aperta nel drawer. Derivato dalla riga in
+    // memoria e non salvato a parte: se la riga cambia data (realtime, o
+    // modifica), la finestra la segue.
+    const selectedDate = useMemo(() => {
+        if (!isDrawerOpen || !selectedId) return null;
+        return reservations.find(r => r.id === selectedId)?.reservation_date ?? null;
+    }, [isDrawerOpen, selectedId, reservations]);
+
+    const today = todayIsoDate();
+    const loadRanges = useMemo<DateRange[]>(() => {
+        const ranges: DateRange[] = [
+            // La settimana che l'Agenda disegna: stessa regola, stesso modulo.
+            agendaWeekRange(today, weekOffset),
+            // Oggi, sempre: i contatori in testa e la scheda Servizio lo
+            // guardano qualunque settimana sia aperta in Agenda.
+            dayContextRange(today)
+        ];
+        // I giorni aperti nei drawer, con il giorno prima e il giorno dopo.
+        //
+        // ATTENZIONE — accoppiamento al contrario, voluto per questa fase.
+        // L'avviso di overbooking del form (`ReservationForm`) e il callout di
+        // capienza del drawer (`ReservationDetailDrawer`) calcolano il picco
+        // dai dati che questa pagina ha in memoria: è il caricamento che si
+        // piega a quello che serve a loro, non il contrario. Per le
+        // prenotazioni manuali quell'avviso è l'UNICO controllo di capienza:
+        // `createReservation` è un INSERT diretto, il server non verifica
+        // niente. Togliere questi giorni dalla finestra non rompe nessun
+        // test e nessuna vista: rende semplicemente cieco l'avviso, in
+        // silenzio. Va tolto SOLO quando form e drawer chiederanno i numeri
+        // al server (`get_reservation_day_availability` esiste già).
+        // `D-1 .. D+1` perché le finestre di durata scavalcano la mezzanotte:
+        // è la stessa finestra di `reservation_peak_with_candidate`.
+        if (selectedDate) ranges.push(dayContextRange(selectedDate));
+        if (formDate) ranges.push(dayContextRange(formDate));
+        return mergeDateRanges(ranges);
+    }, [today, weekOffset, selectedDate, formDate]);
+    // Chiave stabile: un array nuovo con le stesse date non deve ricaricare.
+    const loadRangesKey = loadRanges.map(r => `${r.from}..${r.to}`).join("|");
+    // Il realtime e i gesti leggono la finestra corrente dal ref: `loadData`
+    // non cambia identità a ogni navigazione di settimana.
+    const loadRangesRef = useRef(loadRanges);
+    useEffect(() => {
+        loadRangesRef.current = loadRanges;
+    }, [loadRanges]);
+
     const loadData = useCallback(async () => {
         if (!tenantId) return;
         setIsLoading(true);
         try {
-            const [rows, acts, names] = await Promise.all([
-                listReservations(tenantId),
+            const ranges = loadRangesRef.current;
+            const [windows, pending, acts, names] = await Promise.all([
+                Promise.all(ranges.map(range => listReservations(tenantId, range))),
+                listPendingReservations(tenantId),
                 getActivities(tenantId),
                 getTenantMemberNames(tenantId)
             ]);
-            // Una sola query aggiuntiva, sugli id da ieri in avanti. `loadData`
-            // gira a ogni evento realtime e dopo ogni commit differito: il
-            // costo va tenuto a UNA query, non una per riga.
+            // Le finestre sono disgiunte (`mergeDateRanges`), ma una pending
+            // dentro una finestra arriva due volte: si deduplica per id.
+            const byId = new Map<string, V2Reservation>();
+            for (const rows of windows) for (const r of rows) byId.set(r.id, r);
+            for (const r of pending.rows) byId.set(r.id, r);
+            const rows = Array.from(byId.values()).sort((a, b) =>
+                a.reservation_date !== b.reservation_date
+                    ? a.reservation_date.localeCompare(b.reservation_date)
+                    : a.reservation_time.localeCompare(b.reservation_time)
+            );
+            // Una sola query aggiuntiva, sugli id da ieri in avanti: le
+            // assegnazioni delle prenotazioni passate non si mostrano, non si
+            // pagano. Con la finestra la lista di id resta corta — con 1000 id
+            // l'URL superava i 37 KB e il gateway rispondeva 400.
             const sinceIso = shiftIsoDate(todayIsoDate(), -1);
             const recentIds = rows
                 .filter(r => r.reservation_date >= sinceIso)
                 .map(r => r.id);
             const assignments = await listReservationTablesForReservations(recentIds, tenantId);
             setReservations(rows);
+            setPendingTruncated(pending.truncated);
             setActivities(acts);
             setOperatorNames(names);
             setTableAssignments(assignments);
@@ -382,17 +463,63 @@ export default function Reservations() {
         }
     }, [tenantId, showToast]);
 
+    // Ricarica quando cambia la finestra (settimana, giorno aperto in un
+    // drawer), oltre che al primo giro. `loadRangesKey` e non `loadRanges`:
+    // stesse date, stessa fetch.
     useEffect(() => {
         if (permissionsLoading || !permissions) return;
         if (!canRead) return;
         void loadData();
-    }, [permissionsLoading, permissions, canRead, loadData]);
+    }, [permissionsLoading, permissions, canRead, loadData, loadRangesKey]);
 
-    // Live updates: encapsulated in a dedicated hook (mirrors the codebase
-    // pattern of `useActiveOrdersRealtime.ts` / `useTablesLiveRealtime.ts`).
+    // Live updates: gli eventi si applicano alle righe in memoria, senza
+    // rileggere la finestra (che si rilegge solo alla (ri)connessione del
+    // canale). Una riga fuori finestra e non pending si scarta.
+    const handleRealtimeEvents = useCallback(
+        (events: ReservationRealtimeEvent[]) => {
+            if (!tenantId) return;
+            const ranges = loadRangesRef.current;
+            let touched: string[] = [];
+            let removed: string[] = [];
+            let pendingNow = 0;
+            setReservations(prev => {
+                const result = applyRealtimeEvents(prev, events, ranges);
+                touched = result.touchedIds;
+                removed = result.removedIds;
+                pendingNow = result.rows.filter(r => r.status === "pending").length;
+                return result.rows;
+            });
+            // Una pending in più via realtime può superare il tetto: la pagina
+            // lo dice anche qui, senza aspettare la prossima rilettura.
+            if (pendingNow > PENDING_QUEUE_LIMIT) setPendingTruncated(true);
+            if (removed.length > 0) {
+                const gone = new Set(removed);
+                setTableAssignments(prev => prev.filter(a => !gone.has(a.reservation_id)));
+            }
+            if (touched.length > 0) {
+                // Il trigger di riassegnazione può aver cambiato i tavoli delle
+                // righe toccate: una query sui loro id, non sulla finestra.
+                void listReservationTablesForReservations(touched, tenantId)
+                    .then(fresh => {
+                        const ids = new Set(touched);
+                        setTableAssignments(prev => [
+                            ...prev.filter(a => !ids.has(a.reservation_id)),
+                            ...fresh
+                        ]);
+                    })
+                    .catch(() => {
+                        // Le assegnazioni restano quelle di prima: la prossima
+                        // rilettura le allinea. Niente toast per un dettaglio.
+                    });
+            }
+        },
+        [tenantId]
+    );
+
     useReservationsRealtime(
         tenantId,
         !permissionsLoading && !!permissions && canRead,
+        handleRealtimeEvents,
         loadData
     );
 
@@ -1260,7 +1387,6 @@ export default function Reservations() {
     // prenotazione al tavolo non è sparita, e un conteggio che scala man mano
     // che la gente si siede direbbe "Oggi · 0 prenotazioni" a fine serata,
     // nel momento in cui il locale è più pieno.
-    const today = todayIsoDate();
     const todayItems = useMemo(
         () =>
             scopedReservations.filter(
@@ -1384,18 +1510,14 @@ export default function Reservations() {
                     </div>
                 )}
 
-                {/* ── Empty: zero reservations at all ──────────────────── */}
-                {effectiveReservations.length === 0 ? (
-                    <div className={styles.emptyState}>
-                        <EmptyState
-                            icon={<CalendarCheck size={40} strokeWidth={1.5} />}
-                            title="Nessuna prenotazione"
-                            description="Quando i clienti invieranno richieste dalla pagina pubblica, compariranno qui."
-                        />
-                    </div>
-                ) : tab === "inbox" ? (
+                {/* Niente stato vuoto di pagina: la memoria contiene solo la
+                    finestra mostrata, e una settimana vuota non è «nessuna
+                    prenotazione». Ogni scheda ha il suo vuoto, con la sua
+                    navigazione. */}
+                {tab === "inbox" ? (
                     <ReservationsInbox
                         pendingItems={pendingInScope}
+                        truncated={pendingTruncated}
                         tableViews={tableViews}
                         activityNames={activityNames}
                         showSitePill={showSitePill}
@@ -1406,6 +1528,8 @@ export default function Reservations() {
                 ) : tab === "agenda" ? (
                     <ReservationsAgenda
                         items={scopedReservations}
+                        weekOffset={weekOffset}
+                        onWeekOffsetChange={setWeekOffset}
                         tableViews={tableViews}
                         activityName={scopedActivityName}
                         canManage={scope !== "__all__" && canManageActivity(scope)}
@@ -1522,6 +1646,7 @@ export default function Reservations() {
                     allReservations={effectiveReservations}
                     selectedReservation={editingReservation ?? undefined}
                     onSuccess={handleCreateEditSuccess}
+                    onDateChange={setFormDate}
                 />
             )}
         </>
