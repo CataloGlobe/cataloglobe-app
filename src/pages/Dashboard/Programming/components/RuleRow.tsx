@@ -28,6 +28,7 @@ export type RuleInsight = {
     zeroReachReason?: string;
     conflictingWithName?: string;
     overriddenByName?: string;
+    /** Nomi delle sedi dove questa regola è sovrascritta da una più specifica. */
     excludedActivityNames?: string[];
 };
 

@@ -448,30 +448,6 @@ export async function countActivityDeleteImpact(
 
     const memberGroupIds = (memberRows ?? []).map(r => r.group_id);
 
-    // Schedule candidate: puntano questa sede direttamente, o puntano un
-    // gruppo di cui questa sede è membro. Le altre non possono perdere
-    // portata da questa delete.
-    const orFilter = [
-        `and(target_type.eq.activity,target_id.eq.${activityId})`,
-        ...(memberGroupIds.length > 0
-            ? [`and(target_type.eq.activity_group,target_id.in.(${memberGroupIds.join(",")}))`]
-            : [])
-    ].join(",");
-
-    const { data: targetRows, error: targetsError } = await supabase
-        .from("schedule_targets")
-        .select(
-            `
-            schedule_id,
-            target_type,
-            target_id,
-            schedule:schedules!inner(id, name, rule_type, enabled, apply_to_all, tenant_id)
-            `
-        )
-        .or(orFilter);
-
-    if (targetsError) throw targetsError;
-
     type TargetRow = {
         schedule_id: string;
         target_type: "activity" | "activity_group";
@@ -479,8 +455,45 @@ export async function countActivityDeleteImpact(
         schedule: CandidateScheduleJoin | CandidateScheduleJoin[] | null;
     };
 
+    const targetSelect = `
+        schedule_id,
+        target_type,
+        target_id,
+        schedule:schedules!inner(id, name, rule_type, enabled, apply_to_all, tenant_id)
+    `;
+
+    // Schedule candidate: puntano questa sede direttamente, o puntano un
+    // gruppo di cui questa sede è membro. Le altre non possono perdere
+    // portata da questa delete. Due query separate (non un .or() con
+    // filtro costruito a stringa): un target_id/group_id con virgole,
+    // parentesi o apici romperebbe la sintassi del filtro PostgREST.
+    const { data: directTargetRows, error: directTargetsError } = await supabase
+        .from("schedule_targets")
+        .select(targetSelect)
+        .eq("target_type", "activity")
+        .eq("target_id", activityId);
+
+    if (directTargetsError) throw directTargetsError;
+
+    let groupTargetRows: TargetRow[] = [];
+    if (memberGroupIds.length > 0) {
+        const { data, error: groupTargetsError } = await supabase
+            .from("schedule_targets")
+            .select(targetSelect)
+            .eq("target_type", "activity_group")
+            .in("target_id", memberGroupIds);
+
+        if (groupTargetsError) throw groupTargetsError;
+        groupTargetRows = (data ?? []) as TargetRow[];
+    }
+
+    const targetRows: TargetRow[] = [
+        ...((directTargetRows ?? []) as TargetRow[]),
+        ...groupTargetRows
+    ];
+
     const candidates = new Map<string, CandidateScheduleJoin>();
-    for (const row of (targetRows ?? []) as TargetRow[]) {
+    for (const row of targetRows) {
         const schedule = Array.isArray(row.schedule) ? (row.schedule[0] ?? null) : row.schedule;
         if (!schedule) continue;
         if (schedule.tenant_id !== tenantId) continue;

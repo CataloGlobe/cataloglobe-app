@@ -21,7 +21,7 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { listStyles, duplicateStyle, deleteStyle, V2Style } from "@/services/supabase/styles";
+import { listStyles, duplicateStyle, V2Style } from "@/services/supabase/styles";
 import { parseTokens, DEFAULT_STYLE_TOKENS } from "./Editor/StyleTokenModel";
 import { StyleDeleteDrawer } from "./StyleDeleteDrawer";
 import { StyleCreateDrawer } from "./StyleCreateDrawer";
@@ -148,8 +148,6 @@ export default function Styles() {
                 return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
             });
     }, [allStyles, searchQuery]);
-    const allStyleIds = useMemo(() => allStyles.map(s => s.id), [allStyles]);
-
     const handleCreateClick = useCallback(() => {
         if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
         setIsCreateOpen(true);
@@ -236,40 +234,6 @@ export default function Styles() {
         setStyleToDelete(style);
         setIsDeleteOpen(true);
     }, []);
-
-    const handleBulkDelete = async (selectedIds: string[]) => {
-        if (selectedIds.length === 0) return;
-
-        const protectedIds = new Set(allStyles.filter(style => style.is_system).map(style => style.id));
-        const deletableIds = selectedIds.filter(id => !protectedIds.has(id));
-
-        if (deletableIds.length === 0) {
-            showToast({
-                message: "Lo stile predefinito non può essere eliminato.",
-                type: "error"
-            });
-            return;
-        }
-
-        if (deletableIds.length < selectedIds.length) {
-            showToast({
-                message: "Lo stile predefinito è stato escluso dall'eliminazione.",
-                type: "info"
-            });
-        }
-
-        try {
-            await Promise.all(deletableIds.map(id => deleteStyle(id, currentTenantId!)));
-            showToast({
-                message: `${deletableIds.length} stili eliminati con successo.`,
-                type: "success"
-            });
-            loadData();
-        } catch (error) {
-            console.error("Errore eliminazione multipla stili:", error);
-            showToast({ message: "Errore durante l'eliminazione di alcuni stili.", type: "error" });
-        }
-    };
 
     const renderRowActions = useCallback(
         (style: V2Style) => {
@@ -375,12 +339,13 @@ export default function Styles() {
                     emptyState
                 ) : viewMode === "list" ? (
                     <div className={styles.tableCard}>
+                        {/* Niente selezione multipla / bulk delete: eliminare uno
+                            stile in uso richiede scegliere il sostitutivo, e quella
+                            scelta non si fa una volta per N stili che vestono sedi
+                            diverse. Solo delete di riga → StyleDeleteDrawer. */}
                         <DataTable<V2Style>
                             data={filteredStyles}
-                            allRowIds={allStyleIds}
                             columns={columns}
-                            selectable={canWrite}
-                            onBulkDelete={canWrite ? handleBulkDelete : undefined}
                             onRowClick={style => handleEditClick(style)}
                             emptyState={{
                                 icon: <IconPalette size={48} stroke={1} />,

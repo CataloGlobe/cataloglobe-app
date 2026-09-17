@@ -42,7 +42,7 @@ import {
     type RuleType
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
-import { RuleRow } from "./components/RuleRow";
+import { RuleRow, type RuleInsight } from "./components/RuleRow";
 import { HowItWorksLink, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import { CalendarView } from "./components/CalendarView";
 import {
@@ -56,27 +56,6 @@ import { ruleReachesAnyActivity, describeZeroReach } from "@/utils/scheduleReach
 import styles from "./Programming.module.scss";
 
 type RuleTypeFilter = RuleType | "all";
-
-type RuleInsight = {
-    isActiveNow: boolean;
-    isOverridden: boolean;
-    hasConflict: boolean;
-    isNeverUsed: boolean;
-    /** Motivo della portata zero (Passo 4), presente sse isNeverUsed. */
-    zeroReachReason?: string;
-    conflictingWithName?: string;
-    overriddenByName?: string;
-    /** Nomi delle sedi dove questa regola è sovrascritta da una più specifica. */
-    excludedActivityNames?: string[];
-};
-
-type RuleSuggestion = {
-    type: "conflict" | "override" | "unused";
-    message: string;
-    actionLabel?: string;
-    action?: () => void;
-    fixSuggestion?: string;
-};
 
 type VisibilityModeLabel = "hide" | "disable";
 
@@ -756,62 +735,6 @@ export default function Programming() {
                 return next;
             });
         }
-    };
-
-
-    const getRuleSuggestions = (
-        rule: LayoutRule,
-        insight: RuleInsight | undefined
-    ): RuleSuggestion[] => {
-        if (!insight) return [];
-
-        const openRule = () => navigate(`/business/${currentTenantId}/scheduling/${rule.id}`);
-        if (insight.hasConflict) {
-            const suggestedPriority = Math.max(1, rule.priority - 1);
-            return [
-                {
-                    type: "conflict",
-                    message: `In conflitto con: ${insight.conflictingWithName ?? "un'altra regola"}`,
-                    actionLabel: "Modifica priorità",
-                    action: openRule,
-                    fixSuggestion:
-                        suggestedPriority !== rule.priority
-                            ? `Imposta priorità ${suggestedPriority} oppure riduci il target per evitare sovrapposizioni.`
-                            : "La priorità è già al massimo (1): separa il target o la fascia oraria."
-                }
-            ];
-        }
-
-        if (insight.isOverridden) {
-            const suggestedPriority = Math.max(1, rule.priority - 2);
-            return [
-                {
-                    type: "override",
-                    message: `Superata da: ${insight.overriddenByName ?? "un'altra regola"}`,
-                    actionLabel: "Modifica priorità",
-                    action: openRule,
-                    fixSuggestion:
-                        suggestedPriority !== rule.priority
-                            ? `Prova priorità ${suggestedPriority} o un target più specifico (Attività).`
-                            : "Usa un target più specifico o restringi la finestra temporale."
-                }
-            ];
-        }
-
-        if (insight.isNeverUsed) {
-            return [
-                {
-                    type: "unused",
-                    message: "Non utilizzata nelle condizioni attuali",
-                    actionLabel: "Modifica target",
-                    action: openRule,
-                    fixSuggestion:
-                        "Associa almeno una sede o un gruppo valido, oppure imposta il target globale."
-                }
-            ];
-        }
-
-        return [];
     };
 
 
