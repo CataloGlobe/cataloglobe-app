@@ -17,6 +17,7 @@ import { ArrowLeft, Check, ChevronDown, MoreHorizontal, Search, SlidersHorizonta
 import { Button } from "@components/ui/Button/Button";
 import { Menu } from "@components/ui/Menu";
 import { SearchInput } from "@components/ui/Input/SearchInput";
+import { useOwnedSearchValue } from "@components/ui/ToolbarSearch/ownedSearchValue";
 import { SegmentedControl } from "@components/ui/SegmentedControl/SegmentedControl";
 import type {
     PageHeaderAction,
@@ -28,6 +29,8 @@ import styles from "./PageHeaderCompactBar.module.scss";
 interface PageHeaderCompactBarProps {
     config: PageHeaderCompactConfig;
 }
+
+const noopSearchChange = () => {};
 
 function renderMenuItems(actions: PageHeaderAction[]) {
     return actions.map(action => (
@@ -54,6 +57,12 @@ export function PageHeaderCompactBar({ config }: PageHeaderCompactBarProps) {
     // più filtri sulla stessa riga un booleano non basterebbe a dire quale.
     const [openFilterLabel, setOpenFilterLabel] = useState<string | null>(null);
     const searchRef = useRef<HTMLInputElement>(null);
+    // Stesso giro in ritardo del `ToolbarSearch` della riga comoda: il valore
+    // digitato è nostro, il context viene informato (`ownedSearchValue.ts`).
+    const [typedSearch, setTypedSearch] = useOwnedSearchValue(
+        search?.value ?? "",
+        search?.onChange ?? noopSearchChange
+    );
 
     useEffect(() => {
         if (isSearchOpen) searchRef.current?.focus();
@@ -95,14 +104,14 @@ export function PageHeaderCompactBar({ config }: PageHeaderCompactBarProps) {
                 </button>
                 <SearchInput
                     ref={searchRef}
-                    value={search.value}
-                    onChange={event => search.onChange(event.target.value)}
+                    value={typedSearch}
+                    onChange={event => setTypedSearch(event.target.value)}
                     onKeyDown={event => {
                         if (event.key === "Escape") setIsSearchOpen(false);
                     }}
                     placeholder={search.placeholder}
                     allowClear
-                    onClear={() => search.onChange("")}
+                    onClear={() => setTypedSearch("")}
                     containerClassName={styles.searchField}
                     inputClassName={styles.searchInput}
                 />
