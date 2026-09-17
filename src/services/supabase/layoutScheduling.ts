@@ -618,8 +618,10 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
         }
     }
 
-    // Resolve target_group display name for the inline target_id column
-    // (schedule_targets join is deprecated; inline columns are source-of-truth)
+    // Resolve target_group display name for the inline target_id column.
+    // This read still uses the inline columns as source-of-truth (reads
+    // haven't moved to schedule_targets yet — separate work). Writes already
+    // go to schedule_targets via update_schedule_targets (e7786243).
     const activityGroupIds = Array.from(
         new Set(
             baseRules

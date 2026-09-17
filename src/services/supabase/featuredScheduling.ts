@@ -133,7 +133,10 @@ export async function listFeaturedRules(tenantId: string): Promise<FeaturedRule[
     }
 
     return baseRules.map((rule): FeaturedRule => {
-        // Target source-of-truth = inline columns (schedule_targets deprecated).
+        // This read still uses the inline columns as source-of-truth (reads
+        // haven't moved to schedule_targets yet — separate work). Writes
+        // already go to schedule_targets via update_schedule_targets
+        // (e7786243), for layout/price/visibility rules — not featured yet.
         const applyToAll = rule.apply_to_all === true;
         const activityIds: string[] =
             !applyToAll && rule.target_type === "activity" && rule.target_id
