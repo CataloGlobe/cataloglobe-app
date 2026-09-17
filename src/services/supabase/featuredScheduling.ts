@@ -263,8 +263,11 @@ export async function updateFeaturedRule(input: {
 
     if (scheduleError) throw scheduleError;
 
-    // Target persisted via inline columns (target_type/target_id/apply_to_all) above.
-    // schedule_targets is deprecated and write-locked by RLS — no join sync.
+    // Target persisted via inline columns (target_type/target_id/apply_to_all)
+    // above. schedule_targets is no longer deprecated — it's populated for
+    // layout/price/visibility rules via update_schedule_targets (called from
+    // ProgrammingRuleDetail.tsx on save) — but featured rules aren't wired to
+    // it here. Known gap, not resolved in this pass.
 
     // Delete + re-insert featured contents
     const { error: deleteFcError } = await supabase

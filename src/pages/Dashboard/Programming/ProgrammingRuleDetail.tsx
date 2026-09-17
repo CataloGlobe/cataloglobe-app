@@ -20,7 +20,6 @@ import {
     deleteLayoutRule,
     duplicateRule,
     getLayoutRuleById,
-    getSystemActivityGroupId,
     listLayoutRuleOptions,
     updateRule,
     updateScheduleEnabled,
@@ -31,6 +30,7 @@ import {
     type VisibilityMode,
     type ProductGroupAssignmentOption
 } from "@/services/supabase/layoutScheduling";
+import { updateScheduleTargets } from "@/services/supabase/scheduleTargets";
 import { parseDecimalPrice } from "@/utils/priceParser";
 import styles from "./ProgrammingRuleDetail.module.scss";
 
@@ -483,49 +483,11 @@ export default function ProgrammingRuleDetail() {
             if (!form.styleId) missingFields.push("stile");
         }
 
-        // Build legacy target_type / target_id for backward compat with Edge Functions
-        // and derive multi-target applyToAll from explicit targetMode state.
+        // Multi-target applyToAll deriva direttamente dal targetMode esplicito.
+        // target_type/target_id legacy non sono più calcolati qui: updateRule
+        // li riderivava comunque da activityIds/groupIds (layoutScheduling.ts),
+        // questo calcolo non veniva mai letto.
         const applyToAll = form.targetMode === "all";
-        let targetType: "activity" | "activity_group";
-        let targetId: string;
-
-        if (form.targetMode === "all") {
-            const systemGroupId = await getSystemActivityGroupId(rule.tenant_id);
-            if (!systemGroupId) {
-                showToast({
-                    type: "error",
-                    message: "Gruppo di sistema 'Tutte le sedi' mancante.",
-                    duration: 3000
-                });
-                return;
-            }
-            targetType = "activity_group";
-            targetId = systemGroupId;
-        } else if (form.targetMode === "activities") {
-            targetType = "activity";
-            targetId = form.activityIds[0];
-        } else if (form.groupIds.length > 0) {
-            targetType = "activity_group";
-            targetId = form.groupIds[0];
-        } else if (rule.target_type === "activity_group") {
-            targetType = "activity_group";
-            targetId = rule.target_id;
-        } else if (tenantGroups[0]?.id) {
-            targetType = "activity_group";
-            targetId = tenantGroups[0].id;
-        } else {
-            const systemGroupId = await getSystemActivityGroupId(rule.tenant_id);
-            if (!systemGroupId) {
-                showToast({
-                    type: "error",
-                    message: "Nessun gruppo disponibile per il target.",
-                    duration: 3000
-                });
-                return;
-            }
-            targetType = "activity_group";
-            targetId = systemGroupId;
-        }
 
         const nowLocal = new Date();
         const today = `${nowLocal.getFullYear()}-${String(nowLocal.getMonth() + 1).padStart(2, "0")}-${String(nowLocal.getDate()).padStart(2, "0")}`;
@@ -637,8 +599,6 @@ export default function ProgrammingRuleDetail() {
                 applyToAll,
                 activityIds: form.activityIds,
                 groupIds: form.groupIds,
-                targetType,
-                targetId,
                 enabled: effectiveEnabled,
                 timeMode: form.timeMode,
                 daysOfWeek:
@@ -694,6 +654,25 @@ export default function ProgrammingRuleDetail() {
                           }))
                         : undefined
             });
+
+            // schedule_targets: set completo, sostituisce le colonne inline
+            // target_type/target_id (shim per Edge/resolver, scritte a parte).
+            // Rifiutata dalla RPC se apply_to_all — non chiamare in quel caso.
+            // Array vuoto: nessun target selezionato resta apply_to_all=false
+            // con target_type/target_id null (updateRule), sempre una bozza —
+            // e la RPC comunque rifiuta un array vuoto (richiede almeno 1
+            // target), quindi non va chiamata.
+            if (form.targetMode === "activities" && form.activityIds.length > 0) {
+                await updateScheduleTargets(
+                    ruleId,
+                    form.activityIds.map(id => ({ targetType: "activity" as const, targetId: id }))
+                );
+            } else if (form.targetMode === "groups" && form.groupIds.length > 0) {
+                await updateScheduleTargets(
+                    ruleId,
+                    form.groupIds.map(id => ({ targetType: "activity_group" as const, targetId: id }))
+                );
+            }
 
             if (isForcedDraft) {
                 showToast({

@@ -677,9 +677,12 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
         const targetGroup =
             rule.target_type === "activity_group" ? (groupById.get(rule.target_id) ?? null) : null;
 
-        // Target source-of-truth = inline columns on `schedules`.
-        // schedule_targets is deprecated (write-locked by RLS, never populated).
-        // Interpretation matches the runtime resolver, which reads the same columns:
+        // This read path still uses the inline columns on `schedules`, not
+        // schedule_targets. schedule_targets is no longer deprecated — it's
+        // the write-side source of truth (RPC update_schedule_targets,
+        // called by ProgrammingRuleDetail.tsx on save) — but this list read
+        // hasn't been migrated to it yet (separate work). Interpretation
+        // matches the runtime resolver, which still reads the same columns:
         //   apply_to_all=true            -> all sedi
         //   target_type='activity'       -> single sede
         //   target_type='activity_group' -> single gruppo
@@ -1193,10 +1196,12 @@ export async function updateRule(input: {
         mode: VisibilityMode;
     }>;
 }): Promise<void> {
-    // Derive legacy target fields from activityIds/groupIds (source of truth).
-    // These must be kept in sync so the runtime resolver (which queries target_type/target_id
-    // directly) can find the rule.
-    let effectiveApplyToAll = input.applyToAll;
+    // Derive legacy target fields from activityIds/groupIds. These inline
+    // columns are a shim, not the source of truth (that's schedule_targets,
+    // written separately by the caller) — kept in sync so the runtime
+    // resolver (which still queries target_type/target_id directly) can
+    // find the rule.
+    const effectiveApplyToAll = input.applyToAll;
     let legacyTargetType: "activity" | "activity_group" | null = null;
     let legacyTargetId: string | null = null;
 
@@ -1207,10 +1212,14 @@ export async function updateRule(input: {
         } else if (input.groupIds.length > 0) {
             legacyTargetType = "activity_group";
             legacyTargetId = input.groupIds[0];
-        } else {
-            // No target selected — force global so the resolver can still find the rule
-            effectiveApplyToAll = true;
         }
+        // No target selected: leave apply_to_all=false, target_type/target_id
+        // null. "No target" is not "all activities" — forcing apply_to_all
+        // here would make an untargeted draft resolve as global. The resolver
+        // contract (scheduleResolver.ts) already treats apply_to_all=false
+        // with no match as "excludes this rule", and these rows are always
+        // drafts (enabled=false, see missingFields in ProgrammingRuleDetail),
+        // so they never reach resolution regardless.
     }
 
     const targetPayload = {
@@ -1240,8 +1249,11 @@ export async function updateRule(input: {
         name: input.name
     });
 
-    // Target persisted via inline columns (target_type/target_id/apply_to_all) above.
-    // schedule_targets is deprecated and write-locked by RLS — no join sync.
+    // Inline columns (target_type/target_id/apply_to_all) written above are
+    // the shim for Edge/resolver. schedule_targets — the actual multi-target
+    // set — is written separately by the caller (update_schedule_targets
+    // RPC), not here: this function doesn't know the full target list, only
+    // the legacy single target it just derived.
 
     if (input.ruleType === "layout") {
         const { data: existingLayout, error: existingLayoutError } = await supabase
@@ -1573,8 +1585,10 @@ export async function duplicateRule(ruleId: string, tenantId: string): Promise<s
         throw applyAllErr;
     }
 
-    // 3. Target already copied via inline target_type/target_id on the new
-    //    schedule row above. schedule_targets is deprecated — no join copy.
+    // 3. Legacy target already copied via inline target_type/target_id on the
+    //    new schedule row above. schedule_targets rows are NOT copied here —
+    //    the duplicate gets only the legacy single target, not the full
+    //    multi-target set of the original. Known gap, not resolved here.
 
     // 4. Copy type-specific data
     if (original.rule_type === "layout" && original.layout) {
