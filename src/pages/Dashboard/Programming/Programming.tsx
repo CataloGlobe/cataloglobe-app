@@ -52,6 +52,7 @@ import {
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { buildRuleSummary, isRuleCurrentlyActive } from "@/utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
+import { ruleReachesAnyActivity, describeZeroReach } from "@/utils/scheduleReach";
 import styles from "./Programming.module.scss";
 
 type RuleTypeFilter = RuleType | "all";
@@ -61,6 +62,8 @@ type RuleInsight = {
     isOverridden: boolean;
     hasConflict: boolean;
     isNeverUsed: boolean;
+    /** Motivo della portata zero (Passo 4), presente sse isNeverUsed. */
+    zeroReachReason?: string;
     conflictingWithName?: string;
     overriddenByName?: string;
     /** Nomi delle sedi dove questa regola è sovrascritta da una più specifica. */
@@ -484,6 +487,19 @@ export default function Programming() {
         return () => clearInterval(interval);
     }, []);
 
+    const reachCtx = useMemo(() => {
+        const activityIdSet = new Set(activities.map(activity => activity.id));
+        return {
+            activityExists: (id: string) => activityIdSet.has(id),
+            groupMemberCount: (id: string) => (activityIdsByGroupId[id] ?? []).length
+        };
+    }, [activities, activityIdsByGroupId]);
+
+    const groupNameById = useMemo(
+        () => new Map(activityGroups.map(group => [group.id, group.name])),
+        [activityGroups]
+    );
+
     const ruleInsightsById = useMemo(() => {
         const insights = new Map<string, RuleInsight>();
         const allActivityIds = activities.map(activity => activity.id);
@@ -507,12 +523,8 @@ export default function Programming() {
             return null;
         };
 
-        const ruleTargetsAnyActivity = (rule: LayoutRule): boolean => {
-            if (rule.applyToAll) return true;
-            return allActivityIds.some(activityId => {
-                return ruleAppliesToActivityWithSpecificity(rule, activityId) !== null;
-            });
-        };
+        const ruleTargetsAnyActivity = (rule: LayoutRule): boolean =>
+            ruleReachesAnyActivity(rule, reachCtx);
 
         const activeNowRules = rules.filter(
             rule => rule.enabled && isRuleCurrentlyActive(rule, currentTime)
@@ -594,6 +606,12 @@ export default function Programming() {
                 isOverridden: isActiveNow && participatesNow && !winsNow,
                 hasConflict: isActiveNow && ruleConflictsNow.has(rule.id),
                 isNeverUsed: !canTargetAnyActivity,
+                zeroReachReason: canTargetAnyActivity
+                    ? undefined
+                    : describeZeroReach(rule, {
+                          ...reachCtx,
+                          groupName: id => groupNameById.get(id) ?? id
+                      }),
                 conflictingWithName: Array.from(ruleConflictingWithNames.get(rule.id) ?? [])[0],
                 overriddenByName: ruleOverriddenByName.get(rule.id),
                 excludedActivityNames
@@ -601,7 +619,7 @@ export default function Programming() {
         }
 
         return insights;
-    }, [activities, activityById, activityIdsByGroupId, currentTime, rules]);
+    }, [activities, activityById, activityIdsByGroupId, currentTime, rules, reachCtx, groupNameById]);
 
     const { activeRules, scheduledRules, draftRules, expiredRules, disabledRules } = useMemo(() => {
         const active: LayoutRule[] = [];
@@ -620,6 +638,14 @@ export default function Programming() {
                 drafts.push(rule);
             } else if (!rule.enabled) {
                 disabled.push(rule);
+            } else if (ruleInsightsById.get(rule.id)?.zeroReachReason) {
+                // Portata zero (Passo 4): il target esiste formalmente (un
+                // gruppo, di solito) ma non raggiunge nessuna sede reale in
+                // questo momento. Resta enabled=true nel DB — è derivato, non
+                // scritto (§33.7): torna attiva da sola se il gruppo si
+                // ripopola. In lista si mostra comunque fra le bozze, col
+                // motivo, perché nei fatti non fa nulla.
+                drafts.push(rule);
             } else if (isExpired(rule)) {
                 expired.push(rule);
             } else {
@@ -1344,7 +1370,7 @@ export default function Programming() {
                                     <RuleBlock
                                         title="Bozze"
                                         count={draftRules.length}
-                                        subtitle="Regole incomplete — completa i campi obbligatori"
+                                        subtitle="Regole incomplete o senza sedi raggiungibili"
                                         collapsible
                                         open={showDrafts}
                                         onToggle={setShowDrafts}

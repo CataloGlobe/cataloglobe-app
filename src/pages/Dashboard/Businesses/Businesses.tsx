@@ -903,51 +903,100 @@ export default function Businesses() {
 
               {!isLoadingDeleteImpact &&
                 deleteImpact &&
-                deleteImpact.schedulesGoingDraft.length > 0 && (
-                  <div className={styles.deleteImpactSchedules}>
-                    <Text variant="body-sm">
-                      {deleteImpact.schedulesGoingDraft.length === 1 ? (
-                        <>
-                          <Text as="span" variant="body-sm" weight={600}>
-                            1 regola passerà in bozza
-                          </Text>{" "}
-                          perché questa era la sua unica sede. Se vuoi
-                          tenerla attiva, aprila e puntala su un&apos;altra
-                          sede prima di eliminare.
-                        </>
-                      ) : (
-                        <>
-                          <Text as="span" variant="body-sm" weight={600}>
-                            {deleteImpact.schedulesGoingDraft.length} regole
-                            passeranno in bozza
-                          </Text>{" "}
-                          perché questa era la loro unica sede. Se vuoi
-                          tenerle attive, aprile e puntale su
-                          un&apos;altra sede prima di eliminare.
-                        </>
+                deleteImpact.schedulesGoingDraft.length > 0 &&
+                (() => {
+                  const directTarget = deleteImpact.schedulesGoingDraft.filter(
+                    (s) => s.cause === "direct_target"
+                  );
+                  const groupEmptied = deleteImpact.schedulesGoingDraft.filter(
+                    (s) => s.cause === "group_emptied"
+                  );
+                  const renderList = (schedules: typeof deleteImpact.schedulesGoingDraft) => (
+                    <>
+                      <ul className={styles.deleteImpactScheduleList}>
+                        {schedules.slice(0, 5).map((schedule) => (
+                          <li key={schedule.id}>
+                            <Link
+                              to={`/business/${businessId}/scheduling/${
+                                schedule.rule_type === "featured" ? "featured/" : ""
+                              }${schedule.id}`}
+                              onClick={closeDeleteModal}
+                            >
+                              {schedule.name ?? "Regola senza nome"}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                      {schedules.length > 5 && (
+                        <Text variant="caption" colorVariant="muted">
+                          +{schedules.length - 5} altre
+                        </Text>
                       )}
-                    </Text>
-                    <ul className={styles.deleteImpactScheduleList}>
-                      {deleteImpact.schedulesGoingDraft.slice(0, 5).map((schedule) => (
-                        <li key={schedule.id}>
-                          <Link
-                            to={`/business/${businessId}/scheduling/${
-                              schedule.rule_type === "featured" ? "featured/" : ""
-                            }${schedule.id}`}
-                            onClick={closeDeleteModal}
-                          >
-                            {schedule.name ?? "Regola senza nome"}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                    {deleteImpact.schedulesGoingDraft.length > 5 && (
-                      <Text variant="caption" colorVariant="muted">
-                        +{deleteImpact.schedulesGoingDraft.length - 5} altre
-                      </Text>
-                    )}
-                  </div>
-                )}
+                    </>
+                  );
+
+                  return (
+                    <>
+                      {directTarget.length > 0 && (
+                        <div className={styles.deleteImpactSchedules}>
+                          <Text variant="body-sm">
+                            {directTarget.length === 1 ? (
+                              <>
+                                <Text as="span" variant="body-sm" weight={600}>
+                                  1 regola passerà in bozza
+                                </Text>{" "}
+                                perché questa era la sua unica sede. Se vuoi
+                                tenerla attiva, aprila e puntala su un&apos;altra
+                                sede prima di eliminare.
+                              </>
+                            ) : (
+                              <>
+                                <Text as="span" variant="body-sm" weight={600}>
+                                  {directTarget.length} regole passeranno in
+                                  bozza
+                                </Text>{" "}
+                                perché questa era la loro unica sede. Se vuoi
+                                tenerle attive, aprile e puntale su
+                                un&apos;altra sede prima di eliminare.
+                              </>
+                            )}
+                          </Text>
+                          {renderList(directTarget)}
+                        </div>
+                      )}
+
+                      {groupEmptied.length > 0 && (
+                        <div className={styles.deleteImpactSchedules}>
+                          <Text variant="body-sm">
+                            {groupEmptied.length === 1 ? (
+                              <>
+                                <Text as="span" variant="body-sm" weight={600}>
+                                  1 regola smetterà di raggiungere sedi
+                                </Text>{" "}
+                                perché questa era l&apos;ultima sede del gruppo
+                                a cui è collegata. Resta attiva — se aggiungi
+                                un&apos;altra sede al gruppo torna operativa da
+                                sola.
+                              </>
+                            ) : (
+                              <>
+                                <Text as="span" variant="body-sm" weight={600}>
+                                  {groupEmptied.length} regole smetteranno di
+                                  raggiungere sedi
+                                </Text>{" "}
+                                perché questa era l&apos;ultima sede dei
+                                rispettivi gruppi. Restano attive — se
+                                aggiungi un&apos;altra sede al gruppo tornano
+                                operative da sole.
+                              </>
+                            )}
+                          </Text>
+                          {renderList(groupEmptied)}
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
             </ModalLayoutContent>
 
             <ModalLayoutFooter>

@@ -24,6 +24,8 @@ export type RuleInsight = {
     hasConflict: boolean;
     isOverridden: boolean;
     isNeverUsed: boolean;
+    /** Motivo della portata zero (Passo 4), presente sse isNeverUsed. */
+    zeroReachReason?: string;
     conflictingWithName?: string;
     overriddenByName?: string;
     excludedActivityNames?: string[];
@@ -67,7 +69,10 @@ export function RuleRow({
 }: RuleRowProps) {
     const { showToast } = useToast();
 
-    const ruleIsDraft = isLayoutRuleDraft(rule);
+    // "Bozza" copre due casi distinti in lista: campi obbligatori mancanti
+    // (isLayoutRuleDraft) e portata zero, cioè target presente ma che non
+    // raggiunge nessuna sede reale (insight.zeroReachReason, Passo 4).
+    const ruleIsDraft = isLayoutRuleDraft(rule) || Boolean(insight?.zeroReachReason);
 
     const displayName = (
         rule.name ?? `${getRuleTypeLabel(rule.rule_type)} · ${rule.id.slice(0, 6)}`
@@ -211,12 +216,14 @@ export function RuleRow({
                                 </span>
                             </Tooltip>
                         )}
-                        {insight.isNeverUsed && (
-                            <span className={`${styles.insightBadge} ${styles.insightNeverUsed}`}>
-                                Mai applicata
-                            </span>
-                        )}
                     </div>
+                )}
+                {insight?.zeroReachReason && (
+                    <Tooltip content={insight.zeroReachReason} side="top">
+                        <span className={`${styles.insightBadge} ${styles.insightNeverUsed}`}>
+                            Nessuna sede raggiunta
+                        </span>
+                    </Tooltip>
                 )}
                 {insight && !insight.isOverridden && insight.excludedActivityNames && insight.excludedActivityNames.length > 0 && (
                     <Tooltip

@@ -1,6 +1,7 @@
 import { supabase } from "@/services/supabase/client";
 import { appendCacheBuster } from "@/services/supabase/upload";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
+import { ruleReachesAnyActivity } from "@/utils/scheduleReach";
 import type { V2Activity } from "@/types/activity";
 
 const BUSINESS_COVERS_BUCKET = "business-covers";
@@ -394,88 +395,163 @@ export interface ActivityDeleteImpactSchedule {
     id: string;
     name: string | null;
     rule_type: "catalog" | "featured";
+    /** direct_target: la sede è un target diretto — l'Edge scrive enabled=false.
+     *  group_emptied: la sede è l'ultimo membro di un gruppo puntato dalla
+     *  regola — nessuna scrittura, la portata zero è derivata (§33.7): la
+     *  regola resta enabled=true e torna operativa da sola se il gruppo si
+     *  ripopola. */
+    cause: "direct_target" | "group_emptied";
 }
 
 export interface ActivityDeleteImpact {
-    /** Regole di Programmazione che passeranno in bozza (enabled=false):
-     *  tolti i target di questa sede, non ne resta nessuno, e la regola non
-     *  ha apply_to_all. Stessa semantica del cleanup lato edge function
-     *  `delete-business` (conteggio post-delete, non "unico target"). */
+    /** Regole di Programmazione la cui portata diventa zero eliminando questa
+     *  sede — vedi `cause` su ogni riga per la differenza fra le due (§33.7). */
     schedulesGoingDraft: ActivityDeleteImpactSchedule[];
 }
+
+type CandidateScheduleJoin = {
+    id: string;
+    name: string | null;
+    rule_type: "catalog" | "featured";
+    enabled: boolean;
+    apply_to_all: boolean;
+    tenant_id: string;
+};
 
 /**
  * Preview di sola lettura, da mostrare nel dialog di conferma PRIMA
  * dell'eliminazione — non tocca alcuna riga. Il conteggio effettivo
  * (`affected_schedules_disabled`) resta calcolato da `delete-business` al
- * momento del delete: race condition teorica fra preview e conferma accettata
- * (stesso principio di `docs/patterns/delete-drawer.md` Pattern B).
+ * momento del delete per il caso direct_target: race condition teorica fra
+ * preview e conferma accettata (stesso principio di
+ * `docs/patterns/delete-drawer.md` Pattern B). Il caso group_emptied non è
+ * mai scritto da nessuno, quindi non ha analogo lato Edge da cui divergere.
+ *
+ * Usa la stessa definizione di portata del resolver e della lista
+ * Programmazione (`ruleReachesAnyActivity`, `src/utils/scheduleReach.ts`):
+ * una regola non-apply_to_all raggiunge una sede se ha un target activity che
+ * esiste, o un target activity_group con almeno un membro. Qui si valuta la
+ * portata DOPO la delete: l'activity eliminata non esiste più e i gruppi di
+ * cui era l'unico membro restano a zero.
  */
 export async function countActivityDeleteImpact(
     tenantId: string,
     activityId: string
 ): Promise<ActivityDeleteImpact> {
+    const { data: memberRows, error: memberError } = await supabase
+        .from("activity_group_members")
+        .select("group_id")
+        .eq("tenant_id", tenantId)
+        .eq("activity_id", activityId);
+
+    if (memberError) throw memberError;
+
+    const memberGroupIds = (memberRows ?? []).map(r => r.group_id);
+
+    // Schedule candidate: puntano questa sede direttamente, o puntano un
+    // gruppo di cui questa sede è membro. Le altre non possono perdere
+    // portata da questa delete.
+    const orFilter = [
+        `and(target_type.eq.activity,target_id.eq.${activityId})`,
+        ...(memberGroupIds.length > 0
+            ? [`and(target_type.eq.activity_group,target_id.in.(${memberGroupIds.join(",")}))`]
+            : [])
+    ].join(",");
+
     const { data: targetRows, error: targetsError } = await supabase
         .from("schedule_targets")
         .select(
             `
             schedule_id,
+            target_type,
+            target_id,
             schedule:schedules!inner(id, name, rule_type, enabled, apply_to_all, tenant_id)
             `
         )
-        .eq("target_type", "activity")
-        .eq("target_id", activityId);
+        .or(orFilter);
 
     if (targetsError) throw targetsError;
 
-    type ScheduleJoin = {
-        id: string;
-        name: string | null;
-        rule_type: "catalog" | "featured";
-        enabled: boolean;
-        apply_to_all: boolean;
-        tenant_id: string;
+    type TargetRow = {
+        schedule_id: string;
+        target_type: "activity" | "activity_group";
+        target_id: string;
+        schedule: CandidateScheduleJoin | CandidateScheduleJoin[] | null;
     };
-    type TargetRow = { schedule_id: string; schedule: ScheduleJoin | ScheduleJoin[] | null };
 
-    // Quante righe target di QUESTA sede ha ogni schedule candidata — di norma
-    // 1, ma non assunto: se esistono duplicati (nessun UNIQUE su
-    // schedule_targets), l'Edge le cancella tutte in un colpo solo.
-    const candidates = new Map<string, ScheduleJoin>();
-    const ownTargetCount = new Map<string, number>();
+    const candidates = new Map<string, CandidateScheduleJoin>();
     for (const row of (targetRows ?? []) as TargetRow[]) {
         const schedule = Array.isArray(row.schedule) ? (row.schedule[0] ?? null) : row.schedule;
         if (!schedule) continue;
         if (schedule.tenant_id !== tenantId) continue;
-        ownTargetCount.set(schedule.id, (ownTargetCount.get(schedule.id) ?? 0) + 1);
         if (!schedule.enabled || schedule.apply_to_all) continue;
         candidates.set(schedule.id, schedule);
     }
 
     if (candidates.size === 0) return { schedulesGoingDraft: [] };
 
-    // Stessa semantica dell'Edge Function `delete-business`: dopo aver tolto
-    // i target di QUESTA sede, quanti ne restano? Non "è l'unico target"
-    // (euristica), ma il conteggio effettivo che l'Edge farebbe post-delete.
+    // Target COMPLETI delle schedule candidate (non solo quelli che toccano
+    // questa sede/gruppo): una regola multi-target può avere altre sedi o
+    // altri gruppi che la tengono viva.
     const scheduleIds = Array.from(candidates.keys());
     const { data: allTargets, error: allTargetsError } = await supabase
         .from("schedule_targets")
-        .select("schedule_id")
+        .select("schedule_id, target_type, target_id")
         .in("schedule_id", scheduleIds);
 
     if (allTargetsError) throw allTargetsError;
 
-    const totalTargetCount = new Map<string, number>();
-    for (const t of allTargets ?? []) {
-        totalTargetCount.set(t.schedule_id, (totalTargetCount.get(t.schedule_id) ?? 0) + 1);
+    const targetsByScheduleId = new Map<string, { activityIds: string[]; groupIds: string[] }>();
+    const referencedGroupIds = new Set<string>();
+    for (const row of allTargets ?? []) {
+        const entry = targetsByScheduleId.get(row.schedule_id) ?? { activityIds: [], groupIds: [] };
+        if (row.target_type === "activity") {
+            entry.activityIds.push(row.target_id);
+        } else if (row.target_type === "activity_group") {
+            entry.groupIds.push(row.target_id);
+            referencedGroupIds.add(row.target_id);
+        }
+        targetsByScheduleId.set(row.schedule_id, entry);
     }
+
+    // Conteggio membri ATTUALE (pre-delete) di ogni gruppo referenziato da
+    // una schedule candidata — serve come base per il conteggio post-delete.
+    const memberCountByGroupId = new Map<string, number>();
+    if (referencedGroupIds.size > 0) {
+        const { data: allMembers, error: allMembersError } = await supabase
+            .from("activity_group_members")
+            .select("group_id")
+            .in("group_id", Array.from(referencedGroupIds));
+
+        if (allMembersError) throw allMembersError;
+
+        for (const row of allMembers ?? []) {
+            memberCountByGroupId.set(row.group_id, (memberCountByGroupId.get(row.group_id) ?? 0) + 1);
+        }
+    }
+
+    const memberGroupIdSet = new Set(memberGroupIds);
+    const reachCtxAfterDelete = {
+        activityExists: (id: string) => id !== activityId,
+        groupMemberCount: (id: string) => {
+            const current = memberCountByGroupId.get(id) ?? 0;
+            return memberGroupIdSet.has(id) ? Math.max(0, current - 1) : current;
+        }
+    };
 
     const schedulesGoingDraft: ActivityDeleteImpactSchedule[] = [];
     for (const [id, schedule] of candidates) {
-        const remaining = (totalTargetCount.get(id) ?? 0) - (ownTargetCount.get(id) ?? 0);
-        if (remaining === 0) {
-            schedulesGoingDraft.push({ id, name: schedule.name, rule_type: schedule.rule_type });
-        }
+        const targets = targetsByScheduleId.get(id) ?? { activityIds: [], groupIds: [] };
+        const reachesAfterDelete = ruleReachesAnyActivity(
+            { applyToAll: false, activityIds: targets.activityIds, groupIds: targets.groupIds },
+            reachCtxAfterDelete
+        );
+        if (reachesAfterDelete) continue;
+
+        const cause: ActivityDeleteImpactSchedule["cause"] = targets.activityIds.includes(activityId)
+            ? "direct_target"
+            : "group_emptied";
+        schedulesGoingDraft.push({ id, name: schedule.name, rule_type: schedule.rule_type, cause });
     }
 
     schedulesGoingDraft.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
