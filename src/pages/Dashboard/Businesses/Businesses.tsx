@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
-import { useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   getActivities,
   updateActivity,
   uploadActivityCover,
   deleteActivityAtomic,
+  countActivityDeleteImpact,
   DeleteActivityError,
+  type ActivityDeleteImpact,
 } from "@/services/supabase/activities";
 import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog";
 import type { CatalogFetchStatus } from "@/utils/activeCatalogStatus";
@@ -84,6 +86,8 @@ export default function Businesses() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+  const [deleteImpact, setDeleteImpact] = useState<ActivityDeleteImpact | null>(null);
+  const [isLoadingDeleteImpact, setIsLoadingDeleteImpact] = useState(false);
   const [seatLimitDialogOpen, setSeatLimitDialogOpen] = useState(false);
 
   // Role-aware copy for inactive subscription toast.
@@ -429,9 +433,30 @@ export default function Businesses() {
   // ======================================
   // CALLBACK: delete business
   // ======================================
-  const handleDelete = useCallback((id: string) => {
-    setDeleteTargetId(id);
-    setShowDeleteModal(true);
+  const handleDelete = useCallback(
+    (id: string) => {
+      setDeleteTargetId(id);
+      setShowDeleteModal(true);
+      setDeleteImpact(null);
+      if (tenantId) {
+        setIsLoadingDeleteImpact(true);
+        countActivityDeleteImpact(tenantId, id)
+          .then(setDeleteImpact)
+          .catch((error) => {
+            console.error("Errore nel calcolo dell'impatto eliminazione:", error);
+            setDeleteImpact(null);
+          })
+          .finally(() => setIsLoadingDeleteImpact(false));
+      }
+    },
+    [tenantId],
+  );
+
+  const closeDeleteModal = useCallback(() => {
+    setShowDeleteModal(false);
+    setDeleteTargetId(null);
+    setDeleteImpact(null);
+    setIsLoadingDeleteImpact(false);
   }, []);
 
   const confirmDelete = useCallback(async () => {
@@ -489,8 +514,7 @@ export default function Businesses() {
       showToast({ message, type: "error", duration: 3500 });
     } finally {
       setIsDeleting(false);
-      setShowDeleteModal(false);
-      setDeleteTargetId(null);
+      closeDeleteModal();
     }
   }, [
     deleteTargetId,
@@ -501,16 +525,8 @@ export default function Businesses() {
     businesses,
     navigate,
     businessId,
+    closeDeleteModal,
   ]);
-
-  // ======================================
-  // CALLBACK: navigazione lista
-  // ======================================
-
-  const handleOpenReviews = useCallback(
-    (id: string) => navigate(`/business/${tenantId}/reviews?businessId=${id}`),
-    [navigate, tenantId],
-  );
 
   // ======================================
   // CALLBACK: edit business
@@ -724,6 +740,11 @@ export default function Businesses() {
   // ======================================
   const showInitialSkeleton = isLoadingBusinesses && businesses.length === 0;
 
+  const deleteTargetName = useMemo(
+    () => businesses.find((b) => b.id === deleteTargetId)?.name ?? "",
+    [businesses, deleteTargetId],
+  );
+
   // Filtro lista sedi sulla query della banda (name/slug/city/address).
   const filteredBusinesses = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -821,7 +842,6 @@ export default function Businesses() {
                     viewMode={viewMode}
                     onEdit={handleEditClick}
                     onDelete={canDelete ? handleDelete : undefined}
-                    onOpenReviews={handleOpenReviews}
                     activeCatalogsMap={activeCatalogsMap}
                     catalogsStatus={catalogsStatus}
                     onManageAvailability={(id, name) =>
@@ -853,36 +873,85 @@ export default function Businesses() {
 
           <ModalLayout
             isOpen={showDeleteModal}
-            onClose={() => {
-              setShowDeleteModal(false);
-              setDeleteTargetId(null);
-            }}
+            onClose={closeDeleteModal}
             width="xs"
             height="fit"
           >
             <ModalLayoutHeader>
               <div className={styles.headerLeft}>
                 <Text as="h2" variant="title-sm" weight={700}>
-                  Elimina sede
+                  Elimina «{deleteTargetName}»
                 </Text>
               </div>
             </ModalLayoutHeader>
 
             <ModalLayoutContent>
               <Text variant="body">
-                Sei sicuro di voler eliminare questa sede? L'operazione non è
-                reversibile.
+                Non si può annullare. Insieme alla sede vengono eliminati i
+                suoi tavoli, i QR dei tavoli, le prenotazioni, le stampanti
+                collegate e lo storico degli ordini.
               </Text>
+              <Text variant="body-sm" colorVariant="muted">
+                Il piano non cambia: i posti pagati restano quelli di adesso.
+              </Text>
+
+              {isLoadingDeleteImpact && (
+                <Text variant="body-sm" colorVariant="muted">
+                  Controllo quali regole di Programmazione la usano…
+                </Text>
+              )}
+
+              {!isLoadingDeleteImpact &&
+                deleteImpact &&
+                deleteImpact.schedulesGoingDraft.length > 0 && (
+                  <div className={styles.deleteImpactSchedules}>
+                    <Text variant="body-sm">
+                      {deleteImpact.schedulesGoingDraft.length === 1 ? (
+                        <>
+                          <Text as="span" variant="body-sm" weight={600}>
+                            1 regola passerà in bozza
+                          </Text>{" "}
+                          perché questa era la sua unica sede. Se vuoi
+                          tenerla attiva, aprila e puntala su un&apos;altra
+                          sede prima di eliminare.
+                        </>
+                      ) : (
+                        <>
+                          <Text as="span" variant="body-sm" weight={600}>
+                            {deleteImpact.schedulesGoingDraft.length} regole
+                            passeranno in bozza
+                          </Text>{" "}
+                          perché questa era la loro unica sede. Se vuoi
+                          tenerle attive, aprile e puntale su
+                          un&apos;altra sede prima di eliminare.
+                        </>
+                      )}
+                    </Text>
+                    <ul className={styles.deleteImpactScheduleList}>
+                      {deleteImpact.schedulesGoingDraft.slice(0, 5).map((schedule) => (
+                        <li key={schedule.id}>
+                          <Link
+                            to={`/business/${businessId}/scheduling/${
+                              schedule.rule_type === "featured" ? "featured/" : ""
+                            }${schedule.id}`}
+                            onClick={closeDeleteModal}
+                          >
+                            {schedule.name ?? "Regola senza nome"}
+                          </Link>
+                        </li>
+                      ))}
+                    </ul>
+                    {deleteImpact.schedulesGoingDraft.length > 5 && (
+                      <Text variant="caption" colorVariant="muted">
+                        +{deleteImpact.schedulesGoingDraft.length - 5} altre
+                      </Text>
+                    )}
+                  </div>
+                )}
             </ModalLayoutContent>
 
             <ModalLayoutFooter>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setDeleteTargetId(null);
-                }}
-              >
+              <Button variant="secondary" onClick={closeDeleteModal}>
                 Annulla
               </Button>
 

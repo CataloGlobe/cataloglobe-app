@@ -17,6 +17,7 @@ import {
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { useNavigate, useParams } from "react-router-dom";
+import { useToast } from "@/context/Toast/ToastContext";
 
 export const BusinessCard: React.FC<BusinessCardProps> = ({
     business,
@@ -30,6 +31,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     const catalogState = deriveActiveCatalogState(catalogsStatus, activeCatalog);
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
+    const { showToast } = useToast();
 
     const handleCardClick = (e: React.MouseEvent) => {
         if ((e.target as HTMLElement).closest("button") || (e.target as HTMLElement).closest("a")) {
@@ -41,7 +43,7 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     const handleCopyLink = (e: React.MouseEvent) => {
         e.stopPropagation();
         navigator.clipboard.writeText(publicUrl);
-        // Toast?
+        showToast({ message: "Link copiato negli appunti.", type: "success" });
     };
 
     return (

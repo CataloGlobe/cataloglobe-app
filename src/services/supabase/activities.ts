@@ -390,6 +390,99 @@ export async function deleteActivityAtomic(
     throw error;
 }
 
+export interface ActivityDeleteImpactSchedule {
+    id: string;
+    name: string | null;
+    rule_type: "catalog" | "featured";
+}
+
+export interface ActivityDeleteImpact {
+    /** Regole di Programmazione che passeranno in bozza (enabled=false):
+     *  tolti i target di questa sede, non ne resta nessuno, e la regola non
+     *  ha apply_to_all. Stessa semantica del cleanup lato edge function
+     *  `delete-business` (conteggio post-delete, non "unico target"). */
+    schedulesGoingDraft: ActivityDeleteImpactSchedule[];
+}
+
+/**
+ * Preview di sola lettura, da mostrare nel dialog di conferma PRIMA
+ * dell'eliminazione — non tocca alcuna riga. Il conteggio effettivo
+ * (`affected_schedules_disabled`) resta calcolato da `delete-business` al
+ * momento del delete: race condition teorica fra preview e conferma accettata
+ * (stesso principio di `docs/patterns/delete-drawer.md` Pattern B).
+ */
+export async function countActivityDeleteImpact(
+    tenantId: string,
+    activityId: string
+): Promise<ActivityDeleteImpact> {
+    const { data: targetRows, error: targetsError } = await supabase
+        .from("schedule_targets")
+        .select(
+            `
+            schedule_id,
+            schedule:schedules!inner(id, name, rule_type, enabled, apply_to_all, tenant_id)
+            `
+        )
+        .eq("target_type", "activity")
+        .eq("target_id", activityId);
+
+    if (targetsError) throw targetsError;
+
+    type ScheduleJoin = {
+        id: string;
+        name: string | null;
+        rule_type: "catalog" | "featured";
+        enabled: boolean;
+        apply_to_all: boolean;
+        tenant_id: string;
+    };
+    type TargetRow = { schedule_id: string; schedule: ScheduleJoin | ScheduleJoin[] | null };
+
+    // Quante righe target di QUESTA sede ha ogni schedule candidata — di norma
+    // 1, ma non assunto: se esistono duplicati (nessun UNIQUE su
+    // schedule_targets), l'Edge le cancella tutte in un colpo solo.
+    const candidates = new Map<string, ScheduleJoin>();
+    const ownTargetCount = new Map<string, number>();
+    for (const row of (targetRows ?? []) as TargetRow[]) {
+        const schedule = Array.isArray(row.schedule) ? (row.schedule[0] ?? null) : row.schedule;
+        if (!schedule) continue;
+        if (schedule.tenant_id !== tenantId) continue;
+        ownTargetCount.set(schedule.id, (ownTargetCount.get(schedule.id) ?? 0) + 1);
+        if (!schedule.enabled || schedule.apply_to_all) continue;
+        candidates.set(schedule.id, schedule);
+    }
+
+    if (candidates.size === 0) return { schedulesGoingDraft: [] };
+
+    // Stessa semantica dell'Edge Function `delete-business`: dopo aver tolto
+    // i target di QUESTA sede, quanti ne restano? Non "è l'unico target"
+    // (euristica), ma il conteggio effettivo che l'Edge farebbe post-delete.
+    const scheduleIds = Array.from(candidates.keys());
+    const { data: allTargets, error: allTargetsError } = await supabase
+        .from("schedule_targets")
+        .select("schedule_id")
+        .in("schedule_id", scheduleIds);
+
+    if (allTargetsError) throw allTargetsError;
+
+    const totalTargetCount = new Map<string, number>();
+    for (const t of allTargets ?? []) {
+        totalTargetCount.set(t.schedule_id, (totalTargetCount.get(t.schedule_id) ?? 0) + 1);
+    }
+
+    const schedulesGoingDraft: ActivityDeleteImpactSchedule[] = [];
+    for (const [id, schedule] of candidates) {
+        const remaining = (totalTargetCount.get(id) ?? 0) - (ownTargetCount.get(id) ?? 0);
+        if (remaining === 0) {
+            schedulesGoingDraft.push({ id, name: schedule.name, rule_type: schedule.rule_type });
+        }
+    }
+
+    schedulesGoingDraft.sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+
+    return { schedulesGoingDraft };
+}
+
 export async function updateActivityHoursPublic(
     activityId: string,
     tenantId: string,

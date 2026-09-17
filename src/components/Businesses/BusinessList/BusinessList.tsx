@@ -25,7 +25,6 @@ export const BusinessList: React.FC<BusinessListProps> = ({
     viewMode = "grid",
     onEdit,
     onDelete,
-    onOpenReviews,
     activeCatalogsMap,
     catalogsStatus = "loading",
     onManageAvailability,
@@ -210,11 +209,6 @@ export const BusinessList: React.FC<BusinessListProps> = ({
         [activeCatalogsMap, catalogsStatus, onManageAvailability, onEdit, onDelete, navigate]
     );
 
-    const handleBulkDelete = (selectedIds: string[]) => {
-        if (!onDelete) return;
-        selectedIds.forEach(id => onDelete!(id));
-    };
-
     if (businesses.length === 0) {
         return (
             <EmptyState
@@ -241,12 +235,14 @@ export const BusinessList: React.FC<BusinessListProps> = ({
     }
 
     if (viewMode === "list") {
+        // Niente selezione multipla / bulk delete qui: eliminare una sede è
+        // terminale, non libera posti pagati e può far passare in bozza
+        // regole di Programmazione di ALTRE sedi (target azzerati). Decisione
+        // presa esplicitamente — solo delete di riga (kebab → Elimina).
         return (
             <DataTable
                 data={businesses}
                 columns={columns}
-                selectable={!!onDelete}
-                onBulkDelete={onDelete ? handleBulkDelete : undefined}
                 onRowClick={business => navigate(`/business/${businessId}/locations/${business.id}`)}
             />
         );
@@ -257,7 +253,6 @@ export const BusinessList: React.FC<BusinessListProps> = ({
             businesses={businesses}
             onEdit={onEdit}
             onDelete={onDelete}
-            onOpenReviews={onOpenReviews}
             activeCatalogsMap={activeCatalogsMap}
             catalogsStatus={catalogsStatus}
             onManageAvailability={onManageAvailability}
