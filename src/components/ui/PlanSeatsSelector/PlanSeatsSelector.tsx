@@ -4,7 +4,7 @@ import Text from "@/components/ui/Text/Text";
 import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import { Mail } from "lucide-react";
 import { COMPANY } from "@/config/company";
-import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { BillingIntervalSwitch } from "@/components/ui/BillingIntervalSwitch/BillingIntervalSwitch";
 import type { BillingInterval, Plan, PlanCode } from "@/types/plan";
 import type { GraduatedBreakdown } from "@/utils/pricing";
 import { INTERVAL_PERIOD_NOUN } from "@/utils/planPricing";
@@ -34,7 +34,6 @@ function formatEuroWhole(cents: number): string {
 }
 
 const INTERVAL_TOTAL_LABEL: Record<BillingInterval, string> = { month: "Totale mensile", year: "Totale annuale" };
-const INTERVAL_OPTION_LABEL: Record<BillingInterval, string> = { month: "Mensile", year: "Annuale · 2 mesi gratis" };
 
 /** Costruisce un mailto precompilato per richiesta offerta multi-sede. */
 function buildMultiSeatQuoteMailto(seats: number, planName: string | undefined): string {
@@ -111,13 +110,10 @@ export function PlanSeatsSelector({
         <div className={styles.root}>
             {showIntervalSwitch && (
                 <div className={styles.intervalSwitch}>
-                    <SegmentedControl<BillingInterval>
+                    <BillingIntervalSwitch
                         value={billingInterval}
                         onChange={onIntervalChange}
-                        options={availableIntervals.map(interval => ({
-                            value: interval,
-                            label: INTERVAL_OPTION_LABEL[interval]
-                        }))}
+                        intervals={availableIntervals}
                     />
                 </div>
             )}
