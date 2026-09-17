@@ -266,11 +266,11 @@ export async function updateFeaturedRule(input: {
 
     if (scheduleError) throw scheduleError;
 
-    // Target persisted via inline columns (target_type/target_id/apply_to_all)
-    // above. schedule_targets is no longer deprecated — it's populated for
-    // layout/price/visibility rules via update_schedule_targets (called from
-    // ProgrammingRuleDetail.tsx on save) — but featured rules aren't wired to
-    // it here. Known gap, not resolved in this pass.
+    // Inline columns (target_type/target_id/apply_to_all) written above are
+    // the shim for Edge/resolver. schedule_targets — the actual multi-target
+    // set — is written separately by the caller (update_schedule_targets
+    // RPC, FeaturedRuleDetail.tsx), not here: this function doesn't know the
+    // full target list, only the legacy single target it just derived.
 
     // Delete + re-insert featured contents
     const { error: deleteFcError } = await supabase
