@@ -29,7 +29,9 @@ export type BillingOperation =
     // FASE 2.4 — B5: modifica in-place del bersaglio futuro di un cambio
     // programmato (€0, solo fase futura). Operation dedicata per non collidere
     // con l'update-fasi di B2.
-    | "scheduled-update";
+    | "scheduled-update"
+    // Passo 4a — cambio di intervallo mensile → annuale (immediato, prorata).
+    | "interval-up";
 
 export interface IdempotencyKeyParams {
     operation: BillingOperation;
@@ -39,6 +41,15 @@ export interface IdempotencyKeyParams {
     currentSeats?: number | null;
     targetPlan?: string | null;
     targetSeats?: number | null;
+    /**
+     * Billing intervals, passo 4a. Appended to the from/to segments ONLY when
+     * present: every existing caller omits them, so the keys of in-flight
+     * plan/seat changes are byte-identical to before the interval axis existed.
+     * Without them a month→year and a year→month request on the same
+     * plan×seats would collide (from == to).
+     */
+    currentInterval?: string | null;
+    targetInterval?: string | null;
 }
 
 const MAX_KEY_LENGTH = 255;
@@ -64,8 +75,9 @@ function segment(value: string | number | null | undefined): string {
  * a per-attempt id.
  */
 export function buildIdempotencyKey(params: IdempotencyKeyParams, requestId?: string): string {
-    const from = `${segment(params.currentPlan)}x${segment(params.currentSeats)}`;
-    const to = `${segment(params.targetPlan)}x${segment(params.targetSeats)}`;
+    const intervalSuffix = (interval: string | null | undefined) => (interval ? `x${segment(interval)}` : "");
+    const from = `${segment(params.currentPlan)}x${segment(params.currentSeats)}${intervalSuffix(params.currentInterval)}`;
+    const to = `${segment(params.targetPlan)}x${segment(params.targetSeats)}${intervalSuffix(params.targetInterval)}`;
     const key = [
         "cg",
         segment(params.operation),

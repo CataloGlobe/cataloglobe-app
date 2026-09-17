@@ -103,6 +103,12 @@ export async function createPortalSession(
 //                                  programmato resta intatto, retry idempotente
 //                                  converge. Stesso messaggio utente del codice
 //                                  SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED
+//   - "INTERVAL_CHANGE_BLOCKED" → (passo 4a) passaggio all'annuale rifiutato;
+//                                  `details.reason` (IntervalBlockReason) dice
+//                                  perché. Lanciato come IntervalChangeBlockedError
+//   - "INTERVAL_CHANGE_MIXED"   → intervallo + piano/sedi nella stessa richiesta
+//   - "INTERVAL_DOWN_NOT_SUPPORTED" → annuale → mensile non ancora disponibile
+//   - "invalid_interval"        → valore fuori dominio month|year
 //
 // `classification` può valere "combined" quando il tier scende e le sedi
 // aumentano nello stesso cambio: le sedi sono addebitate subito (prorata a
@@ -112,9 +118,35 @@ export async function createPortalSession(
 export type SubscriptionChangeInput = {
     plan: PlanCode;
     seats: number;
+    /**
+     * Passo 4a: target billing interval. Omit to keep the current one (every
+     * plan/seat change). Only "year" from a monthly subscription is accepted.
+     */
+    interval?: BillingInterval;
 };
 
-export type SubscriptionChangeClassification = "upgrade" | "downgrade" | "combined";
+/** "interval-up" = passaggio mensile → annuale (immediato, ciclo riancorato a oggi). */
+export type SubscriptionChangeClassification = "upgrade" | "downgrade" | "combined" | "interval-up";
+
+/** Why the edge refuses an interval change (`INTERVAL_CHANGE_BLOCKED` → `details.reason`). */
+export type IntervalBlockReason = "pending_change" | "cancel_scheduled" | "past_due" | "not_active" | "discount";
+
+const INTERVAL_BLOCK_REASONS: ReadonlySet<string> = new Set([
+    "pending_change",
+    "cancel_scheduled",
+    "past_due",
+    "not_active",
+    "discount"
+]);
+
+export class IntervalChangeBlockedError extends Error {
+    readonly reason: IntervalBlockReason | null;
+    constructor(reason: IntervalBlockReason | null) {
+        super("INTERVAL_CHANGE_BLOCKED");
+        this.name = "INTERVAL_CHANGE_BLOCKED";
+        this.reason = reason;
+    }
+}
 
 export type SubscriptionChangePreview = {
     classification: SubscriptionChangeClassification;
@@ -145,6 +177,14 @@ export type SubscriptionChangePreview = {
      * una cifra ricavata altrimenti.
      */
     trialFirstInvoiceCents?: number | null;
+    /**
+     * Passo 4a (solo classification "interval-up"): credito per il non consumato
+     * del mese in corso, in centesimi NEGATIVI (0 in prova). Già scalato da
+     * `chargeToday`; esposto per spiegare l'importo, mai per ricalcolarlo.
+     */
+    prorationCreditCents?: number;
+    currentInterval?: BillingInterval;
+    targetInterval?: BillingInterval;
 };
 
 export type SubscriptionChangeCommitResult = {
@@ -156,7 +196,26 @@ export type SubscriptionChangeCommitResult = {
     effective: string | null;
     scheduledChange?: boolean;
     scheduleId?: string;
+    /** Passo 4a: intervallo applicato + nuova fine periodo (ciclo riancorato a oggi). */
+    interval?: BillingInterval;
+    currentPeriodEnd?: string | null;
 };
+
+/** Reads `{ error, details }` from an edge error response body, if any. */
+async function extractEdgeErrorBody(error: unknown): Promise<{ error: string; details?: Record<string, unknown> } | null> {
+    if (!error || typeof error !== "object") return null;
+    const ctx = (error as { context?: unknown }).context;
+    if (!ctx || typeof (ctx as Response).clone !== "function") return null;
+    try {
+        const body = await (ctx as Response).clone().json();
+        if (body && typeof body.error === "string") {
+            return { error: body.error, details: typeof body.details === "object" && body.details ? body.details : undefined };
+        }
+    } catch {
+        // Body not JSON → fall back to default error
+    }
+    return null;
+}
 
 async function invokeSubscriptionChange<T>(
     tenantId: string,
@@ -170,15 +229,30 @@ async function invokeSubscriptionChange<T>(
     // a new call, hence a new id, so the genuine retry is not swallowed as a stale
     // replay inside Stripe's 24h idempotency window.
     const requestId = crypto.randomUUID();
+    // `interval` is sent only when set: the edge treats an absent field as
+    // "keep the current interval", so plan/seat changes are byte-identical.
     const { data, error } = await supabase.functions.invoke("stripe-change-subscription", {
-        body: { tenantId, action, plan: input.plan, seats: input.seats, request_id: requestId }
+        body: {
+            tenantId,
+            action,
+            plan: input.plan,
+            seats: input.seats,
+            request_id: requestId,
+            ...(input.interval ? { interval: input.interval } : {})
+        }
     });
 
     if (error) {
-        const code = await extractEdgeErrorCode(error);
-        if (code) {
-            const wrapped = new Error(code);
-            wrapped.name = code;
+        const body = await extractEdgeErrorBody(error);
+        if (body) {
+            if (body.error === "INTERVAL_CHANGE_BLOCKED") {
+                const reason = body.details?.reason;
+                throw new IntervalChangeBlockedError(
+                    typeof reason === "string" && INTERVAL_BLOCK_REASONS.has(reason) ? (reason as IntervalBlockReason) : null
+                );
+            }
+            const wrapped = new Error(body.error);
+            wrapped.name = body.error;
             throw wrapped;
         }
         throw error;
@@ -203,6 +277,27 @@ export async function previewSubscriptionChange(
  * Upgrade → immediato (addebito prorata). Downgrade → programmato a fine periodo.
  * La sincronizzazione di `tenants` avviene via webhook Stripe.
  */
+/**
+ * Passo 4a — anteprima del passaggio mensile → annuale (piano e sedi correnti,
+ * `interval: "year"`). Non modifica nulla. Lancia IntervalChangeBlockedError
+ * quando il cambio è rifiutato (cambio programmato, disdetta, pagamento in
+ * sofferenza, sconto attivo).
+ */
+export async function previewIntervalChange(
+    tenantId: string,
+    input: { plan: PlanCode; seats: number }
+): Promise<SubscriptionChangePreview> {
+    return invokeSubscriptionChange<SubscriptionChangePreview>(tenantId, "preview", { ...input, interval: "year" });
+}
+
+/** Passo 4a — applica il passaggio all'annuale (addebito immediato, ciclo riancorato a oggi). */
+export async function commitIntervalChange(
+    tenantId: string,
+    input: { plan: PlanCode; seats: number }
+): Promise<SubscriptionChangeCommitResult> {
+    return invokeSubscriptionChange<SubscriptionChangeCommitResult>(tenantId, "commit", { ...input, interval: "year" });
+}
+
 export async function commitSubscriptionChange(
     tenantId: string,
     input: SubscriptionChangeInput

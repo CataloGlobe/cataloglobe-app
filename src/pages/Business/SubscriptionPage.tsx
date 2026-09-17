@@ -13,10 +13,14 @@ import {
     reactivateSubscription,
     cancelScheduledChange,
     previewScheduledChange,
-    updateScheduledChange
+    updateScheduledChange,
+    previewIntervalChange,
+    commitIntervalChange,
+    IntervalChangeBlockedError
 } from "@/services/supabase/billing";
 import type {
     ConsumedDiscountThisPeriod,
+    IntervalBlockReason,
     SubscriptionChangePreview,
     SubscriptionDiscount,
     SubscriptionState
@@ -51,7 +55,8 @@ import {
     AlertTriangle,
     XCircle,
     RotateCcw,
-    BadgePercent
+    BadgePercent,
+    CalendarRange
 } from "lucide-react";
 import type { BillingInterval, Plan, PlanCode, PlanPrice } from "@/types/plan";
 import styles from "./SubscriptionPage.module.scss";
@@ -67,8 +72,15 @@ const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "prima
 const CHANGE_PLAN_EMAIL = "support@cataloglobe.com";
 const CHANGE_PLAN_MAILTO = `mailto:${CHANGE_PLAN_EMAIL}?subject=${encodeURIComponent("Cambio piano CataloGlobe")}`;
 
+// Italian grouping: yearly totals cross €1.000 ("€1.109,83"), monthly ones never
+// did. `useGrouping: "always"` because ICU's it-IT groups only from 10.000 up
+// (minimumGroupingDigits = 2) and would print "€1121,00".
 function formatEuro(value: number): string {
-    return `€${value.toFixed(2).replace(".", ",")}`;
+    return `€${value.toLocaleString("it-IT", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+        useGrouping: "always"
+    })}`;
 }
 
 function formatCents(cents: number): string {
@@ -119,6 +131,19 @@ function applyDiscount(fullPrice: number, discount: SubscriptionDiscount): numbe
     if (discount.amountOff != null) return Math.max(0, fullPrice - discount.amountOff / 100);
     return fullPrice;
 }
+
+/**
+ * Passo 4a — perché il passaggio all'annuale non è disponibile. Stesso testo
+ * al posto dell'azione (gating pre-conferma) e nel toast se l'edge rifiuta
+ * comunque (stato cambiato nel frattempo).
+ */
+const INTERVAL_BLOCK_MESSAGE: Record<IntervalBlockReason, string> = {
+    pending_change: "Per passare all'annuale, annulla prima il cambio programmato.",
+    cancel_scheduled: "Per passare all'annuale, riattiva prima l'abbonamento.",
+    past_due: "Per passare all'annuale, regolarizza prima il pagamento in sospeso.",
+    not_active: "Il passaggio all'annuale è disponibile solo con un abbonamento attivo o in prova.",
+    discount: "Il passaggio all'annuale non è disponibile finché è attivo uno sconto sull'abbonamento. Se vuoi passare all'annuale, scrivi all'assistenza."
+};
 
 /** Traduce i codici d'errore dell'edge di cambio abbonamento in messaggi UI. */
 function mapChangeError(err: unknown, activityCount: number, cap: number): string {
@@ -224,6 +249,13 @@ export default function SubscriptionPage() {
     const [reactivateLoading, setReactivateLoading] = useState(false);
     const [isCancelScheduleOpen, setIsCancelScheduleOpen] = useState(false);
     const [cancelScheduleLoading, setCancelScheduleLoading] = useState(false);
+
+    // --- Passaggio all'annuale (passo 4a): ingresso dedicato, un solo step ---
+    const [isIntervalOpen, setIsIntervalOpen] = useState(false);
+    const [intervalPreview, setIntervalPreview] = useState<SubscriptionChangePreview | null>(null);
+    const [intervalPreviewLoading, setIntervalPreviewLoading] = useState(false);
+    const [intervalCommitLoading, setIntervalCommitLoading] = useState(false);
+    const [intervalError, setIntervalError] = useState<string | null>(null);
 
     const tenantId = selectedTenant?.id ?? null;
     const reloadSubState = useCallback(async () => {
@@ -678,6 +710,108 @@ export default function SubscriptionPage() {
         }
     };
 
+    // --- Passaggio all'annuale ---
+    // Gate letto dallo stato live (subState + status tenant): l'azione non compare
+    // quando il cambio sarebbe rifiutato, e dice perché. L'edge ripete gli
+    // stessi controlli (fonte autoritativa); qui si evita di aprire una conferma
+    // destinata a fallire.
+    const intervalBlockReason: IntervalBlockReason | null = (() => {
+        if (subState?.pendingChange || scheduledChange) return "pending_change";
+        if (subState?.cancelAtPeriodEnd) return "cancel_scheduled";
+        if (status === "past_due") return "past_due";
+        if (status !== "active" && status !== "trialing") return "not_active";
+        if (subState?.discount) return "discount";
+        return null;
+    })();
+
+    const openIntervalChange = async () => {
+        setIntervalPreview(null);
+        setIntervalError(null);
+        setIsIntervalOpen(true);
+        setIntervalPreviewLoading(true);
+        try {
+            const result = await previewIntervalChange(selectedTenant.id, {
+                plan: currentPlanBaseline,
+                seats: currentSeatsBaseline
+            });
+            setIntervalPreview(result);
+        } catch (err) {
+            if (err instanceof IntervalChangeBlockedError) {
+                setIsIntervalOpen(false);
+                showToast({
+                    message: `Il passaggio all'annuale non è più disponibile: ${
+                        err.reason ? INTERVAL_BLOCK_MESSAGE[err.reason] : "riprova più tardi."
+                    }`,
+                    type: "error"
+                });
+                reloadSubState();
+                return;
+            }
+            setIntervalError(mapChangeError(err, activityCount, draftMaxSeats));
+        } finally {
+            setIntervalPreviewLoading(false);
+        }
+    };
+
+    const closeIntervalChange = () => {
+        if (intervalCommitLoading) return;
+        setIsIntervalOpen(false);
+    };
+
+    const handleIntervalCommit = async () => {
+        if (!intervalPreview) return;
+        setIntervalCommitLoading(true);
+        setIntervalError(null);
+        try {
+            const result = await commitIntervalChange(selectedTenant.id, {
+                plan: currentPlanBaseline,
+                seats: currentSeatsBaseline
+            });
+            // Optimistic: the webhook rewrites tenants.billing_interval and
+            // current_period_end asynchronously; reflect the authoritative
+            // commit result now so the card shows the yearly price and the
+            // new renewal date without a refetch race.
+            setBillingInterval(result.interval ?? "year");
+            setOptimisticNextAmountCents(intervalPreview.nextAmount);
+            if (result.currentPeriodEnd && status !== "trialing") {
+                patchSelectedTenant({ current_period_end: result.currentPeriodEnd });
+            }
+            const nextDate = result.currentPeriodEnd ?? intervalPreview.nextDate;
+            showToast({
+                message: status === "trialing"
+                    ? `Passaggio all'annuale completato. Primo addebito il ${formatDate(nextDate)}.`
+                    : `Passaggio all'annuale completato. Prossimo rinnovo il ${formatDate(nextDate)}.`,
+                type: "success"
+            });
+            setIsIntervalOpen(false);
+            reloadSubState();
+        } catch (err) {
+            if (err instanceof IntervalChangeBlockedError) {
+                setIsIntervalOpen(false);
+                showToast({
+                    message: `Il passaggio all'annuale non è più disponibile: ${
+                        err.reason ? INTERVAL_BLOCK_MESSAGE[err.reason] : "riprova più tardi."
+                    }`,
+                    type: "error"
+                });
+                reloadSubState();
+                return;
+            }
+            const name = err instanceof Error ? err.name : "";
+            if (name === "PAYMENT_FAILED") {
+                showToast({
+                    message: "Addebito non riuscito. Aggiorna il metodo di pagamento e riprova.",
+                    type: "error"
+                });
+                setIntervalError("L'addebito è stato rifiutato. Aggiorna il metodo di pagamento dal portale di fatturazione.");
+            } else {
+                setIntervalError(mapChangeError(err, activityCount, draftMaxSeats));
+            }
+        } finally {
+            setIntervalCommitLoading(false);
+        }
+    };
+
     // Banner "cambio programmato" persistente: priorità al vero stato Stripe
     // (subState), fallback all'ottimistico post-commit nella finestra transitoria.
     const pendingBanner = subState?.pendingChange
@@ -978,6 +1112,32 @@ export default function SubscriptionPage() {
                         >
                             {portalLoading ? "Apertura..." : "Gestisci su Stripe"}
                         </Button>
+                    </div>
+                )}
+
+                {hasSubscriptionRecord && !isTerminal && billingInterval === "month" && (
+                    <div className={styles.actionCard}>
+                        <div>
+                            <Text variant="body" weight={500}>
+                                Passa all&apos;annuale
+                            </Text>
+                            <Text variant="body-sm" colorVariant="muted">
+                                {subStateLoading
+                                    ? "Stesso piano e stesse sedi, fatturazione una volta all'anno."
+                                    : intervalBlockReason
+                                    ? INTERVAL_BLOCK_MESSAGE[intervalBlockReason]
+                                    : "Stesso piano e stesse sedi, fatturazione una volta all'anno."}
+                            </Text>
+                        </div>
+                        {!subStateLoading && !intervalBlockReason && (
+                            <Button
+                                variant="secondary"
+                                onClick={openIntervalChange}
+                                leftIcon={<CalendarRange size={16} />}
+                            >
+                                Passa all&apos;annuale
+                            </Button>
+                        )}
                     </div>
                 )}
 
@@ -1324,6 +1484,93 @@ export default function SubscriptionPage() {
                             )}
                         </div>
                     )}
+                </DrawerLayout>
+            </SystemDrawer>
+
+            {/* --- Drawer passaggio all'annuale (passo 4a) --- */}
+            <SystemDrawer open={isIntervalOpen} onClose={closeIntervalChange} width={480}>
+                <DrawerLayout
+                    header={
+                        <Text variant="title-sm" weight={600}>Passa all&apos;annuale</Text>
+                    }
+                    footer={
+                        <>
+                            <Button variant="secondary" onClick={closeIntervalChange} disabled={intervalCommitLoading}>
+                                Annulla
+                            </Button>
+                            <Button
+                                variant="primary"
+                                onClick={handleIntervalCommit}
+                                loading={intervalCommitLoading}
+                                disabled={!intervalPreview || intervalPreviewLoading}
+                            >
+                                {intervalPreview && !intervalPreview.trialEndsAt
+                                    ? `Conferma e paga ${formatCents(intervalPreview.chargeToday)}`
+                                    : "Conferma"}
+                            </Button>
+                        </>
+                    }
+                >
+                    <div className={styles.changeBody}>
+                        {intervalPreviewLoading && (
+                            <div className={styles.confirmBox}>
+                                <Skeleton height="1.6em" width="70%" radius="4px" />
+                                <Skeleton height="1.2em" width="90%" radius="4px" />
+                                <Skeleton height="1.2em" width="80%" radius="4px" />
+                            </div>
+                        )}
+                        {intervalPreview && (
+                            <div className={styles.confirmBox}>
+                                {intervalPreview.trialEndsAt ? (
+                                    <>
+                                        <div className={styles.confirmRow}>
+                                            <Text variant="title-sm" weight={700}>Nessun addebito ora.</Text>
+                                        </div>
+                                        <div className={styles.confirmDivider} />
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"}:{" "}
+                                            {formatCents(intervalPreview.nextAmount)} all&apos;anno.
+                                        </Text>
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Il primo addebito annuale parte alla fine della prova, il{" "}
+                                            {formatDate(intervalPreview.nextDate ?? intervalPreview.trialEndsAt)}.
+                                        </Text>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className={styles.confirmRow}>
+                                            <Text variant="body" weight={600}>Addebito immediato</Text>
+                                            <Text variant="title-sm" weight={700}>
+                                                {formatCents(intervalPreview.chargeToday)}
+                                            </Text>
+                                        </div>
+                                        <div className={styles.confirmDivider} />
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"}:{" "}
+                                            {formatCents(intervalPreview.nextAmount)} all&apos;anno.
+                                        </Text>
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Il ciclo di fatturazione riparte oggi. Prossimo rinnovo:{" "}
+                                            {formatDate(intervalPreview.nextDate)}.
+                                        </Text>
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Non consumato del mese in corso già scalato:{" "}
+                                            −{formatCents(Math.max(0, -(intervalPreview.prorationCreditCents ?? 0)))}.
+                                        </Text>
+                                        <div className={styles.confirmDivider} />
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            L&apos;addebito avviene ora sul metodo di pagamento salvato.
+                                        </Text>
+                                    </>
+                                )}
+                            </div>
+                        )}
+                        {intervalError && (
+                            <Text variant="body-sm" className={styles.changeError}>
+                                {intervalError}
+                            </Text>
+                        )}
+                    </div>
                 </DrawerLayout>
             </SystemDrawer>
 
