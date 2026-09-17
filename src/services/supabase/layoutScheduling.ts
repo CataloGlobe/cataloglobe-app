@@ -187,6 +187,12 @@ type ActivityGroupRow = {
     is_system: boolean;
 };
 
+type RawScheduleTargetLookupRow = {
+    schedule_id: string;
+    target_type: string;
+    target_id: string;
+};
+
 type RawStyleOptionRow = {
     id: string;
     name: string;
@@ -618,10 +624,37 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
         }
     }
 
+    // Multi-target: activityIds/groupIds letti da schedule_targets (passo 3,
+    // e7786243 + 499a051b). apply_to_all resta valutato per primo e vince
+    // sempre su qualsiasi target specifico — stesso contratto del resolver
+    // (scheduleResolver.ts). target_group sotto resta derivato dalla colonna
+    // inline target_id/target_type: è solo un'etichetta rappresentativa per
+    // la UI di dettaglio, non l'elenco completo.
+    const allRuleIds = baseRules.map(rule => rule.id);
+    const targetsByScheduleId = new Map<string, { activityIds: string[]; groupIds: string[] }>();
+    if (allRuleIds.length > 0) {
+        const { data: targetsData, error: targetsError } = await supabase
+            .from("schedule_targets")
+            .select("schedule_id, target_type, target_id")
+            .in("schedule_id", allRuleIds);
+
+        if (targetsError) throw targetsError;
+
+        for (const row of (targetsData ?? []) as RawScheduleTargetLookupRow[]) {
+            const entry = targetsByScheduleId.get(row.schedule_id) ?? {
+                activityIds: [],
+                groupIds: []
+            };
+            if (row.target_type === "activity") {
+                entry.activityIds.push(row.target_id);
+            } else if (row.target_type === "activity_group") {
+                entry.groupIds.push(row.target_id);
+            }
+            targetsByScheduleId.set(row.schedule_id, entry);
+        }
+    }
+
     // Resolve target_group display name for the inline target_id column.
-    // This read still uses the inline columns as source-of-truth (reads
-    // haven't moved to schedule_targets yet — separate work). Writes already
-    // go to schedule_targets via update_schedule_targets (e7786243).
     const activityGroupIds = Array.from(
         new Set(
             baseRules
@@ -679,27 +712,14 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
         const targetGroup =
             rule.target_type === "activity_group" ? (groupById.get(rule.target_id) ?? null) : null;
 
-        // This read path still uses the inline columns on `schedules`, not
-        // schedule_targets. schedule_targets is no longer deprecated — it's
-        // the write-side source of truth (RPC update_schedule_targets,
-        // called by ProgrammingRuleDetail.tsx on save) — but this list read
-        // hasn't been migrated to it yet (separate work). Interpretation
-        // matches the runtime resolver, which still reads the same columns:
-        //   apply_to_all=true            -> all sedi
-        //   target_type='activity'       -> single sede
-        //   target_type='activity_group' -> single gruppo
-        //   else                          -> no target (correctly a draft)
+        // apply_to_all vince sempre su qualsiasi target specifico — stesso
+        // contratto del resolver (scheduleResolver.ts:167, "defensive
+        // hardening"). Il gruppo di sistema "Tutte le sedi" ha zero membri
+        // per disegno: non è un target normale, non se ne deduce niente qui.
         const applyToAll = applyToAllByScheduleId.get(rule.id) === true;
-        let activityIds: string[] = [];
-        let groupIds: string[] = [];
-
-        if (!applyToAll) {
-            if (rule.target_type === "activity" && rule.target_id) {
-                activityIds = [rule.target_id];
-            } else if (rule.target_type === "activity_group" && rule.target_id) {
-                groupIds = [rule.target_id];
-            }
-        }
+        const targets = targetsByScheduleId.get(rule.id);
+        const activityIds = applyToAll ? [] : (targets?.activityIds ?? []);
+        const groupIds = applyToAll ? [] : (targets?.groupIds ?? []);
 
         const visibilityOverrides =
             rule.rule_type === "visibility"
@@ -1200,9 +1220,10 @@ export async function updateRule(input: {
 }): Promise<void> {
     // Derive legacy target fields from activityIds/groupIds. These inline
     // columns are a shim, not the source of truth (that's schedule_targets,
-    // written separately by the caller) — kept in sync so the runtime
-    // resolver (which still queries target_type/target_id directly) can
-    // find the rule.
+    // written separately by the caller). The runtime resolver
+    // (scheduleResolver.ts) no longer reads them for candidate selection
+    // (passo 3) — what's left reading them is display-only (target_group
+    // name in listLayoutRules) and duplicateRule's legacy copy.
     const effectiveApplyToAll = input.applyToAll;
     let legacyTargetType: "activity" | "activity_group" | null = null;
     let legacyTargetId: string | null = null;
