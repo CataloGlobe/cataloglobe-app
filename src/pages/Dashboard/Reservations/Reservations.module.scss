@@ -150,6 +150,7 @@
   gap: 8px;
 }
 
+
 /* ── Reservation row ───────────────────────────────────── */
 
 .row {
@@ -1602,4 +1603,42 @@
 .serviceSectionAction {
   margin-left: auto;
   align-self: center;
+}
+
+/* ── Ricerca (FASE 5.2b) ───────────────────────────────── */
+/* I risultati coprono tutto il tempo: la data ha una colonna sua, prima
+   del nome, e porta l'anno. In fondo al file: `.searchRow` estende `.row`
+   e ne sovrascrive le colonne, quindi deve venire DOPO. */
+.searchResults {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.searchCount {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-text-secondary, #4b5563);
+}
+
+.searchRow {
+  @extend .row;
+  grid-template-columns: auto 1fr auto;
+}
+
+.searchDate {
+  display: flex;
+  flex-direction: column;
+  min-width: 120px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--color-text-primary, #111827);
+  text-transform: capitalize;
+}
+
+.searchTime {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-secondary, #4b5563);
 }

@@ -18,8 +18,10 @@ vi.mock("@/services/supabase/client", () => ({
 import {
     listPendingReservations,
     listReservations,
-    PENDING_QUEUE_LIMIT
+    PENDING_QUEUE_LIMIT,
+    searchReservations
 } from "@/services/supabase/reservations";
+import { SEARCH_RESULTS_LIMIT } from "@/utils/reservationSearch";
 
 interface Recorded {
     method: string;
@@ -35,7 +37,7 @@ interface Recorded {
 function guardedBuilder(table: string, result: { data: unknown; error: unknown }) {
     const calls: Recorded[] = [];
     const builder: Record<string, unknown> = {};
-    for (const method of ["select", "eq", "in", "gte", "lte", "order", "limit"]) {
+    for (const method of ["select", "eq", "in", "gte", "lte", "lt", "or", "order", "limit"]) {
         builder[method] = (...args: unknown[]) => {
             calls.push({ method, args });
             return builder;
@@ -63,6 +65,10 @@ function guardedBuilder(table: string, result: { data: unknown; error: unknown }
 
 function row(id: string, date: string, status = "confirmed") {
     return { id, reservation_date: date, reservation_time: "20:00:00", status };
+}
+
+function phoneRow(id: string, date: string, phone: string, e164: string | null) {
+    return { ...row(id, date), customer_phone: phone, customer_phone_e164: e164 };
 }
 
 beforeEach(() => {
@@ -155,5 +161,80 @@ describe("il sorgente del service non contiene SELECT illimitate su reservations
                 b.includes(".maybeSingle()");
             expect(bounded, `blocco illimitato:\n${b}`).toBe(true);
         }
+    });
+});
+
+// FASE 5.2b — la ricerca è una query sua, su tutte le date, con tetto.
+describe("searchReservations", () => {
+    const TODAY = "2026-09-17";
+
+    it("due query con tetto: futuro dalla più vicina, passato dal più recente", async () => {
+        const future = guardedBuilder("reservations", { data: [row("f", "2027-03-12")], error: null });
+        const past = guardedBuilder("reservations", { data: [row("p", "2025-11-03")], error: null });
+        from.mockReturnValueOnce(future.builder).mockReturnValueOnce(past.builder);
+
+        const page = await searchReservations("t1", "Rossi", TODAY);
+
+        expect(from).toHaveBeenCalledTimes(2);
+        expect(future.calls).toContainEqual({ method: "or", args: ["customer_name.ilike.%Rossi%"] });
+        expect(future.calls).toContainEqual({ method: "gte", args: ["reservation_date", TODAY] });
+        expect(future.calls).toContainEqual({ method: "order", args: ["reservation_date", { ascending: true }] });
+        expect(future.calls).toContainEqual({ method: "limit", args: [SEARCH_RESULTS_LIMIT + 1] });
+        expect(past.calls).toContainEqual({ method: "lt", args: ["reservation_date", TODAY] });
+        expect(past.calls).toContainEqual({ method: "order", args: ["reservation_date", { ascending: false }] });
+        expect(past.calls).toContainEqual({ method: "limit", args: [SEARCH_RESULTS_LIMIT + 1] });
+        expect(page.rows.map(r => r.id)).toEqual(["f", "p"]);
+        expect(page.truncated).toBe(false);
+    });
+
+    it("lo scope di sede va al server", async () => {
+        const a = guardedBuilder("reservations", { data: [], error: null });
+        const b = guardedBuilder("reservations", { data: [], error: null });
+        from.mockReturnValueOnce(a.builder).mockReturnValueOnce(b.builder);
+        await searchReservations("t1", "Rossi", TODAY, "act-1");
+        expect(a.calls).toContainEqual({ method: "eq", args: ["activity_id", "act-1"] });
+        expect(b.calls).toContainEqual({ method: "eq", args: ["activity_id", "act-1"] });
+    });
+
+    it("telefono: like per suffisso su e164 e sul campo libero; poi il confronto vero sul client", async () => {
+        const future = guardedBuilder("reservations", {
+            data: [
+                phoneRow("ok-e164", "2027-03-12", "+39 333 123 4567", "+393331234567"),
+                phoneRow("ok-raw", "2027-05-20", "3331234567", null),
+                // Non finisce con le cifre cercate: il confronto sul client
+                // resta la parola finale, qualunque cosa risponda il server.
+                phoneRow("stranger", "2027-06-01", "3331234560", null)
+            ],
+            error: null
+        });
+        const past = guardedBuilder("reservations", { data: [], error: null });
+        from.mockReturnValueOnce(future.builder).mockReturnValueOnce(past.builder);
+
+        const page = await searchReservations("t1", "3331234567", TODAY);
+
+        expect(future.calls).toContainEqual({
+            method: "or",
+            args: ["customer_phone_e164.like.%3331234567,customer_phone.like.%3331234567"]
+        });
+        expect(page.rows.map(r => r.id)).toEqual(["ok-e164", "ok-raw"]);
+    });
+
+    it("oltre il tetto → truncated, e si restituisce solo il tetto, dalla più vicina", async () => {
+        const data = Array.from({ length: SEARCH_RESULTS_LIMIT + 1 }, (_, i) =>
+            row(`f${i}`, `2027-01-${String((i % 28) + 1).padStart(2, "0")}`)
+        );
+        from.mockReturnValueOnce(guardedBuilder("reservations", { data, error: null }).builder)
+            .mockReturnValueOnce(guardedBuilder("reservations", { data: [], error: null }).builder);
+
+        const page = await searchReservations("t1", "Rossi", TODAY);
+
+        expect(page.rows).toHaveLength(SEARCH_RESULTS_LIMIT);
+        expect(page.truncated).toBe(true);
+    });
+
+    it("query troppo corta o vuota dopo la pulizia → [] senza rete", async () => {
+        expect(await searchReservations("t1", "R", TODAY)).toEqual({ rows: [], truncated: false });
+        expect(await searchReservations("t1", "%%", TODAY)).toEqual({ rows: [], truncated: false });
+        expect(from).not.toHaveBeenCalled();
     });
 });

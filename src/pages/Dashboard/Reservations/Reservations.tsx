@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
 import type { SelectOption } from "@/components/ui/Select/Select";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import { shiftIsoDate, todayIsoDate } from "@/utils/dateLocal";
 import {
@@ -22,8 +23,11 @@ import {
     listReservationTablesForReservations,
     reassignActivityTables,
     resetReservationTablesToSystem,
-    setReservationTables
+    searchReservations,
+    setReservationTables,
+    type ReservationSearchPage
 } from "@/services/supabase/reservations";
+import { parseSearchQuery } from "@/utils/reservationSearch";
 import {
     closeSeating,
     getSeatingForReservation,
@@ -66,6 +70,7 @@ import ReservationCreateEditDrawer from "./ReservationCreateEditDrawer";
 import ReservationsInbox from "./ReservationsInbox";
 import ReservationsAgenda from "./ReservationsAgenda";
 import ReservationsService from "./ReservationsService";
+import ReservationsSearchResults from "./ReservationsSearchResults";
 import SeatingDetailDrawer from "./SeatingDetailDrawer";
 import type { SeatingCloseAction, SeatingPendingOrders } from "./seatingClose";
 import WalkinCreateDrawer from "./WalkinCreateDrawer";
@@ -85,6 +90,9 @@ import { useSeatingsRealtime } from "./hooks/useSeatingsRealtime";
 import styles from "./Reservations.module.scss";
 
 type TabKey = "inbox" | "agenda" | "service";
+
+const SEARCH_PLACEHOLDER = "Cerca per nome o telefono…";
+const SEARCH_DEBOUNCE_MS = 300;
 type Scope = string | "__all__";
 type ChannelFilter = "all" | "online" | "manual";
 
@@ -259,6 +267,18 @@ export default function Reservations() {
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
     const [selectedId, setSelectedId] = useState<string | null>(null);
 
+    // ── Ricerca (FASE 5.2b) ───────────────────────────────────────────
+    // Una modalità, non una scheda: finché il campo ha del testo i risultati
+    // sostituiscono il contenuto della scheda; svuotandolo si torna sulla
+    // scheda e sulla settimana di prima, che non sono state toccate. La
+    // memoria della pagina copre una settimana: cercare lì dentro
+    // mentirebbe, quindi la ricerca è una query sua su tutte le date
+    // (`searchReservations`), fuori dalla finestra di caricamento.
+    const [searchInput, setSearchInput] = useState("");
+    const [searchPage, setSearchPage] = useState<ReservationSearchPage | null>(null);
+    const [isSearching, setIsSearching] = useState(false);
+    const isSearchActive = parseSearchQuery(searchInput) !== null;
+
     // ── La finestra di caricamento ────────────────────────────────────────
     // FASE 5.2a: la pagina chiede al server solo le date che mostra. Le tre
     // sorgenti della finestra vivono qui, non nei figli, perché decidono cosa
@@ -281,6 +301,11 @@ export default function Reservations() {
     const pageActions = useMemo(
         () => (
             <div className={styles.toolbarActions}>
+                <ToolbarSearch
+                    value={searchInput}
+                    onChange={setSearchInput}
+                    placeholder={SEARCH_PLACEHOLDER}
+                />
                 <Select
                     containerClassName={styles.toolbarChannelSelect}
                     value={channelFilter}
@@ -300,7 +325,7 @@ export default function Reservations() {
                 )}
             </div>
         ),
-        [canCreate, channelFilter, handleOpenCreate]
+        [canCreate, channelFilter, handleOpenCreate, searchInput]
     );
 
     // ── Sites the caller can READ ─────────────────────────────────────
@@ -370,10 +395,15 @@ export default function Reservations() {
     // Il giorno della prenotazione aperta nel drawer. Derivato dalla riga in
     // memoria e non salvato a parte: se la riga cambia data (realtime, o
     // modifica), la finestra la segue.
+    // Un risultato di ricerca aperto non è (ancora) in memoria: la sua data
+    // entra nella finestra da qui, e al giro dopo la riga c'è.
     const selectedDate = useMemo(() => {
         if (!isDrawerOpen || !selectedId) return null;
-        return reservations.find(r => r.id === selectedId)?.reservation_date ?? null;
-    }, [isDrawerOpen, selectedId, reservations]);
+        const row =
+            reservations.find(r => r.id === selectedId) ??
+            searchPage?.rows.find(r => r.id === selectedId);
+        return row?.reservation_date ?? null;
+    }, [isDrawerOpen, selectedId, reservations, searchPage]);
 
     const today = todayIsoDate();
     const loadRanges = useMemo<DateRange[]>(() => {
@@ -559,6 +589,53 @@ export default function Reservations() {
         [scopedReservations]
     );
 
+    // ── Ricerca: la query ─────────────────────────────────────────────
+    // Debounce sul testo; una risposta arrivata dopo una digitazione più
+    // recente si scarta (contatore di richiesta). Lo scope di sede si passa
+    // al server; il filtro canale NON si applica: chi cerca un nome vuole
+    // trovarlo, da qualunque canale sia arrivato.
+    const searchSeqRef = useRef(0);
+    useEffect(() => {
+        if (!tenantId || !isSearchActive) {
+            searchSeqRef.current += 1;
+            setSearchPage(null);
+            setIsSearching(false);
+            return;
+        }
+        const seq = ++searchSeqRef.current;
+        setIsSearching(true);
+        const timer = setTimeout(async () => {
+            try {
+                const page = await searchReservations(
+                    tenantId,
+                    searchInput,
+                    todayIsoDate(),
+                    scope === "__all__" ? null : scope
+                );
+                if (seq !== searchSeqRef.current) return;
+                setSearchPage(page);
+            } catch {
+                if (seq !== searchSeqRef.current) return;
+                showToast({ message: "Errore nella ricerca.", type: "error" });
+            } finally {
+                if (seq === searchSeqRef.current) setIsSearching(false);
+            }
+        }, SEARCH_DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+    }, [tenantId, isSearchActive, searchInput, scope, showToast]);
+
+    // I risultati sono uno snapshot: se una riga è anche in memoria (il suo
+    // giorno è caricato, o è pending) vince la copia in memoria, che ha gli
+    // override ottimistici e il realtime. Gate di lettura difensivo come per
+    // il resto della pagina.
+    const searchRows = useMemo<V2Reservation[]>(() => {
+        if (!searchPage) return [];
+        const byId = new Map(effectiveReservations.map(r => [r.id, r]));
+        return searchPage.rows
+            .map(r => byId.get(r.id) ?? r)
+            .filter(r => readableActivityIds.has(r.activity_id));
+    }, [searchPage, effectiveReservations, readableActivityIds]);
+
     // ── Tavoli: vista per prenotazione + conflitti ────────────────────
     // Calcolato UNA volta su `effectiveReservations` (con gli override
     // ottimistici: una prenotazione appena annullata smette subito di essere
@@ -664,6 +741,7 @@ export default function Reservations() {
         ],
         activeSection: tab,
         onSectionChange: value => handleTabChange(value as TabKey),
+        search: { value: searchInput, onChange: setSearchInput, placeholder: SEARCH_PLACEHOLDER },
         filterControls: [
             {
                 label: "Canale",
@@ -677,7 +755,7 @@ export default function Reservations() {
         primaryAction: canCreate
             ? { label: "Nuova prenotazione", onClick: handleOpenCreate }
             : undefined
-    }), [tab, handleTabChange, pendingInScope.length, channelFilter, canCreate, handleOpenCreate]);
+    }), [tab, handleTabChange, pendingInScope.length, channelFilter, canCreate, handleOpenCreate, searchInput]);
 
     const headerConfig = useMemo(
         () => isLocked
@@ -725,12 +803,16 @@ export default function Reservations() {
         await loadData();
     }, [loadData]);
 
+    // La memoria vince (ha gli override e il realtime); il risultato di
+    // ricerca copre l'attimo fra il click e il caricamento del suo giorno.
     const selectedReservation = useMemo(
         () =>
             selectedId
-                ? effectiveReservations.find(r => r.id === selectedId) ?? null
+                ? effectiveReservations.find(r => r.id === selectedId) ??
+                  searchPage?.rows.find(r => r.id === selectedId) ??
+                  null
                 : null,
-        [selectedId, effectiveReservations]
+        [selectedId, effectiveReservations, searchPage]
     );
 
     // Profilo del cliente della prenotazione aperta. Caricato on-demand
@@ -1514,7 +1596,16 @@ export default function Reservations() {
                     finestra mostrata, e una settimana vuota non è «nessuna
                     prenotazione». Ogni scheda ha il suo vuoto, con la sua
                     navigazione. */}
-                {tab === "inbox" ? (
+                {isSearchActive ? (
+                    <ReservationsSearchResults
+                        items={searchRows}
+                        truncated={searchPage?.truncated ?? false}
+                        isSearching={isSearching}
+                        activityNames={activityNames}
+                        showSitePill={showSitePill}
+                        onOpenDetail={handleOpenDetail}
+                    />
+                ) : tab === "inbox" ? (
                     <ReservationsInbox
                         pendingItems={pendingInScope}
                         truncated={pendingTruncated}

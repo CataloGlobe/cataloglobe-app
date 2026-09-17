@@ -16,6 +16,7 @@ import type { V2Reservation } from "@/types/reservation";
 import { agendaWeekRange } from "./loadWindow";
 import ChannelMark from "./ChannelMark";
 import GuestConfirmedMark from "./GuestConfirmedMark";
+import { coversFor } from "./agendaCovers";
 import styles from "./Reservations.module.scss";
 
 interface Props {
@@ -202,9 +203,6 @@ export default function ReservationsAgenda({
 
     const visibleItems = (list: V2Reservation[]) =>
         showTerminal ? list : list.filter(r => !TERMINAL.has(r.status));
-
-    const coversFor = (list: V2Reservation[]) =>
-        list.filter(r => r.status === "confirmed").reduce((s, r) => s + r.party_size, 0);
 
     const hasAnyTerminal = rangeItems.some(r => TERMINAL.has(r.status));
 

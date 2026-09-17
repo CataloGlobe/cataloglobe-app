@@ -18,6 +18,13 @@
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalize";
+import {
+    parseSearchQuery,
+    phoneMatches,
+    sanitizeNameQuery,
+    SEARCH_RESULTS_LIMIT,
+    sortByProximity
+} from "@/utils/reservationSearch";
 import type {
     ReassignActivityTablesSummary,
     ReservationTableAssignment,
@@ -95,6 +102,92 @@ export async function listPendingReservations(
     return {
         rows: rows.slice(0, PENDING_QUEUE_LIMIT),
         truncated: rows.length > PENDING_QUEUE_LIMIT
+    };
+}
+
+export interface ReservationSearchPage {
+    rows: V2Reservation[];
+    /** True se esistono altri risultati oltre `SEARCH_RESULTS_LIMIT`. */
+    truncated: boolean;
+}
+
+/**
+ * Cerca una prenotazione per nome o per telefono su TUTTE le date, fuori
+ * dalla finestra di caricamento della pagina (FASE 5.2b). Due query con
+ * tetto — il futuro dalla più vicina, il passato dal più recente — fuse poi
+ * dalla più vicina a oggi: PostgREST non sa ordinare per distanza da una
+ * data, e una query sola ordinata per data taglierebbe il lato sbagliato.
+ *
+ * Il telefono: sul server un `like` per suffisso sulle cifre digitate, sia
+ * su `customer_phone_e164` sia sul campo libero `customer_phone`; sul client
+ * il confronto vero, cifre contro cifre (`phoneMatches`). Il nome: `ilike`
+ * per sottostringa.
+ *
+ * `activityId` restringe alla sede scelta in barra; `null` = tutte quelle
+ * che il caller può leggere (RLS). Query troppo corta → `[]` senza rete.
+ *
+ * DIFETTO NOTO — ordine delle operazioni nella ricerca per telefono. Il
+ * tetto (`limit(SEARCH_RESULTS_LIMIT + 1)`) si applica sul server, PRIMA del
+ * confronto esatto che fa il client (`phoneMatches`): se il `like` pesca 51
+ * righe spurie e quella giusta è la 52ª, il client scarta le 51 e la
+ * ricerca dice che non c'è niente. Con un `like` per suffisso selettivo le
+ * righe spurie sono poche e il tetto non morde; un pattern coi jolly fra le
+ * cifre (`%3%3%3%…`, per scavalcare spazi e trattini) è stato scartato
+ * proprio perché riempirebbe le 51 righe di rumore e renderebbe il difetto
+ * probabile. Il prezzo: un numero scritto con spazi o trattini nel campo
+ * libero e SENZA `customer_phone_e164` oggi NON è cercabile (su staging non
+ * ce n'è nessuno: le 7 righe senza e164 sono tutte a cifre contigue).
+ * La correzione vera — per il difetto e per quei numeri insieme — è una
+ * colonna con le sole cifre, normalizzata in scrittura, con il `like` per
+ * suffisso su quella: una migration, esclusa da questa fase.
+ */
+export async function searchReservations(
+    tenantId: string,
+    input: string,
+    todayIso: string,
+    activityId: string | null = null
+): Promise<ReservationSearchPage> {
+    const query = parseSearchQuery(input);
+    if (!query) return { rows: [], truncated: false };
+
+    const name = query.kind === "name" ? sanitizeNameQuery(query.text) : "";
+    if (query.kind === "name" && name.length === 0) return { rows: [], truncated: false };
+    const filter =
+        query.kind === "phone"
+            ? `customer_phone_e164.like.%${query.digits},customer_phone.like.%${query.digits}`
+            : `customer_name.ilike.%${name}%`;
+
+    const base = (ascending: boolean) => {
+        const q = supabase
+            .from("reservations")
+            .select("*")
+            .eq("tenant_id", tenantId)
+            .or(filter)
+            .order("reservation_date", { ascending })
+            .order("reservation_time", { ascending })
+            .limit(SEARCH_RESULTS_LIMIT + 1);
+        return activityId ? q.eq("activity_id", activityId) : q;
+    };
+
+    const [future, past] = await Promise.all([
+        base(true).gte("reservation_date", todayIso),
+        base(false).lt("reservation_date", todayIso)
+    ]);
+    if (future.error) throw future.error;
+    if (past.error) throw past.error;
+
+    const futureRows = (future.data ?? []) as V2Reservation[];
+    const pastRows = (past.data ?? []) as V2Reservation[];
+    const overflow =
+        futureRows.length > SEARCH_RESULTS_LIMIT || pastRows.length > SEARCH_RESULTS_LIMIT;
+
+    let rows = [...futureRows, ...pastRows];
+    if (query.kind === "phone") rows = rows.filter(r => phoneMatches(r, query.digits));
+    rows = sortByProximity(rows, todayIso);
+
+    return {
+        rows: rows.slice(0, SEARCH_RESULTS_LIMIT),
+        truncated: overflow || rows.length > SEARCH_RESULTS_LIMIT
     };
 }
 
