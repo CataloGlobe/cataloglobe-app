@@ -44,12 +44,14 @@ import {
 import { DEMOS } from "./landingData";
 import { TextInput } from "@components/ui/Input/TextInput";
 import { Select } from "@components/ui/Select/Select";
+import { BillingIntervalSwitch } from "@components/ui/BillingIntervalSwitch/BillingIntervalSwitch";
+import type { BillingInterval } from "@/types/plan";
 
 /* FAQ locale a questo file, NON condivisa con landingData.ts. */
 const REDESIGN_FAQ_ITEMS: { q: string; a: string }[] = [
   {
     q: "Quanto costa?",
-    a: "Due piani per sede: Base €39/mese, Pro €59/mese (IVA inclusa). Dalla seconda sede in poi, ogni sede costa il 10% in meno. Ti registri online e parti subito con 30 giorni di prova gratuita.",
+    a: "Due piani per sede: Base €39/mese, Pro €59/mese (IVA inclusa). Se preferisci pagare una volta all'anno, l'annuale costa €390 all'anno per Base e €590 all'anno per Pro: due mesi gratis rispetto al pagamento mese per mese. Dalla seconda sede in poi, ogni sede costa il 10% in meno. Ti registri online e parti subito con 30 giorni di prova gratuita.",
   },
   {
     q: "Mi addebitate subito la carta?",
@@ -57,7 +59,7 @@ const REDESIGN_FAQ_ITEMS: { q: string; a: string }[] = [
   },
   {
     q: "Posso disdire quando voglio?",
-    a: "Sì, quando vuoi, senza vincoli. Se chiudi l'account, i tuoi dati restano recuperabili per un periodo prima di essere eliminati definitivamente.",
+    a: "Sì, quando vuoi, senza vincoli. La disdetta ha effetto alla fine del periodo già pagato — il mese o l'anno in corso — e fino ad allora tutto resta attivo. Se chiudi l'account, i tuoi dati restano recuperabili per un periodo prima di essere eliminati definitivamente.",
   },
   {
     q: "Funziona anche con una sola sede?",
@@ -97,12 +99,21 @@ interface MockupPricingAddition {
   name: string;
   benefit: string;
 }
+/**
+ * Price copy per billing interval, ready to render.
+ * `compareNote` is the month-by-month equivalent shown only under a yearly
+ * price (undefined for the monthly interval).
+ */
+interface MockupPricingInterval {
+  priceLabel: string;
+  discountNote: string;
+  compareNote?: string;
+}
 interface MockupPricingPlan {
   key: "base" | "pro";
   name: string;
   trialNote: string;
-  priceLabel: string;
-  discountNote: string;
+  prices: Record<BillingInterval, MockupPricingInterval>;
   framing: string;
   features?: string[];
   additions?: MockupPricingAddition[];
@@ -110,13 +121,32 @@ interface MockupPricingPlan {
 }
 const PLAN_TRIAL_NOTE =
   "30 giorni gratis. Ti chiediamo la carta, ma non addebitiamo nulla oggi.";
+/** Intervals offered on the landing, in display order (same set as the wizard). */
+const LANDING_BILLING_INTERVALS: BillingInterval[] = ["month", "year"];
+/*
+ * ⚠️ DUPLICATED PRICES — hard-coded copies of `plan_prices` (DB) and of
+ * `plans.volume_discount_percent` (10%). The landing is anonymous and
+ * `plan_prices` is readable only by authenticated users, so the values are
+ * repeated here on purpose. Update BOTH when a Price changes on Stripe:
+ * this block AND `REDESIGN_FAQ_ITEMS` ("Quanto costa?") above.
+ *   base: 3900/month · 39000/year   pro: 5900/month · 59000/year
+ */
 const MOCKUP_PRICING_PLANS: MockupPricingPlan[] = [
   {
     key: "base",
     name: "Base",
     trialNote: PLAN_TRIAL_NOTE,
-    priceLabel: "€39/sede/mese",
-    discountNote: "dalla 2ª sede −10% · €35,10/sede · IVA inclusa",
+    prices: {
+      month: {
+        priceLabel: "€39/sede/mese",
+        discountNote: "dalla 2ª sede −10% · €35,10/sede · IVA inclusa",
+      },
+      year: {
+        priceLabel: "€390/sede/anno",
+        discountNote: "dalla 2ª sede −10% · €351/sede · IVA inclusa",
+        compareNote: "€468 pagando mese per mese",
+      },
+    },
     framing: "Il tuo locale online, che si aggiorna da solo.",
     features: [
       "Menu digitale sempre aggiornato",
@@ -136,8 +166,17 @@ const MOCKUP_PRICING_PLANS: MockupPricingPlan[] = [
     key: "pro",
     name: "Pro",
     trialNote: PLAN_TRIAL_NOTE,
-    priceLabel: "€59/sede/mese",
-    discountNote: "dalla 2ª sede −10% · €53,10/sede · IVA inclusa",
+    prices: {
+      month: {
+        priceLabel: "€59/sede/mese",
+        discountNote: "dalla 2ª sede −10% · €53,10/sede · IVA inclusa",
+      },
+      year: {
+        priceLabel: "€590/sede/anno",
+        discountNote: "dalla 2ª sede −10% · €531/sede · IVA inclusa",
+        compareNote: "€708 pagando mese per mese",
+      },
+    },
     framing: "Tutto il piano Base — e in più i clienti fanno da soli:",
     additions: [
       {
@@ -1177,6 +1216,8 @@ export default function LandingPage() {
   const [active, setActive] = useState<number>(() => 0);
   const [autoPlay, setAutoPlay] = useState(true);
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
+  // Pricing section: monthly preselected so an untouched page reads as before.
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>("month");
 
   // La giornata avanza da sola in loop finché l'utente non tocca un tab:
   // al primo click/tap il controllo passa a lui, per sempre.
@@ -1594,9 +1635,18 @@ export default function LandingPage() {
               </Reveal>
             </div>
 
+            <div className={s.plansIntervalSwitch}>
+              <BillingIntervalSwitch
+                value={billingInterval}
+                onChange={setBillingInterval}
+                intervals={LANDING_BILLING_INTERVALS}
+              />
+            </div>
+
             <div className={s.plans}>
               {MOCKUP_PRICING_PLANS.map((plan) => {
                 const isPro = plan.key === "pro";
+                const price = plan.prices[billingInterval];
                 return (
                   <Reveal
                     key={plan.key}
@@ -1607,8 +1657,11 @@ export default function LandingPage() {
                     )}
                     <span className={s.planName}>{plan.name}</span>
                     <span className={s.planTrial}>{plan.trialNote}</span>
-                    <span className={s.planPrice}>{plan.priceLabel}</span>
-                    <span className={s.planDiscount}>{plan.discountNote}</span>
+                    <span className={s.planPrice}>{price.priceLabel}</span>
+                    {price.compareNote && (
+                      <span className={s.planCompare}>{price.compareNote}</span>
+                    )}
+                    <span className={s.planDiscount}>{price.discountNote}</span>
                     <p className={s.planFraming}>{plan.framing}</p>
                     <div className={s.planDivider} />
                     {isPro ? (
