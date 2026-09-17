@@ -15,6 +15,7 @@ import { sendEmail } from "../_shared/sendEmail.ts";
 import {
     upgradeEmail,
     intervalUpgradeEmail,
+    intervalDowngradeEmail,
     downgradeEmail,
     cancelEmail,
     reactivateEmail,
@@ -344,9 +345,18 @@ async function graduatedTotalFromPrice(
 //     parte a fine prova (trial_end preservato, verificato in sandbox).
 // ---------------------------------------------------------------------------
 
-type IntervalBlockReason = "pending_change" | "cancel_scheduled" | "past_due" | "not_active" | "discount";
+// `interval_pending` is NOT produced by intervalBlockReason: it is the guard
+// on the plan/seat paths when the pending phase already changes the interval
+// (a rewrite of that phase would silently drop the scheduled interval change).
+type IntervalBlockReason =
+    | "pending_change"
+    | "cancel_scheduled"
+    | "past_due"
+    | "not_active"
+    | "discount"
+    | "interval_pending";
 
-type IntervalUpContext = {
+type IntervalChangeContext = {
     req: Request;
     action: "preview" | "commit";
     stripe: Stripe;
@@ -364,6 +374,8 @@ type IntervalUpContext = {
     trialEndsAt: string | null;
     buildKey: (params: Parameters<typeof buildIdempotencyKey>[0]) => string;
     getRecipient: () => Promise<string | null>;
+    requestId: string;
+    periodEndIso: string | null;
 };
 
 /** Sum of the proration (credit) lines and of the full-period lines of a preview/invoice. */
@@ -395,7 +407,7 @@ function splitInvoiceLines(invoice: Stripe.Invoice): {
  * pending change) does not block: it is released before the update, like the
  * upgrade path does.
  */
-async function intervalUpBlockReason(
+async function intervalBlockReason(
     stripe: Stripe,
     sub: Stripe.Subscription
 ): Promise<{ reason: IntervalBlockReason; scheduleId: string | null } | null> {
@@ -407,7 +419,7 @@ async function intervalUpBlockReason(
             if ((sched.phases ?? []).length >= 2) return { reason: "pending_change", scheduleId };
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
-            console.error(`stripe-change-subscription: interval-up schedule retrieve failed: ${message}`);
+            console.error(`stripe-change-subscription: interval schedule retrieve failed: ${message}`);
             // Fail-closed: cannot prove there is no pending change.
             return { reason: "pending_change", scheduleId };
         }
@@ -419,11 +431,11 @@ async function intervalUpBlockReason(
     return null;
 }
 
-async function handleIntervalUp(ctx: IntervalUpContext): Promise<Response> {
+async function handleIntervalUp(ctx: IntervalChangeContext): Promise<Response> {
     const { req, stripe, sub, tenant, tenantId, itemId, newPriceId, currentSeats } = ctx;
     const isTrialing = sub.status === "trialing";
 
-    const blocked = await intervalUpBlockReason(stripe, sub);
+    const blocked = await intervalBlockReason(stripe, sub);
     if (blocked) {
         return json(req, 422, { error: "INTERVAL_CHANGE_BLOCKED", details: { reason: blocked.reason } });
     }
@@ -572,6 +584,283 @@ async function handleIntervalUp(ctx: IntervalUpContext): Promise<Response> {
         effective: "now",
         interval: ctx.targetInterval,
         currentPeriodEnd: newPeriodEndIso
+    });
+}
+
+/**
+ * Billing interval of the LAST phase of the subscription's schedule, or null
+ * when there is no pending change (no schedule / one phase) or it cannot be
+ * resolved. Shared by the state payload and by the plan/seat guard.
+ */
+async function pendingPhaseInterval(
+    stripe: Stripe,
+    admin: ReturnType<typeof createClient>,
+    sub: Stripe.Subscription
+): Promise<BillingInterval | null> {
+    const scheduleId =
+        typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
+    if (!scheduleId) return null;
+    try {
+        const sched = await stripe.subscriptionSchedules.retrieve(scheduleId);
+        const phases = sched.phases ?? [];
+        if (phases.length < 2) return null;
+        const pItem = phases[phases.length - 1].items?.[0];
+        const pPriceId = typeof pItem?.price === "string" ? pItem.price : pItem?.price?.id;
+        return (await lookupPlanPriceByStripeId(admin, pPriceId))?.billingInterval ?? null;
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.warn(`stripe-change-subscription: pending phase interval lookup failed: ${message}`);
+        return null;
+    }
+}
+
+type DeferredScheduleParams = {
+    subscriptionId: string;
+    tenantId: string;
+    requestId: string;
+    createParams: Parameters<typeof buildIdempotencyKey>[0];
+    updateParams: Parameters<typeof buildIdempotencyKey>[0];
+    futureItems: { price: string; quantity: number }[];
+    futurePlanCode: string;
+};
+
+/**
+ * The deferred-change sequence shared by the plan downgrade and the
+ * year → month change: create a schedule from the live subscription, then
+ * rewrite it as [current phase verbatim, future phase]. Releases the schedule
+ * it created and rethrows on any failure, so the caller never sees a
+ * half-built schedule. Idempotency: a stale replay of the create (an already
+ * terminal schedule from a released prior attempt) is retried once with a
+ * fresh per-attempt id, used for BOTH the create and the follow-up update.
+ */
+async function createDeferredSchedule(
+    stripe: Stripe,
+    params: DeferredScheduleParams
+): Promise<{ scheduleId: string }> {
+    const { subscriptionId, tenantId, requestId, createParams, updateParams } = params;
+    let createdScheduleId: string | null = null;
+    try {
+        let attemptRequestId = requestId;
+        let scheduleUpdateKey = buildIdempotencyKey(updateParams, attemptRequestId);
+        let schedule = await stripe.subscriptionSchedules.create(
+            { from_subscription: subscriptionId },
+            { idempotencyKey: buildIdempotencyKey(createParams, attemptRequestId) }
+        );
+        if (isStaleScheduleStatus(schedule.status)) {
+            console.warn(
+                `stripe-change-subscription: stale schedule replay on create (status=${schedule.status}) tenant=${tenantId}, retrying with fresh id`
+            );
+            attemptRequestId = `${requestId}:retry:${crypto.randomUUID()}`;
+            scheduleUpdateKey = buildIdempotencyKey(updateParams, attemptRequestId);
+            schedule = await stripe.subscriptionSchedules.create(
+                { from_subscription: subscriptionId },
+                { idempotencyKey: buildIdempotencyKey(createParams, attemptRequestId) }
+            );
+            if (isStaleScheduleStatus(schedule.status)) {
+                throw new Error(`schedule create returned stale status after retry: ${schedule.status}`);
+            }
+        }
+        createdScheduleId = schedule.id;
+
+        const currentPhase = schedule.phases?.[0];
+        if (!currentPhase) {
+            throw new Error("schedule has no current phase to preserve");
+        }
+        const currentPhaseItems = (currentPhase.items ?? []).map(it => ({
+            price: typeof it.price === "string" ? it.price : it.price?.id,
+            quantity: it.quantity ?? 1
+        }));
+
+        await stripe.subscriptionSchedules.update(
+            schedule.id,
+            {
+                end_behavior: "release",
+                phases: [
+                    {
+                        items: currentPhaseItems,
+                        start_date: currentPhase.start_date,
+                        end_date: currentPhase.end_date,
+                        proration_behavior: "none"
+                    },
+                    {
+                        items: params.futureItems,
+                        proration_behavior: "none",
+                        metadata: { plan_code: params.futurePlanCode }
+                    }
+                ]
+            },
+            { idempotencyKey: scheduleUpdateKey }
+        );
+        return { scheduleId: schedule.id };
+    } catch (err) {
+        if (createdScheduleId) {
+            try {
+                await stripe.subscriptionSchedules.release(createdScheduleId);
+            } catch (relErr) {
+                const relMsg = relErr instanceof Error ? relErr.message : String(relErr);
+                console.error(`stripe-change-subscription: schedule release after failure failed: ${relMsg}`);
+            }
+        }
+        throw err;
+    }
+}
+
+// ---------------------------------------------------------------------------
+// INTERVAL DOWN (year → month) — passo 4b.
+// Active subscription: DEFERRED to the end of the paid year, via the same
+// two-phase schedule as a plan downgrade (future phase = same plan and seats
+// on the monthly Price). Nothing changes, nothing is refunded or charged
+// until then; cancellable like any scheduled change. Trialing: the interval
+// is swapped immediately at €0 (no invoice, trial_end preserved), exactly
+// like the opposite direction — scheduling it a year ahead would be absurd.
+// Same refusals as interval-up, for reasons of their own: a past_due
+// subscription is under dunning and may be cancelled (orphan schedule); a
+// schedule phase does not inherit the subscription's discounts, so a coupon
+// would be silently lost at release.
+// ---------------------------------------------------------------------------
+async function handleIntervalDown(ctx: IntervalChangeContext): Promise<Response> {
+    const { req, stripe, sub, tenant, tenantId, itemId, newPriceId, currentSeats } = ctx;
+    const isTrialing = sub.status === "trialing";
+
+    const blocked = await intervalBlockReason(stripe, sub);
+    if (blocked) {
+        return json(req, 422, { error: "INTERVAL_CHANGE_BLOCKED", details: { reason: blocked.reason } });
+    }
+
+    // Full recurring total of the target (monthly) Price from its tiers.
+    const monthlyTotalCents = await graduatedTotalFromPrice(stripe, newPriceId, currentSeats);
+    if (monthlyTotalCents == null) {
+        console.error(`stripe-change-subscription: interval-down monthly total unavailable for ${newPriceId}`);
+        return json(req, 502, { error: "preview_failed" });
+    }
+
+    // Trialing: the swap is immediate, the first monthly charge is at trial
+    // end. Active: the change lands at the end of the current period.
+    const effectiveDateIso = isTrialing ? toIso(sub.trial_end ?? null) : ctx.periodEndIso;
+
+    // ----------------------------- PREVIEW -----------------------------
+    // Nothing is charged in either case: no invoice preview needed.
+    if (ctx.action === "preview") {
+        return json(req, 200, {
+            classification: "interval-down",
+            plan: ctx.currentPlan,
+            seats: currentSeats,
+            currency: ctx.currency,
+            chargeToday: 0,
+            nextAmount: monthlyTotalCents,
+            nextDate: effectiveDateIso,
+            effective: isTrialing ? "now" : effectiveDateIso,
+            trialEndsAt: ctx.trialEndsAt,
+            trialFirstInvoiceCents: isTrialing ? monthlyTotalCents : null,
+            prorationCreditCents: 0,
+            currentInterval: ctx.currentInterval,
+            targetInterval: ctx.targetInterval,
+            willDiscardScheduledChange: false
+        });
+    }
+
+    // ----------------------------- COMMIT ------------------------------
+    // Only a one-phase schedule can be attached here (a real pending change
+    // was refused above): release it, Stripe rejects updates on a
+    // schedule-managed subscription.
+    const scheduleId =
+        typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
+    await releaseScheduleIfAny(stripe, scheduleId);
+
+    const keyBase = {
+        tenantId,
+        subscriptionId: tenant.stripe_subscription_id,
+        currentPlan: ctx.currentPlan,
+        currentSeats,
+        targetPlan: ctx.currentPlan,
+        targetSeats: currentSeats,
+        currentInterval: ctx.currentInterval,
+        targetInterval: ctx.targetInterval
+    };
+
+    const sendDownEmail = async () => {
+        try {
+            const to = await ctx.getRecipient();
+            if (to) {
+                await sendEmail({
+                    to,
+                    ...intervalDowngradeEmail({
+                        plan: ctx.currentPlan,
+                        seats: currentSeats,
+                        monthlyTotalCents,
+                        effectiveDateIso,
+                        isTrialing
+                    })
+                });
+            }
+        } catch (err) {
+            console.error("[stripe-change-subscription] interval-down email error:", err);
+        }
+    };
+
+    if (isTrialing) {
+        let updated: Stripe.Subscription;
+        try {
+            updated = await stripe.subscriptions.update(
+                tenant.stripe_subscription_id,
+                {
+                    items: [{ id: itemId, price: newPriceId, quantity: currentSeats }],
+                    proration_behavior: "none",
+                    metadata: { ...(sub.metadata ?? {}), plan_code: ctx.currentPlan }
+                },
+                { idempotencyKey: ctx.buildKey({ operation: "interval-down-trial", ...keyBase }) }
+            );
+        } catch (err) {
+            const message = err instanceof Error ? err.message : String(err);
+            console.error(`stripe-change-subscription: interval-down trial update failed: ${message}`);
+            return json(req, 502, { error: "stripe_update_failed" });
+        }
+        const trialEndIso = toIso(updated.trial_end ?? null);
+        console.log(
+            `stripe-change-subscription: INTERVAL_DOWN applied (trial) tenant=${tenantId} plan=${ctx.currentPlan} seats=${currentSeats} ${ctx.currentInterval}→${ctx.targetInterval} trial_end=${trialEndIso}`
+        );
+        await sendDownEmail();
+        return json(req, 200, {
+            ok: true,
+            classification: "interval-down",
+            plan: ctx.currentPlan,
+            seats: currentSeats,
+            effective: "now",
+            interval: ctx.targetInterval,
+            currentPeriodEnd: trialEndIso
+        });
+    }
+
+    let created: { scheduleId: string };
+    try {
+        created = await createDeferredSchedule(stripe, {
+            subscriptionId: tenant.stripe_subscription_id,
+            tenantId,
+            requestId: ctx.requestId,
+            createParams: { operation: "interval-down-create", ...keyBase },
+            updateParams: { operation: "interval-down-update", ...keyBase },
+            futureItems: [{ price: newPriceId, quantity: currentSeats }],
+            futurePlanCode: ctx.currentPlan
+        });
+    } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        console.error(`stripe-change-subscription: interval-down schedule failed: ${message}`);
+        return json(req, 502, { error: "stripe_schedule_failed" });
+    }
+    console.log(
+        `stripe-change-subscription: INTERVAL_DOWN scheduled tenant=${tenantId} plan=${ctx.currentPlan} seats=${currentSeats} ${ctx.currentInterval}→${ctx.targetInterval} effective=${effectiveDateIso} schedule=${created.scheduleId}`
+    );
+    await sendDownEmail();
+    return json(req, 200, {
+        ok: true,
+        classification: "interval-down",
+        plan: ctx.currentPlan,
+        seats: currentSeats,
+        effective: effectiveDateIso,
+        scheduledChange: true,
+        scheduleId: created.scheduleId,
+        interval: ctx.targetInterval,
+        currentPeriodEnd: effectiveDateIso
     });
 }
 
@@ -966,6 +1255,19 @@ serve(async req => {
             return json(req, 422, { error: "SEATS_BELOW_ACTIVITIES", details: { min_seats: minSeats } });
         }
 
+        // Guard (passo 4b): every path that rewrites the future phase of an
+        // existing schedule does so with a Price on the CURRENT interval. When
+        // the pending phase already changes the interval (year → month), a
+        // plan/seat change would silently drop that request. Refused with its
+        // own reason; interval requests fall through to their own checks
+        // (a pending change refuses them with `pending_change`).
+        if (targetInterval === currentInterval) {
+            const pendingInterval = await pendingPhaseInterval(stripe, admin, sub);
+            if (pendingInterval && pendingInterval !== currentInterval) {
+                return json(req, 422, { error: "INTERVAL_CHANGE_BLOCKED", details: { reason: "interval_pending" } });
+            }
+        }
+
         // =====================================================================
         // PREVIEW-/UPDATE-SCHEDULED-CHANGE — B5: modifica IN-PLACE del bersaglio
         // futuro di un cambio programmato (piano e/o sedi diversi al rinnovo).
@@ -1119,7 +1421,7 @@ serve(async req => {
         });
 
         // =====================================================================
-        // INTERVALLO — passo 4a. Tutte le route dell'asse intervallo escono qui,
+        // INTERVALLO — passi 4a/4b. Tutte le route dell'asse intervallo escono qui,
         // PRIMA del mapping legacy `classification`: nessuna di esse deve
         // cadere nei rami upgrade/downgrade/combined.
         // =====================================================================
@@ -1127,12 +1429,9 @@ serve(async req => {
             // Interval moves only alone (rule 1): two operations in sequence.
             return json(req, 422, { error: "INTERVAL_CHANGE_MIXED" });
         }
-        if (change.route === "interval-down") {
-            // year → month is deferred to renewal: separate phase, not built yet.
-            return json(req, 422, { error: "INTERVAL_DOWN_NOT_SUPPORTED" });
-        }
-        if (change.route === "interval-up") {
-            const intervalResponse = await handleIntervalUp({
+        if (change.route === "interval-down" || change.route === "interval-up") {
+            const handler = change.route === "interval-down" ? handleIntervalDown : handleIntervalUp;
+            const intervalResponse = await handler({
                 req,
                 action,
                 stripe,
@@ -1149,7 +1448,9 @@ serve(async req => {
                 currency,
                 trialEndsAt,
                 buildKey,
-                getRecipient
+                getRecipient,
+                requestId,
+                periodEndIso
             });
             return intervalResponse;
         }
@@ -2059,7 +2360,6 @@ serve(async req => {
 
         // Nessun cambio programmato esistente: crea lo schedule ex-novo (A3/A4,
         // invariato). `existingScheduleId` qui e' null → releaseScheduleIfAny no-op.
-        let createdScheduleId: string | null = null;
         try {
             const existingScheduleId =
                 typeof sub.schedule === "string" ? sub.schedule : (sub.schedule as { id?: string })?.id ?? null;
@@ -2084,64 +2384,18 @@ serve(async req => {
                 targetSeats: newSeats
             };
 
-            // Guard against a stale idempotency replay: if Stripe returns an
-            // already-terminal schedule (a prior attempt's schedule since
-            // released), retry once with a fresh per-attempt id so BOTH the
-            // create and the follow-up update target a real, live schedule.
-            let attemptRequestId = requestId;
-            let scheduleUpdateKey = buildIdempotencyKey(updateParams, attemptRequestId);
-            let schedule = await stripe.subscriptionSchedules.create(
-                { from_subscription: tenant.stripe_subscription_id },
-                { idempotencyKey: buildIdempotencyKey(createParams, attemptRequestId) }
-            );
-            if (isStaleScheduleStatus(schedule.status)) {
-                console.warn(
-                    `stripe-change-subscription: stale schedule replay on create (status=${schedule.status}) tenant=${tenantId}, retrying with fresh id`
-                );
-                attemptRequestId = `${requestId}:retry:${crypto.randomUUID()}`;
-                scheduleUpdateKey = buildIdempotencyKey(updateParams, attemptRequestId);
-                schedule = await stripe.subscriptionSchedules.create(
-                    { from_subscription: tenant.stripe_subscription_id },
-                    { idempotencyKey: buildIdempotencyKey(createParams, attemptRequestId) }
-                );
-                if (isStaleScheduleStatus(schedule.status)) {
-                    throw new Error(`schedule create returned stale status after retry: ${schedule.status}`);
-                }
-            }
-            createdScheduleId = schedule.id;
-
-            const currentPhase = schedule.phases?.[0];
-            if (!currentPhase) {
-                throw new Error("schedule has no current phase to preserve");
-            }
-            const currentPhaseItems = (currentPhase.items ?? []).map(it => ({
-                price: typeof it.price === "string" ? it.price : it.price?.id,
-                quantity: it.quantity ?? 1
-            }));
-
-            await stripe.subscriptionSchedules.update(
-                schedule.id,
-                {
-                    end_behavior: "release",
-                    phases: [
-                        {
-                            items: currentPhaseItems,
-                            start_date: currentPhase.start_date,
-                            end_date: currentPhase.end_date,
-                            proration_behavior: "none"
-                        },
-                        {
-                            items: [{ price: newPriceId, quantity: newSeats }],
-                            proration_behavior: "none",
-                            metadata: { plan_code: targetPlan }
-                        }
-                    ]
-                },
-                { idempotencyKey: scheduleUpdateKey }
-            );
+            const schedule = await createDeferredSchedule(stripe, {
+                subscriptionId: tenant.stripe_subscription_id,
+                tenantId,
+                requestId,
+                createParams,
+                updateParams,
+                futureItems: [{ price: newPriceId, quantity: newSeats }],
+                futurePlanCode: targetPlan
+            });
 
             console.log(
-                `stripe-change-subscription: DOWNGRADE scheduled tenant=${tenantId} plan=${targetPlan} seats=${newSeats} effective=${periodEndIso} schedule=${schedule.id}`
+                `stripe-change-subscription: DOWNGRADE scheduled tenant=${tenantId} plan=${targetPlan} seats=${newSeats} effective=${periodEndIso} schedule=${schedule.scheduleId}`
             );
             try {
                 const to = await getRecipient();
@@ -2166,18 +2420,10 @@ serve(async req => {
                 seats: newSeats,
                 effective: periodEndIso,
                 scheduledChange: true,
-                scheduleId: schedule.id
+                scheduleId: schedule.scheduleId
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
-            if (createdScheduleId) {
-                try {
-                    await stripe.subscriptionSchedules.release(createdScheduleId);
-                } catch (relErr) {
-                    const relMsg = relErr instanceof Error ? relErr.message : String(relErr);
-                    console.error(`stripe-change-subscription: schedule release after failure failed: ${relMsg}`);
-                }
-            }
             console.error(`stripe-change-subscription: downgrade schedule failed: ${message}`);
             return json(req, 502, { error: "stripe_schedule_failed" });
         }

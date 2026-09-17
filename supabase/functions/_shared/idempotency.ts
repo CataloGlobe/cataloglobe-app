@@ -31,7 +31,12 @@ export type BillingOperation =
     // con l'update-fasi di B2.
     | "scheduled-update"
     // Passo 4a — cambio di intervallo mensile → annuale (immediato, prorata).
-    | "interval-up";
+    | "interval-up"
+    // Passo 4b — annuale → mensile: schedule a 2 fasi (create + update, come
+    // downgrade-create/update) oppure swap immediato a €0 in prova.
+    | "interval-down-create"
+    | "interval-down-update"
+    | "interval-down-trial";
 
 export interface IdempotencyKeyParams {
     operation: BillingOperation;

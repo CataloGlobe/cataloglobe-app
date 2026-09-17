@@ -111,4 +111,33 @@ describe("classifyChange — billing interval axis", () => {
             currentInterval: "year", targetInterval: "month"
         })).toEqual({ tierDir: "down", seatDir: "up", intervalDir: "down", route: "interval-mixed" });
     });
+
+    // Passo 4b: the deferred direction never rides along with a plan/seat move
+    // either — every non-"same" tier/seat cell is refused.
+    it("year → month with tier up → interval-mixed", () => {
+        expect(classifyChange({
+            currentPlan: "base", currentSeats: 1, targetPlan: "pro", targetSeats: 1,
+            currentInterval: "year", targetInterval: "month"
+        })).toEqual({ tierDir: "up", seatDir: "same", intervalDir: "down", route: "interval-mixed" });
+    });
+
+    it("year → month with seats down → interval-mixed", () => {
+        expect(classifyChange({
+            currentPlan: "pro", currentSeats: 3, targetPlan: "pro", targetSeats: 1,
+            currentInterval: "year", targetInterval: "month"
+        })).toEqual({ tierDir: "same", seatDir: "down", intervalDir: "down", route: "interval-mixed" });
+    });
+
+    it("year → month with seats up → interval-mixed", () => {
+        expect(classifyChange({
+            currentPlan: "pro", currentSeats: 1, targetPlan: "pro", targetSeats: 3,
+            currentInterval: "year", targetInterval: "month"
+        })).toEqual({ tierDir: "same", seatDir: "up", intervalDir: "down", route: "interval-mixed" });
+    });
+
+    it("yearly subscription, target interval omitted → plan/seat routing unchanged", () => {
+        expect(classifyChange({
+            currentPlan: "pro", currentSeats: 4, targetPlan: "pro", targetSeats: 2, currentInterval: "year"
+        })).toEqual({ tierDir: "same", seatDir: "down", intervalDir: "same", route: "downgrade" });
+    });
 });

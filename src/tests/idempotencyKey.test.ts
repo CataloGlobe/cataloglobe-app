@@ -26,6 +26,22 @@ describe("buildIdempotencyKey — billing interval segments (passo 4a)", () => {
             .toBe(buildIdempotencyKey({ operation: "seats", ...base }, "r1"));
     });
 
+    it("interval-down ops (passo 4b) carry the year→month segments", () => {
+        const down = { ...base, currentInterval: "year" as const, targetInterval: "month" as const };
+        expect(buildIdempotencyKey({ operation: "interval-down-create", ...down }, "r1"))
+            .toBe("cg:interval-down-create:t1:sub_1:prox2xyear-to-prox2xmonth:r1");
+        expect(buildIdempotencyKey({ operation: "interval-down-update", ...down }, "r1"))
+            .toBe("cg:interval-down-update:t1:sub_1:prox2xyear-to-prox2xmonth:r1");
+        expect(buildIdempotencyKey({ operation: "interval-down-trial", ...down }, "r1"))
+            .toBe("cg:interval-down-trial:t1:sub_1:prox2xyear-to-prox2xmonth:r1");
+    });
+
+    it("create and update of the deferred schedule never share a key", () => {
+        const down = { ...base, currentInterval: "year" as const, targetInterval: "month" as const };
+        expect(buildIdempotencyKey({ operation: "interval-down-create", ...down }, "r1"))
+            .not.toBe(buildIdempotencyKey({ operation: "interval-down-update", ...down }, "r1"));
+    });
+
     it("the two directions on the same plan×seats produce different keys", () => {
         const up = buildIdempotencyKey({ operation: "interval-up", ...base, currentInterval: "month", targetInterval: "year" }, "r1");
         const down = buildIdempotencyKey({ operation: "interval-up", ...base, currentInterval: "year", targetInterval: "month" }, "r1");

@@ -28,6 +28,7 @@ import type {
 import { getPlanByCode, listPublicPlans } from "@/services/supabase/plans";
 import { getActivityCount } from "@/services/supabase/activities";
 import { getTenantBillingInterval } from "@/services/supabase/tenants";
+import { formatPendingChangeLabel } from "./pendingChangeLabel";
 import { listPlanPrices } from "@/services/supabase/planPrices";
 import { calculateGraduatedFromPlan } from "@/utils/pricing";
 import { DEFAULT_BILLING_INTERVAL, INTERVAL_ADJECTIVE, INTERVAL_RECURRENCE, intervalUnit, priceCentsFor } from "@/utils/planPricing";
@@ -133,16 +134,41 @@ function applyDiscount(fullPrice: number, discount: SubscriptionDiscount): numbe
 }
 
 /**
- * Passo 4a — perché il passaggio all'annuale non è disponibile. Stesso testo
- * al posto dell'azione (gating pre-conferma) e nel toast se l'edge rifiuta
- * comunque (stato cambiato nel frattempo).
+ * Passi 4a/4b — perché il cambio di intervallo non è disponibile, per
+ * intervallo TARGET. Stesso testo al posto dell'azione (gating pre-conferma) e
+ * nel toast se l'edge rifiuta comunque (stato cambiato nel frattempo).
+ * `interval_pending` non riguarda queste card: è il rifiuto di un cambio
+ * piano/sedi mentre un cambio di intervallo è programmato (vedi
+ * PENDING_INTERVAL_MESSAGE).
  */
-const INTERVAL_BLOCK_MESSAGE: Record<IntervalBlockReason, string> = {
-    pending_change: "Per passare all'annuale, annulla prima il cambio programmato.",
-    cancel_scheduled: "Per passare all'annuale, riattiva prima l'abbonamento.",
-    past_due: "Per passare all'annuale, regolarizza prima il pagamento in sospeso.",
-    not_active: "Il passaggio all'annuale è disponibile solo con un abbonamento attivo o in prova.",
-    discount: "Il passaggio all'annuale non è disponibile finché è attivo uno sconto sull'abbonamento. Se vuoi passare all'annuale, scrivi all'assistenza."
+const INTERVAL_BLOCK_MESSAGE: Record<BillingInterval, Record<IntervalBlockReason, string>> = {
+    year: {
+        pending_change: "Per passare all'annuale, annulla prima il cambio programmato.",
+        cancel_scheduled: "Per passare all'annuale, riattiva prima l'abbonamento.",
+        past_due: "Per passare all'annuale, regolarizza prima il pagamento in sospeso.",
+        not_active: "Il passaggio all'annuale è disponibile solo con un abbonamento attivo o in prova.",
+        discount: "Il passaggio all'annuale non è disponibile finché è attivo uno sconto sull'abbonamento. Se vuoi passare all'annuale, scrivi all'assistenza.",
+        interval_pending: "Per passare all'annuale, annulla prima il cambio programmato."
+    },
+    month: {
+        pending_change: "Per tornare al mensile, annulla prima il cambio programmato.",
+        cancel_scheduled: "Per tornare al mensile, riattiva prima l'abbonamento.",
+        past_due: "Per tornare al mensile, regolarizza prima il pagamento in sospeso.",
+        not_active: "Il passaggio al mensile è disponibile solo con un abbonamento attivo o in prova.",
+        discount: "Il passaggio al mensile non è disponibile finché è attivo uno sconto sull'abbonamento. Se vuoi tornare al mensile, scrivi all'assistenza.",
+        interval_pending: "Per tornare al mensile, annulla prima il cambio programmato."
+    }
+};
+
+/** Card «Modifica piano» mentre è programmato un cambio verso l'intervallo dato. */
+const PENDING_INTERVAL_MESSAGE: Record<BillingInterval, string> = {
+    month: "Hai un passaggio al mensile programmato. Per modificare piano o sedi, annulla prima quella richiesta.",
+    year: "Hai un passaggio all'annuale programmato. Per modificare piano o sedi, annulla prima quella richiesta."
+};
+
+const INTERVAL_ACTION_LABEL: Record<BillingInterval, string> = {
+    year: "Passa all'annuale",
+    month: "Torna al mensile"
 };
 
 /** Traduce i codici d'errore dell'edge di cambio abbonamento in messaggi UI. */
@@ -160,6 +186,11 @@ function mapChangeError(err: unknown, activityCount: number, cap: number): strin
         case "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED":
         case "SEATS_ADDED_SCHEDULE_NOT_UPDATED":
             return "Le sedi sono state aggiunte e pagate, ma il passaggio a Base non è stato programmato. Riprova.";
+        case "INTERVAL_CHANGE_BLOCKED":
+            // Plan/seat drawer already open while an interval change got scheduled elsewhere.
+            return err instanceof IntervalChangeBlockedError && err.reason === "interval_pending"
+                ? "C'è un cambio di intervallo di fatturazione programmato. Annullalo prima di modificare piano o sedi."
+                : "Si è verificato un errore. Riprova.";
         default:
             return "Si è verificato un errore. Riprova.";
     }
@@ -239,6 +270,8 @@ export default function SubscriptionPage() {
         seats: number;
         nextDate: string | null;
         isDowngradeToBase: boolean;
+        /** Interval of the future phase; plan/seat changes keep the current one. */
+        interval: BillingInterval;
     } | null>(null);
 
     // --- Stato abbonamento live (banner persistente + disdetta) ---
@@ -250,8 +283,11 @@ export default function SubscriptionPage() {
     const [isCancelScheduleOpen, setIsCancelScheduleOpen] = useState(false);
     const [cancelScheduleLoading, setCancelScheduleLoading] = useState(false);
 
-    // --- Passaggio all'annuale (passo 4a): ingresso dedicato, un solo step ---
+    // --- Cambio di intervallo (passi 4a/4b): ingresso dedicato, un solo step.
+    // `intervalTarget` = intervallo richiesto: "year" (immediato, addebito) o
+    // "month" (programmato al rinnovo; immediato a €0 in prova).
     const [isIntervalOpen, setIsIntervalOpen] = useState(false);
+    const [intervalTarget, setIntervalTarget] = useState<BillingInterval>("year");
     const [intervalPreview, setIntervalPreview] = useState<SubscriptionChangePreview | null>(null);
     const [intervalPreviewLoading, setIntervalPreviewLoading] = useState(false);
     const [intervalCommitLoading, setIntervalCommitLoading] = useState(false);
@@ -557,7 +593,8 @@ export default function SubscriptionPage() {
                         subState?.pendingChange?.effectiveDate ??
                         selectedTenant.current_period_end ??
                         null,
-                    isDowngradeToBase: pendingPlanCode === "base" && currentPlanBaseline === "pro"
+                    isDowngradeToBase: pendingPlanCode === "base" && currentPlanBaseline === "pro",
+                    interval: billingInterval
                 });
                 showToast({
                     message: "Cambio programmato aggiornato: le sedi partiranno dal rinnovo.",
@@ -598,7 +635,8 @@ export default function SubscriptionPage() {
                     planName: plans.find(p => p.code === draftPlan)?.name ?? draftPlan,
                     seats: draftSeats,
                     nextDate: preview?.nextDate ?? selectedTenant.current_period_end ?? null,
-                    isDowngradeToBase
+                    isDowngradeToBase,
+                    interval: billingInterval
                 });
                 showToast({ message: "Sedi aggiunte. Il cambio piano avrà effetto al prossimo rinnovo.", type: "success" });
             } else {
@@ -608,7 +646,8 @@ export default function SubscriptionPage() {
                     planName: plans.find(p => p.code === draftPlan)?.name ?? draftPlan,
                     seats: draftSeats,
                     nextDate: preview?.nextDate ?? selectedTenant.current_period_end ?? null,
-                    isDowngradeToBase
+                    isDowngradeToBase,
+                    interval: billingInterval
                 });
                 showToast({ message: "Cambio programmato: avrà effetto al prossimo rinnovo.", type: "success" });
             }
@@ -715,6 +754,7 @@ export default function SubscriptionPage() {
     // quando il cambio sarebbe rifiutato, e dice perché. L'edge ripete gli
     // stessi controlli (fonte autoritativa); qui si evita di aprire una conferma
     // destinata a fallire.
+    const oppositeInterval: BillingInterval = billingInterval === "month" ? "year" : "month";
     const intervalBlockReason: IntervalBlockReason | null = (() => {
         if (subState?.pendingChange || scheduledChange) return "pending_change";
         if (subState?.cancelAtPeriodEnd) return "cancel_scheduled";
@@ -724,7 +764,17 @@ export default function SubscriptionPage() {
         return null;
     })();
 
-    const openIntervalChange = async () => {
+    const intervalBlockedToast = (target: BillingInterval, reason: IntervalBlockReason | null) => {
+        showToast({
+            message: `Il passaggio ${target === "year" ? "all'annuale" : "al mensile"} non è più disponibile: ${
+                reason ? INTERVAL_BLOCK_MESSAGE[target][reason] : "riprova più tardi."
+            }`,
+            type: "error"
+        });
+    };
+
+    const openIntervalChange = async (target: BillingInterval) => {
+        setIntervalTarget(target);
         setIntervalPreview(null);
         setIntervalError(null);
         setIsIntervalOpen(true);
@@ -732,18 +782,14 @@ export default function SubscriptionPage() {
         try {
             const result = await previewIntervalChange(selectedTenant.id, {
                 plan: currentPlanBaseline,
-                seats: currentSeatsBaseline
+                seats: currentSeatsBaseline,
+                interval: target
             });
             setIntervalPreview(result);
         } catch (err) {
             if (err instanceof IntervalChangeBlockedError) {
                 setIsIntervalOpen(false);
-                showToast({
-                    message: `Il passaggio all'annuale non è più disponibile: ${
-                        err.reason ? INTERVAL_BLOCK_MESSAGE[err.reason] : "riprova più tardi."
-                    }`,
-                    type: "error"
-                });
+                intervalBlockedToast(target, err.reason);
                 reloadSubState();
                 return;
             }
@@ -765,35 +811,50 @@ export default function SubscriptionPage() {
         try {
             const result = await commitIntervalChange(selectedTenant.id, {
                 plan: currentPlanBaseline,
-                seats: currentSeatsBaseline
+                seats: currentSeatsBaseline,
+                interval: intervalTarget
             });
-            // Optimistic: the webhook rewrites tenants.billing_interval and
-            // current_period_end asynchronously; reflect the authoritative
-            // commit result now so the card shows the yearly price and the
-            // new renewal date without a refetch race.
-            setBillingInterval(result.interval ?? "year");
-            setOptimisticNextAmountCents(intervalPreview.nextAmount);
-            if (result.currentPeriodEnd && status !== "trialing") {
-                patchSelectedTenant({ current_period_end: result.currentPeriodEnd });
-            }
             const nextDate = result.currentPeriodEnd ?? intervalPreview.nextDate;
-            showToast({
-                message: status === "trialing"
-                    ? `Passaggio all'annuale completato. Primo addebito il ${formatDate(nextDate)}.`
-                    : `Passaggio all'annuale completato. Prossimo rinnovo il ${formatDate(nextDate)}.`,
-                type: "success"
-            });
+            if (result.scheduledChange) {
+                // year → month on an active subscription: nothing changes until
+                // the paid year ends. Only the "Prossimo cambio" line moves.
+                setScheduledChange({
+                    planName: displayPlanName,
+                    seats: currentSeatsBaseline,
+                    nextDate,
+                    isDowngradeToBase: false,
+                    interval: "month"
+                });
+                showToast({
+                    message: `Passaggio al mensile programmato. Fino al ${formatDate(nextDate)} non cambia nulla.`,
+                    type: "success"
+                });
+            } else {
+                // Immediate swap (month → year, or either direction while
+                // trialing). Optimistic: the webhook rewrites
+                // tenants.billing_interval and current_period_end
+                // asynchronously; reflect the authoritative commit result now
+                // so the card shows the new price and renewal date without a
+                // refetch race.
+                setBillingInterval(result.interval ?? intervalTarget);
+                setOptimisticNextAmountCents(intervalPreview.nextAmount);
+                if (result.currentPeriodEnd && status !== "trialing") {
+                    patchSelectedTenant({ current_period_end: result.currentPeriodEnd });
+                }
+                const done = intervalTarget === "year" ? "Passaggio all'annuale completato." : "Passaggio al mensile completato.";
+                showToast({
+                    message: status === "trialing"
+                        ? `${done} Primo addebito il ${formatDate(nextDate)}.`
+                        : `${done} Prossimo rinnovo il ${formatDate(nextDate)}.`,
+                    type: "success"
+                });
+            }
             setIsIntervalOpen(false);
             reloadSubState();
         } catch (err) {
             if (err instanceof IntervalChangeBlockedError) {
                 setIsIntervalOpen(false);
-                showToast({
-                    message: `Il passaggio all'annuale non è più disponibile: ${
-                        err.reason ? INTERVAL_BLOCK_MESSAGE[err.reason] : "riprova più tardi."
-                    }`,
-                    type: "error"
-                });
+                intervalBlockedToast(intervalTarget, err.reason);
                 reloadSubState();
                 return;
             }
@@ -821,16 +882,23 @@ export default function SubscriptionPage() {
                 ?? "—",
             seats: subState.pendingChange!.targetSeats ?? 0,
             date: subState.pendingChange!.effectiveDate,
-            isBase: subState.pendingChange!.targetPlan === "base" && selectedTenant.plan === "pro"
+            isBase: subState.pendingChange!.targetPlan === "base" && selectedTenant.plan === "pro",
+            interval: subState.pendingChange!.targetInterval ?? null
         }
         : scheduledChange
         ? {
             planName: scheduledChange.planName,
             seats: scheduledChange.seats,
             date: scheduledChange.nextDate,
-            isBase: scheduledChange.isDowngradeToBase
+            isBase: scheduledChange.isDowngradeToBase,
+            interval: scheduledChange.interval
         }
         : null;
+    // A pending change towards another interval (passo 4b): the edge refuses
+    // plan/seat changes meanwhile (a phase rewrite would drop it), so the
+    // "Modifica piano" entry says so instead of opening a drawer bound to fail.
+    const pendingIntervalChange: BillingInterval | null =
+        pendingBanner?.interval && pendingBanner.interval !== billingInterval ? pendingBanner.interval : null;
     const cancelAtPeriodEnd = subState?.cancelAtPeriodEnd ?? false;
     const periodEndDate = subState?.currentPeriodEnd ?? selectedTenant.current_period_end ?? null;
 
@@ -959,8 +1027,12 @@ export default function SubscriptionPage() {
                             <Skeleton height="1.2em" width="240px" radius="4px" />
                         ) : pendingBanner ? (
                             <Text variant="title-sm" weight={700} colorVariant="primary">
-                                {pendingBanner.planName} · {pendingBanner.seats}{" "}
-                                {pendingBanner.seats === 1 ? "sede" : "sedi"} dal {formatDate(pendingBanner.date)}
+                                {formatPendingChangeLabel({
+                                    planName: pendingBanner.planName,
+                                    seats: pendingBanner.seats,
+                                    interval: pendingBanner.interval,
+                                    dateLabel: formatDate(pendingBanner.date)
+                                })}
                             </Text>
                         ) : (
                             <Text variant="title-sm" weight={700}>
@@ -1025,7 +1097,11 @@ export default function SubscriptionPage() {
 
                 {canManageBilling && !isTerminal && (
                     <div className={styles.contactRow}>
-                        {selfServiceEligible ? (
+                        {pendingIntervalChange ? (
+                            <Text variant="body-sm" colorVariant="muted">
+                                {PENDING_INTERVAL_MESSAGE[pendingIntervalChange]}
+                            </Text>
+                        ) : selfServiceEligible ? (
                             <>
                                 <Text variant="body-sm" colorVariant="muted">
                                     Cambia piano o numero di sedi in autonomia.
@@ -1115,27 +1191,29 @@ export default function SubscriptionPage() {
                     </div>
                 )}
 
-                {hasSubscriptionRecord && !isTerminal && billingInterval === "month" && (
+                {hasSubscriptionRecord && !isTerminal && (
                     <div className={styles.actionCard}>
                         <div>
                             <Text variant="body" weight={500}>
-                                Passa all&apos;annuale
+                                {INTERVAL_ACTION_LABEL[oppositeInterval]}
                             </Text>
                             <Text variant="body-sm" colorVariant="muted">
-                                {subStateLoading
+                                {!subStateLoading && pendingIntervalChange === oppositeInterval
+                                    ? `Passaggio ${oppositeInterval === "year" ? "all'annuale" : "al mensile"} già programmato: lo trovi in «Prossimo cambio».`
+                                    : !subStateLoading && intervalBlockReason
+                                    ? INTERVAL_BLOCK_MESSAGE[oppositeInterval][intervalBlockReason]
+                                    : oppositeInterval === "year"
                                     ? "Stesso piano e stesse sedi, fatturazione una volta all'anno."
-                                    : intervalBlockReason
-                                    ? INTERVAL_BLOCK_MESSAGE[intervalBlockReason]
-                                    : "Stesso piano e stesse sedi, fatturazione una volta all'anno."}
+                                    : "Stesso piano e stesse sedi, fatturazione ogni mese dalla scadenza dell'anno in corso."}
                             </Text>
                         </div>
                         {!subStateLoading && !intervalBlockReason && (
                             <Button
                                 variant="secondary"
-                                onClick={openIntervalChange}
+                                onClick={() => openIntervalChange(oppositeInterval)}
                                 leftIcon={<CalendarRange size={16} />}
                             >
-                                Passa all&apos;annuale
+                                {INTERVAL_ACTION_LABEL[oppositeInterval]}
                             </Button>
                         )}
                     </div>
@@ -1487,11 +1565,11 @@ export default function SubscriptionPage() {
                 </DrawerLayout>
             </SystemDrawer>
 
-            {/* --- Drawer passaggio all'annuale (passo 4a) --- */}
+            {/* --- Drawer cambio di intervallo (passi 4a/4b) --- */}
             <SystemDrawer open={isIntervalOpen} onClose={closeIntervalChange} width={480}>
                 <DrawerLayout
                     header={
-                        <Text variant="title-sm" weight={600}>Passa all&apos;annuale</Text>
+                        <Text variant="title-sm" weight={600}>{INTERVAL_ACTION_LABEL[intervalTarget]}</Text>
                     }
                     footer={
                         <>
@@ -1504,7 +1582,7 @@ export default function SubscriptionPage() {
                                 loading={intervalCommitLoading}
                                 disabled={!intervalPreview || intervalPreviewLoading}
                             >
-                                {intervalPreview && !intervalPreview.trialEndsAt
+                                {intervalPreview && !intervalPreview.trialEndsAt && intervalTarget === "year"
                                     ? `Conferma e paga ${formatCents(intervalPreview.chargeToday)}`
                                     : "Conferma"}
                             </Button>
@@ -1529,11 +1607,33 @@ export default function SubscriptionPage() {
                                         <div className={styles.confirmDivider} />
                                         <Text variant="body-sm" colorVariant="muted">
                                             {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"}:{" "}
-                                            {formatCents(intervalPreview.nextAmount)} all&apos;anno.
+                                            {formatCents(intervalPreview.nextAmount)} {intervalTarget === "year" ? "all'anno" : "al mese"}.
                                         </Text>
                                         <Text variant="body-sm" colorVariant="muted">
-                                            Il primo addebito annuale parte alla fine della prova, il{" "}
+                                            Il primo addebito {intervalTarget === "year" ? "annuale" : "mensile"} parte alla fine della prova, il{" "}
                                             {formatDate(intervalPreview.nextDate ?? intervalPreview.trialEndsAt)}.
+                                        </Text>
+                                    </>
+                                ) : intervalTarget === "month" ? (
+                                    <>
+                                        <div className={styles.confirmRow}>
+                                            <Text variant="title-sm" weight={700}>
+                                                Fino alla scadenza dell&apos;anno in corso non cambia nulla: stesso piano, stesse sedi, nessun rimborso e nessun addebito.
+                                            </Text>
+                                        </div>
+                                        <div className={styles.confirmDivider} />
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Il passaggio al mensile avviene il{" "}
+                                            <strong>{formatDate(intervalPreview.nextDate)}</strong>, alla scadenza dell&apos;anno in corso.
+                                        </Text>
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Da quella data: {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"},{" "}
+                                            <strong>{formatCents(intervalPreview.nextAmount)} al mese</strong>.
+                                        </Text>
+                                        <div className={styles.confirmDivider} />
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            Puoi annullare la richiesta in qualsiasi momento prima del{" "}
+                                            {formatDate(intervalPreview.nextDate)}, da questa pagina.
                                         </Text>
                                     </>
                                 ) : (
@@ -1647,7 +1747,7 @@ export default function SubscriptionPage() {
                         <Text variant="body">
                             Vuoi annullare il cambio programmato? Il tuo piano resterà{" "}
                             <strong>{displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"}</strong>{" "}
-                            e l&apos;abbonamento continuerà a rinnovarsi normalmente.
+                            con fatturazione {INTERVAL_ADJECTIVE[billingInterval]} e l&apos;abbonamento continuerà a rinnovarsi normalmente.
                         </Text>
                     </div>
                 </DrawerLayout>
