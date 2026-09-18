@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { IconClock, IconX, IconPlus, IconEdit } from "@tabler/icons-react";
+import { IconClock, IconX, IconPlus, IconEdit, IconClockOff } from "@tabler/icons-react";
 import { CalendarOff, Plus } from "lucide-react";
 import { Card, Button } from "@/components/ui";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -63,6 +63,8 @@ function isPast(c: V2ActivityClosure, today: string): boolean {
 interface ActivityClosuresSectionProps {
     closures: V2ActivityClosure[];
     onCreateRequest?: () => void;
+    /** FASE 5.5 — «Blocca una fascia»: chiusura parziale calcolata dagli orari del giorno. */
+    onBlockRequest?: () => void;
     onEditRequest?: (closure: V2ActivityClosure) => void;
     onDeleteRequest?: (closure: V2ActivityClosure) => void;
 }
@@ -70,6 +72,7 @@ interface ActivityClosuresSectionProps {
 export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = ({
     closures,
     onCreateRequest,
+    onBlockRequest,
     onEditRequest,
     onDeleteRequest,
 }) => {
@@ -89,16 +92,28 @@ export const ActivityClosuresSection: React.FC<ActivityClosuresSectionProps> = (
                 <div className={styles.headerLeft}>
                     <h3 className={styles.sectionTitle}>Chiusure straordinarie</h3>
                 </div>
-                {onCreateRequest && (
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        leftIcon={<IconPlus size={16} />}
-                        onClick={onCreateRequest}
-                    >
-                        Nuova chiusura
-                    </Button>
-                )}
+                <div className={styles.headerActions}>
+                    {onBlockRequest && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={<IconClockOff size={16} />}
+                            onClick={onBlockRequest}
+                        >
+                            Blocca una fascia
+                        </Button>
+                    )}
+                    {onCreateRequest && (
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            leftIcon={<IconPlus size={16} />}
+                            onClick={onCreateRequest}
+                        >
+                            Nuova chiusura
+                        </Button>
+                    )}
+                </div>
             </div>
             <div className={pageStyles.cardContent}>
                 {sorted.length === 0 ? (

@@ -25,6 +25,13 @@
   gap: 4px;
 }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
 .sectionTitle {
   font-size: 16px;
   font-weight: 500;
@@ -738,3 +745,33 @@
   color: v.$gray-500;
 }
 
+
+// ── Blocco di una fascia (FASE 5.5) ─────────────────────────────────────────
+
+.blockRangePreview {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  background: v.$gray-100;
+  border: 1px solid v.$gray-200;
+  border-radius: 10px;
+  font-size: 0.875rem;
+  color: v.$text-color;
+}
+
+.blockRangePreviewRow {
+  display: flex;
+  gap: 8px;
+}
+
+.blockRangePreviewKey {
+  flex-shrink: 0;
+  width: 8rem;
+  color: v.$gray-500;
+}
+
+.blockRangePreviewError {
+  border-color: #fecaca;
+  background: #fef2f2;
+}

@@ -4,6 +4,7 @@ import { ActivityHoursDrawer } from "./hours-services/ActivityHoursDrawer";
 import { ActivityClosuresSection } from "./hours-services/ActivityClosuresSection";
 import { ActivityClosureCreateEditDrawer } from "./hours-services/ActivityClosureCreateEditDrawer";
 import { ActivityClosureDeleteDrawer } from "./hours-services/ActivityClosureDeleteDrawer";
+import { ActivityBlockTimeRangeDrawer } from "./hours-services/ActivityBlockTimeRangeDrawer";
 import { listActivityClosures } from "@/services/supabase/activityClosures";
 import { useToast } from "@/context/Toast/ToastContext";
 import type { V2Activity } from "@/types/activity";
@@ -47,6 +48,7 @@ export const ActivityHoursTab: React.FC<ActivityHoursTabProps> = ({
     const [isClosuresLoading, setIsClosuresLoading] = useState(true);
     const [isClosureDrawerOpen, setIsClosureDrawerOpen] = useState(false);
     const [isClosureDeleteDrawerOpen, setIsClosureDeleteDrawerOpen] = useState(false);
+    const [isBlockRangeDrawerOpen, setIsBlockRangeDrawerOpen] = useState(false);
     const [closureMode, setClosureMode] = useState<"create" | "edit">("create");
     const [selectedClosure, setSelectedClosure] = useState<V2ActivityClosure | undefined>();
 
@@ -111,6 +113,7 @@ export const ActivityHoursTab: React.FC<ActivityHoursTabProps> = ({
                         <ActivityClosuresSection
                             closures={closures}
                             onCreateRequest={canManageHours ? openCreateClosure : undefined}
+                            onBlockRequest={canManageHours ? () => setIsBlockRangeDrawerOpen(true) : undefined}
                             onEditRequest={canManageHours ? openEditClosure : undefined}
                             onDeleteRequest={canManageHours ? openDeleteClosure : undefined}
                         />
@@ -133,6 +136,15 @@ export const ActivityHoursTab: React.FC<ActivityHoursTabProps> = ({
                 activityId={activity.id}
                 tenantId={tenantId}
                 selectedClosure={selectedClosure}
+                onSuccess={handleClosureSaved}
+            />
+            <ActivityBlockTimeRangeDrawer
+                open={isBlockRangeDrawerOpen}
+                onClose={() => setIsBlockRangeDrawerOpen(false)}
+                activityId={activity.id}
+                tenantId={tenantId}
+                hours={hours}
+                closures={closures}
                 onSuccess={handleClosureSaved}
             />
             <ActivityClosureDeleteDrawer
