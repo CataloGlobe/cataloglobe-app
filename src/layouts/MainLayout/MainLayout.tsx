@@ -8,6 +8,7 @@ import { DrawerProvider } from "@/context/Drawer/DrawerProvider";
 import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
 import { PageHeaderProvider } from "@/context/PageHeaderProvider";
 import { SubscriptionBanner } from "@/components/Subscription/SubscriptionBanner";
+import { CheckoutConfirmScreen } from "@/components/Subscription/CheckoutConfirmScreen";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -15,6 +16,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
 import { useAiImportSession } from "@/hooks/useAiImportSession";
 import { useAiUsage } from "@/hooks/useAiUsage";
+import { useCheckoutReturnSync } from "@/hooks/useCheckoutReturnSync";
 import { AiMenuImportDrawer } from "@/pages/Dashboard/Catalogs/AiMenuImport/AiMenuImportDrawer";
 import { hasUnreadReply, listMyTickets } from "@/services/supabase/support";
 import type { BusinessOutletContext } from "./outletContext";
@@ -63,6 +65,9 @@ export default function MainLayout() {
     const { selectedTenant, loading } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
     const { pathname } = useLocation();
+    // Return from Stripe (re-subscribe lands on /subscription?checkout_session=):
+    // link the tenant before the "no subscription" gate below can bounce it.
+    const { syncing: confirmingCheckout } = useCheckoutReturnSync();
 
     const pageName = businessId ? resolvePageTitle(businessId, pathname) : undefined;
     const tenantName = selectedTenant?.name;
@@ -188,6 +193,12 @@ export default function MainLayout() {
             refreshSupportUnread
         ]
     );
+
+    // Payment just completed: the webhook may not have linked the tenant yet.
+    // Hold the gates until stripe-checkout-confirm has done it (or given up).
+    if (confirmingCheckout) {
+        return <CheckoutConfirmScreen />;
+    }
 
     // Tenant without subscription → redirect to workspace with resume param.
     // WorkspacePage will auto-open CreateBusinessWizard in resume mode with

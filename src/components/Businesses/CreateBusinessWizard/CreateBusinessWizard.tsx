@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Text from "@/components/ui/Text/Text";
 
 import { uploadTenantLogo, updateTenantLogoUrl, updateTenantBillingDetails, getTenantBillingInterval, type TenantBillingDetails } from "@/services/supabase/tenants";
-import { createCheckoutSession } from "@/services/supabase/billing";
+import { confirmCheckoutSession, createCheckoutSession } from "@/services/supabase/billing";
 import { listPublicPlans } from "@/services/supabase/plans";
 import { listPlanPrices } from "@/services/supabase/planPrices";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
@@ -437,9 +437,11 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         setSubmitError(null);
         setPromoError(null);
 
-        try {
-            let tenantId: string;
+        // Hoisted out of the `try`: the catch needs it to self-repair a
+        // `subscription_already_active` on the tenant just created/resumed.
+        let tenantId: string | null = null;
 
+        try {
             if (resumeMode && existingTenant) {
                 tenantId = existingTenant.id;
 
@@ -581,6 +583,20 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             if (code === "promo_code_invalid") {
                 setPromoError("Codice promozionale non valido. Verifica e riprova.");
                 setShowPromoInput(true);
+            } else if (code === "subscription_already_active" && tenantId !== null) {
+                // The guard found a live subscription our row does not know
+                // about (paid, tab closed, webhook lost). Adopt it and enter the
+                // business the same way the paid path does; if the edge refuses
+                // (e.g. two live subscriptions) fall back to the message.
+                try {
+                    await confirmCheckoutSession({ tenantId });
+                    clearStoredPromo();
+                    window.location.href = `${window.location.origin}/business/${tenantId}/setup`;
+                    return;
+                } catch (adoptErr) {
+                    console.error("[CreateBusinessWizard] subscription adoption failed:", adoptErr);
+                }
+                setSubmitError(friendlyErrorMessage(code));
             } else {
                 const message = friendlyErrorMessage(code);
                 setSubmitError(message);

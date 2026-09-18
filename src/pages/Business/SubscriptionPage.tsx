@@ -4,6 +4,7 @@ import { useTenant } from "@/context/useTenant";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
+    confirmCheckoutSession,
     createCheckoutSession,
     createPortalSession,
     previewSubscriptionChange,
@@ -197,7 +198,7 @@ function mapChangeError(err: unknown, activityCount: number, cap: number): strin
 }
 
 export default function SubscriptionPage() {
-    const { selectedTenant, loading, patchSelectedTenant } = useTenant();
+    const { selectedTenant, loading, patchSelectedTenant, refreshTenants } = useTenant();
     const { permissions, loading: permissionsLoading } = usePermissions();
     const canReadBilling = permissions ? canDoOnTenant(permissions, "billing.read") : false;
     const canManageBilling = permissions ? canDoOnTenant(permissions, "billing.manage") : false;
@@ -472,6 +473,21 @@ export default function SubscriptionPage() {
             // not a user mistake: reassure instead of alarming.
             const code = err instanceof Error ? err.name : "";
             if (code === "subscription_already_active") {
+                // Self-repair: adopt the live subscription our row does not know
+                // about (paid, tab closed, webhook lost). The edge refuses when
+                // there is more than one live subscription — then the message
+                // below is the honest fallback.
+                try {
+                    await confirmCheckoutSession({ tenantId: selectedTenant.id });
+                    await refreshTenants();
+                    showToast({
+                        message: "Avevi già un abbonamento attivo: ora è collegato e non è stato addebitato nulla.",
+                        type: "success"
+                    });
+                    return;
+                } catch (adoptErr) {
+                    console.error("[SubscriptionPage] subscription adoption failed:", adoptErr);
+                }
                 showToast({
                     message: "Il tuo abbonamento è già attivo. Se hai appena completato il pagamento, attendi qualche secondo e ricarica la pagina.",
                     type: "warning"

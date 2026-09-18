@@ -8,6 +8,8 @@ import { listStyles } from "@/services/supabase/styles";
 import { getTenantSetupStatus } from "@/services/supabase/overviewStats";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import { Loader } from "@/components/ui/Loader/Loader";
+import { CheckoutConfirmScreen } from "@/components/Subscription/CheckoutConfirmScreen";
+import { useCheckoutReturnSync } from "@/hooks/useCheckoutReturnSync";
 import Text from "@/components/ui/Text/Text";
 import type { V2Activity } from "@/types/activity";
 import type { V2Catalog } from "@/services/supabase/catalogs";
@@ -74,6 +76,11 @@ export default function SetupWizardPage() {
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
     const tenantId = useTenantId();
+    // Landing del primo checkout (`success_url` del wizard). Il passo 2 (import
+    // AI) e il QR del passo 3 leggono `subscription_status`: finché il tenant
+    // non è collegato alla subscription risponderebbero "abbonamento non
+    // attivo". Il collegamento si fa qui, senza aspettare il webhook.
+    const { syncing: confirmingCheckout } = useCheckoutReturnSync();
 
     const [stepIndex, setStepIndex] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
@@ -326,6 +333,9 @@ export default function SetupWizardPage() {
 
     // Dopo tutti gli hook: a configurazione completa il redirect è già partito,
     // qui non deve comparire nemmeno un fotogramma del passo 1.
+    if (confirmingCheckout) {
+        return <CheckoutConfirmScreen />;
+    }
     if (gate === "checking") {
         return (
             <div className={styles.gate}>

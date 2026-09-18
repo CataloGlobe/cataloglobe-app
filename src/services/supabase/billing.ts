@@ -52,6 +52,54 @@ export async function createCheckoutSession(input: CreateCheckoutSessionInput): 
     return data.checkout_url as string;
 }
 
+export type ConfirmCheckoutInput = {
+    tenantId: string;
+    /**
+     * Checkout Session id from the `?checkout_session=` return param. Omit to
+     * self-repair: the edge adopts the customer's single live subscription
+     * (the "paid, closed the tab, webhook lost" case).
+     */
+    sessionId?: string;
+};
+
+export type ConfirmCheckoutResult = {
+    status: "linked" | "already_synced";
+    subscriptionId: string;
+    subscriptionStatus: string;
+};
+
+/**
+ * Calls the stripe-checkout-confirm Edge Function: links the tenant to its
+ * Stripe subscription without waiting for the webhook. Owner only.
+ *
+ * Edge error codes are attached as `name` on the thrown Error, like
+ * `createCheckoutSession` (e.g. `checkout_not_complete`,
+ * `multiple_live_subscriptions`, `no_live_subscription`).
+ */
+export async function confirmCheckoutSession(input: ConfirmCheckoutInput): Promise<ConfirmCheckoutResult> {
+    const { data, error } = await supabase.functions.invoke("stripe-checkout-confirm", {
+        body: { tenantId: input.tenantId, sessionId: input.sessionId }
+    });
+
+    if (error) {
+        const code = await extractEdgeErrorCode(error);
+        if (code) {
+            const wrapped = new Error(code);
+            wrapped.name = code;
+            throw wrapped;
+        }
+        throw error;
+    }
+    if (data?.status !== "linked" && data?.status !== "already_synced") {
+        throw new Error("Risposta di conferma non valida.");
+    }
+    return {
+        status: data.status,
+        subscriptionId: data.subscription_id as string,
+        subscriptionStatus: data.subscription_status as string
+    };
+}
+
 async function extractEdgeErrorCode(error: unknown): Promise<string | null> {
     if (!error || typeof error !== "object") return null;
     const ctx = (error as { context?: unknown }).context;

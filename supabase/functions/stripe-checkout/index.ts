@@ -47,6 +47,22 @@ function json(req: Request, status: number, body: Record<string, unknown>) {
     return new Response(JSON.stringify(body), { status, headers: corsHeaders(req) });
 }
 
+// Query param read by the frontend on the return from Checkout.
+const CHECKOUT_SESSION_PARAM = "checkout_session";
+
+/**
+ * Adds `checkout_session={CHECKOUT_SESSION_ID}` to a return URL. The braces
+ * must stay literal (Stripe replaces the placeholder verbatim), so this is
+ * string work, not URLSearchParams. Idempotent on URLs that already carry it.
+ */
+function appendCheckoutSessionPlaceholder(url: string): string {
+    if (url.includes(`${CHECKOUT_SESSION_PARAM}=`)) return url;
+    const [base, hash] = url.split("#", 2);
+    const separator = base.includes("?") ? "&" : "?";
+    const withParam = `${base}${separator}${CHECKOUT_SESSION_PARAM}={CHECKOUT_SESSION_ID}`;
+    return hash !== undefined ? `${withParam}#${hash}` : withParam;
+}
+
 // --- Billing pre-fill helpers (Stripe customer from tenant fiscal data) ---
 
 type TenantFiscal = {
@@ -234,9 +250,14 @@ serve(async req => {
 
         const promotionCodeInput = payload?.promotionCode?.trim() ?? "";
 
-        const successUrl =
+        // Stripe substitutes `{CHECKOUT_SESSION_ID}` on redirect: the return
+        // page hands it to stripe-checkout-confirm, which links the tenant to
+        // the subscription without waiting for the webhook. Appended here, not
+        // by the callers, so every return URL carries it.
+        const successUrl = appendCheckoutSessionPlaceholder(
             payload?.successUrl ||
-            `${SUPABASE_URL.replace(".supabase.co", "")}/workspace/billing?session=success`;
+            `${SUPABASE_URL.replace(".supabase.co", "")}/workspace/billing?session=success`
+        );
         const cancelUrl =
             payload?.cancelUrl ||
             `${SUPABASE_URL.replace(".supabase.co", "")}/workspace/billing?session=cancel`;

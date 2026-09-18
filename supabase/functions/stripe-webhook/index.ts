@@ -5,15 +5,23 @@ import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
 import {
     getInvoiceSubscriptionId,
-    mapStripeStatus,
     syncSubscriptionStatus
 } from "../_shared/subscriptionStatusSync.ts";
 import {
     ALLOWED_PLAN_CODES,
-    intervalFromSubscription,
     lookupPlanPriceByStripeId,
     type BillingInterval
 } from "../_shared/planPrices.ts";
+import {
+    buildSubscriptionLinkUpdates,
+    computePlanMonthlyValueCents,
+    getSubscriptionCurrentPeriodEnd,
+    getSubscriptionCurrentPeriodStart,
+    getSubscriptionPlanCode,
+    getSubscriptionQuantity,
+    resolvePlanAndInterval,
+    toIsoTimestamp
+} from "../_shared/subscriptionSnapshot.ts";
 
 // Note: this endpoint is called server-to-server by Stripe. CORS headers
 // not needed — never call from a browser.
@@ -83,166 +91,6 @@ async function updateTenantStatus(
         return { ok: false, rowsAffected: 0 };
     }
     return { ok: true, rowsAffected: count ?? 0 };
-}
-
-/**
- * Extract the total quantity from the first line item (seat-based pricing).
- *
- * Estrae la quantity (numero di seats) da una subscription Stripe.
- *
- * NOTA: questa funzione legge solo `items.data[0].quantity`.
- * CataloGlobe oggi vende un singolo prodotto (CataloGlobe Pro), quindi
- * ogni subscription ha esattamente 1 line item e questa logica è corretta.
- *
- * Se in futuro introduci addon o multi-product subscription (es. "Pro +
- * AI Import addon" come secondo line item), questa funzione va rivista per:
- *   - Identificare l'item del piano principale tramite price ID, OPPURE
- *   - Sommare le quantity di tutti gli item se la semantica è "seats totali".
- */
-function getSubscriptionQuantity(subscription: Stripe.Subscription): number {
-    const items = subscription.items?.data;
-    if (!items || items.length === 0) return 1;
-    // Defensive: the single-product model guarantees exactly 1 line item. If a
-    // subscription ever carries more, items[0] silently drops the others — warn
-    // so the multi-product migration (see note above) is not missed in prod.
-    if (items.length > 1) {
-        console.warn(
-            `[stripe-webhook] subscription ${subscription.id} has ${items.length} line items; ` +
-            `getSubscriptionQuantity reads only items[0].quantity.`
-        );
-    }
-    return items[0].quantity ?? 1;
-}
-
-/**
- * Extract a validated plan_code from subscription metadata.
- * Returns null if missing or not in the allowed set — caller MUST skip the
- * `plan` update in that case to avoid poisoning the tenants row.
- */
-function getSubscriptionPlanCode(subscription: Stripe.Subscription): string | null {
-    const code = subscription.metadata?.plan_code?.toLowerCase();
-    return code && ALLOWED_PLAN_CODES.has(code) ? code : null;
-}
-
-/**
- * Piano + intervallo di fatturazione della subscription, risolti dal Price
- * del primo line item via `plan_prices` (stripe_price_id → plan_code +
- * billing_interval). Fonte di verità complementare al metadata per il piano:
- * un cambio via subscriptions.update / subscription schedule che NON propaga
- * metadata.plan_code viene comunque sincronizzato dal Price. Per l'intervallo
- * il Price è l'UNICA fonte (i metadata non vengono riscritti da uno schedule
- * release): se `plan_prices` non risolve, fallback su
- * items[0].price.recurring.interval; mai sui metadata.
- *
- * Ritorna `plan` null se il Price non mappa un piano valido (il caller NON
- * scrive `plan` in quel caso) e `interval` null se non determinabile (il
- * caller NON scrive `billing_interval`: mai azzerare un valore buono).
- */
-async function resolvePlanAndInterval(
-    admin: ReturnType<typeof createClient>,
-    subscription: Stripe.Subscription
-): Promise<{ plan: string | null; interval: BillingInterval | null }> {
-    const priceId = subscription.items?.data?.[0]?.price?.id;
-    const match = await lookupPlanPriceByStripeId(admin, priceId);
-    if (match) return { plan: match.planCode, interval: match.billingInterval };
-    if (priceId) {
-        console.warn(`stripe-webhook: price ${priceId} not in plan_prices (subscription ${subscription.id}); falling back to recurring.interval`);
-    }
-    return { plan: null, interval: intervalFromSubscription(subscription) };
-}
-
-function toIsoTimestamp(seconds: number | null | undefined): string | null {
-    return seconds ? new Date(seconds * 1000).toISOString() : null;
-}
-
-/**
- * Read `current_period_end` from the subscription. In recent Stripe API
- * versions (2024+) the top-level field has been moved to the item level;
- * we prefer the item value and fall back to the top-level for older payloads.
- */
-function getSubscriptionCurrentPeriodEnd(subscription: Stripe.Subscription): string | null {
-    const itemEnd = subscription.items?.data?.[0]?.current_period_end;
-    if (itemEnd) return toIsoTimestamp(itemEnd);
-    return toIsoTimestamp(subscription.current_period_end);
-}
-
-/**
- * Read `current_period_start` from the subscription. Same item-level →
- * top-level fallback as getSubscriptionCurrentPeriodEnd (recent Stripe API
- * versions moved the period fields to the item level).
- */
-function getSubscriptionCurrentPeriodStart(subscription: Stripe.Subscription): string | null {
-    const itemStart = subscription.items?.data?.[0]?.current_period_start;
-    if (itemStart) return toIsoTimestamp(itemStart);
-    return toIsoTimestamp(subscription.current_period_start);
-}
-
-/**
- * Valore mensile CONTRATTUALE del piano in centesimi, AL LORDO di coupon/
- * sconti: price × quantity come lo vede Stripe PRIMA di ogni discount (un
- * comped 100%-off deve risultare al valore pieno, non a 0 — serve alla quota
- * AI di FASE 4). NON usare mai invoice.amount_due (è post-coupon).
- *
- * I Price CataloGlobe sono graduated-tiered (billing_scheme=tiered): l'item
- * della subscription NON porta i tiers, serve un prices.retrieve con expand.
- * Stessa aritmetica di graduatedTotalFromPrice in stripe-change-subscription
- * (duplicazione consapevole: quell'edge non espone helper condivisi).
- * Ritorna null su errore/shape inattesa: il caller NON scrive la colonna in
- * quel caso (mai azzerare un valore buono per un blip API).
- */
-async function computePlanMonthlyValueCents(
-    stripe: Stripe,
-    subscription: Stripe.Subscription
-): Promise<number | null> {
-    const item = subscription.items?.data?.[0];
-    if (!item?.price?.id) return null;
-    const quantity = item.quantity ?? 1;
-
-    // Price flat per-unit: nessun fetch necessario.
-    if (item.price.billing_scheme === "per_unit" && item.price.unit_amount != null) {
-        return item.price.unit_amount * quantity;
-    }
-
-    try {
-        const price = await stripe.prices.retrieve(item.price.id, { expand: ["tiers"] });
-        if (
-            price.billing_scheme !== "tiered" ||
-            price.tiers_mode !== "graduated" ||
-            !Array.isArray(price.tiers)
-        ) {
-            console.warn(
-                `stripe-webhook: price ${item.price.id} non graduated-tiered (scheme=${price.billing_scheme}, mode=${price.tiers_mode}) — plan_monthly_value_cents skipped`
-            );
-            return null;
-        }
-        const tiers = [...price.tiers].sort((a, b) => {
-            const au = a.up_to ?? Number.POSITIVE_INFINITY;
-            const bu = b.up_to ?? Number.POSITIVE_INFINITY;
-            return au - bu;
-        });
-        let remaining = quantity;
-        let lower = 0;
-        let total = 0;
-        for (const tier of tiers) {
-            if (remaining <= 0) break;
-            const upTo = tier.up_to ?? Number.POSITIVE_INFINITY;
-            const capacity = upTo - lower;
-            const units = Math.min(remaining, capacity);
-            if (units <= 0) continue;
-            total += (tier.flat_amount ?? 0) + (tier.unit_amount ?? 0) * units;
-            remaining -= units;
-            lower = upTo;
-        }
-        if (remaining > 0) {
-            console.warn(`stripe-webhook: quantity ${quantity} oltre i tiers di ${item.price.id} — plan_monthly_value_cents skipped`);
-            return null;
-        }
-        return total;
-    } catch (err) {
-        const message = err instanceof Error ? err.message : String(err);
-        console.error(`stripe-webhook: prices.retrieve fallito per ${item.price.id}: ${message}`);
-        return null;
-    }
 }
 
 // `mapStripeStatus` now lives in ../_shared/subscriptionStatusSync.ts — the
@@ -467,60 +315,43 @@ serve(async req => {
                     break;
                 }
 
-                // Fetch subscription to get status, quantity (paid_seats), trial_end, period_end, plan_code
-                let paidSeats = 1;
-                let subscriptionStatus = "trialing"; // safe default if retrieve fails
-                let trialUntil: string | null = null;
-                let currentPeriodEnd: string | null = null;
-                let currentPeriodStart: string | null = null;
-                let planMonthlyValueCents: number | null = null;
-                let planCode: string | null = null;
-                let billingInterval: BillingInterval | null = null;
+                // Baseline for the ordering guard used by syncSubscriptionStatus:
+                // the status written here comes from the live subscription we
+                // just retrieved, so it is as authoritative as a synced one.
+                const appliedAtIso = new Date((event.created ?? 0) * 1000).toISOString();
+                const sessionPlanCode = session.metadata?.plan_code ?? null;
+
+                // Same payload builder as stripe-checkout-confirm (the
+                // return-from-payment fallback): one set of rules for linking a
+                // tenant to its subscription, whichever path gets there first.
+                let updates: Record<string, unknown>;
                 try {
                     const sub = await stripe.subscriptions.retrieve(stripeSubscriptionId);
-                    paidSeats = getSubscriptionQuantity(sub);
-                    subscriptionStatus = mapStripeStatus(sub.status);
-                    trialUntil = toIsoTimestamp(sub.trial_end);
-                    currentPeriodEnd = getSubscriptionCurrentPeriodEnd(sub);
-                    currentPeriodStart = getSubscriptionCurrentPeriodStart(sub);
-                    planMonthlyValueCents = await computePlanMonthlyValueCents(stripe, sub);
-                    // Piano: dai metadata (scritti dal checkout), come prima — il
-                    // fallback al Price qui e' volutamente NON applicato per non
-                    // cambiare il comportamento del checkout mensile in questo passo.
-                    // Intervallo: SOLO dal Price (plan_prices → recurring.interval).
-                    planCode = getSubscriptionPlanCode(sub);
-                    billingInterval = (await resolvePlanAndInterval(admin, sub)).interval;
+                    updates = await buildSubscriptionLinkUpdates({
+                        admin,
+                        stripe,
+                        subscription: sub,
+                        stripeCustomerId,
+                        appliedAtIso,
+                        sessionPlanCode
+                    });
                 } catch (err) {
                     console.warn("stripe-webhook: Could not retrieve subscription on checkout:", err.message);
+                    // Safe minimal link: the session is complete, so the
+                    // subscription exists; status defaults to trialing until the
+                    // next subscription event syncs the real value.
+                    updates = {
+                        stripe_customer_id: stripeCustomerId,
+                        stripe_subscription_id: stripeSubscriptionId,
+                        subscription_status: "trialing",
+                        subscription_status_event_at: appliedAtIso,
+                        paid_seats: 1,
+                        current_period_end: null,
+                        current_period_start: null
+                    };
+                    const sessionPlan = sessionPlanCode?.toLowerCase();
+                    if (sessionPlan && ALLOWED_PLAN_CODES.has(sessionPlan)) updates.plan = sessionPlan;
                 }
-
-                // Fallback to session metadata for plan_code if subscription metadata missing
-                if (!planCode) {
-                    const sessionPlan = session.metadata?.plan_code?.toLowerCase();
-                    if (sessionPlan && ALLOWED_PLAN_CODES.has(sessionPlan)) planCode = sessionPlan;
-                }
-
-                const updates: Record<string, unknown> = {
-                    stripe_customer_id: stripeCustomerId,
-                    stripe_subscription_id: stripeSubscriptionId,
-                    subscription_status: subscriptionStatus,
-                    // Baseline for the ordering guard used by syncSubscriptionStatus:
-                    // the status written here comes from the live subscription we
-                    // just retrieved, so it is as authoritative as a synced one.
-                    subscription_status_event_at: new Date((event.created ?? 0) * 1000).toISOString(),
-                    paid_seats: paidSeats,
-                    current_period_end: currentPeriodEnd,
-                    current_period_start: currentPeriodStart
-                };
-                if (planCode) updates.plan = planCode;
-                // Only write when resolved — never wipe a known interval.
-                if (billingInterval !== null) updates.billing_interval = billingInterval;
-                // Only write when computed — a transient Stripe API failure must
-                // never wipe a previously good contractual value.
-                if (planMonthlyValueCents !== null) updates.plan_monthly_value_cents = planMonthlyValueCents;
-                // Only write trial_until when present — never wipe an existing
-                // value on a payload that simply omits trial_end.
-                if (trialUntil !== null) updates.trial_until = trialUntil;
 
                 const { error, count } = await admin
                     .from("tenants")
@@ -536,7 +367,7 @@ serve(async req => {
                 } else if (count === 0) {
                     console.warn(`stripe-webhook: NO TENANT MATCHED id ${tenantId} for event ${event.id} (${event.type}). Possible cause: stale tenant_id metadata or tenant deleted.`);
                 } else {
-                    console.log(`stripe-webhook: Tenant ${tenantId} linked to subscription ${stripeSubscriptionId} (plan=${planCode ?? "unchanged"}, interval=${billingInterval ?? "unchanged"}, status=${subscriptionStatus}, seats=${paidSeats}, period_end=${currentPeriodEnd ?? "null"})`);
+                    console.log(`stripe-webhook: Tenant ${tenantId} linked to subscription ${stripeSubscriptionId} (plan=${updates.plan ?? "unchanged"}, interval=${updates.billing_interval ?? "unchanged"}, status=${updates.subscription_status}, seats=${updates.paid_seats}, period_end=${updates.current_period_end ?? "null"})`);
                 }
                 break;
             }
