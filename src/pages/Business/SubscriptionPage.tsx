@@ -465,8 +465,25 @@ export default function SubscriptionPage() {
                 cancelUrl: `${window.location.origin}/business/${selectedTenant.id}/subscription?session=cancel`
             });
             window.location.href = url;
-        } catch {
-            showToast({ message: "Errore nell'avvio del checkout. Riprova.", type: "error" });
+        } catch (err) {
+            // `createCheckoutSession` attaches the edge error code as `name`.
+            // `subscription_already_active` is almost always the payment↔webhook
+            // race (a live subscription our tenant row does not know about yet),
+            // not a user mistake: reassure instead of alarming.
+            const code = err instanceof Error ? err.name : "";
+            if (code === "subscription_already_active") {
+                showToast({
+                    message: "Il tuo abbonamento è già attivo. Se hai appena completato il pagamento, attendi qualche secondo e ricarica la pagina.",
+                    type: "warning"
+                });
+            } else if (code === "subscription_check_failed") {
+                showToast({
+                    message: "Non siamo riusciti a verificare lo stato del tuo abbonamento. Non ti è stato addebitato nulla: riprova tra qualche istante.",
+                    type: "error"
+                });
+            } else {
+                showToast({ message: "Errore nell'avvio del checkout. Riprova.", type: "error" });
+            }
         } finally {
             setCheckoutLoading(false);
         }

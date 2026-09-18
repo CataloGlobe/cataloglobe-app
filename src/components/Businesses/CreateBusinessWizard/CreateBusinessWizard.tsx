@@ -893,7 +893,7 @@ function friendlyErrorMessage(code: string): string {
         case "subscription_already_active":
             return "Il tuo abbonamento è già attivo. Se hai appena completato il pagamento, attendi qualche secondo e ricarica la pagina.";
         case "subscription_check_failed":
-            return "Non è stato possibile verificare lo stato del tuo abbonamento. Riprova tra qualche istante.";
+            return "Non siamo riusciti a verificare lo stato del tuo abbonamento. Non ti è stato addebitato nulla: riprova tra qualche istante.";
         default:
             return "Errore durante la creazione dell'attività. Riprova.";
     }
