@@ -132,8 +132,8 @@ export default function Reviews() {
     const selectedActivity = scopeValue === SCOPE_ALL ? "" : scopeValue;
 
     const { permissions } = usePermissions();
-    const canRespond = (review: Review) =>
-        permissions ? canDoOnActivity(permissions, "reviews.respond", review.activity_id) : false;
+    const canDelete = (review: Review) =>
+        permissions ? canDoOnActivity(permissions, "reviews.delete", review.activity_id) : false;
 
     /* ── State ──────────────────────────────────────── */
     const [reviews, setReviews] = useState<Review[]>([]);
@@ -611,7 +611,7 @@ export default function Reviews() {
 
                             {/* Actions */}
                             <div className={styles.reviewActions}>
-                                {canRespond(review) && (deletingId === review.id ? (
+                                {canDelete(review) && (deletingId === review.id ? (
                                     <div className={styles.deleteConfirm}>
                                         <Button
                                             variant="danger"
