@@ -40,6 +40,26 @@
     min-width: 0;
 }
 
+// Avviso sull'acquisto: era nella premessa della guida, vive qui perché vale
+// anche per chi non apre la guida (stesso stile del callout ambra della modale).
+.purchaseNote {
+    margin: 0;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--color-warning-50);
+    border: 1px solid var(--color-warning-300);
+    color: var(--color-warning-800);
+    font-size: 0.84375rem;
+    line-height: 1.55;
+
+    a {
+        color: inherit;
+        font-weight: 600;
+        text-decoration: underline;
+        text-underline-offset: 2px;
+    }
+}
+
 .list {
     display: flex;
     flex-direction: column;

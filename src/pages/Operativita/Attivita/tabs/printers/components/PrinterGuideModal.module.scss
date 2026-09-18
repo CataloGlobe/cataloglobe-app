@@ -62,13 +62,13 @@
 /* ---------- Viewport (altezza fissa fra step) ---------- */
 /* Header, barra progresso e footer restano fermi: solo questo blocco
    cambia contenuto da uno step all'altro. Altezza fissa dimensionata sullo
-   step più alto (Wi-Fi, testo + callout + immagine) cosi la modale non
-   salta su/giù cambiando step. overflow-y auto come rete di sicurezza,
+   step più alto (Carica la carta: testo + immagine 860x748) cosi la modale
+   non salta su/giù cambiando step. overflow-y auto come rete di sicurezza,
    max-height in vh la fa degradare su viewport bassi invece di uscire
    dallo schermo. */
 .viewport {
-    height: 480px;
-    max-height: 65vh;
+    height: 560px;
+    max-height: 75vh;
     overflow-y: auto;
 }
 

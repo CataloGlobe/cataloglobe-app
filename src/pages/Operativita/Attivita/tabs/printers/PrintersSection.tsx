@@ -206,6 +206,17 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
         </div>
       </div>
 
+      {canManage && items.length > 0 && (
+        <p className={styles.purchaseNote}>
+          Funzionano solo le stampanti acquistate dal nostro link: vengono
+          abbinate al nostro sistema al momento della spedizione. Gli stessi
+          modelli comprati altrove non possono essere collegati.{" "}
+          <a href={PRINTER_PURCHASE_URL} target="_blank" rel="noopener noreferrer">
+            Compra una stampante
+          </a>
+        </p>
+      )}
+
       {isLoading ? (
         <div className={styles.skeleton} aria-hidden="true" />
       ) : items.length === 0 ? (
