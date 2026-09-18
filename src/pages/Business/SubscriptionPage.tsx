@@ -1343,6 +1343,7 @@ export default function SubscriptionPage() {
                                 planCode={draftPlan}
                                 onPlanChange={handleDraftPlan}
                                 unitPriceCentsByPlan={draftUnitPriceCentsByPlan}
+                                planPrices={planPrices}
                                 billingInterval={billingInterval}
                                 seats={draftSeats}
                                 onSeatsChange={setDraftSeats}

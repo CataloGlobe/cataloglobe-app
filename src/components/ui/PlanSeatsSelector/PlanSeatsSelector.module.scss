@@ -91,9 +91,15 @@
     color: #64748b;
 }
 
-.planPriceCompare {
+.planPriceNote {
     font-size: 12px;
-    color: #64748b;
+    color: var(--text-muted, #64748b);
+    font-variant-numeric: tabular-nums;
+}
+
+.planPriceNoteSuccess {
+    color: var(--text-success, #047857);
+    font-weight: 500;
 }
 
 .intervalSwitch {

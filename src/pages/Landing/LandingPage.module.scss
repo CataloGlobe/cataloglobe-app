@@ -2683,12 +2683,16 @@
   font-variant-numeric: tabular-nums;
 }
 /* Month-by-month equivalent under a yearly price (same line as the wizard). */
-.planCompare {
+.planSavings {
   font-family: var(--sans);
   font-size: 13px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
   margin-bottom: 2px;
+}
+.planSavingsSuccess {
+  color: var(--text-success, #047857); /* green-700, 5.6:1 su bianco */
+  font-weight: 600;
 }
 .planDiscount {
   font-family: var(--sans);

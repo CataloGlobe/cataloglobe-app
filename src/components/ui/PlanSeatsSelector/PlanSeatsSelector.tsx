@@ -5,9 +5,9 @@ import { SeatsInput } from "@/components/ui/SeatsInput/SeatsInput";
 import { Mail } from "lucide-react";
 import { COMPANY } from "@/config/company";
 import { BillingIntervalSwitch } from "@/components/ui/BillingIntervalSwitch/BillingIntervalSwitch";
-import type { BillingInterval, Plan, PlanCode } from "@/types/plan";
+import type { BillingInterval, Plan, PlanCode, PlanPrice } from "@/types/plan";
 import type { GraduatedBreakdown } from "@/utils/pricing";
-import { INTERVAL_PERIOD_NOUN } from "@/utils/planPricing";
+import { INTERVAL_PERIOD_NOUN, formatEuroWholeCents, yearlySavingsNote } from "@/utils/planPricing";
 import { DEFAULT_PLAN_FEATURES, DEFAULT_PLAN_BADGES } from "./planDefaults";
 import styles from "./PlanSeatsSelector.module.scss";
 
@@ -26,11 +26,6 @@ import styles from "./PlanSeatsSelector.module.scss";
 
 function formatEuro(value: number): string {
     return `€${value.toFixed(2).replace(".", ",")}`;
-}
-
-/** Whole euros for the big price figure ("€39", "€390"). */
-function formatEuroWhole(cents: number): string {
-    return `€${Math.round(cents / 100)}`;
 }
 
 const INTERVAL_TOTAL_LABEL: Record<BillingInterval, string> = { month: "Totale mensile", year: "Totale annuale" };
@@ -60,8 +55,12 @@ export interface PlanSeatsSelectorProps {
      */
     availableIntervals?: BillingInterval[];
     onIntervalChange?: (interval: BillingInterval) => void;
-    /** Per plan, what the same period would cost paying month by month (yearly only), in cents. */
-    monthByMonthCentsByPlan?: Partial<Record<PlanCode, number>>;
+    /**
+     * All (plan, interval) prices. Feeds the line under each price that keeps
+     * the yearly comparison visible in both states ("€390 all'anno, due mesi
+     * gratis" / "€468 pagando mese per mese"); omitted → no line.
+     */
+    planPrices?: PlanPrice[];
     seats: number;
     onSeatsChange: (value: number) => void;
     breakdown: GraduatedBreakdown;
@@ -89,7 +88,7 @@ export function PlanSeatsSelector({
     billingInterval = "month",
     availableIntervals = ["month"],
     onIntervalChange,
-    monthByMonthCentsByPlan = {},
+    planPrices = [],
     seats,
     onSeatsChange,
     breakdown,
@@ -124,7 +123,7 @@ export function PlanSeatsSelector({
                     const features = planFeatures[plan.code] ?? [];
                     const badge = planBadges[plan.code];
                     const unitCents = unitPriceCentsByPlan[plan.code] ?? 0;
-                    const monthByMonthCents = monthByMonthCentsByPlan[plan.code];
+                    const savingsNote = yearlySavingsNote(planPrices, plan.code, billingInterval);
                     return (
                         <button
                             type="button"
@@ -137,12 +136,16 @@ export function PlanSeatsSelector({
                             {badge && <span className={styles.planBadge}>{badge}</span>}
                             <span className={styles.planName}>{plan.name}</span>
                             <span className={styles.planPrice}>
-                                <span className={styles.planPriceValue}>{formatEuroWhole(unitCents)}</span>
+                                <span className={styles.planPriceValue}>{formatEuroWholeCents(unitCents)}</span>
                                 <span className={styles.planPriceUnit}>{`/sede/${INTERVAL_PERIOD_NOUN[billingInterval]}`}</span>
                             </span>
-                            {monthByMonthCents !== undefined && (
-                                <span className={styles.planPriceCompare}>
-                                    {formatEuroWhole(monthByMonthCents)} pagando mese per mese
+                            {savingsNote && (
+                                <span
+                                    className={`${styles.planPriceNote} ${
+                                        savingsNote.tone === "success" ? styles.planPriceNoteSuccess : ""
+                                    }`}
+                                >
+                                    {savingsNote.text}
                                 </span>
                             )}
                             {plan.description && (

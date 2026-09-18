@@ -101,13 +101,16 @@ interface MockupPricingAddition {
 }
 /**
  * Price copy per billing interval, ready to render.
- * `compareNote` is the month-by-month equivalent shown only under a yearly
- * price (undefined for the monthly interval).
+ * `savingsNote` keeps the yearly comparison visible in both states: under a
+ * monthly price it argues for the yearly one (tone success), under a yearly
+ * price it shows the month-by-month equivalent (tone muted). Mirrors
+ * `yearlySavingsNote` in planPricing.ts for the app (prices there come from
+ * plan_prices; here they are hard-coded, see the note on MOCKUP_PRICING_PLANS).
  */
 interface MockupPricingInterval {
   priceLabel: string;
   discountNote: string;
-  compareNote?: string;
+  savingsNote: string;
 }
 interface MockupPricingPlan {
   key: "base" | "pro";
@@ -140,11 +143,12 @@ const MOCKUP_PRICING_PLANS: MockupPricingPlan[] = [
       month: {
         priceLabel: "€39/sede/mese",
         discountNote: "dalla 2ª sede −10% · €35,10/sede · IVA inclusa",
+        savingsNote: "€390 all'anno, due mesi gratis",
       },
       year: {
         priceLabel: "€390/sede/anno",
         discountNote: "dalla 2ª sede −10% · €351/sede · IVA inclusa",
-        compareNote: "€468 pagando mese per mese",
+        savingsNote: "€468 pagando mese per mese",
       },
     },
     framing: "Il tuo locale online, che si aggiorna da solo.",
@@ -170,14 +174,15 @@ const MOCKUP_PRICING_PLANS: MockupPricingPlan[] = [
       month: {
         priceLabel: "€59/sede/mese",
         discountNote: "dalla 2ª sede −10% · €53,10/sede · IVA inclusa",
+        savingsNote: "€590 all'anno, due mesi gratis",
       },
       year: {
         priceLabel: "€590/sede/anno",
         discountNote: "dalla 2ª sede −10% · €531/sede · IVA inclusa",
-        compareNote: "€708 pagando mese per mese",
+        savingsNote: "€708 pagando mese per mese",
       },
     },
-    framing: "Tutto il piano Base — e in più i clienti fanno da soli:",
+    framing: "Tutto il piano Base e in più i clienti fanno da soli:",
     additions: [
       {
         name: "Ordini al tavolo via QR",
@@ -280,7 +285,11 @@ function ruleFor(
    da mount (piccolo delay, dà tempo al resto del contenuto di renderizzare)
    invece di aspettare uno scroll che potrebbe non arrivare mai. CTA finale
    è in fondo pagina, quindi usa il trigger a viewport standard (once). */
-function SignatureStroke({ trigger = "viewport" }: { trigger?: "mount" | "viewport" }) {
+function SignatureStroke({
+  trigger = "viewport",
+}: {
+  trigger?: "mount" | "viewport";
+}) {
   const reduce = useReducedMotion();
   // Path stretch: primo e ultimo punto condividono Y=13 (stessa base-line) —
   // le curve intermedie ondulano sopra/sotto, ma inizio/fine restano allineati.
@@ -675,19 +684,25 @@ function AiImportSection() {
                 Il tuo menu è già pronto. <em>Devi solo fotografarlo.</em>
               </h2>
             </Reveal>
-            <Reveal as="p" className={s.aiSub} y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
+            <Reveal
+              as="p"
+              className={s.aiSub}
+              y={16}
+              duration={0.7}
+              amount={0.3}
+              delay={0.12}
+              ease="easeOut"
+            >
               Carichi le foto o il PDF del menu che hai già. L&apos;AI legge
-              tutto — piatti, prezzi, categorie — e costruisce il menu
-              digitale al posto tuo. Tu dai un&apos;occhiata e confermi.
+              tutto — piatti, prezzi, categorie — e costruisce il menu digitale
+              al posto tuo. Tu dai un&apos;occhiata e confermi.
             </Reveal>
 
             <ol className={s.aiSteps}>
               <li className={s.aiStep}>
                 <span className={s.aiStepNum}>1</span>
                 <span className={s.aiStepText}>
-                  <span className={s.aiStepTitle}>
-                    Carichi il menu che hai
-                  </span>
+                  <span className={s.aiStepTitle}>Carichi il menu che hai</span>
                   <span className={s.aiStepBody}>
                     Foto o PDF, anche più file insieme. Quello che già usi in
                     sala, così com&apos;è.
@@ -711,8 +726,8 @@ function AiImportSection() {
                 <span className={s.aiStepText}>
                   <span className={s.aiStepTitle}>Rivedi e confermi</span>
                   <span className={s.aiStepBody}>
-                    Controlli che sia tutto giusto, aggiusti se serve, e il
-                    menu è online.
+                    Controlli che sia tutto giusto, aggiusti se serve, e il menu
+                    è online.
                   </span>
                 </span>
               </li>
@@ -723,8 +738,8 @@ function AiImportSection() {
                 <ShieldCheck size={16} strokeWidth={2.2} />
               </span>
               <p className={s.aiReassureText}>
-                L&apos;ultima parola è sempre tua: niente va online prima che
-                tu l&apos;abbia rivisto. E puoi aggiungere altri piatti con
+                L&apos;ultima parola è sempre tua: niente va online prima che tu
+                l&apos;abbia rivisto. E puoi aggiungere altri piatti con
                 l&apos;AI anche dopo.
               </p>
             </div>
@@ -808,10 +823,18 @@ function AvailabilitySection() {
                 Finito un piatto? <em>Lo togli in un attimo.</em>
               </h2>
             </Reveal>
-            <Reveal as="p" className={s.availSub} y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
-              Dal telefono, mentre sei in sala. Nascondi un prodotto dal menu,
-              o lascialo visibile segnandolo esaurito. Il cliente vede sempre
-              la verità, senza che tu debba ristampare niente.
+            <Reveal
+              as="p"
+              className={s.availSub}
+              y={16}
+              duration={0.7}
+              amount={0.3}
+              delay={0.12}
+              ease="easeOut"
+            >
+              Dal telefono, mentre sei in sala. Nascondi un prodotto dal menu, o
+              lascialo visibile segnandolo esaurito. Il cliente vede sempre la
+              verità, senza che tu debba ristampare niente.
             </Reveal>
 
             <div className={s.availModes}>
@@ -878,9 +901,7 @@ function AvailabilitySection() {
                     <span className={s.availRowText}>
                       <span className={s.availRowName}>{item.name}</span>
                       {item.state === "esaurito" && (
-                        <span
-                          className={`${s.availBadge} ${s.availBadgeWarn}`}
-                        >
+                        <span className={`${s.availBadge} ${s.availBadgeWarn}`}>
                           Esaurito
                         </span>
                       )}
@@ -958,8 +979,8 @@ function StoryFlipCard() {
       </div>
       <p className={s.storyStoryTitle}>Dove tutto comincia</p>
       <p className={s.storyStoryDesc}>
-        La mattina in cui la cucina si accende, molto prima di aprire. Il
-        pesto si fa a mano, come una volta.
+        La mattina in cui la cucina si accende, molto prima di aprire. Il pesto
+        si fa a mano, come una volta.
       </p>
       <div className={s.storyStoryMedia}>
         <span className={s.storyStoryPlay}>
@@ -1037,10 +1058,18 @@ function StoriesSection() {
                 Il tuo locale ha una storia. <em>Falla leggere.</em>
               </h2>
             </Reveal>
-            <Reveal as="p" className={s.storiesSub} y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
-              Racconta chi sei — con foto, testi e video. E colleghi i
-              racconti ai piatti: il cliente scopre il &quot;dietro le
-              quinte&quot; proprio mentre guarda cosa ordinare.
+            <Reveal
+              as="p"
+              className={s.storiesSub}
+              y={16}
+              duration={0.7}
+              amount={0.3}
+              delay={0.12}
+              ease="easeOut"
+            >
+              Racconta chi sei — con foto, testi e video. E colleghi i racconti
+              ai piatti: il cliente scopre il &quot;dietro le quinte&quot;
+              proprio mentre guarda cosa ordinare.
             </Reveal>
 
             <div className={s.storiesHook}>
@@ -1052,8 +1081,8 @@ function StoriesSection() {
                   Una pagina che racconta il locale
                 </span>
                 <span className={s.storiesHookBody}>
-                  Oltre ai singoli piatti, una sezione dedicata dove il
-                  cliente scopre storia, territorio e persone.
+                  Oltre ai singoli piatti, una sezione dedicata dove il cliente
+                  scopre storia, territorio e persone.
                 </span>
               </span>
             </div>
@@ -1080,10 +1109,25 @@ function ChainSection() {
       <div className={s.container}>
         <div className={s.chainGrid}>
           <div className={s.chainVoice}>
-            <Reveal as="h2" className={s.chainH2} id="chain-h2" y={16} duration={0.7} amount={0.3} ease="easeOut">
+            <Reveal
+              as="h2"
+              className={s.chainH2}
+              id="chain-h2"
+              y={16}
+              duration={0.7}
+              amount={0.3}
+              ease="easeOut"
+            >
               Un locale o cento. <em>Li gestisci da qui.</em>
             </Reveal>
-            <Reveal as="div" y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
+            <Reveal
+              as="div"
+              y={16}
+              duration={0.7}
+              amount={0.3}
+              delay={0.12}
+              ease="easeOut"
+            >
               <p className={s.chainSub}>
                 Ogni tua sede con il suo menu, i suoi contenuti in evidenza, il
                 suo stile. Li decidi tu — da un posto solo, senza aprire venti
@@ -1192,7 +1236,11 @@ function RedesignHeader({ daypart }: { daypart: DaypartKey }) {
           onClick={toTop}
           aria-label="CataloGlobe — torna in cima"
         >
-          <Logo variant="lockup-horizontal" color="flat" className={s.appbarLogoImg} />
+          <Logo
+            variant="lockup-horizontal"
+            color="flat"
+            className={s.appbarLogoImg}
+          />
         </a>
         <nav className={s.appbarActions} aria-label="Accesso">
           <a href="/login" className={s.appbarLogin}>
@@ -1217,7 +1265,8 @@ export default function LandingPage() {
   const [autoPlay, setAutoPlay] = useState(true);
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
   // Pricing section: monthly preselected so an untouched page reads as before.
-  const [billingInterval, setBillingInterval] = useState<BillingInterval>("month");
+  const [billingInterval, setBillingInterval] =
+    useState<BillingInterval>("month");
 
   // La giornata avanza da sola in loop finché l'utente non tocca un tab:
   // al primo click/tap il controllo passa a lui, per sempre.
@@ -1305,7 +1354,8 @@ export default function LandingPage() {
               </p>
               <div className={s.heroCtas}>
                 <a className={s.ctaPrimary} href="/sign-up">
-                  Inizia la prova gratuita <ArrowRight size={17} strokeWidth={2.2} />
+                  Inizia la prova gratuita{" "}
+                  <ArrowRight size={17} strokeWidth={2.2} />
                 </a>
                 <a className={s.ctaGhost} href="#prova">
                   Guarda com'è fatto
@@ -1440,10 +1490,28 @@ export default function LandingPage() {
         <section className={s.section} id="giornata" aria-labelledby="leve-h2">
           <div className={s.container}>
             <div className={s.sectionLead}>
-              <Reveal as="h2" className={s.sectionH2} id="leve-h2" y={16} duration={0.7} amount={0.3} ease="easeOut" margin="0px 0px -25% 0px">
+              <Reveal
+                as="h2"
+                className={s.sectionH2}
+                id="leve-h2"
+                y={16}
+                duration={0.7}
+                amount={0.3}
+                ease="easeOut"
+                margin="0px 0px -25% 0px"
+              >
                 Ogni cosa al momento giusto.
               </Reveal>
-              <Reveal as="p" className={s.sectionH2Sub} y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut" margin="0px 0px -25% 0px">
+              <Reveal
+                as="p"
+                className={s.sectionH2Sub}
+                y={16}
+                duration={0.7}
+                amount={0.3}
+                delay={0.12}
+                ease="easeOut"
+                margin="0px 0px -25% 0px"
+              >
                 La promo giusta all'ora giusta, lo stile che veste il locale, il
                 menu nella lingua di chi legge — succede senza che tu ci pensi.
               </Reveal>
@@ -1545,10 +1613,26 @@ export default function LandingPage() {
         <section className={s.section} aria-labelledby="cresci-h2">
           <div className={s.container}>
             <div className={s.sectionLead}>
-              <Reveal as="h2" className={s.sectionH2} id="cresci-h2" y={16} duration={0.7} amount={0.3} ease="easeOut">
+              <Reveal
+                as="h2"
+                className={s.sectionH2}
+                id="cresci-h2"
+                y={16}
+                duration={0.7}
+                amount={0.3}
+                ease="easeOut"
+              >
                 E quando vuoi <em>capire e crescere</em>.
               </Reveal>
-              <Reveal as="p" className={s.sectionH2Sub} y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
+              <Reveal
+                as="p"
+                className={s.sectionH2Sub}
+                y={16}
+                duration={0.7}
+                amount={0.3}
+                delay={0.12}
+                ease="easeOut"
+              >
                 Gli strumenti per gestire il locale, non una vetrina di
                 funzioni. Ci sono quando ti servono.
               </Reveal>
@@ -1626,10 +1710,26 @@ export default function LandingPage() {
         <section className={s.section} id="prezzi" aria-labelledby="prezzi-h2">
           <div className={s.container}>
             <div className={s.sectionLead}>
-              <Reveal as="h2" className={s.sectionH2} id="prezzi-h2" y={16} duration={0.7} amount={0.3} ease="easeOut">
+              <Reveal
+                as="h2"
+                className={s.sectionH2}
+                id="prezzi-h2"
+                y={16}
+                duration={0.7}
+                amount={0.3}
+                ease="easeOut"
+              >
                 Un prezzo per sede. <em>Chiaro.</em>
               </Reveal>
-              <Reveal as="p" className={s.sectionH2Sub} y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
+              <Reveal
+                as="p"
+                className={s.sectionH2Sub}
+                y={16}
+                duration={0.7}
+                amount={0.3}
+                delay={0.12}
+                ease="easeOut"
+              >
                 IVA inclusa. Dalla seconda sede in poi, ogni sede costa il 10%
                 in meno.
               </Reveal>
@@ -1658,9 +1758,13 @@ export default function LandingPage() {
                     <span className={s.planName}>{plan.name}</span>
                     <span className={s.planTrial}>{plan.trialNote}</span>
                     <span className={s.planPrice}>{price.priceLabel}</span>
-                    {price.compareNote && (
-                      <span className={s.planCompare}>{price.compareNote}</span>
-                    )}
+                    <span
+                      className={`${s.planSavings} ${
+                        billingInterval === "month" ? s.planSavingsSuccess : ""
+                      }`}
+                    >
+                      {price.savingsNote}
+                    </span>
                     <span className={s.planDiscount}>{price.discountNote}</span>
                     <p className={s.planFraming}>{plan.framing}</p>
                     <div className={s.planDivider} />
@@ -1711,7 +1815,15 @@ export default function LandingPage() {
         >
           <div className={s.container}>
             <div className={s.sectionLead}>
-              <Reveal as="h2" className={s.sectionH2} id="faq-h2" y={16} duration={0.7} amount={0.3} ease="easeOut">
+              <Reveal
+                as="h2"
+                className={s.sectionH2}
+                id="faq-h2"
+                y={16}
+                duration={0.7}
+                amount={0.3}
+                ease="easeOut"
+              >
                 Domande, in breve.
               </Reveal>
             </div>
@@ -1724,17 +1836,30 @@ export default function LandingPage() {
       <section className={s.close} id="waitlist" aria-labelledby="close-h2">
         <div className={s.closeInner}>
           <div className={s.closeLead}>
-            <Reveal as="h2" className={s.closeTitle} id="close-h2" y={16} duration={0.7} amount={0.3} ease="easeOut">
+            <Reveal
+              as="h2"
+              className={s.closeTitle}
+              id="close-h2"
+              y={16}
+              duration={0.7}
+              amount={0.3}
+              ease="easeOut"
+            >
               Il tuo menu, sempre al passo.{" "}
               <em className={s.signature}>
                 Partiamo?
                 <SignatureStroke />
               </em>
             </Reveal>
-            <Reveal as="div" y={16} duration={0.7} amount={0.3} delay={0.12} ease="easeOut">
-              <p className={s.closeOffer}>
-                Preferisci parlarne prima con noi?
-              </p>
+            <Reveal
+              as="div"
+              y={16}
+              duration={0.7}
+              amount={0.3}
+              delay={0.12}
+              ease="easeOut"
+            >
+              <p className={s.closeOffer}>Preferisci parlarne prima con noi?</p>
               <p className={s.closeSub}>
                 Lasciaci i tuoi dati: ti ricontattiamo e ti accompagniamo
                 nell'attivazione.
@@ -1912,7 +2037,11 @@ function RedesignFooter() {
     <footer className={s.footer}>
       <div className={s.footerTop}>
         <div className={s.footerBrand}>
-          <Logo variant="lockup-horizontal" color="flat" className={s.footerLogoImg} />
+          <Logo
+            variant="lockup-horizontal"
+            color="flat"
+            className={s.footerLogoImg}
+          />
           <p className={s.footerDesc}>
             Menu digitali dinamici per ristoranti, bar, hotel e locali.
           </p>
