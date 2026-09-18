@@ -45,6 +45,17 @@ const KEYBOARD_SETTLE_MS = 250;
 // Sotto questa frazione di innerHeight consideriamo la tastiera aperta.
 const KEYBOARD_OPEN_RATIO = 0.85;
 
+// Debounce dedicato al tracking analytics — staccato dal debounce di
+// rendering (100ms, serve solo a non far scattare il filtro a ogni tasto).
+// Qui serve la query STABILIZZATA: 900ms perché l'evento conta le battute
+// dell'utente, non i risultati intermedi. Emesso sulla query, non sulla
+// selezione di un risultato, così le ricerche senza risultati vengono
+// registrate (prima sparivano: search_performed viveva solo in handleSelect).
+const TRACK_DEBOUNCE_MS = 900;
+// Sotto questa soglia (1-2 caratteri) la query è troppo rumorosa per essere
+// un segnale utile.
+const TRACK_MIN_QUERY_LEN = 2;
+
 type Props = {
     isOpen: boolean;
     onClose: () => void;
@@ -171,6 +182,11 @@ export default function SearchOverlay({
     // avvia la navigazione, il layout effect la consuma dopo il commit.
     const heightBeforeViewChangeRef = useRef<number | null>(null);
     const keyboardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Query normalizzate già emesse in questa apertura del pannello: evita
+    // duplicati se l'utente torna su una query già tracciata (es. digita,
+    // corregge, torna al testo di prima).
+    const trackedQueriesRef = useRef<Set<string>>(new Set());
+    const totalCountRef = useRef(0);
 
     // ── Body lock — stessa meccanica delle PublicSheet (hook condiviso) ──────
     // Gate su mode: in preview il pannello vive dentro il device frame dello
@@ -219,6 +235,7 @@ export default function SearchOverlay({
         setQuery("");
         setHighlightedIndex(-1);
         setView(rootView);
+        trackedQueriesRef.current.clear();
     }, [isOpen, rootView]);
 
     // ── Navigazione fra le viste ────────────────────────────────────────────
@@ -425,6 +442,9 @@ export default function SearchOverlay({
     );
 
     const totalCount = flatResults.length;
+    useEffect(() => {
+        totalCountRef.current = totalCount;
+    }, [totalCount]);
 
     // Reset highlight quando la query cambia (immediato, non debounced)
     useEffect(() => {
@@ -432,22 +452,35 @@ export default function SearchOverlay({
         resultRefsRef.current = [];
     }, [query]);
 
+    // Tracking search_performed sulla query stabilizzata (non sulla selezione
+    // di un risultato — vedi TRACK_DEBOUNCE_MS sopra). totalCount è letto da
+    // ref al momento dello scatto, non in dependency: altrimenti ogni suo
+    // aggiornamento (100ms dopo la query, via debouncedQuery) riavvierebbe il
+    // timer di 900ms inutilmente.
+    useEffect(() => {
+        if (mode !== "public" || !activityId) return;
+        const timer = setTimeout(() => {
+            const normalized = normalizeForSearch(query);
+            if (normalized.length < TRACK_MIN_QUERY_LEN) return;
+            if (trackedQueriesRef.current.has(normalized)) return;
+            trackedQueriesRef.current.add(normalized);
+            trackEvent(activityId, "search_performed", {
+                query,
+                results_count: totalCountRef.current,
+            });
+        }, TRACK_DEBOUNCE_MS);
+        return () => clearTimeout(timer);
+    }, [query, mode, activityId]);
+
     const handleSelect = useCallback(
         (item: CollectionViewSectionItem) => {
-            if (mode === "public" && activityId) {
-                trackEvent(activityId, "search_performed", {
-                    query,
-                    results_count: totalCount,
-                    selected_product_id: item.id
-                });
-            }
             // Lo scroll + l'evidenziazione avvengono in CollectionView, innescati
             // a overlay completamente uscito (onExitComplete) — niente setTimeout
             // magico qui. Segnaliamo il target prima di chiudere.
             onSelectProduct?.(item.id);
             handleClose();
         },
-        [handleClose, onSelectProduct, mode, activityId, query, totalCount]
+        [handleClose, onSelectProduct]
     );
 
     // Escape + navigazione frecce + Invio + focus trap
