@@ -397,6 +397,42 @@ serve(async req => {
             await ensureCustomerTaxId(stripe, stripeCustomerId, euVatValue);
         }
 
+        // --- Anti double-checkout guard ---
+        // `tenantData.stripe_subscription_id` is written only by the
+        // checkout.session.completed webhook: in the seconds between payment and
+        // webhook delivery (or if delivery fails) it is still NULL, MainLayout
+        // bounces the owner to the resume wizard, and a second checkout would
+        // create a second subscription. Ask Stripe directly instead of trusting
+        // our own row. `incomplete` is deliberately NOT blocking: it is a failed
+        // first payment and the customer must be able to retry without risk of
+        // a double charge. `canceled` is the legitimate reactivation path.
+        try {
+            const existing = await stripe.subscriptions.list({
+                customer: stripeCustomerId,
+                status: "all",
+                limit: 10
+            });
+            const blocking = existing.data.find(
+                s =>
+                    s.status === "active" ||
+                    s.status === "trialing" ||
+                    s.status === "past_due" ||
+                    s.status === "unpaid"
+            );
+            if (blocking) {
+                console.warn(
+                    `stripe-checkout: tenant ${tenantId} already has subscription ${blocking.id} (${blocking.status}); refusing new session`
+                );
+                return json(req, 409, { error: "subscription_already_active" });
+            }
+        } catch (err) {
+            // Fail-closed: if we cannot verify, do not risk a duplicate charge.
+            console.error(
+                `stripe-checkout: subscriptions.list failed: code=${(err as any)?.code} type=${(err as any)?.type} status=${(err as any)?.statusCode}`
+            );
+            return json(req, 502, { error: "subscription_check_failed" });
+        }
+
         // --- Build Checkout Session params ---
         const sessionMetadata: Record<string, string> = {
             tenant_id: tenantId,
@@ -419,13 +455,21 @@ serve(async req => {
         // cancellation must not grant a second free month.
         const isFirstSubscription = !tenantData.stripe_subscription_id;
 
+        // Trial and promotion code are mutually exclusive. A `repeating` coupon's
+        // window starts when it is applied (subscription creation), so it keeps
+        // consuming its months during a free trial: 30-day trial + "3 months free"
+        // silently becomes ~3 months total instead of the 4 we would be promising.
+        // A `once` coupon is ambiguous for the same reason (which "first invoice"
+        // counts). When a code was resolved, the coupon alone defines the offer.
+        const grantTrial = isFirstSubscription && !resolvedPromotionId;
+
         const sessionParams: Stripe.Checkout.SessionCreateParams = {
             mode: "subscription",
             customer: stripeCustomerId,
             line_items: [{ price: resolvedPriceId, quantity }],
             subscription_data: {
                 metadata: subscriptionMetadata,
-                ...(isFirstSubscription ? { trial_period_days: TRIAL_PERIOD_DAYS } : {})
+                ...(grantTrial ? { trial_period_days: TRIAL_PERIOD_DAYS } : {})
             },
             metadata: sessionMetadata,
             success_url: successUrl,

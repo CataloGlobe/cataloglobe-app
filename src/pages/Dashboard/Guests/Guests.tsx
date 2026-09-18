@@ -24,7 +24,7 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
-import { canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
@@ -32,12 +32,16 @@ import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import {
     getReservationGuest,
+    listReservationGuestNotesForGuests,
     listReservationGuests
 } from "@/services/supabase/reservationGuests";
+import { getActivitiesCached } from "@/hooks/activitiesCache";
+import type { V2Activity } from "@/types/activity";
 import type { ReservationGuestSummary } from "@/types/reservationGuest";
 import GuestsDirectory from "./GuestsDirectory";
 import GuestsTable from "./GuestsTable";
-import GuestDrawer from "./GuestDrawer";
+import GuestDrawer, { type GuestNoteActivity } from "./GuestDrawer";
+import { mergeGuestTags } from "./guestTags";
 import styles from "./Guests.module.scss";
 
 type GuestsViewMode = "rows" | "table";
@@ -57,15 +61,16 @@ export default function Guests() {
     const canRead = permissions
         ? canDoOnAnyActivity(permissions, "guests.read")
         : false;
-    const canManage = permissions
-        ? canDoOnAnyActivity(permissions, "guests.manage")
-        : false;
     // Owner/admin vedono l'intera azienda: a loro il "nelle tue sedi" sarebbe
     // rumore. Agli altri serve, perché i loro numeri sono parziali per
     // costruzione.
     const tenantWide = permissions ? isTenantWide(permissions) : false;
 
     const [guests, setGuests] = useState<ReservationGuestSummary[]>([]);
+    // Etichette per ospite, unione delle sedi visibili a chi guarda: note e
+    // tag sono per sede (FASE 5.3), l'elenco è dell'azienda. Un tag compare
+    // qui se c'è in almeno una delle proprie sedi; a quale, lo dice la scheda.
+    const [tagsByGuest, setTagsByGuest] = useState<ReadonlyMap<string, string[]>>(new Map());
     const [isLoading, setIsLoading] = useState(true);
     // Distingue "non ho ancora niente da mostrare" da "sto aggiornando ciò che
     // già mostro". Vive qui e scende come prop alle due viste, così tabella e
@@ -154,7 +159,10 @@ export default function Guests() {
         if (!tenantId || !canRead) return;
         setIsLoading(true);
         try {
-            setGuests(await listReservationGuests(tenantId, deferredSearch));
+            const rows = await listReservationGuests(tenantId, deferredSearch);
+            setGuests(rows);
+            const notes = await listReservationGuestNotesForGuests(tenantId, rows.map(g => g.id));
+            setTagsByGuest(mergeGuestTags(notes));
         } catch {
             showToast({ message: "Errore nel caricamento della rubrica.", type: "error" });
         } finally {
@@ -176,6 +184,31 @@ export default function Guests() {
         }
         void loadGuests();
     }, [permissionsLoading, permissions, canRead, isLocked, loadGuests]);
+
+    // Le sedi del drawer: quelle con `guests.read`, con il diritto di scrivere
+    // deciso sede per sede. La cache è la stessa della navbar.
+    const [activities, setActivities] = useState<V2Activity[]>([]);
+    useEffect(() => {
+        if (!tenantId || !canRead || isLocked) return;
+        let alive = true;
+        getActivitiesCached(tenantId)
+            .then(rows => { if (alive) setActivities(rows); })
+            .catch(() => {
+                if (alive) showToast({ message: "Errore nel caricamento delle sedi.", type: "error" });
+            });
+        return () => { alive = false; };
+    }, [tenantId, canRead, isLocked, showToast]);
+
+    const noteActivities = useMemo<GuestNoteActivity[]>(() => {
+        if (!permissions) return [];
+        return activities
+            .filter(a => canDoOnActivity(permissions, "guests.read", a.id))
+            .map(a => ({
+                id: a.id,
+                name: a.name,
+                canManage: canDoOnActivity(permissions, "guests.manage", a.id)
+            }));
+    }, [activities, permissions]);
 
     // Deep link `?guest=<id>`: è così che il drawer della prenotazione porta
     // qui. Il profilo viene riletto per id invece di essere cercato
@@ -219,15 +252,17 @@ export default function Guests() {
         }
     }, [searchParams, setSearchParams]);
 
-    const handleSaved = useCallback(
-        (updated: { venue_notes: string | null; tags: string[] }) => {
-            setSelectedGuest(prev => (prev ? { ...prev, ...updated } : prev));
-            setGuests(prev =>
-                prev.map(g => (g.id === selectedGuest?.id ? { ...g, ...updated } : g))
-            );
-        },
-        [selectedGuest?.id]
-    );
+    // Note e tag salvati nel drawer: si rileggono le etichette dell'elenco
+    // (unione per sede), non si patcha a mano — la regola di unione sta in
+    // un posto solo.
+    const handleSaved = useCallback(() => {
+        if (!tenantId) return;
+        listReservationGuestNotesForGuests(tenantId, guests.map(g => g.id))
+            .then(notes => setTagsByGuest(mergeGuestTags(notes)))
+            .catch(() => {
+                showToast({ message: "Errore nel caricamento delle etichette.", type: "error" });
+            });
+    }, [tenantId, guests, showToast]);
 
     // ── Render ────────────────────────────────────────────────────────
 
@@ -269,6 +304,7 @@ export default function Guests() {
                 {viewMode === "table" ? (
                     <GuestsTable
                         guests={guests}
+                        tagsByGuest={tagsByGuest}
                         isLoading={isLoading}
                         isSearching={search.trim().length > 0}
                         onOpenGuest={handleOpenGuest}
@@ -277,6 +313,7 @@ export default function Guests() {
                 ) : (
                     <GuestsDirectory
                         guests={guests}
+                        tagsByGuest={tagsByGuest}
                         isLoading={isLoading}
                         hasLoadedOnce={hasLoadedOnce}
                         isSearching={search.trim().length > 0}
@@ -292,7 +329,7 @@ export default function Guests() {
                     onClose={handleCloseDrawer}
                     guest={selectedGuest}
                     tenantId={tenantId}
-                    canManage={canManage}
+                    activities={noteActivities}
                     tenantWide={tenantWide}
                     onSaved={handleSaved}
                 />

@@ -250,6 +250,35 @@ async function computePlanMonthlyValueCents(
 // that column from an event type; go through syncSubscriptionStatus instead.
 
 /**
+ * Intervallo di fatturazione coperto da una fattura (passo 4a): dal Price
+ * della riga di PERIODO (non prorata) via plan_prices. Una fattura senza riga
+ * di periodo (one-off delta sedi) non copre alcun intervallo → NULL, non il
+ * fallback. Il fallback a tenants.billing_interval scatta solo se la riga di
+ * periodo c'e' ma il Price non risolve (plan_prices incompleta): la cache
+ * tenant puo' essere stale di un evento (customer.subscription.updated e
+ * invoice.payment_succeeded non hanno ordine garantito), per questo il Price
+ * della fattura ha la priorita'.
+ */
+async function resolveInvoiceBillingInterval(
+    admin: ReturnType<typeof createClient>,
+    invoice: Stripe.Invoice,
+    tenantInterval: string | null | undefined
+): Promise<BillingInterval | null> {
+    let hasPeriodLine = false;
+    for (const line of invoice.lines?.data ?? []) {
+        const details = (line as { parent?: { subscription_item_details?: { proration?: boolean } } }).parent
+            ?.subscription_item_details;
+        if (!details || details.proration) continue;
+        hasPeriodLine = true;
+        const priceId = (line as { pricing?: { price_details?: { price?: string } } }).pricing?.price_details?.price;
+        const match = await lookupPlanPriceByStripeId(admin, priceId);
+        if (match) return match.billingInterval;
+    }
+    if (!hasPeriodLine) return null;
+    return tenantInterval === "month" || tenantInterval === "year" ? tenantInterval : null;
+}
+
+/**
  * Registra un incasso reale in customer_invoices (archivio fiscale, righe
  * permanenti — vedi migration 20260912130000_create_customer_invoices.sql).
  *
@@ -278,7 +307,7 @@ async function recordCustomerInvoice(
         const { data: tenant, error: tenantError } = await admin
             .from("tenants")
             .select(
-                "id, plan, paid_seats, legal_entity_type, legal_name, vat_number, fiscal_code, first_name, last_name, address, street_number, postal_code, city, province, country, pec, codice_destinatario"
+                "id, plan, paid_seats, billing_interval, legal_entity_type, legal_name, vat_number, fiscal_code, first_name, last_name, address, street_number, postal_code, city, province, country, pec, codice_destinatario"
             )
             .eq("stripe_customer_id", stripeCustomerId)
             .maybeSingle();
@@ -295,6 +324,8 @@ async function recordCustomerInvoice(
             ? toIsoTimestamp(invoice.status_transitions.paid_at)
             : toIsoTimestamp(invoice.created);
 
+        const billingInterval = await resolveInvoiceBillingInterval(admin, invoice, tenant.billing_interval);
+
         const { error: insertError } = await admin
             .from("customer_invoices")
             .upsert(
@@ -308,6 +339,7 @@ async function recordCustomerInvoice(
                     // leggibili dalla stessa riga tenant appena letta.
                     plan_code: tenant.plan ?? null,
                     seats: tenant.paid_seats ?? null,
+                    billing_interval: billingInterval,
                     legal_entity_type: tenant.legal_entity_type ?? null,
                     legal_name: tenant.legal_name ?? null,
                     vat_number: tenant.vat_number ?? null,

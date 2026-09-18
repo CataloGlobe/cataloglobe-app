@@ -5,7 +5,6 @@ Snapshot al 06/05/2026. Aggiornare quando un'area viene completata o abbandonata
 ## Feature parziali / stub
 
 - **Hub tab "eventi"** — implementato. TODO: estendere per mostrare anche eventi futuri (oggi solo correnti via scheduling resolver).
-- **Traduzioni** — `LanguageSelector` UI presente, logica traduzioni non implementata (solo IT attivo).
 - **Analytics** — pagina stub (`Analytics.tsx`).
 - **Reviews** — rebuilt (aprile 2026), integrazione con Google Review URL presente.
 - **Sottocategorie** — catalogo supporta L1/L2/L3, gestione UI da verificare.
@@ -27,4 +26,5 @@ Snapshot al 06/05/2026. Aggiornare quando un'area viene completata o abbandonata
 
 ## Completati di recente
 
+- **Traduzioni** — sistema completo end-to-end: service layer (`translations.ts`, `translationJobs.ts`, `translationStatus.ts`, `tenantLanguages.ts`), `TranslationsTab` UI (CatalogEngine + ProductPage), provider DeepL + router + tick processor Edge (`supabase/functions/_shared/translation/`), pg_cron a 30s, override manuale non sovrascritto, pagina `/languages`. Lato pubblico: `effectiveLanguage`/`availableLanguages`, `LanguageFallbackBanner`, `StaleDataBanner`. Residuo reale: solo IT attivo come lingua live per i tenant (EN/FR/DE da abilitare), e permission dedicato `translations.read` ancora mancante — gated su `catalogs.read` come proxy (vedi CLAUDE.md → Aree in sviluppo).
 - **Test Fase 2 GDPR — `purgeTenantData` end-to-end (11/05/2026)** — Path completo verificato runtime con tenant realistico (cover sede + gallery image + scheduling rule layout + analytics events). Scoperti e fixati 2 bug bloccanti in `supabase/functions/_shared/tenant-purge.ts`: FK ordering (`schedule_layout` eliminato dopo `catalogs`/`styles` → `23503` su tutti i tenant con regole Programmazione) e storage ricorsione (`purgeActivityFolder` non scendeva nei subpath `gallery/`, throw su `remove()` errore bloccava cleanup altri bucket → file orfani indefinitamente). Nessun residuo DB/storage post-purge, audit log con contatori corretti incluso `storageFilesRemoved`. Task Notion `[Privacy] Diritto cancellazione` chiudibile come "Fatto" con confidenza piena. Dettagli pattern in `CLAUDE.md` → sezione Edge Functions.

@@ -106,7 +106,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     // Reflects authoritative post-commit values immediately, ahead of the async
     // Stripe webhook that syncs `tenants` in the DB. No network refetch, no race.
     const patchSelectedTenant = useCallback(
-        (patch: Partial<Pick<V2Tenant, "plan" | "paid_seats">>) => {
+        (patch: Partial<Pick<V2Tenant, "plan" | "paid_seats" | "current_period_end">>) => {
             if (!businessId) return;
             setTenants(prev =>
                 prev.map(t => (t.id === businessId ? { ...t, ...patch } : t))

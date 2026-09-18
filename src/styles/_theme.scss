@@ -81,6 +81,9 @@
   // + color-text-secondary + color-muted (71/226 occorrenze reali, tie-break
   // su varianti maiuscole incluse).
   --text-muted: #6b7280;
+  // Testo "buona notizia" (es. risparmio dell'annuale sotto il prezzo):
+  // green-700, 5.6:1 su bianco.
+  --text-success: #047857;
   --color-danger: #dc2626; // = $error in _variables.scss
   --color-gray-300: #d1d5db;
   --color-gray-400: #9ca3af;
@@ -138,6 +141,7 @@
   // FASE 2 gap-closing: --text-muted più chiaro su sfondo scuro (#6b7280
   // del root scende sotto 3:1 su --bg dark).
   --text-muted: #94a3b8;
+  --text-success: #34d399; // 9:1 su --bg dark
 
   // Rampa grigi FASE 2: mirror simmetrico sulla scala slate (300↔600,
   // 400↔500, 800→chiaro) per restare leggibile su sfondo scuro. Nessun

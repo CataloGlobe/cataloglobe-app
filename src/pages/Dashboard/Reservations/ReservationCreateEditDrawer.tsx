@@ -37,6 +37,8 @@ interface Props {
     /** Riga corrente in edit mode. */
     selectedReservation?: V2Reservation;
     onSuccess: () => void | Promise<void>;
+    /** Passa al form: la data che sta guardando, per caricarne il giorno. */
+    onDateChange?: (iso: string | null) => void;
 }
 
 export default function ReservationCreateEditDrawer({
@@ -47,7 +49,8 @@ export default function ReservationCreateEditDrawer({
     manageableActivities,
     allReservations,
     selectedReservation,
-    onSuccess
+    onSuccess,
+    onDateChange
 }: Props) {
     const [isSaving, setIsSaving] = useState(false);
 
@@ -98,6 +101,7 @@ export default function ReservationCreateEditDrawer({
                     entityData={selectedReservation}
                     onSuccess={handleSuccess}
                     onSavingChange={setIsSaving}
+                    onDateChange={onDateChange}
                 />
             </DrawerLayout>
         </SystemDrawer>

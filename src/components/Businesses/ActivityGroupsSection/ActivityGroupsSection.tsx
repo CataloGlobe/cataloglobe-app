@@ -7,6 +7,7 @@ import Text from "@/components/ui/Text/Text";
 import { IconFolder, IconFolderPlus } from "@tabler/icons-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import styles from "./ActivityGroupsSection.module.scss";
 
 import { getActivityGroups, deleteActivityGroup } from "@/services/supabase/activity-groups";
@@ -33,6 +34,9 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
     const [searchParams] = useSearchParams();
     const highlightActivityId = searchParams.get("highlight");
     const [highlightedGroupIds, setHighlightedGroupIds] = useState<string[]>([]);
+    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+    const [bulkDeletePendingIds, setBulkDeletePendingIds] = useState<string[]>([]);
+    const bulkDeleteConfirmOpen = bulkDeletePendingIds.length > 0;
 
     const loadGroups = async () => {
         if (!tenantId) return;
@@ -101,40 +105,52 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
         });
     };
 
-    const handleDelete = async (groupId: string) => {
-        if (!window.confirm("Sei sicuro di voler eliminare questo gruppo?")) return;
+    const handleDelete = (groupId: string) => {
+        setDeleteTargetId(groupId);
+    };
 
+    const handleConfirmDelete = async (): Promise<boolean> => {
+        if (!deleteTargetId) return false;
         try {
-            await deleteActivityGroup(groupId, tenantId!);
+            await deleteActivityGroup(deleteTargetId, tenantId!);
             showToast({
                 message: "Gruppo eliminato con successo.",
                 type: "success"
             });
             loadGroups();
+            return true;
         } catch (error) {
             console.error("Errore eliminazione gruppo:", error);
             showToast({
                 message: "Errore durante l'eliminazione del gruppo.",
                 type: "error"
             });
+            return false;
         }
     };
 
-    const handleBulkDelete = async (selectedIds: string[]) => {
+    const handleBulkDelete = (selectedIds: string[]) => {
         if (selectedIds.length === 0) return;
+        setBulkDeletePendingIds(selectedIds);
+    };
+
+    const handleConfirmBulkDelete = async (): Promise<boolean> => {
+        if (bulkDeletePendingIds.length === 0) return false;
         try {
-            await Promise.all(selectedIds.map(id => deleteActivityGroup(id, tenantId!)));
+            await Promise.all(bulkDeletePendingIds.map(id => deleteActivityGroup(id, tenantId!)));
             showToast({
-                message: `${selectedIds.length} gruppi eliminati con successo.`,
+                message: `${bulkDeletePendingIds.length} gruppi eliminati con successo.`,
                 type: "success"
             });
             loadGroups();
+            return true;
         } catch (error) {
             console.error("Errore eliminazione multipla gruppi:", error);
             showToast({
                 message: "Errore durante l'eliminazione di alcuni gruppi.",
                 type: "error"
             });
+            return false;
         }
     };
 
@@ -251,6 +267,28 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                     />
                 </>
             )}
+
+            <ConfirmDialog
+                isOpen={deleteTargetId !== null}
+                onClose={() => setDeleteTargetId(null)}
+                onConfirm={handleConfirmDelete}
+                title="Elimina gruppo"
+                message="Sei sicuro di voler eliminare questo gruppo?"
+                confirmLabel="Elimina"
+            />
+
+            <ConfirmDialog
+                isOpen={bulkDeleteConfirmOpen}
+                onClose={() => setBulkDeletePendingIds([])}
+                onConfirm={handleConfirmBulkDelete}
+                title={
+                    bulkDeletePendingIds.length === 1
+                        ? "Elimina 1 gruppo?"
+                        : `Elimina ${bulkDeletePendingIds.length} gruppi?`
+                }
+                message="I gruppi eliminati non potranno essere recuperati."
+                confirmLabel="Elimina"
+            />
         </div>
     );
 };

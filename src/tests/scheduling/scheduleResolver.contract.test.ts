@@ -147,7 +147,10 @@ describe("Scheduling consistency contract", () => {
     it("web resolver and edge resolver return identical output", async () => {
         const tables: TableRows = {
             activity_group_members: [{ group_id: "group-1", activity_id: "activity-1" }],
-            schedule_targets: [],
+            schedule_targets: [
+                { schedule_id: "layout-1", target_type: "activity", target_id: "activity-1" },
+                { schedule_id: "price-1", target_type: "activity_group", target_id: "group-1" }
+            ],
             schedule_layout: [{ schedule_id: "layout-1", catalog_id: "catalog-1" }],
             schedules: [
                 buildSchedule({
@@ -188,7 +191,9 @@ describe("Scheduling consistency contract", () => {
     it("specificity-first is the only precedence: activity wins over global even with worse priority", async () => {
         const tables: TableRows = {
             activity_group_members: [],
-            schedule_targets: [],
+            schedule_targets: [
+                { schedule_id: "activity-layout", target_type: "activity", target_id: "activity-1" }
+            ],
             schedule_layout: [
                 { schedule_id: "global-layout", catalog_id: "catalog-global" },
                 { schedule_id: "activity-layout", catalog_id: "catalog-activity" }
@@ -224,7 +229,10 @@ describe("Scheduling consistency contract", () => {
     it("tie-break inside same specificity stays priority ASC -> created_at ASC -> id ASC", async () => {
         const tables: TableRows = {
             activity_group_members: [],
-            schedule_targets: [],
+            schedule_targets: [
+                { schedule_id: "layout-new", target_type: "activity", target_id: "activity-1" },
+                { schedule_id: "layout-old", target_type: "activity", target_id: "activity-1" }
+            ],
             schedule_layout: [
                 { schedule_id: "layout-old", catalog_id: "catalog-old" },
                 { schedule_id: "layout-new", catalog_id: "catalog-new" }
@@ -254,5 +262,69 @@ describe("Scheduling consistency contract", () => {
 
         expect(web.layout.scheduleId).toBe("layout-old");
         expect(web.layout.catalogId).toBe("catalog-old");
+    });
+
+    it("a multi-target rule (schedule_targets, passo 3) resolves on BOTH assigned sedi", async () => {
+        const tables: TableRows = {
+            activity_group_members: [],
+            schedule_targets: [
+                { schedule_id: "multi-layout", target_type: "activity", target_id: "activity-1" },
+                { schedule_id: "multi-layout", target_type: "activity", target_id: "activity-2" }
+            ],
+            schedule_layout: [{ schedule_id: "multi-layout", catalog_id: "catalog-multi" }],
+            schedules: [
+                buildSchedule({
+                    id: "multi-layout",
+                    rule_type: "layout",
+                    target_type: "activity",
+                    target_id: "activity-1",
+                    priority: 5
+                })
+            ]
+        };
+
+        const now = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z"));
+        const first = await resolveIds({ tables, activityId: "activity-1", now });
+        const second = await resolveIds({ tables, activityId: "activity-2", now });
+
+        expect(first.web.layout.scheduleId).toBe("multi-layout");
+        expect(first.edge.layout.scheduleId).toBe("multi-layout");
+        expect(second.web.layout.scheduleId).toBe("multi-layout");
+        expect(second.edge.layout.scheduleId).toBe("multi-layout");
+    });
+
+    it("apply_to_all wins over a stray schedule_targets row on the SAME schedule (defensive hardening)", async () => {
+        // Data anomaly: a schedule is apply_to_all=true but still has a
+        // leftover schedule_targets row (e.g. from before reconcile). The
+        // resolver must still treat it as global, not as activity-specific —
+        // this is the exact case supabase/migrations/20260917195100_schedule_targets_reconcile.sql
+        // cleans up going forward; the resolver must be defensive regardless.
+        const tables: TableRows = {
+            activity_group_members: [],
+            schedule_targets: [
+                { schedule_id: "stray-target-layout", target_type: "activity", target_id: "activity-1" }
+            ],
+            schedule_layout: [{ schedule_id: "stray-target-layout", catalog_id: "catalog-stray" }],
+            schedules: [
+                buildSchedule({
+                    id: "stray-target-layout",
+                    rule_type: "layout",
+                    apply_to_all: true,
+                    target_type: "activity",
+                    target_id: "activity-1",
+                    priority: 5
+                })
+            ]
+        };
+
+        const now = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z"));
+        const { web, edge } = await resolveIds({ tables, activityId: "activity-1", now });
+
+        expect(web.layout.scheduleId).toBe("stray-target-layout");
+        expect(edge.layout.scheduleId).toBe("stray-target-layout");
+        // Also resolves for an UNRELATED activity — proof it's genuinely
+        // global (specificity 0), not accidentally elevated by the stray row.
+        const other = await resolveIds({ tables, activityId: "activity-99", now });
+        expect(other.web.layout.scheduleId).toBe("stray-target-layout");
     });
 });

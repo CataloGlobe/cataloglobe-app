@@ -16,7 +16,7 @@ export type PlanCode = "base" | "pro";
 
 /** Stesso dominio di Stripe `recurring.interval` per gli abbonamenti CataloGlobe. */
 export type BillingInterval = "month" | "year";
-const ALLOWED_INTERVALS: ReadonlySet<string> = new Set(["month", "year"]);
+export const ALLOWED_INTERVALS: ReadonlySet<string> = new Set(["month", "year"]);
 
 export type PlanPriceMatch = {
     planCode: PlanCode;

@@ -187,6 +187,12 @@ type ActivityGroupRow = {
     is_system: boolean;
 };
 
+type RawScheduleTargetLookupRow = {
+    schedule_id: string;
+    target_type: string;
+    target_id: string;
+};
+
 type RawStyleOptionRow = {
     id: string;
     name: string;
@@ -618,8 +624,37 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
         }
     }
 
-    // Resolve target_group display name for the inline target_id column
-    // (schedule_targets join is deprecated; inline columns are source-of-truth)
+    // Multi-target: activityIds/groupIds letti da schedule_targets (passo 3,
+    // e7786243 + 499a051b). apply_to_all resta valutato per primo e vince
+    // sempre su qualsiasi target specifico — stesso contratto del resolver
+    // (scheduleResolver.ts). target_group sotto resta derivato dalla colonna
+    // inline target_id/target_type: è solo un'etichetta rappresentativa per
+    // la UI di dettaglio, non l'elenco completo.
+    const allRuleIds = baseRules.map(rule => rule.id);
+    const targetsByScheduleId = new Map<string, { activityIds: string[]; groupIds: string[] }>();
+    if (allRuleIds.length > 0) {
+        const { data: targetsData, error: targetsError } = await supabase
+            .from("schedule_targets")
+            .select("schedule_id, target_type, target_id")
+            .in("schedule_id", allRuleIds);
+
+        if (targetsError) throw targetsError;
+
+        for (const row of (targetsData ?? []) as RawScheduleTargetLookupRow[]) {
+            const entry = targetsByScheduleId.get(row.schedule_id) ?? {
+                activityIds: [],
+                groupIds: []
+            };
+            if (row.target_type === "activity") {
+                entry.activityIds.push(row.target_id);
+            } else if (row.target_type === "activity_group") {
+                entry.groupIds.push(row.target_id);
+            }
+            targetsByScheduleId.set(row.schedule_id, entry);
+        }
+    }
+
+    // Resolve target_group display name for the inline target_id column.
     const activityGroupIds = Array.from(
         new Set(
             baseRules
@@ -677,24 +712,14 @@ export async function listLayoutRules(tenantId: string): Promise<LayoutRule[]> {
         const targetGroup =
             rule.target_type === "activity_group" ? (groupById.get(rule.target_id) ?? null) : null;
 
-        // Target source-of-truth = inline columns on `schedules`.
-        // schedule_targets is deprecated (write-locked by RLS, never populated).
-        // Interpretation matches the runtime resolver, which reads the same columns:
-        //   apply_to_all=true            -> all sedi
-        //   target_type='activity'       -> single sede
-        //   target_type='activity_group' -> single gruppo
-        //   else                          -> no target (correctly a draft)
+        // apply_to_all vince sempre su qualsiasi target specifico — stesso
+        // contratto del resolver (scheduleResolver.ts:167, "defensive
+        // hardening"). Il gruppo di sistema "Tutte le sedi" ha zero membri
+        // per disegno: non è un target normale, non se ne deduce niente qui.
         const applyToAll = applyToAllByScheduleId.get(rule.id) === true;
-        let activityIds: string[] = [];
-        let groupIds: string[] = [];
-
-        if (!applyToAll) {
-            if (rule.target_type === "activity" && rule.target_id) {
-                activityIds = [rule.target_id];
-            } else if (rule.target_type === "activity_group" && rule.target_id) {
-                groupIds = [rule.target_id];
-            }
-        }
+        const targets = targetsByScheduleId.get(rule.id);
+        const activityIds = applyToAll ? [] : (targets?.activityIds ?? []);
+        const groupIds = applyToAll ? [] : (targets?.groupIds ?? []);
 
         const visibilityOverrides =
             rule.rule_type === "visibility"
@@ -1193,10 +1218,13 @@ export async function updateRule(input: {
         mode: VisibilityMode;
     }>;
 }): Promise<void> {
-    // Derive legacy target fields from activityIds/groupIds (source of truth).
-    // These must be kept in sync so the runtime resolver (which queries target_type/target_id
-    // directly) can find the rule.
-    let effectiveApplyToAll = input.applyToAll;
+    // Derive legacy target fields from activityIds/groupIds. These inline
+    // columns are a shim, not the source of truth (that's schedule_targets,
+    // written separately by the caller). The runtime resolver
+    // (scheduleResolver.ts) no longer reads them for candidate selection
+    // (passo 3) — what's left reading them is display-only (target_group
+    // name in listLayoutRules) and duplicateRule's legacy copy.
+    const effectiveApplyToAll = input.applyToAll;
     let legacyTargetType: "activity" | "activity_group" | null = null;
     let legacyTargetId: string | null = null;
 
@@ -1207,10 +1235,14 @@ export async function updateRule(input: {
         } else if (input.groupIds.length > 0) {
             legacyTargetType = "activity_group";
             legacyTargetId = input.groupIds[0];
-        } else {
-            // No target selected — force global so the resolver can still find the rule
-            effectiveApplyToAll = true;
         }
+        // No target selected: leave apply_to_all=false, target_type/target_id
+        // null. "No target" is not "all activities" — forcing apply_to_all
+        // here would make an untargeted draft resolve as global. The resolver
+        // contract (scheduleResolver.ts) already treats apply_to_all=false
+        // with no match as "excludes this rule", and these rows are always
+        // drafts (enabled=false, see missingFields in ProgrammingRuleDetail),
+        // so they never reach resolution regardless.
     }
 
     const targetPayload = {
@@ -1240,8 +1272,11 @@ export async function updateRule(input: {
         name: input.name
     });
 
-    // Target persisted via inline columns (target_type/target_id/apply_to_all) above.
-    // schedule_targets is deprecated and write-locked by RLS — no join sync.
+    // Inline columns (target_type/target_id/apply_to_all) written above are
+    // the shim for Edge/resolver. schedule_targets — the actual multi-target
+    // set — is written separately by the caller (update_schedule_targets
+    // RPC), not here: this function doesn't know the full target list, only
+    // the legacy single target it just derived.
 
     if (input.ruleType === "layout") {
         const { data: existingLayout, error: existingLayoutError } = await supabase
@@ -1481,6 +1516,36 @@ export interface StyleScheduleUsage {
     enabled: boolean;
     start_at: string | null;
     end_at: string | null;
+    // Serve a deriveScheduleStatus (src/utils/scheduleStatus.ts): finestra
+    // temporale per isRuleCurrentlyActive, target per ruleReachesAnyActivity
+    // (portata zero, Passo 4). Niente competizione fra regole qui — il
+    // drawer non la calcola, vedi StyleDeleteDrawer.tsx.
+    time_mode: string;
+    days_of_week: number[] | null;
+    time_from: string | null;
+    time_to: string | null;
+    applyToAll: boolean;
+    activityIds: string[];
+    groupIds: string[];
+}
+
+interface ScheduleUsageScheduleRow {
+    id: string;
+    name: string | null;
+    enabled: boolean;
+    start_at: string | null;
+    end_at: string | null;
+    tenant_id: string;
+    time_mode: string;
+    days_of_week: number[] | null;
+    time_from: string | null;
+    time_to: string | null;
+    apply_to_all: boolean;
+}
+
+interface ScheduleLayoutWithStyleScheduleRow {
+    schedule_id: string;
+    schedule: ScheduleUsageScheduleRow | ScheduleUsageScheduleRow[] | null;
 }
 
 export async function listSchedulesUsingStyle(
@@ -1492,7 +1557,7 @@ export async function listSchedulesUsingStyle(
         .select(
             `
             schedule_id,
-            schedule:schedules!inner(id, name, enabled, start_at, end_at, tenant_id)
+            schedule:schedules!inner(id, name, enabled, start_at, end_at, tenant_id, time_mode, days_of_week, time_from, time_to, apply_to_all)
             `
         )
         .eq("tenant_id", tenantId)
@@ -1500,9 +1565,9 @@ export async function listSchedulesUsingStyle(
 
     if (error) throw error;
 
-    const rows = (data ?? []) as ScheduleLayoutWithScheduleRow[];
+    const rows = (data ?? []) as ScheduleLayoutWithStyleScheduleRow[];
     const seen = new Set<string>();
-    const out: StyleScheduleUsage[] = [];
+    const schedules: ScheduleUsageScheduleRow[] = [];
 
     for (const row of rows) {
         const schedule = Array.isArray(row.schedule)
@@ -1512,14 +1577,55 @@ export async function listSchedulesUsingStyle(
         if (schedule.tenant_id !== tenantId) continue;
         if (seen.has(schedule.id)) continue;
         seen.add(schedule.id);
-        out.push({
+        schedules.push(schedule);
+    }
+
+    // Target per la portata zero (Passo 4) — stesso pattern batched di
+    // listLayoutRules / countActivityDeleteImpact: una query sola su
+    // schedule_targets per tutte le regole trovate.
+    const targetsByScheduleId = new Map<string, { activityIds: string[]; groupIds: string[] }>();
+    if (schedules.length > 0) {
+        const { data: targetsData, error: targetsError } = await supabase
+            .from("schedule_targets")
+            .select("schedule_id, target_type, target_id")
+            .in(
+                "schedule_id",
+                schedules.map(s => s.id)
+            );
+
+        if (targetsError) throw targetsError;
+
+        for (const row of targetsData ?? []) {
+            const entry = targetsByScheduleId.get(row.schedule_id) ?? {
+                activityIds: [],
+                groupIds: []
+            };
+            if (row.target_type === "activity") {
+                entry.activityIds.push(row.target_id);
+            } else if (row.target_type === "activity_group") {
+                entry.groupIds.push(row.target_id);
+            }
+            targetsByScheduleId.set(row.schedule_id, entry);
+        }
+    }
+
+    const out: StyleScheduleUsage[] = schedules.map(schedule => {
+        const targets = targetsByScheduleId.get(schedule.id);
+        return {
             id: schedule.id,
             name: schedule.name,
             enabled: schedule.enabled,
             start_at: schedule.start_at,
-            end_at: schedule.end_at
-        });
-    }
+            end_at: schedule.end_at,
+            time_mode: schedule.time_mode,
+            days_of_week: schedule.days_of_week,
+            time_from: schedule.time_from,
+            time_to: schedule.time_to,
+            applyToAll: schedule.apply_to_all,
+            activityIds: schedule.apply_to_all ? [] : (targets?.activityIds ?? []),
+            groupIds: schedule.apply_to_all ? [] : (targets?.groupIds ?? [])
+        };
+    });
 
     out.sort((a, b) => {
         if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
@@ -1573,8 +1679,10 @@ export async function duplicateRule(ruleId: string, tenantId: string): Promise<s
         throw applyAllErr;
     }
 
-    // 3. Target already copied via inline target_type/target_id on the new
-    //    schedule row above. schedule_targets is deprecated — no join copy.
+    // 3. Legacy target already copied via inline target_type/target_id on the
+    //    new schedule row above. schedule_targets rows are NOT copied here —
+    //    the duplicate gets only the legacy single target, not the full
+    //    multi-target set of the original. Known gap, not resolved here.
 
     // 4. Copy type-specific data
     if (original.rule_type === "layout" && original.layout) {

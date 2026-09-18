@@ -185,11 +185,16 @@ serve(async req => {
                     }
 
                     if ((count ?? 0) === 0) {
+                        // enabled=true richiesto: una regola già disabilitata
+                        // non "passa in bozza", era già ferma. Senza questo
+                        // filtro affected_schedules_disabled conta transizioni
+                        // che non sono avvenute (annuncia un evento falso).
                         const { error: updateError } = await supabaseAdmin
                             .from("schedules")
                             .update({ enabled: false })
                             .eq("id", sid)
-                            .eq("apply_to_all", false);
+                            .eq("apply_to_all", false)
+                            .eq("enabled", true);
 
                         if (updateError) {
                             console.warn(

@@ -47,6 +47,35 @@ export function monthByMonthEquivalentCents(
     return monthly === null ? null : monthly * MONTHS_PER_INTERVAL[interval];
 }
 
+/**
+ * The line under a plan price that argues for (or contextualises) the yearly
+ * interval, present in both states so the comparison never disappears:
+ * - month: what the plan costs per year, and that it is two months free
+ *   (yearly = 10 × monthly), tone "success";
+ * - year: what the same year costs paying month by month, tone "muted".
+ * Null when the other interval is not purchasable or the two prices are not
+ * in the 10:12 ratio (the "two months free" claim would be false).
+ */
+export function yearlySavingsNote(
+    prices: PlanPrice[],
+    planCode: PlanCode,
+    interval: BillingInterval
+): { text: string; tone: "success" | "muted" } | null {
+    const monthly = priceCentsFor(prices, planCode, "month");
+    const yearly = priceCentsFor(prices, planCode, "year");
+    if (monthly === null || yearly === null) return null;
+    if (interval === "month") {
+        if (yearly !== monthly * 10) return null;
+        return { text: `${formatEuroWholeCents(yearly)} all'anno, due mesi gratis`, tone: "success" };
+    }
+    return { text: `${formatEuroWholeCents(monthly * MONTHS_PER_INTERVAL.year)} pagando mese per mese`, tone: "muted" };
+}
+
+/** Whole euros for a price line ("€39", "€390"). */
+export function formatEuroWholeCents(cents: number): string {
+    return `€${Math.round(cents / 100)}`;
+}
+
 /** Keeps `interval` only if purchasable; otherwise falls back to the first available one. */
 export function coerceInterval(interval: BillingInterval | null | undefined, available: BillingInterval[]): BillingInterval {
     if (interval && available.includes(interval)) return interval;

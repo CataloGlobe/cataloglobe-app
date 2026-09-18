@@ -14,7 +14,7 @@ import { listPublicPlans } from "@/services/supabase/plans";
 import { listPlanPrices } from "@/services/supabase/planPrices";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 import { calculateGraduatedFromPlan } from "@/utils/pricing";
-import { availableIntervals, coerceInterval, monthByMonthEquivalentCents, priceCentsFor } from "@/utils/planPricing";
+import { availableIntervals, coerceInterval, priceCentsFor } from "@/utils/planPricing";
 
 import { TENANT_KEY as STORAGE_KEY } from "@/constants/storageKeys";
 import { DEFAULT_SUBTYPE, type BusinessSubtype } from "@/constants/verticalTypes";
@@ -278,15 +278,6 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         const out: Partial<Record<PlanCode, number>> = {};
         for (const p of plans) {
             const cents = priceCentsFor(planPrices, p.code, billingInterval);
-            if (cents !== null) out[p.code] = cents;
-        }
-        return out;
-    }, [plans, planPrices, billingInterval]);
-
-    const monthByMonthCentsByPlan = useMemo(() => {
-        const out: Partial<Record<PlanCode, number>> = {};
-        for (const p of plans) {
-            const cents = monthByMonthEquivalentCents(planPrices, p.code, billingInterval);
             if (cents !== null) out[p.code] = cents;
         }
         return out;
@@ -638,7 +629,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         billingInterval={billingInterval}
                         availableIntervals={intervals}
                         onIntervalChange={setPickedInterval}
-                        monthByMonthCentsByPlan={monthByMonthCentsByPlan}
+                        planPrices={planPrices}
                         seats={seats}
                         onSeatsChange={handleSeatsChange}
                         breakdown={breakdown}
@@ -896,6 +887,13 @@ function friendlyErrorMessage(code: string): string {
             return "Non è stato possibile avviare il pagamento. Controlla i dati di fatturazione dell'azienda e riprova.";
         case "tenant_align_failed":
             return "Impossibile finalizzare la scelta del piano. Riprova oppure contatta l'assistenza.";
+        // Most likely not a user mistake but the race between the Stripe
+        // payment and our webhook: the guard in stripe-checkout found a live
+        // subscription that our tenant row does not know about yet. Reassure.
+        case "subscription_already_active":
+            return "Il tuo abbonamento è già attivo. Se hai appena completato il pagamento, attendi qualche secondo e ricarica la pagina.";
+        case "subscription_check_failed":
+            return "Non siamo riusciti a verificare lo stato del tuo abbonamento. Non ti è stato addebitato nulla: riprova tra qualche istante.";
         default:
             return "Errore durante la creazione dell'attività. Riprova.";
     }

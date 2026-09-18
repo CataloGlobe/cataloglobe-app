@@ -72,6 +72,12 @@ type RawScheduleFeaturedContentRow = {
         | null;
 };
 
+type RawScheduleTargetLookupRow = {
+    schedule_id: string;
+    target_type: string;
+    target_id: string;
+};
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -132,17 +138,37 @@ export async function listFeaturedRules(tenantId: string): Promise<FeaturedRule[
         }
     }
 
+    // Multi-target: activityIds/groupIds letti da schedule_targets (passo 3).
+    // apply_to_all resta valutato per primo e vince sempre su qualsiasi
+    // target specifico — stesso contratto del resolver (scheduleResolver.ts).
+    const targetsByScheduleId = new Map<string, { activityIds: string[]; groupIds: string[] }>();
+    {
+        const { data: targetsData, error: targetsError } = await supabase
+            .from("schedule_targets")
+            .select("schedule_id, target_type, target_id")
+            .in("schedule_id", ruleIds);
+
+        if (targetsError) throw targetsError;
+
+        for (const row of (targetsData ?? []) as RawScheduleTargetLookupRow[]) {
+            const entry = targetsByScheduleId.get(row.schedule_id) ?? {
+                activityIds: [],
+                groupIds: []
+            };
+            if (row.target_type === "activity") {
+                entry.activityIds.push(row.target_id);
+            } else if (row.target_type === "activity_group") {
+                entry.groupIds.push(row.target_id);
+            }
+            targetsByScheduleId.set(row.schedule_id, entry);
+        }
+    }
+
     return baseRules.map((rule): FeaturedRule => {
-        // Target source-of-truth = inline columns (schedule_targets deprecated).
         const applyToAll = rule.apply_to_all === true;
-        const activityIds: string[] =
-            !applyToAll && rule.target_type === "activity" && rule.target_id
-                ? [rule.target_id]
-                : [];
-        const groupIds: string[] =
-            !applyToAll && rule.target_type === "activity_group" && rule.target_id
-                ? [rule.target_id]
-                : [];
+        const targets = targetsByScheduleId.get(rule.id);
+        const activityIds = applyToAll ? [] : (targets?.activityIds ?? []);
+        const groupIds = applyToAll ? [] : (targets?.groupIds ?? []);
 
         return {
             id: rule.id,
@@ -263,8 +289,11 @@ export async function updateFeaturedRule(input: {
 
     if (scheduleError) throw scheduleError;
 
-    // Target persisted via inline columns (target_type/target_id/apply_to_all) above.
-    // schedule_targets is deprecated and write-locked by RLS — no join sync.
+    // Inline columns (target_type/target_id/apply_to_all) written above are
+    // the shim for Edge/resolver. schedule_targets — the actual multi-target
+    // set — is written separately by the caller (update_schedule_targets
+    // RPC, FeaturedRuleDetail.tsx), not here: this function doesn't know the
+    // full target list, only the legacy single target it just derived.
 
     // Delete + re-insert featured contents
     const { error: deleteFcError } = await supabase

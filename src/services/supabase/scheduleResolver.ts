@@ -263,40 +263,17 @@ async function listCandidateRuleRowsForActivity(
     activityId: string,
     tenantId: string
 ): Promise<CandidateInfo> {
-    const [groupMembersRes, activityRulesRes] = await Promise.all([
-        supabase.from("activity_group_members").select("group_id").eq("activity_id", activityId),
-        supabase
-            .from("schedules")
-            .select(TIME_RULE_SELECT)
-            .eq("tenant_id", tenantId)
-            .eq("rule_type", ruleType)
-            .eq("enabled", true)
-            .eq("target_type", "activity")
-            .eq("target_id", activityId)
-    ]);
-
+    const groupMembersRes = await supabase
+        .from("activity_group_members")
+        .select("group_id")
+        .eq("activity_id", activityId);
     if (groupMembersRes.error) throw groupMembersRes.error;
-    if (activityRulesRes.error) throw activityRulesRes.error;
 
     const groupIds = Array.from(
         new Set(
             ((groupMembersRes.data ?? []) as RawActivityGroupMemberRow[]).map(row => row.group_id)
         )
     );
-
-    let groupRows: TimeRuleRow[] = [];
-    if (groupIds.length > 0) {
-        const groupRulesRes = await supabase
-            .from("schedules")
-            .select(TIME_RULE_SELECT)
-            .eq("tenant_id", tenantId)
-            .eq("rule_type", ruleType)
-            .eq("enabled", true)
-            .eq("target_type", "activity_group")
-            .in("target_id", groupIds);
-        if (groupRulesRes.error) throw groupRulesRes.error;
-        groupRows = (groupRulesRes.data ?? []) as TimeRuleRow[];
-    }
 
     let applyAllRows: TimeRuleRow[] = [];
     const applyAllRes = await supabase
@@ -315,21 +292,19 @@ async function listCandidateRuleRowsForActivity(
     }
     const applyAllIds = new Set(applyAllRows.map(row => row.id));
 
+    // Candidate selection is schedule_targets-only (passo 3): the inline
+    // target_type/target_id columns are no longer read here. apply_to_all
+    // still wins over any specific target on the same schedule — enforced
+    // below by skipping targetedRows whose id is in applyAllIds.
     const targetedSpecificityById = new Map<string, RuleSpecificity>();
     const activityTargetsRes = await supabase
         .from("schedule_targets")
         .select("schedule_id")
         .eq("target_type", "activity")
         .eq("target_id", activityId);
-
-    if (activityTargetsRes.error) {
-        if (!isMissingColumnError(activityTargetsRes.error, "schedule_targets")) {
-            throw activityTargetsRes.error;
-        }
-    } else {
-        for (const row of (activityTargetsRes.data ?? []) as RawScheduleTargetRow[]) {
-            targetedSpecificityById.set(row.schedule_id, 2);
-        }
+    if (activityTargetsRes.error) throw activityTargetsRes.error;
+    for (const row of (activityTargetsRes.data ?? []) as RawScheduleTargetRow[]) {
+        targetedSpecificityById.set(row.schedule_id, 2);
     }
 
     if (groupIds.length > 0) {
@@ -338,19 +313,10 @@ async function listCandidateRuleRowsForActivity(
             .select("schedule_id")
             .eq("target_type", "activity_group")
             .in("target_id", groupIds);
-
-        if (groupTargetsRes.error) {
-            if (!isMissingColumnError(groupTargetsRes.error, "schedule_targets")) {
-                throw groupTargetsRes.error;
-            }
-        } else {
-            for (const row of (groupTargetsRes.data ?? []) as RawScheduleTargetRow[]) {
-                const current = targetedSpecificityById.get(row.schedule_id) ?? 0;
-                targetedSpecificityById.set(
-                    row.schedule_id,
-                    current > 1 ? current : 1
-                );
-            }
+        if (groupTargetsRes.error) throw groupTargetsRes.error;
+        for (const row of (groupTargetsRes.data ?? []) as RawScheduleTargetRow[]) {
+            const current = targetedSpecificityById.get(row.schedule_id) ?? 0;
+            targetedSpecificityById.set(row.schedule_id, current > 1 ? current : 1);
         }
     }
 
@@ -368,38 +334,29 @@ async function listCandidateRuleRowsForActivity(
     }
 
     const rowsById = new Map<string, CandidateRuleRow>();
-    const upsertCandidate = (row: TimeRuleRow, specificity: RuleSpecificity) => {
-        const current = rowsById.get(row.id);
-        if (!current || specificity > current.specificity) {
-            rowsById.set(row.id, { ...row, specificity });
-            return;
-        }
-        rowsById.set(row.id, { ...row, specificity: current.specificity });
-    };
-
-    for (const row of (activityRulesRes.data ?? []) as TimeRuleRow[]) {
-        if (applyAllIds.has(row.id)) continue;
-        upsertCandidate(row, 2);
-    }
-    for (const row of groupRows) {
-        if (applyAllIds.has(row.id)) continue;
-        upsertCandidate(row, 1);
-    }
     for (const row of applyAllRows) {
-        upsertCandidate(row, 0);
+        rowsById.set(row.id, { ...row, specificity: 0 });
     }
     for (const row of targetedRows) {
         if (applyAllIds.has(row.id)) continue;
-        upsertCandidate(row, targetedSpecificityById.get(row.id) ?? 0);
+        rowsById.set(row.id, { ...row, specificity: targetedSpecificityById.get(row.id) ?? 0 });
     }
 
     const rows = Array.from(rowsById.values())
         .filter(row => row.specificity > 0 || applyAllIds.has(row.id))
         .sort(compareSpecificityFirst);
+
+    let activityCount = 0;
+    let groupCount = 0;
+    for (const specificity of targetedSpecificityById.values()) {
+        if (specificity === 2) activityCount++;
+        else if (specificity === 1) groupCount++;
+    }
+
     return {
         rows,
-        activityCount: ((activityRulesRes.data ?? []) as TimeRuleRow[]).length,
-        groupCount: groupRows.length,
+        activityCount,
+        groupCount,
         applyAllCount: applyAllRows.length,
         targetedCount: targetedRows.length
     };

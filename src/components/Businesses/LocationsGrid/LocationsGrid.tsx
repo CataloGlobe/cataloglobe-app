@@ -9,7 +9,6 @@ interface LocationsGridProps {
     businesses: BusinessWithCapabilities[];
     onEdit: (business: BusinessWithCapabilities) => void;
     onDelete?: (id: string) => void;
-    onOpenReviews: (id: string) => void;
     activeCatalogsMap?: Record<string, ActiveCatalogMeta>;
     catalogsStatus?: CatalogFetchStatus;
     onManageAvailability?: (id: string, name: string) => void;
@@ -19,7 +18,6 @@ export const LocationsGrid: React.FC<LocationsGridProps> = ({
     businesses,
     onEdit,
     onDelete,
-    onOpenReviews,
     activeCatalogsMap,
     catalogsStatus,
     onManageAvailability
@@ -32,7 +30,6 @@ export const LocationsGrid: React.FC<LocationsGridProps> = ({
                     business={business}
                     onEdit={onEdit}
                     onDelete={onDelete}
-                    onOpenReviews={onOpenReviews}
                     activeCatalog={activeCatalogsMap?.[business.id]}
                     catalogsStatus={catalogsStatus}
                     onManageAvailability={onManageAvailability}

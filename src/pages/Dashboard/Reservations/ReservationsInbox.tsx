@@ -3,6 +3,7 @@ import { CalendarCheck, MessageSquare } from "lucide-react";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
 import { Button } from "@/components/ui/Button/Button";
 import { todayIsoDate } from "@/utils/dateLocal";
+import { PENDING_QUEUE_LIMIT } from "@/services/supabase/reservations";
 import {
     TableAssignmentBadge,
     type TableAssignmentView
@@ -15,6 +16,11 @@ import styles from "./Reservations.module.scss";
 interface Props {
     /** Pending reservations within the current scope (already filtered). */
     pendingItems: V2Reservation[];
+    /**
+     * True se il server ha più pending del tetto (`PENDING_QUEUE_LIMIT`): la
+     * coda mostrata è la più vecchia, non tutta. Si dice, non si tace.
+     */
+    truncated?: boolean;
     /** Tavoli assegnati per prenotazione: aiuta a decidere se confermare. */
     tableViews: ReadonlyMap<string, TableAssignmentView>;
     /** Activity name lookup for site pill. */
@@ -45,8 +51,13 @@ function formatRowDate(isoDate: string): string {
     }).format(dt);
 }
 
+// Il numero è la costante del service, non una cifra scritta a mano: se il
+// tetto cambia, il banner lo segue.
+const PENDING_TRUNCATED_TEXT = `Queste sono le ${PENDING_QUEUE_LIMIT} richieste in attesa da più tempo. Ce ne sono altre, che compaiono man mano che gestisci queste.`;
+
 export default function ReservationsInbox({
     pendingItems,
+    truncated = false,
     tableViews,
     activityNames,
     showSitePill,
@@ -73,6 +84,14 @@ export default function ReservationsInbox({
         staleItems.sort(ascend);
         return { live: liveItems, stale: staleItems };
     }, [pendingItems, today]);
+
+    // Il tetto vale per l'intero tenant: anche con lo scope su una sede la
+    // coda potrebbe essere incompleta, e l'avviso resta.
+    const truncatedNotice = truncated ? (
+        <p className={styles.inboxTruncated} role="status">
+            {PENDING_TRUNCATED_TEXT}
+        </p>
+    ) : null;
 
     if (pendingItems.length === 0) {
         return (
@@ -165,6 +184,7 @@ export default function ReservationsInbox({
 
     return (
         <div className={styles.inbox}>
+            {truncatedNotice}
             {live.length > 0 && (
                 <section className={styles.inboxSection}>
                     <div className={styles.cards}>

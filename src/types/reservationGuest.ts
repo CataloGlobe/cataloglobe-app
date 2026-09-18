@@ -25,14 +25,8 @@ export interface V2ReservationGuest {
     /** Ultimo nome visto in prenotazione. Scritto dal trigger, non a mano. */
     display_name: string;
     email: string | null;
-    /**
-     * Note scritte DAL LOCALE ("preferisce il tavolo in fondo").
-     * Da non confondere con `V2Reservation.notes`, scritte DAL CLIENTE
-     * ("allergico alle spezie"): autori diversi, non vanno mescolate.
-     */
-    venue_notes: string | null;
-    /** Marcature libere del locale: abituale, VIP, allergie… */
-    tags: string[];
+    // Nota e tag del locale NON stanno qui: sono per SEDE, in
+    // `reservation_guest_notes` (`V2ReservationGuestNote`). Vedi sotto.
     created_at: string;
     updated_at: string;
 }
@@ -68,8 +62,32 @@ export interface ReservationGuestVisit {
     created_at: string;
 }
 
-/** Campi editabili a mano sul profilo. Tutto il resto lo scrive il trigger. */
-export interface ReservationGuestNotesInput {
-    venue_notes: string | null;
+/**
+ * Riga di `public.reservation_guest_notes`: ciò che UN LOCALE sa di un ospite
+ * (FASE 5.3). I fatti sono dell'azienda, i giudizi sono della sede: la nota
+ * la scrive una persona in un contesto che non viaggia, e «abituale» è vero
+ * in un locale e falso nell'altro. Una riga per (ospite, sede); la RLS la
+ * mostra solo a chi ha `guests.read` su QUELLA sede.
+ */
+export interface V2ReservationGuestNote {
+    id: string;
+    tenant_id: string;
+    activity_id: string;
+    guest_id: string;
+    /**
+     * Note scritte DAL LOCALE ("preferisce il tavolo in fondo"). Mai stringa
+     * vuota (CHECK): o c'è o è null. Da non confondere con
+     * `V2Reservation.notes`, scritte DAL CLIENTE ("allergico alle spezie").
+     */
+    notes: string | null;
+    /** Etichette libere del locale: abituale, VIP, tavolo tranquillo… */
+    tags: string[];
+    created_at: string;
+    updated_at: string;
+}
+
+/** Ciò che si scrive a mano, per una sede. Tutto il resto lo scrive il trigger. */
+export interface ReservationGuestNoteInput {
+    notes: string | null;
     tags: string[];
 }

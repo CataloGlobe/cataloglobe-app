@@ -3,7 +3,8 @@ import {
     availableIntervals,
     coerceInterval,
     monthByMonthEquivalentCents,
-    priceCentsFor
+    priceCentsFor,
+    yearlySavingsNote
 } from "@/utils/planPricing";
 import type { PlanPrice } from "@/types/plan";
 
@@ -66,6 +67,29 @@ describe("monthByMonthEquivalentCents", () => {
     it("is null when the monthly price is unknown", () => {
         const yearlyOnly: PlanPrice[] = [{ plan_code: "base", billing_interval: "year", price_cents: 39000 }];
         expect(monthByMonthEquivalentCents(yearlyOnly, "base", "year")).toBeNull();
+    });
+});
+
+describe("yearlySavingsNote — the line under the price, present in both states", () => {
+    it("monthly: names the yearly total and the two free months, tone success", () => {
+        expect(yearlySavingsNote(full, "pro", "month")).toEqual({ text: "€590 all'anno, due mesi gratis", tone: "success" });
+    });
+
+    it("yearly: names the month-by-month equivalent, tone muted", () => {
+        expect(yearlySavingsNote(full, "base", "year")).toEqual({ text: "€468 pagando mese per mese", tone: "muted" });
+    });
+
+    it("is null when the other interval is not purchasable", () => {
+        expect(yearlySavingsNote(monthlyOnly, "base", "month")).toBeNull();
+        expect(yearlySavingsNote(monthlyOnly, "base", "year")).toBeNull();
+    });
+
+    it("never claims two free months when yearly is not 10 × monthly", () => {
+        const odd: PlanPrice[] = [
+            { plan_code: "base", billing_interval: "month", price_cents: 3900 },
+            { plan_code: "base", billing_interval: "year", price_cents: 40000 }
+        ];
+        expect(yearlySavingsNote(odd, "base", "month")).toBeNull();
     });
 });
 

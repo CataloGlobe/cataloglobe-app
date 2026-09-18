@@ -103,6 +103,16 @@ export async function createPortalSession(
 //                                  programmato resta intatto, retry idempotente
 //                                  converge. Stesso messaggio utente del codice
 //                                  SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED
+//   - "INTERVAL_CHANGE_BLOCKED" → (passi 4a/4b) cambio di intervallo rifiutato;
+//                                  `details.reason` (IntervalBlockReason) dice
+//                                  perché. Lanciato come IntervalChangeBlockedError.
+//                                  Con reason "interval_pending" è un cambio di
+//                                  PIANO/SEDI a essere rifiutato, perché c'è già
+//                                  un cambio di intervallo programmato.
+//   - "INTERVAL_CHANGE_MIXED"   → intervallo + piano/sedi nella stessa richiesta
+//   - "INTERVAL_DOWN_NOT_SUPPORTED" → non più emesso (passo 4b); tenuto per
+//                                  compatibilità con funzioni non aggiornate
+//   - "invalid_interval"        → valore fuori dominio month|year
 //
 // `classification` può valere "combined" quando il tier scende e le sedi
 // aumentano nello stesso cambio: le sedi sono addebitate subito (prorata a
@@ -112,9 +122,50 @@ export async function createPortalSession(
 export type SubscriptionChangeInput = {
     plan: PlanCode;
     seats: number;
+    /**
+     * Passi 4a/4b: target billing interval. Omit to keep the current one (every
+     * plan/seat change). Accepted only at unchanged plan and seats.
+     */
+    interval?: BillingInterval;
 };
 
-export type SubscriptionChangeClassification = "upgrade" | "downgrade" | "combined";
+/**
+ * "interval-up" = passaggio mensile → annuale (immediato, ciclo riancorato a oggi).
+ * "interval-down" = passaggio annuale → mensile (programmato al rinnovo;
+ * immediato a €0 in prova, `effective: "now"`).
+ */
+export type SubscriptionChangeClassification = "upgrade" | "downgrade" | "combined" | "interval-up" | "interval-down";
+
+/**
+ * Why the edge refuses a change (`INTERVAL_CHANGE_BLOCKED` → `details.reason`).
+ * `interval_pending` is the only one raised on a PLAN/SEAT change: a scheduled
+ * interval change is pending and would be dropped by a rewrite of its phase.
+ */
+export type IntervalBlockReason =
+    | "pending_change"
+    | "cancel_scheduled"
+    | "past_due"
+    | "not_active"
+    | "discount"
+    | "interval_pending";
+
+const INTERVAL_BLOCK_REASONS: ReadonlySet<string> = new Set([
+    "pending_change",
+    "cancel_scheduled",
+    "past_due",
+    "not_active",
+    "discount",
+    "interval_pending"
+]);
+
+export class IntervalChangeBlockedError extends Error {
+    readonly reason: IntervalBlockReason | null;
+    constructor(reason: IntervalBlockReason | null) {
+        super("INTERVAL_CHANGE_BLOCKED");
+        this.name = "INTERVAL_CHANGE_BLOCKED";
+        this.reason = reason;
+    }
+}
 
 export type SubscriptionChangePreview = {
     classification: SubscriptionChangeClassification;
@@ -145,6 +196,14 @@ export type SubscriptionChangePreview = {
      * una cifra ricavata altrimenti.
      */
     trialFirstInvoiceCents?: number | null;
+    /**
+     * Passo 4a (solo classification "interval-up"): credito per il non consumato
+     * del mese in corso, in centesimi NEGATIVI (0 in prova). Già scalato da
+     * `chargeToday`; esposto per spiegare l'importo, mai per ricalcolarlo.
+     */
+    prorationCreditCents?: number;
+    currentInterval?: BillingInterval;
+    targetInterval?: BillingInterval;
 };
 
 export type SubscriptionChangeCommitResult = {
@@ -156,7 +215,26 @@ export type SubscriptionChangeCommitResult = {
     effective: string | null;
     scheduledChange?: boolean;
     scheduleId?: string;
+    /** Passo 4a: intervallo applicato + nuova fine periodo (ciclo riancorato a oggi). */
+    interval?: BillingInterval;
+    currentPeriodEnd?: string | null;
 };
+
+/** Reads `{ error, details }` from an edge error response body, if any. */
+async function extractEdgeErrorBody(error: unknown): Promise<{ error: string; details?: Record<string, unknown> } | null> {
+    if (!error || typeof error !== "object") return null;
+    const ctx = (error as { context?: unknown }).context;
+    if (!ctx || typeof (ctx as Response).clone !== "function") return null;
+    try {
+        const body = await (ctx as Response).clone().json();
+        if (body && typeof body.error === "string") {
+            return { error: body.error, details: typeof body.details === "object" && body.details ? body.details : undefined };
+        }
+    } catch {
+        // Body not JSON → fall back to default error
+    }
+    return null;
+}
 
 async function invokeSubscriptionChange<T>(
     tenantId: string,
@@ -170,15 +248,30 @@ async function invokeSubscriptionChange<T>(
     // a new call, hence a new id, so the genuine retry is not swallowed as a stale
     // replay inside Stripe's 24h idempotency window.
     const requestId = crypto.randomUUID();
+    // `interval` is sent only when set: the edge treats an absent field as
+    // "keep the current interval", so plan/seat changes are byte-identical.
     const { data, error } = await supabase.functions.invoke("stripe-change-subscription", {
-        body: { tenantId, action, plan: input.plan, seats: input.seats, request_id: requestId }
+        body: {
+            tenantId,
+            action,
+            plan: input.plan,
+            seats: input.seats,
+            request_id: requestId,
+            ...(input.interval ? { interval: input.interval } : {})
+        }
     });
 
     if (error) {
-        const code = await extractEdgeErrorCode(error);
-        if (code) {
-            const wrapped = new Error(code);
-            wrapped.name = code;
+        const body = await extractEdgeErrorBody(error);
+        if (body) {
+            if (body.error === "INTERVAL_CHANGE_BLOCKED") {
+                const reason = body.details?.reason;
+                throw new IntervalChangeBlockedError(
+                    typeof reason === "string" && INTERVAL_BLOCK_REASONS.has(reason) ? (reason as IntervalBlockReason) : null
+                );
+            }
+            const wrapped = new Error(body.error);
+            wrapped.name = body.error;
             throw wrapped;
         }
         throw error;
@@ -203,6 +296,31 @@ export async function previewSubscriptionChange(
  * Upgrade → immediato (addebito prorata). Downgrade → programmato a fine periodo.
  * La sincronizzazione di `tenants` avviene via webhook Stripe.
  */
+/**
+ * Passi 4a/4b — anteprima del cambio di intervallo a piano e sedi correnti.
+ * Non modifica nulla. Lancia IntervalChangeBlockedError quando il cambio è
+ * rifiutato (cambio programmato, disdetta, pagamento in sofferenza, sconto
+ * attivo).
+ */
+export async function previewIntervalChange(
+    tenantId: string,
+    input: { plan: PlanCode; seats: number; interval: BillingInterval }
+): Promise<SubscriptionChangePreview> {
+    return invokeSubscriptionChange<SubscriptionChangePreview>(tenantId, "preview", input);
+}
+
+/**
+ * Passi 4a/4b — applica il cambio di intervallo. "year": addebito immediato,
+ * ciclo riancorato a oggi. "month": programmato al rinnovo (`scheduledChange`),
+ * immediato a €0 in prova (`effective: "now"`).
+ */
+export async function commitIntervalChange(
+    tenantId: string,
+    input: { plan: PlanCode; seats: number; interval: BillingInterval }
+): Promise<SubscriptionChangeCommitResult> {
+    return invokeSubscriptionChange<SubscriptionChangeCommitResult>(tenantId, "commit", input);
+}
+
 export async function commitSubscriptionChange(
     tenantId: string,
     input: SubscriptionChangeInput

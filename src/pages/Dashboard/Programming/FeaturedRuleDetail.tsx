@@ -30,6 +30,7 @@ import {
     updateFeaturedRule,
     type FeaturedRuleContent
 } from "@/services/supabase/featuredScheduling";
+import { updateScheduleTargets } from "@/services/supabase/scheduleTargets";
 import styles from "./ProgrammingRuleDetail.module.scss";
 
 import { TargetSection, type TargetMode } from "./components/TargetSection";
@@ -435,6 +436,25 @@ export default function FeaturedRuleDetail() {
                 groupIds: form.groupIds,
                 featuredContents: featuredRuleContents
             });
+
+            // schedule_targets: set completo, sostituisce le colonne inline
+            // target_type/target_id (shim per Edge/resolver, scritte a parte).
+            // Rifiutata dalla RPC se apply_to_all — non chiamare in quel caso.
+            // Array vuoto: nessun target selezionato resta apply_to_all=false
+            // con target_type/target_id null (updateFeaturedRule), sempre una
+            // bozza — e la RPC comunque rifiuta un array vuoto (richiede
+            // almeno 1 target), quindi non va chiamata.
+            if (form.targetMode === "activities" && form.activityIds.length > 0) {
+                await updateScheduleTargets(
+                    ruleId,
+                    form.activityIds.map(id => ({ targetType: "activity" as const, targetId: id }))
+                );
+            } else if (form.targetMode === "groups" && form.groupIds.length > 0) {
+                await updateScheduleTargets(
+                    ruleId,
+                    form.groupIds.map(id => ({ targetType: "activity_group" as const, targetId: id }))
+                );
+            }
 
             if (isForcedDraft) {
                 showToast({

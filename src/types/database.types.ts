@@ -1118,6 +1118,7 @@ export type Database = {
         Row: {
           address: string | null
           amount_cents: number
+          billing_interval: string | null
           city: string | null
           codice_destinatario: string | null
           country: string | null
@@ -1149,6 +1150,7 @@ export type Database = {
         Insert: {
           address?: string | null
           amount_cents: number
+          billing_interval?: string | null
           city?: string | null
           codice_destinatario?: string | null
           country?: string | null
@@ -1180,6 +1182,7 @@ export type Database = {
         Update: {
           address?: string | null
           amount_cents?: number
+          billing_interval?: string | null
           city?: string | null
           codice_destinatario?: string | null
           country?: string | null

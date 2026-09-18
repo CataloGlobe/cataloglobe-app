@@ -42,7 +42,7 @@ import {
     type RuleType
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
-import { RuleRow } from "./components/RuleRow";
+import { RuleRow, type RuleInsight } from "./components/RuleRow";
 import { HowItWorksLink, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import { CalendarView } from "./components/CalendarView";
 import {
@@ -52,28 +52,11 @@ import {
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { buildRuleSummary, isRuleCurrentlyActive } from "@/utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
+import { ruleReachesAnyActivity, describeZeroReach } from "@/utils/scheduleReach";
+import { deriveScheduleStatus } from "@/utils/scheduleStatus";
 import styles from "./Programming.module.scss";
 
 type RuleTypeFilter = RuleType | "all";
-
-type RuleInsight = {
-    isActiveNow: boolean;
-    isOverridden: boolean;
-    hasConflict: boolean;
-    isNeverUsed: boolean;
-    conflictingWithName?: string;
-    overriddenByName?: string;
-    /** Nomi delle sedi dove questa regola è sovrascritta da una più specifica. */
-    excludedActivityNames?: string[];
-};
-
-type RuleSuggestion = {
-    type: "conflict" | "override" | "unused";
-    message: string;
-    actionLabel?: string;
-    action?: () => void;
-    fixSuggestion?: string;
-};
 
 type VisibilityModeLabel = "hide" | "disable";
 
@@ -484,6 +467,19 @@ export default function Programming() {
         return () => clearInterval(interval);
     }, []);
 
+    const reachCtx = useMemo(() => {
+        const activityIdSet = new Set(activities.map(activity => activity.id));
+        return {
+            activityExists: (id: string) => activityIdSet.has(id),
+            groupMemberCount: (id: string) => (activityIdsByGroupId[id] ?? []).length
+        };
+    }, [activities, activityIdsByGroupId]);
+
+    const groupNameById = useMemo(
+        () => new Map(activityGroups.map(group => [group.id, group.name])),
+        [activityGroups]
+    );
+
     const ruleInsightsById = useMemo(() => {
         const insights = new Map<string, RuleInsight>();
         const allActivityIds = activities.map(activity => activity.id);
@@ -507,12 +503,8 @@ export default function Programming() {
             return null;
         };
 
-        const ruleTargetsAnyActivity = (rule: LayoutRule): boolean => {
-            if (rule.applyToAll) return true;
-            return allActivityIds.some(activityId => {
-                return ruleAppliesToActivityWithSpecificity(rule, activityId) !== null;
-            });
-        };
+        const ruleTargetsAnyActivity = (rule: LayoutRule): boolean =>
+            ruleReachesAnyActivity(rule, reachCtx);
 
         const activeNowRules = rules.filter(
             rule => rule.enabled && isRuleCurrentlyActive(rule, currentTime)
@@ -594,6 +586,12 @@ export default function Programming() {
                 isOverridden: isActiveNow && participatesNow && !winsNow,
                 hasConflict: isActiveNow && ruleConflictsNow.has(rule.id),
                 isNeverUsed: !canTargetAnyActivity,
+                zeroReachReason: canTargetAnyActivity
+                    ? undefined
+                    : describeZeroReach(rule, {
+                          ...reachCtx,
+                          groupName: id => groupNameById.get(id) ?? id
+                      }),
                 conflictingWithName: Array.from(ruleConflictingWithNames.get(rule.id) ?? [])[0],
                 overriddenByName: ruleOverriddenByName.get(rule.id),
                 excludedActivityNames
@@ -601,7 +599,7 @@ export default function Programming() {
         }
 
         return insights;
-    }, [activities, activityById, activityIdsByGroupId, currentTime, rules]);
+    }, [activities, activityById, activityIdsByGroupId, currentTime, rules, reachCtx, groupNameById]);
 
     const { activeRules, scheduledRules, draftRules, expiredRules, disabledRules } = useMemo(() => {
         const active: LayoutRule[] = [];
@@ -610,25 +608,33 @@ export default function Programming() {
         const expired: LayoutRule[] = [];
         const disabled: LayoutRule[] = [];
 
-        const isExpired = (rule: LayoutRule): boolean => {
-            if (!rule.end_at) return false;
-            return new Date(rule.end_at) <= new Date();
-        };
-
         for (const rule of filteredRules) {
-            if (!rule.enabled && isLayoutRuleDraft(rule)) {
+            const insight = ruleInsightsById.get(rule.id);
+            const status = deriveScheduleStatus({
+                enabled: rule.enabled,
+                endAt: rule.end_at,
+                isConfigDraft: isLayoutRuleDraft(rule),
+                isZeroReach: Boolean(insight?.zeroReachReason),
+                isActiveNow: insight?.isActiveNow ?? false,
+                isOverridden: insight?.isOverridden ?? false
+            });
+
+            if (status === "draft") {
+                // Bozza copre due cause distinte (deriveScheduleStatus):
+                // config incompleta, o portata zero (Passo 4) — il target
+                // esiste formalmente (un gruppo, di solito) ma non raggiunge
+                // nessuna sede reale ora. Nel secondo caso resta enabled=true
+                // nel DB, è derivato non scritto (§33.7): torna attiva da
+                // sola se il gruppo si ripopola.
                 drafts.push(rule);
-            } else if (!rule.enabled) {
+            } else if (status === "disabled") {
                 disabled.push(rule);
-            } else if (isExpired(rule)) {
+            } else if (status === "expired") {
                 expired.push(rule);
+            } else if (status === "active") {
+                active.push(rule);
             } else {
-                const insight = ruleInsightsById.get(rule.id);
-                if (insight?.isActiveNow && !insight?.isOverridden) {
-                    active.push(rule);
-                } else {
-                    scheduled.push(rule);
-                }
+                scheduled.push(rule);
             }
         }
 
@@ -730,62 +736,6 @@ export default function Programming() {
                 return next;
             });
         }
-    };
-
-
-    const getRuleSuggestions = (
-        rule: LayoutRule,
-        insight: RuleInsight | undefined
-    ): RuleSuggestion[] => {
-        if (!insight) return [];
-
-        const openRule = () => navigate(`/business/${currentTenantId}/scheduling/${rule.id}`);
-        if (insight.hasConflict) {
-            const suggestedPriority = Math.max(1, rule.priority - 1);
-            return [
-                {
-                    type: "conflict",
-                    message: `In conflitto con: ${insight.conflictingWithName ?? "un'altra regola"}`,
-                    actionLabel: "Modifica priorità",
-                    action: openRule,
-                    fixSuggestion:
-                        suggestedPriority !== rule.priority
-                            ? `Imposta priorità ${suggestedPriority} oppure riduci il target per evitare sovrapposizioni.`
-                            : "La priorità è già al massimo (1): separa il target o la fascia oraria."
-                }
-            ];
-        }
-
-        if (insight.isOverridden) {
-            const suggestedPriority = Math.max(1, rule.priority - 2);
-            return [
-                {
-                    type: "override",
-                    message: `Superata da: ${insight.overriddenByName ?? "un'altra regola"}`,
-                    actionLabel: "Modifica priorità",
-                    action: openRule,
-                    fixSuggestion:
-                        suggestedPriority !== rule.priority
-                            ? `Prova priorità ${suggestedPriority} o un target più specifico (Attività).`
-                            : "Usa un target più specifico o restringi la finestra temporale."
-                }
-            ];
-        }
-
-        if (insight.isNeverUsed) {
-            return [
-                {
-                    type: "unused",
-                    message: "Non utilizzata nelle condizioni attuali",
-                    actionLabel: "Modifica target",
-                    action: openRule,
-                    fixSuggestion:
-                        "Associa almeno una sede o un gruppo valido, oppure imposta il target globale."
-                }
-            ];
-        }
-
-        return [];
     };
 
 
@@ -1344,7 +1294,7 @@ export default function Programming() {
                                     <RuleBlock
                                         title="Bozze"
                                         count={draftRules.length}
-                                        subtitle="Regole incomplete — completa i campi obbligatori"
+                                        subtitle="Regole incomplete o senza sedi raggiungibili"
                                         collapsible
                                         open={showDrafts}
                                         onToggle={setShowDrafts}

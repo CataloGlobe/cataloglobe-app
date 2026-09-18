@@ -2600,6 +2600,14 @@
 /* ================================================================
    PREZZI (dati reali; Pro non più "vuoto" di Base)
    ================================================================ */
+/* Interval switch above the cards: left-aligned like the section lead,
+   pulled up into the lead's bottom margin so it reads as part of the intro.
+   The switch reserves its own headroom for the "2 mesi gratis" badge. */
+.plansIntervalSwitch {
+  display: flex;
+  justify-content: center;
+  margin: clamp(-16px, -2vw, -24px) 0 28px;
+}
 .plans {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -2673,6 +2681,18 @@
   color: var(--ink);
   margin: 6px 0 4px;
   font-variant-numeric: tabular-nums;
+}
+/* Month-by-month equivalent under a yearly price (same line as the wizard). */
+.planSavings {
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 2px;
+}
+.planSavingsSuccess {
+  color: var(--text-success, #047857); /* green-700, 5.6:1 su bianco */
+  font-weight: 600;
 }
 .planDiscount {
   font-family: var(--sans);

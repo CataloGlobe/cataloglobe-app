@@ -7,20 +7,24 @@ import Text from "@/components/ui/Text/Text";
 import { Select } from "@/components/ui/Select/Select";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
+import { supabase } from "@/services/supabase/client";
 import { deleteStyle, V2Style } from "@/services/supabase/styles";
+import { getActivities } from "@/services/supabase/activities";
 import {
     listSchedulesUsingStyle,
     type StyleScheduleUsage
 } from "@/services/supabase/layoutScheduling";
+import { isRuleCurrentlyActive } from "@/utils/ruleHelpers";
+import { ruleReachesAnyActivity } from "@/utils/scheduleReach";
+import { deriveScheduleStatus, type ScheduleStatus } from "@/utils/scheduleStatus";
 import { IconAlertTriangle } from "@tabler/icons-react";
 import pageStyles from "./Styles.module.scss";
 import drawerStyles from "./StyleDeleteDrawer.module.scss";
 
 const MAX_VISIBLE_SCHEDULES = 10;
 
-type ScheduleStatus = "active" | "scheduled" | "expired" | "disabled";
-
 const STATUS_LABEL: Record<ScheduleStatus, string> = {
+    draft: "Bozza",
     active: "Attiva",
     scheduled: "Programmata",
     expired: "Scaduta",
@@ -28,18 +32,12 @@ const STATUS_LABEL: Record<ScheduleStatus, string> = {
 };
 
 const STATUS_PILL_CLASS: Record<ScheduleStatus, string> = {
+    draft: drawerStyles.pillDraft,
     active: drawerStyles.pillActive,
     scheduled: drawerStyles.pillScheduled,
     expired: drawerStyles.pillExpired,
     disabled: drawerStyles.pillDisabled
 };
-
-function deriveScheduleStatus(rule: StyleScheduleUsage, now: Date): ScheduleStatus {
-    if (!rule.enabled) return "disabled";
-    if (rule.end_at !== null && new Date(rule.end_at) < now) return "expired";
-    if (rule.start_at !== null && new Date(rule.start_at) > now) return "scheduled";
-    return "active";
-}
 
 function StatusPill({ status }: { status: ScheduleStatus }) {
     return (
@@ -70,6 +68,11 @@ export function StyleDeleteDrawer({
     const [replacementId, setReplacementId] = useState<string>("");
     const [schedulesUsing, setSchedulesUsing] = useState<StyleScheduleUsage[] | null>(null);
     const [isLoadingUsage, setIsLoadingUsage] = useState(false);
+    // Serve solo a deriveScheduleStatus (portata zero, Passo 4): sedi
+    // esistenti del tenant + membri dei gruppi puntati dalle regole trovate
+    // sopra. Nessuna competizione fra regole qui (vedi scheduleStatus.ts).
+    const [activityIdSet, setActivityIdSet] = useState<Set<string>>(new Set());
+    const [groupMemberCounts, setGroupMemberCounts] = useState<Map<string, number>>(new Map());
 
     const isSystemError = styleData?.is_system;
     const isUsed = (styleData?.usage_count || 0) > 0;
@@ -87,9 +90,34 @@ export function StyleDeleteDrawer({
         try {
             const data = await listSchedulesUsingStyle(currentTenantId, styleData.id);
             setSchedulesUsing(data);
+
+            const groupIds = Array.from(new Set(data.flatMap(rule => rule.groupIds)));
+            const [activities, memberRows] = await Promise.all([
+                getActivities(currentTenantId),
+                groupIds.length > 0
+                    ? supabase
+                          .from("activity_group_members")
+                          .select("group_id")
+                          .eq("tenant_id", currentTenantId)
+                          .in("group_id", groupIds)
+                          .then(res => {
+                              if (res.error) throw res.error;
+                              return res.data ?? [];
+                          })
+                    : Promise.resolve([])
+            ]);
+
+            setActivityIdSet(new Set(activities.map(a => a.id)));
+            const counts = new Map<string, number>();
+            for (const row of memberRows) {
+                counts.set(row.group_id, (counts.get(row.group_id) ?? 0) + 1);
+            }
+            setGroupMemberCounts(counts);
         } catch (err) {
             console.warn("[StyleDeleteDrawer] usage fetch failed:", err);
             setSchedulesUsing([]);
+            setActivityIdSet(new Set());
+            setGroupMemberCounts(new Map());
         } finally {
             setIsLoadingUsage(false);
         }
@@ -227,7 +255,35 @@ export function StyleDeleteDrawer({
                                     {!isLoadingUsage && blocking.length > 0 && (
                                         <ul className={drawerStyles.scheduleList}>
                                             {visibleSchedules.map(rule => {
-                                                const status = deriveScheduleStatus(rule, now);
+                                                const isZeroReach = !ruleReachesAnyActivity(
+                                                    {
+                                                        applyToAll: rule.applyToAll,
+                                                        activityIds: rule.activityIds,
+                                                        groupIds: rule.groupIds
+                                                    },
+                                                    {
+                                                        activityExists: id => activityIdSet.has(id),
+                                                        groupMemberCount: id =>
+                                                            groupMemberCounts.get(id) ?? 0
+                                                    }
+                                                );
+                                                const status = deriveScheduleStatus({
+                                                    enabled: rule.enabled,
+                                                    endAt: rule.end_at,
+                                                    // Il payload dello stile (catalog_id) non è
+                                                    // caricato qui: "nessun target" copre già il
+                                                    // caso pratico rilevante per questo drawer.
+                                                    isConfigDraft:
+                                                        !rule.applyToAll &&
+                                                        rule.activityIds.length === 0 &&
+                                                        rule.groupIds.length === 0,
+                                                    isZeroReach,
+                                                    isActiveNow: isRuleCurrentlyActive(rule, now),
+                                                    // Nessuna competizione fra regole in questo
+                                                    // drawer (vedi commento sopra sullo state).
+                                                    isOverridden: false,
+                                                    now
+                                                });
                                                 return (
                                                     <li
                                                         key={rule.id}

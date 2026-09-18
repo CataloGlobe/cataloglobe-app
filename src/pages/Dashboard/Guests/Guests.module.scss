@@ -543,3 +543,13 @@
   font-style: italic;
   color: color-mix(in srgb, var(--text) 78%, var(--card-bg));
 }
+
+// FASE 5.3 — nel blocco per sede della scheda cliente, «Note del locale» e
+// «Etichette» diventano sottotitoli: il titolo di sezione è il nome della
+// sede.
+.drawerSubTitle {
+  margin: 4px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}

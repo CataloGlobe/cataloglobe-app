@@ -139,6 +139,32 @@
 }
 
 /* ----------------------------------------------------
+   DELETE MODAL — impatto regole Programmazione
+---------------------------------------------------- */
+.deleteImpactSchedules {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.deleteImpactScheduleList {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+
+  a {
+    color: var(--brand-primary, #6366f1);
+    text-decoration: none;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+/* ----------------------------------------------------
    SKELETON
 ---------------------------------------------------- */
 

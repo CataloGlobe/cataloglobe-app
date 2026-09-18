@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { Select } from "@/components/ui/Select/Select";
@@ -7,15 +7,19 @@ import {
     createReservation,
     updateReservation
 } from "@/services/supabase/reservations";
-import { findReservationGuestByPhone } from "@/services/supabase/reservationGuests";
+import {
+    findReservationGuestByPhone,
+    getReservationGuestNoteForActivity
+} from "@/services/supabase/reservationGuests";
 import { usePermissions } from "@/context/PermissionsContext";
 import { isTenantWide } from "@/lib/permissions";
-import type { ReservationGuestSummary } from "@/types/reservationGuest";
+import type { ReservationGuestSummary, V2ReservationGuestNote } from "@/types/reservationGuest";
 import { formatAbsenceCount, formatVisitCount } from "@/utils/guestVisibilityCopy";
 import { listActivityHours } from "@/services/supabase/activityHours";
 import { listActivityClosures } from "@/services/supabase/activityClosures";
 import {
     canAccept,
+    occupiesCapacity,
     type CapacityReservation
 } from "@/utils/reservationCapacity";
 import { todayIsoDate } from "@/utils/dateLocal";
@@ -46,12 +50,22 @@ interface ReservationFormProps {
     /** Sedi su cui il caller ha `reservations.manage`. In create mode: usate
      *  per popolare il Select. In edit mode: solo per risolvere il nome. */
     manageableActivities: FormActivity[];
-    /** Prenotazioni del tenant (per il warning over-capacity). */
+    /**
+     * Prenotazioni in memoria nella pagina (per il warning over-capacity).
+     * Contengono il giorno scelto qui sotto solo perché la pagina lo carica
+     * su richiesta di `onDateChange`: vedi `loadWindow` in Reservations.tsx.
+     */
     allReservations: V2Reservation[];
     /** Riga corrente in edit mode. */
     entityData?: V2Reservation;
     onSuccess: () => void | Promise<void>;
     onSavingChange: (saving: boolean) => void;
+    /**
+     * La data che il form sta guardando (`null` se vuota o quando il form si
+     * smonta). La pagina la usa per caricare le prenotazioni di quel giorno,
+     * senza le quali l'avviso di capienza qui sopra non vedrebbe niente.
+     */
+    onDateChange?: (iso: string | null) => void;
 }
 
 function normalizeTime(value: string): string {
@@ -68,11 +82,13 @@ export function ReservationForm({
     allReservations,
     entityData,
     onSuccess,
-    onSavingChange
+    onSavingChange,
+    onDateChange
 }: ReservationFormProps) {
     const { showToast } = useToast();
     const { permissions } = usePermissions();
     const isEditing = mode === "edit";
+
 
     // ── Riconoscimento del cliente durante l'inserimento ──────────────────
     // È il punto di maggior valore quotidiano della rubrica: l'operatore
@@ -84,6 +100,10 @@ export function ReservationForm({
     // Fallisce in silenzio: chi non ha `guests.read` riceve zero righe dalla
     // RLS e il form si comporta esattamente come prima.
     const [guestMatch, setGuestMatch] = useState<ReservationGuestSummary | null>(null);
+    // Nota ed etichette del locale sul cliente riconosciuto, PER LA SEDE
+    // scelta nel form (FASE 5.3): se l'operatore cambia sede, cambia anche
+    // quel che il locale sa di lui. `null` = niente scritto qui.
+    const [guestNote, setGuestNote] = useState<V2ReservationGuestNote | null>(null);
     const [guestLookupLoading, setGuestLookupLoading] = useState(false);
     const tenantWide = permissions ? isTenantWide(permissions) : false;
 
@@ -93,6 +113,20 @@ export function ReservationForm({
 
     const [activityId, setActivityId] = useState(defaultActivityId);
     const [reservationDate, setReservationDate] = useState(entityData?.reservation_date ?? "");
+
+    // Ref per non riagganciare l'effetto a ogni render del parent; l'effetto
+    // segue SOLO la data. Allo smontaggio si segnala `null`: il giorno non
+    // serve più e la pagina può smettere di caricarlo.
+    const onDateChangeRef = useRef(onDateChange);
+    useEffect(() => {
+        onDateChangeRef.current = onDateChange;
+    }, [onDateChange]);
+    useEffect(() => {
+        const iso = reservationDate.trim();
+        onDateChangeRef.current?.(/^\d{4}-\d{2}-\d{2}$/.test(iso) ? iso : null);
+        return () => onDateChangeRef.current?.(null);
+    }, [reservationDate]);
+
     const [reservationTime, setReservationTime] = useState(
         entityData?.reservation_time ? entityData.reservation_time.slice(0, 5) : ""
     );
@@ -218,14 +252,10 @@ export function ReservationForm({
         const trimmedTime = reservationTime.trim();
         if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmedDate)) return null;
         if (!/^\d{2}:\d{2}/.test(trimmedTime)) return null;
-        // `no_show` non è un valore che il motore di capienza conosce: conta
-        // solo pending + confirmed, quindi le righe non attive vengono scartate
-        // qui invece di allargare il tipo del motore (che resta invariato).
+        // Quali stati occupano capienza lo dice il motore (`occupiesCapacity`),
+        // non questo file: stessa terna delle funzioni SQL.
         const rows: CapacityReservation[] = allReservations
-            .filter(
-                (r): r is V2Reservation & { status: CapacityReservation["status"] } =>
-                    r.status === "pending" || r.status === "confirmed"
-            )
+            .filter(r => occupiesCapacity(r.status))
             .map(r => ({
                 id: r.id,
                 activity_id: r.activity_id,
@@ -289,7 +319,7 @@ export function ReservationForm({
         let bucketBookings = 0;
         for (const r of allReservations) {
             if (r.activity_id !== activeActivity.id) continue;
-            if (r.status !== "pending" && r.status !== "confirmed") continue;
+            if (!occupiesCapacity(r.status)) continue;
             if (r.reservation_date !== trimmedDate) continue;
             if (r.party_size <= 0) continue;
             // In modifica la riga stessa non va contata due volte.
@@ -374,6 +404,20 @@ export function ReservationForm({
         }
         return ok;
     };
+
+    const guestMatchId = guestMatch?.id ?? null;
+    useEffect(() => {
+        if (!guestMatchId || !activityId || !tenantId) {
+            setGuestNote(null);
+            return;
+        }
+        let alive = true;
+        getReservationGuestNoteForActivity(guestMatchId, activityId, tenantId)
+            .then(note => { if (alive) setGuestNote(note); })
+            // Silenzioso come il riconoscimento: è un di più.
+            .catch(() => { if (alive) setGuestNote(null); });
+        return () => { alive = false; };
+    }, [guestMatchId, activityId, tenantId]);
 
     const handlePhoneBlur = async () => {
         const raw = customerPhone.trim();
@@ -581,15 +625,15 @@ export function ReservationForm({
                             </span>
                         )}
                     </div>
-                    {guestMatch.tags.length > 0 && (
+                    {guestNote && guestNote.tags.length > 0 && (
                         <div className={styles.guestTags}>
-                            {guestMatch.tags.map(t => (
+                            {guestNote.tags.map(t => (
                                 <span key={t} className={styles.guestTag}>{t}</span>
                             ))}
                         </div>
                     )}
-                    {guestMatch.venue_notes && (
-                        <div className={styles.guestInlineNotes}>{guestMatch.venue_notes}</div>
+                    {guestNote?.notes && (
+                        <div className={styles.guestInlineNotes}>{guestNote.notes}</div>
                     )}
                 </div>
             )}

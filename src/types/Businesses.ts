@@ -31,7 +31,6 @@ export interface BusinessCardProps {
     business: BusinessWithCapabilities;
     onEdit: (business: BusinessWithCapabilities) => void;
     onDelete?: (id: string) => void;
-    onOpenReviews: (businessId: string) => void;
     activeCatalog?: ActiveCatalogMeta | null;
     /**
      * Esito della risoluzione batch, non un semplice flag di attesa: senza
@@ -47,7 +46,6 @@ export interface BusinessListProps {
     viewMode?: "grid" | "list";
     onEdit: (business: BusinessWithCapabilities) => void;
     onDelete?: (id: string) => void;
-    onOpenReviews: (id: string) => void;
     activeCatalogsMap?: Record<string, ActiveCatalogMeta>;
     /** Vedi `BusinessCardProps.catalogsStatus`. */
     catalogsStatus?: CatalogFetchStatus;

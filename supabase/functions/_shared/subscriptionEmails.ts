@@ -86,6 +86,122 @@ ${getEmailFooterText()}`;
     return { subject, html, text };
 }
 
+// --- Passaggio all'annuale (passo 4a) ----------------------------------------
+// Dedicated template: `upgradeEmail` hard-codes "/mese" and takes the renewal
+// date from the pre-change period end, both wrong after an interval change
+// (Stripe re-anchors the cycle to today). Amounts come from the real invoice.
+export function intervalUpgradeEmail(opts: {
+    plan: string;
+    seats: number;
+    /** amount_paid of the invoice Stripe created at the change (null if unknown). */
+    amountPaidTodayCents: number | null;
+    /** Sum of the proration lines (negative cents = credit for the unused month). */
+    prorationCreditCents: number;
+    /** Full recurring yearly total from the Price tiers. */
+    yearlyTotalCents: number;
+    /** New renewal date (today + 1 year), or trial end while trialing. */
+    renewalDateIso: string | null;
+    isTrialing: boolean;
+}): { subject: string; html: string; text: string } {
+    const label = planLabel(opts.plan);
+    const seats = seatsLabel(opts.seats);
+    const yearly = formatEuroCents(opts.yearlyTotalCents);
+    const renewal = formatDateIt(opts.renewalDateIso);
+    const subject = "Passaggio all'annuale confermato — CataloGlobe";
+
+    if (opts.isTrialing) {
+        const html = card(
+            "Passaggio all'annuale confermato",
+            p(`Il tuo abbonamento passerà alla fatturazione annuale alla fine della prova: <strong>${label} · ${seats}</strong>.`) +
+                p(`Nessun addebito oggi. Il primo addebito, di <strong>${yearly}</strong>, è previsto per il <strong>${renewal}</strong>.`)
+        );
+        const text = `Passaggio all'annuale confermato — CataloGlobe
+
+Il tuo abbonamento passerà alla fatturazione annuale alla fine della prova: ${label} · ${seats}.
+Nessun addebito oggi. Il primo addebito, di ${yearly}, è previsto per il ${renewal}.
+
+${getEmailFooterText()}`;
+        return { subject, html, text };
+    }
+
+    const credit = Math.max(0, -opts.prorationCreditCents);
+    const paid = opts.amountPaidTodayCents != null ? formatEuroCents(opts.amountPaidTodayCents) : null;
+    const chargeLine = paid
+        ? `Oggi abbiamo addebitato <strong>${paid}</strong>: l'anno intero (${yearly}) meno il non consumato del mese in corso (${formatEuroCents(credit)}).`
+        : `Oggi abbiamo addebitato l'anno intero (${yearly}) meno il non consumato del mese in corso.`;
+    const chargeText = paid
+        ? `Oggi abbiamo addebitato ${paid}: l'anno intero (${yearly}) meno il non consumato del mese in corso (${formatEuroCents(credit)}).`
+        : `Oggi abbiamo addebitato l'anno intero (${yearly}) meno il non consumato del mese in corso.`;
+
+    const html = card(
+        "Passaggio all'annuale confermato",
+        p(`Il tuo abbonamento è passato alla fatturazione annuale: <strong>${label} · ${seats}</strong>.`) +
+            p(chargeLine) +
+            p(`Il ciclo riparte da oggi. Prossimo rinnovo: <strong>${renewal}</strong>, a ${yearly}.`)
+    );
+    const text = `Passaggio all'annuale confermato — CataloGlobe
+
+Il tuo abbonamento è passato alla fatturazione annuale: ${label} · ${seats}.
+${chargeText}
+Il ciclo riparte da oggi. Prossimo rinnovo: ${renewal}, a ${yearly}.
+
+${getEmailFooterText()}`;
+    return { subject, html, text };
+}
+
+// --- Passaggio al mensile (passo 4b) ------------------------------------------
+// Dedicated template: `downgradeEmail` names plan and seats only, and here
+// both are unchanged — it would read as a change to itself. The point of this
+// message is that NOTHING changes until the paid year ends.
+export function intervalDowngradeEmail(opts: {
+    plan: string;
+    seats: number;
+    /** Full recurring monthly total from the Price tiers. */
+    monthlyTotalCents: number;
+    /** End of the current period (active) or trial end (trialing). */
+    effectiveDateIso: string | null;
+    isTrialing: boolean;
+}): { subject: string; html: string; text: string } {
+    const label = planLabel(opts.plan);
+    const seats = seatsLabel(opts.seats);
+    const monthly = formatEuroCents(opts.monthlyTotalCents);
+    const date = formatDateIt(opts.effectiveDateIso);
+
+    if (opts.isTrialing) {
+        const subject = "Passaggio al mensile confermato — CataloGlobe";
+        const html = card(
+            "Passaggio al mensile confermato",
+            p(`La fatturazione del tuo abbonamento <strong>${label} · ${seats}</strong> è ora mensile.`) +
+                p(`Nessun addebito ora: il primo addebito di <strong>${monthly}</strong> arriva alla fine della prova, il <strong>${date}</strong>.`)
+        );
+        const text = `Passaggio al mensile confermato — CataloGlobe
+
+La fatturazione del tuo abbonamento ${label} · ${seats} è ora mensile.
+Nessun addebito ora: il primo addebito di ${monthly} arriva alla fine della prova, il ${date}.
+
+${getEmailFooterText()}`;
+        return { subject, html, text };
+    }
+
+    const subject = "Passaggio al mensile programmato — CataloGlobe";
+    const html = card(
+        "Passaggio al mensile programmato",
+        p(`Abbiamo registrato la tua richiesta di passare alla fatturazione mensile per <strong>${label} · ${seats}</strong>.`) +
+            p(`Il passaggio avviene il <strong>${date}</strong>, alla scadenza dell'anno in corso. Fino ad allora non cambia nulla: stesso servizio, nessun rimborso, nessun addebito.`) +
+            p(`Da quella data pagherai <strong>${monthly} al mese</strong>.`) +
+            p("Puoi annullare la richiesta in qualsiasi momento prima di quella data, dalla pagina Abbonamento.")
+    );
+    const text = `Passaggio al mensile programmato — CataloGlobe
+
+Abbiamo registrato la tua richiesta di passare alla fatturazione mensile per ${label} · ${seats}.
+Il passaggio avviene il ${date}, alla scadenza dell'anno in corso. Fino ad allora non cambia nulla: stesso servizio, nessun rimborso, nessun addebito.
+Da quella data pagherai ${monthly} al mese.
+Puoi annullare la richiesta in qualsiasi momento prima di quella data, dalla pagina Abbonamento.
+
+${getEmailFooterText()}`;
+    return { subject, html, text };
+}
+
 // --- Downgrade programmato ---------------------------------------------------
 export function downgradeEmail(opts: {
     plan: string;
