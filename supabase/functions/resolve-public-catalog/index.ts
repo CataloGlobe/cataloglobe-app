@@ -501,9 +501,11 @@ serve(async (req: Request) => {
                 : Promise.resolve({ data: null, error: null }),
             (activity.hours_public || activity.enable_reservations)
                 ? (() => {
-                      // Finestra = orizzonte di prenotazione, nessun tetto di
-                      // righe: il cancello di submit-reservation legge tutte le
-                      // chiusure, e il picker deve vedere le stesse (FASE 5.5).
+                      // Finestra = ieri (coda notturna) + orizzonte di
+                      // prenotazione, nessun tetto di righe: il cancello di
+                      // submit-reservation legge tutte le chiusure, e il picker
+                      // deve vedere le stesse (FASE 5.5). La lista pubblica
+                      // delle prossime chiusure filtra da oggi in poi da sé.
                       const now = new Date();
                       const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(now);
                       const window = publicClosuresWindow(todayStr, activity.reservation_horizon_days);

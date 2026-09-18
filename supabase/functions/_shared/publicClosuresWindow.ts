@@ -9,15 +9,17 @@
 //
 // La finestra giusta è quella del dominio: le date che il cliente può
 // prenotare — da oggi a oggi + orizzonte − 1, la stessa di
-// `isReservationTimeBookable` e di `buildHorizonDays`. Nessun tetto di righe.
+// `isReservationTimeBookable` e di `buildHorizonDays` — PIÙ il giorno prima.
+// La coda notturna di ieri è la mattina di oggi (aperto fino alle 02:30):
+// se ieri aveva una chiusura parziale, il server la vede e il picker deve
+// vederla, altrimenti offre la coda dagli orari settimanali e il server la
+// rifiuta. Nessun tetto di righe.
 //
-// La chiusura del giorno prima NON entra: `PublicOpeningHours` mostra la
-// lista com'è, e una chiusura di ieri comparirebbe fra le «prossime». La
-// coda notturna di ieri sotto chiusura parziale resta quindi un caso in cui
-// picker e server possono non concordare — pre-esistente, raro, segnalato.
+// La finestra dei DATI non è la lista MOSTRATA: `PublicOpeningHours` filtra
+// da oggi in poi al momento di renderla (`visibleClosures.ts`).
 
 export interface PublicClosuresWindow {
-  /** Prima data inclusa (oggi, Europe/Rome). */
+  /** Prima data inclusa: ieri (Europe/Rome), per la coda notturna. */
   fromIso: string;
   /** Ultima data inclusa: oggi + orizzonte − 1. */
   toIso: string;
@@ -34,5 +36,5 @@ function addDaysIso(isoDate: string, days: number): string {
  */
 export function publicClosuresWindow(todayIso: string, horizonDays: number): PublicClosuresWindow {
   const days = Number.isFinite(horizonDays) ? Math.max(1, Math.floor(horizonDays)) : 1;
-  return { fromIso: todayIso, toIso: addDaysIso(todayIso, days - 1) };
+  return { fromIso: addDaysIso(todayIso, -1), toIso: addDaysIso(todayIso, days - 1) };
 }
