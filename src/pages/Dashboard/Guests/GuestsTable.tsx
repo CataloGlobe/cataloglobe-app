@@ -17,6 +17,8 @@ import styles from "./Guests.module.scss";
 
 interface Props {
     guests: ReservationGuestSummary[];
+    /** Etichette per ospite: unione delle sedi visibili (sono per sede). */
+    tagsByGuest: ReadonlyMap<string, string[]>;
     isLoading: boolean;
     isSearching: boolean;
     onOpenGuest: (guest: ReservationGuestSummary) => void;
@@ -25,6 +27,7 @@ interface Props {
 
 export default function GuestsTable({
     guests,
+    tagsByGuest,
     isLoading,
     isSearching,
     onOpenGuest,
@@ -86,14 +89,14 @@ export default function GuestsTable({
         },
         {
             id: "tags",
-            header: "Marcature",
-            accessor: row => row.tags.join(", "),
+            header: "Etichette",
+            accessor: row => (tagsByGuest.get(row.id) ?? []).join(", "),
             cell: (_v, row) =>
-                row.tags.length === 0 ? (
+                (tagsByGuest.get(row.id) ?? []).length === 0 ? (
                     <span className={styles.tableMuted}>—</span>
                 ) : (
                     <span className={styles.guestTags}>
-                        {row.tags.map(t => (
+                        {(tagsByGuest.get(row.id) ?? []).map(t => (
                             <span key={t} className={styles.guestTag}>{t}</span>
                         ))}
                     </span>

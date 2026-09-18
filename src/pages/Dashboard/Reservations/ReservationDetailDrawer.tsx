@@ -39,7 +39,7 @@ import {
     type CapacityReservation
 } from "@/utils/reservationCapacity";
 import type { V2Reservation } from "@/types/reservation";
-import type { ReservationGuestSummary } from "@/types/reservationGuest";
+import type { ReservationGuestSummary, V2ReservationGuestNote } from "@/types/reservationGuest";
 import { formatAbsenceCount, formatVisitCount } from "@/utils/guestVisibilityCopy";
 import type { DeferredAction } from "./useDeferredCommit";
 import styles from "./Reservations.module.scss";
@@ -115,6 +115,12 @@ interface Props {
      * oppure permesso assente. In tutti e tre non si mostra nulla.
      */
     guestSummary?: ReservationGuestSummary | null;
+    /**
+     * Nota ed etichette del locale su questo cliente, IN QUESTA SEDE (FASE
+     * 5.3): quel che un altro locale ha scritto non arriva qui. `null` è
+     * normale: niente scritto, o nessun `guests.read` su questa sede.
+     */
+    guestNote?: V2ReservationGuestNote | null;
     /** `isTenantWide(permissions)` — governa il "nelle tue sedi" sui conteggi. */
     tenantWide?: boolean;
     /** Apre la scheda cliente completa. Assente = nessun bottone. */
@@ -279,6 +285,7 @@ export default function ReservationDetailDrawer({
     canManage,
     activityReminderEnabled,
     guestSummary,
+    guestNote,
     tenantWide = false,
     onOpenGuest,
     onAction,
@@ -1025,17 +1032,17 @@ export default function ReservationDetailDrawer({
                                         )}
                                     </div>
 
-                                    {guestSummary.tags.length > 0 && (
+                                    {guestNote && guestNote.tags.length > 0 && (
                                         <div className={styles.guestTags}>
-                                            {guestSummary.tags.map(t => (
+                                            {guestNote.tags.map(t => (
                                                 <span key={t} className={styles.guestTag}>{t}</span>
                                             ))}
                                         </div>
                                     )}
 
-                                    {guestSummary.venue_notes && (
+                                    {guestNote?.notes && (
                                         <div className={styles.guestInlineNotes}>
-                                            {guestSummary.venue_notes}
+                                            {guestNote.notes}
                                         </div>
                                     )}
 

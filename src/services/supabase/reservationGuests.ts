@@ -1,9 +1,14 @@
 // Rubrica clienti — service layer.
 //
 // Legge dalle view `v_reservation_guests_directory` / `v_reservation_guest_visits`
-// e scrive SOLO note e tag su `reservation_guests`. Non esiste una create: i
-// profili nascono dal trigger `reservations_link_guest` a ogni prenotazione, e
-// il DB non ha nemmeno una policy INSERT per `authenticated`.
+// e NON scrive nulla sul profilo: i profili nascono dal trigger
+// `reservations_link_guest` a ogni prenotazione, e il DB non ha nemmeno una
+// policy INSERT per `authenticated`.
+//
+// Ciò che il locale scrive a mano — nota e tag — vive in
+// `reservation_guest_notes`, PER SEDE (FASE 5.3): una riga per (ospite,
+// sede), visibile solo a chi ha `guests.read` su quella sede. Il profilo
+// resta dell'azienda; il giudizio resta nel locale che l'ha scritto.
 //
 // Non esiste e non deve esistere una funzione di export o di invio massivo:
 // la rubrica serve a erogare il servizio, non a fare marketing (il consenso
@@ -15,10 +20,10 @@
 import { supabase } from "./client";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalize";
 import type {
-    ReservationGuestNotesInput,
+    ReservationGuestNoteInput,
     ReservationGuestSummary,
     ReservationGuestVisit,
-    V2ReservationGuest
+    V2ReservationGuestNote
 } from "@/types/reservationGuest";
 
 /** Tetto di righe per la lista. Oltre, si cerca invece di scorrere. */
@@ -118,27 +123,106 @@ export async function listReservationGuestVisits(
 }
 
 /**
- * Aggiorna note del locale e tag. Nient'altro è scrivibile: identità e
- * contatti sono snapshot delle prenotazioni, li riscrive il trigger.
+ * Nota e tag di un ospite in TUTTE le sedi su cui il chiamante ha
+ * `guests.read`. Il filtro per sede è della RLS, non di questa funzione: un
+ * manager di una sola sede riceve una riga al massimo.
  */
-export async function updateReservationGuestNotes(
-    id: string,
-    tenantId: string,
-    input: ReservationGuestNotesInput
-): Promise<V2ReservationGuest> {
+export async function listReservationGuestNotes(
+    guestId: string,
+    tenantId: string
+): Promise<V2ReservationGuestNote[]> {
     const { data, error } = await supabase
-        .from("reservation_guests")
-        .update({
-            venue_notes: input.venue_notes,
-            tags: input.tags
-        })
-        .eq("id", id)
+        .from("reservation_guest_notes")
+        .select("*")
+        .eq("guest_id", guestId)
+        .eq("tenant_id", tenantId);
+
+    if (error) throw error;
+    return (data ?? []) as V2ReservationGuestNote[];
+}
+
+/**
+ * Nota e tag di un ospite in UNA sede: quella della prenotazione che si sta
+ * guardando o prendendo. `null` sia se non c'è nulla sia se il chiamante non
+ * ha `guests.read` su quella sede — in entrambi i casi non c'è niente da
+ * mostrare, e la UI non deve rompersi.
+ */
+export async function getReservationGuestNoteForActivity(
+    guestId: string,
+    activityId: string,
+    tenantId: string
+): Promise<V2ReservationGuestNote | null> {
+    const { data, error } = await supabase
+        .from("reservation_guest_notes")
+        .select("*")
+        .eq("guest_id", guestId)
+        .eq("activity_id", activityId)
         .eq("tenant_id", tenantId)
+        .maybeSingle();
+
+    if (error) throw error;
+    return (data as V2ReservationGuestNote | null) ?? null;
+}
+
+/**
+ * Le righe nota di più ospiti in una volta (per l'elenco rubrica, che mostra
+ * le etichette). Stesso confine RLS: solo le sedi del chiamante.
+ */
+export async function listReservationGuestNotesForGuests(
+    tenantId: string,
+    guestIds: readonly string[]
+): Promise<V2ReservationGuestNote[]> {
+    if (guestIds.length === 0) return [];
+    const { data, error } = await supabase
+        .from("reservation_guest_notes")
+        .select("*")
+        .eq("tenant_id", tenantId)
+        .in("guest_id", guestIds as string[]);
+
+    if (error) throw error;
+    return (data ?? []) as V2ReservationGuestNote[];
+}
+
+/**
+ * Scrive nota e tag di un ospite PER UNA SEDE. Una riga per (ospite, sede):
+ * upsert sulla UNIQUE. Senza nota e senza tag la riga non ha motivo di
+ * esistere e si cancella — il CHECK del DB vieta la nota vuota, e una riga
+ * con `notes = null, tags = {}` sarebbe solo rumore. Ritorna `null` in quel
+ * caso.
+ *
+ * Il DB rifiuta con `42501` chi non ha `guests.manage` sulla sede.
+ */
+export async function saveReservationGuestNote(
+    tenantId: string,
+    activityId: string,
+    guestId: string,
+    input: ReservationGuestNoteInput
+): Promise<V2ReservationGuestNote | null> {
+    const notes = input.notes?.trim() ? input.notes.trim() : null;
+    const tags = input.tags.map(t => t.trim()).filter(t => t.length > 0);
+
+    if (notes === null && tags.length === 0) {
+        const { error } = await supabase
+            .from("reservation_guest_notes")
+            .delete()
+            .eq("guest_id", guestId)
+            .eq("activity_id", activityId)
+            .eq("tenant_id", tenantId);
+        if (error) throw error;
+        return null;
+    }
+
+    const { data, error } = await supabase
+        .from("reservation_guest_notes")
+        .upsert(
+            { tenant_id: tenantId, activity_id: activityId, guest_id: guestId, notes, tags },
+            { onConflict: "guest_id,activity_id" }
+        )
         .select("*")
         .single();
 
     if (error) throw error;
-    return data as V2ReservationGuest;
+    return data as V2ReservationGuestNote;
 }
 
 /**

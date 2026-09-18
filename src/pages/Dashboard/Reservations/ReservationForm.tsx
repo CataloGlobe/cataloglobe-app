@@ -7,10 +7,13 @@ import {
     createReservation,
     updateReservation
 } from "@/services/supabase/reservations";
-import { findReservationGuestByPhone } from "@/services/supabase/reservationGuests";
+import {
+    findReservationGuestByPhone,
+    getReservationGuestNoteForActivity
+} from "@/services/supabase/reservationGuests";
 import { usePermissions } from "@/context/PermissionsContext";
 import { isTenantWide } from "@/lib/permissions";
-import type { ReservationGuestSummary } from "@/types/reservationGuest";
+import type { ReservationGuestSummary, V2ReservationGuestNote } from "@/types/reservationGuest";
 import { formatAbsenceCount, formatVisitCount } from "@/utils/guestVisibilityCopy";
 import { listActivityHours } from "@/services/supabase/activityHours";
 import { listActivityClosures } from "@/services/supabase/activityClosures";
@@ -97,6 +100,10 @@ export function ReservationForm({
     // Fallisce in silenzio: chi non ha `guests.read` riceve zero righe dalla
     // RLS e il form si comporta esattamente come prima.
     const [guestMatch, setGuestMatch] = useState<ReservationGuestSummary | null>(null);
+    // Nota ed etichette del locale sul cliente riconosciuto, PER LA SEDE
+    // scelta nel form (FASE 5.3): se l'operatore cambia sede, cambia anche
+    // quel che il locale sa di lui. `null` = niente scritto qui.
+    const [guestNote, setGuestNote] = useState<V2ReservationGuestNote | null>(null);
     const [guestLookupLoading, setGuestLookupLoading] = useState(false);
     const tenantWide = permissions ? isTenantWide(permissions) : false;
 
@@ -398,6 +405,20 @@ export function ReservationForm({
         return ok;
     };
 
+    const guestMatchId = guestMatch?.id ?? null;
+    useEffect(() => {
+        if (!guestMatchId || !activityId || !tenantId) {
+            setGuestNote(null);
+            return;
+        }
+        let alive = true;
+        getReservationGuestNoteForActivity(guestMatchId, activityId, tenantId)
+            .then(note => { if (alive) setGuestNote(note); })
+            // Silenzioso come il riconoscimento: è un di più.
+            .catch(() => { if (alive) setGuestNote(null); });
+        return () => { alive = false; };
+    }, [guestMatchId, activityId, tenantId]);
+
     const handlePhoneBlur = async () => {
         const raw = customerPhone.trim();
         if (!tenantId || raw.length === 0) {
@@ -604,15 +625,15 @@ export function ReservationForm({
                             </span>
                         )}
                     </div>
-                    {guestMatch.tags.length > 0 && (
+                    {guestNote && guestNote.tags.length > 0 && (
                         <div className={styles.guestTags}>
-                            {guestMatch.tags.map(t => (
+                            {guestNote.tags.map(t => (
                                 <span key={t} className={styles.guestTag}>{t}</span>
                             ))}
                         </div>
                     )}
-                    {guestMatch.venue_notes && (
-                        <div className={styles.guestInlineNotes}>{guestMatch.venue_notes}</div>
+                    {guestNote?.notes && (
+                        <div className={styles.guestInlineNotes}>{guestNote.notes}</div>
                     )}
                 </div>
             )}

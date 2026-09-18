@@ -44,13 +44,16 @@ import { listTables } from "@/services/supabase/tables";
 import type { V2Table } from "@/types/orders";
 import { getActivities } from "@/services/supabase/activities";
 import { getTenantMemberNames } from "@/services/supabase/team";
-import { getReservationGuest } from "@/services/supabase/reservationGuests";
+import {
+    getReservationGuest,
+    getReservationGuestNoteForActivity
+} from "@/services/supabase/reservationGuests";
 import type { V2Activity } from "@/types/activity";
 import type {
     ReservationTableAssignmentWithTable,
     V2Reservation
 } from "@/types/reservation";
-import type { ReservationGuestSummary } from "@/types/reservationGuest";
+import type { ReservationGuestSummary, V2ReservationGuestNote } from "@/types/reservationGuest";
 import type { SeatingTableWithTable, SeatingWithState } from "@/types/seating";
 import {
     DEFAULT_TABLE_DURATION_MINUTES,
@@ -819,21 +822,38 @@ export default function Reservations() {
     // all'apertura del drawer: la lista prenotazioni non ha bisogno dei
     // profili, e caricarli tutti sarebbe una query per riga.
     const [detailGuest, setDetailGuest] = useState<ReservationGuestSummary | null>(null);
+    // Nota e tag del locale: quelli DELLA SEDE della prenotazione (FASE 5.3),
+    // non del cliente in generale. `null` = niente scritto qui, o nessun
+    // `guests.read` su questa sede.
+    const [detailGuestNote, setDetailGuestNote] = useState<V2ReservationGuestNote | null>(null);
     const detailGuestId = selectedReservation?.guest_id ?? null;
+    const detailActivityId = selectedReservation?.activity_id ?? null;
 
     useEffect(() => {
-        if (!isDrawerOpen || !detailGuestId || !tenantId || !canReadGuests) {
+        if (!isDrawerOpen || !detailGuestId || !detailActivityId || !tenantId || !canReadGuests) {
             setDetailGuest(null);
+            setDetailGuestNote(null);
             return;
         }
         let alive = true;
-        getReservationGuest(detailGuestId, tenantId)
-            .then(g => { if (alive) setDetailGuest(g); })
+        Promise.all([
+            getReservationGuest(detailGuestId, tenantId),
+            getReservationGuestNoteForActivity(detailGuestId, detailActivityId, tenantId)
+        ])
+            .then(([g, note]) => {
+                if (!alive) return;
+                setDetailGuest(g);
+                setDetailGuestNote(note);
+            })
             // Silenzioso: il profilo è un arricchimento del drawer, la sua
             // assenza non deve disturbare chi sta gestendo una prenotazione.
-            .catch(() => { if (alive) setDetailGuest(null); });
+            .catch(() => {
+                if (!alive) return;
+                setDetailGuest(null);
+                setDetailGuestNote(null);
+            });
         return () => { alive = false; };
-    }, [isDrawerOpen, detailGuestId, tenantId, canReadGuests]);
+    }, [isDrawerOpen, detailGuestId, detailActivityId, tenantId, canReadGuests]);
 
     const selectedActivity = useMemo(
         () =>
@@ -1702,6 +1722,7 @@ export default function Reservations() {
                 seatingPendingOrders={detailSeating === undefined ? undefined : detailSeating.pending}
                 onSetSeatingPartySize={handleSetSeatingPartySizeFromReservation}
                 guestSummary={detailGuest}
+                guestNote={detailGuestNote}
                 tenantWide={tenantWide}
                 onOpenGuest={
                     detailGuest

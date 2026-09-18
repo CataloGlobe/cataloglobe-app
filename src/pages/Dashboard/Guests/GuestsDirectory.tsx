@@ -4,7 +4,7 @@
 // di un archivio omogeneo, e la card per riga aggiungerebbe un bordo e
 // un'ombra per ogni cliente senza aggiungere informazione.
 //
-// Gerarchia della riga: iniziale → nome (+ marcatura principale) → telefono
+// Gerarchia della riga: iniziale → nome (+ etichetta principale) → telefono
 // sotto → a destra visite e ultima visita. Le assenze compaiono in riga come
 // pill rossa SOLO se > 0: è il dato che fa decidere se richiamare, e deve
 // essere visibile senza aprire la scheda. Una pill "0 assenze" su ogni riga
@@ -32,6 +32,8 @@ import styles from "./Guests.module.scss";
 
 interface Props {
     guests: ReservationGuestSummary[];
+    /** Etichette per ospite: unione delle sedi visibili (sono per sede). */
+    tagsByGuest: ReadonlyMap<string, string[]>;
     isLoading: boolean;
     /**
      * Il primo caricamento è già avvenuto: da qui in poi un aggiornamento
@@ -51,6 +53,7 @@ interface Props {
 
 export default function GuestsDirectory({
     guests,
+    tagsByGuest,
     isLoading,
     hasLoadedOnce,
     isSearching,
@@ -92,10 +95,11 @@ export default function GuestsDirectory({
         <div className={styles.guestsWrap}>
             <ul className={styles.guestsList}>
                 {guests.map(g => {
-                    // Una sola marcatura in linea: è un'etichetta di
+                    // Una sola etichetta in linea: è un'etichetta di
                     // riconoscimento, non l'elenco completo. Le altre stanno
                     // nella scheda, riassunte da un "+N".
-                    const primaryTag = g.tags[0];
+                    const tags = tagsByGuest.get(g.id) ?? [];
+                    const primaryTag = tags[0];
                     return (
                         <li key={g.id} className={styles.guestListItem}>
                             <button
@@ -113,9 +117,9 @@ export default function GuestsDirectory({
                                         {primaryTag && (
                                             <span className={styles.guestTag}>{primaryTag}</span>
                                         )}
-                                        {g.tags.length > 1 && (
+                                        {tags.length > 1 && (
                                             <span className={styles.guestTagMore}>
-                                                +{g.tags.length - 1}
+                                                +{tags.length - 1}
                                             </span>
                                         )}
                                     </span>
