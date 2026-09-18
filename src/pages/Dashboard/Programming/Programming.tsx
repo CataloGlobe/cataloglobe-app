@@ -53,6 +53,7 @@ import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { buildRuleSummary, isRuleCurrentlyActive } from "@/utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
 import { ruleReachesAnyActivity, describeZeroReach } from "@/utils/scheduleReach";
+import { deriveScheduleStatus } from "@/utils/scheduleStatus";
 import styles from "./Programming.module.scss";
 
 type RuleTypeFilter = RuleType | "all";
@@ -607,33 +608,33 @@ export default function Programming() {
         const expired: LayoutRule[] = [];
         const disabled: LayoutRule[] = [];
 
-        const isExpired = (rule: LayoutRule): boolean => {
-            if (!rule.end_at) return false;
-            return new Date(rule.end_at) <= new Date();
-        };
-
         for (const rule of filteredRules) {
-            if (!rule.enabled && isLayoutRuleDraft(rule)) {
+            const insight = ruleInsightsById.get(rule.id);
+            const status = deriveScheduleStatus({
+                enabled: rule.enabled,
+                endAt: rule.end_at,
+                isConfigDraft: isLayoutRuleDraft(rule),
+                isZeroReach: Boolean(insight?.zeroReachReason),
+                isActiveNow: insight?.isActiveNow ?? false,
+                isOverridden: insight?.isOverridden ?? false
+            });
+
+            if (status === "draft") {
+                // Bozza copre due cause distinte (deriveScheduleStatus):
+                // config incompleta, o portata zero (Passo 4) — il target
+                // esiste formalmente (un gruppo, di solito) ma non raggiunge
+                // nessuna sede reale ora. Nel secondo caso resta enabled=true
+                // nel DB, è derivato non scritto (§33.7): torna attiva da
+                // sola se il gruppo si ripopola.
                 drafts.push(rule);
-            } else if (!rule.enabled) {
+            } else if (status === "disabled") {
                 disabled.push(rule);
-            } else if (ruleInsightsById.get(rule.id)?.zeroReachReason) {
-                // Portata zero (Passo 4): il target esiste formalmente (un
-                // gruppo, di solito) ma non raggiunge nessuna sede reale in
-                // questo momento. Resta enabled=true nel DB — è derivato, non
-                // scritto (§33.7): torna attiva da sola se il gruppo si
-                // ripopola. In lista si mostra comunque fra le bozze, col
-                // motivo, perché nei fatti non fa nulla.
-                drafts.push(rule);
-            } else if (isExpired(rule)) {
+            } else if (status === "expired") {
                 expired.push(rule);
+            } else if (status === "active") {
+                active.push(rule);
             } else {
-                const insight = ruleInsightsById.get(rule.id);
-                if (insight?.isActiveNow && !insight?.isOverridden) {
-                    active.push(rule);
-                } else {
-                    scheduled.push(rule);
-                }
+                scheduled.push(rule);
             }
         }
 

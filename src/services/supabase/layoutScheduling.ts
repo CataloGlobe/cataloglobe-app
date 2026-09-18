@@ -1516,6 +1516,36 @@ export interface StyleScheduleUsage {
     enabled: boolean;
     start_at: string | null;
     end_at: string | null;
+    // Serve a deriveScheduleStatus (src/utils/scheduleStatus.ts): finestra
+    // temporale per isRuleCurrentlyActive, target per ruleReachesAnyActivity
+    // (portata zero, Passo 4). Niente competizione fra regole qui — il
+    // drawer non la calcola, vedi StyleDeleteDrawer.tsx.
+    time_mode: string;
+    days_of_week: number[] | null;
+    time_from: string | null;
+    time_to: string | null;
+    applyToAll: boolean;
+    activityIds: string[];
+    groupIds: string[];
+}
+
+interface ScheduleUsageScheduleRow {
+    id: string;
+    name: string | null;
+    enabled: boolean;
+    start_at: string | null;
+    end_at: string | null;
+    tenant_id: string;
+    time_mode: string;
+    days_of_week: number[] | null;
+    time_from: string | null;
+    time_to: string | null;
+    apply_to_all: boolean;
+}
+
+interface ScheduleLayoutWithStyleScheduleRow {
+    schedule_id: string;
+    schedule: ScheduleUsageScheduleRow | ScheduleUsageScheduleRow[] | null;
 }
 
 export async function listSchedulesUsingStyle(
@@ -1527,7 +1557,7 @@ export async function listSchedulesUsingStyle(
         .select(
             `
             schedule_id,
-            schedule:schedules!inner(id, name, enabled, start_at, end_at, tenant_id)
+            schedule:schedules!inner(id, name, enabled, start_at, end_at, tenant_id, time_mode, days_of_week, time_from, time_to, apply_to_all)
             `
         )
         .eq("tenant_id", tenantId)
@@ -1535,9 +1565,9 @@ export async function listSchedulesUsingStyle(
 
     if (error) throw error;
 
-    const rows = (data ?? []) as ScheduleLayoutWithScheduleRow[];
+    const rows = (data ?? []) as ScheduleLayoutWithStyleScheduleRow[];
     const seen = new Set<string>();
-    const out: StyleScheduleUsage[] = [];
+    const schedules: ScheduleUsageScheduleRow[] = [];
 
     for (const row of rows) {
         const schedule = Array.isArray(row.schedule)
@@ -1547,14 +1577,55 @@ export async function listSchedulesUsingStyle(
         if (schedule.tenant_id !== tenantId) continue;
         if (seen.has(schedule.id)) continue;
         seen.add(schedule.id);
-        out.push({
+        schedules.push(schedule);
+    }
+
+    // Target per la portata zero (Passo 4) — stesso pattern batched di
+    // listLayoutRules / countActivityDeleteImpact: una query sola su
+    // schedule_targets per tutte le regole trovate.
+    const targetsByScheduleId = new Map<string, { activityIds: string[]; groupIds: string[] }>();
+    if (schedules.length > 0) {
+        const { data: targetsData, error: targetsError } = await supabase
+            .from("schedule_targets")
+            .select("schedule_id, target_type, target_id")
+            .in(
+                "schedule_id",
+                schedules.map(s => s.id)
+            );
+
+        if (targetsError) throw targetsError;
+
+        for (const row of targetsData ?? []) {
+            const entry = targetsByScheduleId.get(row.schedule_id) ?? {
+                activityIds: [],
+                groupIds: []
+            };
+            if (row.target_type === "activity") {
+                entry.activityIds.push(row.target_id);
+            } else if (row.target_type === "activity_group") {
+                entry.groupIds.push(row.target_id);
+            }
+            targetsByScheduleId.set(row.schedule_id, entry);
+        }
+    }
+
+    const out: StyleScheduleUsage[] = schedules.map(schedule => {
+        const targets = targetsByScheduleId.get(schedule.id);
+        return {
             id: schedule.id,
             name: schedule.name,
             enabled: schedule.enabled,
             start_at: schedule.start_at,
-            end_at: schedule.end_at
-        });
-    }
+            end_at: schedule.end_at,
+            time_mode: schedule.time_mode,
+            days_of_week: schedule.days_of_week,
+            time_from: schedule.time_from,
+            time_to: schedule.time_to,
+            applyToAll: schedule.apply_to_all,
+            activityIds: schedule.apply_to_all ? [] : (targets?.activityIds ?? []),
+            groupIds: schedule.apply_to_all ? [] : (targets?.groupIds ?? [])
+        };
+    });
 
     out.sort((a, b) => {
         if (a.enabled !== b.enabled) return a.enabled ? -1 : 1;
