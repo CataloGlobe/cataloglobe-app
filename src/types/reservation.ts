@@ -59,6 +59,8 @@ export interface V2Reservation {
     // 20260827100000 (nessun backfill). Presentazione e `tel:` continuano a
     // usare `customer_phone`: questa colonna è una chiave, non un'etichetta.
     customer_phone_e164: string | null;
+    /** Sole cifre, generate dal DB da coalesce(e164, grezzo): colonna della ricerca (FASE 5.4). Non scrivibile. */
+    customer_phone_digits?: string;
     notes: string | null;
     /**
      * Profilo ospite agganciato dal trigger `reservations_link_guest`

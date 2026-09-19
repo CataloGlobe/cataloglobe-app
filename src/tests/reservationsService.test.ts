@@ -196,27 +196,23 @@ describe("searchReservations", () => {
         expect(b.calls).toContainEqual({ method: "eq", args: ["activity_id", "act-1"] });
     });
 
-    it("telefono: like per suffisso su e164 e sul campo libero; poi il confronto vero sul client", async () => {
+    it("telefono: un solo like per suffisso su customer_phone_digits, nessun confronto sul client", async () => {
+        // FASE 5.4 — la riga con spazi e senza e164 la trova il server: qui
+        // torna già dal builder e deve restare, senza filtri a valle.
         const future = guardedBuilder("reservations", {
             data: [
                 phoneRow("ok-e164", "2027-03-12", "+39 333 123 4567", "+393331234567"),
-                phoneRow("ok-raw", "2027-05-20", "3331234567", null),
-                // Non finisce con le cifre cercate: il confronto sul client
-                // resta la parola finale, qualunque cosa risponda il server.
-                phoneRow("stranger", "2027-06-01", "3331234560", null)
+                phoneRow("ok-spazi", "2027-05-20", "+39 333 123 4567", null)
             ],
             error: null
         });
         const past = guardedBuilder("reservations", { data: [], error: null });
         from.mockReturnValueOnce(future.builder).mockReturnValueOnce(past.builder);
 
-        const page = await searchReservations("t1", "3331234567", TODAY);
+        const page = await searchReservations("t1", "+39 333 123 4567", TODAY);
 
-        expect(future.calls).toContainEqual({
-            method: "or",
-            args: ["customer_phone_e164.like.%3331234567,customer_phone.like.%3331234567"]
-        });
-        expect(page.rows.map(r => r.id)).toEqual(["ok-e164", "ok-raw"]);
+        expect(future.calls).toContainEqual({ method: "or", args: ["customer_phone_digits.like.%393331234567"] });
+        expect(page.rows.map(r => r.id)).toEqual(["ok-e164", "ok-spazi"]);
     });
 
     it("oltre il tetto → truncated, e si restituisce solo il tetto, dalla più vicina", async () => {

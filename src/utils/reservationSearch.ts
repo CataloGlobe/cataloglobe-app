@@ -9,10 +9,9 @@
  * Niente rete, niente date «adesso»: il chiamante passa `todayIso`.
  *
  * Il telefono si confronta SOLO per cifre e per suffisso: chi cerca digita
- * `3331234567`, in tabella c'è `+393331234567` in `customer_phone_e164` o
- * `3331234567` nel campo libero. Nessun indice e nessuna migration: a queste
- * dimensioni non servono. I numeri scritti con spazi e SENZA e164 non sono
- * cercabili: vedi il commento sopra `searchReservations`.
+ * `3331234567`, in tabella `customer_phone_digits` vale `393331234567`. Il
+ * confronto lo fa il server (FASE 5.4): qui si decide solo COSA è un
+ * telefono e quante cifre servono per chiederlo.
  */
 
 import type { V2Reservation } from "@/types/reservation";
@@ -21,9 +20,9 @@ import type { V2Reservation } from "@/types/reservation";
 export const SEARCH_MIN_LENGTH = 2;
 
 /**
- * Un telefono si cerca da quattro cifre: con meno, il `like` per suffisso
- * pesca troppe righe e il tetto dei risultati scatta su quelle sbagliate
- * (vedi il difetto documentato sopra `searchReservations`).
+ * Un telefono si cerca da quattro cifre: con meno, quasi ogni numero
+ * finisce così e la ricerca risponderebbe col tetto pieno di righe vere ma
+ * inutili. Sopra il minimo dell'indice trigram (tre).
  */
 export const SEARCH_PHONE_MIN_DIGITS = 4;
 
@@ -56,22 +55,6 @@ export function parseSearchQuery(input: string): SearchQuery | null {
         return digits.length >= SEARCH_PHONE_MIN_DIGITS ? { kind: "phone", digits } : null;
     }
     return { kind: "name", text };
-}
-
-/**
- * Il confronto vero del telefono, sul client: cifre digitate come suffisso
- * delle cifre salvate, in uno dei due campi. Il server fa un `like` per
- * suffisso sui due campi così come sono; la parola finale è questa.
- */
-export function phoneMatches(
-    row: Pick<V2Reservation, "customer_phone" | "customer_phone_e164">,
-    digits: string
-): boolean {
-    if (digits.length === 0) return false;
-    return (
-        phoneDigits(row.customer_phone).endsWith(digits) ||
-        phoneDigits(row.customer_phone_e164).endsWith(digits)
-    );
 }
 
 /**
