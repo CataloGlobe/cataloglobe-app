@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { useSearchParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { AlertCircle, Calendar, ChevronLeft, ChevronRight, ClipboardList, Plus, RefreshCw, RotateCcw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Button } from "@/components/ui/Button/Button";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
 import { PageGate } from "@/components/PageGate/PageGate";
@@ -175,10 +176,13 @@ export default function Orders() {
 
     // Data
     const [tables, setTables] = useState<V2Table[]>([]);
-    // true = la sede ha almeno una stampante cloud Sunmi attiva: la voce
-    // "Stampa" del menu ordine diventa "Ristampa comanda" (job Sunmi invece
-    // del dialogo di stampa del browser).
-    const [hasPrinters, setHasPrinters] = useState(false);
+    // true = la sede ha almeno una stampante cloud Sunmi attiva: il bottone
+    // "Stampa" del drawer dettaglio / storico diventa "Ristampa comanda"
+    // (job Sunmi invece del dialogo di stampa del browser) e la riga
+    // "nessuna stampante" in testa alle Comande resta nascosta.
+    // `null` = lookup non ancora concluso: la riga non deve lampeggiare
+    // prima della risposta.
+    const [hasPrinters, setHasPrinters] = useState<boolean | null>(null);
 
     // Attribuzione operatore: user_id → display_name. Fetch UNA volta per
     // tenantId (membri del tenant cambiano raramente, no realtime). Map
@@ -234,6 +238,22 @@ export default function Orders() {
         canDoOnActivity(permissions, "orders.manage", selectedActivityId);
     const canCreateOrder = canManage;
 
+    // Gating della riga "nessuna stampante" e del link "Stato stampanti":
+    // NON esiste un permesso `printers.*` dedicato. Le stampanti sono
+    // gestite in PrintersSection (tab Ordinazioni della sede) sotto
+    // `tables.manage`, e la RLS di `printers` usa lo stesso permesso
+    // (migration 20260906120300). Qui si allinea a quello: chi non puo'
+    // collegare una stampante non vede l'avviso ne' il rimando.
+    const canManagePrinters =
+        !!selectedActivityId &&
+        !!permissions &&
+        canDoOnActivity(permissions, "tables.manage", selectedActivityId);
+    const { businessId } = useParams<{ businessId: string }>();
+    const printersHref =
+        businessId && selectedActivityId
+            ? `/business/${businessId}/locations/${selectedActivityId}?tab=ordering`
+            : undefined;
+
     // Table detail + close drawer (tab "Tavoli"): ora interni a
     // TablesLiveView (Step 4c + close-table). Nessuno state qui.
 
@@ -277,7 +297,7 @@ export default function Orders() {
         error: ordersError,
         refetch: refetchOrders,
         applyLocalPatch,
-        failedComandaOrderIds
+        comandaPrintStates
     } = useActiveOrdersRealtime(tenantId, selectedActivityId, {
         onNewOrder: () => triggerAlertRef.current()
     });
@@ -317,14 +337,16 @@ export default function Orders() {
     // ── Stampanti (per decidere "Stampa" vs "Ristampa comanda" nel menu) ──
     const loadPrinters = useCallback(async () => {
         if (!tenantId || !selectedActivityId) {
-            setHasPrinters(false);
+            setHasPrinters(null);
             return;
         }
+        setHasPrinters(null);
         try {
             const data = await listPrinters(tenantId, selectedActivityId);
             setHasPrinters(data.some(p => p.is_active));
         } catch {
-            /* silent: lookup ottimizzazione, come loadTables */
+            /* silent: lookup ottimizzazione, come loadTables. Resta null:
+               senza risposta non si afferma "nessuna stampante". */
         }
     }, [tenantId, selectedActivityId]);
 
@@ -762,7 +784,7 @@ export default function Orders() {
     }
 
     function handlePrint(order: V2OrderWithItems) {
-        if (hasPrinters) {
+        if (hasPrinters === true) {
             void handleReprint(order);
             return;
         }
@@ -1031,7 +1053,7 @@ export default function Orders() {
         onViewDetail: handleViewDetail,
         onRestore: handleRestore,
         onPrint: handlePrint,
-        hasPrinters,
+        hasPrinters: hasPrinters === true,
         canManage
     });
 
@@ -1041,6 +1063,16 @@ export default function Orders() {
         <section className={styles.container} data-active-tab={mainTab}>
             {mainTab === "comande" && (
                 <>
+                    {selectedActivityId && hasPrinters === false && canManagePrinters && printersHref && (
+                        <InlineBanner variant="info" className={styles.printersNotice}>
+                            <span>
+                                Nessuna stampante collegata a questa sede: le comande non
+                                vengono stampate in automatico.
+                            </span>
+                            <Link to={printersHref}>Gestisci stampanti</Link>
+                        </InlineBanner>
+                    )}
+
                     {tables.length > 0 && (
                         <div className={styles.filtersRow}>
                             <select
@@ -1069,8 +1101,9 @@ export default function Orders() {
                             orders={filteredOrders}
                             tables={tables}
                             operatorNames={operatorNames}
-                            failedComandaOrderIds={failedComandaOrderIds}
-                            hasPrinters={hasPrinters}
+                            comandaPrintStates={comandaPrintStates}
+                            onReprint={handleReprint}
+                            printersHref={printersHref}
                             isLoading={isLoadingOrders}
                             error={ordersError}
                             onRetry={() => void refetchOrders()}
@@ -1080,7 +1113,6 @@ export default function Orders() {
                             onCancel={handleCancelOpen}
                             onCancelItem={handleCancelItemOpen}
                             onViewDetail={handleViewDetail}
-                            onPrint={handlePrint}
                             onUnacknowledge={handleUnacknowledge}
                             onUnready={handleUnready}
                             pulseSubmittedToken={pulseToken}
@@ -1230,7 +1262,7 @@ export default function Orders() {
                     tables.find(t => t.id === orderInDetail?.table_id)?.zone_name ?? null
                 }
                 operatorNames={operatorNames}
-                hasPrinters={hasPrinters}
+                hasPrinters={hasPrinters === true}
                 onPrint={handlePrint}
                 onClose={() => {
                     setIsDetailOpen(false);

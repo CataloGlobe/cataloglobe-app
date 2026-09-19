@@ -103,6 +103,21 @@
 // operativo, non un errore di sistema.
 .printFailedRow {
     display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.printersLink {
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--text-muted);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+        color: var(--text-primary);
+    }
 }
 
 .printFailedBadge {

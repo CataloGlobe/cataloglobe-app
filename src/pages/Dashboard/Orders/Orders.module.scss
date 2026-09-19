@@ -68,6 +68,22 @@
   }
 }
 
+// Riga unica in testa alle Comande: la sede non ha stampanti (visibile
+// solo a chi puo' collegarne una, vedi canManagePrinters in Orders.tsx).
+.printersNotice {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  a {
+    font-weight: 600;
+    white-space: nowrap;
+    color: inherit;
+  }
+}
+
 .filtersRow {
   display: flex;
   gap: 12px;

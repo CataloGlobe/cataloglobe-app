@@ -55,3 +55,17 @@ Il parser TS del bundler Deno (deploy Edge Function) può interpretare `/` dentr
 ## Epic Ordinazioni dal tavolo — 11 Edge Functions
 
 `resolve-table`, `submit-order`, `get-orders-for-session`, `cancel-order`, `acknowledge-order`, `deliver-order`, `cancel-order-admin`, `rectify-order`, `close-table`, `toggle-product-availability`, `generate-table-qrs`. Dettaglio dual-auth e optimistic locking in `docs/orders-architecture.md` v1.2 e in `CLAUDE.md` sezione "Epic Ordinazioni dal tavolo".
+
+## Stampa comande — Sunmi cloud printer
+
+Funzioni: `sunmi-bind-printer`, `sunmi-unbind-printer`, `sunmi-printers-status`, `sunmi-device-callback`, `process-print-jobs` (sweeper pg_cron, ogni minuto), `sunmi-reprint-order`. Shared: `_shared/printJobs.ts` (enqueue + push inline + `tradeNoFor`), `_shared/buildComanda.ts`, `_shared/escpos.ts`.
+
+Due tabelle con ruoli distinti:
+- **`print_jobs`** — coda automatica, UNIQUE `(order_id, printer_id, kind)`, stati `pending | processing | done | failed`, retry via sweeper, cap 3 tentativi. **Unica fonte dello stato di stampa corrente** letta dal kanban Comande (`useActiveOrdersRealtime` → `comandaPrintStates`, card: `done` → "Ristampa", `failed` → "Comanda non stampata" + "Riprova"; `pending`/`processing` → nessun pulsante, nessuno stato "appeso" derivato lato client).
+- **`print_reprints`** — storico delle ristampe manuali, una riga per click, stati `done | failed`, nessun retry, nessun UNIQUE. Il frontend NON la legge.
+
+### `sunmi-reprint-order` — recupero del job `failed`
+
+Contesto admin, `has_permission('orders.manage', activity_id)`, rate limit per sede (20/min). Per ogni stampante attiva: `pushContent` con `trade_no` casuale (mai deduplicato da Sunmi) → riga in `print_reprints`.
+
+**Se il push su una stampante riesce**, la funzione porta a `done` (con `processed_at` + `last_error=NULL`) l'eventuale riga `print_jobs` con `kind='comanda'` e `status='failed'` di quella coppia `(order_id, printer_id)`. Motivo: senza questo il badge "Comanda non stampata" resterebbe sulla card dopo una ristampa riuscita e l'operatore ristamperebbe di nuovo → comande duplicate in cucina. Il binding realtime del kanban su `print_jobs` propaga l'UPDATE da solo. Push fallito → `failed` resta. Si toccano SOLO le righe `failed`: `pending`/`processing` appartengono allo sweeper. Match a 0 righe è normale (stampante collegata dopo l'ordine). Scrittura con service_role: `print_jobs` non ha policy UPDATE per design.
