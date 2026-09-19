@@ -2,9 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
     availableIntervals,
     coerceInterval,
+    annualPitchNote,
+    annualPitchNoteFor,
     monthByMonthEquivalentCents,
-    priceCentsFor,
-    yearlySavingsNote
+    priceCentsFor
 } from "@/utils/planPricing";
 import type { PlanPrice } from "@/types/plan";
 
@@ -70,26 +71,23 @@ describe("monthByMonthEquivalentCents", () => {
     });
 });
 
-describe("yearlySavingsNote — the line under the price, present in both states", () => {
-    it("monthly: names the yearly total and the two free months, tone success", () => {
-        expect(yearlySavingsNote(full, "pro", "month")).toEqual({ text: "€590 all'anno, due mesi gratis", tone: "success" });
+describe("annualPitchNote — the green line under a monthly price", () => {
+    it("names the yearly price per seat and the two free months", () => {
+        expect(annualPitchNote(5900, 59000)).toBe("Con il piano annuale: €590/sede/anno, due mesi gratis");
+        expect(annualPitchNoteFor(full, "base")).toBe("Con il piano annuale: €390/sede/anno, due mesi gratis");
     });
 
-    it("yearly: names the month-by-month equivalent, tone muted", () => {
-        expect(yearlySavingsNote(full, "base", "year")).toEqual({ text: "€468 pagando mese per mese", tone: "muted" });
-    });
-
-    it("is null when the other interval is not purchasable", () => {
-        expect(yearlySavingsNote(monthlyOnly, "base", "month")).toBeNull();
-        expect(yearlySavingsNote(monthlyOnly, "base", "year")).toBeNull();
+    it("is null when the yearly interval is not purchasable", () => {
+        expect(annualPitchNoteFor(monthlyOnly, "base")).toBeNull();
     });
 
     it("never claims two free months when yearly is not 10 × monthly", () => {
+        expect(annualPitchNote(3900, 40000)).toBeNull();
         const odd: PlanPrice[] = [
             { plan_code: "base", billing_interval: "month", price_cents: 3900 },
             { plan_code: "base", billing_interval: "year", price_cents: 40000 }
         ];
-        expect(yearlySavingsNote(odd, "base", "month")).toBeNull();
+        expect(annualPitchNoteFor(odd, "base")).toBeNull();
     });
 });
 

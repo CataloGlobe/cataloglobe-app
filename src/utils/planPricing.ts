@@ -48,27 +48,23 @@ export function monthByMonthEquivalentCents(
 }
 
 /**
- * The line under a plan price that argues for (or contextualises) the yearly
- * interval, present in both states so the comparison never disappears:
- * - month: what the plan costs per year, and that it is two months free
- *   (yearly = 10 × monthly), tone "success";
- * - year: what the same year costs paying month by month, tone "muted".
- * Null when the other interval is not purchasable or the two prices are not
- * in the 10:12 ratio (the "two months free" claim would be false).
+ * The green line under a MONTHLY price that lets the customer know the yearly
+ * option exists ("Con il piano annuale: €390/sede/anno, due mesi gratis").
+ * Null unless yearly = 10 × monthly — otherwise the "two months free" claim
+ * would be false. Under a yearly price the argument is made by the struck
+ * month-by-month equivalent instead (see `monthByMonthEquivalentCents`).
  */
-export function yearlySavingsNote(
-    prices: PlanPrice[],
-    planCode: PlanCode,
-    interval: BillingInterval
-): { text: string; tone: "success" | "muted" } | null {
+export function annualPitchNote(monthlyCents: number, yearlyCents: number): string | null {
+    if (yearlyCents !== monthlyCents * (MONTHS_PER_INTERVAL.year - 2)) return null;
+    return `Con il piano annuale: ${formatEuroWholeCents(yearlyCents)}/sede/${INTERVAL_PERIOD_NOUN.year}, due mesi gratis`;
+}
+
+/** `annualPitchNote` over `plan_prices` rows; null when either interval is not purchasable. */
+export function annualPitchNoteFor(prices: PlanPrice[], planCode: PlanCode): string | null {
     const monthly = priceCentsFor(prices, planCode, "month");
     const yearly = priceCentsFor(prices, planCode, "year");
     if (monthly === null || yearly === null) return null;
-    if (interval === "month") {
-        if (yearly !== monthly * 10) return null;
-        return { text: `${formatEuroWholeCents(yearly)} all'anno, due mesi gratis`, tone: "success" };
-    }
-    return { text: `${formatEuroWholeCents(monthly * MONTHS_PER_INTERVAL.year)} pagando mese per mese`, tone: "muted" };
+    return annualPitchNote(monthly, yearly);
 }
 
 /** Whole euros for a price line ("€39", "€390"). */
