@@ -254,8 +254,22 @@ export default function TermsPage() {
                             CataloGlobe non tratta direttamente i dati delle carte di pagamento.
                         </li>
                         <li>
+                            La prima sottoscrizione include un periodo di prova gratuito, disciplinato
+                            alla sezione 07-ter. Al termine della prova, in assenza di disdetta,
+                            l'abbonamento prosegue a pagamento.
+                        </li>
+                        <li>
                             Gli abbonamenti si rinnovano automaticamente alla scadenza, salvo
                             disdetta effettuata prima del rinnovo tramite l'area di gestione account.
+                        </li>
+                        <li>
+                            L'Azienda può passare da un intervallo di fatturazione all'altro. Il
+                            passaggio alla fatturazione annuale ha effetto immediato, con addebito
+                            del corrispettivo annuale al netto della quota non goduta del periodo in
+                            corso, e comporta la decorrenza di un nuovo periodo di fatturazione dalla
+                            data del passaggio. Il passaggio alla fatturazione mensile ha effetto alla
+                            scadenza del periodo annuale in corso, senza rimborsi e senza modifiche
+                            fino a tale data.
                         </li>
                         <li>
                             In caso di mancato pagamento, CataloGlobe si riserva il diritto di
@@ -295,6 +309,77 @@ export default function TermsPage() {
                         dell'Utente, ai sensi dell'art. 59 lett. a) del Codice del Consumo. Il presente
                         diritto non si applica agli Utenti che sottoscrivono il servizio in qualità
                         di Professionisti, Imprese o Partite IVA.
+                    </p>
+                </div>
+
+                {/* 7-ter. Prova gratuita */}
+                <div className={styles.section}>
+                    <h2>
+                        <span className={styles.sectionNum}>07-ter</span>
+                        Prova gratuita
+                    </h2>
+                    <p>
+                        <strong>Durata e attivazione:</strong> al momento della prima sottoscrizione,
+                        l'Azienda ha diritto a un periodo di prova gratuito di <strong>30 (trenta)
+                        giorni</strong> consecutivi, decorrenti dal completamento della procedura di
+                        attivazione. Durante la prova il Servizio è disponibile senza limitazioni di
+                        funzionalità rispetto al piano prescelto.
+                    </p>
+                    <p>
+                        <strong>Metodo di pagamento:</strong> l'attivazione della prova richiede
+                        l'inserimento di un metodo di pagamento valido. Nessun importo viene addebitato
+                        al momento dell'attivazione né durante il periodo di prova.
+                    </p>
+                    <p>
+                        <strong>Intervallo di fatturazione:</strong> al momento della sottoscrizione
+                        l'Azienda sceglie tra fatturazione mensile e annuale. La prova gratuita ha la
+                        medesima durata in entrambi i casi; cambia l'importo del primo addebito e la
+                        periodicità di quelli successivi, secondo il piano, l'intervallo e il numero
+                        di sedi selezionati.
+                    </p>
+                    <p>
+                        <strong>Una sola prova per Azienda:</strong> il periodo di prova è
+                        riconosciuto una sola volta per ciascuna Azienda. Le sottoscrizioni successive
+                        alla prima, anche se relative a un piano o a un intervallo di fatturazione
+                        diverso, o attivate dopo una precedente disdetta, non danno diritto a un
+                        ulteriore periodo di prova e comportano l'addebito immediato del corrispettivo.
+                    </p>
+                    <p>
+                        <strong>Preavviso:</strong> prima della scadenza del periodo di prova,
+                        l'Azienda riceve all'indirizzo email associato all'account una comunicazione
+                        che ricorda la data di scadenza e l'imminente attivazione dell'abbonamento
+                        a pagamento.
+                    </p>
+                    <p>
+                        <strong>Conversione in abbonamento a pagamento:</strong> alla scadenza del
+                        periodo di prova, in assenza di disdetta, la sottoscrizione prosegue
+                        automaticamente come abbonamento a pagamento al corrispettivo previsto per il
+                        piano, l'intervallo di fatturazione e il numero di sedi selezionati, e viene
+                        addebitato il primo canone sul metodo di pagamento registrato. I canoni
+                        successivi sono addebitati con la medesima periodicità, secondo quanto
+                        previsto alla sezione 07.
+                    </p>
+                    <p>
+                        <strong>Disdetta durante la prova:</strong> l'Azienda può disdire in
+                        qualsiasi momento prima della scadenza del periodo di prova, in autonomia,
+                        dalla pagina Abbonamento della propria area riservata. La disdetta ha effetto
+                        alla scadenza del periodo di prova: fino a tale data il Servizio resta
+                        pienamente utilizzabile e nessun importo viene addebitato. L'Azienda riceve
+                        conferma della disdetta all'indirizzo email associato all'account.
+                    </p>
+                    <p>
+                        <strong>Modifiche durante la prova:</strong> durante il periodo di prova
+                        l'Azienda può modificare il piano, il numero di sedi e l'intervallo di
+                        fatturazione, in autonomia dalla propria area riservata. Tali modifiche non
+                        comportano alcun addebito durante la prova e si riflettono sull'importo del
+                        primo canone.
+                    </p>
+                    <p>
+                        <strong>Esito negativo del primo addebito:</strong> qualora l'addebito del
+                        primo canone non vada a buon fine, vengono effettuati ulteriori tentativi di
+                        addebito nell'arco dei giorni successivi. In caso di esito negativo di tutti
+                        i tentativi, l'abbonamento è cancellato e l'accesso alle funzionalità
+                        soggette ad abbonamento è sospeso secondo quanto previsto alla sezione 07.
                     </p>
                 </div>
 
