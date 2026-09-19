@@ -10,6 +10,7 @@ import {
     previewSubscriptionChange,
     commitSubscriptionChange,
     getSubscriptionState,
+    isSubscriptionStateUnavailable,
     cancelSubscription,
     reactivateSubscription,
     cancelScheduledChange,
@@ -24,12 +25,15 @@ import type {
     IntervalBlockReason,
     SubscriptionChangePreview,
     SubscriptionDiscount,
-    SubscriptionState
+    SubscriptionState,
+    SubscriptionStateUnavailableReason
 } from "@/services/supabase/billing";
 import { getPlanByCode, listPublicPlans } from "@/services/supabase/plans";
 import { getActivityCount } from "@/services/supabase/activities";
 import { getTenantBillingInterval } from "@/services/supabase/tenants";
+import { COMPANY } from "@/config/company";
 import { formatPendingChangeLabel } from "./pendingChangeLabel";
+import { SUBSCRIPTION_UNAVAILABLE_MESSAGE, buildSubscriptionSupportMailto } from "./supportMailto";
 import { listPlanPrices } from "@/services/supabase/planPrices";
 import { calculateGraduatedFromPlan } from "@/utils/pricing";
 import { DEFAULT_BILLING_INTERVAL, INTERVAL_ADJECTIVE, INTERVAL_RECURRENCE, intervalUnit, priceCentsFor } from "@/utils/planPricing";
@@ -187,6 +191,10 @@ function mapChangeError(err: unknown, activityCount: number, cap: number): strin
         case "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED":
         case "SEATS_ADDED_SCHEDULE_NOT_UPDATED":
             return "Le sedi sono state aggiunte e pagate, ma il passaggio a Base non è stato programmato. Riprova.";
+        case "SUBSCRIPTION_NOT_FOUND":
+            return "Non riusciamo a leggere i dati del tuo abbonamento. Scrivi all'assistenza per modificare piano, sedi o fatturazione.";
+        case "STRIPE_UNAVAILABLE":
+            return "Il servizio di fatturazione non è raggiungibile in questo momento. Riprova tra qualche minuto.";
         case "INTERVAL_CHANGE_BLOCKED":
             // Plan/seat drawer already open while an interval change got scheduled elsewhere.
             return err instanceof IntervalChangeBlockedError && err.reason === "interval_pending"
@@ -277,6 +285,10 @@ export default function SubscriptionPage() {
 
     // --- Stato abbonamento live (banner persistente + disdetta) ---
     const [subState, setSubState] = useState<SubscriptionState | null>(null);
+    // Why the subscription could not be read, or null when it was. Distinct
+    // from `subState === null` (not loaded yet): with a reason set the page
+    // stops offering actions that would all fail the same way.
+    const [subStateUnavailable, setSubStateUnavailable] = useState<SubscriptionStateUnavailableReason | null>(null);
     const [subStateLoading, setSubStateLoading] = useState(true);
     const [isCancelOpen, setIsCancelOpen] = useState(false);
     const [cancelLoading, setCancelLoading] = useState(false);
@@ -299,9 +311,19 @@ export default function SubscriptionPage() {
         if (!tenantId) return;
         setSubStateLoading(true);
         try {
-            setSubState(await getSubscriptionState(tenantId));
+            const result = await getSubscriptionState(tenantId);
+            if (isSubscriptionStateUnavailable(result)) {
+                setSubState(null);
+                setSubStateUnavailable(result.reason);
+            } else {
+                setSubState(result);
+                setSubStateUnavailable(null);
+            }
         } catch (err) {
+            // The call itself failed (network, edge down): same UX as Stripe unreachable.
             console.error("[SubscriptionPage] subscription state load failed:", err);
+            setSubState(null);
+            setSubStateUnavailable("stripe_unavailable");
         } finally {
             setSubStateLoading(false);
         }
@@ -405,6 +427,15 @@ export default function SubscriptionPage() {
 
     const statusInfo = STATUS_CONFIG[status ?? ""] ?? { label: status, variant: "secondary" as const };
     const isTerminal = status === "canceled" || status === "suspended";
+    // Subscription on file but unreadable: plan/seats stay (they describe the
+    // service actually delivered), amounts and dates become "Non disponibile",
+    // and every self-service action is withdrawn — the banner says what to do.
+    const subUnavailable = !subStateLoading && subStateUnavailable !== null;
+    const supportMailto = buildSubscriptionSupportMailto({
+        supportEmail: COMPANY.contact.support,
+        tenantId: selectedTenant.id,
+        tenantName: selectedTenant.name
+    });
     const isFounder = selectedTenant.is_founder === true;
     const planName = currentPlan?.name ?? "—";
 
@@ -977,6 +1008,35 @@ export default function SubscriptionPage() {
                 </div>
             )}
 
+            {subUnavailable && subStateUnavailable && (
+                <div className={styles.cancelNote} role="status">
+                    <AlertTriangle size={16} />
+                    <Text variant="body-sm" weight={500}>
+                        {SUBSCRIPTION_UNAVAILABLE_MESSAGE[subStateUnavailable]}
+                    </Text>
+                    {subStateUnavailable === "subscription_missing" ? (
+                        <Button
+                            as="a"
+                            href={supportMailto}
+                            variant="secondary"
+                            size="sm"
+                            leftIcon={<Mail size={14} />}
+                        >
+                            Scrivi all&apos;assistenza
+                        </Button>
+                    ) : (
+                        <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={reloadSubState}
+                            leftIcon={<RotateCcw size={14} />}
+                        >
+                            Ricarica
+                        </Button>
+                    )}
+                </div>
+            )}
+
             {/* --- Piano --- */}
             <div className={styles.section}>
                 <div className={styles.sectionHeader}>
@@ -1015,9 +1075,9 @@ export default function SubscriptionPage() {
                             {status === "trialing" ? "Fine prova" : "Prossimo rinnovo"}
                         </Text>
                         <Text variant="title-sm" weight={700}>
-                            {renewalDateText}
+                            {subUnavailable ? "Non disponibile" : renewalDateText}
                         </Text>
-                        {firstChargeNote && (
+                        {!subUnavailable && firstChargeNote && (
                             <Text variant="body-sm" colorVariant="muted">
                                 {firstChargeNote}
                             </Text>
@@ -1028,7 +1088,11 @@ export default function SubscriptionPage() {
                         <Text variant="caption" colorVariant="muted">
                             Prezzo attuale
                         </Text>
-                        {activeDiscount && discountedAmount != null ? (
+                        {subUnavailable ? (
+                            <Text variant="title-sm" weight={700}>
+                                Non disponibile
+                            </Text>
+                        ) : activeDiscount && discountedAmount != null ? (
                             <span className={styles.priceRow}>
                                 <Text variant="body" weight={500} colorVariant="muted" className={styles.priceStrikethrough}>
                                     {formatEuro(displayAmount)}
@@ -1042,9 +1106,11 @@ export default function SubscriptionPage() {
                                 {formatEuro(displayAmount)}{unit}
                             </Text>
                         )}
-                        <Text variant="body-sm" colorVariant="muted">
-                            Fatturazione {INTERVAL_ADJECTIVE[billingInterval]}
-                        </Text>
+                        {!subUnavailable && (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Fatturazione {INTERVAL_ADJECTIVE[billingInterval]}
+                            </Text>
+                        )}
                         {activeDiscount && (
                             <Text variant="body-sm" colorVariant="success" weight={500}>
                                 {formatDiscountLine(activeDiscount)}
@@ -1058,6 +1124,10 @@ export default function SubscriptionPage() {
                         </Text>
                         {subStateLoading ? (
                             <Skeleton height="1.2em" width="240px" radius="4px" />
+                        ) : subUnavailable ? (
+                            <Text variant="title-sm" weight={700}>
+                                Non disponibile
+                            </Text>
                         ) : pendingBanner ? (
                             <Text variant="title-sm" weight={700} colorVariant="primary">
                                 {formatPendingChangeLabel({
@@ -1128,7 +1198,7 @@ export default function SubscriptionPage() {
                     </div>
                 )}
 
-                {canManageBilling && !isTerminal && (
+                {canManageBilling && !isTerminal && !subUnavailable && (
                     <div className={styles.contactRow}>
                         {pendingIntervalChange ? (
                             <Text variant="body-sm" colorVariant="muted">
@@ -1224,7 +1294,7 @@ export default function SubscriptionPage() {
                     </div>
                 )}
 
-                {hasSubscriptionRecord && !isTerminal && (
+                {hasSubscriptionRecord && !isTerminal && !subUnavailable && (
                     <div className={styles.actionCard}>
                         <div>
                             <Text variant="body" weight={500}>
@@ -1252,7 +1322,7 @@ export default function SubscriptionPage() {
                     </div>
                 )}
 
-                {canCancelBilling && hasSubscriptionRecord && !isTerminal && !cancelAtPeriodEnd && (
+                {canCancelBilling && hasSubscriptionRecord && !isTerminal && !cancelAtPeriodEnd && !subUnavailable && (
                     <div className={styles.actionCard}>
                         <div>
                             <Text variant="body" weight={500}>

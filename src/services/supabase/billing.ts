@@ -141,7 +141,10 @@ export async function createPortalSession(
 //   - "SEATS_BELOW_ACTIVITIES"  → sotto il numero di sedi del tenant
 //   - "NO_CHANGE"               → nessuna variazione reale
 //   - "PAYMENT_FAILED"          → addebito prorata rifiutato / richiede azione
-//   - "NO_SUBSCRIPTION"         → tenant senza subscription attiva
+//   - "NO_SUBSCRIPTION"         → tenant senza stripe_subscription_id
+//   - "SUBSCRIPTION_NOT_FOUND"  → stripe_subscription_id punta a una subscription
+//                                  che Stripe non ha più (permanente: assistenza)
+//   - "STRIPE_UNAVAILABLE"      → Stripe non raggiungibile (transitorio: riprova)
 //   - "forbidden"               → manca il permesso billing.manage
 //   - "SCHEDULE_RELEASE_FAILED" → (combinato) sub ancora schedule-managed, abort
 //   - "SEATS_ADDED_DOWNGRADE_NOT_SCHEDULED" → (combinato) sedi addebitate ma
@@ -479,6 +482,29 @@ export type SubscriptionState = {
     consumedDiscountThisPeriod?: ConsumedDiscountThisPeriod | null;
 };
 
+/**
+ * Why the current subscription could not be read (action "state" answers 200
+ * with `reconciled:false` instead of an error, so the page can tell "loaded
+ * badly" from "not loaded yet"):
+ * - `subscription_missing`: the tenant points to a subscription Stripe no
+ *   longer has. Permanent — needs support, never self-repaired.
+ * - `stripe_unavailable`: Stripe could not be reached. Transient, reload.
+ */
+export type SubscriptionStateUnavailableReason = "subscription_missing" | "stripe_unavailable";
+
+export type SubscriptionStateUnavailable = {
+    reconciled: false;
+    reason: SubscriptionStateUnavailableReason;
+};
+
+export type SubscriptionStateResult = SubscriptionState | SubscriptionStateUnavailable;
+
+export function isSubscriptionStateUnavailable(
+    state: SubscriptionStateResult
+): state is SubscriptionStateUnavailable {
+    return (state as SubscriptionStateUnavailable).reconciled === false;
+}
+
 async function invokeBillingAction<T>(
     tenantId: string,
     action: "state" | "cancel" | "reactivate" | "cancel-scheduled-change"
@@ -500,9 +526,13 @@ async function invokeBillingAction<T>(
     return data as T;
 }
 
-/** Stato abbonamento corrente da Stripe (read-only). Permesso: billing.manage. */
-export async function getSubscriptionState(tenantId: string): Promise<SubscriptionState> {
-    return invokeBillingAction<SubscriptionState>(tenantId, "state");
+/**
+ * Stato abbonamento corrente da Stripe (read-only). Permesso: billing.manage.
+ * Ritorna `SubscriptionStateUnavailable` quando la subscription non si legge
+ * (vedi `isSubscriptionStateUnavailable`); lancia solo per errori di chiamata.
+ */
+export async function getSubscriptionState(tenantId: string): Promise<SubscriptionStateResult> {
+    return invokeBillingAction<SubscriptionStateResult>(tenantId, "state");
 }
 
 /** Disdetta a fine periodo (nessun rimborso). Permesso: billing.cancel. */

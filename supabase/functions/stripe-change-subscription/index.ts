@@ -9,7 +9,8 @@ import {
     reactivateStripeSubIfScheduled,
     updateSchedulePhases,
     chargeOneOffSeatDelta,
-    SeatChargeVerificationFailedError
+    SeatChargeVerificationFailedError,
+    isResourceMissing
 } from "../_shared/stripe-helpers.ts";
 import { sendEmail } from "../_shared/sendEmail.ts";
 import {
@@ -979,6 +980,15 @@ serve(async req => {
         const stripe: Stripe | null = createStripeClient();
         if (!stripe) return json(req, 500, { error: "server_misconfigured" });
 
+        // A subscription that cannot be read is two different situations, and
+        // the page must tell them apart from "not loaded yet":
+        // - Stripe says it does not exist (resource_missing): the tenant row
+        //   points to a subscription that is gone. Permanent, needs support —
+        //   never auto-repaired here (clearing the id on a 404 would cut the
+        //   service off on the strength of a single error response).
+        // - anything else (network, 5xx, rate limit): transient, retry later.
+        // `state` answers 200 with `reconciled:false` because this is a state
+        // of the account, not a bad request; every other action refuses.
         let sub: Stripe.Subscription;
         try {
             sub = await stripe.subscriptions.retrieve(tenant.stripe_subscription_id, {
@@ -986,8 +996,20 @@ serve(async req => {
             });
         } catch (err) {
             const message = err instanceof Error ? err.message : String(err);
+            if (isResourceMissing(message)) {
+                console.error(
+                    `stripe-change-subscription: SUBSCRIPTION_MISSING tenant=${tenantId} sub=${tenant.stripe_subscription_id}: ${message}`
+                );
+                if (action === "state") {
+                    return json(req, 200, { reconciled: false, reason: "subscription_missing" });
+                }
+                return json(req, 422, { error: "SUBSCRIPTION_NOT_FOUND" });
+            }
             console.error(`stripe-change-subscription: subscription retrieve failed: ${message}`);
-            return json(req, 422, { error: "NO_SUBSCRIPTION" });
+            if (action === "state") {
+                return json(req, 200, { reconciled: false, reason: "stripe_unavailable" });
+            }
+            return json(req, 502, { error: "STRIPE_UNAVAILABLE" });
         }
 
         const item = sub.items?.data?.[0];
