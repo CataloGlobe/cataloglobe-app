@@ -228,6 +228,33 @@ Pagina Ordini (`src/pages/Dashboard/Orders/`):
 
 ---
 
+## Epic Prenotazioni
+
+Prenotazioni online (pubblico, via slug sede) + gestione admin (conferma/rifiuto/no-show) + turni sala (seating) + rubrica clienti + reminder email/ICS.
+
+**Tabelle chiave**:
+- `reservations` — `status` CHECK 7 valori `pending|confirmed|declined|cancelled|seated|no_show|completed` (NON un vero enum Postgres, transizioni validate in app). `reservation_date`/`reservation_time` wall-clock locale (no timezone). `ics_sequence` per calendar invite (v. sotto). RLS activity-scoped via `has_permission('reservations.read|manage', activity_id)`.
+- `reservation_tables` — ponte N:N reservation↔tables, `assignment_source` (system/manual).
+- `reservation_guests` — rubrica clienti, scope **tenant** (non sede), chiave identità `phone_e164`. Aggregati (visite/no-show/ultima visita) SOLO in view `v_reservation_guest_*`, MAI colonne materializzate (evita drift quando un `no_show` viene revocato). Nessuna policy DELETE (vincolo di prodotto: niente bulk/marketing).
+- `reservation_reminder_runs` — diagnostica cron reminder.
+- Seating (turni sala, tabelle `seating`/`seating_tables`, guidate da `reservation_id`): RPC `open_seating_for_reservation`, `open_walkin_seating`, `set_seating_tables`, `close_seating`/`close_seating_unchecked`, `undo_seating`. View `v_seatings_with_state_pending_orders` (chiudere un servizio con ordini aperti chiede conferma invece di rifiutare).
+
+**Regole vincolanti**:
+- **Optimistic locking via compare-and-set sullo status**, NON colonna `version`: `_shared/reservationTransitions.ts` definisce `ACTION_EXPECTS` (stati sorgente ammessi per azione). L'UPDATE è `.eq("id", id).in("status", expectedFrom)` — 0 righe toccate = un altro admin ha già transizionato → 409 `INVALID_TRANSITION`. Stesso pattern per claim idempotenti (`reminder_sent_at IS NULL`, `guest_confirmed_at IS NULL`).
+- **Capacità/pacing su `place_online_reservation`** (RPC SECURITY DEFINER): `pg_advisory_xact_lock` per sede tenuto fino al commit — serializza submit simultanei sulla stessa sede (non check-then-insert).
+- **Validazione orari lato server obbligatoria**: `isReservationTimeBookable` (`_shared/openingHours.ts`) chiamata da `submit-reservation` PRIMA della RPC — mai fidarsi del solo form pubblico. **Regola duplicata in 3 file** (`ReservationPage/availability.ts`, `ReservationPage/utils/reservationSlots.ts`, `_shared/openingHours.ts`), header `⚠️ SYNC` — modificare tutti e 3 nello stesso commit.
+- **ICS**: `METHOD:PUBLISH`/`CANCEL`, MAI `ATTENDEE`/`METHOD:REQUEST` (altrimenti Gmail/Outlook mostrano Accetta/Rifiuta RSVP indesiderato). `ics_sequence` incrementato da trigger DB (`reservations_bump_ics_sequence`, BEFORE UPDATE con clausola `WHEN`) SOLO su cambio data/ora o transizione a `cancelled`/`declined` — non su note/tavoli/reminder.
+- `update-reservation` modifica SOLO i dati (data/ora/coperti/contatti/note), MAI lo status — le transizioni di stato passano solo da `respond-reservation`.
+- Link pubblici (cancellazione, conferma presenza) sono **no-oracle**: stesso errore/status per token invalido e prenotazione inesistente.
+
+**Edge Functions** (`supabase/functions/`): `submit-reservation` (pubblica, rate-limit doppio slug+IP, gate subscription/piano attivi, validazione orari, poi RPC atomica) · `respond-reservation` (admin: confirm/decline/cancel/mark_no_show/undo_no_show) · `update-reservation` (admin, solo dati) · `cancel-reservation-public` (link firmato email) · `confirm-reservation-attendance` (link "confermo che vengo" nel reminder) · `reservation-availability` (lettura, solo slot già proposti dal client — no conteggi/motivi commerciali) · `resolve-reservation-privacy` · `send-reservation-reminders` (cron, 3 passate 18/19/20 IT) · `purge-reservation-data` (cron retention 36 mesi, dry-run default, auth fail-closed).
+
+**`_shared/reservation*.ts`**: `reservationEmailCopy.ts` (copy cliente 5 lingue, dizionario TS — chiave mancante = errore di compilazione, non stringa vuota runtime) · `reservationEmails.ts` (builder puri, no I/O) · `reservationIcs.ts` (generatore .ics puro, `now` iniettato) · `reservationUpdate.ts` (`decideMoveNotification` — mail di spostamento SOLO se cambia data/ora) · `reservationTransitions.ts` (state machine, condivisa da `respond-reservation` e cancellazione pubblica) · `reservationToken.ts` / `reservationAlertRecipients.ts` / `reservationRetention.ts` / `reservationCancellation.ts`.
+
+Service layer FE: `src/services/supabase/reservations.ts`, `reservationGuests.ts`, `seatings.ts`, `seatingRpcMessages.ts`. UI in `src/pages/Dashboard/Reservations/`: `Reservations.tsx` (host) + `ReservationsInbox/Agenda/Service.tsx` + drawer create/edit/detail + `SeatingCloseQuestion.tsx`. `serviceDay.ts` — boundary giorno servizio, v. `## Edge Functions` sopra.
+
+---
+
 ## Database
 
 - Schema changes: SEMPRE nuova migration (`supabase/migrations/YYYYMMDDHHMMSS_*.sql`). MAI modificare esistenti.
@@ -272,6 +299,29 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 **`scheduleResolver.ts` esiste in DUE posti**: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
 
 **`priceSummary.ts` idem duplicato FE↔Edge** (header `⚠️ SYNC`): `src/utils/priceSummary.ts` ↔ `supabase/functions/_shared/priceSummary.ts`. `resolvePriceSummary` calcola solo i *fatti* sul prezzo sintetico di un gruppo → `{kind: none|single|multi, min, max, count}`. La *presentazione* ("da X" / range) vive SOLO lato FE in `src/utils/formatPriceSummary.ts` (l'edge Deno usa solo i fatti grezzi). Separazione voluta: la regola di sintesi cambia senza toccare il formatting.
+
+### Attivazione abbonamento (paywall)
+
+- **Tenant nasce sospeso**: `tenants.subscription_status` DEFAULT `'suspended'` (mig 20260918150000). Un tenant senza checkout completato NON ha menu pubblico: `resolve-public-catalog` risponde `subscription_inactive`.
+- **`stripe-checkout-confirm`**: attiva senza attendere il webhook. Legge il `session_id` dal `success_url` (`checkout.sessions.retrieve` expand subscription), collega tenant↔subscription. Idempotente e safe rispetto al webhook (race in entrambi i versi). Le 3 mismatch (subscription/session/subscription-tenant) loggate `console.error("… ANOMALY …")`.
+- **Schermata di ritorno** (`useCheckoutReturnSync` + `CheckoutConfirmScreen`, 3 stati ramificati sul codice errore, non sullo status):
+  - `syncing` — loader "Stiamo confermando il tuo pagamento…"; auto-retry 2× (2s, 5s) sui retriable, poi `failed`.
+  - `failed` — "Completa l'attivazione" (retry) / [Ricarica]. Tiene il param.
+  - `mismatch` (codici `*_mismatch`) — "Non riusciamo a collegare questo pagamento", schermata separata SENZA retry, mostra riferimento sessione da citare. Il loader DEVE chiudersi sempre (fix hang: status terminale incondizionato, deps `[sessionId, tenantId, retryKey]`).
+
+- **Gate fiscale a tre livelli** (P.IVA valida + recapito e-fattura obbligatorio con P.IVA):
+  1. **FE** — wizard (`StepBilling`/`CreateBusinessWizard`) + `BusinessSettingsPage`: "Continua"/"Salva" bloccati.
+  2. **Edge** — `stripe-checkout` legge il profilo fiscale dal DB (`fiscalRow`, non dal request body) e rifiuta prima di creare il customer: `400 invalid_vat_number`, `400 missing_einvoice_recipient`, `503 fiscal_profile_unavailable`. Ownership check (`owner_user_id !== userId` → 403) prima del gate. È l'ultimo cancello sui soldi.
+  3. **RPC** — `update_tenant_billing_details` (mig 20260920120000) valida la P.IVA lato server (`RAISE invalid_vat_number` ERRCODE 22023): chiude anche la chiamata diretta alla RPC.
+  Check-digit P.IVA duplicato in 3 punti (⚠️ SYNC): `src/utils/fiscalValidators.ts`, `supabase/functions/_shared/fiscalValidators.ts`, e la RPC in migration.
+  **Gap noto**: la creazione tenant (`CreateBusinessWizard.tsx`) scrive i dati fiscali con un insert client-side diretto in `tenants`, NON via RPC → nessuna validazione server-side della P.IVA sul path di creazione. Il gate sopra copre i soldi (checkout), non i dati in DB al momento del create. Vedi `memory/project_tenant_create_fiscal_no_server_validation.md`.
+
+- **Trigger protezione colonne abbonamento** (`trg_protect_tenant_subscription_columns`, BEFORE INSERT/UPDATE ON tenants, mig 150200/150300). Le colonne abbonamento sono verità di Stripe. Esenti: `service_role`, `postgres`, `supabase_admin`. Tre fasce:
+  1. **Sempre protette**: `subscription_status`, `stripe_customer_id`, `stripe_subscription_id`, `subscription_status_event_at`, `trial_until`, `current_period_start/end`, `plan_monthly_value_cents` (in INSERT devono restare al default). Chiude il PATCH diretto `subscription_status='active'`.
+  2. **Protette dopo il link a Stripe** (`stripe_subscription_id NOT NULL`): `plan`, `paid_seats`, `billing_interval`. Prima del checkout le scrive il wizard dal client; dopo, seguono la subscription.
+  3. **Libere**: dati di fatturazione, nome, logo (via RPC dedicate).
+
+- **`subscription_status_event_at` — asimmetria voluta** (`subscriptionStatusSync.ts`): guard monotòno sull'ora dell'evento, mai `now()`. Il webhook passa `event.created`; il fallback confirm passa `subscription.created`, che precede ogni `event.created` di quella subscription. In una race inversa (confirm prima, webhook dopo) il webhook vince sul timestamp (event.created più recente) ma NON cambia lo status: `subscription_status_event_at` avanza di pochi secondi, il valore resta. Non è corruzione.
 
 **`serviceDay.ts` ↔ `get_service_day_start()` duplicato TS↔SQL** (header `⚠️ SYNC`): `src/pages/Dashboard/Reservations/serviceDay.ts` (`SERVICE_DAY_START_HOUR`) ↔ migration `20260914155000`. Confine della giornata di servizio della sala (05:00 Europe/Rome, non la mezzanotte), letto dal segnale in sala («Aperta da un servizio precedente») e dal cron `close_stale_seatings` che chiude le tavolate dimenticate. Modificare insieme nello stesso commit; l'ora NON è configurabile per sede (decisione FASE 2.8, rinviata al primo locale reale che serve oltre le cinque).
 
@@ -326,7 +376,8 @@ Customer stepper (`OrderStatusStepper.tsx`): 4 step (Inviato → In cucina → P
 - Componenti in `src/components/ui/` — verificare PRIMA di crearne di nuovi. Catalogo dettagliato: `docs/patterns/ui-components.md` (`AddressAutocomplete`, `FeesSection`, `StatusBadge`, `UnsavedChangesBar`, `EmptyState`, `TranslationsTab`).
 - **`SectionCard`** (`src/components/ui/SectionCard/`) — container sezione unificato adottato su tutti i tab della pagina prodotto (Scheda, Prezzi/Opzioni). Anatomia: titolo (mai `text-transform: uppercase`) + badge/subtitle opzionali + 0–2 action `sm` (mai 2 primary) + body. Variante `flush` toglie il padding orizzontale (righe tabella, collapsible). Layout demandato alla pagina; non annidare card section-like.
 - **`Logo`** (`src/components/ui/Logo/`) — unico entry per il brand mark (header, auth, landing, status). `color="auto"` sceglie mono-dark (tema light) / mono-white (tema dark). Sostituisce i markup logo sparsi; non reintrodurre `<img>` logo inline.
-- **Framing immagini — stack condiviso** (maturo, usato da Featured + Storie): `ImageReframeEditor` (`src/components/ui/ImageReframeEditor/`) editor pan/zoom/fit/background, parametrico via prop `aspectRatio` (default 16/9); `reframeGeometry.ts` motore geometrico **puro** (no DOM, no canvas); `FramedMedia` (`src/components/ui/FramedMedia/`) renderer pubblico CSS-only SSR-safe che riapplica il framing salvato (path legacy cover a zoom≈1, path parametrico a zoom≠1 — richiede il ratio naturale); tipo `MediaFraming` (`{focalX, focalY, zoom, fillMode, fillColor}`) in `ImageReframeEditor/types.ts`; compressione centralizzata `src/utils/compressImage.ts` (`COMPRESS_PROFILES`: cover/product/logo/avatar/featured/story). L'editor è agnostico rispetto allo storage del framing (Featured usa colonne DB dedicate, Storie JSONB) e ritorna `MediaFraming` al caller. Audit completo dei 7 punti di upload: `docs/audit-image-upload.md`.
+- **Framing immagini — stack condiviso** (maturo, usato da Featured + Storie + Prodotto): `ImageReframeEditor` (`src/components/ui/ImageReframeEditor/`) editor pan/zoom/fit/background, parametrico via prop `aspectRatio` (default 16/9); `reframeGeometry.ts` motore geometrico **puro** (no DOM, no canvas); `FramedMedia` (`src/components/ui/FramedMedia/`) renderer pubblico CSS-only SSR-safe che riapplica il framing salvato (path legacy cover a zoom≈1, path parametrico a zoom≠1 — richiede il ratio naturale); tipo `MediaFraming` (`{focalX, focalY, zoom, fillMode, fillColor}`) in `ImageReframeEditor/types.ts`; compressione centralizzata `src/utils/compressImage.ts` (`COMPRESS_PROFILES`: cover/product/logo/avatar/featured/story). L'editor è agnostico rispetto allo storage del framing (Featured usa colonne DB dedicate, Storie JSONB, Prodotto `products.image_framing jsonb`) e ritorna `MediaFraming` al caller. Audit completo dei 7 punti di upload: `docs/audit-image-upload.md`.
+- **Framing immagine prodotto** (`FASE 8b`, committato `29ef5b46`): `ImageUploadEditor` (`src/components/ui/ImageUploadEditor/`) compone dropzone + `compressImage` + `ImageReframeEditor`; approccio **metadata NON-baked** (l'immagine prodotto rende a 1:1/4:3/16:9 dallo stesso file). Colonne `products.image_framing jsonb` + `image_aspect_ratio real`; default `PRODUCT_IMAGE_DEFAULT_FRAMING` (center/cover/blur) quando NULL. `FramedMedia` in uso su `ProductCard`/`ProductCardVariant` (liste admin), `ItemDetail` e `CollectionView` (pagina pubblica). Audit: `docs/audit-image-upload-prodotto.md`.
 - Lingua: **italiano** ovunque. Tenant→"Azienda", Activity→"Sede", `owner_user_id`→mai in UI.
 - **Stato attività**: UI usa sempre "**Pubblicata**" / "**Sospesa**" (mai "Attiva"/"Inattiva"). DB values restano `status: "active" | "inactive"`. Motivi sospensione mappati centralmente in `src/utils/activityStatus.ts` (`formatInactiveReason` + `INACTIVE_REASON_LABEL`).
 - SCSS Modules (`.module.scss`). Tema: `src/styles/_theme.scss`.
@@ -341,8 +392,8 @@ Customer stepper (`OrderStatusStepper.tsx`): 4 step (Inviato → In cucina → P
 
 Tech-debt e refactor differiti. Non bloccanti per il task corrente; da valutare durante refactor mirati o cicli di consolidamento.
 
-- **Framing immagine prodotto (FASE 8b)** — WIP nel working tree (NON committato): migration `20260716120000_add_product_image_framing.sql` (colonne `image_framing jsonb` + `image_aspect_ratio real` su `products`), wrapper `ImageUploadEditor` (`src/components/ui/ImageUploadEditor/`, compone dropzone + `compressImage` + `ImageReframeEditor`; approccio **metadata NON-baked** perché l'immagine prodotto rende a 1:1/4:3/16:9 dallo stesso file), default read `PRODUCT_IMAGE_DEFAULT_FRAMING` (center/cover/blur) quando NULL. Propagazione end-to-end ancora in corso: write path (`ProductForm`/`useSchedaDraft`/`products.ts`) → `CATALOG_SELECT` + tipi `ResolvedProduct/Variant` nei 2 file gemelli resolver → render `FramedMedia` per-contesto (`ProductRow` List+Grid, `ItemDetail`, `ProductCard(+Variant)`). Audit: `docs/audit-image-upload-prodotto.md`. Richiede Playwright su 4 combinazioni card + ItemDetail (regressione sui 24 prodotti con `image_url` esistenti) prima del merge. Consolidare in CLAUDE.md solo dopo il commit.
-- **`leave_tenant` RPC rewrite** — vecchia firma `(p_tenant_id)`, no manager scope, no allineamento a `remove_tenant_member` v2. Low priority.
+ **`leave_tenant` RPC rewrite** — vecchia firma `(p_tenant_id)`, no manager scope, no allineamento a `remove_tenant_member` v2. Low priority.
+- **Creazione tenant scrive i dati fiscali client-side senza validazione server**: il wizard fa `supabase.from("tenants").insert({...buildBillingPayload()})` (`CreateBusinessWizard.tsx`), NON via `update_tenant_billing_details`. La P.IVA è validata solo dal FE (aggirabile via REST): il gate al checkout copre i soldi, non i dati in DB. Da chiudere post-rilascio (validazione P.IVA anche sul create). Vedi `memory/project_tenant_create_fiscal_no_server_validation.md`.
 - **Realtime sync su `tenant_memberships`** — cambio ruolo runtime richiede refresh manuale (`usePermissions().refresh()`). Eventuale switch a Supabase Realtime channel per propagation automatica.
 - **Sidebar loading-optimistic** — oggi `permissions===null` mostra tutte le voci (transitorio). Visivo flash su utenti scoped. Alternativa: skeleton durante load.
 - **Permission `translations.read` dedicato** — mancante. Sidebar voce "Lingue" usa `catalogs.read` proxy. Creare permission dedicato se gating più fine.
@@ -434,8 +485,8 @@ Obbligatorio per modifiche a: `src/components/PublicCollectionView/`,
 (vercel dev sulla 3001).
 
 **SOSPESO dal 18/09/2026**: l'ambiente locale non serve `/api`, quindi il
-controllo non è eseguibile. Da ripristinare prima della FASE 8b, che lo
-richiede sulle 4 combinazioni card + ItemDetail (riga 344).
+controllo non è eseguibile. Da ripristinare appena il flusso `vercel dev`
+torna disponibile.
 
 ### Resolver — controllo obbligatorio
 
@@ -447,7 +498,11 @@ sbagliato, e il bug del menu weekend di Garbagnate l'ha trovato questo test.
 ### Slash commands matched-with-rules
 
 - `/security-review` — invocare prima del merge per modifiche RLS, edge functions, auth, billing.
-- `/revise-claude-md` — invocare a fine sessione SOLO se l'utente lo richiede esplicitamente.
+- `/revise-claude-md` — SOLO su richiesta esplicita (workflow guidato, riscrive sezioni).
+
+### Fine task — self-check CLAUDE.md (obbligatorio)
+
+Prima di dichiarare un task finito, chiediti: ho introdotto epic/pattern/tabella/RPC/edge function/gotcha NON già documentato in CLAUDE.md o `docs/`? Se sì: proponi il diff (sezione + testo) in chat, PRIMA di chiudere il task. Scrittura SOLO dopo conferma esplicita dell'utente (resta valida `## File curati manualmente — protezione` sotto: niente auto-write silenzioso). Se il task è puramente tattico (bugfix isolato, nessun pattern nuovo) → skip, nessun rumore.
 
 ### File curati manualmente — protezione
 
@@ -467,7 +522,7 @@ NON modificare automaticamente: `CLAUDE.md` (root + `docs/`), `MEMORY.md`, file 
 
 **Scheduling**: `end_at` come mezzanotte UTC (usare `T23:59:59` locale) | disabilitare giorni della settimana se periodo attivo (sono combinabili) | slot `hero` nei featured (rimosso)
 
-**Pattern**: `null` da `list*` | `useEffect` senza `useCallback` | omettere toast nei catch | no reload dopo CRUD success | form con logica drawer | modificare scheduleResolver in un solo posto | modificare `priceSummary.ts` in un solo posto (sync FE↔Edge) | passare categorie NON mappate a `filterEmptyCategories` nel resolver visibilità (double-key → override inerti) | reintrodurre `<img>` logo inline invece del componente `Logo` | HTML/nesting nel parser emphasis Storie (solo `**`/`*`, nodi TS) | `text-transform: uppercase` sul titolo `SectionCard`
+**Pattern**: `null` da `list*` | `useEffect` senza `useCallback` | omettere toast nei catch | no reload dopo CRUD success | form con logica drawer | modificare scheduleResolver in un solo posto | modificare `priceSummary.ts` in un solo posto (sync FE↔Edge) | passare categorie NON mappate a `filterEmptyCategories` nel resolver visibilità (double-key → override inerti) | reintrodurre `<img>` logo inline invece del componente `Logo` | HTML/nesting nel parser emphasis Storie (solo `**`/`*`, nodi TS) | `text-transform: uppercase` sul titolo `SectionCard` | modificare la regola orari prenotazioni in un solo dei 3 file (`ReservationPage/availability.ts` / `reservationSlots.ts` / `_shared/openingHours.ts`) | far cambiare status a `update-reservation` (solo dati, mai transizioni) | `ATTENDEE`/`METHOD:REQUEST` negli ICS prenotazioni (solo PUBLISH/CANCEL)
 
 **Permessi**: usare `userRole` da `TenantContext` per gating (NULL per manager/staff/viewer) | usare API legacy (`Role` enum, `canManage`, `isOwner(string)`, `isAdmin`, `isMember` — eliminate Fase 5.C.C) | bypassare i gating frontend (`canChangeRoleOf`, `canRemoveMember`, `canInviteRole`) chiamando direttamente la RPC senza pre-check | montare `PermissionsProvider` fuori da `/business/:businessId/*` | usare `usePermissions()` in componenti workspace (`/workspace/*`, `/select-business`) — usa `workspaceRole` helpers | INSERT manuale `tenant_memberships.role='owner'` (constraint post-Fase 5.B.2 ammette solo NULL\|'admin')
 
