@@ -5,7 +5,8 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
-import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { DataTableDragHandle } from "@/components/ui/DataTable/SortableDataTableRow";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -32,7 +33,17 @@ const ROW_ACTIONS = [
 ];
 
 const COLUMNS: ColumnDefinition<Row>[] = [
-    { id: "name", header: "Nome", accessor: r => r.name },
+    {
+        id: "name",
+        header: "Nome",
+        accessor: r => r.name,
+        cell: (v, row) => (
+            <div className={DATA_TABLE_CLASSES.cellTwoLine}>
+                <span>{v}</span>
+                <span>{row.status === "success" ? "Aggiornato ieri" : "Mai pubblicato"}</span>
+            </div>
+        )
+    },
     {
         id: "status",
         header: "Stato",
@@ -121,8 +132,17 @@ function DataTableSection() {
     const [selected, setSelected] = useState<string[]>([]);
     return (
         <>
-            <State label="3 righe + TableRowActions" column>
+            <State label="3 righe, cella a due righe, azioni al hover/focus (ultima colonna)" column>
                 <SampleTable />
+            </State>
+            <State label="colonna azioni dichiarata per prima: la tabella la sposta in coda · maniglia drag" column>
+                <SampleTable
+                    columns={[
+                        COLUMNS[3],
+                        { id: "drag", header: "", width: "40px", align: "center", cell: () => <DataTableDragHandle /> },
+                        ...COLUMNS.slice(0, 3)
+                    ]}
+                />
             </State>
             <State label="selectable (una selezionata)" column>
                 <SampleTable selectable selectedRowIds={selected} onSelectedRowsChange={setSelected} onBulkDelete={noop} />
@@ -133,18 +153,26 @@ function DataTableSection() {
             <State label="riga cliccabile" column>
                 <SampleTable onRowClick={noop} />
             </State>
-            <State label="loading" column>
+            <State label="loading: 5 righe Skeleton" column>
                 <SampleTable data={[]} isLoading />
             </State>
-            <State label="vuota" column>
+            <State label="vuota: EmptyState inline dentro la tabella" column>
                 <SampleTable
                     data={[]}
                     emptyState={{
-                        icon: <Inbox size={32} />,
+                        icon: <Inbox />,
                         title: "Nessun catalogo",
-                        description: "Crea il primo catalogo per vederlo qui."
+                        description: "Crea il primo catalogo per vederlo qui.",
+                        action: (
+                            <Button variant="primary" size="sm" leftIcon={<Plus size={14} />} onClick={noop}>
+                                Nuovo catalogo
+                            </Button>
+                        )
                     }}
                 />
+            </State>
+            <State label="vuota con filtro attivo (isFiltered): EmptyState filtered" column>
+                <SampleTable data={[]} isFiltered onClearFilters={noop} emptyState={{ title: "Nessun catalogo per «vini»" }} />
             </State>
         </>
     );

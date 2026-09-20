@@ -1,6 +1,8 @@
 import React from "react";
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
+import { GripVertical } from "lucide-react";
+import styles from "./DataTable.module.scss";
 
 interface SortableDataTableRowProps {
     id: string;
@@ -37,5 +39,26 @@ export function SortableDataTableRow({
                 return child;
             })}
         </div>
+    );
+}
+
+/**
+ * Maniglia di riordino: 16px, `gray-400`, cursore grab. Va nella cella della
+ * colonna di riordino, con i `dragHandleProps` che `SortableDataTableRow`
+ * passa al cell render (quarto argomento di `cell`).
+ */
+export function DataTableDragHandle({
+    className,
+    ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) {
+    return (
+        <button
+            type="button"
+            aria-label="Trascina per riordinare"
+            className={`${styles.dragHandle} ${className ?? ""}`}
+            {...props}
+        >
+            <GripVertical size={16} />
+        </button>
     );
 }

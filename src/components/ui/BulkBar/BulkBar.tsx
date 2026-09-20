@@ -1,5 +1,6 @@
 import { createPortal } from "react-dom";
 import { IconTrash, IconX } from "@tabler/icons-react";
+import Text from "@/components/ui/Text/Text";
 import styles from "./BulkBar.module.scss";
 
 export interface BulkBarProps {
@@ -21,8 +22,10 @@ export function BulkBar({
     if (selectedCount === 0) return null;
 
     return createPortal(
-        <div className={styles.bulkBar}>
-            <span className={styles.count}>{selectedCount} selezionati</span>
+        <div className={styles.bulkBar} role="toolbar" aria-label="Azioni sulla selezione">
+            <Text as="span" variant="body-sm" weight={600} className={styles.count}>
+                {selectedCount} selezionati
+            </Text>
             <div className={styles.separator} />
             {additionalActions}
             {onDelete && (

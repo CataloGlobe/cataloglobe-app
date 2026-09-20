@@ -1,3 +1,9 @@
+// DataTable — scheda «DataTable»: molte righe confrontate su più colonne.
+// Intestazione sticky --table-header-height (hover-bg, 12/600 uppercase
+// tracking .04em, text-muted) · righe --row-height con celle 12 24 · azioni
+// (TableRowActions) ultima colonna a destra, visibili al hover e al focus ·
+// footer 48 con paginazione · caricamento a righe Skeleton. Solo token.
+
 // Probe di misura per l'auto page size: si stretcha SOLO se il genitore è
 // una colonna flex vincolata (align-self + flex). In un genitore block resta
 // alto quanto il contenuto → il caso è riconosciuto come "non vincolato"
@@ -17,10 +23,10 @@
     display: flex;
     flex-direction: column;
     min-width: 0;
-    border: 1px solid var(--border, #e2e8f0);
-    border-radius: var(--radius-md, 12px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
     overflow: hidden;
-    background: var(--card-bg, #ffffff);
+    background: var(--surface);
     // NESSUN flex-grow: il `.table` resta shrink-to-fit (alto quanto il
     // contenuto). Il limite allo spazio disponibile arriva dal `max-height`
     // inline = probe reale misurato (vedi containerStyle in DataTable.tsx) →
@@ -35,29 +41,35 @@
     overflow-x: hidden;
 }
 
+// ── Intestazione ─────────────────────────────────────────────────────────────
+
 .header {
     position: sticky;
     top: 0;
-    z-index: 2;
+    z-index: var(--z-sticky);
     display: grid;
     align-items: center;
-    background: var(--hover-bg, #f1f5f9);
-    border-bottom: 1px solid var(--border, #e2e8f0);
+    background: var(--hover-bg);
+    border-bottom: 1px solid var(--border);
 }
 
 .headerCell {
     min-width: 0;
-    min-height: 44px;
+    min-height: var(--table-header-height);
     display: flex;
     align-items: center;
-    padding: 0 24px;
-    font-size: var(--text-caption, 12px);
+    padding: 0 var(--space-24);
+    // caption-xs 600 uppercase: il pavimento tipografico (§2), scritto qui
+    // perché l'intestazione è markup del componente, non un Text di pagina.
+    font-size: 12px;
     font-weight: 600;
-    color: var(--text, #0f172a);
-    opacity: 0.72;
+    line-height: 1.35;
+    color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
+
+// ── Righe ────────────────────────────────────────────────────────────────────
 
 .body {
     display: flex;
@@ -72,15 +84,15 @@
 .row {
     display: grid;
     align-items: center;
-    background: var(--card-bg, #ffffff);
-    border-bottom: 1px solid var(--border, #e2e8f0);
-    transition: background-color 0.18s ease;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    transition: background-color var(--timing-motion-fast) var(--easing-state);
 
     &:hover,
     // State retention: riga resta in hover finché un menu kebab interno è aperto
     // (Radix DropdownMenu trigger riceve [data-state="open"]).
     &:has([data-state="open"]) {
-        background: var(--hover-bg, #f1f5f9);
+        background: var(--hover-bg);
     }
 }
 
@@ -90,24 +102,69 @@
 
 .cell {
     min-width: 0;
-    min-height: 56px;
-    padding: 12px 24px;
+    min-height: var(--row-height);
+    padding: var(--space-12) var(--space-24);
     display: flex;
     align-items: center;
-    // Safe-default: allinea celle al token body-sm + font-family coerente
-    // anche quando il cell render passa stringhe raw (senza wrap in <Text>).
-    // I <Text variant="body-sm"> espliciti continuano a funzionare normalmente.
-    font-size: var(--text-body-sm, 0.875rem);
-    font-family: var(--preview-font-family, var(--pub-font-family, "Outfit", sans-serif));
+    // Safe-default: le celle leggono body-sm anche quando il cell render passa
+    // stringhe nude (senza <Text>). I <Text> espliciti restano padroni.
+    font-size: 0.875rem;
+    line-height: 1.5;
+    font-family: var(--preview-font-family, var(--pub-font-family, var(--font-sans)));
 }
 
+// Cella a due righe: titolo 14/500 + caption muta. Esportata per i consumer
+// (DATA_TABLE_CLASSES.cellTwoLine), così la pagina non dichiara font-size.
+.cellTwoLine {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    min-width: 0;
+
+    > :first-child {
+        font-size: 0.875rem;
+        font-weight: 500;
+        line-height: 1.4;
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    > :nth-child(2) {
+        font-size: 0.8125rem;
+        line-height: 1.4;
+        color: var(--text-muted);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
+// Colonna azioni (TableRowActions): ultima, a destra; le azioni compaiono
+// al hover e al focus della riga (sempre visibili su touch, dove il hover
+// non esiste). Padding ridotto: contiene un icon-button, non testo.
 .cellActions {
-    // Cella azioni: contiene icon-button 32×32, non testo.
-    // Padding orizzontale ridotto a 8px per lato (16 totali) così il button
-    // ha spazio sufficiente nella colonna width: 56px (56 - 16 - 32 = 8 di
-    // respiro residuo). Senza override, il button si schiaccia a ~8×32.
-    padding-left: 8px;
-    padding-right: 8px;
+    justify-content: flex-end;
+    padding-left: var(--space-8);
+    padding-right: var(--space-16);
+}
+
+.row .cellActions > * {
+    opacity: 0;
+    transition: opacity var(--timing-motion-fast) var(--easing-state);
+}
+
+.row:hover .cellActions > *,
+.row:focus-within .cellActions > *,
+.row:has([data-state="open"]) .cellActions > * {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    .row .cellActions > * {
+        opacity: 1;
+    }
 }
 
 .alignLeft {
@@ -125,83 +182,128 @@
     text-align: right;
 }
 
-.state {
-    min-height: 220px;
-    padding: 24px;
-    display: flex;
+// ── Caricamento: righe Skeleton (sai dove andrà il contenuto) ────────────────
+
+.rowSkeleton {
+    pointer-events: none;
+
+    &:hover {
+        background: var(--surface);
+    }
+}
+
+.skeletonBar {
+    border-radius: var(--radius-inner);
+}
+
+// ── Maniglia di riordino (SortableDataTableRow) ──────────────────────────────
+
+.dragHandle {
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-    text-align: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    border-radius: var(--radius-inner);
+    color: var(--gray-400);
+    cursor: grab;
+    touch-action: none;
+    transition: color var(--timing-motion-fast) var(--easing-state);
+
+    &:hover {
+        color: var(--text-muted);
+    }
+
+    &:active {
+        cursor: grabbing;
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
+    }
 }
 
 // ── Footer ───────────────────────────────────────────────────────────────────
 
 .footer {
     flex-shrink: 0;
-    border-top: 1px solid var(--border, #e2e8f0);
-    background: var(--card-bg, #ffffff);
+    border-top: 1px solid var(--border);
+    background: var(--surface);
 }
 
 .footerInner {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
-    padding: 10px 24px;
+    gap: var(--space-16);
+    padding: 0 var(--space-24);
     min-height: 48px;
 }
 
 .footerRight {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: var(--space-16);
 }
 
 .pageSizeSelector {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-8);
 }
 
 .pageSizeSelect {
     appearance: none;
-    background: var(--card-bg, #ffffff);
-    border: 1px solid var(--border, #e2e8f0);
-    border-radius: var(--radius-sm, 6px);
-    padding: 4px 26px 4px 10px;
-    font-size: 13px;
-    color: var(--text, #0f172a);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    // Raggio interno del wrapper (12 − 6): un controllo dentro il footer.
+    border-radius: calc(var(--radius-surface) - 6px);
+    padding: var(--space-4) 26px var(--space-4) var(--space-10);
+    font-size: 0.8125rem;
+    color: var(--text);
     cursor: pointer;
+    // Chevron nel data URL: non accetta var(), resta slate-500 (= --gray-500
+    // chiaro); in scuro è comunque leggibile su --surface.
     background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
     background-repeat: no-repeat;
-    background-position: right 8px center;
+    background-position: right var(--space-8) center;
 
-    &:focus {
-        outline: 2px solid var(--brand-primary, #6366f1);
-        outline-offset: 1px;
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
     }
 }
 
 .paginationControls {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-10);
 }
 
 .paginationButton {
     background: none;
-    border: 1px solid var(--border, #e2e8f0);
-    border-radius: var(--radius-sm, 6px);
-    padding: 4px 6px;
+    border: 1px solid var(--border);
+    border-radius: calc(var(--radius-surface) - 6px);
+    padding: var(--space-4) var(--space-6);
     cursor: pointer;
-    color: var(--text, #0f172a);
+    color: var(--text);
     display: flex;
     align-items: center;
     justify-content: center;
-    transition: all 0.18s ease;
+    transition:
+        background-color var(--timing-motion-fast) var(--easing-state),
+        opacity var(--timing-motion-fast) var(--easing-state);
 
     &:hover:not(:disabled) {
-        background-color: var(--hover-bg, #f1f5f9);
+        background-color: var(--hover-bg);
+    }
+
+    &:focus-visible {
+        outline: none;
+        box-shadow: var(--shadow-focus);
     }
 
     &:disabled {
@@ -210,37 +312,38 @@
     }
 }
 
-// ── Selection ────────────────────────────────────────────────────────────────
+// ── Selezione ────────────────────────────────────────────────────────────────
 
-.checkboxCell {
-    padding-left: 16px !important;
-    padding-right: 8px !important;
+.cell.checkboxCell,
+.headerCell.checkboxCell {
+    padding-left: var(--space-16);
+    padding-right: var(--space-8);
 }
 
 .checkbox {
     width: 16px;
     height: 16px;
     cursor: pointer;
-    accent-color: var(--brand-primary, #6366f1);
+    accent-color: var(--brand-primary);
     flex-shrink: 0;
 }
 
-.rowSelected {
-    background: color-mix(in srgb, var(--brand-primary, #6366f1) 8%, transparent) !important;
+.row.rowSelected {
+    background: var(--brand-primary-soft);
 
     &:hover {
-        background: color-mix(in srgb, var(--brand-primary, #6366f1) 14%, transparent) !important;
+        background: var(--brand-primary-soft-hover);
     }
 }
 
-// ── Disabled state (es. salvataggio in corso, sola lettura) ─────────────────
+// ── Riga disabilitata (es. salvataggio in corso, sola lettura) ───────────────
 
 .rowDisabled {
-    opacity: 0.5;
+    opacity: 0.6;
     pointer-events: none;
 }
 
-// ── Highlight transitorio (amber → transparent in 2s) ───────────────────────
+// ── Riga evidenziata (appena creata): success-50 che si spegne in 2 s ───────
 
 .rowHighlighted {
     animation: rowHighlightFade 2s ease-out forwards;
@@ -248,9 +351,15 @@
 
 @keyframes rowHighlightFade {
     0% {
-        background-color: var(--color-warning-100, #fef3c7);
+        background-color: var(--success-50);
     }
     100% {
         background-color: transparent;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .rowHighlighted {
+        animation: none;
     }
 }
