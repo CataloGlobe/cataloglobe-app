@@ -36,7 +36,7 @@
   flex-direction: column;
   overflow: hidden;
 
-  background: #ffffff;
+  background: var(--surface);
   border-radius: 20px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.05);
 
@@ -92,7 +92,7 @@
   gap: 16px;
 
   padding: 14px 20px;
-  background: #ffffff;
+  background: var(--surface);
 
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
@@ -129,7 +129,7 @@
   overflow-y: auto;
   min-height: 0;
 
-  background: #ffffff;
+  background: var(--surface);
   border-right: 1px solid rgba(0, 0, 0, 0.06);
 
   // transition: opacity 0.2s ease;
@@ -162,7 +162,9 @@
   min-height: 0;
   overflow: hidden;
   padding: 20px;
-  background: linear-gradient(180deg, #f6f7fb 0%, #f3f4f8 100%);
+  // Era un gradiente #f6f7fb → #f3f4f8: nessun token equivalente, --bg è il
+  // fondo di pagina più vicino (segnalato nel report del lotto 2c).
+  background: var(--bg);
 }
 
 .contentWrapper {
@@ -241,7 +243,7 @@
   align-items: center;
   justify-content: center;
 
-  background: #ffffff;
+  background: var(--surface);
   border: 1px solid rgba(0, 0, 0, 0.12);
   cursor: pointer;
 
@@ -252,7 +254,7 @@
   transition: background 0.2s, box-shadow 0.2s, border-radius 0.3s ease;
 
   &:hover {
-    background: #f9f9fb;
+    background: var(--color-bg-subtle);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
   }
 
@@ -260,12 +262,12 @@
   svg {
     width: 18px;
     height: 18px;
-    color: #333;
+    color: var(--gray-800);
   }
 }
 
 .collapseToggle:hover {
-  background: #f9f9fb;
+  background: var(--color-bg-subtle);
   box-shadow: 4px 0 14px rgba(0, 0, 0, 0.14);
 }
 
@@ -280,7 +282,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 12px;
-  background: #ffffff;
+  background: var(--surface);
   border-top: 1px solid rgba(0, 0, 0, 0.06);
 }
 

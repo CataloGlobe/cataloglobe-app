@@ -1,4 +1,10 @@
-// Wrapper container (passato come `containerClassName` a InputBase):
+// ToolbarSearch — scheda «ToolbarSearch»: la ricerca nell'header band.
+// Altezza --control-height, padding 0 12 (36 a sinistra per la lente),
+// raggio --radius-control, focus --shadow-focus: tutto ereditato da
+// SearchInput/TextInput.module.scss, che è già sui token. Qui solo la
+// larghezza e la geometria della banda.
+//
+// Wrapper container (passato come `containerClassName` a FormField):
 // larghezza fissa, uguale a ogni viewport.
 //
 // NIENTE `width: 100%` sotto una soglia: la larghezza deve restare quella reale
@@ -13,10 +19,9 @@
 }
 
 // `inputClassName` applicata direttamente all'<input> interno
-// (vedi SearchInput.tsx). Altezza esterna armonizzata col cluster
-// header band via border-box + height.
+// (vedi SearchInput.tsx). Altezza a filo del cluster header band.
 .input {
   box-sizing: border-box;
-  height: var(--control-height, 38px);
+  height: var(--control-height);
   line-height: 1;
 }

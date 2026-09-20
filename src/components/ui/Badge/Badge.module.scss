@@ -1,54 +1,65 @@
+// Badge — scheda «Badge»: un qualificatore o un contatore, inerte, senza
+// colore semantico. Altezza 20, padding 0 6, raggio --radius-inner, 12/500.
+// Due varianti: neutral (default) e brand. Solo token, nessuna regola
+// [data-theme="dark"] locale: le coppie fondo/testo seguono il tema da sole.
+
 .badge {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-4);
+  box-sizing: border-box;
+  height: 20px;
+  padding: 0 var(--space-6);
+  border-radius: var(--radius-inner);
   white-space: nowrap;
-
-  padding: 2px 6px;
-  border-radius: 3px;
-
-  background-color: var(--badge-bg, var(--brand-primary));
-  color: var(--badge-color, #fff);
-
   user-select: none;
+
+  background-color: var(--badge-bg, var(--hover-bg));
+  color: var(--badge-color, var(--gray-800));
 }
 
-/* Varianti */
+/* ===== Varianti del sistema ===== */
+
+.neutral {
+  --badge-bg: var(--hover-bg);
+  --badge-color: var(--gray-800);
+}
+
+.brand {
+  --badge-bg: var(--brand-primary-soft);
+  --badge-color: var(--brand-primary);
+}
+
+/* ===== Deprecate — rendono come prima, sui token. Il colore semantico
+   appartiene a StatusBadge (regola 8: il colore non è mai da solo). Si
+   tolgono nel lotto 6, dopo la migrazione delle pagine. ===== */
+
 .primary {
   --badge-bg: var(--brand-primary);
-  --badge-color: #fff;
+  --badge-color: var(--on-brand);
 }
 
 .secondary {
-  --badge-bg: #e6ebf0;
+  --badge-bg: var(--border);
   --badge-color: var(--text);
 }
 
-/* Stesso difetto della variante warning: `--success-500` non è mai definito,
-   quindi il fill cadeva sul fallback `#22c55e` con testo bianco (2.28:1).
-   Coppia di DESIGN.md §5 per StatusBadge success → 6.78:1. */
 .success {
-  --badge-bg: var(--color-green-100, #d1fae5);
-  --badge-color: var(--color-green-800, #065f46);
+  --badge-bg: var(--success-100);
+  --badge-color: var(--success-800);
 }
 
-/* `--danger-500` non esiste: il fill cadeva su `#ef4444` con testo bianco
-   (3.76:1). Fill tenue + testo scuro come le altre semantiche → 6.80:1. */
 .danger {
-  --badge-bg: var(--color-red-100, #fee2e2);
-  --badge-color: var(--color-red-800, #991b1b);
+  --badge-bg: var(--danger-100);
+  --badge-color: var(--danger-800);
 }
 
-/* Ramp ambra di DESIGN.md (§2 Semantic), non un token danger: la variante
-   leggeva `--danger-500` — mai definito — e cadeva sul fallback `#edb20e`,
-   senape con testo bianco a ~1.9:1, sotto il minimo di 4.5:1 (DESIGN.md §6).
-   Fill tenue + testo scuro è anche la coppia già usata da ogni altro segnale
-   ambra del backoffice (StatusBadge warning, .badgeDraft, .activatePill). */
 .warning {
-  --badge-bg: var(--color-warning-100, #fef3c7);
-  --badge-color: var(--color-warning-800, #92400e);
+  --badge-bg: var(--warning-100);
+  --badge-color: var(--warning-800);
 }
 
-/* Positioning */
+/* Positioning (deprecato) */
 .absolute {
   pointer-events: none;
 }

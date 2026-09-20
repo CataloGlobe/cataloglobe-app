@@ -85,7 +85,7 @@
   flex: none;      /* override .deviceFrame { flex: 1 } */
   max-height: none; /* override .deviceFrame { max-height: 100% } */
   border-radius: 24px;
-  background: #fff;
+  background: var(--color-white);
   border: 1px solid var(--color-border);
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
 }
@@ -98,7 +98,7 @@
   flex: none;      /* override .deviceFrame { flex: 1 } */
   max-height: none; /* override .deviceFrame { max-height: 100% } */
   border-radius: 16px;
-  background: #fff;
+  background: var(--color-white);
   border: 1px solid var(--color-border);
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
 }
@@ -113,6 +113,8 @@
 .deviceBezel {
   box-sizing: content-box;
   border-style: solid;
+  // Grafite del dispositivo, uguale in entrambi i temi: nessun token
+  // equivalente in _theme.scss (segnalato nel report del lotto 2c).
   border-color: #1c1c1e;
   background: #1c1c1e;
   box-shadow:
@@ -150,7 +152,7 @@
   flex: none;      /* override .deviceFrame { flex: 1 } */
   max-height: none; /* override .deviceFrame { max-height: 100% } */
   border-radius: 12px;
-  background: #fff;
+  background: var(--color-white);
   border: 1px solid var(--color-border);
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.08);
 }
@@ -162,7 +164,7 @@
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  background: #fff;
+  background: var(--color-white);
   scrollbar-width: none;
 
   &::-webkit-scrollbar {
@@ -181,5 +183,5 @@
   width: 100%;
   display: block;
   border: 0;
-  background: #fff;
+  background: var(--color-white);
 }

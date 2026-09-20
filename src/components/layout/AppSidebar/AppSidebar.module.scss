@@ -1,5 +1,11 @@
 @use 'sass:math';
 
+// AppSidebar — scheda «AppSidebar»: fondo --surface, bordo destro --border,
+// voce 40 con padding 0 12 e raggio --radius-control, attiva
+// brand-primary-soft + brand-primary, hover --hover-bg, gap 2, --z-nav.
+// Titolo di gruppo 12/600 uppercase text-muted (`.groupTitle`, pronto per
+// il costruttore del lotto 3). Solo token: nel tema scuro segue --surface.
+
 /* ===== Spacing scale ===== */
 $scroll-padding-x: 12px;
 $nav-padding-x-collapsed: 4px;
@@ -11,8 +17,8 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 
 .sidebar {
   position: relative;
-  background: #FFFFFF;
-  border-right: 1px solid var(--border, #e2e8f0);
+  background: var(--surface);
+  border-right: 1px solid var(--border);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -23,6 +29,8 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   height: 100%;
 }
 
+// Strati invariati (50/40): la scala --z-* entra con il layout nel lotto 3,
+// insieme ad AppHeader, che oggi sta a 50.
 .mobile {
   position: fixed;
   inset: 0;
@@ -41,7 +49,7 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 
 /* ===== Mobile header (close button) ===== */
 .mobileHeader {
-  padding: 12px;
+  padding: var(--space-12);
   display: flex;
   justify-content: flex-end;
 }
@@ -51,7 +59,7 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 12px;
+  padding: $scroll-padding-x;
 }
 
 /* ===== Nav (gaps come from dividers, not from nav gap) ===== */
@@ -63,8 +71,21 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 
 .groupDivider {
   height: 1px;
-  background: #E5E7EB;
-  margin: 10px 0;
+  background: var(--border);
+  margin: var(--space-10) 0;
+}
+
+/* Titolo di gruppo: 12/600 uppercase muta. Il corpo (12px) lo mette
+   `Text variant="caption-xs"` nel markup (lotto 3): questo modulo è nel
+   perimetro del budget e non dichiara font-size. */
+.groupTitle {
+  padding: var(--space-8) $item-padding-x var(--space-4);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
 }
 
 .list {
@@ -72,7 +93,7 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 2px;
+  gap: var(--space-2);
 }
 
 .link {
@@ -80,20 +101,27 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   display: flex;
   align-items: center;
   justify-content: flex-start;
-  padding: 12px;
-  height: 35px;
+  padding: 0 $item-padding-x;
+  height: 40px;
   box-sizing: border-box;
-  border-radius: 8px;
-  color: #64748b;
+  border-radius: var(--radius-control);
+  color: var(--text-muted);
   font-weight: 500;
   font-size: 14px;
   text-decoration: none;
-  transition: all 0.2s;
+  transition:
+    background var(--timing-motion-fast) var(--easing-state),
+    color var(--timing-motion-fast) var(--easing-state);
 
   &:hover {
     text-decoration: none;
-    background: #f8fafc;
-    color: #0f172a;
+    background: var(--hover-bg);
+    color: var(--text);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
   }
 }
 
@@ -106,31 +134,30 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   flex: 1 1 auto;
   white-space: nowrap;
   max-width: 220px;
-  margin-inline-start: 10px;
+  margin-inline-start: var(--space-10);
   overflow: hidden;
   opacity: 1;
   transition: opacity 0.16s ease 0.06s, max-width 0.22s ease, margin-inline-start 0.22s ease;
 }
 
-/* Voce annunciata ma non navigabile. Attenuata, ma sopra 4.5:1 sul bianco
-   (#94A3B8 sarebbe 2.8:1): resta leggibile, non è un placeholder illeggibile. */
+/* Voce annunciata ma non navigabile («In arrivo»): attenuata, con tooltip. */
 .disabled {
-  color: #94a3b8;
+  color: var(--gray-400);
   cursor: default;
 
   &:hover {
     background: transparent;
-    color: #94a3b8;
+    color: var(--gray-400);
   }
 }
 
 .active {
-  background: rgba(99, 102, 241, 0.1);
-  color: #6366f1;
+  background: var(--brand-primary-soft);
+  color: var(--brand-primary);
 
   &:hover {
-    background: rgba(99, 102, 241, 0.15);
-    color: #6366f1;
+    background: var(--brand-primary-soft-hover);
+    color: var(--brand-primary);
   }
 }
 
@@ -141,7 +168,7 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   top: 6px;
   bottom: 6px;
   width: 3px;
-  background: #6366F1;
+  background: var(--brand-primary);
   border-radius: 0 2px 2px 0;
 }
 
@@ -160,7 +187,8 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   padding: 0 $nav-padding-x-collapsed;
 }
 
-.sidebar[data-collapsed="true"] .label {
+.sidebar[data-collapsed="true"] .label,
+.sidebar[data-collapsed="true"] .groupTitle {
   opacity: 0;
   max-width: 0;
   margin-inline-start: 0;
@@ -169,8 +197,8 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 
 /* ===== Collapse footer ===== */
 .collapseFooter {
-  border-top: 1px solid #F1F2F4;
-  padding: 8px $footer-padding-x-expanded;
+  border-top: 1px solid var(--border);
+  padding: var(--space-8) $footer-padding-x-expanded;
   display: flex;
   justify-content: flex-start;
   flex-shrink: 0;
@@ -178,31 +206,33 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 }
 
 .sidebar[data-collapsed="true"] .collapseFooter {
-  padding: 8px calc((var(--sidebar-collapsed) - #{$toggle-size}) / 2);
+  padding: var(--space-8) calc((var(--sidebar-collapsed) - #{$toggle-size}) / 2);
 }
 
 .collapseToggle {
   position: relative;
   width: $toggle-size;
   height: $toggle-size;
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   border: none;
   background: transparent;
-  color: #94A3B8;
+  color: var(--gray-400);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background 0.1s, color 0.1s;
+  transition:
+    background var(--timing-motion-fast) var(--easing-state),
+    color var(--timing-motion-fast) var(--easing-state);
 
   &:hover {
-    background: #F8FAFC;
-    color: #475569;
+    background: var(--hover-bg);
+    color: var(--gray-600);
   }
 
   &:focus-visible {
-    outline: 2px solid #A5B4FC;
-    outline-offset: 2px;
+    outline: none;
+    box-shadow: var(--shadow-focus);
   }
 }
 
@@ -241,7 +271,7 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  right: 8px;
+  right: var(--space-8);
   width: 7px;
   height: 7px;
   border-radius: 50%;

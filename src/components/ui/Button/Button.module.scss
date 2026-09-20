@@ -1,13 +1,22 @@
-@use "@styles/variables" as *;
+// Button — scheda «Button» del design system (§5). Solo token di _theme.scss.
+// Altezza fissa: md = --control-height (38), sm = 30. `lg` è un alias di md
+// (0 usi al 20/09/2026), `outline` è un alias di `secondary`.
 
 .button {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.45rem;
+  gap: var(--space-6);
+  box-sizing: border-box;
 
-  border-radius: 8px;
-  font-weight: 500;
+  height: var(--control-height);
+  padding: 0 14px;
+
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text);
+
   line-height: 1;
   cursor: pointer;
   white-space: nowrap;
@@ -15,121 +24,105 @@
   text-decoration: none;
 
   transition:
-    background 0.2s ease,
-    color 0.2s ease,
-    box-shadow 0.2s ease,
-    border-color 0.2s ease;
+    background var(--timing-motion-fast) var(--easing-state),
+    color var(--timing-motion-fast) var(--easing-state),
+    border-color var(--timing-motion-fast) var(--easing-state),
+    box-shadow var(--timing-motion-fast) var(--easing-state);
 
   &:focus-visible {
     outline: none;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    box-shadow: var(--shadow-focus);
   }
 
   &.loading {
-    cursor: not-allowed;
+    cursor: progress;
   }
 
+  // L'etichetta è un <Text variant="button">: la scheda dice 14/13px 500,
+  // senza tracking. Il peso arriva da Button.tsx (weight=500).
   .label {
     display: flex;
+    font-size: 14px;
+    letter-spacing: normal;
+    color: inherit;
   }
 }
 
 /* Sizes */
-.size-sm {
-  padding: 0.4rem 0.65rem;
-  font-size: 0.8rem;
-}
-
-.size-md {
-  padding: 0.55rem 0.9rem;
-  font-size: 0.9rem;
-}
-
+.size-md,
 .size-lg {
-  padding: 0.7rem 1.1rem;
-  font-size: 1rem;
+  height: var(--control-height);
+  padding: 0 14px;
+}
+
+.size-sm {
+  height: 30px;
+  padding: 0 10px;
+
+  .label {
+    font-size: 13px;
+  }
 }
 
 /* Variants */
 .variant-primary {
   background: var(--brand-primary);
-  border: none;
+  border-color: var(--brand-primary);
+  color: var(--on-brand);
 
   &:hover {
     background: var(--brand-primary-hover);
-  }
-
-  span {
-    color: #fff;
+    border-color: var(--brand-primary-hover);
   }
 }
 
-.variant-secondary {
-  background: #e6ebf0;
-  border: none;
-
-  &:hover {
-    background: #dbe2e8;
-  }
-
-  span {
-    color: var(--text);
-  }
-}
-
+.variant-secondary,
 .variant-outline {
-  background-color: transparent;
-  border: 1px solid var(--brand-primary);
-
-  span {
-    color: var(--brand-primary);
-  }
+  background: var(--surface);
+  border-color: var(--border);
+  color: var(--text);
 
   &:hover {
-    background-color: rgba(0, 0, 0, 0.04);
-  }
-
-  &:active {
-    background-color: rgba(0, 0, 0, 0.08);
+    background: var(--hover-bg);
   }
 }
 
 .variant-ghost {
   background: transparent;
-  border: none;
+  color: var(--text);
 
   &:hover {
-    background: var(--hover-bg, #f3f4f6);
-  }
-
-  span {
-    color: var(--text);
+    background: var(--hover-bg);
   }
 }
 
 .variant-danger {
-  background: #dc2626;
-  border: none;
+  background: var(--danger);
+  border-color: var(--danger);
+  color: var(--color-white);
 
-  span {
-    color: #fff;
+  &:hover {
+    background: var(--danger-800);
+    border-color: var(--danger-800);
+  }
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus-danger);
   }
 }
 
+// Non nella scheda (1 uso): resta come «secondary in tono danger».
 .variant-outline-danger {
-  background-color: transparent;
-  border: 1px solid #dc2626;
-
-  span {
-    color: #dc2626;
-  }
+  background: var(--surface);
+  border-color: var(--text-danger);
+  color: var(--text-danger);
 
   &:hover {
-    background-color: rgba(220, 38, 38, 0.06);
+    background: var(--danger-50);
   }
 
-  &:active {
-    background-color: rgba(220, 38, 38, 0.12);
+  &:focus-visible {
+    box-shadow: var(--shadow-focus-danger);
   }
 }
 
@@ -148,15 +141,21 @@
 .icon {
   display: inline-flex;
   align-items: center;
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
 }
 
-/* Loader */
+/* Loader: spinner 14 al posto dell'icona, etichetta resta, colore ereditato. */
 .spinner {
   width: 14px;
   height: 14px;
+  flex-shrink: 0;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-top-color: #fff;
+  border: 2px solid color-mix(in srgb, currentColor 35%, transparent);
+  border-top-color: currentColor;
   animation: spin 0.7s linear infinite;
 }
 
@@ -166,7 +165,16 @@
   }
 }
 
-/* IconButton */
+/* IconButton: quadrato, 38×38 / 30×30 */
 .iconOnly {
-  padding-inline: 0.5rem;
+  width: var(--control-height);
+  padding: 0;
+
+  &.size-sm {
+    width: 30px;
+  }
+
+  .label {
+    display: inline-flex;
+  }
 }

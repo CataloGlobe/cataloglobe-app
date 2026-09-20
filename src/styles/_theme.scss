@@ -90,6 +90,12 @@
   // Testo "buona notizia" (es. risparmio dell'annuale sotto il prezzo):
   // green-700, 5.6:1 su bianco.
   --text-success: #047857;
+  // Testo di errore e di avviso su bg/surface: in chiaro coincidono con
+  // --danger e --warning-700, in scuro salgono di due passi (red-400,
+  // amber-400) per restare sopra 4,5:1. I fill (danger-*, warning-*)
+  // restano quelli: questi sono solo per il testo nudo.
+  --text-danger: #dc2626;
+  --text-warning: #b45309;
   --color-danger: #dc2626; // = $error in _variables.scss
   // Rampa slate unica (§44.3): 300/400 passano da gray a slate.
   --color-gray-300: #cbd5e1;
@@ -240,6 +246,8 @@
   // del root scende sotto 3:1 su --bg dark).
   --text-muted: #94a3b8;
   --text-success: #34d399; // 9:1 su --bg dark
+  --text-danger: #f87171; // red-400
+  --text-warning: #fbbf24; // amber-400
 
   // Rampa grigi FASE 2: mirror simmetrico sulla scala slate (300↔600,
   // 400↔500, 800→chiaro) per restare leggibile su sfondo scuro. Nessun

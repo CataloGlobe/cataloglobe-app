@@ -67,7 +67,7 @@ export const CheckboxInput = forwardRef<HTMLInputElement, CheckboxProps>(
                             <Text
                                 as="span"
                                 variant="caption"
-                                color="#94a3b8"
+                                colorVariant="muted"
                                 className={styles.description}
                             >
                                 {description}

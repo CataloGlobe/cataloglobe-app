@@ -1,9 +1,16 @@
+// StatusBadge — scheda «StatusBadge»: puntino + parola, sempre. Altezza 22,
+// padding 0 10 0 8, gap 6, raggio --radius-pill, 12/500. Ogni variante è una
+// coppia fondo -100 / testo -800 con puntino -500: il puntino è ciò che rende
+// lo stato leggibile senza colore. Solo token, nessun override per tema.
+
 .badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 10px;
-    border-radius: 999px;
+    gap: var(--space-6);
+    box-sizing: border-box;
+    height: 22px;
+    padding: 0 var(--space-10) 0 var(--space-8);
+    border-radius: var(--radius-pill);
     font-size: 12px;
     font-weight: 500;
     line-height: 1;
@@ -19,49 +26,51 @@
 }
 
 .success {
-    background-color: #D1FAE5;
-    color: #065F46;
+    background-color: var(--success-100);
+    color: var(--success-800);
 
     .dot {
-        background-color: #10B981;
+        background-color: var(--success-500);
     }
 }
 
+// Neutro: non c'è una rampa -100/-800, è la coppia del Badge neutro (bozza,
+// non assegnato, chiuso). Puntino gray-400, come le icone spente.
 .neutral {
-    background-color: #F3F4F6;
-    color: #6B7280;
+    background-color: var(--hover-bg);
+    color: var(--gray-800);
 
     .dot {
-        background-color: #9CA3AF;
+        background-color: var(--gray-400);
     }
 }
 
 .warning {
-    background-color: var(--color-warning-100, #fef3c7);
-    color: var(--color-warning-700, #b45309);
+    background-color: var(--warning-100);
+    color: var(--warning-800);
 
     .dot {
-        background-color: var(--color-warning-500, #f59e0b);
+        background-color: var(--warning-500);
     }
 }
 
-// Indaco/brand: stato "manuale" (theme-aware: viola in light, blu in dark).
+// Nuova: fallito, scaduto, sospesa per pagamento.
+.danger {
+    background-color: var(--danger-100);
+    color: var(--danger-800);
+
+    .dot {
+        background-color: var(--danger);
+    }
+}
+
+// In corso, in traduzione. info-100 = brand-primary-soft; il testo info-800
+// è l'unico token che cambia col tema (indigo scuro / indigo chiaro).
 .info {
-    background-color: var(--brand-primary-soft);
-    color: var(--brand-primary);
+    background-color: var(--info-100);
+    color: var(--info-800);
 
     .dot {
         background-color: var(--brand-primary);
-    }
-}
-
-// Ambra tenue: stato "in traduzione" (job pending). Più soft di .warning
-// (= "da rivedere") per distinguere lavoro-in-corso da azione-richiesta.
-.pending {
-    background-color: var(--color-warning-50, #fffbeb);
-    color: var(--color-warning-700, #b45309);
-
-    .dot {
-        background-color: var(--color-warning-500, #f59e0b);
     }
 }

@@ -16,18 +16,18 @@
     max-width: 320px;
 
     .icon {
-        color: #9CA3AF;
+        color: var(--gray-400);
     }
 
     .title {
         font-size: 14px;
         font-weight: 500;
-        color: #6B7280;
+        color: var(--text-muted);
     }
 
     .description {
         font-size: 12px;
-        color: #9CA3AF;
+        color: var(--gray-400);
         max-width: 280px;
     }
 
@@ -45,6 +45,9 @@
     font-size: 18px;
     font-weight: 600;
     margin: 0;
+    // L'h3 globale di _typography.scss è $brand-dark (#1e1b4b): nel tema
+    // scuro sparisce. Il titolo legge il token, come tutto il resto.
+    color: var(--text);
 }
 
 .description {
