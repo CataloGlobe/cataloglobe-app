@@ -100,6 +100,13 @@ function InlineBannerSection() {
             <State label="info" column>
                 <InlineBanner variant="info">Le modifiche compaiono nella pagina pubblica entro un minuto.</InlineBanner>
             </State>
+            <State label="icona custom · testo lungo con azione" column>
+                <InlineBanner variant="warning" icon={<Info size={16} aria-hidden />}>
+                    Hai usato tutte le 3 sedi pagate: per aggiungerne un'altra serve un posto in più nel piano.
+                    Le sedi esistenti continuano a funzionare come prima.{" "}
+                    <a href="#toast">Vai al piano</a>
+                </InlineBanner>
+            </State>
         </>
     );
 }
