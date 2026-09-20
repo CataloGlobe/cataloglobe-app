@@ -60,10 +60,10 @@
   color: var(--text-color-success, var(--text-success));
 }
 .color-error {
-  color: var(--text-color-error, var(--danger));
+  color: var(--text-color-error, var(--text-danger));
 }
 .color-warning {
-  color: var(--text-color-warning, var(--warning-700));
+  color: var(--text-color-warning, var(--text-warning));
 }
 .color-info {
   color: var(--text-color-info, var(--brand-primary));
