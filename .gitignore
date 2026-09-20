@@ -68,6 +68,9 @@ CSS_REFINEMENTS_AUDIT.md
 node-compile-cache/
 .vercel
 
+# Bun native addon cache (creato da tool esterni che girano su Bun, non dal progetto)
+.bun-*.node
+
 # Backup .md curati manualmente (CLAUDE.md, MEMORY.md) — tenuti locali per rollback
 *.original.md
 
