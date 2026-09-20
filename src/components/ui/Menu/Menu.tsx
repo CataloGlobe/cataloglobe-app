@@ -33,7 +33,8 @@ export function Menu({ trigger, children, align = "start", side = "bottom" }: Me
 interface MenuItemProps {
     children: ReactNode;
     icon?: React.ComponentType<{ size?: number }>;
-    variant?: "default" | "destructive";
+    /** `destructive` in --danger (va in fondo, dopo un divisore); `accent` in brand per l'azione che fa avanzare (es. «Pubblica»). */
+    variant?: "default" | "destructive" | "accent";
     onSelect?: () => void;
     disabled?: boolean;
     /**
@@ -54,7 +55,7 @@ function MenuItem({
     href,
     target
 }: MenuItemProps) {
-    const className = `${styles.item}${variant === "destructive" ? ` ${styles.danger}` : ""}`;
+    const className = `${styles.item}${variant === "destructive" ? ` ${styles.danger}` : variant === "accent" ? ` ${styles.accent}` : ""}`;
     const content = (
         <>
             {Icon && <Icon size={16} />}

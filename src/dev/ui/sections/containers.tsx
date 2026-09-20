@@ -5,7 +5,8 @@ import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
-import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { DataTableDragHandle } from "@/components/ui/DataTable/SortableDataTableRow";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -32,7 +33,17 @@ const ROW_ACTIONS = [
 ];
 
 const COLUMNS: ColumnDefinition<Row>[] = [
-    { id: "name", header: "Nome", accessor: r => r.name },
+    {
+        id: "name",
+        header: "Nome",
+        accessor: r => r.name,
+        cell: (v, row) => (
+            <div className={DATA_TABLE_CLASSES.cellTwoLine}>
+                <span>{v}</span>
+                <span>{row.status === "success" ? "Aggiornato ieri" : "Mai pubblicato"}</span>
+            </div>
+        )
+    },
     {
         id: "status",
         header: "Stato",
@@ -55,20 +66,15 @@ function SampleTable(props: Partial<React.ComponentProps<typeof DataTable<Row>>>
 function CardSection() {
     return (
         <>
-            <State label="Card con titolo" column>
+            <State label="con titolo" column>
                 <Card title="Informazioni">
                     <Text variant="body-sm">Il contenuto della card.</Text>
                 </Card>
             </State>
-            <State label="Card senza titolo · noHoverLift" column>
-                <Card noHoverLift>
-                    <Text variant="body-sm">Senza titolo, senza lift.</Text>
-                </Card>
-            </State>
-            <State label="SectionCard con titolo, badge, sottotitolo, 2 azioni" column>
-                <SectionCard
+            <State label="con titolo, badge, sottotitolo, 2 azioni" column>
+                <Card
                     title="Varianti"
-                    badge={<Badge variant="secondary">3</Badge>}
+                    badge={<Badge>3</Badge>}
                     subtitle="Visibili nella pagina pubblica"
                     actions={
                         <>
@@ -82,24 +88,39 @@ function CardSection() {
                     }
                 >
                     <Text variant="body-sm">Body della sezione.</Text>
-                </SectionCard>
+                </Card>
             </State>
-            <State label="SectionCard senza titolo" column>
-                <SectionCard>
+            <State label="senza titolo" column>
+                <Card>
                     <Text variant="body-sm">Il body parte in alto: nessun header, nessun divisore.</Text>
-                </SectionCard>
+                </Card>
             </State>
-            <State label="SectionCard danger" column>
-                <SectionCard title="Zona pericolosa" variant="danger" subtitle="Le azioni qui sotto non si annullano.">
-                    <Button variant="danger" size="sm" onClick={noop}>
-                        Elimina sede
-                    </Button>
-                </SectionCard>
+            <State label="danger: l'azione sta nell'header, il body resta neutro" column>
+                <Card
+                    title="Zona pericolosa"
+                    variant="danger"
+                    subtitle="Le azioni qui sotto non si annullano."
+                    actions={
+                        <Button variant="danger" size="sm" onClick={noop}>
+                            Elimina sede
+                        </Button>
+                    }
+                >
+                    <Text variant="body-sm">Eliminando la sede perdi tavoli, prenotazioni e QR collegati.</Text>
+                </Card>
             </State>
-            <State label="SectionCard flush + DataTable" column>
-                <SectionCard title="Cataloghi" flush>
+            <State label="flush + DataTable" column>
+                <Card title="Cataloghi" flush>
                     <SampleTable />
+                </Card>
+            </State>
+            <State label="alias deprecato: SectionCard · noHoverLift (warn in dev)" column>
+                <SectionCard title="SectionCard">
+                    <Text variant="body-sm">Rende una Card identica.</Text>
                 </SectionCard>
+                <Card noHoverLift>
+                    <Text variant="body-sm">noHoverLift è ignorato: nessuna card ha più il lift.</Text>
+                </Card>
             </State>
         </>
     );
@@ -111,8 +132,17 @@ function DataTableSection() {
     const [selected, setSelected] = useState<string[]>([]);
     return (
         <>
-            <State label="3 righe + TableRowActions" column>
+            <State label="3 righe, cella a due righe, azioni al hover/focus (ultima colonna)" column>
                 <SampleTable />
+            </State>
+            <State label="colonna azioni dichiarata per prima: la tabella la sposta in coda · maniglia drag" column>
+                <SampleTable
+                    columns={[
+                        COLUMNS[3],
+                        { id: "drag", header: "", width: "40px", align: "center", cell: () => <DataTableDragHandle /> },
+                        ...COLUMNS.slice(0, 3)
+                    ]}
+                />
             </State>
             <State label="selectable (una selezionata)" column>
                 <SampleTable selectable selectedRowIds={selected} onSelectedRowsChange={setSelected} onBulkDelete={noop} />
@@ -123,18 +153,26 @@ function DataTableSection() {
             <State label="riga cliccabile" column>
                 <SampleTable onRowClick={noop} />
             </State>
-            <State label="loading" column>
+            <State label="loading: 5 righe Skeleton" column>
                 <SampleTable data={[]} isLoading />
             </State>
-            <State label="vuota" column>
+            <State label="vuota: EmptyState inline dentro la tabella" column>
                 <SampleTable
                     data={[]}
                     emptyState={{
-                        icon: <Inbox size={32} />,
+                        icon: <Inbox />,
                         title: "Nessun catalogo",
-                        description: "Crea il primo catalogo per vederlo qui."
+                        description: "Crea il primo catalogo per vederlo qui.",
+                        action: (
+                            <Button variant="primary" size="sm" leftIcon={<Plus size={14} />} onClick={noop}>
+                                Nuovo catalogo
+                            </Button>
+                        )
                     }}
                 />
+            </State>
+            <State label="vuota con filtro attivo (isFiltered): EmptyState filtered" column>
+                <SampleTable data={[]} isFiltered onClearFilters={noop} emptyState={{ title: "Nessun catalogo per «vini»" }} />
             </State>
         </>
     );
@@ -167,18 +205,31 @@ function EmptyStateSection() {
     );
     return (
         <>
-            <State label="default con azione" column>
-                <EmptyState icon={<Inbox size={32} />} title="Nessuna sede" description="Aggiungi la prima sede per pubblicare un menù." action={action} />
+            <State label="page (default): icona 32, titolo, riga, azione obbligatoria" column>
+                <EmptyState icon={<Inbox />} title="Nessuna sede" description="Aggiungi la prima sede per pubblicare un menù." action={action} />
             </State>
-            <State label="default senza azione" column>
-                <EmptyState icon={<Inbox size={32} />} title="Nessuna sede" description="Nessuna sede ancora." />
+            <State label="page con slot children fra riga e azione" column>
+                <EmptyState icon={<Inbox />} title="Solo tu" description="Invita chi lavora con te: ognuno vede solo le sedi che gli assegni." action={action}>
+                    <Text variant="caption" colorVariant="muted">
+                        Manager · Staff · Visualizzatore
+                    </Text>
+                </EmptyState>
             </State>
-            <State label="compact" column>
-                <EmptyState icon={<Inbox size={24} />} title="Nessuna sede" compact action={action} />
+            <State label="inline (in una card): icona 20, azione opzionale" column>
+                <Card title="Cataloghi" flush>
+                    <EmptyState icon={<Inbox />} title="Nessun catalogo" description="Questo prodotto non è incluso in nessun catalogo." variant="inline" action={action} />
+                </Card>
+                <Card title="Programmazione" flush>
+                    <EmptyState icon={<Inbox />} title="Nessuna regola coinvolge questo prodotto." variant="inline" />
+                </Card>
             </State>
-            <State label="inline con e senza azione" column>
-                <EmptyState icon={<Inbox size={16} />} title="Nessun risultato" variant="inline" action={action} />
-                <EmptyState icon={<Inbox size={16} />} title="Nessun risultato" description="Nessun risultato per «pizza»." variant="inline" />
+            <State label="filtered: una riga + «Azzera filtri»" column>
+                <Card flush>
+                    <EmptyState title="Nessun risultato per «pizza»" variant="filtered" onClearFilters={noop} />
+                </Card>
+            </State>
+            <State label="alias deprecato: compact (= inline, warn in dev)" column>
+                <EmptyState icon={<Inbox />} title="Nessuna sede" compact action={action} />
             </State>
         </>
     );
@@ -265,7 +316,7 @@ function QrCodeWithActionsSection() {
 }
 
 export const containersSections: GallerySection[] = [
-    { id: "card", title: "Card · SectionCard", sheet: "Card", Component: CardSection },
+    { id: "card", title: "Card", sheet: "Card", Component: CardSection },
     { id: "datatable", title: "DataTable", sheet: "DataTable", Component: DataTableSection },
     { id: "tablerowactions", title: "TableRowActions", sheet: "Menu", Component: TableRowActionsSection },
     { id: "emptystate", title: "EmptyState", sheet: "EmptyState", Component: EmptyStateSection },

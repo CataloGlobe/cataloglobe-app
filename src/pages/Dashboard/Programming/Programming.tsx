@@ -4,11 +4,7 @@ import { Globe, Building2, Users, AlertCircle, FileText, Loader2, Calendar, Chev
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { Button } from "@/components/ui/Button/Button";
-import ModalLayout, {
-    ModalLayoutContent,
-    ModalLayoutFooter,
-    ModalLayoutHeader
-} from "@/components/ui/ModalLayout/ModalLayout";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 import { usePageHeader } from "@/context/usePageHeader";
@@ -1765,29 +1761,15 @@ export default function Programming() {
                     setIsSimulatorDrawerOpen(true);
                 }}
             />
-            <ModalLayout
+            <ConfirmDialog
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
-                width="xs"
-                height="fit"
-            >
-                <ModalLayoutHeader>
-                    <Text as="h3" variant="title-sm">
-                        Eliminare regola?
-                    </Text>
-                </ModalLayoutHeader>
-                <ModalLayoutContent>
-                    <Text variant="body-sm">Questa azione è irreversibile.</Text>
-                </ModalLayoutContent>
-                <ModalLayoutFooter>
-                    <Button variant="secondary" onClick={() => setIsDeleteModalOpen(false)}>
-                        Annulla
-                    </Button>
-                    <Button variant="danger" onClick={handleDeleteConfirm}>
-                        Elimina
-                    </Button>
-                </ModalLayoutFooter>
-            </ModalLayout>
+                onConfirm={handleDeleteConfirm}
+                title="Eliminare regola?"
+                message="Questa azione è irreversibile."
+                confirmLabel="Elimina"
+                confirmVariant="danger"
+            />
         </section>
             )}
         </PageGate>

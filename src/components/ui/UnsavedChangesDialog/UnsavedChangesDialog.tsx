@@ -1,11 +1,7 @@
 import { useState } from "react";
-import ModalLayout, {
-    ModalLayoutContent,
-    ModalLayoutFooter,
-    ModalLayoutHeader,
-} from "@/components/ui/ModalLayout/ModalLayout";
 import { Button } from "@/components/ui/Button/Button";
-import Text from "@/components/ui/Text/Text";
+import { ConfirmDialogShell } from "@/components/ui/ConfirmDialog/ConfirmDialogShell";
+import styles from "@/components/ui/ConfirmDialog/ConfirmDialog.module.scss";
 
 type Props = {
     isOpen: boolean;
@@ -27,10 +23,11 @@ type Props = {
 };
 
 /**
- * Dialog a 3 opzioni (2 senza `onSaveAndExit`) per guard su uscita con
- * modifiche non salvate: cambio tab intercettato dalla pagina, o navigazione
- * interna bloccata da `UnsavedChangesGuardHost`. Costruito su ModalLayout,
- * stesso pattern di ConfirmDialog.
+ * La variante «esci senza salvare» di ConfirmDialog (scheda «ConfirmDialog»):
+ * 3 opzioni (2 senza `onSaveAndExit`) per la guardia su uscita con
+ * modifiche non salvate — cambio tab intercettato dalla pagina, o
+ * navigazione interna bloccata da `UnsavedChangesGuardHost`. Stesso
+ * contenitore di ConfirmDialog; il focus iniziale è su «Resta».
  */
 export function UnsavedChangesDialog({
     isOpen,
@@ -54,30 +51,29 @@ export function UnsavedChangesDialog({
     };
 
     return (
-        <ModalLayout isOpen={isOpen} onClose={onCancel} width="sm" height="fit">
-            <ModalLayoutHeader>
-                <Text variant="title-sm" weight={600}>
-                    {title}
-                </Text>
-            </ModalLayoutHeader>
-            <ModalLayoutContent>
-                <Text variant="body-sm" colorVariant="muted">
-                    {message}
-                </Text>
-            </ModalLayoutContent>
-            <ModalLayoutFooter>
-                <Button variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
-                    {cancelLabel}
-                </Button>
-                <Button variant="secondary" size="sm" onClick={onDiscard} disabled={saving}>
-                    Esci senza salvare
-                </Button>
-                {onSaveAndExit && (
-                    <Button variant="primary" size="sm" onClick={handleSaveAndExit} loading={saving}>
-                        Salva ed esci
+        <ConfirmDialogShell
+            isOpen={isOpen}
+            onClose={onCancel}
+            locked={saving}
+            title={title}
+            message={message}
+            footer={
+                <>
+                    <Button variant="ghost" size="sm" onClick={onCancel} disabled={saving} data-autofocus>
+                        {cancelLabel}
                     </Button>
-                )}
-            </ModalLayoutFooter>
-        </ModalLayout>
+                    <div className={styles.footerRight}>
+                        <Button variant="secondary" size="sm" onClick={onDiscard} disabled={saving}>
+                            Esci senza salvare
+                        </Button>
+                        {onSaveAndExit && (
+                            <Button variant="primary" size="sm" onClick={handleSaveAndExit} loading={saving}>
+                                Salva ed esci
+                            </Button>
+                        )}
+                    </div>
+                </>
+            }
+        />
     );
 }

@@ -1,72 +1,18 @@
-import { ReactNode } from "react";
-import styles from "./SectionCard.module.scss";
+import { Card, type CardProps } from "@/components/ui/Card/Card";
 
 /**
- * Box-sezione unificato del gestionale (variante A compatta, spec approvata).
- * Anatomia: titolo (16px bold, sentence case — mai maiuscoletto) +
- * sottotitolo opzionale (spiega la sezione a un utente non tecnico) +
- * divisore hairline sempre presente + 0–2 azioni sm in header (1 → secondary,
- * 2 → ghost + secondary; mai due bottoni pieni: il primary della pagina è il
- * Salva in HeaderSaveAction). Il layout a colonne appartiene alla pagina,
- * non al componente. I titoletti in maiuscoletto sopravvivono solo come
- * label di gruppo DENTRO il body (markup del contenuto, non prop).
+ * @deprecated `SectionCard` si chiama `Card` (`ui/Card/Card.tsx`): stessa
+ * anatomia, stesse prop. Alias di compatibilità — si rimuove nel lotto 6.
  */
-export interface SectionCardProps {
-    /**
-     * Titolo (16px bold). Opzionale: ometterlo quando il contenuto porta già la
-     * propria intestazione (es. il campo immagine prodotto, il cui header
-     * `label · ratio + icone` è la fonte di verità condivisa con gli altri
-     * punti immagine). Se assente — e senza badge/subtitle/actions — l'header
-     * (e il suo divisore) non viene renderizzato: il body parte in alto.
-     */
-    title?: string;
-    /** Badge/conteggio inline subito dopo il titolo (es. numero varianti). */
-    badge?: ReactNode;
-    /** Una riga che previene errori (es. "Visibili nella pagina pubblica"). */
-    subtitle?: string;
-    /** 0–2 bottoni `sm` allineati al titolo. */
-    actions?: ReactNode;
-    /** `danger`: cornice rossa per zone distruttive, body neutro. */
-    variant?: "default" | "danger";
-    /** Body senza padding orizzontale (righe tabellari, collassabili). */
-    flush?: boolean;
-    /** Escape hatch — usare con parsimonia: se serve spesso, è la spec da rivedere. */
-    bodyClassName?: string;
-    children: ReactNode;
-}
+export type SectionCardProps = CardProps;
 
-export function SectionCard({
-    title,
-    badge,
-    subtitle,
-    actions,
-    variant = "default",
-    flush = false,
-    bodyClassName,
-    children
-}: SectionCardProps) {
-    const hasHeader = Boolean(title || badge || subtitle || actions);
-    return (
-        <section className={`${styles.card} ${variant === "danger" ? styles.danger : ""}`}>
-            {hasHeader && (
-                <header className={styles.header}>
-                    <div className={styles.headerText}>
-                        {badge ? (
-                            <span className={styles.titleRow}>
-                                {title && <span className={styles.title}>{title}</span>}
-                                <span className={styles.badge}>{badge}</span>
-                            </span>
-                        ) : (
-                            title && <span className={styles.title}>{title}</span>
-                        )}
-                        {subtitle && <span className={styles.subtitle}>{subtitle}</span>}
-                    </div>
-                    {actions && <div className={styles.actions}>{actions}</div>}
-                </header>
-            )}
-            <div className={`${styles.body} ${flush ? styles.flush : ""} ${bodyClassName ?? ""}`}>
-                {children}
-            </div>
-        </section>
-    );
+let warned = false;
+
+/** @deprecated Usa `Card` da `ui/Card/Card.tsx`. */
+export function SectionCard(props: SectionCardProps) {
+    if (import.meta.env.DEV && !warned) {
+        warned = true;
+        console.warn("[SectionCard] deprecato: usa Card (ui/Card/Card.tsx), stessa anatomia e stesse prop");
+    }
+    return <Card {...props} />;
 }
