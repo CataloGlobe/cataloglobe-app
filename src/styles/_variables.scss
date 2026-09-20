@@ -1,4 +1,51 @@
-// Definisci solo variabili
+// ⚠️ DEPRECATO (design system M17, lotto 0) — i valori del sistema stanno in
+// `_theme.scss` (custom property `--*`, chiaro + scuro). Questa palette
+// Bootstrap-like non coincide con la rampa slate del sistema e non cambia in
+// tema scuro: non aggiungere nuovi consumer. Si svuota nel lotto 6, quando
+// gli import sono a zero.
+//
+// Consumer residui al 20/09/2026 (`grep -rl "@use \"@styles/variables\"" src`, 40 file):
+//   src/styles/_typography.scss
+//   src/styles/global.scss
+//   src/components/ui/InlineBanner/InlineBanner.module.scss
+//   src/components/ui/AppLoader/AppLoader.module.scss
+//   src/components/ui/Card/Card.module.scss
+//   src/components/ui/ImageUploadField/ImageUploadField.module.scss
+//   src/components/ui/Input/CheckboxInput.module.scss
+//   src/components/ui/Input/InputBase.module.scss
+//   src/components/ui/Input/RangeInput.module.scss
+//   src/components/ui/Input/TextInput.module.scss
+//   src/components/ui/Input/FileInput.module.scss
+//   src/components/ui/Skeleton/Skeleton.module.scss
+//   src/components/ui/Toast/Toast.module.scss
+//   src/components/ui/PasswordRequirements/PasswordRequirements.module.scss
+//   src/components/ui/Button/SplitButton.module.scss
+//   src/components/ui/Button/Button.module.scss
+//   src/components/ui/Textarea/Textarea.module.scss
+//   src/components/ui/SegmentedControl/SegmentedControl.module.scss
+//   src/components/ui/Switch/Switch.module.scss
+//   src/components/ui/Text/Text.module.scss
+//   src/components/ui/Select/Select.module.scss
+//   src/components/Businesses/BusinessList/BusinessList.module.scss
+//   src/components/Businesses/BusinessCard/BusinessCard.module.scss
+//   src/components/PublicCollectionView/CollectionView/CollectionView.module.scss
+//   src/components/layout/Footer/Footer.module.scss
+//   src/components/Profile/Profile.module.scss
+//   src/layouts/AuthLayout/AuthLayout.module.scss
+//   src/pages/Auth/Auth.module.scss
+//   src/pages/Operativita/Attivita/tabs/printers/components/PrinterGuideModal.module.scss
+//   src/pages/Dashboard/Businesses/Businesses.module.scss
+//   src/pages/Dashboard/Settings/DeleteAccountDrawer.module.scss
+//   src/pages/Dashboard/Styles/StyleDeleteDrawer.module.scss
+//   src/pages/Dashboard/Programming/components/RuleTypeHelpModal.module.scss
+//   src/pages/Dashboard/Programming/components/CalendarView.module.scss
+//   src/pages/Dashboard/Catalogs/CatalogDeleteDrawer.module.scss
+//   src/pages/Dashboard/Programming/ProgrammingRuleDetail.module.scss
+//   src/pages/Dashboard/Programming/components/PriorityGroup.module.scss
+//   src/pages/Dashboard/Programming/Programming.module.scss
+//   src/pages/Dashboard/Programming/components/PrioritySection.module.scss
+//   src/pages/Dashboard/Analytics/Analytics.module.scss
+
 $brand-primary: #6366f1;
 $brand-dark: #1e1b4b;
 $text-color: #1f2937;

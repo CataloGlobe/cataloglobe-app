@@ -88,6 +88,9 @@ export type LayoutRuleOption = {
     name: string;
     tenant_id: string;
     slug?: string;
+    /** Solo activities: stato pubblicazione sede (mirror di `activities.status`). */
+    status?: "active" | "inactive";
+    inactive_reason?: "maintenance" | "closed" | "unavailable" | null;
     is_system?: boolean;
     current_version?: { version: number } | null;
     /** Set for variant products (parent_product_id IS NOT NULL). */
@@ -788,7 +791,7 @@ export async function listLayoutRuleOptions(tenantId: string): Promise<{
         await Promise.all([
             supabase
                 .from("activities")
-                .select("id, name, tenant_id, slug")
+                .select("id, name, tenant_id, slug, status, inactive_reason")
                 .eq("tenant_id", tenantId)
                 .order("name", { ascending: true }),
             supabase

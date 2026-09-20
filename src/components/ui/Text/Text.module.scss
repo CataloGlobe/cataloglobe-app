@@ -1,8 +1,10 @@
-@use "@styles/variables" as *;
 @use "@styles/typography" as typography;
 
 .text {
-  font-family: var(--preview-font-family, var(--pub-font-family, "Outfit", sans-serif));
+  // Back office: --font-sans (_theme.scss). Pagina pubblica: il font del tenant
+  // via --pub-font-family (PublicThemeScope); la preview dello Style Editor
+  // lo sovrascrive con --preview-font-family.
+  font-family: var(--preview-font-family, var(--pub-font-family, var(--font-sans)));
   margin: 0;
   padding: 0;
 }
@@ -44,31 +46,34 @@
   }
 }
 
-/* --- Color Variants --- */
+/* --- Color Variants ---
+   Back office: token di _theme.scss (chiaro + scuro). Dentro PublicThemeScope
+   le --text-color-* (public-theme.scss) congelano i valori storici finché la
+   pagina pubblica non ha il suo contratto tipografico. */
 .color-default {
-  color: $text-color;
+  color: var(--text-color-default, var(--text));
 }
 .color-muted {
-  color: $gray-600;
+  color: var(--text-color-muted, var(--text-muted));
 }
 .color-success {
-  color: $success;
+  color: var(--text-color-success, var(--text-success));
 }
 .color-error {
-  color: $error;
+  color: var(--text-color-error, var(--danger));
 }
 .color-warning {
-  color: $warning;
+  color: var(--text-color-warning, var(--warning-700));
 }
 .color-info {
-  color: $info;
+  color: var(--text-color-info, var(--brand-primary));
 }
 .color-primary {
-  color: $brand-primary;
+  color: var(--text-color-primary, var(--brand-primary));
 }
 .color-dark {
-  color: $brand-dark;
+  color: var(--text-color-dark, var(--text));
 }
 .color-white {
-  color: $white;
+  color: var(--text-color-white, var(--on-brand));
 }

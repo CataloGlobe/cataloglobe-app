@@ -56,8 +56,8 @@ $typography-scale: (
   ),
 
   caption: (
-    mobile: 0.825rem,
-    desktop: 0.825rem,
+    mobile: 0.8125rem, // 13px esatti (era 0.825rem = 13,2px)
+    desktop: 0.8125rem,
     weight: 400,
     lh: 1.4
   ),

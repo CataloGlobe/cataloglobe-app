@@ -62,3 +62,21 @@
     0 4px 14px rgba(0, 0, 0, 0.14),
     0 0 2px rgba(0, 0, 0, 0.1);
 }
+
+// Radice della pagina pubblica = il wrapper di PublicThemeScope, l'unico nodo
+// che imposta `data-card-treatment`. Le classi .color-* di Text leggono
+// var(--text-color-<variante>, <token admin>): qui dentro vincono questi
+// valori, fuori (back office) i token di _theme.scss.
+// Valori congelati al 20/09/2026 (erano le $variabili di _variables.scss),
+// fino al contratto della pagina pubblica.
+[data-card-treatment] {
+  --text-color-default: #1f2937;
+  --text-color-muted: #495057;
+  --text-color-success: #16a34a;
+  --text-color-error: #dc2626;
+  --text-color-warning: #d97706;
+  --text-color-info: #2563eb;
+  --text-color-primary: #6366f1;
+  --text-color-dark: #1e1b4b;
+  --text-color-white: #ffffff;
+}
