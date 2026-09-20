@@ -528,6 +528,24 @@ export default function SubscriptionPage() {
                     message: "Non siamo riusciti a verificare lo stato del tuo abbonamento. Non ti è stato addebitato nulla: riprova tra qualche istante.",
                     type: "error"
                 });
+            } else if (code === "invalid_vat_number") {
+                // Gate fiscale server-side di stripe-checkout. Qui il profilo è di
+                // norma già valido (impostato alla creazione), ma la P.IVA può
+                // essere stata modificata dopo: messaggio esplicito, non generico.
+                showToast({
+                    message: "La Partita IVA dell'azienda non è valida. Correggila nei dati di fatturazione e riprova.",
+                    type: "error"
+                });
+            } else if (code === "missing_einvoice_recipient") {
+                showToast({
+                    message: "Con la Partita IVA serve un recapito per la fattura elettronica: aggiungi il Codice Destinatario SDI o la PEC nei dati di fatturazione.",
+                    type: "error"
+                });
+            } else if (code === "fiscal_profile_unavailable") {
+                showToast({
+                    message: "Non siamo riusciti a leggere i dati di fatturazione. Non ti è stato addebitato nulla: riprova tra qualche istante.",
+                    type: "error"
+                });
             } else {
                 showToast({ message: "Errore nell'avvio del checkout. Riprova.", type: "error" });
             }
