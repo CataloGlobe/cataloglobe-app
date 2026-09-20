@@ -40,6 +40,7 @@ import {
 } from "@/lib/permissions";
 import { usePlanFeatures, type PlanFeature } from "@/lib/planFeatures";
 import { SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED } from "@/constants/layout";
+import { businessRouteLabel } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
 
 interface NavItem {
     to: string;
@@ -89,7 +90,7 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             items: [
                 {
                     to: `${b}/overview`,
-                    label: "Panoramica",
+                    label: businessRouteLabel("overview"),
                     icon: <LayoutDashboard size={18} />,
                     end: true
                 }
@@ -99,15 +100,15 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             title: "Operatività",
             icon: <Briefcase size={12} />,
             items: [
-                { to: `${b}/locations`, label: "Sedi", icon: <Store size={18} />,
+                { to: `${b}/locations`, label: businessRouteLabel("locations"), icon: <Store size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "activity.read") },
-                { to: `${b}/orders`, label: "Ordini", icon: <ClipboardList size={18} />,
+                { to: `${b}/orders`, label: businessRouteLabel("orders"), icon: <ClipboardList size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "orders.read"),
                   requiresFeature: "table_ordering" },
-                { to: `${b}/reservations`, label: "Prenotazioni", icon: <CalendarCheck size={18} />,
+                { to: `${b}/reservations`, label: businessRouteLabel("reservations"), icon: <CalendarCheck size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "reservations.read"),
                   requiresFeature: "table_reservation" },
-                { to: `${b}/scheduling`, label: "Programmazione", icon: <Calendar size={18} />,
+                { to: `${b}/scheduling`, label: businessRouteLabel("scheduling"), icon: <Calendar size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "scheduling.read") }
             ]
         },
@@ -115,26 +116,26 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             title: "Contenuti",
             icon: <FolderOpen size={12} />,
             items: [
-                { to: `${b}/catalogs`, label: catalogLabel, icon: <BookOpen size={18} />,
+                { to: `${b}/catalogs`, label: businessRouteLabel("catalogs", { catalogLabel }), icon: <BookOpen size={18} />,
                   permission: perms => canDoOnTenant(perms, "catalogs.read"),
                   showImportBadge: true },
-                { to: `${b}/products`, label: "Prodotti", icon: <Archive size={18} />,
+                { to: `${b}/products`, label: businessRouteLabel("products"), icon: <Archive size={18} />,
                   permission: perms => canDoOnTenant(perms, "products.read") },
                 {
                     to: `${b}/featured`,
-                    label: "Contenuti in evidenza",
+                    label: businessRouteLabel("featured"),
                     icon: <Pin size={18} />,
                     permission: perms => canDoOnAnyActivity(perms, "featured.read")
                 },
                 {
                     to: `${b}/stories`,
-                    label: "Storie",
+                    label: businessRouteLabel("stories"),
                     icon: <BookOpenText size={18} />,
                     permission: perms => canDoOnAnyActivity(perms, "stories.read")
                 },
-                { to: `${b}/styles`, label: "Stili", icon: <Palette size={18} />,
+                { to: `${b}/styles`, label: businessRouteLabel("styles"), icon: <Palette size={18} />,
                   permission: perms => canDoOnTenant(perms, "styles.read") },
-                { to: `${b}/languages`, label: "Lingue", icon: <Languages size={18} />,
+                { to: `${b}/languages`, label: businessRouteLabel("languages"), icon: <Languages size={18} />,
                   permission: perms => canDoOnTenant(perms, "catalogs.read"),
                   showTranslationBadge: true }
             ]
@@ -143,9 +144,9 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             title: "Insight",
             icon: <TrendingUp size={12} />,
             items: [
-                { to: `${b}/analytics`, label: "Analitiche", icon: <BarChart3 size={18} />,
+                { to: `${b}/analytics`, label: businessRouteLabel("analytics"), icon: <BarChart3 size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "analytics.read") },
-                { to: `${b}/reviews`, label: "Recensioni", icon: <MessageSquare size={18} />,
+                { to: `${b}/reviews`, label: businessRouteLabel("reviews"), icon: <MessageSquare size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "reviews.read") },
                 // Sta in Insight e non in Operatività: nessuno compila la
                 // rubrica: si popola da sola dall'interazione con gli
@@ -153,7 +154,7 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
                 // resta `table_reservation` finché le prenotazioni sono
                 // l'unica sorgente dei profili — quando arriveranno anche
                 // dagli ordini al tavolo andrà allargato, non spostato.
-                { to: `${b}/guests`, label: "Clienti", icon: <BookUser size={18} />,
+                { to: `${b}/guests`, label: businessRouteLabel("guests"), icon: <BookUser size={18} />,
                   permission: perms => canDoOnAnyActivity(perms, "guests.read"),
                   requiresFeature: "table_reservation" }
             ]
@@ -162,13 +163,13 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
             title: "Sistema",
             icon: <Cpu size={12} />,
             items: [
-                { to: `${b}/team`, label: "Team", icon: <Users size={18} />,
+                { to: `${b}/team`, label: businessRouteLabel("team"), icon: <Users size={18} />,
                   permission: perms => canDoOnTenant(perms, "team.read") },
-                { to: `${b}/subscription`, label: "Abbonamento", icon: <CreditCard size={18} />,
+                { to: `${b}/subscription`, label: businessRouteLabel("subscription"), icon: <CreditCard size={18} />,
                   permission: perms => canDoOnTenant(perms, "billing.read") },
                 {
                     to: `${b}/settings`,
-                    label: "Impostazioni",
+                    label: businessRouteLabel("settings"),
                     icon: <Settings size={18} />,
                     end: true
                 },
@@ -183,7 +184,7 @@ function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
                 // l'indirizzo email con cui chiedere aiuto lo stesso.
                 {
                     to: `${b}/support`,
-                    label: "Assistenza",
+                    label: businessRouteLabel("support"),
                     icon: <LifeBuoy size={18} />,
                     permission: perms => canDoOnTenant(perms, "support.read"),
                     showUnreadDot: true

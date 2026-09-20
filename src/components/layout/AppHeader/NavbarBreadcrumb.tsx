@@ -28,7 +28,7 @@ import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useSedeScope } from "@/hooks/useSedeScope";
 import { SedeScopeSelect } from "@/components/ui/SedeScopeSelect/SedeScopeSelect";
 import {
-    ROUTE_LABELS,
+    businessRouteLabel,
     SEDE_NAVBAR_ROUTES,
     SEDE_SINGLE_SITE_ROUTES,
     resolveBusinessRoute,
@@ -72,8 +72,7 @@ export function NavbarBreadcrumb() {
 
         if (!routeInfo.key || !routeInfo.basePath) return [];
 
-        const label =
-            routeInfo.key === "catalogs" ? catalogLabel : ROUTE_LABELS[routeInfo.key];
+        const label = businessRouteLabel(routeInfo.key, { catalogLabel });
 
         if (routeInfo.isDetail) {
             // Detail route senza items registrati (fase di caricamento iniziale,

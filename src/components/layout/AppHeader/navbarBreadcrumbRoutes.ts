@@ -1,9 +1,7 @@
 // ============================================================
-// Mappa statica route → label IT per il NavbarBreadcrumb.
-//
-// Una sola fonte locale al refactor header: NON sostituisce
-// `PAGE_TITLES` in MainLayout (usata per il <title> del browser)
-// finché il cleanup finale del refactor non le unifica.
+// Mappa statica route → label IT. Fonte unica del nome di pagina: la
+// consumano sia NavbarBreadcrumb/Sidebar sia il <title> del browser
+// (MainLayout, via `businessRouteLabel`).
 // ============================================================
 
 /** Chiavi dei top-level segments delle route business. */
@@ -22,7 +20,10 @@ export type BusinessRouteKey =
     | "analytics"
     | "team"
     | "subscription"
-    | "settings";
+    | "settings"
+    | "guests"
+    | "support"
+    | "stories";
 
 /** Route business su cui il SedeScopeSelect deve apparire nella navbar.
  *  Distinto dal concettuale `SEDE_SCOPED_ROUTES` (sedeScopeStore): qui
@@ -43,9 +44,10 @@ export const SEDE_SINGLE_SITE_ROUTES = new Set<BusinessRouteKey>([
     "orders"
 ]);
 
-/** Label IT canonica per ogni voce di sidebar. Per `catalogs`
- *  il valore qui è solo fallback: il caller usa `useVerticalConfig().catalogLabel`
- *  per rispettare la verticale tenant (es. "Menu" vs "Catalogo"). */
+/** Label IT canonica per ogni voce di sidebar. Per le chiavi in
+ *  `VERTICAL_LABEL_KEYS` (es. `catalogs`) il valore qui è solo fallback: usa
+ *  `businessRouteLabel` sotto, mai questa mappa direttamente, per rispettare
+ *  la verticale tenant (es. "Menu" vs "Catalogo"). */
 export const ROUTE_LABELS: Record<BusinessRouteKey, string> = {
     overview: "Panoramica",
     locations: "Sedi",
@@ -54,15 +56,37 @@ export const ROUTE_LABELS: Record<BusinessRouteKey, string> = {
     scheduling: "Programmazione",
     catalogs: "Cataloghi",
     products: "Prodotti",
-    featured: "Contenuti in evidenza",
+    featured: "In evidenza",
     styles: "Stili",
     languages: "Lingue",
     reviews: "Recensioni",
     analytics: "Analitiche",
     team: "Team",
     subscription: "Abbonamento",
-    settings: "Impostazioni"
+    settings: "Impostazioni",
+    guests: "Clienti",
+    support: "Assistenza",
+    stories: "Storie"
 };
+
+/** Chiavi la cui label dipende dalla verticale del tenant (es. "Menu" vs
+ *  "Catalogo" per un food & beverage vs altri verticali). Unica fonte di
+ *  questa regola: aggiungere qui, non nei singoli reader. */
+export const VERTICAL_LABEL_KEYS = new Set<BusinessRouteKey>(["catalogs"]);
+
+/**
+ * Label canonica di una route business. Per le chiavi in `VERTICAL_LABEL_KEYS`
+ * ritorna `catalogLabel` se fornita (altrimenti il fallback in `ROUTE_LABELS`);
+ * per tutte le altre ignora `catalogLabel` e ritorna sempre `ROUTE_LABELS[key]`.
+ * Ogni lettore (breadcrumb, sidebar, <title>) passa da qui: è l'unico posto in
+ * cui la regola del verticale può essere dimenticata.
+ */
+export function businessRouteLabel(key: BusinessRouteKey, options?: { catalogLabel?: string }): string {
+    if (VERTICAL_LABEL_KEYS.has(key)) {
+        return options?.catalogLabel ?? ROUTE_LABELS[key];
+    }
+    return ROUTE_LABELS[key];
+}
 
 export interface BusinessRouteInfo {
     /** Top-level key se la route è una pagina business riconosciuta; null se siamo

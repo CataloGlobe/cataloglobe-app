@@ -14,6 +14,8 @@ import { useTenantId } from "@/context/useTenantId";
 import { usePageTitle } from "@/hooks/usePageTitle";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { resolveBusinessRoute, businessRouteLabel } from "@components/layout/AppHeader/navbarBreadcrumbRoutes";
 import { useAiImportSession } from "@/hooks/useAiImportSession";
 import { useAiUsage } from "@/hooks/useAiUsage";
 import { useCheckoutReturnSync } from "@/hooks/useCheckoutReturnSync";
@@ -25,23 +27,15 @@ import styles from "./MainLayout.module.scss";
 
 const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
 
-const PAGE_TITLES: Record<string, string> = {
-    overview: 'Panoramica',
-    products: 'Prodotti',
-    catalogs: 'Cataloghi',
-    locations: 'Sedi',
-    scheduling: 'Programmazione',
-    featured: 'In Evidenza',
-    styles: 'Stili',
-    attributes: 'Attributi',
-    reviews: 'Recensioni',
-    analytics: 'Analytics',
-    team: 'Team',
-    subscription: 'Abbonamento',
-    settings: 'Impostazioni',
-};
-
-function resolvePageTitle(businessId: string, pathname: string): string | undefined {
+/**
+ * Titolo di pagina per il <title> del browser. `resolvePageTitle` è
+ * module-level e non può chiamare `useVerticalConfig()`: `catalogLabel` arriva
+ * come argomento, letto dal componente. Le route di dettaglio restano
+ * parsate a mano (servono i segment 2/3, non solo la top-level key); per le
+ * route piatte la label passa da `businessRouteLabel` — fonte unica condivisa
+ * con breadcrumb e sidebar.
+ */
+function resolvePageTitle(businessId: string, pathname: string, catalogLabel: string): string | undefined {
     const prefix = `/business/${businessId}/`;
     const rest = pathname.startsWith(prefix) ? pathname.slice(prefix.length) : '';
     const segments = rest.split('/').filter(Boolean);
@@ -49,15 +43,16 @@ function resolvePageTitle(businessId: string, pathname: string): string | undefi
     const second = segments[1] ?? '';
     const third = segments[2] ?? '';
 
-    if (first === 'scheduling' && second === 'featured' && third) return 'Regola In Evidenza';
-    if (second && first === 'products') return 'Dettaglio Prodotto';
-    if (second && first === 'catalogs') return 'Dettaglio Catalogo';
-    if (second && first === 'locations') return 'Dettaglio Sede';
-    if (second && first === 'scheduling') return 'Dettaglio Regola';
-    if (second && first === 'featured') return 'Dettaglio In Evidenza';
-    if (second && first === 'styles') return 'Editor Stile';
+    if (first === 'scheduling' && second === 'featured' && third) return 'Regola in evidenza';
+    if (second && first === 'products') return 'Dettaglio prodotto';
+    if (second && first === 'catalogs') return `Dettaglio ${catalogLabel.toLowerCase()}`;
+    if (second && first === 'locations') return 'Dettaglio sede';
+    if (second && first === 'scheduling') return 'Dettaglio regola';
+    if (second && first === 'featured') return 'Dettaglio in evidenza';
+    if (second && first === 'styles') return 'Editor stile';
 
-    return PAGE_TITLES[first];
+    const { key } = resolveBusinessRoute(pathname, businessId);
+    return key ? businessRouteLabel(key, { catalogLabel }) : undefined;
 }
 
 export default function MainLayout() {
@@ -69,7 +64,8 @@ export default function MainLayout() {
     // link the tenant before the "no subscription" gate below can bounce it.
     const checkoutSync = useCheckoutReturnSync();
 
-    const pageName = businessId ? resolvePageTitle(businessId, pathname) : undefined;
+    const { catalogLabel } = useVerticalConfig();
+    const pageName = businessId ? resolvePageTitle(businessId, pathname, catalogLabel) : undefined;
     const tenantName = selectedTenant?.name;
     usePageTitle(pageName && tenantName ? `${pageName} — ${tenantName}` : pageName);
 
