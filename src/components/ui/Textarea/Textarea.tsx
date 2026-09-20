@@ -1,5 +1,5 @@
 import React, { forwardRef } from "react";
-import { InputBase } from "../Input/InputBase";
+import { FormField } from "../FormField/FormField";
 import styles from "./Textarea.module.scss";
 
 export type TextareaProps = Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "size"> & {
@@ -33,7 +33,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
         ref
     ) => {
         return (
-            <InputBase
+            <FormField
                 id={id}
                 label={label}
                 tooltip={tooltip}
@@ -57,7 +57,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
                         {...props}
                     />
                 )}
-            </InputBase>
+            </FormField>
         );
     }
 );

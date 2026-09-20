@@ -6,9 +6,13 @@ import { Button } from "@/components/ui/Button/Button";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { SplitButton } from "@/components/ui/Button/SplitButton";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
+import { Chip } from "@/components/ui/Chip/Chip";
+import { ChipGroupSingle, ChipGroupMultiple } from "@/components/ui/Chip/ChipGroup";
 import { Pill } from "@/components/ui/Pill/Pill";
 import { PillGroupSingle } from "@/components/ui/PillGroup/PillGroupSingle";
-import { PillGroupMultiple } from "@/components/ui/PillGroup/PillGroupMultiple";
+import { TextInput } from "@/components/ui/Input/TextInput";
+import { Select } from "@/components/ui/Select/Select";
+import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -181,9 +185,10 @@ function SegmentedControlSection() {
     );
 }
 
-function PillSection() {
+function ChipSection() {
     const [single, setSingle] = useState<"glutine" | "latte" | "uova" | undefined>("glutine");
     const [multi, setMulti] = useState<readonly ("glutine" | "latte" | "uova")[]>(["latte"]);
+    const [tags, setTags] = useState(["Vegano", "Senza glutine", "Piccante"]);
     const options = [
         { value: "glutine" as const, label: "Glutine" },
         { value: "latte" as const, label: "Latte" },
@@ -191,24 +196,79 @@ function PillSection() {
     ];
     return (
         <>
-            <State label="default / active / disabled">
-                <Pill label="Vegano" onClick={noop} />
-                <Pill label="Vegano" active onClick={noop} />
-                <Pill label="Vegano" disabled onClick={noop} />
-                <Pill label="Con icona" icon={<Star size={14} />} onClick={noop} />
+            <State label="default / hover / selected (spunta) / disabled">
+                <Chip label="Vegano" onClick={noop} />
+                <Chip label="Vegano" selected onClick={noop} />
+                <Chip label="Vegano" disabled onClick={noop} />
+                <Chip label="Vegano" selected disabled onClick={noop} />
+                <Chip label="Con icona" icon={<Star size={16} />} onClick={noop} />
             </State>
-            <State label="shape">
+            <State label="removable (×)">
+                {tags.map(tag => (
+                    <Chip key={tag} label={tag} onRemove={() => setTags(t => t.filter(x => x !== tag))} />
+                ))}
+                {tags.length === 0 && (
+                    <Button variant="ghost" size="sm" onClick={() => setTags(["Vegano", "Senza glutine", "Piccante"])}>
+                        Ripristina
+                    </Button>
+                )}
+            </State>
+            <State label="Pill (alias deprecato, active=selected)">
+                <Pill label="Vegano" active onClick={noop} />
+            </State>
+            <State label="shape deprecate (solo pill nel sistema)">
                 {(["pill", "rounded", "square", "circle"] as const).map(shape => (
-                    <Pill key={shape} label={shape === "circle" ? "A" : shape} shape={shape} active onClick={noop} />
+                    <Chip key={shape} label={shape === "circle" ? "A" : shape} shape={shape} selected onClick={noop} />
                 ))}
             </State>
-            <State label="PillGroupSingle">
+            <State label="ChipGroupSingle (default rounded)">
+                <ChipGroupSingle options={options} value={single} onChange={setSingle} ariaLabel="Allergene" label="Allergene" />
+            </State>
+            <State label="ChipGroupMultiple shape=pill">
+                <ChipGroupMultiple options={options} value={multi} onChange={setMulti} ariaLabel="Allergeni" shape="pill" />
+            </State>
+            <State label="PillGroupSingle (alias deprecato)">
                 <PillGroupSingle options={options} value={single} onChange={setSingle} ariaLabel="Allergene" />
             </State>
-            <State label="PillGroupMultiple">
-                <PillGroupMultiple options={options} value={multi} onChange={setMulti} ariaLabel="Allergeni" />
-            </State>
         </>
+    );
+}
+
+/** Riga «Allineamento»: i controlli affiancati devono condividere bordo
+ *  superiore e inferiore (38px). Le altezze si leggono da console:
+ *  `[...document.querySelectorAll('#allineamento [data-align]')].map(e => e.getBoundingClientRect().height)` */
+function AlignmentSection() {
+    const [seg, setSeg] = useState<"grid" | "list">("grid");
+    const [search, setSearch] = useState("");
+    return (
+        <State label="Button md · TextInput · Select · SegmentedControl md · ToolbarSearch" column>
+            <div className={styles.alignRow}>
+                <div data-align="button">
+                    <Button variant="primary" onClick={noop}>
+                        Nuova sede
+                    </Button>
+                </div>
+                <div data-align="textinput">
+                    <TextInput placeholder="Nome" />
+                </div>
+                <div data-align="select">
+                    <Select options={[{ value: "a", label: "Ristorante" }]} />
+                </div>
+                <div data-align="segmented">
+                    <SegmentedControl
+                        value={seg}
+                        onChange={setSeg}
+                        options={[
+                            { value: "grid", label: "Griglia", icon: <Grid2X2 size={16} /> },
+                            { value: "list", label: "Lista", icon: <List size={16} /> }
+                        ]}
+                    />
+                </div>
+                <div data-align="toolbarsearch">
+                    <ToolbarSearch value={search} onChange={setSearch} placeholder="Cerca" />
+                </div>
+            </div>
+        </State>
     );
 }
 
@@ -298,7 +358,8 @@ export const textAndActionsSections: GallerySection[] = [
     { id: "text", title: "Text", sheet: "Text", Component: TextSection },
     { id: "button", title: "Button · IconButton · SplitButton", sheet: "Button", Component: ButtonSection },
     { id: "segmented", title: "SegmentedControl", sheet: "SegmentedControl", Component: SegmentedControlSection },
-    { id: "pill", title: "Pill · PillGroup", sheet: "Chip", Component: PillSection },
+    { id: "chip", title: "Chip · ChipGroup (era Pill)", sheet: "Chip", Component: ChipSection },
+    { id: "allineamento", title: "Allineamento dei controlli", sheet: "FormField", Component: AlignmentSection },
     { id: "tabs", title: "Tabs", sheet: "Tabs", Component: TabsSection },
     { id: "badge", title: "Badge", sheet: "Badge", Component: BadgeSection },
     { id: "statusbadge", title: "StatusBadge", sheet: "StatusBadge", Component: StatusBadgeSection }

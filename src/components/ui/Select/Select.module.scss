@@ -1,4 +1,5 @@
-@use "@styles/variables" as *;
+// Select — scheda «FormField». Stesse misure dell'input: 38, padding 0 12,
+// spazio a destra per il chevron 16 (--gray-400). Solo token.
 
 .selectWrapper {
   position: relative;
@@ -6,57 +7,66 @@
 }
 
 .select {
+  box-sizing: border-box;
   width: 100%;
-  padding: 0.62rem 2rem 0.62rem 0.85rem;
+  height: var(--control-height);
+  padding: 0 36px 0 var(--space-12);
 
   appearance: none;
-  background: var(--card-bg, #ffffff);
-  color: var(--text, #0f172a);
+  background: var(--surface);
+  color: var(--text);
 
-  font-size: 0.95rem;
-  border-radius: 8px;
-  border: 1px solid var(--border, #cbd5e1);
+  font-size: 14px;
+  line-height: 1;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  cursor: pointer;
 
   transition:
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
+    border-color var(--timing-motion-fast) var(--easing-state),
+    box-shadow var(--timing-motion-fast) var(--easing-state),
+    background var(--timing-motion-fast) var(--easing-state);
+
+  &:hover:not(:disabled):not(:focus-visible) {
+    border-color: var(--gray-300);
+  }
 
   &:focus-visible {
     outline: none;
-    border-color: var(--brand-primary, #6366f1);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    border-color: var(--brand-primary);
+    box-shadow: var(--shadow-focus);
   }
 
   &:disabled {
     opacity: 0.6;
-    background: var(--hover-bg, #f1f5f9);
+    background: var(--hover-bg);
     cursor: not-allowed;
-  }
-
-  [data-theme="dark"] & {
-    background: #1e293b;
-    border-color: #334155;
-    color: #f1f5f9;
   }
 }
 
 .caret {
   position: absolute;
-  right: 0.75rem;
+  right: var(--space-12);
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
   pointer-events: none;
-  color: var(--text-muted, #94a3b8);
-}
+  color: var(--gray-400);
 
-.hasError .select {
-  border-color: #dc2626;
-
-  &:focus-visible {
-    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.2);
+  svg {
+    width: 16px;
+    height: 16px;
   }
 }
 
-.disabled {
+.hasError .select {
+  border-color: var(--danger);
+
+  &:focus-visible {
+    box-shadow: var(--shadow-focus-danger);
+  }
+}
+
+.disabled .caret {
   opacity: 0.6;
 }

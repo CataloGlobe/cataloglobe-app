@@ -11,6 +11,7 @@ import { FileInput } from "@/components/ui/Input/FileInput";
 import { RangeInput } from "@/components/ui/Input/RangeInput";
 import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { InputBase } from "@/components/ui/Input/InputBase";
+import { FormField } from "@/components/ui/FormField/FormField";
 import { Select } from "@/components/ui/Select/Select";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { Switch } from "@/components/ui/Switch/Switch";
@@ -40,6 +41,44 @@ function FiveStates({
             <div className={styles.narrow}>{render({ error: "Valore non valido." })}</div>
             <div className={styles.narrow}>{render({ disabled: true })}</div>
         </State>
+    );
+}
+
+function FormFieldSection() {
+    const control = (
+        <input className={styles.nakedInput} placeholder="controllo qualsiasi" />
+    );
+    return (
+        <>
+            <State label="label + helper" column>
+                <div className={styles.narrow}>
+                    <FormField label="Nome della sede" helperText="Compare nella pagina pubblica.">
+                        {({ inputId, describedById }) => (
+                            <input id={inputId} aria-describedby={describedById} className={styles.nakedInput} placeholder="Trattoria del Porto" />
+                        )}
+                    </FormField>
+                </div>
+            </State>
+            <State label="required + error (sostituisce l'helper)" column>
+                <div className={styles.narrow}>
+                    <FormField label="Email" required helperText="Non la vedrai mai: l'errore vince." error="Inserisci un'email valida.">
+                        {({ inputId, describedById, hasError }) => (
+                            <input id={inputId} aria-describedby={describedById} aria-invalid={hasError} className={styles.nakedInput} placeholder="nome@esempio.it" />
+                        )}
+                    </FormField>
+                </div>
+            </State>
+            <State label="disabled · senza label" column>
+                <div className={styles.narrow}>
+                    <FormField label="Coperti" disabled>
+                        {({ inputId, isDisabled }) => <input id={inputId} disabled={isDisabled} className={styles.nakedInput} placeholder="40" />}
+                    </FormField>
+                </div>
+                <div className={styles.narrow}>
+                    <FormField helperText="Solo l'aiuto, niente etichetta.">{() => control}</FormField>
+                </div>
+            </State>
+        </>
     );
 }
 
@@ -132,6 +171,10 @@ function SwitchSection() {
             <State label="senza label (ariaLabel)">
                 <Switch ariaLabel="Attiva" checked onChange={noop} />
             </State>
+            <State label="size=sm (nelle righe)">
+                <Switch ariaLabel="Attiva" checked onChange={noop} size="sm" />
+                <Switch ariaLabel="Attiva" checked={false} onChange={noop} size="sm" />
+            </State>
         </>
     );
 }
@@ -207,6 +250,7 @@ function ImageUploadFieldSection() {
 }
 
 export const formsSections: GallerySection[] = [
+    { id: "formfield", title: "FormField", sheet: "FormField", Component: FormFieldSection },
     { id: "input", title: "Input (10 tipi)", sheet: "FormField", Component: InputSection },
     { id: "select", title: "Select", sheet: "FormField", Component: SelectSection },
     { id: "textarea", title: "Textarea", sheet: "FormField", Component: TextareaSection },

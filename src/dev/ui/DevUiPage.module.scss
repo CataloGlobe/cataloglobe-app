@@ -124,6 +124,19 @@
   max-width: 420px;
 }
 
+// Controllo nudo per mostrare FormField da solo (non è un componente).
+.nakedInput {
+  box-sizing: border-box;
+  width: 100%;
+  height: var(--control-height);
+  padding: 0 var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+}
+
 .stack {
   display: flex;
   flex-direction: column;
@@ -140,4 +153,25 @@
 
 .tabsPanel {
   padding: var(--space-16) 0;
+}
+
+// Riga «Allineamento»: controlli affiancati, allineati in alto; una riga
+// tratteggiata sopra e una sotto rende visibile ogni scarto di altezza.
+.alignRow {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-8);
+  padding: var(--space-8) 0;
+  border-top: 1px dashed var(--brand-primary);
+  border-bottom: 1px dashed var(--brand-primary);
+
+  > div {
+    flex: 0 0 auto;
+    width: 180px;
+  }
+
+  > div:first-child,
+  > div:nth-child(4) {
+    width: auto;
+  }
 }

@@ -1,0 +1,149 @@
+// Chip — scheda «Chip» (era Pill). Altezza 32, padding 0 10, gap 6, raggio
+// --radius-pill. Selected = fondo + bordo + testo brand E la spunta 14:
+// mai solo il colore. Solo token.
+
+.chip {
+  appearance: none;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+
+  height: 32px;
+  padding: 0 var(--space-10);
+
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--text);
+
+  white-space: nowrap;
+  cursor: pointer;
+
+  transition:
+    background var(--timing-motion-fast) var(--easing-state),
+    border-color var(--timing-motion-fast) var(--easing-state),
+    color var(--timing-motion-fast) var(--easing-state),
+    box-shadow var(--timing-motion-fast) var(--easing-state);
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  &[aria-checked="true"],
+  &[aria-pressed="true"] {
+    background: var(--brand-primary-soft);
+    border-color: var(--brand-primary);
+    color: var(--brand-primary);
+  }
+}
+
+.label {
+  font-size: 13px;
+  color: inherit;
+}
+
+.icon,
+.check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+
+  svg {
+    display: block;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.check svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* Rimovibile: la × è un bottone accanto al chip, dentro lo stesso bordo. */
+.removable {
+  padding-right: var(--space-4);
+}
+
+/* Azione di selezione dentro un chip rimovibile: bottone nudo. */
+.inner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+    border-radius: var(--radius-inner);
+  }
+}
+
+.remove {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+
+  &:hover {
+    background: color-mix(in srgb, currentColor 12%, transparent);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+/* ===== Shape — deprecato: nel sistema esiste solo `pill`. Le altre forme
+   restano rese come prima per i consumer che le passano; si tolgono nel
+   lotto 6. ===== */
+
+.pill {
+  border-radius: var(--radius-pill);
+}
+
+.rounded {
+  border-radius: var(--radius-control);
+}
+
+.square {
+  border-radius: 0;
+}
+
+.circle {
+  width: 32px;
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+}
+
+/* ===== Disabled ===== */
+
+.disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

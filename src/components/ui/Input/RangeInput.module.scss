@@ -1,18 +1,19 @@
-@use "@styles/variables" as *;
+// RangeInput — scheda «FormField», forma propria (slider). Solo token.
 
 .wrapper {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-12);
   width: 100%;
+  min-height: var(--control-height);
 }
 
 .range {
   flex: 1;
   appearance: none;
   height: 4px;
-  border-radius: 999px;
-  background: var(--border, #cbd5e1);
+  border-radius: var(--radius-pill);
+  background: var(--border);
   outline: none;
   cursor: pointer;
 
@@ -21,7 +22,7 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: var(--brand-primary, #6366f1);
+    background: var(--brand-primary);
     cursor: pointer;
     border: none;
   }
@@ -30,27 +31,32 @@
     width: 16px;
     height: 16px;
     border-radius: 50%;
-    background: var(--brand-primary, #6366f1);
+    background: var(--brand-primary);
     cursor: pointer;
     border: none;
   }
 
+  &:hover::-webkit-slider-thumb {
+    background: var(--brand-primary-hover);
+  }
+
   &:focus-visible::-webkit-slider-thumb {
-    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.25);
+    box-shadow: var(--shadow-focus);
+  }
+
+  &:focus-visible::-moz-range-thumb {
+    box-shadow: var(--shadow-focus);
   }
 
   &:disabled {
     opacity: 0.6;
     cursor: not-allowed;
   }
-
-  [data-theme="dark"] & {
-    background: #334155;
-  }
 }
 
 .value {
   min-width: 2.5rem;
   text-align: right;
-  color: var(--text-muted, #94a3b8);
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
 }
