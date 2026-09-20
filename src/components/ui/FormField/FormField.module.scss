@@ -29,3 +29,9 @@
 .error {
   margin-top: calc(var(--space-4) - var(--space-6)); // riga sotto a 4px, non 6
 }
+
+// Testo nudo di errore su surface: --text-danger (non --danger, che è il
+// colore dei fill e in scuro scende sotto 4,5:1).
+.error {
+  color: var(--text-danger);
+}

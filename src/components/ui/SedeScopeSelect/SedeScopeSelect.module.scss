@@ -26,20 +26,20 @@
   // evitare collasso del contenuto.
   min-height: 32px;
   border-radius: 8px;
-  border: 1px solid #E5E7EB;
-  background: #FFFFFF;
+  border: 1px solid var(--border);
+  background: var(--surface);
   cursor: pointer;
   transition: background 0.1s, border-color 0.1s;
   min-width: 0;
   font-family: inherit;
 
   &:hover {
-    background: #F8FAFC;
-    border-color: #D1D5DB;
+    background: var(--bg);
+    border-color: var(--gray-300);
   }
 
   &:focus-visible {
-    outline: 2px solid #A5B4FC;
+    outline: 2px solid var(--brand-primary);
     outline-offset: 2px;
   }
 }
@@ -47,7 +47,7 @@
 .label {
   font-size: 13px;
   font-weight: 600;
-  color: #0F172A;
+  color: var(--text);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -58,7 +58,7 @@
 }
 
 .chevron {
-  color: #64748B;
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
@@ -69,8 +69,8 @@
   top: calc(100% + 6px);
   left: 0;
   min-width: 240px;
-  background: #FFFFFF;
-  border: 1px solid #E5E7EB;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 10px;
   padding: 6px 0;
   box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
@@ -88,16 +88,16 @@
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  color: #0F172A;
+  color: var(--text);
   transition: background 0.1s;
 
   &:hover {
-    background: #F8FAFC;
+    background: var(--bg);
   }
 
   &:focus-visible {
     outline: none;
-    background: #F1F5F9;
+    background: var(--hover-bg);
   }
 }
 
@@ -107,7 +107,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #6366F1;
+  color: var(--brand-primary);
 }
 
 .rowName {

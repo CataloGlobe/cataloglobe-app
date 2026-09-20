@@ -100,6 +100,27 @@ function InlineBannerSection() {
             <State label="info" column>
                 <InlineBanner variant="info">Le modifiche compaiono nella pagina pubblica entro un minuto.</InlineBanner>
             </State>
+            <State label="con azione a destra (error «Riprova», info link)" column>
+                <InlineBanner
+                    variant="error"
+                    action={
+                        <Button variant="secondary" size="sm" onClick={noop}>
+                            Riprova
+                        </Button>
+                    }
+                >
+                    Non siamo riusciti a salvare le modifiche.
+                </InlineBanner>
+                <InlineBanner variant="info" action={<a href="#inlinebanner">Gestisci stampanti</a>}>
+                    Nessuna stampante collegata a questa sede: le comande non vengono stampate in automatico.
+                </InlineBanner>
+            </State>
+            <State label="icona custom · testo lungo con azione" column>
+                <InlineBanner variant="warning" icon={<Info size={16} aria-hidden />} action={<a href="#toast">Vai al piano</a>}>
+                    Hai usato tutte le 3 sedi pagate: per aggiungerne un'altra serve un posto in più nel piano.
+                    Le sedi esistenti continuano a funzionare come prima.
+                </InlineBanner>
+            </State>
         </>
     );
 }

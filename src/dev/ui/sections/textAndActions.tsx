@@ -276,12 +276,14 @@ function TabsSection() {
     const [tab, setTab] = useState("menu");
     const [tab2, setTab2] = useState("menu");
     const [tab3, setTab3] = useState("menu");
-    const render = (value: string, onChange: (v: string) => void, variant: "primary" | "secondary" | "line") => (
+    const render = (value: string, onChange: (v: string) => void, variant?: "primary" | "secondary" | "line") => (
         <Tabs value={value} onChange={onChange} variant={variant}>
             <Tabs.List>
-                <Tabs.Tab value="menu">Menù</Tabs.Tab>
-                <Tabs.Tab value="piatti" badge={<Badge variant="primary">12</Badge>}>
-                    Piatti
+                <Tabs.Tab value="menu" badge={128}>
+                    Menù
+                </Tabs.Tab>
+                <Tabs.Tab value="piatti" badge={3} badgeTone="brand">
+                    Da rivedere
                 </Tabs.Tab>
                 <Tabs.Tab value="storie" disabled disabledTooltip="Disponibile con il piano Pro">
                     Storie
@@ -305,14 +307,17 @@ function TabsSection() {
     );
     return (
         <>
-            <State label="primary (badge, disabled)" column>
+            <State label="primary 44 (Badge neutral/brand, disabled con tooltip)" column>
                 {render(tab, setTab, "primary")}
             </State>
-            <State label="secondary" column>
-                {render(tab2, setTab2, "secondary")}
-            </State>
-            <State label="line" column>
+            <State label="line 38 (drawer, card)" column>
                 {render(tab3, setTab3, "line")}
+            </State>
+            <State label="senza variant (flusso, 38)" column>
+                {render(tab2, setTab2)}
+            </State>
+            <State label="secondary — deprecata, rende come primary (warn in dev)" column>
+                {render(tab2, setTab2, "secondary")}
             </State>
         </>
     );
@@ -321,19 +326,25 @@ function TabsSection() {
 function BadgeSection() {
     return (
         <>
-            <State label="variant">
+            <State label="neutral (default) · brand">
+                <Badge>3 attività</Badge>
+                <Badge variant="neutral">Variante</Badge>
+                <Badge variant="neutral">128</Badge>
+                <Badge variant="brand">Tu</Badge>
+                <Badge variant="brand">Nuovo</Badge>
+                <Badge variant="brand">3</Badge>
+            </State>
+            <State label="deprecate (rendono come prima, warn in dev)">
                 {(["primary", "secondary", "success", "danger", "warning"] as const).map(variant => (
                     <Badge key={variant} variant={variant}>
                         {variant}
                     </Badge>
                 ))}
+                <Badge color="#0f766e">color custom</Badge>
             </State>
-            <State label="color custom">
-                <Badge color="#0f766e">Personalizzato</Badge>
-            </State>
-            <State label="absolute (angolo di un riquadro)">
+            <State label="absolute (deprecata)">
                 <div style={{ position: "relative", width: 96, height: 48, border: "1px solid var(--border)", borderRadius: 8 }}>
-                    <Badge variant="primary" absolute top={-8} right={-8}>
+                    <Badge variant="brand" absolute top={-8} right={-8}>
                         3
                     </Badge>
                 </div>
@@ -344,13 +355,42 @@ function BadgeSection() {
 
 function StatusBadgeSection() {
     return (
-        <State label="variant">
-            <StatusBadge variant="success" label="Pubblicata" />
-            <StatusBadge variant="neutral" label="Bozza" />
-            <StatusBadge variant="warning" label="In attesa" />
-            <StatusBadge variant="info" label="In corso" />
-            <StatusBadge variant="pending" label="Sospesa" />
-        </State>
+        <>
+            <State label="success · neutral · warning · danger · info">
+                <StatusBadge variant="success" label="Pubblicata" />
+                <StatusBadge variant="neutral" label="Bozza" />
+                <StatusBadge variant="warning" label="In attesa" />
+                <StatusBadge variant="danger" label="Pagamento fallito" />
+                <StatusBadge variant="info" label="In corso" />
+            </State>
+            <State label="pending (alias di warning)">
+                <StatusBadge variant="pending" label="In traduzione" />
+            </State>
+        </>
+    );
+}
+
+/** Le tre domande delle etichette, una accanto all'altra. */
+function BadgeVsStatusBadgeSection() {
+    return (
+        <>
+            <State label="«quanto / che tipo?» → Badge">
+                <Badge>3 attività</Badge>
+                <Badge>Variante</Badge>
+                <Badge variant="brand">Tu</Badge>
+            </State>
+            <State label="«in che stato è?» → StatusBadge">
+                <StatusBadge variant="success" label="Pubblicata" />
+                <StatusBadge variant="warning" label="Senza prezzo" />
+                <StatusBadge variant="neutral" label="Bozza" />
+            </State>
+            <State label="stesso testo, due risposte">
+                <Badge>Sospesa</Badge>
+                <StatusBadge variant="warning" label="Sospesa" />
+                <Badge variant="brand">12</Badge>
+                <StatusBadge variant="info" label="12 in corso" />
+            </State>
+        </>
     );
 }
 
@@ -362,5 +402,6 @@ export const textAndActionsSections: GallerySection[] = [
     { id: "allineamento", title: "Allineamento dei controlli", sheet: "FormField", Component: AlignmentSection },
     { id: "tabs", title: "Tabs", sheet: "Tabs", Component: TabsSection },
     { id: "badge", title: "Badge", sheet: "Badge", Component: BadgeSection },
-    { id: "statusbadge", title: "StatusBadge", sheet: "StatusBadge", Component: StatusBadgeSection }
+    { id: "statusbadge", title: "StatusBadge", sheet: "StatusBadge", Component: StatusBadgeSection },
+    { id: "badge-vs-statusbadge", title: "Badge vs StatusBadge", sheet: "Badge", Component: BadgeVsStatusBadgeSection }
 ];

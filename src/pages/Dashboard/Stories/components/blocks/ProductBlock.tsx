@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { AlertTriangle } from "lucide-react";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { getProduct } from "@/services/supabase/products";
 import type { StoryProductBlock } from "@/services/supabase/stories";
@@ -52,13 +51,8 @@ export function ProductBlock({ block, onChange, tenantId, disabled }: ProductBlo
         <div className={styles.root}>
             {dangling && (
                 <InlineBanner variant="warning">
-                    <div className={styles.warningRow}>
-                        <AlertTriangle size={16} strokeWidth={2} className={styles.warningIcon} aria-hidden="true" />
-                        <span>
-                            Questo prodotto non è più disponibile nel catalogo. Non comparirà nella storia
-                            pubblicata. Scegline un altro.
-                        </span>
-                    </div>
+                    Questo prodotto non è più disponibile nel catalogo. Non comparirà nella storia
+                    pubblicata. Scegline un altro.
                 </InlineBanner>
             )}
             <StoryProductPicker

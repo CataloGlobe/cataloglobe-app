@@ -114,8 +114,8 @@
 // Non nella scheda (1 uso): resta come «secondary in tono danger».
 .variant-outline-danger {
   background: var(--surface);
-  border-color: var(--danger);
-  color: var(--danger);
+  border-color: var(--text-danger);
+  color: var(--text-danger);
 
   &:hover {
     background: var(--danger-50);
