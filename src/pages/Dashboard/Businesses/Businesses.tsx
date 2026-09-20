@@ -67,11 +67,7 @@ import {
 import { Button } from "@/components/ui";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import ModalLayout, {
-  ModalLayoutContent,
-  ModalLayoutFooter,
-  ModalLayoutHeader,
-} from "@/components/ui/ModalLayout/ModalLayout";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 
 function formatDateIt(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -977,26 +973,16 @@ export default function Businesses() {
             />
           )}
 
-          <ModalLayout
+          <ConfirmDialog
             isOpen={showDeleteModal}
             onClose={closeDeleteModal}
-            width="xs"
-            height="fit"
+            onConfirm={confirmDelete}
+            title={`Elimina «${deleteTargetName}»`}
+            message="Non si può annullare. Insieme alla sede vengono eliminati i suoi tavoli, i QR dei tavoli, le prenotazioni, le stampanti collegate e lo storico degli ordini."
+            confirmLabel={isDeleting ? "Eliminazione in corso..." : "Elimina"}
+            confirmVariant="danger"
+            isLoading={isDeleting}
           >
-            <ModalLayoutHeader>
-              <div className={styles.headerLeft}>
-                <Text as="h2" variant="title-sm" weight={700}>
-                  Elimina «{deleteTargetName}»
-                </Text>
-              </div>
-            </ModalLayoutHeader>
-
-            <ModalLayoutContent>
-              <Text variant="body">
-                Non si può annullare. Insieme alla sede vengono eliminati i
-                suoi tavoli, i QR dei tavoli, le prenotazioni, le stampanti
-                collegate e lo storico degli ordini.
-              </Text>
               <Text variant="body-sm" colorVariant="muted">
                 Il piano non cambia: i posti pagati restano quelli di adesso.
               </Text>
@@ -1103,18 +1089,7 @@ export default function Businesses() {
                     </>
                   );
                 })()}
-            </ModalLayoutContent>
-
-            <ModalLayoutFooter>
-              <Button variant="secondary" onClick={closeDeleteModal}>
-                Annulla
-              </Button>
-
-              <Button variant="primary" onClick={confirmDelete}>
-                {isDeleting ? "Eliminazione in corso..." : "Elimina"}
-              </Button>
-            </ModalLayoutFooter>
-          </ModalLayout>
+          </ConfirmDialog>
         </section>
       )}
     </PageGate>
