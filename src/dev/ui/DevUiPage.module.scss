@@ -1,0 +1,143 @@
+// Galleria dei componenti (/dev/ui, solo sviluppo). Fuori dal perimetro del
+// budget: qui vive solo il layout della galleria, i componenti sono importati.
+
+.page {
+  display: flex;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+}
+
+.index {
+  position: sticky;
+  top: 0;
+  align-self: flex-start;
+  width: 240px;
+  flex: 0 0 240px;
+  height: 100vh;
+  overflow-y: auto;
+  padding: var(--space-16);
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.indexHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  margin-bottom: var(--space-16);
+  padding-bottom: var(--space-16);
+  border-bottom: 1px solid var(--border);
+}
+
+.indexList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.indexLink {
+  display: block;
+  padding: var(--space-6) var(--space-10);
+  border-radius: var(--radius-control);
+  color: var(--text-muted);
+  text-decoration: none;
+
+  &:hover {
+    background: var(--hover-bg);
+    color: var(--text);
+  }
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-24) var(--space-32) var(--space-48);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-48);
+}
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+  scroll-margin-top: var(--space-24);
+}
+
+.sectionHeader {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-bottom: var(--space-8);
+  border-bottom: 1px solid var(--border);
+}
+
+// Uno stato = una riga con etichetta a sinistra e il componente a destra.
+.state {
+  display: grid;
+  grid-template-columns: 180px 1fr;
+  gap: var(--space-16);
+  align-items: start;
+}
+
+.stateLabel {
+  padding-top: var(--space-8);
+}
+
+.stateBody {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-12);
+}
+
+.stateBodyColumn {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+// Riquadro per i componenti fissi (AppLoader, Loader fullscreen): il
+// transform crea un containing block, così `position: fixed` resta dentro.
+.box {
+  position: relative;
+  width: 100%;
+  min-height: 240px;
+  overflow: hidden;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-surface);
+  transform: translate(0, 0);
+}
+
+.boxSidebar {
+  height: 560px;
+  display: flex;
+}
+
+.narrow {
+  width: 100%;
+  max-width: 420px;
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 100%;
+}
+
+.toastStack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: 400px;
+}
+
+.tabsPanel {
+  padding: var(--space-16) 0;
+}
