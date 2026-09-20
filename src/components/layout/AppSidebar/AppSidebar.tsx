@@ -1,18 +1,19 @@
 import { Fragment, type ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 import { motion } from "framer-motion";
-import { PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import { Lock, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import Text from "@/components/ui/Text/Text";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { SIDEBAR_COLLAPSED, SIDEBAR_EXPANDED } from "@/constants/layout";
 import styles from "./AppSidebar.module.scss";
 
 /**
- * Guscio sidebar data-driven, condiviso dai layout dell'app.
- *
- * Estratto da `WorkspaceSidebar` (move puro: stesso markup, stessi nomi di
- * classe, stesso modulo SCSS). La differenza fra una sidebar e l'altra sono i
- * dati: aggiungere una sezione = aggiungere una voce a `groups`.
+ * AppSidebar — l'unica navigazione (scheda «AppSidebar»): una sidebar sola,
+ * che riceve tutto e non sa niente. I gruppi li costruiscono i tre
+ * costruttori (TenantSidebar con i permessi, AdminSidebar, WorkspaceSidebar):
+ * aggiungere una sezione = aggiungere una voce a `groups`.
  *
  * Lo SCSS dello stato collassato usa selettori discendenti
  * (`.sidebar[data-collapsed="true"] .link/.label/.icon`): markup e stile
@@ -38,9 +39,20 @@ export interface AppSidebarNavItem {
     showDot?: boolean;
     /** Testo accessibile del pallino. Obbligatorio di fatto quando `showDot`. */
     dotLabel?: string;
+    /** Contatore a destra (`Badge neutral`; `badgeTone="brand"` se sono cose da fare). */
+    badge?: number | string;
+    badgeTone?: "neutral" | "brand";
+    /** Un lavoro in corso su questa voce: spinner 14 ambra, visibile anche collassata. */
+    loading?: boolean;
+    /** Testo accessibile dello spinner. */
+    loadingLabel?: string;
+    /** Funzione del piano Pro: lucchetto con tooltip «Pro». La voce resta navigabile. */
+    locked?: boolean;
 }
 
 export interface AppSidebarNavGroup {
+    /** Titolo del gruppo (`caption-xs` 600 uppercase muto). Sparisce collassata. */
+    title?: string;
     items: AppSidebarNavItem[];
 }
 
@@ -55,6 +67,52 @@ export interface AppSidebarProps {
     footerSlot?: ReactNode;
 }
 
+function NavItemBody({ link, collapsedDesktop }: { link: AppSidebarNavItem; collapsedDesktop: boolean }) {
+    const tooltipLabel = link.locked ? `${link.label} · Pro` : link.label;
+    return (
+        <>
+            {collapsedDesktop ? (
+                <Tooltip content={tooltipLabel} side="right" sideOffset={28}>
+                    <span className={styles.icon}>{link.icon}</span>
+                </Tooltip>
+            ) : (
+                <span className={styles.icon}>{link.icon}</span>
+            )}
+
+            <span className={styles.label}>{link.label}</span>
+
+            {link.locked && (
+                <Tooltip content="Pro" side="right" sideOffset={8}>
+                    <span className={styles.lock} aria-label="Funzione del piano Pro">
+                        <Lock size={14} strokeWidth={1.5} />
+                    </span>
+                </Tooltip>
+            )}
+
+            {(link.loading || link.badge !== undefined || link.showDot) && (
+                <span className={styles.trailing}>
+                    {link.loading && (
+                        <span
+                            className={styles.spinner}
+                            role="status"
+                            title={link.loadingLabel}
+                            aria-label={link.loadingLabel ?? "In corso"}
+                        />
+                    )}
+                    {link.badge !== undefined && (
+                        <Badge variant={link.badgeTone ?? "neutral"} className={styles.badge}>
+                            {typeof link.badge === "number" && link.badge > 99 ? "99+" : link.badge}
+                        </Badge>
+                    )}
+                    {link.showDot && (
+                        <span className={styles.navDot} title={link.dotLabel} aria-label={link.dotLabel} />
+                    )}
+                </span>
+            )}
+        </>
+    );
+}
+
 export function AppSidebar({
     groups,
     isMobile,
@@ -64,6 +122,7 @@ export function AppSidebar({
     onToggleCollapse,
     footerSlot
 }: AppSidebarProps) {
+    const collapsedDesktop = !isMobile && collapsed;
     return (
         <>
             {isMobile && mobileOpen && (
@@ -107,71 +166,49 @@ export function AppSidebar({
                         {groups.map((group, i) => (
                             <Fragment key={i}>
                                 {i > 0 && <div className={styles.groupDivider} role="separator" />}
-                                <ul className={styles.list}>
-                                    {group.items.map(link =>
-                                        link.disabled ? (
-                                            <li key={link.to}>
-                                                <Tooltip
-                                                    content={link.disabledHint ?? "In arrivo"}
-                                                    side="right"
-                                                    sideOffset={!isMobile && collapsed ? 28 : 12}
-                                                >
-                                                    <span
-                                                        className={`${styles.link} ${styles.disabled}`}
-                                                        aria-disabled="true"
-                                                    >
-                                                        <span className={styles.icon}>
-                                                            {link.icon}
-                                                        </span>
-                                                        <span className={styles.label}>
-                                                            {link.label}
-                                                        </span>
-                                                    </span>
-                                                </Tooltip>
-                                            </li>
-                                        ) : (
-                                        <li key={link.to}>
-                                            <NavLink
-                                                to={link.to}
-                                                end={link.end}
-                                                className={({ isActive }) =>
-                                                    [
-                                                        styles.link,
-                                                        isActive ? styles.active : ""
-                                                    ].join(" ")
-                                                }
-                                                onClick={() => {
-                                                    if (isMobile) onRequestClose();
-                                                }}
-                                            >
-                                                {!isMobile && collapsed ? (
+                                <div className={styles.group} role="group" aria-label={group.title}>
+                                    {group.title && (
+                                        <Text as="span" variant="caption-xs" weight={600} className={styles.groupTitle}>
+                                            {group.title}
+                                        </Text>
+                                    )}
+                                    <ul className={styles.list}>
+                                        {group.items.map(link =>
+                                            link.disabled ? (
+                                                <li key={link.to}>
                                                     <Tooltip
-                                                        content={link.label}
+                                                        content={link.disabledHint ?? "In arrivo"}
                                                         side="right"
-                                                        sideOffset={28}
+                                                        sideOffset={collapsedDesktop ? 28 : 12}
                                                     >
-                                                        <span className={styles.icon}>
-                                                            {link.icon}
+                                                        <span
+                                                            className={`${styles.link} ${styles.disabled}`}
+                                                            aria-disabled="true"
+                                                        >
+                                                            <span className={styles.icon}>{link.icon}</span>
+                                                            <span className={styles.label}>{link.label}</span>
                                                         </span>
                                                     </Tooltip>
-                                                ) : (
-                                                    <span className={styles.icon}>{link.icon}</span>
-                                                )}
-
-                                                <span className={styles.label}>{link.label}</span>
-
-                                                {link.showDot && (
-                                                    <span
-                                                        className={styles.navDot}
-                                                        title={link.dotLabel}
-                                                        aria-label={link.dotLabel}
-                                                    />
-                                                )}
-                                            </NavLink>
-                                        </li>
-                                        )
-                                    )}
-                                </ul>
+                                                </li>
+                                            ) : (
+                                                <li key={link.to}>
+                                                    <NavLink
+                                                        to={link.to}
+                                                        end={link.end}
+                                                        className={({ isActive }) =>
+                                                            [styles.link, isActive ? styles.active : ""].join(" ")
+                                                        }
+                                                        onClick={() => {
+                                                            if (isMobile) onRequestClose();
+                                                        }}
+                                                    >
+                                                        <NavItemBody link={link} collapsedDesktop={collapsedDesktop} />
+                                                    </NavLink>
+                                                </li>
+                                            )
+                                        )}
+                                    </ul>
+                                </div>
                             </Fragment>
                         ))}
                         {footerSlot}

@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- galleria dev: componenti di sezione + elenco nello stesso file, niente fast refresh da preservare */
 import { useMemo, useState } from "react";
-import { Home, MapPin, UtensilsCrossed, BarChart3, Plus, Grid2X2, List } from "lucide-react";
+import { Home, MapPin, UtensilsCrossed, BarChart3, Plus, Grid2X2, List, Languages, CalendarCheck } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
@@ -20,8 +20,16 @@ const GROUPS: AppSidebarNavGroup[] = [
         ]
     },
     {
+        title: "Contenuti",
         items: [
             { to: "/dev/ui/menu", label: "Menù", icon: <UtensilsCrossed size={20} />, showDot: true, dotLabel: "2 da rivedere" },
+            { to: "/dev/ui/lingue", label: "Lingue", icon: <Languages size={20} />, loading: true, loadingLabel: "Traduzioni in corso", badge: 12 },
+            { to: "/dev/ui/prenotazioni", label: "Prenotazioni", icon: <CalendarCheck size={20} />, badge: 3, badgeTone: "brand", locked: true }
+        ]
+    },
+    {
+        title: "Insight",
+        items: [
             { to: "/dev/ui/analitiche", label: "Analitiche", icon: <BarChart3 size={20} />, disabled: true, disabledHint: "In arrivo" }
         ]
     }
@@ -31,7 +39,7 @@ function AppSidebarSection() {
     const [collapsed, setCollapsed] = useState(false);
     return (
         <>
-            <State label="espansa (voce attiva, puntino, disabilitata)" column>
+            <State label="espansa: titoli di gruppo, voce attiva, puntino, spinner + contatore, contatore brand + lucchetto «Pro», disabilitata" column>
                 <div className={`${styles.box} ${styles.boxSidebar}`}>
                     <AppSidebar
                         groups={GROUPS}
@@ -48,7 +56,7 @@ function AppSidebarSection() {
                     />
                 </div>
             </State>
-            <State label="collassata (toggle funzionante)" column>
+            <State label="collassata (toggle funzionante): restano icona, spinner e puntino; contatore e lucchetto vanno nel tooltip" column>
                 <div className={`${styles.box} ${styles.boxSidebar}`}>
                     <AppSidebar
                         groups={GROUPS}

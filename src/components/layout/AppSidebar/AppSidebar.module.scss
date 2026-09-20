@@ -27,10 +27,13 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 .desktop {
   position: relative;
   height: 100%;
+  z-index: var(--z-nav);
 }
 
-// Strati invariati (50/40): la scala --z-* entra con il layout nel lotto 3,
-// insieme ad AppHeader, che oggi sta a 50.
+// Cassetto su telefono: deve stare SOPRA AppHeader (fisso, z-index 50,
+// fuori dal lotto 3): --z-nav (20) lo metterebbe sotto l'header e il
+// bottone «Chiudi» sparirebbe. Resta 50/40 finché AppHeader non passa a
+// --z-nav (lotto 4).
 .mobile {
   position: fixed;
   inset: 0;
@@ -75,17 +78,23 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   margin: var(--space-10) 0;
 }
 
-/* Titolo di gruppo: 12/600 uppercase muta. Il corpo (12px) lo mette
-   `Text variant="caption-xs"` nel markup (lotto 3): questo modulo è nel
-   perimetro del budget e non dichiara font-size. */
+.group {
+  display: block;
+}
+
+/* Titolo di gruppo: 12/600 uppercase muta. Il corpo (12px) e il peso li
+   mette `Text variant="caption-xs" weight={600}` nel markup: questo modulo
+   è nel perimetro del budget e non dichiara font-size. */
 .groupTitle {
+  display: block;
   padding: var(--space-8) $item-padding-x var(--space-4);
-  font-weight: 600;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted);
   white-space: nowrap;
   overflow: hidden;
+  max-height: 32px;
+  transition: opacity 0.16s ease 0.06s, max-height 0.22s ease, padding 0.22s ease;
 }
 
 .list {
@@ -188,11 +197,89 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 }
 
 .sidebar[data-collapsed="true"] .label,
-.sidebar[data-collapsed="true"] .groupTitle {
+.sidebar[data-collapsed="true"] .lock {
   opacity: 0;
   max-width: 0;
   margin-inline-start: 0;
   transition: opacity 0.08s ease, max-width 0.22s ease, margin-inline-start 0.22s ease;
+}
+
+.sidebar[data-collapsed="true"] .groupTitle {
+  opacity: 0;
+  max-height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  transition: opacity 0.08s ease, max-height 0.22s ease, padding 0.22s ease;
+}
+
+// Collassata resta solo il segnale (spinner, puntino): il contatore sparisce
+// con l'etichetta, il tooltip sull'icona dice il resto.
+.sidebar[data-collapsed="true"] .badge {
+  display: none;
+}
+
+/* ===== Lucchetto «Pro» =====
+   Segue il colore della voce (currentColor) attenuato: un accenno, non un
+   badge. Si nasconde come .label quando la sidebar è collassata. */
+.lock {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-inline-start: var(--space-8);
+  flex-shrink: 0;
+  color: currentColor;
+  opacity: 0.55;
+  max-width: 16px;
+  overflow: hidden;
+  transition: opacity 0.16s ease 0.06s, max-width 0.22s ease, margin-inline-start 0.22s ease;
+}
+
+/* ===== Coda della voce: spinner · contatore · puntino =====
+   Ancoraggio assoluto dentro `.link` (già `position: relative`), così il
+   segnale resta visibile anche a sidebar collassata, dove `.label` sparisce. */
+.trailing {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  right: var(--space-8);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  pointer-events: none;
+}
+
+.badge {
+  flex-shrink: 0;
+}
+
+/* Spinner 14 ambra: un lavoro in corso su questa voce (traduzioni, import). */
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    var(--warning-500) 0deg,
+    var(--warning-500) 280deg,
+    transparent 280deg,
+    transparent 360deg
+  );
+  // Anello: il centro è bucato dalla maschera (nero = opaco, non un colore).
+  -webkit-mask: radial-gradient(circle, transparent 4px, black 4.6px);
+  mask: radial-gradient(circle, transparent 4px, black 4.6px);
+  animation: appSidebarSpin 900ms linear infinite;
+}
+
+@keyframes appSidebarSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
 }
 
 /* ===== Collapse footer ===== */
@@ -262,18 +349,13 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 }
 
 /* ===== Nav dot =====
-   Pallino senza numero su una voce di nav. Stesso trattamento del pallino
-   "risposta non letta" della sidebar business (`Sidebar.module.scss`):
-   ancoraggio assoluto dentro `.link` (già `position: relative`), così resta
-   visibile anche a sidebar collassata, dove `.label` sparisce ma il segnale
-   deve restare. Nessun numero: quanti siano non cambia cosa fai. */
+   Pallino senza numero su una voce di nav (dentro `.trailing`, quindi
+   visibile anche collassata). Nessun numero: quanti siano non cambia cosa
+   fai. */
 .navDot {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  right: var(--space-8);
   width: 7px;
   height: 7px;
   border-radius: 50%;
   background: var(--brand-primary);
+  flex-shrink: 0;
 }

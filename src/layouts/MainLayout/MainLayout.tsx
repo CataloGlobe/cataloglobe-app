@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
-import Sidebar from "@components/layout/Sidebar/Sidebar";
+import TenantSidebar from "@components/layout/Sidebar/TenantSidebar";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
 import { OperationalAlerts } from "@components/layout/OperationalAlerts/OperationalAlerts";
 import { PageHeaderSlot } from "@components/layout/PageHeaderSlot";
@@ -241,7 +241,7 @@ export default function MainLayout() {
                         </header>
 
                         <div className={styles.body}>
-                            <Sidebar
+                            <TenantSidebar
                                 isMobile={isMobile}
                                 mobileOpen={mobileSidebarOpen}
                                 collapsed={!isMobile && sidebarCollapsed}
