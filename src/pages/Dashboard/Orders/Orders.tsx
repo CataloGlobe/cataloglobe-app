@@ -1064,12 +1064,12 @@ export default function Orders() {
             {mainTab === "comande" && (
                 <>
                     {selectedActivityId && hasPrinters === false && canManagePrinters && printersHref && (
-                        <InlineBanner variant="info" className={styles.printersNotice}>
-                            <span>
-                                Nessuna stampante collegata a questa sede: le comande non
-                                vengono stampate in automatico.
-                            </span>
-                            <Link to={printersHref}>Gestisci stampanti</Link>
+                        <InlineBanner
+                            variant="info"
+                            action={<Link to={printersHref}>Gestisci stampanti</Link>}
+                        >
+                            Nessuna stampante collegata a questa sede: le comande non
+                            vengono stampate in automatico.
                         </InlineBanner>
                     )}
 

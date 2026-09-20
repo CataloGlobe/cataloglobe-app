@@ -32,6 +32,22 @@
   min-width: 0;
 }
 
+// Azione a destra, sulla prima riga del contenuto: non va a capo e non si
+// comprime; se il testo cresce, cresce sotto, l'azione resta in alto.
+.action {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px; // = una riga di body-sm, così sta a filo del testo
+  white-space: nowrap;
+  font-weight: 600;
+  color: inherit;
+
+  a {
+    color: inherit;
+  }
+}
+
 .error {
   background: var(--danger-50);
   border-color: var(--danger-200);
