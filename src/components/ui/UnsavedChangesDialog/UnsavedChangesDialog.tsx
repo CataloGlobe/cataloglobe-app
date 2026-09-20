@@ -16,16 +16,21 @@ type Props = {
     /**
      * Salva (STESSA funzione di salvataggio della pagina — un solo percorso)
      * e procedi. Deve restituire true se il salvataggio è riuscito.
+     * Assente = dialogo a due opzioni (guardia di navigazione, che non
+     * conosce il salvataggio della pagina).
      */
-    onSaveAndExit: () => Promise<boolean>;
+    onSaveAndExit?: () => Promise<boolean>;
     title?: string;
     message?: string;
+    /** Etichetta del "resta qui". Default «Annulla»; la guardia usa «Resta». */
+    cancelLabel?: string;
 };
 
 /**
- * Dialog a 3 opzioni per guard su uscita con modifiche non salvate
- * (es. cambio tab intercettato — non è una route-nav). Costruito su
- * ModalLayout, stesso pattern di ConfirmDialog.
+ * Dialog a 3 opzioni (2 senza `onSaveAndExit`) per guard su uscita con
+ * modifiche non salvate: cambio tab intercettato dalla pagina, o navigazione
+ * interna bloccata da `UnsavedChangesGuardHost`. Costruito su ModalLayout,
+ * stesso pattern di ConfirmDialog.
  */
 export function UnsavedChangesDialog({
     isOpen,
@@ -34,10 +39,12 @@ export function UnsavedChangesDialog({
     onSaveAndExit,
     title = "Modifiche non salvate",
     message = "Hai modifiche non salvate. Cosa vuoi fare?",
+    cancelLabel = "Annulla",
 }: Props) {
     const [saving, setSaving] = useState(false);
 
     const handleSaveAndExit = async () => {
+        if (!onSaveAndExit) return;
         setSaving(true);
         // Su successo è il parent a procedere (e chiudere il dialog); su errore
         // il toast arriva dalla funzione di salvataggio e il dialog resta
@@ -60,14 +67,16 @@ export function UnsavedChangesDialog({
             </ModalLayoutContent>
             <ModalLayoutFooter>
                 <Button variant="ghost" size="sm" onClick={onCancel} disabled={saving}>
-                    Annulla
+                    {cancelLabel}
                 </Button>
                 <Button variant="secondary" size="sm" onClick={onDiscard} disabled={saving}>
                     Esci senza salvare
                 </Button>
-                <Button variant="primary" size="sm" onClick={handleSaveAndExit} loading={saving}>
-                    Salva ed esci
-                </Button>
+                {onSaveAndExit && (
+                    <Button variant="primary" size="sm" onClick={handleSaveAndExit} loading={saving}>
+                        Salva ed esci
+                    </Button>
+                )}
             </ModalLayoutFooter>
         </ModalLayout>
     );

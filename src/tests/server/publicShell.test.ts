@@ -1,5 +1,7 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+
+const REAL_PAYLOAD_PATH = join(process.cwd(), "spike-ssr", "payload.json");
 
 import { afterEach, describe, expect, it } from "vitest";
 
@@ -279,10 +281,11 @@ describe("buildSsrShell", () => {
         expect(beforeApp).not.toContain("%VITE_SUPABASE_URL%");
     });
 
-    it("integration: payload reale → head per-tenant + inline escaped", () => {
-        const real = JSON.parse(
-            readFileSync(join(process.cwd(), "spike-ssr", "payload.json"), "utf-8")
-        ) as PublicShellPayload;
+    // spike-ssr/ è in .gitignore: il payload reale esiste solo sulla macchina che l'ha
+    // generato, non in un worktree pulito né in CI. Il test gira solo se il file c'è.
+    describe.skipIf(!existsSync(REAL_PAYLOAD_PATH))("integration con payload reale", () => {
+    it("payload reale → head per-tenant + inline escaped", () => {
+        const real = JSON.parse(readFileSync(REAL_PAYLOAD_PATH, "utf-8")) as PublicShellPayload;
         const { beforeApp, afterApp } = buildSsrShell({
             template: TEMPLATE,
             payload: real,
@@ -298,5 +301,6 @@ describe("buildSsrShell", () => {
         expect(afterApp.indexOf("</script")).toBe(
             afterApp.indexOf('</script>') // unico </script> = chiusura dei tag legittimi
         );
+    });
     });
 });

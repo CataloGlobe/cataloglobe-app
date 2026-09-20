@@ -17,6 +17,7 @@ import {
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
 import { BillingDetailsForm } from "./components/BillingDetailsForm";
 import {
@@ -91,6 +92,7 @@ export default function BusinessSettingsPage() {
         JSON.stringify(billingDraft) !== JSON.stringify(billingSaved);
     const billingCanSave =
         billingDirty && billingDraft !== null && isBillingDraftComplete(billingDraft) && !billingSaving;
+    useUnsavedChangesGuard(billingDirty);
 
     const patchBillingDraft = (patch: Partial<BillingDraft>) =>
         setBillingDraft(prev => (prev ? { ...prev, ...patch } : prev));

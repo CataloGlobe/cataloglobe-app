@@ -9,6 +9,7 @@ import { BreadcrumbProvider } from "@/context/BreadcrumbProvider";
 import { PageHeaderProvider } from "@/context/PageHeaderProvider";
 import { SubscriptionBanner } from "@/components/Subscription/SubscriptionBanner";
 import { CheckoutConfirmScreen } from "@/components/Subscription/CheckoutConfirmScreen";
+import { UnsavedChangesGuardHost } from "@/components/ui/UnsavedChangesBar/UnsavedChangesGuardHost";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
 import { usePageTitle } from "@/hooks/usePageTitle";
@@ -263,6 +264,11 @@ export default function MainLayout() {
                         {/* Drawer import AI: reso a livello di layout, FUORI dall'Outlet,
                             così stato e richiesta sopravvivono ai cambi route. */}
                         <AiMenuImportDrawer session={aiImport} />
+
+                        {/* Guardia "modifiche non salvate": unica per il layout
+                            (un solo useBlocker), alimentata da useUnsavedChangesGuard
+                            nelle pagine con draft. */}
+                        <UnsavedChangesGuardHost />
                     </PageHeaderProvider>
                 </BreadcrumbProvider>
             </DrawerProvider>

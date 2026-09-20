@@ -84,6 +84,10 @@ const StyleEditorPage = lazy(() => import("./pages/Dashboard/Styles/StyleEditorP
 const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/ActivityDetailPage"));
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
 
+// Galleria dei componenti — solo sviluppo. Il ternario su import.meta.env.DEV
+// è statico al build: in produzione l'import() sparisce e il chunk non esiste.
+const DevUiPage = import.meta.env.DEV ? lazy(() => import("./dev/ui/DevUiPage")) : null;
+
 export default function App() {
     const navigate = useNavigate();
 
@@ -302,6 +306,9 @@ export default function App() {
                     <Route path=":ticketId" element={<SupportTicketAdminPage />} />
                 </Route>
             </Route>
+
+            {/* Galleria UI — solo sviluppo (vedi DevUiPage sopra) */}
+            {DevUiPage && <Route path="/dev/ui" element={<DevUiPage />} />}
 
             {/* CUSTOMER ORDERING — QR bootstrap (DEVE precedere /:slug catch-all) */}
             <Route path="/t/:qrToken" element={<TableEntryPage />} />

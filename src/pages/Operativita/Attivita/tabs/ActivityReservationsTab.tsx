@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/Switch/Switch";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import {
     HORIZON_DAYS_MAX,
@@ -99,6 +100,7 @@ export const ActivityReservationsTab: React.FC<ActivityReservationsTabProps> = (
     }, [savedPrivacyEmail]);
 
     const isPrivacyEmailDirty = privacyEmailDraft.trim() !== savedPrivacyEmail;
+    useUnsavedChangesGuard(isPrivacyEmailDirty);
 
     // ── Regole di accettazione (draft) ───────────────────────────────────────
     // Capienza e durata vivono in Sala (FASE 6 passo 5): qui restano solo

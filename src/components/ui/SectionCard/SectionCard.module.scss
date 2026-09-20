@@ -84,7 +84,7 @@
   }
 
   .title {
-    // Nessun token rosso-600 in _theme.scss: valore approvato dalla spec.
-    color: #e11d48;
+    // Era #e11d48 (rose-600, pre-sistema): testo danger sui token.
+    color: var(--text-danger);
   }
 }

@@ -27,8 +27,8 @@
   line-height: 1;
   padding: 3px 6px;
   border-radius: 6px;
-  color: var(--text-muted, #6b7280);
-  background: var(--surface-secondary, #f3f4f6);
+  color: var(--text-muted);
+  background: var(--hover-bg);
 }
 
 .headerActions {
@@ -44,15 +44,15 @@
   width: 30px;
   height: 30px;
   border-radius: 8px;
-  border: 1px solid var(--border-subtle, #e5e7eb);
-  background: var(--surface-primary, #fff);
-  color: var(--text-secondary, #374151);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--gray-600);
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 
   &:hover:not(:disabled) {
-    background: var(--surface-secondary, #f3f4f6);
-    color: var(--text-primary, #111827);
+    background: var(--hover-bg);
+    color: var(--text);
   }
 
   &:disabled {
@@ -71,7 +71,7 @@
 .confirmChipText {
   font-size: 12px;
   font-weight: 600;
-  color: var(--text-secondary, #374151);
+  color: var(--gray-600);
 }
 
 .confirmChipBtn {
@@ -81,14 +81,14 @@
   width: 28px;
   height: 28px;
   border-radius: 8px;
-  border: 1px solid var(--border-subtle, #e5e7eb);
-  background: var(--surface-primary, #fff);
-  color: var(--text-secondary, #374151);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--gray-600);
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
 
   &:hover:not(:disabled) {
-    background: var(--surface-secondary, #f3f4f6);
+    background: var(--hover-bg);
   }
 
   &:disabled {
@@ -98,12 +98,12 @@
 }
 
 .confirmChipDanger {
-  color: var(--color-danger, #dc2626);
-  border-color: var(--color-danger, #dc2626);
+  color: var(--danger);
+  border-color: var(--danger);
 
   &:hover:not(:disabled) {
-    background: var(--color-danger, #dc2626);
-    color: #fff;
+    background: var(--danger);
+    color: var(--color-white);
   }
 }
 
@@ -126,8 +126,8 @@
   max-width: 420px;
   border-radius: 12px;
   overflow: hidden;
-  border: 1px solid var(--border-subtle, #e5e7eb);
-  background: var(--surface-secondary, #f9fafb);
+  border: 1px solid var(--border);
+  background: var(--color-bg-subtle);
 }
 
 .dropzone {
@@ -140,20 +140,20 @@
   gap: 6px;
   padding: 12px;
   text-align: center;
-  color: var(--text-muted, #6b7280);
-  border: 1px dashed var(--border-strong, #d1d5db);
+  color: var(--text-muted);
+  border: 1px dashed var(--gray-300);
   border-radius: 12px;
   background: transparent;
   cursor: pointer;
   transition: background 0.12s ease, border-color 0.12s ease;
 
   &:hover {
-    background: var(--surface-hover, #f3f4f6);
-    border-color: var(--brand-primary, #928e72);
+    background: var(--hover-bg);
+    border-color: var(--brand-primary);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--brand-primary, #928e72);
+    outline: 2px solid var(--brand-primary);
     outline-offset: 2px;
   }
 }

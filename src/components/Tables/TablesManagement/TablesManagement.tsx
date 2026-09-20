@@ -14,6 +14,7 @@ import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { Card } from "@/components/ui/Card/Card";
 import { updateActivity } from "@/services/supabase/activities";
 
@@ -183,6 +184,7 @@ export function TablesManagement({
     const isCapacityDirty =
         capacityDraft.capacity !== savedCapacity.capacity ||
         capacityDraft.durationMinutes !== savedCapacity.durationMinutes;
+    useUnsavedChangesGuard(isCapacityDirty);
 
     // Somma dei posti mappati, dai tavoli già in memoria (stessa lista della
     // tabella qui sotto): nessuna lettura in più.

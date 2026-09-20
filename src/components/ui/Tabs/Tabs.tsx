@@ -8,6 +8,7 @@ import React, {
     useState
 } from "react";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { useHorizontalOverflow } from "@/hooks/useHorizontalOverflow";
 import styles from "./Tabs.module.scss";
 
@@ -16,7 +17,23 @@ import styles from "./Tabs.module.scss";
 /* ------------------------------------------------------------------ */
 
 export type TabsValue = string | number;
+/**
+ * `primary` (di pagina, sotto l'header, 44) · `line` (dentro un drawer o una
+ * card, 38). `secondary` non esiste più nel sistema: resta accettata e rende
+ * come `primary`, con avviso in dev. Si toglie nel lotto 6.
+ */
 export type TabsVariant = "primary" | "secondary" | "line";
+export type TabsBadgeTone = "neutral" | "brand";
+
+let warnedSecondary = false;
+function resolveVariant(variant: TabsVariant | undefined): TabsVariant | undefined {
+    if (variant !== "secondary") return variant;
+    if (import.meta.env.DEV && !warnedSecondary) {
+        warnedSecondary = true;
+        console.warn('[Tabs] variant="secondary" deprecata: rende come "primary", usa primary o line');
+    }
+    return "primary";
+}
 
 /**
  * Context NON generico
@@ -51,7 +68,8 @@ interface TabsProps<T extends TabsValue> {
     children: React.ReactNode;
 }
 
-export function Tabs<T extends TabsValue>({ value, onChange, variant, children }: TabsProps<T>) {
+export function Tabs<T extends TabsValue>({ value, onChange, variant: rawVariant, children }: TabsProps<T>) {
+    const variant = resolveVariant(rawVariant);
     /**
      * Wrapper che rende onChange compatibile con TabsValue
      */
@@ -62,8 +80,8 @@ export function Tabs<T extends TabsValue>({ value, onChange, variant, children }
         [onChange]
     );
 
-    // Mappa value -> span-label della tab, per misurare l'underline dinamico
-    // (variant `line`/default). Popolata dai ref-callback di ogni <Tab>.
+    // Mappa value -> span-label della tab, per misurare l'underline dinamico.
+    // Popolata dai ref-callback di ogni <Tab>.
     const itemRefs = useRef<Map<TabsValue, HTMLElement>>(new Map());
 
     const registerTab = useCallback((tabValue: TabsValue, el: HTMLElement | null) => {
@@ -92,7 +110,7 @@ interface TabsListProps {
 }
 
 function TabsList({ children }: TabsListProps) {
-    const { value, variant, itemRefs } = useTabsContext();
+    const { value, itemRefs } = useTabsContext();
     const listRef = useRef<HTMLDivElement>(null);
     const [indicator, setIndicator] = useState<{ width: number; left: number; animate: boolean } | null>(null);
 
@@ -107,9 +125,8 @@ function TabsList({ children }: TabsListProps) {
     // partita.
     const prevSig = useRef<string | null>(null);
 
-    // Underline dinamico solo per le varianti con indicatore (`line` + default).
-    // `primary`/`secondary` usano background pill, nessun trattino.
-    const showIndicator = variant === undefined || variant === "line";
+    // Ogni variante ha l'indicatore (scheda «Tabs»): la pill di sfondo della
+    // vecchia `primary` non esiste più.
 
     // Le tab non vanno mai a capo né si comprimono: scrollano. La sfumatura sul
     // bordo destro compare solo quando c'è davvero altro da scorrere — è l'unico
@@ -148,24 +165,18 @@ function TabsList({ children }: TabsListProps) {
 
     // Posiziona prima del paint per evitare il flash iniziale da width 0.
     useLayoutEffect(() => {
-        if (!showIndicator) {
-            setIndicator(null);
-            prevSig.current = null;
-            return;
-        }
         measure();
-    }, [measure, showIndicator]);
+    }, [measure]);
 
     // Ricalcolo su resize/reflow (finestra, cambio testo, load font, badge).
     // value invariato → `animate` resta false → resize snappa senza slide.
     useEffect(() => {
-        if (!showIndicator) return;
         const listEl = listRef.current;
         if (!listEl) return;
         const observer = new ResizeObserver(() => measure());
         observer.observe(listEl);
         return () => observer.disconnect();
-    }, [measure, showIndicator]);
+    }, [measure]);
 
     return (
         <div
@@ -174,7 +185,7 @@ function TabsList({ children }: TabsListProps) {
             ref={listRef}
         >
             {children}
-            {showIndicator && indicator && (
+            {indicator && (
                 <span
                     className={styles.indicator}
                     style={{
@@ -200,10 +211,20 @@ interface TabProps<T extends TabsValue> {
     children: React.ReactNode;
     disabled?: boolean;
     disabledTooltip?: React.ReactNode;
+    /** Contatore accanto all'etichetta, reso con `Badge`. */
     badge?: React.ReactNode;
+    /** `neutral` (default) · `brand` se il contatore sono cose da fare. */
+    badgeTone?: TabsBadgeTone;
 }
 
-function Tab<T extends TabsValue>({ value, children, disabled = false, disabledTooltip, badge }: TabProps<T>) {
+function Tab<T extends TabsValue>({
+    value,
+    children,
+    disabled = false,
+    disabledTooltip,
+    badge,
+    badgeTone = "neutral"
+}: TabProps<T>) {
     const { value: active, setValue, registerTab } = useTabsContext();
     const isActive = active === value;
 
@@ -234,7 +255,9 @@ function Tab<T extends TabsValue>({ value, children, disabled = false, disabledT
                 {children}
             </span>
             {badge !== undefined && badge !== null && badge !== false && (
-                <span className={styles.tabBadge}>{badge}</span>
+                <Badge variant={badgeTone} className={styles.tabBadge}>
+                    {badge}
+                </Badge>
             )}
         </button>
     );

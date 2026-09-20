@@ -2,6 +2,7 @@ import React, { ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import styles from "./ConfigAccordionSection.module.scss";
 
 export interface DraftActions {
@@ -42,6 +43,8 @@ export const ConfigAccordionSection: React.FC<ConfigAccordionSectionProps> = ({
     const hasBadges = !!previewBadges && previewBadges.length > 0;
     const previewVisible = !isOpen && hasBadges;
     const showDirtyDot = !isOpen && !!draft?.isDirty;
+    // Anche a sezione chiusa: il draft sporco resta (dirtyDot) e va protetto.
+    useUnsavedChangesGuard(!!draft?.isDirty);
 
     return (
         <div

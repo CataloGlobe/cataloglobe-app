@@ -8,8 +8,9 @@
   --brand-primary-hover: #4648c6;
   --brand-primary-soft: rgba(99, 102, 241, 0.1);
   --brand-primary-soft-hover: rgba(99, 102, 241, 0.15);
-  --skeleton-base: #e5e7eb;
-  --skeleton-highlight: #f3f4f6;
+  // Rampa slate unica (§44.3): skeleton = border / hover-bg.
+  --skeleton-base: #e2e8f0;
+  --skeleton-highlight: #f1f5f9;
 
   // Altezza canonica dei controlli interattivi nella header band
   // (search/toolbar/CTA). Sorgente unica condivisa: pagine + componenti
@@ -62,31 +63,43 @@
   // Si svuota progressivamente via refactor pagina-per-pagina.
 
   // --- Scale strutturali (radius/shadow/spacing) ---
-  --radius-xs: 4px;
-  --radius-sm: 8px;
-  --radius-md: 12px;
+  // deprecato — si rimuove nel lotto 6 (alias di --radius-inner)
+  --radius-xs: var(--radius-inner);
+  // deprecato — si rimuove nel lotto 6 (alias di --radius-control)
+  --radius-sm: var(--radius-control);
+  // deprecato — si rimuove nel lotto 6 (alias di --radius-surface)
+  --radius-md: var(--radius-surface);
+  // deprecato — si rimuove nel lotto 6 (nessun equivalente nel sistema)
   --radius-lg: 16px;
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
-  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.1);
+  // deprecato — si rimuove nel lotto 6 (alias di --shadow-rest)
+  --shadow-sm: var(--shadow-rest);
+  // deprecato — si rimuove nel lotto 6 (alias di --shadow-float)
+  --shadow-md: var(--shadow-float);
   // Alpha, non colore pieno: --brand-primary-soft è un fill, questo è un ring.
   --shadow-focus: 0 0 0 3px rgba(99, 102, 241, 0.25);
-  --spacing-2: 8px;
-  --spacing-3: 12px;
-  --spacing-4: 16px;
-  --spacing-6: 24px;
-  --spacing-12: 48px;
+  // deprecato — si rimuove nel lotto 6 (alias di --space-8/12/16/24/48)
+  --spacing-2: var(--space-8);
+  --spacing-3: var(--space-12);
+  --spacing-4: var(--space-16);
+  --spacing-6: var(--space-24);
+  --spacing-12: var(--space-48);
 
   // --- Colori senza equivalente esistente (fallback dominante) ---
-  // Canonico testo-muto: dominante aggregato su text-muted + color-text-muted
-  // + color-text-secondary + color-muted (71/226 occorrenze reali, tie-break
-  // su varianti maiuscole incluse).
-  --text-muted: #6b7280;
+  // Canonico testo-muto: slate-500 (§44.3), 4,76:1 su surface.
+  --text-muted: #64748b;
   // Testo "buona notizia" (es. risparmio dell'annuale sotto il prezzo):
   // green-700, 5.6:1 su bianco.
   --text-success: #047857;
+  // Testo di errore e di avviso su bg/surface: in chiaro coincidono con
+  // --danger e --warning-700, in scuro salgono di due passi (red-400,
+  // amber-400) per restare sopra 4,5:1. I fill (danger-*, warning-*)
+  // restano quelli: questi sono solo per il testo nudo.
+  --text-danger: #dc2626;
+  --text-warning: #b45309;
   --color-danger: #dc2626; // = $error in _variables.scss
-  --color-gray-300: #d1d5db;
-  --color-gray-400: #9ca3af;
+  // Rampa slate unica (§44.3): 300/400 passano da gray a slate.
+  --color-gray-300: #cbd5e1;
+  --color-gray-400: #94a3b8;
   --color-gray-500: #64748b;
   --color-gray-600: #475569; // fallback in parità 3/3 con #4b5563, tenuto sulla family slate di gray-500
   --color-gray-800: #1e293b;
@@ -117,6 +130,89 @@
   --color-surface-hover: var(--hover-bg);
   --border-radius-lg: var(--radius-lg); // refuso storico per --radius-lg
   --app-background: var(--bg);
+
+  // === Design system M17 — token (cataloglobe-design-system.md §2) ===
+  // Fonte unica del back office. I nomi storici qui sopra restano come alias
+  // finché le pagine non migrano (lotto 5); si puliscono nel lotto 6.
+
+  // --- Superfici e testo (nomi della tabella) ---
+  --surface: var(--card-bg);
+  --on-brand: #ffffff;
+  --gray-300: var(--color-gray-300);
+  --gray-400: var(--color-gray-400);
+  --gray-500: var(--color-gray-500);
+  --gray-600: var(--color-gray-600);
+  --gray-800: var(--color-gray-800);
+
+  // --- Semantici (alias delle rampe già presenti; solo info-800 è nuovo) ---
+  --warning-50: var(--color-warning-50);
+  --warning-100: var(--color-warning-100);
+  --warning-200: var(--color-warning-200);
+  --warning-500: var(--color-warning-500);
+  --warning-700: var(--color-warning-700);
+  --warning-800: var(--color-warning-800);
+  --danger-50: var(--color-red-50);
+  --danger-100: var(--color-red-100);
+  --danger-200: var(--color-red-200);
+  --danger: var(--color-danger);
+  --danger-800: var(--color-red-800);
+  --success-50: var(--color-green-50);
+  --success-100: var(--color-green-100);
+  --success-200: var(--color-green-200);
+  --success-500: var(--color-green-500);
+  --success-800: var(--color-green-800);
+  --info-100: var(--brand-primary-soft);
+  --info-800: #3730a3;
+
+  // --- Tipografia ---
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
+
+  // --- Spazio: griglia a 2 sotto i 12, a 4 sopra ---
+  --space-2: 2px;
+  --space-4: 4px;
+  --space-6: 6px;
+  --space-8: 8px;
+  --space-10: 10px;
+  --space-12: 12px;
+  --space-16: 16px;
+  --space-20: 20px;
+  --space-24: 24px;
+  --space-32: 32px;
+  --space-48: 48px;
+
+  // --- Raggio per ruolo ---
+  --radius-inner: 4px;
+  --radius-control: 8px;
+  --radius-surface: 12px;
+  --radius-pill: 999px;
+
+  // --- Ombra per distanza dalla pagina ---
+  --shadow-rest: 0 2px 6px rgba(0, 0, 0, 0.03);
+  --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.15);
+  --shadow-focus-danger: 0 0 0 3px rgba(220, 38, 38, 0.2);
+
+  // --- Strati ---
+  --z-sticky: 10;
+  --z-nav: 20;
+  --z-float: 30;
+  --z-overlay: 40;
+  --z-toast: 50;
+  --z-loader: 60;
+
+  // --- Misure fisse (--control-height è definito in cima al file) ---
+  --row-height: 56px;
+  --table-header-height: 44px;
+  --drawer-sm: 420px;
+  --drawer-md: 520px;
+  --drawer-lg: 720px;
+  --tap-target: 44px;
+
+  // --- Motion ---
+  --timing-motion-fast: 150ms;
+  --timing-motion-base: 200ms;
+  --easing-state: ease;
+  --easing-surface: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 [data-theme="dark"] {
@@ -125,12 +221,20 @@
   --card-bg: #1e293b;
   --border: #1f2a3a;
   --hover-bg: #334155;
-  --brand-primary: #2563eb;
-  --brand-primary-hover: #1d4ed8;
-  --brand-primary-soft: rgba(37, 99, 235, 0.18);
-  --brand-primary-soft-hover: rgba(37, 99, 235, 0.28);
+  // Accento indigo in entrambi i temi (§44.7): indigo-400 su slate-900.
+  --brand-primary: #818cf8;
+  --brand-primary-hover: #a5b4fc;
+  --brand-primary-soft: rgba(129, 140, 248, 0.18);
+  --brand-primary-soft-hover: rgba(129, 140, 248, 0.28);
   --skeleton-base: #1e293b;
   --skeleton-highlight: #334155;
+  --on-brand: #0f172a;
+  --info-800: #c7d2fe;
+  --shadow-focus: 0 0 0 3px rgba(129, 140, 248, 0.45);
+  --shadow-rest: 0 2px 6px rgba(0, 0, 0, 0.4);
+  --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-focus-danger: 0 0 0 3px rgba(220, 38, 38, 0.4);
 
   // Green / success palette
   --color-green-50:  #f0fdf4;
@@ -142,6 +246,8 @@
   // del root scende sotto 3:1 su --bg dark).
   --text-muted: #94a3b8;
   --text-success: #34d399; // 9:1 su --bg dark
+  --text-danger: #f87171; // red-400
+  --text-warning: #fbbf24; // amber-400
 
   // Rampa grigi FASE 2: mirror simmetrico sulla scala slate (300↔600,
   // 400↔500, 800→chiaro) per restare leggibile su sfondo scuro. Nessun

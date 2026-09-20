@@ -1,0 +1,37 @@
+// FormField — solo token. Gap label–controllo 6, controllo–riga sotto 4.
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+  width: 100%;
+}
+
+.labelRow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.label {
+  color: var(--text);
+}
+
+.required {
+  font-weight: 500;
+}
+
+.control {
+  width: 100%;
+}
+
+.helper,
+.error {
+  margin-top: calc(var(--space-4) - var(--space-6)); // riga sotto a 4px, non 6
+}
+
+// Testo nudo di errore su surface: --text-danger (non --danger, che è il
+// colore dei fill e in scuro scende sotto 4,5:1).
+.error {
+  color: var(--text-danger);
+}

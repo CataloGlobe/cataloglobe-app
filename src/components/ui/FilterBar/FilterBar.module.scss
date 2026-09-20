@@ -6,7 +6,7 @@
   width: 100%;
 
   // Card style
-  background-color: #fff;
+  background-color: var(--surface);
   border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
   border: 1px solid var(--border);
@@ -45,7 +45,7 @@
 
 .searchInputContainer {
   :global(.inputShell) {
-    background-color: #f8fafc;
+    background-color: var(--bg);
     border-color: transparent;
     border-radius: 8px;
     padding-left: 0.75rem;
@@ -54,7 +54,7 @@
       box-shadow 0.2s;
 
     &:focus-within {
-      background-color: #fff;
+      background-color: var(--surface);
       box-shadow: 0 0 0 2px var(--brand-primary);
     }
   }
@@ -79,12 +79,12 @@
   font-weight: 500;
 
   &:hover {
-    background-color: #f8fafc;
+    background-color: var(--bg);
   }
 
   &.active {
-    background-color: #f1f5f9;
-    border-color: #cbd5e1;
+    background-color: var(--hover-bg);
+    border-color: var(--gray-300);
   }
 }
 
@@ -110,7 +110,7 @@
 }
 
 .toggleBtn {
-  color: #94a3b8;
+  color: var(--gray-400);
   border-radius: 8px; // Slightly more rounded
   width: 2.25rem;
   height: 2.25rem;
@@ -118,11 +118,11 @@
 
   &:hover {
     color: var(--text);
-    background-color: #f8fafc;
+    background-color: var(--bg);
   }
 
   &.active {
-    background-color: #e0e7ff;
+    background-color: var(--brand-primary-soft);
     color: var(--brand-primary);
   }
 }
@@ -134,7 +134,7 @@
   border-radius: 0 0 12px 12px;
 
   // Assuming it fills width
-  background-color: #fff;
+  background-color: var(--surface);
 
   // Animation
   animation: slideDown 0.2s ease-out forwards;
@@ -142,7 +142,7 @@
 
 .expandedContent {
   padding: 1.5rem;
-  color: var(--text-muted, #64748b);
+  color: var(--text-muted);
   font-size: 0.875rem;
   text-align: center;
 }
