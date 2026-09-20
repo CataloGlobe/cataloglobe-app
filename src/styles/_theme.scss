@@ -190,6 +190,8 @@
   --shadow-rest: 0 2px 6px rgba(0, 0, 0, 0.03);
   --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.12);
   --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.15);
+  // La variante orientata di shadow-overlay per il SystemDrawer (§2, Ombra).
+  --shadow-drawer: -4px 0 24px -4px rgba(0, 0, 0, 0.1);
   --shadow-focus-danger: 0 0 0 3px rgba(220, 38, 38, 0.2);
 
   // --- Strati ---
@@ -234,6 +236,7 @@
   --shadow-rest: 0 2px 6px rgba(0, 0, 0, 0.4);
   --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.5);
   --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-drawer: -4px 0 24px -4px rgba(0, 0, 0, 0.5);
   --shadow-focus-danger: 0 0 0 3px rgba(220, 38, 38, 0.4);
 
   // Green / success palette

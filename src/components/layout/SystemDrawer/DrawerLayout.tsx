@@ -1,8 +1,21 @@
 import { ReactNode } from "react";
+import { X } from "lucide-react";
+import Text from "@/components/ui/Text/Text";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import styles from "./DrawerLayout.module.scss";
 
 export interface DrawerLayoutProps {
+    /**
+     * Header libero (markup del consumer). In alternativa `title` (+ `onClose`)
+     * rende l'header canonico: titolo `title-sm` e chiudi `IconButton ghost`.
+     */
     header?: ReactNode;
+    /** Titolo dell'header canonico. Ignorato se `header` è passato. */
+    title?: string;
+    /** Con `title`: rende il bottone «Chiudi» a destra. */
+    onClose?: () => void;
+    /** Id del titolo canonico, da passare ad `aria-labelledby` del drawer. */
+    titleId?: string;
     footer?: ReactNode;
     children: ReactNode;
     /**
@@ -25,16 +38,32 @@ export interface DrawerLayoutProps {
 
 export const DrawerLayout = ({
     header,
+    title,
+    onClose,
+    titleId,
     footer,
     children,
     bodyLayout = "block",
     headerFlush = false
 }: DrawerLayoutProps) => {
+    const headerContent =
+        header ??
+        (title ? (
+            <div className={styles.headerRow}>
+                <Text as="h2" id={titleId} variant="title-sm" weight={600} className={styles.title}>
+                    {title}
+                </Text>
+                {onClose && (
+                    <IconButton icon={<X size={18} />} aria-label="Chiudi" variant="ghost" size="sm" onClick={onClose} />
+                )}
+            </div>
+        ) : null);
+
     return (
         <div className={styles.container}>
-            {header && (
+            {headerContent && (
                 <div className={styles.header} data-header-flush={headerFlush || undefined}>
-                    {header}
+                    {headerContent}
                 </div>
             )}
             <div className={styles.body} data-body-layout={bodyLayout}>{children}</div>

@@ -13,7 +13,7 @@ import ModalLayout, {
     ModalLayoutHeader
 } from "@/components/ui/ModalLayout/ModalLayout";
 import { Menu } from "@/components/ui/Menu/Menu";
-import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { SystemDrawer, type SystemDrawerSize } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { State, noop, type GallerySection } from "../gallery";
 import styles from "../DevUiPage.module.scss";
@@ -78,27 +78,47 @@ function DialogsSection() {
 }
 
 function DrawerSection() {
-    const [width, setWidth] = useState<number | null>(null);
+    const [size, setSize] = useState<SystemDrawerSize | null>(null);
+    const [legacy, setLegacy] = useState<number | null>(null);
+    const close = () => {
+        setSize(null);
+        setLegacy(null);
+    };
+    const open = size !== null || legacy !== null;
     return (
-        <State label="sm 420 / md 520 / lg 720">
-            {[420, 520, 720].map(w => (
-                <Button key={w} variant="secondary" onClick={() => setWidth(w)}>
-                    Apri {w}
+        <>
+            <State label="size sm 420 / md 520 / lg 720 · header canonico (title + onClose), footer con safe-area">
+                {(["sm", "md", "lg"] as const).map(s => (
+                    <Button key={s} variant="secondary" onClick={() => setSize(s)}>
+                        Apri {s}
+                    </Button>
+                ))}
+            </State>
+            <State label="width numerica deprecata: 560 → md con warn; 900 resta 900 con warn «route nel lotto 5»">
+                <Button variant="secondary" onClick={() => setLegacy(560)}>
+                    Apri width=560
                 </Button>
-            ))}
-            <SystemDrawer open={width !== null} onClose={() => setWidth(null)} width={width ?? 520} aria-labelledby="dev-drawer-title">
+                <Button variant="secondary" onClick={() => setLegacy(900)}>
+                    Apri width=900
+                </Button>
+            </State>
+            <SystemDrawer
+                open={open}
+                onClose={close}
+                size={size ?? undefined}
+                width={legacy ?? undefined}
+                aria-labelledby="dev-drawer-title"
+            >
                 <DrawerLayout
-                    header={
-                        <Text as="h2" id="dev-drawer-title" variant="title-sm" weight={600}>
-                            Nuova sede ({width}px)
-                        </Text>
-                    }
+                    title={`Nuova sede (${size ?? `width=${legacy}`})`}
+                    titleId="dev-drawer-title"
+                    onClose={close}
                     footer={
                         <>
-                            <Button variant="secondary" onClick={() => setWidth(null)}>
+                            <Button variant="secondary" onClick={close}>
                                 Annulla
                             </Button>
-                            <Button variant="primary" onClick={() => setWidth(null)}>
+                            <Button variant="primary" onClick={close}>
                                 Salva
                             </Button>
                         </>
@@ -110,7 +130,7 @@ function DrawerSection() {
                     </div>
                 </DrawerLayout>
             </SystemDrawer>
-        </State>
+        </>
     );
 }
 
