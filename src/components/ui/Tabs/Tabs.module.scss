@@ -1,12 +1,12 @@
-// Fallback per `--text-muted` (token non definito globalmente in _theme.scss).
-// Usato solo sul testo della tab disabled, altrimenti `var(--text-muted)`
-// cade in `inherit` e prende il colore scuro dell'header.
-$line-text-disabled: #aab0bb;
+// Tabs — scheda «Tabs»: cambia *cosa vedi*, stato nell'URL. Etichetta 14/500,
+// indicatore 2px --brand-primary sotto la tab attiva, contatore = Badge.
+// `primary` (di pagina, 44) · `line` (drawer/card, 38). `secondary` non
+// esiste più: Tabs.tsx la rende come `primary`. Solo token.
 
 .root {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--space-16);
 }
 
 // Le tab non vanno mai a capo e non si comprimono: quando non ci stanno,
@@ -14,8 +14,9 @@ $line-text-disabled: #aab0bb;
 // destro, `.overflowEnd`) ma lo scroll orizzontale nativo — trackpad, swipe,
 // shift+wheel — funziona.
 .list {
-  display: flex;
+  display: inline-flex;
   flex-wrap: nowrap;
+  gap: var(--space-4);
   // Ancoraggio dell'underline dinamico (posizionato assoluto). NB: l'indicatore
   // vive nel box di contenuto dello scroller, quindi scorre insieme alle tab —
   // la misura in Tabs.tsx compensa lo `scrollLeft`.
@@ -36,21 +37,48 @@ $line-text-disabled: #aab0bb;
 
 // Sfumatura sul bordo destro quando resta contenuto oltre il bordo. Fatta con
 // una mask e non con un overlay in gradiente: così è indipendente dal colore di
-// sfondo (le tab vivono sia nella banda header bianca sia dentro i drawer).
+// sfondo (le tab vivono sia nella banda header sia dentro i drawer).
 .overflowEnd {
-  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent 100%);
-  mask-image: linear-gradient(to right, #000 calc(100% - 32px), transparent 100%);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 32px), transparent 100%);
+  mask-image: linear-gradient(to right, black calc(100% - 32px), transparent 100%);
 }
 
 .tab {
-  flex: 1;
-  padding: 0.5rem 0.9rem;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+  padding: 0 14px;
   background: transparent;
   border: none;
+  border-radius: var(--radius-inner);
   cursor: pointer;
-  font-weight: 600;
+  font-size: 14px;
+  font-weight: 500;
   color: var(--text-muted);
   position: relative;
+  transition: color var(--timing-motion-fast) var(--easing-state);
+
+  &:hover {
+    color: var(--text);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+
+  &[aria-selected="true"] {
+    color: var(--text);
+  }
+
+  // Disabilitata: attenuata, con tooltip che dice perché (Tabs.tsx).
+  &[aria-disabled="true"],
+  &[aria-disabled="true"]:hover {
+    cursor: not-allowed;
+    opacity: 0.45;
+    color: var(--text-muted);
+  }
 }
 
 // Wrapper del contenuto-label: shrink-wrap del testo (+ eventuale icona) così
@@ -60,12 +88,17 @@ $line-text-disabled: #aab0bb;
   align-items: center;
 }
 
-// Underline dinamico condiviso (variant `line` + default): un solo elemento
-// assoluto che scivola e si ridimensiona sotto il label della tab attiva.
-// `width` + `transform` impostati inline via JS (misura DOM in Tabs.tsx).
+// Contatore: un Badge (neutral, o brand se ci sono cose da fare) accanto
+// all'etichetta. Niente alone proprio: il colore lo mette il Badge.
+.tabBadge {
+  margin-left: var(--space-8);
+}
+
+// Underline dinamico: un solo elemento assoluto che scivola e si ridimensiona
+// sotto il label della tab attiva. `width` + `transform` inline via JS.
 .indicator {
   position: absolute;
-  bottom: -1px; // sovrapponi il bordo del PageHeaderSlot
+  bottom: -1px; // sovrapponi il bordo della banda/pannello sottostante
   left: 0;
   height: 2px;
   background: var(--brand-primary);
@@ -73,219 +106,52 @@ $line-text-disabled: #aab0bb;
   pointer-events: none;
 
   // Slide/resize fluido sul cambio-tab in-page. Su mount o cambio pagina il
-  // componente sovrascrive inline con `transition: none` (snap, no flash/slide).
-  // Il `width` è animato di proposito (indicatore 2px, footprint minimo — stesso
-  // pattern già in uso in SegmentedControl).
+  // componente sovrascrive inline con `transition: none` (snap, no flash).
+  // Il `width` è animato di proposito (indicatore 2px, footprint minimo).
   transition:
-    transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
-    width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.tab:hover {
-  color: var(--text);
-}
-
-.tab.disabled,
-.tab[aria-disabled="true"] {
-  cursor: not-allowed;
-  opacity: 0.45;
-}
-
-.tabBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 20px;
-  height: 18px;
-  padding: 0 6px;
-  margin-left: 8px;
-  border-radius: 999px;
-  background: var(--color-accent-soft, #fef3c7);
-  color: var(--color-accent-on-soft, #92400e);
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.tab.disabled:hover,
-.tab[aria-disabled="true"]:hover {
-  color: var(--text-muted);
-}
-
-.tab[aria-selected="true"] {
-  color: var(--text);
+    transform var(--timing-motion-base) var(--easing-surface),
+    width var(--timing-motion-base) var(--easing-surface);
 }
 
 .panel {
-  padding-top: 0.5rem;
+  padding-top: var(--space-8);
 }
 
 /* ============================================================ */
-/* Variant: primary (pill, brand soft active, sidebar-matching)  */
+/* primary (di pagina, 44) · line (drawer/card, 38)              */
+/* Dentro la banda header (align-items: stretch) riempiono       */
+/* l'altezza disponibile, così l'indicatore è a filo del bordo.  */
 /* ============================================================ */
 
-.variant_primary {
-  .list {
-    display: inline-flex;
-    gap: 4px;
-  }
-
-  .tab {
-    flex: 0 0 auto;
-    padding: 6px 12px;
-    height: 34px;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-muted);
-    transition: background 0.15s, color 0.15s;
-
-    &::after {
-      content: none;
-    }
-
-    &:hover {
-      background: var(--hover-bg);
-      color: var(--text);
-    }
-
-    &[aria-selected="true"] {
-      background: var(--brand-primary-soft);
-      color: var(--brand-primary);
-      font-weight: 600;
-    }
-
-    &[aria-selected="true"]:hover {
-      background: var(--brand-primary-soft-hover);
-      color: var(--brand-primary);
-    }
-  }
-}
-
-/* ============================================================ */
-/* Variant: line (underline bar — header band template)          */
-/* ============================================================ */
-
+.variant_primary,
 .variant_line {
-  // Riempie verticalmente il contenitore (es. PageHeaderSlot leading
-  // con align-items: stretch) così che la sottolineatura della tab
-  // attiva sia a filo del bordo inferiore della banda.
   height: 100%;
   align-self: stretch;
 
   .list {
-    display: inline-flex;
     align-items: stretch;
-    gap: 0;
     // `flex: 1` invece di `height: 100%`: regge anche con eventuali figli
     // futuri (es. <Tabs.Panel>) nel root `flex-direction: column`.
     flex: 1;
   }
 
   .tab {
-    flex: 0 0 auto;
-    display: inline-flex;
-    align-items: center;
     height: 100%;
-    padding: 0 14px;
-    background: transparent;
-    border-radius: 0;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-muted);
-    transition: color 0.15s;
-
-    &:hover {
-      color: var(--text);
-    }
-
-    &[aria-selected="true"] {
-      color: var(--brand-primary);
-      font-weight: 600;
-    }
-
-    // Neutralizza l'opacity: 0.45 globale. Forza color esplicito sul testo:
-    // `var(--text-muted)` non è definita globalmente e qui erediterebbe il
-    // colore scuro dell'header (BUG fix).
-    &[aria-disabled="true"],
-    &[aria-disabled="true"]:hover {
-      opacity: 1;
-      color: var(--text-muted, $line-text-disabled);
-    }
   }
 }
 
-/* ============================================================ */
-/* Variant: default (flow geometry — drawer/pane, look = line)   */
-/* ============================================================ */
+.variant_primary .tab {
+  min-height: 44px;
+}
 
-// Stesso linguaggio visivo di `line` (segmento 24px, colori grigi, attivo
-// viola), ma geometria di FLUSSO: niente `height:100%`/`align-self:stretch`
-// perché vive in drawer/pane, non nella banda header sticky.
-.variant_default {
-  .tab {
-    flex: 0 0 auto;
-    padding: 8px 14px;
-    font-size: 14px;
-    font-weight: 500;
-    color: var(--text-muted);
-    transition: color 0.15s;
-
-    &:hover {
-      color: var(--text);
-    }
-
-    &[aria-selected="true"] {
-      color: var(--brand-primary);
-      font-weight: 600;
-    }
-
-    // Neutralizza l'opacity: 0.45 globale e fallback hex su `--text-muted`
-    // (token non definito globalmente — altrimenti cade in inherit scuro).
-    &[aria-disabled="true"],
-    &[aria-disabled="true"]:hover {
-      opacity: 1;
-      color: var(--text-muted, $line-text-disabled);
-    }
-  }
+.variant_line .tab {
+  min-height: 38px;
 }
 
 /* ============================================================ */
-/* Variant: secondary (segmented, inset, compact)                */
+/* default (senza variant): geometria di flusso, look = line     */
 /* ============================================================ */
 
-.variant_secondary {
-  .list {
-    display: inline-flex;
-    gap: 2px;
-    padding: 3px;
-    background: var(--hover-bg);
-    border-radius: 8px;
-  }
-
-  .tab {
-    flex: 0 0 auto;
-    padding: 4px 10px;
-    height: 26px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    color: var(--text-muted);
-    transition: background 0.15s, color 0.15s, box-shadow 0.15s;
-
-    &::after {
-      content: none;
-    }
-
-    &:hover {
-      color: var(--text);
-    }
-
-    &[aria-selected="true"] {
-      background: var(--card-bg);
-      color: var(--brand-primary);
-      font-weight: 600;
-      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-    }
-  }
+.variant_default .tab {
+  height: 38px;
 }
