@@ -162,11 +162,11 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 
 .active {
   background: var(--brand-primary-soft);
-  color: var(--brand-primary);
+  color: var(--on-brand-soft);
 
   &:hover {
     background: var(--brand-primary-soft-hover);
-    color: var(--brand-primary);
+    color: var(--on-brand-soft);
   }
 }
 
@@ -235,17 +235,25 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 }
 
 /* ===== Coda della voce: spinner · contatore · puntino =====
-   Ancoraggio assoluto dentro `.link` (già `position: relative`), così il
-   segnale resta visibile anche a sidebar collassata, dove `.label` sparisce. */
+   Espansa è l'ultimo elemento della riga (dopo etichetta e lucchetto);
+   collassata si ancora in assoluto dentro `.link` (già `position: relative`),
+   così il segnale resta visibile anche dove `.label` sparisce. */
 .trailing {
+  margin-inline-start: auto;
+  padding-inline-start: var(--space-8);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+  flex-shrink: 0;
+  pointer-events: none;
+}
+
+.sidebar[data-collapsed="true"] .trailing {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
   right: var(--space-8);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-6);
-  pointer-events: none;
+  padding-inline-start: 0;
 }
 
 .badge {

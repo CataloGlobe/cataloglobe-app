@@ -27,7 +27,7 @@
 
 .brand {
   --badge-bg: var(--brand-primary-soft);
-  --badge-color: var(--brand-primary);
+  --badge-color: var(--on-brand-soft); // in scuro sale a indigo-300 (3,7 → 5,5:1)
 }
 
 /* ===== Deprecate — rendono come prima, sui token. Il colore semantico

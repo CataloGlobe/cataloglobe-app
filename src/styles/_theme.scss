@@ -138,6 +138,10 @@
   // --- Superfici e testo (nomi della tabella) ---
   --surface: var(--card-bg);
   --on-brand: #ffffff;
+  // Testo e icona su un fondo --brand-primary-soft (voce attiva della
+  // sidebar, Badge brand, tab attiva): in chiaro è --brand-primary, in scuro
+  // sale a indigo-300 perché --brand-primary misura 3,7:1 sul soft.
+  --on-brand-soft: var(--brand-primary);
   --gray-300: var(--color-gray-300);
   --gray-400: var(--color-gray-400);
   --gray-500: var(--color-gray-500);
@@ -231,6 +235,7 @@
   --skeleton-base: #1e293b;
   --skeleton-highlight: #334155;
   --on-brand: #0f172a;
+  --on-brand-soft: #a5b4fc; // indigo-300: 5,5:1 su brand-primary-soft
   --info-800: #c7d2fe;
   --shadow-focus: 0 0 0 3px rgba(129, 140, 248, 0.45);
   --shadow-rest: 0 2px 6px rgba(0, 0, 0, 0.4);

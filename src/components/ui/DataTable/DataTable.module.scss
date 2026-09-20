@@ -64,7 +64,10 @@
     font-size: 12px;
     font-weight: 600;
     line-height: 1.35;
-    color: var(--text-muted);
+    // Muto di un passo più scuro: --text-muted misura 4,04:1 su --hover-bg
+    // nel tema scuro; --gray-600 (slate-600 chiaro / slate-300 scuro) tiene
+    // 7,5 e 8,6.
+    color: var(--gray-600);
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
