@@ -29,7 +29,7 @@ export function InfoTooltip({
                 }}
                 className={className}
             >
-                <Info size={14} />
+                <Info size={16} />
             </span>
         </Tooltip>
     );

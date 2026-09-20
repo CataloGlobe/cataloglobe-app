@@ -57,7 +57,7 @@ function MenuItem({
     const className = `${styles.item}${variant === "destructive" ? ` ${styles.danger}` : ""}`;
     const content = (
         <>
-            {Icon && <Icon size={14} />}
+            {Icon && <Icon size={16} />}
             <span className={styles.itemLabel}>{children}</span>
         </>
     );

@@ -1,3 +1,9 @@
+// Menu — scheda «Menu»: un elenco di azioni che galleggia. Pannello
+// --surface con bordo, raggio --radius-surface, ombra --shadow-float,
+// --z-float, padding 6, larghezza min 200. Voce 36, padding 0 10, raggio
+// --radius-inner, hover --hover-bg; la distruttiva è in --danger (e va in
+// fondo, dopo un divisore: lo decide chi compone il menu). Solo token.
+
 @keyframes menuIn {
     from {
         opacity: 0;
@@ -21,56 +27,57 @@
 }
 
 .content {
-    background-color: white;
-    border-radius: var(--radius-md, 12px);
-    padding: 6px;
-    box-shadow:
-        0 10px 38px -10px rgba(22, 23, 24, 0.35),
-        0 10px 20px -15px rgba(22, 23, 24, 0.2);
+    background-color: var(--surface);
+    border-radius: var(--radius-surface);
+    padding: var(--space-6);
+    box-shadow: var(--shadow-float);
     min-width: 200px;
-    border: 1px solid var(--color-gray-200, #e2e8f0);
-    z-index: 50;
+    border: 1px solid var(--border);
+    z-index: var(--z-float);
     transform-origin: var(--radix-dropdown-menu-content-transform-origin);
 
     &[data-state="open"] {
-        animation: menuIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+        animation: menuIn var(--timing-motion-base) var(--easing-surface);
     }
     &[data-state="closed"] {
         animation: menuOut 120ms ease-in;
     }
 }
 
+// Intestazione (nome utente): caption muta, non cliccabile.
 .label {
-    padding: 8px 12px 10px;
+    padding: var(--space-8) var(--space-10) var(--space-10);
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--space-2);
     user-select: none;
     cursor: default;
 }
 
 .item {
-    font-size: 13px;
+    font-size: 14px;
     line-height: 1;
-    color: var(--color-gray-700, #334155);
-    border-radius: var(--radius-sm, 8px);
+    color: var(--text);
+    border-radius: var(--radius-inner);
     display: flex;
     align-items: center;
-    gap: 8px;
-    height: 32px;
-    padding: 0 12px;
+    gap: var(--space-8);
+    box-sizing: border-box;
+    height: 36px;
+    padding: 0 var(--space-10);
     position: relative;
     user-select: none;
     outline: none;
     cursor: pointer;
+    text-decoration: none;
 
     &[data-highlighted] {
-        background-color: var(--color-gray-100, #f1f5f9);
-        color: var(--color-gray-900, #0f172a);
+        background-color: var(--hover-bg);
+        color: var(--text);
     }
 
     &[data-disabled] {
-        opacity: 0.5;
+        opacity: 0.6;
         pointer-events: none;
     }
 }
@@ -82,15 +89,22 @@
 
 .separator {
     height: 1px;
-    background-color: var(--color-gray-200, #e2e8f0);
-    margin: 6px -6px;
+    background-color: var(--border);
+    margin: var(--space-6) calc(-1 * var(--space-6));
 }
 
 .danger {
-    color: var(--color-red-600, #dc2626);
+    color: var(--danger);
 
     &[data-highlighted] {
-        background-color: var(--color-red-50, #fef2f2);
-        color: var(--color-red-700, #b91c1c);
+        background-color: var(--danger-50);
+        color: var(--danger);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .content[data-state="open"],
+    .content[data-state="closed"] {
+        animation: none;
     }
 }
