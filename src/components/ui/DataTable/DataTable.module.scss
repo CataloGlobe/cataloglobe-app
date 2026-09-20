@@ -3,6 +3,7 @@
 // tracking .04em, text-muted) · righe --row-height con celle 12 24 · azioni
 // (TableRowActions) ultima colonna a destra, visibili al hover e al focus ·
 // footer 48 con paginazione · caricamento a righe Skeleton. Solo token.
+@use "@styles/mixins" as *;
 
 // Probe di misura per l'auto page size: si stretcha SOLO se il genitore è
 // una colonna flex vincolata (align-self + flex). In un genitore block resta
@@ -167,6 +168,17 @@
 @media (hover: none) {
     .row .cellActions > * {
         opacity: 1;
+    }
+}
+
+// Su telefono la cella stringe l'orizzontale a 12: a 375 px i 24 per lato
+// mangiavano metà della colonna (§45.6). La tabella a due colonne è del
+// lotto 5.
+@include phone {
+    .cell,
+    .headerCell {
+        padding-left: var(--space-12);
+        padding-right: var(--space-12);
     }
 }
 
