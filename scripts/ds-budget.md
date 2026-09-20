@@ -31,3 +31,16 @@ propri: è il contatore che i lotti 2b/2c portano a zero famiglia per famiglia.
 Salvata il 20/09/2026 (lotto 0): 812 · 33 · 406 · 47 · 731. Il sesto
 contatore parte con il lotto 2b. I numeri del piano (597 · 12 · 239 · 56 · 524)
 venivano da uno script perso che sottostimava: non sono confrontabili.
+
+Dopo il lotto 2c: 797 · 32 · 406 · 47 · 731 · **uiHex 4**. I due cali sul
+perimetro sono `AppSidebar.module.scss` (in `components/layout`). Il 4 di
+`uiHex` è la baseline definitiva con due eccezioni, commentate nei file:
+
+- `ui/DeviceFrame/DeviceFrame.module.scss` — grafite del bezel `#1c1c1e`
+  (bordo + fondo, 2 hex): colore del dispositivo, uguale in entrambi i temi;
+  nessun token scuro fisso.
+- `ui/ImageReframeEditor/ImageReframeEditor.module.scss` — gradiente
+  decorativo del punto «Colore» `#c2410c → #928e72` (2 hex): campione, non
+  un colore del sistema.
+
+Qualsiasi altro hex in `ui/` fa fallire il check.

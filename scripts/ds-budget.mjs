@@ -26,6 +26,10 @@ const METRICS = [
   { key: "fontSize", label: "font-size (.module.scss)" },
   // (6) Stesso criterio del primo, perimetro SOLO src/components/ui (che gli
   // altri cinque escludono): i componenti del sistema leggono i token.
+  // Baseline 4 dal lotto 2c: due eccezioni senza token equivalente, commentate
+  // nei file — la grafite del bezel di DeviceFrame (#1c1c1e, bordo + fondo) e
+  // il gradiente decorativo del punto «Colore» di ImageReframeEditor
+  // (#c2410c → #928e72). Ogni altro hex in ui/ fa fallire il check.
   { key: "uiHex", label: "hex nudi in components/ui (.module.scss)" },
 ];
 
