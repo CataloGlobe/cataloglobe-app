@@ -177,18 +177,31 @@ function EmptyStateSection() {
     );
     return (
         <>
-            <State label="default con azione" column>
-                <EmptyState icon={<Inbox size={32} />} title="Nessuna sede" description="Aggiungi la prima sede per pubblicare un menù." action={action} />
+            <State label="page (default): icona 32, titolo, riga, azione obbligatoria" column>
+                <EmptyState icon={<Inbox />} title="Nessuna sede" description="Aggiungi la prima sede per pubblicare un menù." action={action} />
             </State>
-            <State label="default senza azione" column>
-                <EmptyState icon={<Inbox size={32} />} title="Nessuna sede" description="Nessuna sede ancora." />
+            <State label="page con slot children fra riga e azione" column>
+                <EmptyState icon={<Inbox />} title="Solo tu" description="Invita chi lavora con te: ognuno vede solo le sedi che gli assegni." action={action}>
+                    <Text variant="caption" colorVariant="muted">
+                        Manager · Staff · Visualizzatore
+                    </Text>
+                </EmptyState>
             </State>
-            <State label="compact" column>
-                <EmptyState icon={<Inbox size={24} />} title="Nessuna sede" compact action={action} />
+            <State label="inline (in una card): icona 20, azione opzionale" column>
+                <Card title="Cataloghi" flush>
+                    <EmptyState icon={<Inbox />} title="Nessun catalogo" description="Questo prodotto non è incluso in nessun catalogo." variant="inline" action={action} />
+                </Card>
+                <Card title="Programmazione" flush>
+                    <EmptyState icon={<Inbox />} title="Nessuna regola coinvolge questo prodotto." variant="inline" />
+                </Card>
             </State>
-            <State label="inline con e senza azione" column>
-                <EmptyState icon={<Inbox size={16} />} title="Nessun risultato" variant="inline" action={action} />
-                <EmptyState icon={<Inbox size={16} />} title="Nessun risultato" description="Nessun risultato per «pizza»." variant="inline" />
+            <State label="filtered: una riga + «Azzera filtri»" column>
+                <Card flush>
+                    <EmptyState title="Nessun risultato per «pizza»" variant="filtered" onClearFilters={noop} />
+                </Card>
+            </State>
+            <State label="alias deprecato: compact (= inline, warn in dev)" column>
+                <EmptyState icon={<Inbox />} title="Nessuna sede" compact action={action} />
             </State>
         </>
     );
