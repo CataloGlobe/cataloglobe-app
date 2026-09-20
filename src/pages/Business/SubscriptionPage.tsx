@@ -254,6 +254,25 @@ export default function SubscriptionPage() {
 
     // --- Stato flusso "Modifica piano" self-service ---
     const [plans, setPlans] = useState<Plan[]>([]);
+
+    // Deep-link da Businesses (offerta "hai usato tutte le sedi"): apre il
+    // drawer di cambio piano direttamente, appena i piani sono caricati.
+    // Stesso pattern hash di #utilizzo-ai sopra. `openChange` è definito più
+    // in basso nel corpo della funzione (plain function, non un hook): la
+    // closure lo legge solo quando l'effect scatta — a quel punto il render
+    // è già completo e `openChange` è assegnato.
+    const didOpenChangeFromHashRef = useRef(false);
+    useEffect(() => {
+        if (hash !== "#modifica-piano") {
+            didOpenChangeFromHashRef.current = false;
+            return;
+        }
+        if (didOpenChangeFromHashRef.current) return;
+        if (plans.length === 0) return;
+        didOpenChangeFromHashRef.current = true;
+        openChange();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [hash, plans]);
     const [activityCount, setActivityCount] = useState(0);
     const [isChangeOpen, setIsChangeOpen] = useState(false);
     // Flusso a 3 step: scegli piano/sedi → quando applicare → conferma.
@@ -1270,7 +1289,7 @@ export default function SubscriptionPage() {
                     </Text>
                 </div>
 
-                {status === "trialing" && !hasSubscriptionRecord && (
+                {!hasSubscriptionRecord && status !== "active" && (
                     <div className={styles.actionCard}>
                         <div>
                             <Text variant="body" weight={500}>

@@ -10,8 +10,15 @@ import {
   countActivityDeleteImpact,
   DeleteActivityError,
   type ActivityDeleteImpact,
+  type SeatLimitInfo,
 } from "@/services/supabase/activities";
 import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog";
+import { getPlanByCode } from "@/services/supabase/plans";
+import { listPlanPrices } from "@/services/supabase/planPrices";
+import { getTenantBillingInterval } from "@/services/supabase/tenants";
+import { calculateGraduatedFromPlan } from "@/utils/pricing";
+import { priceCentsFor, DEFAULT_BILLING_INTERVAL } from "@/utils/planPricing";
+import type { Plan, PlanPrice, BillingInterval } from "@/types/plan";
 import type { CatalogFetchStatus } from "@/utils/activeCatalogStatus";
 import type {
   ActiveCatalogMeta,
@@ -53,7 +60,10 @@ import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
 
 import { LayoutGrid, List as ListIcon } from "lucide-react";
 import styles from "./Businesses.module.scss";
-import { BusinessLocationDrawer } from "@/components/Businesses/BusinessLocationDrawer/BusinessLocationDrawer";
+import {
+  BusinessLocationDrawer,
+  type SeatUpgradeOffer,
+} from "@/components/Businesses/BusinessLocationDrawer/BusinessLocationDrawer";
 import { Button } from "@/components/ui";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -62,6 +72,15 @@ import ModalLayout, {
   ModalLayoutFooter,
   ModalLayoutHeader,
 } from "@/components/ui/ModalLayout/ModalLayout";
+
+function formatDateIt(iso: string | null | undefined): string {
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("it-IT", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
 
 // ==========================================
 // COMPONENT
@@ -88,7 +107,15 @@ export default function Businesses() {
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleteImpact, setDeleteImpact] = useState<ActivityDeleteImpact | null>(null);
   const [isLoadingDeleteImpact, setIsLoadingDeleteImpact] = useState(false);
-  const [seatLimitDialogOpen, setSeatLimitDialogOpen] = useState(false);
+
+  // Piano + prezzi del tenant: servono solo per calcolare il blocco "offerta"
+  // nel drawer di creazione quando il piano è al limite di sedi (vedi
+  // `seatOffer` sotto). Stessa fonte di SubscriptionPage.tsx.
+  const [currentPlan, setCurrentPlan] = useState<Plan | null>(null);
+  const [planPrices, setPlanPrices] = useState<PlanPrice[]>([]);
+  const [billingInterval, setBillingInterval] = useState<BillingInterval>(
+    DEFAULT_BILLING_INTERVAL,
+  );
 
   // Role-aware copy for inactive subscription toast.
   const subscriptionInactiveMessage = useCallback(() => {
@@ -199,6 +226,27 @@ export default function Businesses() {
     refreshBusinesses();
   }, [refreshBusinesses]);
 
+  useEffect(() => {
+    if (!selectedTenant?.plan || !tenantId) return;
+    getPlanByCode(selectedTenant.plan)
+      .then(setCurrentPlan)
+      .catch((err) => {
+        console.error("[Businesses] plan lookup failed:", err);
+        setCurrentPlan(null);
+      });
+    getTenantBillingInterval(tenantId)
+      .then((interval) => setBillingInterval(interval ?? DEFAULT_BILLING_INTERVAL))
+      .catch((err) =>
+        console.error("[Businesses] billing interval lookup failed:", err),
+      );
+    listPlanPrices()
+      .then(setPlanPrices)
+      .catch((err) => {
+        console.error("[Businesses] plan prices list failed:", err);
+        setPlanPrices([]);
+      });
+  }, [selectedTenant?.plan, tenantId]);
+
   // ======================================
   // CREAZIONE SEDE (logica nel hook, gate di pagina qui)
   // ======================================
@@ -247,6 +295,69 @@ export default function Businesses() {
     businessId,
   ]);
 
+  // Stato "offerta" del drawer di creazione quando il piano è al limite di
+  // sedi. `null` finché il piano non è caricato o finché c'è margine — il
+  // drawer mostra il form. `upgrade`: entro il tetto self-service, con
+  // prezzo aggiuntivo calcolato dallo stesso schema di SubscriptionPage
+  // (`calculateGraduatedFromPlan`). `contact_support`: oltre il tetto,
+  // nessun prezzo — solo assistenza.
+  const seatOffer = useMemo<SeatUpgradeOffer | null>(() => {
+    const paidSeats = selectedTenant?.paid_seats ?? 0;
+    const usedSeats = businesses.length;
+    if (usedSeats < paidSeats || !currentPlan) return null;
+
+    const selfServiceCap = currentPlan.max_self_service_seats;
+    if (usedSeats >= selfServiceCap) {
+      return {
+        kind: "contact_support",
+        planName: currentPlan.name,
+        usedSeats,
+        paidSeats,
+      };
+    }
+
+    const unitPriceCents = priceCentsFor(planPrices, currentPlan.code, billingInterval);
+    const planForGraduation = { ...currentPlan, unit_price_cents: unitPriceCents };
+    const currentBreakdown = calculateGraduatedFromPlan(planForGraduation, paidSeats);
+    const nextBreakdown = calculateGraduatedFromPlan(planForGraduation, paidSeats + 1);
+
+    return {
+      kind: "upgrade",
+      info: {
+        planName: currentPlan.name,
+        usedSeats,
+        paidSeats,
+        extraPriceCents: Math.round((nextBreakdown.subtotal - currentBreakdown.subtotal) * 100),
+        listPriceCents: Math.round(nextBreakdown.fullPrice * 100),
+        volumeDiscountPercent: currentPlan.volume_discount_percent,
+        renewalDateLabel: formatDateIt(selectedTenant?.current_period_end ?? null),
+      },
+    };
+  }, [selectedTenant, businesses.length, currentPlan, planPrices, billingInterval]);
+
+  const openPlanUpgradeFromOffer = useCallback(() => {
+    setIsCreateOpen(false);
+    navigate(`/business/${businessId}/subscription#modifica-piano`);
+  }, [navigate, businessId]);
+
+  // Safety net: la creazione è comunque respinta dal trigger DB se il limite
+  // viene raggiunto nella finestra fra apertura del drawer e submit (altra
+  // sede creata da un altro tab/utente). Il drawer resta form-first in quel
+  // caso — il click su "Aggiungi sede" lo apre già sullo stato offerta se il
+  // limite era già raggiunto (vedi `handleAddActivity`).
+  const handleSeatLimitFromServer = useCallback(
+    (info: SeatLimitInfo) => {
+      showToast({
+        message: `Limite sedi raggiunto: il piano copre ${info.paid} ${
+          info.paid === 1 ? "sede" : "sedi"
+        } (in uso ${info.used}).`,
+        type: "error",
+        duration: 4000,
+      });
+    },
+    [showToast],
+  );
+
   const closeCreateDrawer = useCallback(() => setIsCreateOpen(false), []);
 
   const {
@@ -266,6 +377,7 @@ export default function Businesses() {
     canSubmit: guardSubscriptionActive,
     beforeCreate: guardSeatLimit,
     onNotify: showToast,
+    onSeatLimit: handleSeatLimitFromServer,
     onSuccess: refreshBusinesses,
     onSettled: closeCreateDrawer,
   });
@@ -305,20 +417,12 @@ export default function Businesses() {
       showToast({ message: subscriptionInactiveMessage(), type: "error" });
       return;
     }
-    if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
-      setSeatLimitDialogOpen(true);
-      return;
-    }
+    // Al/oltre il limite il drawer si apre comunque, ma su `seatOffer` (stato
+    // offerta) invece del form — niente form destinato a fallire contro
+    // `enforce_seat_limit`.
     setIsCreateOpen(true);
     setCreateSlugState({ type: "idle" });
-  }, [
-    canEdit,
-    showToast,
-    subscriptionInactiveMessage,
-    selectedTenant,
-    businesses.length,
-    setCreateSlugState,
-  ]);
+  }, [canEdit, showToast, subscriptionInactiveMessage, setCreateSlugState]);
 
   const handleNewGroup = useCallback(() => {
     if (!canEdit) {
@@ -796,6 +900,8 @@ export default function Businesses() {
                   setCreateSlugState({ type: "idle" });
                   resetCreateState();
                 }}
+                seatOffer={seatOffer}
+                onOpenPlanDrawer={openPlanUpgradeFromOffer}
               />
 
               <BusinessLocationDrawer
@@ -1007,81 +1113,6 @@ export default function Businesses() {
               <Button variant="primary" onClick={confirmDelete}>
                 {isDeleting ? "Eliminazione in corso..." : "Elimina"}
               </Button>
-            </ModalLayoutFooter>
-          </ModalLayout>
-
-          <ModalLayout
-            isOpen={seatLimitDialogOpen}
-            onClose={() => setSeatLimitDialogOpen(false)}
-            width="sm"
-            height="fit"
-          >
-            <ModalLayoutHeader>
-              <Text as="h2" variant="title-sm" weight={700}>
-                Hai raggiunto il limite di sedi
-              </Text>
-            </ModalLayoutHeader>
-
-            <ModalLayoutContent>
-              <Text variant="body">
-                {(() => {
-                  const paidSeats = selectedTenant?.paid_seats ?? 0;
-                  const seatsLabel =
-                    paidSeats === 1 ? "una sede" : `${paidSeats} sedi`;
-                  if (isOwner(userRole))
-                    return `Il tuo piano include ${seatsLabel}. Per aggiungerne altre, espandi il piano dalla pagina abbonamento.`;
-                  if (isAdmin(userRole))
-                    return `Il piano include ${seatsLabel}. Solo il proprietario può espandere l'abbonamento.`;
-                  return `Il piano include ${seatsLabel}. Contatta il proprietario per aggiungere altre sedi.`;
-                })()}
-              </Text>
-            </ModalLayoutContent>
-
-            <ModalLayoutFooter>
-              {isOwner(userRole) ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    onClick={() => setSeatLimitDialogOpen(false)}
-                  >
-                    Annulla
-                  </Button>
-                  <Button
-                    variant="primary"
-                    onClick={() => {
-                      setSeatLimitDialogOpen(false);
-                      navigate(`/business/${businessId}/subscription`);
-                    }}
-                  >
-                    Apri abbonamento
-                  </Button>
-                </>
-              ) : isAdmin(userRole) ? (
-                <>
-                  <Button
-                    variant="secondary"
-                    onClick={() => setSeatLimitDialogOpen(false)}
-                  >
-                    Chiudi
-                  </Button>
-                  <Button
-                    variant="primary"
-                    onClick={() => {
-                      setSeatLimitDialogOpen(false);
-                      navigate(`/business/${businessId}/subscription`);
-                    }}
-                  >
-                    Apri abbonamento
-                  </Button>
-                </>
-              ) : (
-                <Button
-                  variant="primary"
-                  onClick={() => setSeatLimitDialogOpen(false)}
-                >
-                  Ho capito
-                </Button>
-              )}
             </ModalLayoutFooter>
           </ModalLayout>
         </section>
