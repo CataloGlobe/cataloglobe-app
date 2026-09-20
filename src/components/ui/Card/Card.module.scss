@@ -1,66 +1,78 @@
-@use "@styles/variables" as *;
+// Card — contenitore con nome e confine (design system §5, scheda Card).
+// Token da _theme.scss: tema scuro gratis via --surface/--border/--text.
+// Nessuna transizione su transform, nessun lift: la card non è interattiva.
 
-/* ----------------------------------------------------
-   CARD WRAPPER
----------------------------------------------------- */
 .card {
-  background: var(--card-bg, #ffffff);
-  border-radius: 12px;
-  border: 1px solid var(--border, #e5e7eb);
-
-  padding: 1.5rem;
-
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-
-  transition: background 0.3s ease, border 0.3s ease, transform 0.2s ease, box-shadow 0.2s ease;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
-  }
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-rest);
 }
 
-.noHoverLift {
-  &:hover {
-    transform: none;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.03);
-  }
+.header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-16) var(--space-24);
+  border-bottom: 1px solid var(--border);
 }
 
-/* ----------------------------------------------------
-   TITLE
----------------------------------------------------- */
+.headerText {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.titleRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
 .title {
-  font-size: 1rem;
-  font-weight: 600;
-
-  color: var(--brand-primary, #2563eb);
-
-  margin-bottom: 0.5rem;
+  // Il colore è del titolo, non del body: la variante danger lo cambia.
+  color: var(--text);
 }
 
-/* ----------------------------------------------------
-   CONTENT
----------------------------------------------------- */
-.content {
-  font-size: 0.95rem;
-  color: var(--text, #0f172a);
-  line-height: 1.4;
+.badge {
+  display: inline-flex;
+  align-items: center;
 }
 
-/* ----------------------------------------------------
-   DARK MODE — cosmetic tweaks only
----------------------------------------------------- */
-[data-theme="dark"] {
-  .card {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+.actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
 
-    &:hover {
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.55);
-    }
+.body {
+  padding: var(--space-24);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
+// Body senza padding orizzontale: righe tabellari, DataTable, sotto-sezioni
+// collassabili con hover e divisori a tutta larghezza. Header invariato.
+.flush {
+  padding: var(--space-8) 0;
+}
+
+// Unica variante cromatica: la cornice avvisa e il titolo lo dice, il body
+// resta neutro (il bottone danger sta nell'header, a destra).
+.danger {
+  border-color: var(--danger-200);
+
+  .header {
+    border-bottom-color: var(--danger-200);
   }
 
-  .noHoverLift:hover {
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  .title {
+    color: var(--text-danger);
   }
 }

@@ -55,20 +55,15 @@ function SampleTable(props: Partial<React.ComponentProps<typeof DataTable<Row>>>
 function CardSection() {
     return (
         <>
-            <State label="Card con titolo" column>
+            <State label="con titolo" column>
                 <Card title="Informazioni">
                     <Text variant="body-sm">Il contenuto della card.</Text>
                 </Card>
             </State>
-            <State label="Card senza titolo · noHoverLift" column>
-                <Card noHoverLift>
-                    <Text variant="body-sm">Senza titolo, senza lift.</Text>
-                </Card>
-            </State>
-            <State label="SectionCard con titolo, badge, sottotitolo, 2 azioni" column>
-                <SectionCard
+            <State label="con titolo, badge, sottotitolo, 2 azioni" column>
+                <Card
                     title="Varianti"
-                    badge={<Badge variant="secondary">3</Badge>}
+                    badge={<Badge>3</Badge>}
                     subtitle="Visibili nella pagina pubblica"
                     actions={
                         <>
@@ -82,24 +77,39 @@ function CardSection() {
                     }
                 >
                     <Text variant="body-sm">Body della sezione.</Text>
-                </SectionCard>
+                </Card>
             </State>
-            <State label="SectionCard senza titolo" column>
-                <SectionCard>
+            <State label="senza titolo" column>
+                <Card>
                     <Text variant="body-sm">Il body parte in alto: nessun header, nessun divisore.</Text>
-                </SectionCard>
+                </Card>
             </State>
-            <State label="SectionCard danger" column>
-                <SectionCard title="Zona pericolosa" variant="danger" subtitle="Le azioni qui sotto non si annullano.">
-                    <Button variant="danger" size="sm" onClick={noop}>
-                        Elimina sede
-                    </Button>
-                </SectionCard>
+            <State label="danger: l'azione sta nell'header, il body resta neutro" column>
+                <Card
+                    title="Zona pericolosa"
+                    variant="danger"
+                    subtitle="Le azioni qui sotto non si annullano."
+                    actions={
+                        <Button variant="danger" size="sm" onClick={noop}>
+                            Elimina sede
+                        </Button>
+                    }
+                >
+                    <Text variant="body-sm">Eliminando la sede perdi tavoli, prenotazioni e QR collegati.</Text>
+                </Card>
             </State>
-            <State label="SectionCard flush + DataTable" column>
-                <SectionCard title="Cataloghi" flush>
+            <State label="flush + DataTable" column>
+                <Card title="Cataloghi" flush>
                     <SampleTable />
+                </Card>
+            </State>
+            <State label="alias deprecato: SectionCard · noHoverLift (warn in dev)" column>
+                <SectionCard title="SectionCard">
+                    <Text variant="body-sm">Rende una Card identica.</Text>
                 </SectionCard>
+                <Card noHoverLift>
+                    <Text variant="body-sm">noHoverLift è ignorato: nessuna card ha più il lift.</Text>
+                </Card>
             </State>
         </>
     );
@@ -265,7 +275,7 @@ function QrCodeWithActionsSection() {
 }
 
 export const containersSections: GallerySection[] = [
-    { id: "card", title: "Card · SectionCard", sheet: "Card", Component: CardSection },
+    { id: "card", title: "Card", sheet: "Card", Component: CardSection },
     { id: "datatable", title: "DataTable", sheet: "DataTable", Component: DataTableSection },
     { id: "tablerowactions", title: "TableRowActions", sheet: "Menu", Component: TableRowActionsSection },
     { id: "emptystate", title: "EmptyState", sheet: "EmptyState", Component: EmptyStateSection },
