@@ -1,0 +1,217 @@
+/* eslint-disable react-refresh/only-export-components -- galleria dev: componenti di sezione + elenco nello stesso file, niente fast refresh da preservare */
+import { useState } from "react";
+import { Euro } from "lucide-react";
+import { TextInput } from "@/components/ui/Input/TextInput";
+import { NumberInput } from "@/components/ui/Input/NumberInput";
+import { SearchInput } from "@/components/ui/Input/SearchInput";
+import { DateInput } from "@/components/ui/Input/DateInput";
+import { TimeInput } from "@/components/ui/Input/TimeInput";
+import { ColorInput } from "@/components/ui/Input/ColorInput";
+import { FileInput } from "@/components/ui/Input/FileInput";
+import { RangeInput } from "@/components/ui/Input/RangeInput";
+import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
+import { InputBase } from "@/components/ui/Input/InputBase";
+import { Select } from "@/components/ui/Select/Select";
+import { Textarea } from "@/components/ui/Textarea/Textarea";
+import { Switch } from "@/components/ui/Switch/Switch";
+import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
+import { RoleSelector } from "@/components/ui/RoleSelector/RoleSelector";
+import { ImageUploadField } from "@/components/ui/ImageUploadField/ImageUploadField";
+import type { UserRole } from "@/lib/permissions";
+import { State, noop, type GallerySection } from "../gallery";
+import styles from "../DevUiPage.module.scss";
+
+/**
+ * I 5 stati della scheda FormField per un controllo: default · focus (si
+ * ottiene con Tab, `autoFocus` non è replicabile su più campi) · error ·
+ * disabled · con helper. Il focus si guarda navigando con la tastiera.
+ */
+function FiveStates({
+    label,
+    render
+}: {
+    label: string;
+    render: (props: { helperText?: string; error?: string; disabled?: boolean }) => React.ReactNode;
+}) {
+    return (
+        <State label={label} column>
+            <div className={styles.narrow}>{render({})}</div>
+            <div className={styles.narrow}>{render({ helperText: "Un aiuto che previene l'errore." })}</div>
+            <div className={styles.narrow}>{render({ error: "Valore non valido." })}</div>
+            <div className={styles.narrow}>{render({ disabled: true })}</div>
+        </State>
+    );
+}
+
+function InputSection() {
+    const [color, setColor] = useState("#6366f1");
+    const [file, setFile] = useState<File | null>(null);
+    return (
+        <>
+            <FiveStates label="TextInput" render={p => <TextInput label="Nome della sede" placeholder="Trattoria del Porto" {...p} />} />
+            <FiveStates
+                label="TextInput con adornment"
+                render={p => <TextInput label="Prezzo" placeholder="0,00" startAdornment={<Euro size={16} />} {...p} />}
+            />
+            <FiveStates label="NumberInput" render={p => <NumberInput label="Coperti" placeholder="40" {...p} />} />
+            <FiveStates label="SearchInput" render={p => <SearchInput label="Cerca" placeholder="Cerca un piatto" allowClear {...p} />} />
+            <FiveStates label="DateInput" render={p => <DateInput label="Data" {...p} />} />
+            <FiveStates label="TimeInput" render={p => <TimeInput label="Ora" {...p} />} />
+            <FiveStates
+                label="ColorInput"
+                render={p => <ColorInput label="Colore primario" value={color} onChange={setColor} allowTextInput {...p} />}
+            />
+            <FiveStates
+                label="FileInput"
+                render={p => <FileInput label="Logo" value={file} onChange={setFile} accept="image/*" maxSizeMb={2} {...p} />}
+            />
+            <FiveStates label="RangeInput" render={p => <RangeInput label="Zoom" min={1} max={3} step={0.1} defaultValue={1} showValue {...p} />} />
+            <FiveStates
+                label="CheckboxInput"
+                render={p => <CheckboxInput label="Accetto i termini" description="Obbligatorio per procedere" {...p} />}
+            />
+            <State label="required (asterisco nella label)">
+                <div className={styles.narrow}>
+                    <TextInput label="Email" required placeholder="nome@esempio.it" />
+                </div>
+            </State>
+            <State label="InputBase (render prop)">
+                <div className={styles.narrow}>
+                    <InputBase label="Controllo custom" helperText="InputBase avvolge qualsiasi controllo.">
+                        {({ inputId, describedById, hasError, isDisabled }) => (
+                            <input
+                                id={inputId}
+                                aria-describedby={describedById}
+                                aria-invalid={hasError}
+                                disabled={isDisabled}
+                                placeholder="input nudo"
+                            />
+                        )}
+                    </InputBase>
+                </div>
+            </State>
+        </>
+    );
+}
+
+const SELECT_OPTIONS = [
+    { value: "ristorante", label: "Ristorante" },
+    { value: "bar", label: "Bar" },
+    { value: "negozio", label: "Negozio", disabled: true }
+];
+
+function SelectSection() {
+    return <FiveStates label="Select" render={p => <Select label="Tipo di sede" options={SELECT_OPTIONS} defaultValue="bar" {...p} />} />;
+}
+
+function TextareaSection() {
+    return (
+        <FiveStates
+            label="Textarea"
+            render={p => <Textarea label="Descrizione" placeholder="Racconta la sede in due righe" rows={3} {...p} />}
+        />
+    );
+}
+
+function SwitchSection() {
+    const [on, setOn] = useState(true);
+    return (
+        <>
+            <State label="off / on">
+                <Switch label="Mostra nella pagina pubblica" checked={false} onChange={noop} />
+                <Switch label="Mostra nella pagina pubblica" checked onChange={noop} />
+            </State>
+            <State label="controllato">
+                <Switch label="Ordini dal tavolo" checked={on} onChange={setOn} description="Si attiva subito, senza salvare." />
+            </State>
+            <State label="helper / error / disabled">
+                <Switch label="Prenotazioni" checked onChange={noop} helperText="Richiede gli orari di apertura." />
+                <Switch label="Prenotazioni" checked={false} onChange={noop} error="Mancano gli orari di apertura." />
+                <Switch label="Prenotazioni" checked onChange={noop} disabled />
+            </State>
+            <State label="senza label (ariaLabel)">
+                <Switch ariaLabel="Attiva" checked onChange={noop} />
+            </State>
+        </>
+    );
+}
+
+function RadioGroupSection() {
+    const [value, setValue] = useState("auto");
+    const options = [
+        { value: "auto", label: "Automatica", description: "Conferma subito se c'è posto." },
+        { value: "manual", label: "Manuale", description: "Confermi tu ogni richiesta." },
+        { value: "off", label: "Disattivata", disabled: true }
+    ];
+    return (
+        <>
+            <State label="default">
+                <RadioGroup label="Accettazione" value={value} onChange={setValue} options={options} />
+            </State>
+            <State label="helper / error / disabled">
+                <RadioGroup label="Accettazione" value={value} onChange={setValue} options={options} helperText="Puoi cambiarla quando vuoi." />
+                <RadioGroup label="Accettazione" value={value} onChange={setValue} options={options} error="Scegli una modalità." />
+                <RadioGroup label="Accettazione" value={value} onChange={setValue} options={options} disabled />
+            </State>
+        </>
+    );
+}
+
+const ROLES: UserRole[] = ["owner", "admin", "manager", "staff", "viewer"];
+
+function RoleSelectorSection() {
+    const [role, setRole] = useState<UserRole | null>("staff");
+    return (
+        <>
+            <State label="tutti i ruoli">
+                <RoleSelector value={role} onChange={setRole} availableRoles={ROLES} />
+            </State>
+            <State label="solo i ruoli invitabili da un manager">
+                <RoleSelector value={role} onChange={setRole} availableRoles={["staff", "viewer"]} />
+            </State>
+            <State label="disabled">
+                <RoleSelector value={role} onChange={noop} availableRoles={ROLES} disabled />
+            </State>
+        </>
+    );
+}
+
+function ImageUploadFieldSection() {
+    return (
+        <>
+            <State label="vuoto (wide)">
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Copertina" imageUrl={null} onFileChange={noop} helperText="JPG o PNG, max 2 MB." />
+                </div>
+            </State>
+            <State label="con immagine + rimuovi">
+                <div className={styles.narrow}>
+                    <ImageUploadField
+                        label="Copertina"
+                        imageUrl="/favicon/cataloglobe_icon_flat_primary_180.png"
+                        onFileChange={noop}
+                        onRemove={noop}
+                    />
+                </div>
+            </State>
+            <State label="square · disabled">
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Immagine blocco" thumbShape="square" imageUrl={null} onFileChange={noop} />
+                </div>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Copertina" imageUrl={null} onFileChange={noop} disabled />
+                </div>
+            </State>
+        </>
+    );
+}
+
+export const formsSections: GallerySection[] = [
+    { id: "input", title: "Input (10 tipi)", sheet: "FormField", Component: InputSection },
+    { id: "select", title: "Select", sheet: "FormField", Component: SelectSection },
+    { id: "textarea", title: "Textarea", sheet: "FormField", Component: TextareaSection },
+    { id: "switch", title: "Switch", sheet: "Switch", Component: SwitchSection },
+    { id: "radiogroup", title: "RadioGroup", Component: RadioGroupSection },
+    { id: "roleselector", title: "RoleSelector", Component: RoleSelectorSection },
+    { id: "imageuploadfield", title: "ImageUploadField", Component: ImageUploadFieldSection }
+];
