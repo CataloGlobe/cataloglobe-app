@@ -1,0 +1,43 @@
+.formStack {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.fieldRow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+
+    @media (max-width: 560px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.subSection {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.hint {
+    font-size: 13px;
+    color: var(--text-muted);
+}
+
+.addressGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+
+    @media (max-width: 560px) {
+        grid-template-columns: 1fr;
+    }
+}
+
+.addressFull {
+    grid-column: 1 / -1;
+}

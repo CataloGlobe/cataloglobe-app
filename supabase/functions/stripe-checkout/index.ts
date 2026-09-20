@@ -10,6 +10,7 @@ import {
     STRIPE_CUSTOMER_NAME_MAX
 } from "../_shared/stripeLimits.ts";
 import { lookupStripePriceId, type BillingInterval } from "../_shared/planPrices.ts";
+import { isValidPartitaIva } from "../_shared/fiscalValidators.ts";
 
 const ALLOWED_ORIGINS = [
     "http://localhost:5173",
@@ -332,11 +333,39 @@ serve(async req => {
             .maybeSingle();
 
         if (fiscalError) {
-            // Non-fatal: degrade to no pre-fill rather than block the payment.
-            console.warn("stripe-checkout: fiscal profile fetch failed (non-fatal):", fiscalError.message);
+            // Un tempo non fatale (degradava solo il pre-fill). Ora la riga
+            // serve anche al gate fiscale bloccante sotto: senza, non possiamo
+            // provare che la P.IVA sia valida, quindi si rifiuta (503 retryabile)
+            // invece di vendere l'abbonamento al buio.
+            console.warn("stripe-checkout: fiscal profile fetch failed:", fiscalError.message);
         }
 
         const fiscal: TenantFiscal = fiscalRow ?? {};
+
+        // --- Server-side fiscal gate (bloccante) ---------------------------------
+        // La validazione FE è aggirabile (chiamata diretta all'edge). Qui è
+        // l'ultimo cancello prima di creare il customer Stripe e vendere
+        // l'abbonamento: una P.IVA presente DEVE avere il check digit corretto, e
+        // con una P.IVA serve un recapito e-fattura (SDI o PEC), altrimenti la
+        // fattura elettronica non è recapitabile. Il gate ha bisogno della riga
+        // fiscale: se la lettura è fallita non possiamo validare, quindi si
+        // rifiuta (503 retryabile) invece di procedere al buio.
+        if (fiscalError) {
+            return json(req, 503, { error: "fiscal_profile_unavailable" });
+        }
+        const vatValue = (fiscal.vat_number ?? "").trim();
+        if (vatValue.length > 0) {
+            if (!isValidPartitaIva(vatValue)) {
+                return json(req, 400, { error: "invalid_vat_number" });
+            }
+            const hasRecipient =
+                (fiscal.codice_destinatario ?? "").trim().length > 0 ||
+                (fiscal.pec ?? "").trim().length > 0;
+            if (!hasRecipient) {
+                return json(req, 400, { error: "missing_einvoice_recipient" });
+            }
+        }
+
         const customerName = buildCustomerName(fiscal);
         const customerAddress = buildCustomerAddress(fiscal);
         const euVatValue = buildEuVatValue(fiscal.vat_number, fiscal.country);

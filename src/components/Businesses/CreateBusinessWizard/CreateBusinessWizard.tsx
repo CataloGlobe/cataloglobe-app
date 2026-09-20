@@ -321,6 +321,14 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         const vatFormatOk = !vatFilled || isValidPartitaIva(vatNumber);
         const cfFormatOk = !cfFilled || isValidCodiceFiscale(fiscalCode);
 
+        // Con una P.IVA serve un recapito e-fattura (SDI o PEC): stesso vincolo
+        // del gate server-side in stripe-checkout (`missing_einvoice_recipient`).
+        const recipientOk =
+            !vatFilled ||
+            codiceDestinatario.trim().length > 0 ||
+            pec.trim().length > 0;
+        if (!recipientOk) return false;
+
         switch (entityType) {
             case "societa":
                 return vatFilled && isValidPartitaIva(vatNumber) && legalName.trim().length > 0 && cfFormatOk;
@@ -338,7 +346,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             default:
                 return false;
         }
-    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, billingAddressComplete, billingLengthsOk]);
+    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, codiceDestinatario, pec, billingAddressComplete, billingLengthsOk]);
 
     const isDirty = resumeMode
         ? (
@@ -910,6 +918,15 @@ function friendlyErrorMessage(code: string): string {
             return "Il tuo abbonamento è già attivo. Se hai appena completato il pagamento, attendi qualche secondo e ricarica la pagina.";
         case "subscription_check_failed":
             return "Non siamo riusciti a verificare lo stato del tuo abbonamento. Non ti è stato addebitato nulla: riprova tra qualche istante.";
+        // Gate fiscale server-side di stripe-checkout. Normalmente il passo
+        // Fatturazione li previene già; qui coprono la chiamata diretta o dati
+        // modificati altrove.
+        case "invalid_vat_number":
+            return "La Partita IVA non è valida. Controlla i dati di fatturazione dell'azienda e riprova.";
+        case "missing_einvoice_recipient":
+            return "Con la Partita IVA serve un recapito per la fattura elettronica: aggiungi il Codice Destinatario SDI o la PEC nei dati di fatturazione.";
+        case "fiscal_profile_unavailable":
+            return "Non siamo riusciti a leggere i dati di fatturazione. Non ti è stato addebitato nulla: riprova tra qualche istante.";
         default:
             return "Errore durante la creazione dell'attività. Riprova.";
     }

@@ -9,6 +9,8 @@ export interface UnsavedChangesBarProps {
     label?: string;
     cancelLabel?: string;
     saveLabel?: string;
+    /** Disabilita solo il Salva (non l'Annulla): es. draft ancora incompleto. */
+    saveDisabled?: boolean;
 }
 
 export function UnsavedChangesBar({
@@ -17,7 +19,8 @@ export function UnsavedChangesBar({
     onSave,
     label = "Modifiche non salvate",
     cancelLabel = "Annulla",
-    saveLabel = "Salva"
+    saveLabel = "Salva",
+    saveDisabled = false
 }: UnsavedChangesBarProps) {
     return (
         <div className={styles.bar} role="status" aria-live="polite">
@@ -41,7 +44,7 @@ export function UnsavedChangesBar({
                     variant="primary"
                     onClick={onSave}
                     loading={isSaving}
-                    disabled={isSaving}
+                    disabled={isSaving || saveDisabled}
                 >
                     {saveLabel}
                 </Button>

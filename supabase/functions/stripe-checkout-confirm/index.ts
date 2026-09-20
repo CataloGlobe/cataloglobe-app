@@ -149,7 +149,9 @@ serve(async (req: Request) => {
             // The session must be OUR session for THIS tenant. metadata.tenant_id
             // is written by stripe-checkout on every session it creates.
             if (session.metadata?.tenant_id !== tenantId) {
-                console.warn(`stripe-checkout-confirm: session ${sessionId} not bound to tenant ${tenantId}`);
+                console.error(
+                    `stripe-checkout-confirm: ANOMALY session_tenant_mismatch — session ${sessionId} bound to tenant ${session.metadata?.tenant_id ?? "?"}, requested by tenant ${tenantId} (user ${userId})`
+                );
                 return json(req, 403, { error: "session_tenant_mismatch" });
             }
             if (session.mode !== "subscription") {
@@ -202,7 +204,9 @@ serve(async (req: Request) => {
             // Subscriptions created by stripe-checkout always carry tenant_id.
             // One without it, or with another tenant's, is not ours to adopt.
             if (subscription.metadata?.tenant_id !== tenantId) {
-                console.warn(`stripe-checkout-confirm: subscription ${subscription.id} not bound to tenant ${tenantId}`);
+                console.error(
+                    `stripe-checkout-confirm: ANOMALY subscription_tenant_mismatch — subscription ${subscription.id} bound to tenant ${subscription.metadata?.tenant_id ?? "?"}, requested by tenant ${tenantId} (user ${userId})`
+                );
                 return json(req, 403, { error: "subscription_tenant_mismatch" });
             }
         }
@@ -233,8 +237,8 @@ serve(async (req: Request) => {
                 return json(req, 502, { error: "subscription_check_failed" });
             }
             if (!REPLACEABLE_SUBSCRIPTION_STATUSES.has(previous.status)) {
-                console.warn(
-                    `stripe-checkout-confirm: tenant ${tenantId} linked to ${currentSubId} (${previous.status}), refusing to replace with ${subscription.id}`
+                console.error(
+                    `stripe-checkout-confirm: ANOMALY subscription_mismatch — tenant ${tenantId} linked to ${currentSubId} (${previous.status}), refusing to replace with ${subscription.id} (user ${userId})`
                 );
                 return json(req, 409, { error: "subscription_mismatch" });
             }

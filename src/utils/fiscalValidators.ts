@@ -1,6 +1,12 @@
 // =============================================================================
 // fiscalValidators — format-only checks for Italian fiscal identifiers.
 // No VIES / Agenzia delle Entrate lookups: shape + check digit only.
+//
+// ⚠️ SYNC — il check-digit P.IVA di `isValidPartitaIva` vive in 3 posti:
+// qui, supabase/functions/_shared/fiscalValidators.ts (gate stripe-checkout) e
+// la RPC update_tenant_billing_details (migration
+// 20260920120000_...validate_vat.sql). Cambiando l'algoritmo, aggiorna i primi
+// due nello stesso commit e aggiungi una NUOVA migration per la RPC.
 // =============================================================================
 
 /**

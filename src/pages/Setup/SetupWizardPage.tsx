@@ -80,7 +80,7 @@ export default function SetupWizardPage() {
     // AI) e il QR del passo 3 leggono `subscription_status`: finché il tenant
     // non è collegato alla subscription risponderebbero "abbonamento non
     // attivo". Il collegamento si fa qui, senza aspettare il webhook.
-    const { syncing: confirmingCheckout } = useCheckoutReturnSync();
+    const checkoutSync = useCheckoutReturnSync();
 
     const [stepIndex, setStepIndex] = useState(0);
     const [isSaving, setIsSaving] = useState(false);
@@ -333,8 +333,14 @@ export default function SetupWizardPage() {
 
     // Dopo tutti gli hook: a configurazione completa il redirect è già partito,
     // qui non deve comparire nemmeno un fotogramma del passo 1.
-    if (confirmingCheckout) {
-        return <CheckoutConfirmScreen />;
+    if (checkoutSync.status !== "idle") {
+        return (
+            <CheckoutConfirmScreen
+                variant={checkoutSync.status}
+                reference={checkoutSync.reference}
+                onRetry={checkoutSync.retry}
+            />
+        );
     }
     if (gate === "checking") {
         return (
