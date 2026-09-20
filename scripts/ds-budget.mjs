@@ -24,7 +24,12 @@ const METRICS = [
   { key: "toastError", label: "showToast type error" },
   { key: "inlineComponents", label: "componenti dentro file di pagina" },
   { key: "fontSize", label: "font-size (.module.scss)" },
+  // (6) Stesso criterio del primo, perimetro SOLO src/components/ui (che gli
+  // altri cinque escludono): i componenti del sistema leggono i token.
+  { key: "uiHex", label: "hex nudi in components/ui (.module.scss)" },
 ];
+
+const UI_DIR = join(ROOT, "src", "components", "ui");
 
 function* walk(dir) {
   for (const entry of readdirSync(dir)) {
@@ -105,7 +110,12 @@ function countFontSize(scss) {
 }
 
 function measure() {
-  const totals = { hex: 0, transition: 0, toastError: 0, inlineComponents: 0, fontSize: 0 };
+  const totals = { hex: 0, transition: 0, toastError: 0, inlineComponents: 0, fontSize: 0, uiHex: 0 };
+  if (existsSync(UI_DIR)) {
+    for (const file of walk(UI_DIR)) {
+      if (file.endsWith(".module.scss")) totals.uiHex += countHex(readFileSync(file, "utf8"));
+    }
+  }
   for (const file of collectFiles()) {
     const src = readFileSync(file, "utf8");
     if (file.endsWith(".module.scss")) {
