@@ -67,7 +67,7 @@ export default function MainLayout() {
     const { pathname } = useLocation();
     // Return from Stripe (re-subscribe lands on /subscription?checkout_session=):
     // link the tenant before the "no subscription" gate below can bounce it.
-    const { syncing: confirmingCheckout } = useCheckoutReturnSync();
+    const checkoutSync = useCheckoutReturnSync();
 
     const pageName = businessId ? resolvePageTitle(businessId, pathname) : undefined;
     const tenantName = selectedTenant?.name;
@@ -196,8 +196,14 @@ export default function MainLayout() {
 
     // Payment just completed: the webhook may not have linked the tenant yet.
     // Hold the gates until stripe-checkout-confirm has done it (or given up).
-    if (confirmingCheckout) {
-        return <CheckoutConfirmScreen />;
+    if (checkoutSync.status !== "idle") {
+        return (
+            <CheckoutConfirmScreen
+                variant={checkoutSync.status}
+                reference={checkoutSync.reference}
+                onRetry={checkoutSync.retry}
+            />
+        );
     }
 
     // Tenant without subscription → redirect to workspace with resume param.
