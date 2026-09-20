@@ -1,3 +1,21 @@
+// Soglie del back office (design system §2, Misure fisse): sotto 768 una
+// colonna e drawer al 100%; sotto 1024 la sidebar si collassa da sola.
+// Variabili Sass, non custom property: una var() non funziona dentro @media.
+$bp-phone: 768px;
+$bp-sidebar: 1024px;
+
+@mixin phone {
+  @media (max-width: $bp-phone - 1) {
+    @content;
+  }
+}
+
+@mixin below-sidebar {
+  @media (max-width: $bp-sidebar - 1) {
+    @content;
+  }
+}
+
 @mixin flex-center {
   display: flex;
   justify-content: center;
