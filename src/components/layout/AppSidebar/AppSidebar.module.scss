@@ -1,10 +1,12 @@
 @use 'sass:math';
 
 // AppSidebar — scheda «AppSidebar»: fondo --surface, bordo destro --border,
-// voce 40 con padding 0 12 e raggio --radius-control, attiva
-// brand-primary-soft + brand-primary, hover --hover-bg, gap 2, --z-nav.
-// Titolo di gruppo 12/600 uppercase text-muted (`.groupTitle`, pronto per
-// il costruttore del lotto 3). Solo token: nel tema scuro segue --surface.
+// voce 32 su desktop (40 nel cassetto mobile) con padding 0 12 e raggio
+// --radius-control, attiva brand-primary-soft + on-brand-soft, hover
+// --hover-bg, gap 0, --z-nav. Il titolo di gruppo (12/600 uppercase
+// text-muted) è il separatore: nessun divisore dove c'è un titolo (§45.6:
+// 18 voci + 4 titoli devono stare in 800 px di finestra senza scroll).
+// Solo token: nel tema scuro segue --surface.
 
 /* ===== Spacing scale ===== */
 $scroll-padding-x: 12px;
@@ -62,7 +64,7 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: $scroll-padding-x;
+  padding: var(--space-8) $scroll-padding-x;
 }
 
 /* ===== Nav (gaps come from dividers, not from nav gap) ===== */
@@ -72,22 +74,26 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   gap: 0;
 }
 
+// Divisore solo fra gruppi SENZA titolo (il titolo è già il separatore).
 .groupDivider {
   height: 1px;
   background: var(--border);
-  margin: var(--space-10) 0;
+  margin: var(--space-6) 0;
 }
 
 .group {
   display: block;
 }
 
-/* Titolo di gruppo: 12/600 uppercase muta. Il corpo (12px) e il peso li
-   mette `Text variant="caption-xs" weight={600}` nel markup: questo modulo
-   è nel perimetro del budget e non dichiara font-size. */
-.groupTitle {
+/* Titolo di gruppo = separatore: margin-top 6, padding 4/2, line-height 1.2
+   → 26,4 px. Il corpo (12px) e il peso li mette `Text variant="caption-xs"
+   weight={600}` nel markup: questo modulo è nel perimetro del budget e non
+   dichiara font-size. */
+.group .groupTitle {
   display: block;
-  padding: var(--space-8) $item-padding-x var(--space-4);
+  margin-top: var(--space-6);
+  padding: var(--space-4) $item-padding-x var(--space-2);
+  line-height: 1.2;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: var(--text-muted);
@@ -102,7 +108,7 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   padding: 0;
   margin: 0;
   display: grid;
-  gap: var(--space-2);
+  gap: 0;
 }
 
 .link {
@@ -111,7 +117,7 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   align-items: center;
   justify-content: flex-start;
   padding: 0 $item-padding-x;
-  height: 40px;
+  height: 32px;
   box-sizing: border-box;
   border-radius: var(--radius-control);
   color: var(--text-muted);
@@ -170,6 +176,11 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   }
 }
 
+// Nel cassetto mobile la voce torna a 40: è un bersaglio touch.
+.mobile .link {
+  height: 40px;
+}
+
 .link.active::before {
   content: "";
   position: absolute;
@@ -204,12 +215,15 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   transition: opacity 0.08s ease, max-width 0.22s ease, margin-inline-start 0.22s ease;
 }
 
-.sidebar[data-collapsed="true"] .groupTitle {
-  opacity: 0;
-  max-height: 0;
-  padding-top: 0;
-  padding-bottom: 0;
-  transition: opacity 0.08s ease, max-height 0.22s ease, padding 0.22s ease;
+// Collassata il titolo diventa una riga di 1px: resta il confine fra i
+// gruppi senza il testo.
+.sidebar[data-collapsed="true"] .group .groupTitle {
+  max-height: 1px;
+  padding: 0;
+  margin: var(--space-6) 0;
+  color: transparent;
+  background: var(--border);
+  transition: max-height 0.22s ease, padding 0.22s ease;
 }
 
 // Collassata resta solo il segnale (spinner, puntino): il contatore sparisce
@@ -293,7 +307,7 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 /* ===== Collapse footer ===== */
 .collapseFooter {
   border-top: 1px solid var(--border);
-  padding: var(--space-8) $footer-padding-x-expanded;
+  padding: var(--space-4) $footer-padding-x-expanded;
   display: flex;
   justify-content: flex-start;
   flex-shrink: 0;
@@ -301,7 +315,7 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
 }
 
 .sidebar[data-collapsed="true"] .collapseFooter {
-  padding: var(--space-8) calc((var(--sidebar-collapsed) - #{$toggle-size}) / 2);
+  padding: var(--space-4) calc((var(--sidebar-collapsed) - #{$toggle-size}) / 2);
 }
 
 .collapseToggle {

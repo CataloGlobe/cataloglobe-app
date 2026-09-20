@@ -165,7 +165,8 @@ export function AppSidebar({
                     <nav className={styles.nav}>
                         {groups.map((group, i) => (
                             <Fragment key={i}>
-                                {i > 0 && <div className={styles.groupDivider} role="separator" />}
+                                {/* Il titolo è il separatore: il divisore resta solo per i gruppi senza titolo. */}
+                                {i > 0 && !group.title && <div className={styles.groupDivider} role="separator" />}
                                 <div className={styles.group} role="group" aria-label={group.title}>
                                     {group.title && (
                                         <Text as="span" variant="caption-xs" weight={600} className={styles.groupTitle}>
