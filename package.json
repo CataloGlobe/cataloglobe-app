@@ -17,6 +17,8 @@
     "test": "vitest run --config vitest.config.ts",
     "test:watch": "vitest --config vitest.config.ts",
     "preview": "vite preview",
+    "ds:budget": "node scripts/ds-budget.mjs",
+    "ds:budget:check": "node scripts/ds-budget.mjs --check",
     "parity:check": "node --loader ./scripts/ts-loader.mjs scripts/parity-check.ts",
     "test:activity-overrides": "node --loader ./scripts/ts-loader.mjs scripts/test-activity-overrides.ts"
   },

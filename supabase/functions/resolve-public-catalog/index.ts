@@ -9,6 +9,7 @@ import { toRomeDateTime, getNowInRome } from "../_shared/schedulingNow.ts";
 import { VALID_SUBSCRIPTION_STATUSES } from "../_shared/checkOrderingState.ts";
 import { checkRateLimit, RateLimitExceededError, extractClientIp, hashIp } from "../_shared/rateLimit.ts";
 import { extractBearerJwt, isTenantMember } from "../_shared/tenantMembership.ts";
+import { publicClosuresWindow } from "../_shared/publicClosuresWindow.ts";
 
 const RATE_LIMIT_PER_IP_PER_MIN = 120;
 
@@ -500,15 +501,21 @@ serve(async (req: Request) => {
                 : Promise.resolve({ data: null, error: null }),
             (activity.hours_public || activity.enable_reservations)
                 ? (() => {
+                      // Finestra = ieri (coda notturna) + orizzonte di
+                      // prenotazione, nessun tetto di righe: il cancello di
+                      // submit-reservation legge tutte le chiusure, e il picker
+                      // deve vedere le stesse (FASE 5.5). La lista pubblica
+                      // delle prossime chiusure filtra da oggi in poi da sé.
                       const now = new Date();
                       const todayStr = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Rome" }).format(now);
+                      const window = publicClosuresWindow(todayStr, activity.reservation_horizon_days);
                       return supabase
                           .from("activity_closures")
                           .select("id, closure_date, end_date, label, is_closed, slots")
                           .eq("activity_id", activity.id)
-                          .or(`closure_date.gte.${todayStr},end_date.gte.${todayStr}`)
-                          .order("closure_date", { ascending: true })
-                          .limit(10);
+                          .lte("closure_date", window.toIso)
+                          .or(`closure_date.gte.${window.fromIso},end_date.gte.${window.fromIso}`)
+                          .order("closure_date", { ascending: true });
                   })()
                 : Promise.resolve({ data: null, error: null }),
             // base_language_code NON è esposto da get_tenant_public_info → fetch

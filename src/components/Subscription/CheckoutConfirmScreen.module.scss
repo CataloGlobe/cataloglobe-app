@@ -1,0 +1,42 @@
+/* ----------------------------------------------------
+   Attesa della conferma del pagamento al ritorno da Stripe.
+   Schermata neutra a tutta pagina: copre il gate "nessun abbonamento" di
+   MainLayout e il passo 1 del setup finché stripe-checkout-confirm non ha
+   collegato la subscription al tenant.
+---------------------------------------------------- */
+.screen {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+
+    background: var(--bg);
+    color: var(--text-muted);
+    padding: 24px;
+}
+
+/* Testo/azioni delle varianti failed + mismatch: colonna centrata, larghezza
+   di lettura contenuta. */
+.panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+
+    max-width: 420px;
+    text-align: center;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 12px;
+
+    margin-top: 4px;
+}

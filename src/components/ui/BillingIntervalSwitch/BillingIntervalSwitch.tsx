@@ -7,9 +7,10 @@ import styles from "./BillingIntervalSwitch.module.scss";
  * (selettore piano e sedi, pagina Abbonamento, landing).
  *
  * Le due etichette sono pari ("Mensile" / "Annuale") e il controllo è solo il
- * controllo: l'argomento di vendita dell'annuale vive nella card del piano,
- * come riga sotto il prezzo (vedi `yearlySavingsNote` in planPricing), non in
- * un badge ancorato fuori dal rettangolo.
+ * controllo: l'argomento di vendita dell'annuale vive nella card del piano
+ * (prezzo barrato in annuale, riga «Con il piano annuale» in mensile — vedi
+ * `annualPitchNote` in planPricing), non in un badge ancorato fuori dal
+ * rettangolo.
  */
 
 const INTERVAL_LABEL: Record<BillingInterval, string> = { month: "Mensile", year: "Annuale" };

@@ -312,7 +312,8 @@ export async function chargeOneOffSeatDelta(
     }
 }
 
-function isResourceMissing(message: string): boolean {
+/** Stripe says the object does not exist (404 / resource_missing): permanent, not a transient failure. */
+export function isResourceMissing(message: string): boolean {
     return /no such (subscription|customer)|resource_missing|404/i.test(message);
 }
 

@@ -426,9 +426,23 @@ L'MCP `supabase-staging` espone `apply_migration` e `execute_sql`. Bypassano fil
 
 Per query su librerie/SDK del progetto (React 19, Vite 7, Framer Motion v12, Supabase JS v2, Stripe SDK, recharts, @dnd-kit), preferire `context7` alla knowledge memorizzata.
 
-### MCP — playwright
+### Controllo a vista col browser (MCP playwright)
 
-Obbligatorio per modifiche a: `src/components/PublicCollectionView/`, `src/pages/Dashboard/Styles/Editor/`, `scheduleResolver.ts` / `schedulingNow.ts`.
+Obbligatorio per modifiche a: `src/components/PublicCollectionView/`,
+`src/pages/Dashboard/Styles/Editor/`. Non è una suite: non esiste
+`playwright.config`, sono scenari guidati a mano. Richiede `npm run dev:api`
+(vercel dev sulla 3001).
+
+**SOSPESO dal 18/09/2026**: l'ambiente locale non serve `/api`, quindi il
+controllo non è eseguibile. Da ripristinare prima della FASE 8b, che lo
+richiede sulle 4 combinazioni card + ItemDetail (riga 344).
+
+### Resolver — controllo obbligatorio
+
+Per `scheduleResolver.ts`, `schedulingNow.ts`, `resolveActivityCatalogs.ts`:
+`src/tests/scheduling/scheduleResolver.contract.test.ts` verde, coi casi nuovi
+aggiunti nello stesso commit. Il resolver non ha DOM: il browser è lo strumento
+sbagliato, e il bug del menu weekend di Garbagnate l'ha trovato questo test.
 
 ### Slash commands matched-with-rules
 

@@ -1,4 +1,5 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import {
     AlertCircle,
     Ban,
@@ -18,7 +19,7 @@ import { Menu } from "@/components/ui/Menu/Menu";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import type { V2OrderItem, V2OrderWithItems } from "@/types/orders";
-import PrintReceipt from "./PrintReceipt";
+import type { ComandaPrintState } from "./hooks/comandaPrintState";
 import styles from "./OrderCard.module.scss";
 
 interface Props {
@@ -40,7 +41,6 @@ interface Props {
      */
     onCancelItem: (order: V2OrderWithItems) => void;
     onViewDetail: (order: V2OrderWithItems) => void;
-    onPrint?: (order: V2OrderWithItems) => void;
     /**
      * Optional. Disponibile su status `acknowledged`: "Rimetti in Nuove"
      * (acknowledged → submitted). Quando omesso, la voce e' nascosta.
@@ -60,17 +60,23 @@ interface Props {
      */
     operatorNames?: Map<string, string>;
     /**
-     * true quando almeno una comanda (kind='comanda') di questo ordine ha
-     * esaurito i tentativi di stampa (print_jobs.status='failed'). Non
-     * uscira' mai: lo staff deve avvisare la cucina a voce.
+     * Stato di stampa della comanda di QUESTO ordine, derivato dai suoi
+     * `print_jobs` (kind='comanda'). La stampa parte in automatico
+     * all'arrivo dell'ordine: quel che la card offre e' sempre una
+     * ristampa, e la sua esistenza dipende dal job dell'ordine, non dalle
+     * stampanti della sede.
+     *   - null/undefined → nessun job terminale: nessun pulsante
+     *   - "done"   → "Ristampa", azione secondaria discreta nel footer
+     *   - "failed" → badge "Comanda non stampata" + "Riprova" + rimando
+     *                allo stato stampanti (`printersHref`)
+     * Il fallback di stampa da browser NON vive piu' qui (resta in
+     * OrderDetailDrawer).
      */
-    comandaFailed?: boolean;
-    /**
-     * true quando la sede ha almeno una stampante cloud Sunmi attiva: il
-     * tooltip dell'icona stampa diventa "Ristampa comanda" (invia un nuovo
-     * job a Sunmi via `onPrint`) invece di "Stampa" (dialogo del browser).
-     */
-    hasPrinters?: boolean;
+    comandaPrintState?: ComandaPrintState | null;
+    /** Ristampa/riprova via `sunmi-reprint-order`. Attesa reale (toast nel parent). */
+    onReprint?: (order: V2OrderWithItems) => Promise<void>;
+    /** Link alla sezione stampanti della sede (mostrato solo su "failed"). */
+    printersHref?: string;
     canManage?: boolean;
     canEdit?: boolean;
 }
@@ -123,29 +129,28 @@ export default function OrderCard({
     onCancel,
     onCancelItem,
     onViewDetail,
-    onPrint,
     onUnacknowledge,
     onUnready,
     tableLabel,
     tableZone,
     operatorNames,
-    comandaFailed,
-    hasPrinters,
+    comandaPrintState,
+    onReprint,
+    printersHref,
     canManage,
     canEdit
 }: Props) {
     const [isProcessing, setIsProcessing] = useState(false);
     const [itemsExpanded, setItemsExpanded] = useState(false);
-    const printRef = useRef<HTMLDivElement>(null);
+    const [isReprinting, setIsReprinting] = useState(false);
 
-    function handlePrint() {
-        if (onPrint) {
-            onPrint(order);
-        } else if (printRef.current) {
-            // Fallback: self-contained print when no parent handler is wired
-            printRef.current.setAttribute("data-printing", "true");
-            window.print();
-            printRef.current.removeAttribute("data-printing");
+    async function handleReprint() {
+        if (!onReprint) return;
+        setIsReprinting(true);
+        try {
+            await onReprint(order);
+        } finally {
+            setIsReprinting(false);
         }
     }
 
@@ -224,15 +229,31 @@ export default function OrderCard({
                 </div>
             )}
 
-            {comandaFailed && (
+            {comandaPrintState === "failed" && order.status !== "cancelled" && (
                 <div className={styles.printFailedRow}>
                     <span
                         className={styles.printFailedBadge}
-                        title="La stampa in cucina non è riuscita: avvisa a voce"
+                        title="La stampa in cucina non è riuscita: avvisa a voce o riprova"
                     >
                         <Printer size={13} aria-hidden />
                         Comanda non stampata
                     </span>
+                    {onReprint && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => void handleReprint()}
+                            loading={isReprinting}
+                            disabled={canEdit === false || isReprinting}
+                        >
+                            Riprova
+                        </Button>
+                    )}
+                    {printersHref && (
+                        <Link to={printersHref} className={styles.printersLink}>
+                            Stato stampanti
+                        </Link>
+                    )}
                 </div>
             )}
 
@@ -355,15 +376,15 @@ export default function OrderCard({
                     </Menu.Item>
                 </Menu>
 
-                {order.status !== "cancelled" && (
-                    <Tooltip content={hasPrinters ? "Ristampa comanda" : "Stampa"}>
+                {comandaPrintState === "done" && onReprint && order.status !== "cancelled" && (
+                    <Tooltip content="Ristampa comanda">
                         <IconButton
                             icon={<Printer size={16} />}
-                            aria-label={hasPrinters ? "Ristampa comanda" : "Stampa"}
+                            aria-label="Ristampa comanda"
                             variant="secondary"
                             className={styles.footerIconBtn}
-                            onClick={handlePrint}
-                            disabled={isProcessing}
+                            onClick={() => void handleReprint()}
+                            disabled={isProcessing || isReprinting || canEdit === false}
                         />
                     </Tooltip>
                 )}
@@ -413,17 +434,6 @@ export default function OrderCard({
                     </Button>
                 )}
             </div>}
-
-            {/* Fallback receipt for self-contained print (when onPrint is not wired) */}
-            {!onPrint && order.status !== "cancelled" && (
-                <PrintReceipt
-                    ref={printRef}
-                    order={order}
-                    tableLabel={tableLabel}
-                    tableZone={tableZone}
-                    operatorNames={operatorNames}
-                />
-            )}
         </div>
     );
 }

@@ -258,7 +258,8 @@
     border: 1px solid var(--color-warning-200, #fde68a);
     color: var(--color-warning-700, #b45309);
 
-    button {
+    > button,
+    > a {
         margin-left: auto;
     }
 }

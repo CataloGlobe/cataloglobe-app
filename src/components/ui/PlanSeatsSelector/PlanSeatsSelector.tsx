@@ -7,7 +7,7 @@ import { COMPANY } from "@/config/company";
 import { BillingIntervalSwitch } from "@/components/ui/BillingIntervalSwitch/BillingIntervalSwitch";
 import type { BillingInterval, Plan, PlanCode, PlanPrice } from "@/types/plan";
 import type { GraduatedBreakdown } from "@/utils/pricing";
-import { INTERVAL_PERIOD_NOUN, formatEuroWholeCents, yearlySavingsNote } from "@/utils/planPricing";
+import { INTERVAL_PERIOD_NOUN, annualPitchNoteFor, formatEuroWholeCents, monthByMonthEquivalentCents } from "@/utils/planPricing";
 import { DEFAULT_PLAN_FEATURES, DEFAULT_PLAN_BADGES } from "./planDefaults";
 import styles from "./PlanSeatsSelector.module.scss";
 
@@ -56,9 +56,9 @@ export interface PlanSeatsSelectorProps {
     availableIntervals?: BillingInterval[];
     onIntervalChange?: (interval: BillingInterval) => void;
     /**
-     * All (plan, interval) prices. Feeds the line under each price that keeps
-     * the yearly comparison visible in both states ("€390 all'anno, due mesi
-     * gratis" / "€468 pagando mese per mese"); omitted → no line.
+     * All (plan, interval) prices. Feeds the yearly argument in each card:
+     * struck month-by-month equivalent before a yearly price, green
+     * "Con il piano annuale: …" line under a monthly one; omitted → neither.
      */
     planPrices?: PlanPrice[];
     seats: number;
@@ -123,7 +123,12 @@ export function PlanSeatsSelector({
                     const features = planFeatures[plan.code] ?? [];
                     const badge = planBadges[plan.code];
                     const unitCents = unitPriceCentsByPlan[plan.code] ?? 0;
-                    const savingsNote = yearlySavingsNote(planPrices, plan.code, billingInterval);
+                    // Yearly: the month-by-month equivalent struck through before the
+                    // price confirms an advantage already chosen. Monthly: the green line
+                    // after the description tells the customer the yearly option exists —
+                    // without it, whoever never touches the switch never learns about it.
+                    const priceWasCents = monthByMonthEquivalentCents(planPrices, plan.code, billingInterval);
+                    const annualPitch = billingInterval === "month" ? annualPitchNoteFor(planPrices, plan.code) : null;
                     return (
                         <button
                             type="button"
@@ -136,20 +141,17 @@ export function PlanSeatsSelector({
                             {badge && <span className={styles.planBadge}>{badge}</span>}
                             <span className={styles.planName}>{plan.name}</span>
                             <span className={styles.planPrice}>
+                                {priceWasCents !== null && (
+                                    <s className={styles.planPriceWas}>{formatEuroWholeCents(priceWasCents)}</s>
+                                )}
                                 <span className={styles.planPriceValue}>{formatEuroWholeCents(unitCents)}</span>
                                 <span className={styles.planPriceUnit}>{`/sede/${INTERVAL_PERIOD_NOUN[billingInterval]}`}</span>
                             </span>
-                            {savingsNote && (
-                                <span
-                                    className={`${styles.planPriceNote} ${
-                                        savingsNote.tone === "success" ? styles.planPriceNoteSuccess : ""
-                                    }`}
-                                >
-                                    {savingsNote.text}
-                                </span>
-                            )}
                             {plan.description && (
                                 <span className={styles.planDescription}>{plan.description}</span>
+                            )}
+                            {annualPitch && (
+                                <span className={styles.planAnnualPitch}>{annualPitch}</span>
                             )}
                             <ul className={styles.planFeatures}>
                                 {features.map(f => (

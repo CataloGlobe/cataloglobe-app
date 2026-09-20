@@ -46,6 +46,12 @@ import { TextInput } from "@components/ui/Input/TextInput";
 import { Select } from "@components/ui/Select/Select";
 import { BillingIntervalSwitch } from "@components/ui/BillingIntervalSwitch/BillingIntervalSwitch";
 import type { BillingInterval } from "@/types/plan";
+import {
+  INTERVAL_PERIOD_NOUN,
+  annualPitchNote,
+  formatEuroWholeCents,
+  MONTHS_PER_INTERVAL,
+} from "@/utils/planPricing";
 
 /* FAQ locale a questo file, NON condivisa con landingData.ts. */
 const REDESIGN_FAQ_ITEMS: { q: string; a: string }[] = [
@@ -100,17 +106,14 @@ interface MockupPricingAddition {
   benefit: string;
 }
 /**
- * Price copy per billing interval, ready to render.
- * `savingsNote` keeps the yearly comparison visible in both states: under a
- * monthly price it argues for the yearly one (tone success), under a yearly
- * price it shows the month-by-month equivalent (tone muted). Mirrors
- * `yearlySavingsNote` in planPricing.ts for the app (prices there come from
- * plan_prices; here they are hard-coded, see the note on MOCKUP_PRICING_PLANS).
+ * Price per billing interval. Only the first-seat amount and the discount
+ * line are data: the price label, the struck month-by-month equivalent
+ * (yearly) and the "Con il piano annuale" line (monthly) are derived from
+ * `priceCents` with the same helpers the app uses over `plan_prices`.
  */
 interface MockupPricingInterval {
-  priceLabel: string;
+  priceCents: number;
   discountNote: string;
-  savingsNote: string;
 }
 interface MockupPricingPlan {
   key: "base" | "pro";
@@ -141,14 +144,12 @@ const MOCKUP_PRICING_PLANS: MockupPricingPlan[] = [
     trialNote: PLAN_TRIAL_NOTE,
     prices: {
       month: {
-        priceLabel: "€39/sede/mese",
+        priceCents: 3900,
         discountNote: "dalla 2ª sede −10% · €35,10/sede · IVA inclusa",
-        savingsNote: "€390 all'anno, due mesi gratis",
       },
       year: {
-        priceLabel: "€390/sede/anno",
+        priceCents: 39000,
         discountNote: "dalla 2ª sede −10% · €351/sede · IVA inclusa",
-        savingsNote: "€468 pagando mese per mese",
       },
     },
     framing: "Il tuo locale online, che si aggiorna da solo.",
@@ -172,14 +173,12 @@ const MOCKUP_PRICING_PLANS: MockupPricingPlan[] = [
     trialNote: PLAN_TRIAL_NOTE,
     prices: {
       month: {
-        priceLabel: "€59/sede/mese",
+        priceCents: 5900,
         discountNote: "dalla 2ª sede −10% · €53,10/sede · IVA inclusa",
-        savingsNote: "€590 all'anno, due mesi gratis",
       },
       year: {
-        priceLabel: "€590/sede/anno",
+        priceCents: 59000,
         discountNote: "dalla 2ª sede −10% · €531/sede · IVA inclusa",
-        savingsNote: "€708 pagando mese per mese",
       },
     },
     framing: "Tutto il piano Base e in più i clienti fanno da soli:",
@@ -1747,6 +1746,18 @@ export default function LandingPage() {
               {MOCKUP_PRICING_PLANS.map((plan) => {
                 const isPro = plan.key === "pro";
                 const price = plan.prices[billingInterval];
+                // Yearly: struck month-by-month equivalent confirms an advantage
+                // already chosen. Monthly: the green line (last) tells the visitor
+                // the yearly option exists — without it, whoever never touches
+                // the switch never learns about it.
+                const priceWas =
+                  billingInterval === "year"
+                    ? formatEuroWholeCents(plan.prices.month.priceCents * MONTHS_PER_INTERVAL.year)
+                    : null;
+                const annualPitch =
+                  billingInterval === "month"
+                    ? annualPitchNote(plan.prices.month.priceCents, plan.prices.year.priceCents)
+                    : null;
                 return (
                   <Reveal
                     key={plan.key}
@@ -1757,15 +1768,14 @@ export default function LandingPage() {
                     )}
                     <span className={s.planName}>{plan.name}</span>
                     <span className={s.planTrial}>{plan.trialNote}</span>
-                    <span className={s.planPrice}>{price.priceLabel}</span>
-                    <span
-                      className={`${s.planSavings} ${
-                        billingInterval === "month" ? s.planSavingsSuccess : ""
-                      }`}
-                    >
-                      {price.savingsNote}
+                    <span className={s.planPrice}>
+                      {priceWas && <s className={s.planPriceWas}>{priceWas}</s>}
+                      {`${formatEuroWholeCents(price.priceCents)}/sede/${INTERVAL_PERIOD_NOUN[billingInterval]}`}
                     </span>
                     <span className={s.planDiscount}>{price.discountNote}</span>
+                    {annualPitch && (
+                      <span className={s.planAnnualPitch}>{annualPitch}</span>
+                    )}
                     <p className={s.planFraming}>{plan.framing}</p>
                     <div className={s.planDivider} />
                     {isPro ? (

@@ -36,27 +36,35 @@
  * supabase client — never service_role. The activity_id server filter
  * narrows event volume; the RLS SELECT enforces the security boundary.
  *
- * Print job failures: a third `postgres_changes` binding on
- * `public.print_jobs` (UPDATE, same activity_id filter, same RLS pattern
- * as orders) feeds a separate `failedComandaOrderIds` set — used by the
- * kanban to badge orders whose comanda (`kind='comanda'`) reached
- * `status='failed'`. Deliberately NOT merged into `orders`/version-max
- * gate: a print job has no version field and is an unrelated entity.
+ * Print jobs: a third `postgres_changes` binding on `public.print_jobs`
+ * (INSERT + UPDATE + DELETE, same activity_id filter, same RLS pattern as
+ * orders) feeds a separate job store keyed by job id, from which
+ * `comandaPrintStates` (order_id → done | failed) is derived — see
+ * `comandaPrintState.ts`. INSERT is needed too: a job is born `pending`
+ * (no card state) and the later UPDATE to done/failed must find it.
+ * Deliberately NOT merged into `orders`/version-max gate: a print job has
+ * no version field and is an unrelated entity. The store is reset together
+ * with the channel on (tenant, activity) change so the previous site's
+ * states never bleed onto another site's cards.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import { supabase } from "@/services/supabase/client";
 import { listOrdersForActivity } from "@/services/supabase/orders";
-import { listFailedComandaOrderIds } from "@/services/supabase/printJobs";
+import { listComandaPrintJobsForOrders } from "@/services/supabase/printJobs";
 import type {
+    ComandaPrintJobRow,
     OrderStatus,
     PrintJobKind,
-    PrintJobStatus,
     V2Order,
     V2OrderWithItems
 } from "@/types/orders";
+import {
+    deriveComandaPrintStates,
+    type ComandaPrintState
+} from "./comandaPrintState";
 
 const ACTIVE_STATUSES: OrderStatus[] = ["submitted", "acknowledged", "ready"];
 
@@ -113,13 +121,13 @@ export interface UseActiveOrdersRealtimeResult {
      */
     applyLocalPatch: (patch: OrderLocalPatch) => void;
     /**
-     * Id ordine → almeno una comanda (`kind='comanda'`) che non uscira' mai
-     * (`status='failed'`, cap tentativi esaurito). Badge "Comanda non
-     * stampata" sulla card. Struttura separata dagli ordini: aggiornata da
-     * un canale realtime dedicato su `print_jobs`, non entra nel version-max
-     * gate degli ordini.
+     * Id ordine → stato di stampa della comanda (`done` | `failed`), solo
+     * per ordini con almeno un job `kind='comanda'` terminale. Ordini senza
+     * job o con job ancora pending/processing NON compaiono. Struttura
+     * separata dagli ordini: aggiornata dal binding realtime su
+     * `print_jobs`, non entra nel version-max gate degli ordini.
      */
-    failedComandaOrderIds: Set<string>;
+    comandaPrintStates: Map<string, ComandaPrintState>;
 }
 
 export function useActiveOrdersRealtime(
@@ -131,11 +139,16 @@ export function useActiveOrdersRealtime(
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // Comande non stampate (badge). Stato separato dagli ordini: niente
-    // version-max gate qui, un job non ha un campo version.
-    const [failedComandaOrderIds, setFailedComandaOrderIds] = useState<
-        Set<string>
-    >(new Set());
+    // Job di stampa comanda per job id. Stato separato dagli ordini:
+    // niente version-max gate qui, un job non ha un campo version. Lo
+    // stato per card e' derivato (vedi `comandaPrintStates` sotto).
+    const [printJobs, setPrintJobs] = useState<Map<string, ComandaPrintJobRow>>(
+        () => new Map()
+    );
+    const comandaPrintStates = useMemo(
+        () => deriveComandaPrintStates(printJobs.values()),
+        [printJobs]
+    );
 
     // Latest orders + onOrderLeftBoard captured via refs so the realtime
     // subscription can read fresh values without resubscribing on every
@@ -156,6 +169,30 @@ export function useActiveOrdersRealtime(
     // realtime sotto.
     const seenInsertsRef = useRef<Set<string>>(new Set());
 
+    // Fetch separato dagli ordini (chiamato da fetchActive con gli id a
+    // bordo): fallire qui non deve rompere la board, lo stato di stampa e'
+    // un'informazione ausiliaria. Sostituisce lo store per intero: eventi
+    // realtime arrivati nel frattempo vengono ri-letti dal DB.
+    const fetchPrintJobs = useCallback(
+        async (orderIds: string[]): Promise<void> => {
+            if (!tenantId || !activityId) {
+                setPrintJobs(new Map());
+                return;
+            }
+            try {
+                const rows = await listComandaPrintJobsForOrders(
+                    tenantId,
+                    activityId,
+                    orderIds
+                );
+                setPrintJobs(new Map(rows.map(r => [r.id, r])));
+            } catch {
+                /* silent: vedi commento sopra */
+            }
+        },
+        [tenantId, activityId]
+    );
+
     const fetchActive = useCallback(async (): Promise<void> => {
         if (!tenantId || !activityId) {
             setOrders([]);
@@ -170,6 +207,7 @@ export function useActiveOrdersRealtime(
                 limit: 200
             });
             setOrders(data);
+            void fetchPrintJobs(data.map(o => o.id));
         } catch (err) {
             setError(
                 err instanceof Error ? err.message : "Errore caricamento ordini"
@@ -177,26 +215,11 @@ export function useActiveOrdersRealtime(
         } finally {
             setIsLoading(false);
         }
-    }, [tenantId, activityId]);
+    }, [tenantId, activityId, fetchPrintJobs]);
 
     const refetch = useCallback(async (): Promise<void> => {
         await fetchActive();
     }, [fetchActive]);
-
-    // Fetch separato dagli ordini: fallire qui non deve rompere la board,
-    // il badge e' un avviso ausiliario.
-    const fetchFailedComandaOrderIds = useCallback(async (): Promise<void> => {
-        if (!tenantId || !activityId) {
-            setFailedComandaOrderIds(new Set());
-            return;
-        }
-        try {
-            const ids = await listFailedComandaOrderIds(tenantId, activityId);
-            setFailedComandaOrderIds(ids);
-        } catch {
-            /* silent: vedi commento sopra */
-        }
-    }, [tenantId, activityId]);
 
     const applyLocalPatch = useCallback((patch: OrderLocalPatch) => {
         setOrders(prev => {
@@ -238,10 +261,6 @@ export function useActiveOrdersRealtime(
     useEffect(() => {
         void fetchActive();
     }, [fetchActive]);
-
-    useEffect(() => {
-        void fetchFailedComandaOrderIds();
-    }, [fetchFailedComandaOrderIds]);
 
     // ── Realtime subscription ──
     useEffect(() => {
@@ -311,21 +330,28 @@ export function useActiveOrdersRealtime(
             setOrders(prev => prev.filter(o => o.id !== id));
         }
 
-        function handlePrintJobUpdate(job: {
-            order_id: string;
-            kind: PrintJobKind;
-            status: PrintJobStatus;
-        }): void {
+        function handlePrintJobChange(
+            job: ComandaPrintJobRow & { kind: PrintJobKind }
+        ): void {
             if (job.kind !== "comanda") return;
-            setFailedComandaOrderIds(prev => {
-                const isFailed = job.status === "failed";
-                if (prev.has(job.order_id) === isFailed) return prev;
-                const next = new Set(prev);
-                if (isFailed) {
-                    next.add(job.order_id);
-                } else {
-                    next.delete(job.order_id);
-                }
+            setPrintJobs(prev => {
+                const current = prev.get(job.id);
+                if (current && current.status === job.status) return prev;
+                const next = new Map(prev);
+                next.set(job.id, {
+                    id: job.id,
+                    order_id: job.order_id,
+                    status: job.status
+                });
+                return next;
+            });
+        }
+
+        function handlePrintJobDelete(jobId: string): void {
+            setPrintJobs(prev => {
+                if (!prev.has(jobId)) return prev;
+                const next = new Map(prev);
+                next.delete(jobId);
                 return next;
             });
         }
@@ -385,19 +411,20 @@ export function useActiveOrdersRealtime(
             .on(
                 "postgres_changes",
                 {
-                    event: "UPDATE",
+                    event: "*",
                     schema: "public",
                     table: "print_jobs",
                     filter: `activity_id=eq.${activityId}`
                 },
                 payload => {
                     if (cancelled) return;
-                    handlePrintJobUpdate(
-                        payload.new as {
-                            order_id: string;
-                            kind: PrintJobKind;
-                            status: PrintJobStatus;
-                        }
+                    if (payload.eventType === "DELETE") {
+                        const old = payload.old as { id?: string };
+                        if (old.id) handlePrintJobDelete(old.id);
+                        return;
+                    }
+                    handlePrintJobChange(
+                        payload.new as ComandaPrintJobRow & { kind: PrintJobKind }
                     );
                 }
             )
@@ -406,8 +433,9 @@ export function useActiveOrdersRealtime(
                 // the disconnect window. supabase-js emits "SUBSCRIBED" on
                 // every successful resubscribe (including reconnects).
                 if (status === "SUBSCRIBED" && !cancelled) {
+                    // fetchActive ricarica anche i print job degli ordini
+                    // a bordo (eventi persi durante il disconnect).
                     void fetchActive();
-                    void fetchFailedComandaOrderIds();
                 }
             });
 
@@ -418,12 +446,18 @@ export function useActiveOrdersRealtime(
             // quindi il primo INSERT post-resub e' di nuovo "genuino" e va
             // segnalato.
             seenInsertsRef.current.clear();
+            // Reset dello store print job insieme al canale (cambio sede):
+            // altrimenti gli stati della sede precedente sopravvivrebbero
+            // finche' fetchActive della nuova sede non li sostituisce, con
+            // "Comanda non stampata" su card di un'altra sede nel frattempo.
+            // Azzerato qui, ripopolato da fetchActive.
+            setPrintJobs(new Map());
             if (channel) {
                 void supabase.removeChannel(channel);
                 channel = null;
             }
         };
-    }, [tenantId, activityId, fetchActive, fetchFailedComandaOrderIds]);
+    }, [tenantId, activityId, fetchActive]);
 
     return {
         orders,
@@ -431,6 +465,6 @@ export function useActiveOrdersRealtime(
         error,
         refetch,
         applyLocalPatch,
-        failedComandaOrderIds
+        comandaPrintStates
     };
 }

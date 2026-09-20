@@ -15,10 +15,21 @@ import {
     type ImageUploadEditorResult
 } from "@/components/ui/ImageUploadEditor";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
+import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
+import { BillingDetailsForm } from "./components/BillingDetailsForm";
+import {
+    billingDraftFromProfile,
+    billingDraftToPayload,
+    isBillingDraftComplete,
+    type BillingDraft
+} from "./components/billingDraft";
 import {
     deleteTenantSoft,
+    getTenantFiscalProfile,
     getTenantLogoPublicUrl,
+    updateTenantBillingDetails,
     updateTenantLogoUrl,
     updateTenantName,
     uploadTenantLogo
@@ -40,11 +51,81 @@ export default function BusinessSettingsPage() {
 
     const [isSavingLogo, setIsSavingLogo] = useState(false);
 
+    // Dati di fatturazione: draft inline + UnsavedChangesBar. I campi fiscali
+    // NON sono esposti da user_tenants_view (quindi non stanno su
+    // selectedTenant): si leggono da `tenants` via getTenantFiscalProfile.
+    const [billingSaved, setBillingSaved] = useState<BillingDraft | null>(null);
+    const [billingDraft, setBillingDraft] = useState<BillingDraft | null>(null);
+    const [billingSaving, setBillingSaving] = useState(false);
+
     useEffect(() => {
         if (selectedTenant) {
             setName(selectedTenant.name);
         }
     }, [selectedTenant?.id]);
+
+    useEffect(() => {
+        if (!selectedTenant || !canManageTenant) return;
+        let cancelled = false;
+        void getTenantFiscalProfile(selectedTenant.id)
+            .then(profile => {
+                if (cancelled) return;
+                const draft = billingDraftFromProfile(profile);
+                setBillingSaved(draft);
+                setBillingDraft(draft);
+            })
+            .catch(err => {
+                console.error("[BusinessSettingsPage] fiscal profile load failed:", err);
+            });
+        return () => {
+            cancelled = true;
+        };
+        // Keyed sull'id (come l'effect `name` sopra): ricaricare a ogni cambio di
+        // identità dell'oggetto tenant sarebbe inutile.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedTenant?.id, canManageTenant]);
+
+    const billingDirty =
+        billingDraft !== null &&
+        billingSaved !== null &&
+        JSON.stringify(billingDraft) !== JSON.stringify(billingSaved);
+    const billingCanSave =
+        billingDirty && billingDraft !== null && isBillingDraftComplete(billingDraft) && !billingSaving;
+
+    const patchBillingDraft = (patch: Partial<BillingDraft>) =>
+        setBillingDraft(prev => (prev ? { ...prev, ...patch } : prev));
+
+    const handleBillingCancel = () => setBillingDraft(billingSaved);
+
+    const handleBillingSave = async () => {
+        if (!selectedTenant || !billingDraft || !billingCanSave) return;
+        setBillingSaving(true);
+        try {
+            await updateTenantBillingDetails(selectedTenant.id, billingDraftToPayload(billingDraft));
+            const profile = await getTenantFiscalProfile(selectedTenant.id);
+            const fresh = billingDraftFromProfile(profile);
+            setBillingSaved(fresh);
+            setBillingDraft(fresh);
+            showToast({ message: "Dati di fatturazione aggiornati.", type: "success" });
+        } catch (err) {
+            // Stessa mappatura codici di SubscriptionPage. La RPC oggi non valida
+            // la P.IVA lato server (migration separata da fare — TODO sotto): il
+            // blocco resta lato FE via `isBillingDraftComplete`.
+            const code = err instanceof Error ? err.name : "";
+            if (code === "invalid_vat_number") {
+                showToast({ message: "La Partita IVA non è valida. Controllala e riprova.", type: "error" });
+            } else if (code === "missing_einvoice_recipient") {
+                showToast({
+                    message: "Con la Partita IVA serve un recapito: aggiungi il Codice Destinatario SDI o la PEC.",
+                    type: "error"
+                });
+            } else {
+                showToast({ message: "Errore durante il salvataggio. Riprova.", type: "error" });
+            }
+        } finally {
+            setBillingSaving(false);
+        }
+    };
 
     usePageHeader({
         title: "Impostazioni attività",
@@ -170,6 +251,20 @@ export default function BusinessSettingsPage() {
                 </div>
             )}
 
+            {/* Section — Dati di fatturazione (owner + admin via tenant.manage) */}
+            {canManageTenant && billingDraft && (
+                <SectionCard
+                    title="Dati di fatturazione"
+                    subtitle="Intestano le fatture del tuo abbonamento. Con la Partita IVA serve un recapito e-fattura (Codice Destinatario SDI o PEC)."
+                >
+                    <BillingDetailsForm
+                        value={billingDraft}
+                        onChange={patchBillingDraft}
+                        disabled={billingSaving}
+                    />
+                </SectionCard>
+            )}
+
             {/* Section 2 — Logo (owner + admin via tenant.manage) */}
             {canManageTenant && (
                 <div className={styles.section}>
@@ -239,6 +334,16 @@ export default function BusinessSettingsPage() {
                 onClose={() => setDeleteDialogOpen(false)}
                 onConfirm={handleDeleteConfirm}
             />
+
+            {billingDirty && (
+                <UnsavedChangesBar
+                    isSaving={billingSaving}
+                    onCancel={handleBillingCancel}
+                    onSave={handleBillingSave}
+                    saveDisabled={!billingCanSave}
+                    saveLabel="Salva"
+                />
+            )}
         </div>
     );
 }

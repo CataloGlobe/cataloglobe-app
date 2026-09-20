@@ -20,6 +20,9 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
@@ -54,6 +57,7 @@ import { buildRuleSummary, isRuleCurrentlyActive } from "@/utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
 import { ruleReachesAnyActivity, describeZeroReach } from "@/utils/scheduleReach";
 import { deriveScheduleStatus } from "@/utils/scheduleStatus";
+import { formatInactiveReason } from "@/utils/activityStatus";
 import styles from "./Programming.module.scss";
 
 type RuleTypeFilter = RuleType | "all";
@@ -271,7 +275,11 @@ export default function Programming() {
     const { showToast } = useToast();
     const sedeScope = useSedeScope();
     const { permissions } = usePermissions();
+    // `canEdit` usa la stessa allowlist (trialing|active|past_due) di
+    // VALID_SUBSCRIPTION_STATUSES in resolve-public-catalog: se è false la
+    // pagina pubblica risponde `subscription_inactive`.
     const { canEdit } = useSubscriptionGuard();
+    const subscriptionInactive = !canEdit;
 
     const [rules, setRules] = useState<LayoutRule[]>([]);
     const [activities, setActivities] = useState<LayoutRuleOption[]>([]);
@@ -322,6 +330,10 @@ export default function Programming() {
     }, []);
 
     const [simActivityId, setSimActivityId] = useState("");
+    // Stato sede selezionata nel simulatore: mirror di resolve-public-catalog
+    // (`activity.status !== "active"` → pagina pubblica senza catalogo).
+    const simActivity = activities.find(a => a.id === simActivityId) ?? null;
+    const simActivityInactive = simActivity !== null && simActivity.status !== "active";
     const [simDateTime, setSimDateTime] = useState(() => toDateTimeLocalValue(new Date()));
     const [simResult, setSimResult] = useState<ResolveRulesForActivityResult | null>(null);
     const [isSimLoading, setIsSimLoading] = useState(false);
@@ -1423,12 +1435,20 @@ export default function Programming() {
                                 Chiudi
                             </Button>
                             {(() => {
-                                const selectedActivity = activities.find(a => a.id === simActivityId);
-                                const activitySlug = selectedActivity?.slug;
+                                const activitySlug = simActivity?.slug;
                                 if (!simResult || !activitySlug || !simDateTime) return null;
-                                return (
+                                // L'anteprima apre la pagina pubblica: negli stessi casi in
+                                // cui resolve-public-catalog non serve il catalogo il link
+                                // sarebbe fuorviante. La simulazione (card) resta calcolata.
+                                const previewBlockedReason = subscriptionInactive
+                                    ? "Anteprima non disponibile: l'abbonamento non è attivo, la pagina pubblica non mostra il catalogo."
+                                    : simActivityInactive
+                                        ? "Anteprima non disponibile: la sede è sospesa, la pagina pubblica non mostra il catalogo."
+                                        : null;
+                                const previewButton = (
                                     <Button
                                         variant="primary"
+                                        disabled={previewBlockedReason !== null}
                                         onClick={() => {
                                             const simDate = new Date(simDateTime);
                                             const url = `/${activitySlug}?simulate=${simDate.toISOString()}`;
@@ -1437,6 +1457,16 @@ export default function Programming() {
                                     >
                                         Visualizza anteprima
                                     </Button>
+                                );
+                                if (!previewBlockedReason) return previewButton;
+                                // Un <button disabled> non emette eventi pointer: il wrapper
+                                // focusabile fa da trigger al tooltip (hover + tastiera).
+                                return (
+                                    <Tooltip content={previewBlockedReason}>
+                                        <span className={styles.previewTooltipWrap} tabIndex={0}>
+                                            {previewButton}
+                                        </span>
+                                    </Tooltip>
                                 );
                             })()}
                         </>
@@ -1458,6 +1488,34 @@ export default function Programming() {
                                 </option>
                             ))}
                         </Select>
+
+                        {simActivity && (
+                            <div className={styles.simActivityStatusRow}>
+                                <Text variant="caption" colorVariant="muted">Stato sede</Text>
+                                {simActivityInactive ? (
+                                    <StatusBadge
+                                        variant="neutral"
+                                        label={formatInactiveReason(simActivity.inactive_reason ?? null)}
+                                    />
+                                ) : (
+                                    <StatusBadge variant="success" label="Pubblicata" />
+                                )}
+                            </div>
+                        )}
+
+                        {simActivity && subscriptionInactive && (
+                            <InlineBanner variant="warning">
+                                Abbonamento non attivo: la pagina pubblica di questa sede non mostra il catalogo
+                                finché l'abbonamento non viene riattivato. La simulazione e l'anteprima restano disponibili.
+                            </InlineBanner>
+                        )}
+
+                        {simActivity && simActivityInactive && !subscriptionInactive && (
+                            <InlineBanner variant="warning">
+                                Sede sospesa: la pagina pubblica mostra solo le informazioni della sede, senza catalogo.
+                                La simulazione e l'anteprima restano disponibili.
+                            </InlineBanner>
+                        )}
 
                         <TextInput
                             label="Data e ora"

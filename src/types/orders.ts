@@ -338,6 +338,13 @@ export type CancelledBy = "customer" | "admin";
 export type PrintJobStatus = "pending" | "processing" | "done" | "failed";
 export type PrintJobKind = "comanda" | "annullo";
 
+/** Proiezione minima di `print_jobs` letta dal kanban Comande. */
+export interface ComandaPrintJobRow {
+    id: string;
+    order_id: string;
+    status: PrintJobStatus;
+}
+
 /**
  * Riga grezza della tabella `orders`.
  * total_amount è normalizzato a number nei service (sourcing da SELECT diretti).

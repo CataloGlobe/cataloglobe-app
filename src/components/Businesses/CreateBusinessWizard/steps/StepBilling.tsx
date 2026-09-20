@@ -84,6 +84,24 @@ export function StepBilling({
     );
     const pecError = billingLengthError(pec, BILLING_FIELD_MAX.pec);
 
+    // Con una P.IVA la fattura elettronica ha bisogno di un recapito: Codice
+    // Destinatario SDI oppure PEC (almeno uno). Il gate server-side in
+    // stripe-checkout lo ribadisce (`missing_einvoice_recipient`), qui è solo
+    // per bloccare "Continua" prima. Chiave sulla presenza della P.IVA: se il
+    // formato è errato è `vatError` a fermare il passo.
+    const recipientRequired = vatNumber.trim().length > 0;
+    const recipientMissing =
+        recipientRequired &&
+        codiceDestinatario.trim().length === 0 &&
+        pec.trim().length === 0;
+    // Un unico messaggio di obbligo, sul primo dei due campi, senza calpestare
+    // un eventuale errore di lunghezza già presente.
+    const codiceDestinatarioDisplayError =
+        codiceDestinatarioError ??
+        (recipientMissing
+            ? "Con la Partita IVA serve un recapito: Codice Destinatario SDI o PEC."
+            : undefined);
+
     const isSocieta = entityType === "societa";
     const isProfessionista = entityType === "professionista";
     const isAssociazione = entityType === "associazione";
@@ -261,9 +279,13 @@ export function StepBilling({
 
             {entityType !== "" && (
                 <div className={styles.billingSection}>
-                    <Text variant="body-sm" weight={600}>Recapito fattura (opzionale)</Text>
+                    <Text variant="body-sm" weight={600}>
+                        {recipientRequired ? "Recapito fattura" : "Recapito fattura (opzionale)"}
+                    </Text>
                     <span className={styles.stepSubtitle}>
-                        Inserisci il Codice Destinatario SDI oppure la PEC per la fatturazione elettronica.
+                        {recipientRequired
+                            ? "Con la Partita IVA è obbligatorio: inserisci il Codice Destinatario SDI oppure la PEC per la fatturazione elettronica."
+                            : "Inserisci il Codice Destinatario SDI oppure la PEC per la fatturazione elettronica."}
                     </span>
 
                     <div className={styles.formStack}>
@@ -273,7 +295,7 @@ export function StepBilling({
                             onChange={e => onCodiceDestinatarioChange(e.target.value)}
                             placeholder="7 caratteri"
                             disabled={disabled}
-                            error={codiceDestinatarioError}
+                            error={codiceDestinatarioDisplayError}
                         />
                         <TextInput
                             label="PEC"

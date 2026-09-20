@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
 import styles from "./PublicOpeningHours.module.scss";
 import type { ClosureSlot } from "@/types/activity-closures";
+import { todayIsoDate } from "@/utils/dateLocal";
+import { visibleClosures } from "./visibleClosures";
 
 export type OpeningHoursEntry = {
     day_of_week: number;
@@ -58,6 +60,9 @@ function formatClosureDateLabel(c: UpcomingClosure, t: TFunction): string {
 
 export default function PublicOpeningHours({ openingHours, upcomingClosures, showHeading = true, surface = "bg" }: Props) {
     const { t } = useTranslation("public");
+    // Il payload porta anche la chiusura di ieri (serve al picker per la coda
+    // notturna): fra le «prossime» si mostra da oggi in poi.
+    const shownClosures = visibleClosures(upcomingClosures ?? [], todayIsoDate());
     const byDay = new Map<number, OpeningHoursEntry[]>();
     for (const entry of openingHours) {
         const list = byDay.get(entry.day_of_week) ?? [];
@@ -98,11 +103,11 @@ export default function PublicOpeningHours({ openingHours, upcomingClosures, sho
                 })}
             </dl>
 
-            {upcomingClosures && upcomingClosures.length > 0 && (
+            {shownClosures.length > 0 && (
                 <div className={styles.closuresSection}>
                     <h4 className={styles.closuresTitle}>{t("opening_hours.closures_title")}</h4>
                     <dl className={styles.closuresList}>
-                        {upcomingClosures.map((c) => (
+                        {shownClosures.map((c) => (
                             <div key={c.closure_date} className={styles.closureRow}>
                                 <dt className={styles.closureDate}>
                                     {formatClosureDateLabel(c, t)}

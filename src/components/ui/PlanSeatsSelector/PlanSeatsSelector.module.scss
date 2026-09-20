@@ -91,15 +91,22 @@
     color: #64748b;
 }
 
-.planPriceNote {
-    font-size: 12px;
+/* Month-by-month equivalent struck through before a yearly price. */
+.planPriceWas {
+    font-size: 16px;
+    font-weight: 500;
     color: var(--text-muted, #64748b);
+    text-decoration-thickness: 1.5px;
     font-variant-numeric: tabular-nums;
+    margin-right: 2px;
 }
 
-.planPriceNoteSuccess {
-    color: var(--text-success, #047857);
+/* Under a monthly price: the yearly option exists ("Con il piano annuale: …"). */
+.planAnnualPitch {
+    font-size: 12px;
     font-weight: 500;
+    color: var(--text-success, #047857);
+    font-variant-numeric: tabular-nums;
 }
 
 .intervalSwitch {

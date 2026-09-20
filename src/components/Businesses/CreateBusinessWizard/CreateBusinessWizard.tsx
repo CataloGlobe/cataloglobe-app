@@ -9,7 +9,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Text from "@/components/ui/Text/Text";
 
 import { uploadTenantLogo, updateTenantLogoUrl, updateTenantBillingDetails, getTenantBillingInterval, type TenantBillingDetails } from "@/services/supabase/tenants";
-import { createCheckoutSession } from "@/services/supabase/billing";
+import { confirmCheckoutSession, createCheckoutSession } from "@/services/supabase/billing";
 import { listPublicPlans } from "@/services/supabase/plans";
 import { listPlanPrices } from "@/services/supabase/planPrices";
 import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
@@ -321,6 +321,14 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         const vatFormatOk = !vatFilled || isValidPartitaIva(vatNumber);
         const cfFormatOk = !cfFilled || isValidCodiceFiscale(fiscalCode);
 
+        // Con una P.IVA serve un recapito e-fattura (SDI o PEC): stesso vincolo
+        // del gate server-side in stripe-checkout (`missing_einvoice_recipient`).
+        const recipientOk =
+            !vatFilled ||
+            codiceDestinatario.trim().length > 0 ||
+            pec.trim().length > 0;
+        if (!recipientOk) return false;
+
         switch (entityType) {
             case "societa":
                 return vatFilled && isValidPartitaIva(vatNumber) && legalName.trim().length > 0 && cfFormatOk;
@@ -338,7 +346,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             default:
                 return false;
         }
-    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, billingAddressComplete, billingLengthsOk]);
+    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, codiceDestinatario, pec, billingAddressComplete, billingLengthsOk]);
 
     const isDirty = resumeMode
         ? (
@@ -437,9 +445,11 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
         setSubmitError(null);
         setPromoError(null);
 
-        try {
-            let tenantId: string;
+        // Hoisted out of the `try`: the catch needs it to self-repair a
+        // `subscription_already_active` on the tenant just created/resumed.
+        let tenantId: string | null = null;
 
+        try {
             if (resumeMode && existingTenant) {
                 tenantId = existingTenant.id;
 
@@ -581,6 +591,20 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             if (code === "promo_code_invalid") {
                 setPromoError("Codice promozionale non valido. Verifica e riprova.");
                 setShowPromoInput(true);
+            } else if (code === "subscription_already_active" && tenantId !== null) {
+                // The guard found a live subscription our row does not know
+                // about (paid, tab closed, webhook lost). Adopt it and enter the
+                // business the same way the paid path does; if the edge refuses
+                // (e.g. two live subscriptions) fall back to the message.
+                try {
+                    await confirmCheckoutSession({ tenantId });
+                    clearStoredPromo();
+                    window.location.href = `${window.location.origin}/business/${tenantId}/setup`;
+                    return;
+                } catch (adoptErr) {
+                    console.error("[CreateBusinessWizard] subscription adoption failed:", adoptErr);
+                }
+                setSubmitError(friendlyErrorMessage(code));
             } else {
                 const message = friendlyErrorMessage(code);
                 setSubmitError(message);
@@ -894,6 +918,15 @@ function friendlyErrorMessage(code: string): string {
             return "Il tuo abbonamento è già attivo. Se hai appena completato il pagamento, attendi qualche secondo e ricarica la pagina.";
         case "subscription_check_failed":
             return "Non siamo riusciti a verificare lo stato del tuo abbonamento. Non ti è stato addebitato nulla: riprova tra qualche istante.";
+        // Gate fiscale server-side di stripe-checkout. Normalmente il passo
+        // Fatturazione li previene già; qui coprono la chiamata diretta o dati
+        // modificati altrove.
+        case "invalid_vat_number":
+            return "La Partita IVA non è valida. Controlla i dati di fatturazione dell'azienda e riprova.";
+        case "missing_einvoice_recipient":
+            return "Con la Partita IVA serve un recapito per la fattura elettronica: aggiungi il Codice Destinatario SDI o la PEC nei dati di fatturazione.";
+        case "fiscal_profile_unavailable":
+            return "Non siamo riusciti a leggere i dati di fatturazione. Non ti è stato addebitato nulla: riprova tra qualche istante.";
         default:
             return "Errore durante la creazione dell'attività. Riprova.";
     }

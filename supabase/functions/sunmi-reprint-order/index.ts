@@ -25,7 +25,17 @@
 //      per ogni stampante, in sequenza. Ogni esito (successo/errore) e'
 //      scritto come riga in print_reprints, mai lanciato: un fallimento su
 //      una stampante non deve impedire il tentativo sulle altre.
-//   8. Risposta con il conteggio per stampante: il chiamante mostra un toast
+//   8. Se il push su una stampante riesce, il job automatico `print_jobs`
+//      (kind='comanda') di quella coppia (ordine, stampante) fermo su
+//      `failed` viene portato a `done`: print_jobs resta l'unica fonte dello
+//      stato corrente letto dalla card Comande (badge "Comanda non stampata"
+//      + "Riprova"), print_reprints e' solo storico. Senza questo il badge
+//      resterebbe dopo una ristampa riuscita e l'operatore ristamperebbe di
+//      nuovo → comande duplicate in cucina. Il binding realtime del kanban
+//      propaga l'UPDATE da solo. Se il push fallisce, `failed` resta tale.
+//      Si toccano SOLO le righe `failed`: pending/processing sono dello
+//      sweeper.
+//   9. Risposta con il conteggio per stampante: il chiamante mostra un toast
 //      che copre anche il caso "stampante offline" (Sunmi accetta comunque
 //      il lavoro e lo consegna alla riaccensione).
 //
@@ -315,6 +325,25 @@ serve(async (req: Request): Promise<Response> => {
             });
             if (insertErr) {
                 console.error(`[${FUNCTION_NAME}] print_reprints insert error:`, insertErr.message);
+            }
+
+            if (ok) {
+                // Vedi header, punto 8. Match a 0 righe (nessun job failed per
+                // questa coppia, es. stampante collegata dopo l'ordine) e' normale.
+                const { error: jobErr } = await supabase
+                    .from("print_jobs")
+                    .update({
+                        status: "done",
+                        processed_at: new Date().toISOString(),
+                        last_error: null
+                    })
+                    .eq("order_id", order.id)
+                    .eq("printer_id", printer.id)
+                    .eq("kind", "comanda")
+                    .eq("status", "failed");
+                if (jobErr) {
+                    console.error(`[${FUNCTION_NAME}] print_jobs recover error:`, jobErr.message);
+                }
             }
 
             console.log(`[${FUNCTION_NAME}] reprint_${ok ? "done" : "failed"}`, {

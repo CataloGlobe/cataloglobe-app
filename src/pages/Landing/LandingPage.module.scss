@@ -2682,23 +2682,28 @@
   margin: 6px 0 4px;
   font-variant-numeric: tabular-nums;
 }
-/* Month-by-month equivalent under a yearly price (same line as the wizard). */
-.planSavings {
-  font-family: var(--sans);
-  font-size: 13px;
+/* Month-by-month equivalent struck through before a yearly price. */
+.planPriceWas {
+  font-size: 17px;
+  font-weight: 500;
   color: var(--muted);
-  font-variant-numeric: tabular-nums;
-  margin-bottom: 2px;
-}
-.planSavingsSuccess {
-  color: var(--text-success, #047857); /* green-700, 5.6:1 su bianco */
-  font-weight: 600;
+  text-decoration-thickness: 1.5px;
+  margin-right: 6px;
 }
 .planDiscount {
   font-family: var(--sans);
   font-size: 13px;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+}
+/* Under a monthly price, last line of the block: the yearly option exists. */
+.planAnnualPitch {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-success, #047857); /* green-700, 5.6:1 su bianco */
+  font-variant-numeric: tabular-nums;
+  margin-top: 4px;
 }
 .planFraming {
   font-family: var(--sans);

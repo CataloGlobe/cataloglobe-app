@@ -20,7 +20,6 @@ import { supabase } from "@/services/supabase/client";
 import { normalizePhoneToE164 } from "@/utils/phoneNormalize";
 import {
     parseSearchQuery,
-    phoneMatches,
     sanitizeNameQuery,
     SEARCH_RESULTS_LIMIT,
     sortByProximity
@@ -118,28 +117,21 @@ export interface ReservationSearchPage {
  * dalla più vicina a oggi: PostgREST non sa ordinare per distanza da una
  * data, e una query sola ordinata per data taglierebbe il lato sbagliato.
  *
- * Il telefono: sul server un `like` per suffisso sulle cifre digitate, sia
- * su `customer_phone_e164` sia sul campo libero `customer_phone`; sul client
- * il confronto vero, cifre contro cifre (`phoneMatches`). Il nome: `ilike`
- * per sottostringa.
+ * Il telefono (FASE 5.4): `like` per suffisso sulle cifre digitate contro
+ * `customer_phone_digits`, la colonna generata dal DB con le sole cifre
+ * (da `customer_phone_e164` se c'è, altrimenti dal campo libero). Il filtro
+ * è esatto sul server e servito dall'indice trigram: non c'è un secondo
+ * confronto sul client. Prima il `like` girava sulle stringhe grezze, e un
+ * numero salvato con spazi o trattini senza e164 non si trovava affatto.
+ * Il nome: `ilike` per sottostringa.
+ *
+ * Il tetto è onesto: oltre `SEARCH_RESULTS_LIMIT` match veri la pagina
+ * mostra i 50 più vicini a oggi e dice che ce ne sono altri. Non esiste il
+ * caso «riga giusta scartata dal tetto»: ogni riga che passa il filtro È un
+ * match.
  *
  * `activityId` restringe alla sede scelta in barra; `null` = tutte quelle
  * che il caller può leggere (RLS). Query troppo corta → `[]` senza rete.
- *
- * DIFETTO NOTO — ordine delle operazioni nella ricerca per telefono. Il
- * tetto (`limit(SEARCH_RESULTS_LIMIT + 1)`) si applica sul server, PRIMA del
- * confronto esatto che fa il client (`phoneMatches`): se il `like` pesca 51
- * righe spurie e quella giusta è la 52ª, il client scarta le 51 e la
- * ricerca dice che non c'è niente. Con un `like` per suffisso selettivo le
- * righe spurie sono poche e il tetto non morde; un pattern coi jolly fra le
- * cifre (`%3%3%3%…`, per scavalcare spazi e trattini) è stato scartato
- * proprio perché riempirebbe le 51 righe di rumore e renderebbe il difetto
- * probabile. Il prezzo: un numero scritto con spazi o trattini nel campo
- * libero e SENZA `customer_phone_e164` oggi NON è cercabile (su staging non
- * ce n'è nessuno: le 7 righe senza e164 sono tutte a cifre contigue).
- * La correzione vera — per il difetto e per quei numeri insieme — è una
- * colonna con le sole cifre, normalizzata in scrittura, con il `like` per
- * suffisso su quella: una migration, esclusa da questa fase.
  */
 export async function searchReservations(
     tenantId: string,
@@ -154,7 +146,7 @@ export async function searchReservations(
     if (query.kind === "name" && name.length === 0) return { rows: [], truncated: false };
     const filter =
         query.kind === "phone"
-            ? `customer_phone_e164.like.%${query.digits},customer_phone.like.%${query.digits}`
+            ? `customer_phone_digits.like.%${query.digits}`
             : `customer_name.ilike.%${name}%`;
 
     const base = (ascending: boolean) => {
@@ -181,9 +173,7 @@ export async function searchReservations(
     const overflow =
         futureRows.length > SEARCH_RESULTS_LIMIT || pastRows.length > SEARCH_RESULTS_LIMIT;
 
-    let rows = [...futureRows, ...pastRows];
-    if (query.kind === "phone") rows = rows.filter(r => phoneMatches(r, query.digits));
-    rows = sortByProximity(rows, todayIso);
+    const rows = sortByProximity([...futureRows, ...pastRows], todayIso);
 
     return {
         rows: rows.slice(0, SEARCH_RESULTS_LIMIT),

@@ -3,7 +3,6 @@ import { describe, expect, it } from "vitest";
 import {
     parseSearchQuery,
     phoneDigits,
-    phoneMatches,
     sanitizeNameQuery,
     SEARCH_MIN_LENGTH,
     SEARCH_PHONE_MIN_DIGITS,
@@ -42,26 +41,6 @@ describe("parseSearchQuery", () => {
             kind: "phone",
             digits: "3".repeat(SEARCH_PHONE_MIN_DIGITS)
         });
-    });
-});
-
-describe("phoneMatches", () => {
-    const row = { customer_phone: "+39 333 123 4567", customer_phone_e164: "+393331234567" };
-
-    it("senza prefisso e senza spazi trova la riga con prefisso e spazi", () => {
-        expect(phoneMatches(row, "3331234567")).toBe(true);
-        expect(phoneMatches(row, "1234567")).toBe(true);
-        expect(phoneMatches(row, "393331234567")).toBe(true);
-    });
-
-    it("funziona anche senza e164 (righe pre-migration), sul campo libero", () => {
-        expect(phoneMatches({ customer_phone: "3339876543", customer_phone_e164: null }, "9876543")).toBe(true);
-    });
-
-    it("è un suffisso, non una sottosequenza: cifre non contigue non bastano", () => {
-        expect(phoneMatches(row, "3313")).toBe(false);
-        expect(phoneMatches(row, "333123")).toBe(false);
-        expect(phoneMatches(row, "")).toBe(false);
     });
 });
 

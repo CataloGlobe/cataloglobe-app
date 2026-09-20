@@ -17,14 +17,19 @@ export function SubscriptionBanner() {
     const { permissions } = usePermissions();
     const canManageBilling = permissions ? canDoOnTenant(permissions, "billing.manage") : false;
     const canCancelBilling = permissions ? canDoOnTenant(permissions, "billing.cancel") : false;
-    const { status, trialDaysLeft } = useSubscriptionGuard();
+    const { status, trialDaysLeft, hasSubscriptionRecord } = useSubscriptionGuard();
     const { showToast } = useToast();
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
 
     // Don't show if: no tenant, no subscription yet, or subscription is active
     if (!selectedTenant || !status || status === "active") return null;
-    if (!selectedTenant.stripe_subscription_id) return null;
+    // No subscription record = never paid. That tenant is born `suspended`
+    // (column default since migration 20260918150000), which is NOT a Stripe
+    // suspension: the "contatta l'assistenza" copy below would be wrong for it.
+    // MainLayout already keeps such tenants out of the business area; this
+    // check is what keeps the banner right should that gate ever change.
+    if (!hasSubscriptionRecord) return null;
 
     const handlePortal = async () => {
         if (!selectedTenant) return;

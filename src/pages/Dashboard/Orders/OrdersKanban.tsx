@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import OrderCard from "./OrderCard";
 import type { V2OrderWithItems, V2Table } from "@/types/orders";
+import type { ComandaPrintState } from "./hooks/comandaPrintState";
 import styles from "./OrdersKanban.module.scss";
 
 interface Props {
@@ -32,12 +33,15 @@ interface Props {
      */
     operatorNames?: Map<string, string>;
     /**
-     * Id ordine con almeno una comanda che non e' mai uscita (job stampa
-     * `failed`). Propagata a `OrderCard` per il badge "Comanda non stampata".
+     * Id ordine → stato di stampa della comanda (`done` | `failed`), solo
+     * per ordini con un job terminale. Propagata a `OrderCard` per
+     * "Ristampa" / "Comanda non stampata" + "Riprova".
      */
-    failedComandaOrderIds?: Set<string>;
-    /** true = la sede ha stampanti cloud Sunmi attive. Propagata a OrderCard. */
-    hasPrinters?: boolean;
+    comandaPrintStates?: Map<string, ComandaPrintState>;
+    /** Ristampa/riprova comanda via Sunmi. Propagata a OrderCard. */
+    onReprint?: (order: V2OrderWithItems) => Promise<void>;
+    /** Link alla sezione stampanti della sede (card "failed"). */
+    printersHref?: string;
     isLoading: boolean;
     error: string | null;
     onRetry: () => void;
@@ -47,7 +51,6 @@ interface Props {
     onCancel: (order: V2OrderWithItems) => void;
     onCancelItem: (order: V2OrderWithItems) => void;
     onViewDetail: (order: V2OrderWithItems) => void;
-    onPrint?: (order: V2OrderWithItems) => void;
     onUnacknowledge?: (order: V2OrderWithItems) => Promise<void>;
     onUnready?: (order: V2OrderWithItems) => Promise<void>;
     /**
@@ -82,8 +85,9 @@ export default function OrdersKanban({
     orders,
     tables,
     operatorNames,
-    failedComandaOrderIds,
-    hasPrinters,
+    comandaPrintStates,
+    onReprint,
+    printersHref,
     isLoading,
     error,
     onRetry,
@@ -93,7 +97,6 @@ export default function OrdersKanban({
     onCancel,
     onCancelItem,
     onViewDetail,
-    onPrint,
     onUnacknowledge,
     onUnready,
     pulseSubmittedToken,
@@ -189,15 +192,15 @@ export default function OrdersKanban({
                                             tableLabel={table?.label ?? "?"}
                                             tableZone={table?.zone_name ?? null}
                                             operatorNames={operatorNames}
-                                            comandaFailed={failedComandaOrderIds?.has(order.id) ?? false}
-                                            hasPrinters={hasPrinters}
+                                            comandaPrintState={comandaPrintStates?.get(order.id) ?? null}
+                                            onReprint={onReprint}
+                                            printersHref={printersHref}
                                             onAcknowledge={onAcknowledge}
                                             onMarkReady={onMarkReady}
                                             onDeliver={onDeliver}
                                             onCancel={onCancel}
                                             onCancelItem={onCancelItem}
                                             onViewDetail={onViewDetail}
-                                            onPrint={onPrint}
                                             onUnacknowledge={onUnacknowledge}
                                             onUnready={onUnready}
                                             canManage={canManage}
