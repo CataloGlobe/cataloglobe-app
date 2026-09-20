@@ -8,7 +8,7 @@
   align-items: center;
   gap: 4px;
   padding: 6px 6px 6px 16px;
-  background: var(--primary, #4f46e5);
+  background: var(--brand-primary);
   border-radius: 999px;
   box-shadow: 0 8px 32px rgba(79, 70, 229, 0.35);
   white-space: nowrap;
@@ -29,7 +29,7 @@
 .count {
   font-size: 12px;
   font-weight: 700;
-  color: #ffffff;
+  color: var(--on-brand);
   letter-spacing: 0.05em;
   text-transform: uppercase;
   padding: 4px 12px;
@@ -53,7 +53,7 @@
   padding: 8px 14px;
   border: none;
   background: none;
-  color: #ffffff;
+  color: var(--on-brand);
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.05em;
@@ -81,7 +81,7 @@
   height: 32px;
   border: none;
   background: rgba(255, 255, 255, 0.15);
-  color: #ffffff;
+  color: var(--on-brand);
   border-radius: 50%;
   cursor: pointer;
   margin-left: 4px;
