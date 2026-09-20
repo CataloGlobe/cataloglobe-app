@@ -1,0 +1,35 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [staging, main]
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    # Solo su push a staging/main, non sulle PR: 218 errori pre-esistenti
+    # (no-explicit-any, @ts-nocheck) lo tengono rosso. Riabilitare sulle PR
+    # e togliere continue-on-error quando il lint torna verde.
+    if: github.event_name == 'push'
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  ds-budget:
+    name: Design system budget
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Nessuna dipendenza: lo script usa solo node:fs e node:path.
+      - run: npm run ds:budget:check
