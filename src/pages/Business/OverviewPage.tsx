@@ -382,6 +382,7 @@ export default function OverviewPage() {
     const step = (
         id: string,
         done: boolean,
+        shortTitle: string,
         doneTitle: string,
         todoTitle: string,
         description: string,
@@ -389,6 +390,7 @@ export default function OverviewPage() {
     ): ChecklistItem => ({
         id,
         done,
+        shortTitle,
         title: done ? doneTitle : todoTitle,
         description: done ? undefined : description,
         onAction: () => navigate(to)
@@ -397,6 +399,7 @@ export default function OverviewPage() {
         step(
             "location",
             setup?.hasActiveLocation ?? false,
+            "Sede",
             "Sede pubblicata",
             // Zero sedi e sede sospesa sono due situazioni diverse: nel secondo
             // caso la sede c'è già e l'azione è riattivarla, non crearne una.
@@ -409,6 +412,7 @@ export default function OverviewPage() {
         step(
             "products",
             setup?.hasProducts ?? false,
+            "Prodotti",
             "Prodotti aggiunti",
             "Aggiungi i primi prodotti",
             `Piatti, bevande, prezzi: li crei una volta e li riusi in ogni ${catalogLower}.`,
@@ -417,6 +421,7 @@ export default function OverviewPage() {
         step(
             "catalog",
             setup?.hasPopulatedCatalog ?? false,
+            catalogLabel,
             `${catalogLabel} pronto`,
             `Crea un ${catalogLower}`,
             `I prodotti vanno organizzati in un ${catalogLower} per essere mostrati ai clienti.`,
@@ -425,6 +430,7 @@ export default function OverviewPage() {
         step(
             "rule",
             setup?.hasActiveLayoutRule ?? false,
+            "Regola",
             "Regola attiva",
             "Attiva una regola",
             `Decide quale ${catalogLower} mostrare in quale sede. Senza, la pagina resta vuota.`,
