@@ -1,18 +1,23 @@
+// BulkBar — la barra che galleggia in basso quando c'è una selezione:
+// --surface con bordo, --radius-surface, --shadow-overlay, --z-overlay.
+// Entra in motion-base su transform e opacity. Solo token.
+
 .bulkBar {
   position: fixed;
-  bottom: 24px;
+  bottom: var(--space-24);
   left: 50%;
   transform: translateX(-50%);
-  z-index: 1000;
+  z-index: var(--z-overlay);
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 6px 6px 6px 16px;
-  background: var(--brand-primary);
-  border-radius: 999px;
-  box-shadow: 0 8px 32px rgba(79, 70, 229, 0.35);
+  gap: var(--space-4);
+  padding: var(--space-8) var(--space-8) var(--space-8) var(--space-16);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-overlay);
   white-space: nowrap;
-  animation: bulkBarIn 0.18s ease;
+  animation: bulkBarIn var(--timing-motion-base) var(--easing-surface);
 }
 
 @keyframes bulkBarIn {
@@ -26,69 +31,85 @@
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .bulkBar {
+    animation: none;
+  }
+}
+
 .count {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--on-brand);
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  padding: 4px 12px;
-  background: rgba(255, 255, 255, 0.18);
-  border-radius: 999px;
-  margin-right: 4px;
+  padding-right: var(--space-4);
 }
 
 .separator {
   width: 1px;
   height: 20px;
-  background: rgba(255, 255, 255, 0.28);
-  margin: 0 8px;
+  background: var(--border);
+  margin: 0 var(--space-8);
   flex-shrink: 0;
 }
 
 .action {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 14px;
+  gap: var(--space-8);
+  height: 32px;
+  padding: 0 var(--space-12);
   border: none;
   background: none;
-  color: var(--on-brand);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  line-height: 1;
   cursor: pointer;
-  border-radius: 999px;
-  transition: background 0.15s ease;
+  border-radius: var(--radius-control);
+  transition:
+    background-color var(--timing-motion-fast) var(--easing-state),
+    color var(--timing-motion-fast) var(--easing-state);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.15);
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
   }
 }
 
 .actionDanger {
+  color: var(--danger);
+
   &:hover {
-    background: rgba(239, 68, 68, 0.32);
+    background: var(--danger-50);
   }
 }
 
 .closeButton {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   justify-content: center;
   width: 32px;
   height: 32px;
   border: none;
-  background: rgba(255, 255, 255, 0.15);
-  color: var(--on-brand);
-  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-control);
   cursor: pointer;
-  margin-left: 4px;
+  margin-left: var(--space-4);
   flex-shrink: 0;
-  transition: background 0.15s ease;
+  transition:
+    background-color var(--timing-motion-fast) var(--easing-state),
+    color var(--timing-motion-fast) var(--easing-state);
 
   &:hover {
-    background: rgba(255, 255, 255, 0.28);
+    background: var(--hover-bg);
+    color: var(--text);
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
   }
 }

@@ -1,80 +1,84 @@
+// EmptyState — scheda «EmptyState»: icona 32 muta · titolo title-sm · una
+// riga body-sm muta (max 360) · slot children · azione. `page` padding 48
+// verticale, `inline` 24 con icona 20, `filtered` 16 su una riga. Solo token.
+
 .wrapper {
-    padding: 64px 24px;
-    max-width: 420px;
-    margin: 0 auto;
-    text-align: center;
-
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  margin: 0 auto;
 }
 
-.wrapper.compact {
-    padding: 40px 16px;
-    gap: 10px;
-    max-width: 320px;
+.page {
+  padding: var(--space-48) var(--space-24);
+  gap: var(--space-8);
 
-    .icon {
-        color: var(--gray-400);
-    }
+  .icon svg {
+    width: 32px;
+    height: 32px;
+  }
 
-    .title {
-        font-size: 14px;
-        font-weight: 500;
-        color: var(--text-muted);
-    }
-
-    .description {
-        font-size: 12px;
-        color: var(--gray-400);
-        max-width: 280px;
-    }
-
-    .action {
-        margin-top: 4px;
-    }
-}
-
-.icon {
-    color: var(--color-muted);
-    opacity: 0.7;
-}
-
-.title {
-    font-size: 18px;
-    font-weight: 600;
-    margin: 0;
-    // L'h3 globale di _typography.scss è $brand-dark (#1e1b4b): nel tema
-    // scuro sparisce. Il titolo legge il token, come tutto il resto.
-    color: var(--text);
-}
-
-.description {
-    font-size: 14px;
-    color: var(--color-muted);
-    margin: 0;
-}
-
-.action {
-    margin-top: 8px;
+  .action {
+    margin-top: var(--space-8);
+  }
 }
 
 .inline {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    min-height: 56px;
-    padding: 0 16px;
+  padding: var(--space-24);
+  gap: var(--space-6);
+
+  .icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  .action {
+    margin-top: var(--space-4);
+  }
 }
 
-.inlineText {
-    margin: 0;
-    font-size: 14px;
-    color: var(--color-muted);
+.icon {
+  display: inline-flex;
+  color: var(--text-muted);
 }
 
-.inlineAction {
-    flex-shrink: 0;
+.text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  max-width: 360px;
+}
+
+.title {
+  color: var(--text);
+}
+
+.description {
+  max-width: 360px;
+}
+
+.children {
+  max-width: 360px;
+  width: 100%;
+}
+
+.action {
+  display: inline-flex;
+  justify-content: center;
+}
+
+// La lista esiste ma il filtro non trova nulla: una riga e la via d'uscita.
+.filtered {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  text-align: center;
+}
+
+.filteredAction {
+  flex-shrink: 0;
 }

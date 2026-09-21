@@ -99,6 +99,9 @@
 
 .stateBodyColumn {
   flex-direction: column;
+  // nowrap: una colonna flex con wrap misura i figli senza il loro padding
+  // in percentuale (CardGrid 16:10) e li schiaccia.
+  flex-wrap: nowrap;
   align-items: stretch;
 }
 
@@ -174,4 +177,52 @@
   > div:nth-child(4) {
     width: auto;
   }
+}
+
+// Tre StatCard per riga (scheda StatCard: mai griglie di quattro).
+.statRow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-16);
+  width: 100%;
+
+  @media (max-width: 767px) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+// Sotto 1024 la galleria si stringe: niente indice, etichetta sopra al
+// componente, così i 768 e 375 px sono quelli veri del componente.
+@media (max-width: 1023px) {
+  .index {
+    display: none;
+  }
+
+  .main {
+    padding: var(--space-16);
+    gap: var(--space-32);
+  }
+
+  .state {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+
+  .stateLabel {
+    padding-top: 0;
+  }
+}
+
+// Finta pagina pubblica per il PreviewPane.
+.fakePage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+}
+
+.fakeCard {
+  padding: var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
 }

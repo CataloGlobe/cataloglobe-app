@@ -1,13 +1,21 @@
+// RadioGroup — una scelta fra poche, tutte visibili (design system §5,
+// scheda RadioGroup). Radio 16, etichetta 14/500, descrizione caption muta.
+// `card`: riquadro con bordo, padding 12 16, gap 8, radius-control,
+// bersaglio 44; selezionato brand-primary + brand-primary-soft.
+
 .group {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: var(--space-8);
 }
 
 .option {
+  position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 0.6rem;
+  gap: var(--space-10);
+  min-height: 24px;
+  border-radius: var(--radius-control);
   cursor: pointer;
 }
 
@@ -19,34 +27,69 @@
 .input {
   position: absolute;
   opacity: 0;
+  width: 1px;
+  height: 1px;
 }
 
 .circle {
-  width: 16px;
-  height: 16px;
-  margin-top: 3px;
-  border-radius: 50%;
-  border: 2px solid var(--border, #cbd5e1);
   position: relative;
   flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin-top: 2px;
+  border-radius: 50%;
+  border: 2px solid var(--gray-400);
+  background: var(--surface);
+  transition: border-color var(--timing-motion-fast) var(--easing-state);
 }
 
 .input:checked + .circle {
-  border-color: var(--brand-primary, #6366f1);
+  border-color: var(--brand-primary);
 }
 
 .input:checked + .circle::after {
   content: "";
-  width: 8px;
-  height: 8px;
-  background: var(--brand-primary, #6366f1);
-  border-radius: 50%;
   position: absolute;
   top: 2px;
   left: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--brand-primary);
+}
+
+.input:focus-visible + .circle {
+  box-shadow: var(--shadow-focus);
 }
 
 .text {
   display: flex;
   flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+// Variante card: ogni opzione è un riquadro cliccabile.
+.card {
+  align-items: flex-start;
+  min-height: 44px;
+  padding: var(--space-12) var(--space-16);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  transition:
+    border-color var(--timing-motion-fast) var(--easing-state),
+    background-color var(--timing-motion-fast) var(--easing-state);
+
+  &:hover:not(.disabled) {
+    background: var(--hover-bg);
+  }
+
+  &:has(.input:focus-visible) {
+    box-shadow: var(--shadow-focus);
+  }
+
+  &.selected {
+    border-color: var(--brand-primary);
+    background: var(--brand-primary-soft);
+  }
 }

@@ -1,6 +1,7 @@
 import React from "react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { MoreHorizontal } from "lucide-react";
+import { Menu } from "@/components/ui/Menu/Menu";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import styles from "./TableRowActions.module.scss";
 
 export interface TableRowAction {
@@ -16,49 +17,41 @@ interface TableRowActionsProps {
     actions: TableRowAction[];
 }
 
+/**
+ * Il «⋯» di una riga di DataTable: un `Menu` (scheda «Menu») ancorato a un
+ * `IconButton ghost`. La voce distruttiva va in fondo, dopo un divisore:
+ * lo decide chi compone le azioni (`separator: true`). La tabella marca la
+ * cella che lo contiene come colonna azioni e la mostra al hover/focus.
+ */
 export function TableRowActions({ actions }: TableRowActionsProps) {
     const visibleActions = actions.filter(a => !a.hidden);
 
     return (
-        <DropdownMenu.Root>
-            <DropdownMenu.Trigger asChild>
-                <button
-                    className={styles.trigger}
+        <Menu
+            align="end"
+            trigger={
+                <IconButton
+                    icon={<MoreHorizontal size={16} />}
                     aria-label="Azioni"
+                    variant="ghost"
+                    size="sm"
+                    className={styles.trigger}
                     onClick={e => e.stopPropagation()}
-                >
-                    <MoreHorizontal size={16} />
-                </button>
-            </DropdownMenu.Trigger>
-            <DropdownMenu.Portal>
-                <DropdownMenu.Content
-                    className={styles.content}
-                    align="end"
-                    sideOffset={4}
-                    onClick={e => e.stopPropagation()}
-                >
-                    {visibleActions.map((action, index) => (
-                        <React.Fragment key={index}>
-                            {action.separator && index > 0 && (
-                                <DropdownMenu.Separator className={styles.separator} />
-                            )}
-                            <DropdownMenu.Item
-                                className={`${styles.item}${
-                                    action.variant === "destructive"
-                                        ? ` ${styles.danger}`
-                                        : action.variant === "accent"
-                                            ? ` ${styles.accent}`
-                                            : ""
-                                }`}
-                                onClick={action.onClick}
-                            >
-                                {action.icon && <action.icon size={14} />}
-                                {action.label}
-                            </DropdownMenu.Item>
-                        </React.Fragment>
-                    ))}
-                </DropdownMenu.Content>
-            </DropdownMenu.Portal>
-        </DropdownMenu.Root>
+                />
+            }
+        >
+            {visibleActions.map((action, index) => (
+                <React.Fragment key={index}>
+                    {action.separator && index > 0 && <Menu.Separator />}
+                    <Menu.Item
+                        icon={action.icon}
+                        variant={action.variant === "destructive" ? "destructive" : action.variant === "accent" ? "accent" : "default"}
+                        onSelect={action.onClick}
+                    >
+                        {action.label}
+                    </Menu.Item>
+                </React.Fragment>
+            ))}
+        </Menu>
     );
 }

@@ -102,6 +102,17 @@
     }
 }
 
+// L'azione che fa avanzare (es. «Pubblica»): brand, mai da sola in un menu.
+.accent {
+    color: var(--brand-primary);
+    font-weight: 600;
+
+    &[data-highlighted] {
+        background-color: var(--brand-primary-soft);
+        color: var(--brand-primary);
+    }
+}
+
 @media (prefers-reduced-motion: reduce) {
     .content[data-state="open"],
     .content[data-state="closed"] {

@@ -1,0 +1,56 @@
+// Rating — stelle in sola lettura col numero accanto (design system §5,
+// scheda Rating). Piene warning-500, vuote gray-300; gap 2 fra le stelle,
+// 6 fra stelle e numero.
+
+.root {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-6);
+}
+
+.stars {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sm .stars > svg {
+  width: 12px;
+  height: 12px;
+}
+
+.md .stars > svg {
+  width: 16px;
+  height: 16px;
+}
+
+.full {
+  color: var(--warning-500);
+  fill: currentColor;
+}
+
+.empty {
+  color: var(--gray-300);
+  fill: currentColor;
+}
+
+.value {
+  font-variant-numeric: tabular-nums;
+}
+
+// Con StatCard hero: numero grande, stelle sotto, «su 5 · 3 recensioni».
+.hero {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+
+  .stars > svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.heroValue {
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}

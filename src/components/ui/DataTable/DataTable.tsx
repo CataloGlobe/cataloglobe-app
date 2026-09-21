@@ -1,6 +1,7 @@
 import {
     CSSProperties,
     ReactNode,
+    isValidElement,
     useCallback,
     useEffect,
     useMemo,
@@ -10,9 +11,10 @@ import {
 import { IconChevronLeft, IconChevronRight, IconInbox } from "@tabler/icons-react";
 import styles from "./DataTable.module.scss";
 import Text from "@/components/ui/Text/Text";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { LoadingState } from "@/components/ui/LoadingState/LoadingState";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useAutoPageSize } from "./useAutoPageSize";
 import {
     resolveNumericPageSize,
@@ -37,9 +39,15 @@ export type DataTableEmptyState = {
     description?: string;
     action?: ReactNode;
     icon?: ReactNode;
+    /** @deprecated Il vuoto della tabella è sempre `EmptyState inline`: ignorato. */
     compact?: boolean;
 };
 
+/**
+ * @deprecated Il caricamento è sempre a righe Skeleton (scheda «DataTable»):
+ * `message` e `compact` sono ignorati. La prop resta per compatibilità e si
+ * rimuove nel lotto 6.
+ */
 export type DataTableLoadingState = {
     message?: string;
     compact?: boolean;
@@ -47,13 +55,35 @@ export type DataTableLoadingState = {
 
 export type DataTablePageSizeOption = PageSizeSelection; // number | "all" | "auto"
 
+/**
+ * Classi esportate per i consumer, così la pagina non dichiara font-size:
+ * `cellTwoLine` = cella a due righe (titolo 14/500 + caption muta), da
+ * mettere su un wrapper con due figli.
+ */
+export const DATA_TABLE_CLASSES = {
+    cellTwoLine: styles.cellTwoLine
+} as const;
+
+/** Colonna che rende `TableRowActions`: la tabella la mette ultima, a destra. */
+const ACTIONS_COLUMN_ID = "actions";
+const SKELETON_ROWS = 5;
+const SKELETON_WIDTHS = ["60%", "40%", "50%", "70%"];
+
 interface DataTableProps<T> {
     data: T[];
     columns: ColumnDefinition<T>[];
 
     isLoading?: boolean;
     emptyState?: DataTableEmptyState;
+    /** @deprecated Ignorata: il caricamento rende righe Skeleton. */
     loadingState?: DataTableLoadingState;
+    /**
+     * La lista esiste ma un filtro attivo non trova nulla: il vuoto diventa
+     * `EmptyState filtered` («Nessun risultato» + «Azzera filtri» se c'è
+     * `onClearFilters`) invece del vuoto di creazione.
+     */
+    isFiltered?: boolean;
+    onClearFilters?: () => void;
 
     maxHeight?: string;
 
@@ -196,11 +226,16 @@ function DataTableRow<T>({
                 const content = column.cell
                     ? column.cell(value, row, rowIndex, dragHandleProps)
                     : (value as ReactNode);
+                // Colonna azioni: per id, o perché la cella rende TableRowActions.
+                const isActions =
+                    column.id === ACTIONS_COLUMN_ID ||
+                    (isValidElement(content) && content.type === TableRowActions);
 
                 return (
                     <div
                         key={column.id}
-                        className={`${styles.cell} ${getAlignClass(column.align)}${column.id === "actions" ? ` ${styles.cellActions}` : ""}`}
+                        className={`${styles.cell} ${getAlignClass(column.align)}${isActions ? ` ${styles.cellActions}` : ""}`}
+                        data-actions={isActions || undefined}
                     >
                         {content ?? null}
                     </div>
@@ -212,10 +247,11 @@ function DataTableRow<T>({
 
 export function DataTable<T>({
     data,
-    columns,
+    columns: columnsProp,
     isLoading = false,
     emptyState,
-    loadingState,
+    isFiltered = false,
+    onClearFilters,
     maxHeight: maxHeightProp,
     pageSize,
     pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
@@ -235,6 +271,14 @@ export function DataTable<T>({
 }: DataTableProps<T>) {
     const maxHeight = maxHeightProp ?? DEFAULT_MAX_HEIGHT;
     const maxHeightIsExplicit = maxHeightProp !== undefined;
+
+    // La colonna azioni è sempre l'ultima, a destra (scheda «DataTable»):
+    // se il consumer la dichiara altrove, la tabella la sposta in coda.
+    const columns = useMemo(() => {
+        const idx = columnsProp.findIndex(c => c.id === ACTIONS_COLUMN_ID);
+        if (idx < 0 || idx === columnsProp.length - 1) return columnsProp;
+        return [...columnsProp.filter((_, i) => i !== idx), columnsProp[idx]];
+    }, [columnsProp]);
     const initialSelection: PageSizeSelection = pageSize ?? "auto";
     const [currentPageSize, setCurrentPageSize] =
         useState<PageSizeSelection>(initialSelection);
@@ -450,28 +494,48 @@ export function DataTable<T>({
 
     // ─── Rendering helpers ─────────────────────────────────────────────────
     const renderRows = () => {
+        // Caricamento = righe Skeleton: si sa dove andrà il contenuto.
         if (isLoading) {
-            return (
-                <div className={styles.state}>
-                    <LoadingState
-                        message={loadingState?.message}
-                        compact={loadingState?.compact}
-                    />
+            return Array.from({ length: SKELETON_ROWS }, (_, r) => (
+                <div key={r} className={`${styles.row} ${styles.rowSkeleton}`} style={gridStyle} aria-hidden="true">
+                    {selectable && (
+                        <div className={`${styles.cell} ${styles.checkboxCell}`}>
+                            <Skeleton width={16} height={16} radius="var(--radius-inner)" />
+                        </div>
+                    )}
+                    {columns.map((column, c) => (
+                        <div key={column.id} className={`${styles.cell} ${getAlignClass(column.align)}`}>
+                            <Skeleton
+                                width={SKELETON_WIDTHS[(r + c) % SKELETON_WIDTHS.length]}
+                                height={14}
+                                radius="var(--radius-inner)"
+                            />
+                        </div>
+                    ))}
                 </div>
-            );
+            ));
         }
 
+        // Vuoto = EmptyState inline dentro la tabella; filtered se c'è un
+        // filtro attivo (la lista esiste, il filtro non trova nulla).
         if (data.length === 0) {
-            return (
-                <div className={styles.state}>
+            if (isFiltered) {
+                return (
                     <EmptyState
-                        icon={emptyState?.icon ?? <IconInbox size={40} stroke={1} />}
+                        variant="filtered"
                         title={emptyState?.title ?? "Nessun risultato"}
-                        description={emptyState?.description}
-                        action={emptyState?.action}
-                        compact={emptyState?.compact}
+                        onClearFilters={onClearFilters}
                     />
-                </div>
+                );
+            }
+            return (
+                <EmptyState
+                    variant="inline"
+                    icon={emptyState?.icon ?? <IconInbox stroke={1.5} />}
+                    title={emptyState?.title ?? "Nessun risultato"}
+                    description={emptyState?.description}
+                    action={emptyState?.action}
+                />
             );
         }
 
@@ -612,14 +676,17 @@ export function DataTable<T>({
                             {columns.map(column => (
                                 <div
                                     key={column.id}
-                                    className={`${styles.headerCell} ${getAlignClass(column.align)}${column.id === "actions" ? ` ${styles.cellActions}` : ""}`}
+                                    className={`${styles.headerCell} ${getAlignClass(column.align)}${column.id === ACTIONS_COLUMN_ID ? ` ${styles.cellActions}` : ""}`}
+                                    data-actions={column.id === ACTIONS_COLUMN_ID || undefined}
                                 >
                                     {column.header}
                                 </div>
                             ))}
                         </div>
 
-                        <div ref={bodyRef} className={styles.body}>{renderRows()}</div>
+                        <div ref={bodyRef} className={styles.body} aria-busy={isLoading || undefined}>
+                            {renderRows()}
+                        </div>
                     </div>
 
                     <div ref={footerRef} className={styles.footer}>{renderFooter()}</div>

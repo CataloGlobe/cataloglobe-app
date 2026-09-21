@@ -1,11 +1,28 @@
 import { ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import { resolveDrawerSize, type SystemDrawerSize } from "./drawerSize";
 import styles from "./SystemDrawer.module.scss";
 
+export type { SystemDrawerSize } from "./drawerSize";
+
+/**
+ * SystemDrawer — il CRUD: creare o modificare una cosa senza lasciare la
+ * lista (design system §5). Tre taglie dai token `--drawer-*`: `sm` 420
+ * (una scelta, un filtro, una conferma con campo) · `md` 520 (il CRUD
+ * normale, default) · `lg` 720 (form a due colonne, picker con anteprima).
+ * Sopra `lg` non esiste: è una route (regola 2).
+ */
 export interface SystemDrawerProps {
     open: boolean;
     onClose: () => void;
+    /** Taglia del pannello. Default `md`. */
+    size?: SystemDrawerSize;
+    /**
+     * @deprecated Usa `size`. Una larghezza numerica viene mappata alla taglia
+     * più vicina (≤ 460 → sm, ≤ 620 → md, ≤ 800 → lg) con un avviso in dev;
+     * oltre 800 resta com'è: quel drawer diventa una route nel lotto 5.
+     */
     width?: number;
     children: ReactNode;
     "aria-labelledby"?: string;
@@ -32,7 +49,8 @@ const FIRST_INPUT_SELECTOR =
 export const SystemDrawer = ({
     open,
     onClose,
-    width = 520,
+    size: sizeProp,
+    width: widthProp,
     children,
     "aria-labelledby": ariaLabelledBy,
     "aria-describedby": ariaDescribedBy,
@@ -42,6 +60,9 @@ export const SystemDrawer = ({
     const drawerRef = useRef<HTMLDivElement>(null);
     const openRef = useRef(open);
     useEffect(() => { openRef.current = open; }, [open]);
+    const reducedMotion = useReducedMotion();
+
+    const { size, explicitWidth } = resolveDrawerSize(sizeProp, widthProp);
 
     // Focus management
     useEffect(() => {
@@ -80,10 +101,6 @@ export const SystemDrawer = ({
 
         const focusableSelectors =
             'a[href], button, textarea, input, select, [tabindex]:not([tabindex="-1"])';
-
-        const focusableElements = drawerEl.querySelectorAll<HTMLElement>(focusableSelectors);
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
 
         const handleTab = (e: KeyboardEvent) => {
             if (e.key !== "Tab") return;
@@ -129,6 +146,12 @@ export const SystemDrawer = ({
         }
     }, [open, onClose]);
 
+    // motion-base (200 ms, easing-surface) su transform e opacity; con
+    // prefers-reduced-motion nessuna animazione.
+    const transition = reducedMotion
+        ? { duration: 0 }
+        : { duration: 0.2, ease: [0.4, 0, 0.2, 1] as const };
+
     return createPortal(
         <AnimatePresence>
             {open && (
@@ -139,19 +162,19 @@ export const SystemDrawer = ({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
+                        transition={transition}
                         onClick={onClose}
                         role="presentation"
                     />
                     <motion.div
                         key="drawer"
-                        className={styles.drawer}
+                        className={`${styles.drawer} ${styles[`size_${size}`]}`}
                         ref={drawerRef}
-                        style={{ width }}
-                        initial={{ x: "100%" }}
-                        animate={{ x: 0 }}
-                        exit={{ x: "100%" }}
-                        transition={{ duration: 0.25, type: "tween", ease: "easeOut" }}
+                        style={explicitWidth !== undefined ? { width: explicitWidth } : undefined}
+                        initial={{ x: "100%", opacity: reducedMotion ? 1 : 0.6 }}
+                        animate={{ x: 0, opacity: 1 }}
+                        exit={{ x: "100%", opacity: reducedMotion ? 1 : 0.6 }}
+                        transition={transition}
                         onAnimationComplete={() => {
                             if (!openRef.current || !autoFocusFirstInput) return;
                             const firstInput = drawerRef.current?.querySelector<HTMLElement>(FIRST_INPUT_SELECTOR);

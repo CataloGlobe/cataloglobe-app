@@ -138,6 +138,10 @@
   // --- Superfici e testo (nomi della tabella) ---
   --surface: var(--card-bg);
   --on-brand: #ffffff;
+  // Testo e icona su un fondo --brand-primary-soft (voce attiva della
+  // sidebar, Badge brand, tab attiva): in chiaro è --brand-primary, in scuro
+  // sale a indigo-300 perché --brand-primary misura 3,7:1 sul soft.
+  --on-brand-soft: var(--brand-primary);
   --gray-300: var(--color-gray-300);
   --gray-400: var(--color-gray-400);
   --gray-500: var(--color-gray-500);
@@ -162,6 +166,7 @@
   --success-500: var(--color-green-500);
   --success-800: var(--color-green-800);
   --info-100: var(--brand-primary-soft);
+  --info-200: #c7d2fe; // indigo-200: bordo di StatusStrip info
   --info-800: #3730a3;
 
   // --- Tipografia ---
@@ -190,6 +195,8 @@
   --shadow-rest: 0 2px 6px rgba(0, 0, 0, 0.03);
   --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.12);
   --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.15);
+  // La variante orientata di shadow-overlay per il SystemDrawer (§2, Ombra).
+  --shadow-drawer: -4px 0 24px -4px rgba(0, 0, 0, 0.1);
   --shadow-focus-danger: 0 0 0 3px rgba(220, 38, 38, 0.2);
 
   // --- Strati ---
@@ -229,11 +236,14 @@
   --skeleton-base: #1e293b;
   --skeleton-highlight: #334155;
   --on-brand: #0f172a;
+  --on-brand-soft: #a5b4fc; // indigo-300: 5,5:1 su brand-primary-soft
+  --info-200: rgba(129, 140, 248, 0.45);
   --info-800: #c7d2fe;
   --shadow-focus: 0 0 0 3px rgba(129, 140, 248, 0.45);
   --shadow-rest: 0 2px 6px rgba(0, 0, 0, 0.4);
   --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.5);
   --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.55);
+  --shadow-drawer: -4px 0 24px -4px rgba(0, 0, 0, 0.5);
   --shadow-focus-danger: 0 0 0 3px rgba(220, 38, 38, 0.4);
 
   // Green / success palette

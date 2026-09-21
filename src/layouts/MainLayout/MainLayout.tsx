@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
-import Sidebar from "@components/layout/Sidebar/Sidebar";
+import TenantSidebar from "@components/layout/Sidebar/TenantSidebar";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
 import { OperationalAlerts } from "@components/layout/OperationalAlerts/OperationalAlerts";
 import { PageHeaderSlot } from "@components/layout/PageHeaderSlot";
@@ -57,7 +57,11 @@ function resolvePageTitle(businessId: string, pathname: string, catalogLabel: st
 }
 
 export default function MainLayout() {
+    // Sotto 768 la sidebar è un cassetto; fra 768 e 1024 parte collassata
+    // (design system §2, breakpoint-sidebar): la scelta manuale resta
+    // possibile, ma non viene salvata finché la finestra è stretta.
     const isMobile = useMediaQuery("(max-width: 767px)");
+    const isNarrow = useMediaQuery("(max-width: 1023px)");
     const { selectedTenant, loading } = useTenant();
     const { businessId } = useParams<{ businessId: string }>();
     const { pathname } = useLocation();
@@ -82,13 +86,17 @@ export default function MainLayout() {
     });
 
     useEffect(() => {
-        if (typeof window === "undefined") return;
+        if (typeof window === "undefined" || isNarrow) return;
         try {
             window.localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
         } catch {
             // localStorage può fallire in modalità privata o quota piena, ignorare
         }
-    }, [sidebarCollapsed]);
+    }, [sidebarCollapsed, isNarrow]);
+
+    useEffect(() => {
+        if (isNarrow && !isMobile) setSidebarCollapsed(true);
+    }, [isNarrow, isMobile]);
 
     useEffect(() => {
         if (isMobile) setMobileSidebarOpen(false);
@@ -241,7 +249,7 @@ export default function MainLayout() {
                         </header>
 
                         <div className={styles.body}>
-                            <Sidebar
+                            <TenantSidebar
                                 isMobile={isMobile}
                                 mobileOpen={mobileSidebarOpen}
                                 collapsed={!isMobile && sidebarCollapsed}

@@ -1,25 +1,46 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import ModalLayout, {
-    ModalLayoutContent,
-    ModalLayoutFooter,
-    ModalLayoutHeader,
-} from "@/components/ui/ModalLayout/ModalLayout";
 import { Button } from "@/components/ui/Button/Button";
-import Text from "@/components/ui/Text/Text";
+import { TextInput } from "@/components/ui/Input/TextInput";
+import { ConfirmDialogShell } from "./ConfirmDialogShell";
 
 type Props = {
     isOpen: boolean;
     onClose: () => void;
-    /** Deve restituire true in caso di successo, false in caso di errore. */
-    onConfirm: () => Promise<boolean>;
+    /**
+     * L'azione. `true` → il dialog si chiude; `false` → resta aperto (errore
+     * già gestito); `void` → resta com'è: è l'handler a chiudere (i consumer
+     * che chiudono da soli passano la loro funzione senza wrapper).
+     */
+    onConfirm: () => Promise<boolean | void> | boolean | void;
     title: string;
+    /** Una riga: cosa succede e cosa si perde. */
     message?: string;
     confirmLabel?: string;
+    cancelLabel?: string;
+    /** `danger` per eliminare/sospendere (default); `primary` per confermare. */
     confirmVariant?: "danger" | "primary";
+    /**
+     * Campo di conferma: il bottone distruttivo si abilita solo quando il testo
+     * digitato coincide (es. il nome dell'azienda da eliminare).
+     */
+    confirmText?: string;
+    /** Etichetta del campo di conferma. Default «Digita "<confirmText>" per confermare». */
+    confirmFieldLabel?: string;
+    /** Azione in corso pilotata dal consumer (altrimenti è interna, durante `onConfirm`). */
+    isLoading?: boolean;
+    /** Errore dell'azione: InlineBanner error sopra i bottoni. */
+    error?: string | null;
+    /** Dettaglio fra la riga e i bottoni (es. l'elenco di cosa cambia). Non un form. */
     children?: ReactNode;
 };
 
+/**
+ * «Sei sicuro?» — solo per l'irreversibile (scheda «ConfirmDialog»,
+ * regola 1). Titolo · una riga · 0–1 campo di conferma · Annulla a sinistra
+ * e il distruttivo a destra in `danger`; focus iniziale sul bottone non
+ * distruttivo; con l'azione in corso Annulla, ESC e scrim sono disabilitati.
+ */
 export function ConfirmDialog({
     isOpen,
     onClose,
@@ -27,41 +48,71 @@ export function ConfirmDialog({
     title,
     message,
     confirmLabel = "Conferma",
+    cancelLabel = "Annulla",
     confirmVariant = "danger",
-    children,
+    confirmText,
+    confirmFieldLabel,
+    isLoading,
+    error,
+    children
 }: Props) {
-    const [loading, setLoading] = useState(false);
+    const [busy, setBusy] = useState(false);
+    const [typed, setTyped] = useState("");
+
+    useEffect(() => {
+        if (!isOpen) setTyped("");
+    }, [isOpen]);
+
+    const loading = isLoading ?? busy;
+    const canConfirm = !loading && (!confirmText || typed === confirmText);
 
     const handleConfirm = async () => {
-        setLoading(true);
-        const ok = await onConfirm();
-        setLoading(false);
-        if (ok) onClose();
+        if (!canConfirm) return;
+        setBusy(true);
+        try {
+            const ok = await onConfirm();
+            if (ok === true) onClose();
+        } finally {
+            setBusy(false);
+        }
     };
 
     return (
-        <ModalLayout isOpen={isOpen} onClose={onClose} width="sm" height="fit">
-            <ModalLayoutHeader>
-                <Text variant="title-sm" weight={600}>
-                    {title}
-                </Text>
-            </ModalLayoutHeader>
-            <ModalLayoutContent>
-                {message && (
-                    <Text variant="body-sm" colorVariant="muted">
-                        {message}
-                    </Text>
-                )}
-                {children}
-            </ModalLayoutContent>
-            <ModalLayoutFooter>
-                <Button variant="secondary" size="sm" onClick={onClose} disabled={loading}>
-                    Annulla
-                </Button>
-                <Button variant={confirmVariant} size="sm" onClick={handleConfirm} loading={loading}>
-                    {confirmLabel}
-                </Button>
-            </ModalLayoutFooter>
-        </ModalLayout>
+        <ConfirmDialogShell
+            isOpen={isOpen}
+            onClose={onClose}
+            locked={loading}
+            title={title}
+            message={message}
+            error={error}
+            footer={
+                <>
+                    <Button variant="secondary" size="sm" onClick={onClose} disabled={loading} data-autofocus>
+                        {cancelLabel}
+                    </Button>
+                    <Button
+                        variant={confirmVariant}
+                        size="sm"
+                        onClick={handleConfirm}
+                        loading={loading}
+                        disabled={!canConfirm}
+                    >
+                        {confirmLabel}
+                    </Button>
+                </>
+            }
+        >
+            {confirmText && (
+                <TextInput
+                    label={confirmFieldLabel ?? `Digita "${confirmText}" per confermare`}
+                    placeholder={confirmText}
+                    value={typed}
+                    onChange={e => setTyped(e.target.value)}
+                    disabled={loading}
+                    autoComplete="off"
+                />
+            )}
+            {children}
+        </ConfirmDialogShell>
     );
 }

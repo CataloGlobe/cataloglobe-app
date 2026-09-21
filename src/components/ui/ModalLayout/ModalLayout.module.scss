@@ -1,10 +1,11 @@
-/* ----------------------------------------------------
-   OVERLAY
----------------------------------------------------- */
+// ModalLayout — la modale centrata per guide e anteprime (regola 1).
+// Pannello --surface, radius-surface, shadow-overlay, z-overlay; header e
+// footer 16 24 con divisore --border; contenuto su --bg. Solo token.
+
 .overlay {
   position: fixed;
   inset: 0;
-  z-index: 1000;
+  z-index: var(--z-overlay);
 
   display: flex;
   align-items: center;
@@ -14,21 +15,15 @@
   backdrop-filter: blur(2px);
 }
 
-/* ----------------------------------------------------
-     MODAL
-  ---------------------------------------------------- */
 .modal {
   --modal-width: 720px;
   --modal-height: 80vh;
 
-  // width: min(1440px, 98vw);
-  // height: min(900px, 94vh);
-
   width: var(--modal-width);
   height: var(--modal-height);
 
-  max-width: calc(100vw - 4rem);
-  max-height: calc(100vh - 4rem);
+  max-width: calc(100vw - 2 * var(--space-32));
+  max-height: calc(100vh - 2 * var(--space-32));
 
   position: relative;
 
@@ -37,8 +32,9 @@
   overflow: hidden;
 
   background: var(--surface);
-  border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18), 0 2px 6px rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-overlay);
 
   outline: none;
 
@@ -78,234 +74,52 @@
 
   &[data-height="fit"] {
     height: auto;
-    max-height: calc(100vh - 32px);
+    max-height: calc(100vh - 2 * var(--space-16));
   }
 }
 
-/* ----------------------------------------------------
-     HEADER
-  ---------------------------------------------------- */
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: var(--space-16);
 
-  padding: 14px 20px;
+  padding: var(--space-16) var(--space-24);
   background: var(--surface);
 
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--border);
 }
 
-.headerLeft {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  min-width: 0;
-}
-
-.headerRight {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-/* ----------------------------------------------------
-     BODY
-  ---------------------------------------------------- */
 .body {
   flex: 1;
-  display: grid;
-  min-height: 0;
-  position: relative;
-  overflow: hidden;
-}
-
-/* ----------------------------------------------------
-     LEFT PANEL
-  ---------------------------------------------------- */
-.left {
-  padding: 20px;
-  overflow-y: auto;
-  min-height: 0;
-
-  background: var(--surface);
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
-
-  // transition: opacity 0.2s ease;
-  width: 360px;
-  white-space: nowrap;
-}
-
-.emptyState {
-  height: 100%;
-
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-
-  text-align: center;
-
-  background: var(--bg-soft, rgba(0, 0, 0, 0.02));
-  border-radius: 12px;
-}
-
-/* ----------------------------------------------------
-     RIGHT PANEL (PREVIEW)
-  ---------------------------------------------------- */
-.right {
-  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 0;
+  position: relative;
   overflow: hidden;
-  padding: 20px;
-  // Era un gradiente #f6f7fb → #f3f4f8: nessun token equivalente, --bg è il
-  // fondo di pagina più vicino (segnalato nel report del lotto 2c).
+  padding: var(--space-24);
   background: var(--bg);
 }
 
 .contentWrapper {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
-}
-
-.contentWrapper[aria-hidden="true"] {
-  pointer-events: none;
-}
-
-/* Oscuramento del content quando drawer è aperto */
-.contentScrim {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.35);
-  z-index: 20;
-
-  /* blocca le interazioni col content */
-  pointer-events: auto;
-}
-
-.drawerSlot {
-  position: absolute;
-  inset: 0;
-  z-index: 40; /* deve stare SOPRA lo scrim */
-  pointer-events: none;
-}
-
-.drawerSlot > * {
-  pointer-events: auto;
-  height: 100%;
-}
-
-/* ----------------------------------------------------
-     LOADING OVERLAY
-  ---------------------------------------------------- */
-.loadingOverlay {
-  position: absolute;
-  inset: 0;
-
-  display: grid;
-  place-items: center;
-
-  background: rgba(255, 255, 255, 0.55);
-  backdrop-filter: blur(2px);
-}
-
-/* ----------------------------------------------------
-     COLLAPSIBLE SIDEBAR
-  ---------------------------------------------------- */
-.bodyCollapsed {
-  grid-template-columns: 0 1fr;
-}
-
-.bodyCollapsed .left {
-  opacity: 0;
-  pointer-events: none;
-}
-
-/* ----------------------------------------------------
-     SIDEBAR TOGGLE
-  ---------------------------------------------------- */
-
-.collapseToggle {
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 1;
-
-  // Dimensioni aumentate
-  width: 32px;
-  height: 32px;
-
-  display: flex;
-  align-items: center;
-  justify-content: center;
-
-  background: var(--surface);
-  border: 1px solid rgba(0, 0, 0, 0.12);
-  cursor: pointer;
-
-  // Ombra più marcata per staccarlo dal fondo
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
-
-  // Transizione per la forma (border-radius)
-  transition: background 0.2s, box-shadow 0.2s, border-radius 0.3s ease;
-
-  &:hover {
-    background: var(--color-bg-subtle);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.16);
-  }
-
-  // Icona interna
-  svg {
-    width: 18px;
-    height: 18px;
-    color: var(--gray-800);
-  }
-}
-
-.collapseToggle:hover {
-  background: var(--color-bg-subtle);
-  box-shadow: 4px 0 14px rgba(0, 0, 0, 0.14);
-}
-
-.bodyCollapsed .collapseToggle {
-  left: 0;
-  border-radius: 0 999px 999px 0;
 }
 
 .footer {
   flex-shrink: 0;
-  padding: 16px 24px;
+  padding: var(--space-16) var(--space-24);
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
+  gap: var(--space-12);
   background: var(--surface);
-  border-top: 1px solid rgba(0, 0, 0, 0.06);
+  border-top: 1px solid var(--border);
 }
 
-/* ----------------------------------------------------
-     RESPONSIVE
-  ---------------------------------------------------- */
 @media (max-width: 980px) {
   .modal {
     width: 98vw;
     height: 94vh;
-    border-radius: 16px;
-  }
-
-  .body {
-    grid-template-columns: 1fr;
-  }
-
-  .collapseToggle {
-    display: none;
-  }
-
-  .left {
-    border-right: none;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   }
 }
