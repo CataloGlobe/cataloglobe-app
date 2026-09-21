@@ -5,6 +5,8 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { OfferBlock } from "@/components/ui/OfferBlock/OfferBlock";
 import { ProgressBar } from "@/components/ui/ProgressBar/ProgressBar";
+import { Rating } from "@/components/ui/Rating/Rating";
+import { StatCard } from "@/components/ui/StatCard/StatCard";
 import styles from "../DevUiPage.module.scss";
 import { StatusStrip } from "@/components/ui/StatusStrip/StatusStrip";
 import { Checklist, type ChecklistItem } from "@/components/ui/Checklist/Checklist";
@@ -209,9 +211,37 @@ function ProgressBarSection() {
     );
 }
 
+/* ------------------------------------------------------------------ */
+/* Rating                                                              */
+/* ------------------------------------------------------------------ */
+
+function RatingSection() {
+    return (
+        <>
+            <State label="sm 12 (righe): 5 · 4,6 · 3,2 · 0,4 · 0">
+                <Rating value={5} />
+                <Rating value={4.6} />
+                <Rating value={3.2} />
+                <Rating value={0.4} />
+                <Rating value={0} />
+            </State>
+            <State label="md 16 (dettaglio) · senza numero">
+                <Rating value={4.6} size="md" />
+                <Rating value={2} size="md" showValue={false} />
+            </State>
+            <State label="hero: dentro StatCard hero, «su 5 · 3 recensioni»" column>
+                <div className={styles.narrow}>
+                    <StatCard label="Media recensioni" value={<Rating value={4.6} size="hero" countLabel="3 recensioni" />} variant="hero" />
+                </div>
+            </State>
+        </>
+    );
+}
+
 export const stateSections: GallerySection[] = [
     { id: "statusstrip", title: "StatusStrip", sheet: "StatusStrip", Component: StatusStripSection },
     { id: "checklist", title: "Checklist", sheet: "Checklist", Component: ChecklistSection },
     { id: "offerblock", title: "OfferBlock", sheet: "OfferBlock", Component: OfferBlockSection },
-    { id: "progressbar", title: "ProgressBar", sheet: "ProgressBar", Component: ProgressBarSection }
+    { id: "progressbar", title: "ProgressBar", sheet: "ProgressBar", Component: ProgressBarSection },
+    { id: "rating", title: "Rating", sheet: "Rating", Component: RatingSection }
 ];
