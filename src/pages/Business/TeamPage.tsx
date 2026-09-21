@@ -7,7 +7,6 @@ import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnTenant, canChangeRoleOf, canRemoveMember } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useAuth } from "@/context/useAuth";
-import { Card } from "@/components/ui/Card/Card";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
@@ -20,6 +19,7 @@ import { InviteMemberDrawer } from "@/components/Businesses/InviteMemberDrawer/I
 import { MemberDrawer } from "@/components/Businesses/MemberDrawer/MemberDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Lock, Send, UserCog, UserMinus, X } from "lucide-react";
+import { ROLE_LABEL, ROLE_ORDER } from "@/constants/roles";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import styles from "./TeamPage.module.scss";
 
@@ -33,13 +33,7 @@ function formatExpiry(expiresAt: string): string {
     return `tra ${days} gg`;
 }
 
-const ROLE_BADGE_LABEL: Record<EffectiveRole, string> = {
-    owner: "Owner",
-    admin: "Admin",
-    manager: "Manager",
-    staff: "Staff",
-    viewer: "Viewer"
-};
+const ROLE_BADGE_LABEL = ROLE_LABEL;
 
 const ROLE_BADGE_CLASS: Record<EffectiveRole, string> = {
     owner: styles.roleOwner,
@@ -162,10 +156,15 @@ export default function TeamPage() {
         >
             <Tabs.List>
                 <Tabs.Tab value="members">Membri</Tabs.Tab>
-                <Tabs.Tab value="invites">
-                    {pendingCount > 0
-                        ? `Inviti in attesa · ${pendingCount}`
-                        : "Inviti in attesa"}
+                {/* A zero resta elencata ma spenta (§42.2): una tab che sparisce
+                    fa sembrare che la funzione non esista. */}
+                <Tabs.Tab
+                    value="invites"
+                    badge={pendingCount}
+                    disabled={pendingCount === 0}
+                    disabledTooltip="Nessun invito in attesa"
+                >
+                    Inviti in attesa
                 </Tabs.Tab>
             </Tabs.List>
         </Tabs>
@@ -175,11 +174,7 @@ export default function TeamPage() {
     // filtro di quella compatta: un elenco solo, nessun rischio di divergenza.
     const roleFilterOptions = useMemo(() => [
         { value: "", label: "Tutti i ruoli" },
-        { value: "owner", label: "Owner" },
-        { value: "admin", label: "Admin" },
-        { value: "manager", label: "Manager" },
-        { value: "staff", label: "Staff" },
-        { value: "viewer", label: "Viewer" }
+        ...ROLE_ORDER.map(role => ({ value: role, label: ROLE_LABEL[role] }))
     ], []);
 
     const headerActions = useMemo(() => (
@@ -187,7 +182,7 @@ export default function TeamPage() {
             <ToolbarSearch
                 value={search}
                 onChange={setSearch}
-                placeholder="Cerca per email..."
+                placeholder="Cerca per email"
             />
             <Select
                 aria-label="Filtra per ruolo"
@@ -222,7 +217,7 @@ export default function TeamPage() {
         search: {
             value: search,
             onChange: setSearch,
-            placeholder: "Cerca per email..."
+            placeholder: "Cerca per email"
         },
         filterControls: [
             {
@@ -595,20 +590,15 @@ export default function TeamPage() {
     return (
         <>
             <div className={styles.page}>
-                {!selectedTenantId ? (
-                    <Card noHoverLift>
-                        <div className={styles.emptyState}>
-                            <Text variant="body">Seleziona un&apos;attività per vedere i membri.</Text>
-                        </div>
-                    </Card>
-                ) : !permissionsLoading && permissions && !canReadTeam ? (
-                    <div className={styles.lockedWrap}>
-                        <EmptyState
-                            icon={<Lock size={40} strokeWidth={1.5} />}
-                            title="Non hai accesso alla gestione del team"
-                            description="La gestione dei membri del team è riservata a proprietario, amministratori e manager. Contatta il proprietario o un amministratore se hai bisogno di accedere a queste informazioni."
-                        />
-                    </div>
+                {!permissionsLoading && permissions && !canReadTeam ? (
+                    // Permesso negato: sezione «Non hai accesso», senza CTA
+                    // (scheda EmptyState).
+                    <EmptyState
+                        variant="page"
+                        icon={<Lock />}
+                        title="Non hai accesso al Team"
+                        description="Lo gestiscono il proprietario, gli amministratori e i manager."
+                    />
                 ) : activeTab === "members" ? (
                     <DataTable<TenantMemberRow>
                         data={filteredActiveMembers}

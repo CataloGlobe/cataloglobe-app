@@ -35,10 +35,6 @@
   text-overflow: ellipsis;
 }
 
-.emptyState {
-  padding: 2rem 0.5rem;
-}
-
 .emailWithBadge {
   display: inline-flex;
   align-items: center;
@@ -63,14 +59,6 @@
 .roleManager { background: #CECBF6; color: #3C3489; }
 .roleStaff   { background: #EEEDFE; color: #534AB7; }
 .roleViewer  { background: #F1F5F9; color: #475569; }
-
-.lockedWrap {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 50vh;
-}
 
 // Header band: filtro Ruolo compatto accanto a search.
 .toolbarFilter {
