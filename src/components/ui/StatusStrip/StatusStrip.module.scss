@@ -1,0 +1,124 @@
+// StatusStrip — lo stato della pagina e l'unica uscita (design system §5,
+// scheda StatusStrip). Padding 16 24, raggio radius-surface, bordo -200,
+// fondo -50. Il testo è il -800 del tono (come StatusBadge): i fondi -50
+// restano pastello anche in scuro, il --text del tema sarebbe illeggibile.
+@use "@styles/mixins" as *;
+
+.strip {
+  display: flex;
+  align-items: center;
+  gap: var(--space-24);
+  padding: var(--space-16) var(--space-24);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--hover-bg);
+  color: var(--text);
+
+  @include phone {
+    flex-wrap: wrap;
+    gap: var(--space-12);
+    padding: var(--space-16);
+  }
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+
+  @include phone {
+    flex-basis: 100%;
+  }
+}
+
+.text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.title,
+.description,
+.figureValue,
+.figureLabel {
+  color: inherit;
+}
+
+.description,
+.figureLabel {
+  opacity: 0.8;
+}
+
+.figures {
+  display: flex;
+  gap: var(--space-24);
+  margin: 0;
+  flex-shrink: 0;
+}
+
+.figure {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0;
+
+  dd,
+  dt {
+    margin: 0;
+  }
+
+  @include phone {
+    align-items: flex-start;
+  }
+}
+
+.figureValue {
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.action {
+  flex-shrink: 0;
+}
+
+.success {
+  background: var(--success-50);
+  border-color: var(--success-200);
+  color: var(--success-800);
+}
+
+.warning {
+  background: var(--warning-50);
+  border-color: var(--warning-200);
+  color: var(--warning-800);
+}
+
+.danger {
+  background: var(--danger-50);
+  border-color: var(--danger-200);
+  color: var(--danger-800);
+}
+
+// Il tono info non ha una rampa -50: fondo -100 (brand-primary-soft, segue
+// il tema) e bordo -200, testo -800 (segue il tema).
+.info {
+  background: var(--info-100);
+  border-color: var(--info-200);
+  color: var(--info-800);
+}
+
+// Neutro: il campione, tre cifre e nessuna azione. Coppia del Badge neutro.
+.neutral {
+  background: var(--hover-bg);
+  border-color: var(--border);
+  color: var(--text);
+
+  .description,
+  .figureLabel {
+    color: var(--text-muted);
+    opacity: 1;
+  }
+}

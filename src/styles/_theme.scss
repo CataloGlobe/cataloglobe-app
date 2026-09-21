@@ -166,6 +166,7 @@
   --success-500: var(--color-green-500);
   --success-800: var(--color-green-800);
   --info-100: var(--brand-primary-soft);
+  --info-200: #c7d2fe; // indigo-200: bordo di StatusStrip info
   --info-800: #3730a3;
 
   // --- Tipografia ---
@@ -236,6 +237,7 @@
   --skeleton-highlight: #334155;
   --on-brand: #0f172a;
   --on-brand-soft: #a5b4fc; // indigo-300: 5,5:1 su brand-primary-soft
+  --info-200: rgba(129, 140, 248, 0.45);
   --info-800: #c7d2fe;
   --shadow-focus: 0 0 0 3px rgba(129, 140, 248, 0.45);
   --shadow-rest: 0 2px 6px rgba(0, 0, 0, 0.4);

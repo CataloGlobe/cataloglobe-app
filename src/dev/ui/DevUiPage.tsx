@@ -9,6 +9,7 @@ import { feedbackSections } from "./sections/feedback";
 import { overlaysSections } from "./sections/overlays";
 import { layoutSections } from "./sections/layout";
 import { structureSections } from "./sections/structure";
+import { stateSections } from "./sections/state";
 import styles from "./DevUiPage.module.scss";
 
 /**
@@ -23,6 +24,7 @@ const SECTIONS = [
     ...formsSections,
     ...containersSections,
     ...structureSections,
+    ...stateSections,
     ...feedbackSections,
     ...overlaysSections,
     ...layoutSections
