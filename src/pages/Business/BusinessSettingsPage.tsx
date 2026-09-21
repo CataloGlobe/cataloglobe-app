@@ -296,11 +296,7 @@ export default function BusinessSettingsPage() {
                 )}
             </Card>
 
-            <div className={styles.section}>
-                <Text variant="title-sm" weight={600}>
-                    Identità visiva
-                </Text>
-
+            <Card title="Logo" subtitle="Compare nel workspace, nelle pagine pubbliche e sui PDF del menù.">
                 <ImageUploadEditor
                     aspectRatio={IMAGE_UPLOAD_PRESETS.logo.aspectRatio}
                     backgroundFillModes={IMAGE_UPLOAD_PRESETS.logo.backgroundFillModes}
@@ -316,7 +312,7 @@ export default function BusinessSettingsPage() {
                     onRemove={handleRemoveLogo}
                     removing={isSavingLogo}
                 />
-            </div>
+            </Card>
 
             <div className={`${styles.section} ${styles.dangerSection}`}>
                 <Text variant="title-sm" weight={600}>
