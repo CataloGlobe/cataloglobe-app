@@ -38,6 +38,7 @@ import {
     updateTenantName,
     uploadTenantLogo
 } from "@/services/supabase/tenants";
+import { getActivities } from "@/services/supabase/activities";
 import { TENANT_KEY } from "@/constants/storageKeys";
 import { SUBTYPE_LABELS, DEFAULT_SUBTYPE } from "@/constants/verticalTypes";
 import styles from "./BusinessSettingsPage.module.scss";
@@ -54,6 +55,12 @@ interface SettingsDraft {
 }
 
 type BillingStatus = "loading" | "ready" | "error";
+
+/** «le sue 3 sedi» / «la sua sede» / «le sue sedi» finché il conteggio non c'è. */
+function describeActivities(count: number | null): string {
+    if (count === null || count === 0) return "le sue sedi";
+    return count === 1 ? "la sua sede" : `le sue ${count} sedi`;
+}
 
 function isSameDraft(a: SettingsDraft, b: SettingsDraft): boolean {
     return a.name === b.name && JSON.stringify(a.billing) === JSON.stringify(b.billing);
@@ -72,6 +79,8 @@ export default function BusinessSettingsPage() {
     const [billingStatus, setBillingStatus] = useState<BillingStatus>("loading");
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [isSavingLogo, setIsSavingLogo] = useState(false);
+    // Quante sedi se ne vanno con l'azienda (§37.4 p. 4): una lettura sola.
+    const [activityCount, setActivityCount] = useState<number | null>(null);
 
     const tenantId = selectedTenant?.id ?? null;
     const tenantName = selectedTenant?.name ?? "";
@@ -106,6 +115,22 @@ export default function BusinessSettingsPage() {
         if (!canManageTenant) return;
         void loadBilling();
     }, [canManageTenant, loadBilling]);
+
+    useEffect(() => {
+        if (!tenantId || !canManageTenant) return;
+        let cancelled = false;
+        getActivities(tenantId)
+            .then(list => {
+                if (!cancelled) setActivityCount(list.length);
+            })
+            .catch(err => {
+                // Il numero è un dettaglio della copy: senza, la frase resta vera.
+                console.error("[BusinessSettingsPage] activities count failed:", err);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [tenantId, canManageTenant]);
 
     const isDirty = draft !== null && saved !== null && !isSameDraft(draft, saved);
     const nameValid = draft !== null && draft.name.trim().length > 0;
@@ -314,30 +339,26 @@ export default function BusinessSettingsPage() {
                 />
             </Card>
 
-            <div className={`${styles.section} ${styles.dangerSection}`}>
-                <Text variant="title-sm" weight={600}>
-                    Zona pericolosa
-                </Text>
-
-                {!canDeleteTenant && (
-                    <InlineBanner variant="info">Solo il proprietario può eliminare l&apos;azienda.</InlineBanner>
-                )}
-
-                <div className={styles.dangerRow}>
-                    <div>
-                        <Text variant="body" weight={500}>
-                            Elimina attività
-                        </Text>
-                        <Text variant="body-sm" colorVariant="muted">
-                            L&apos;attività verrà spostata nell&apos;area &ldquo;In eliminazione&rdquo;. Potrai
-                            ripristinarla entro 30 giorni.
-                        </Text>
+            <Card variant="danger" title="Elimina l'azienda">
+                <div className={styles.dangerBody}>
+                    <Text as="p" variant="body-sm" colorVariant="muted">
+                        Con l&apos;azienda spariscono {describeActivities(activityCount)}, i cataloghi, i prodotti,
+                        gli ordini, le prenotazioni e le recensioni; le pagine pubbliche vanno offline subito. Hai 30
+                        giorni per ripristinarla dal Workspace, poi l&apos;eliminazione è definitiva.
+                    </Text>
+                    {!canDeleteTenant && (
+                        <InlineBanner variant="info">
+                            Solo il proprietario può eliminare l&apos;azienda. Se vuoi solo andartene, chiedi di essere
+                            rimosso dal Team.
+                        </InlineBanner>
+                    )}
+                    <div className={styles.dangerAction}>
+                        <Button variant="danger" onClick={() => setDeleteDialogOpen(true)} disabled={!canDeleteTenant}>
+                            Elimina l&apos;azienda
+                        </Button>
                     </div>
-                    <Button variant="danger" onClick={() => setDeleteDialogOpen(true)} disabled={!canDeleteTenant}>
-                        Elimina attività
-                    </Button>
                 </div>
-            </div>
+            </Card>
 
             <DeleteTenantDialog
                 isOpen={deleteDialogOpen}
