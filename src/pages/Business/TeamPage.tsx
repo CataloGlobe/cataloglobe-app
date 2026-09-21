@@ -9,6 +9,12 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { useAuth } from "@/context/useAuth";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
+import { Avatar } from "@/components/ui/Avatar/Avatar";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
+import { Card } from "@/components/ui/Card/Card";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { getActivities } from "@/services/supabase/activities";
 import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
@@ -19,7 +25,7 @@ import { InviteMemberDrawer } from "@/components/Businesses/InviteMemberDrawer/I
 import { MemberDrawer } from "@/components/Businesses/MemberDrawer/MemberDrawer";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Lock, Send, UserCog, UserMinus, X } from "lucide-react";
-import { ROLE_LABEL, ROLE_ORDER } from "@/constants/roles";
+import { ROLE_LABEL, ROLE_ORDER, ROLE_PHRASE } from "@/constants/roles";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import styles from "./TeamPage.module.scss";
 
@@ -33,50 +39,46 @@ function formatExpiry(expiresAt: string): string {
     return `tra ${days} gg`;
 }
 
-const ROLE_BADGE_LABEL = ROLE_LABEL;
-
-const ROLE_BADGE_CLASS: Record<EffectiveRole, string> = {
-    owner: styles.roleOwner,
-    admin: styles.roleAdmin,
-    manager: styles.roleManager,
-    staff: styles.roleStaff,
-    viewer: styles.roleViewer
-};
-
-function RoleBadge({ role }: { role: EffectiveRole }) {
+/** Ruolo e cosa può fare: cella a due righe (§44.8) — il nome non basta a
+ *  chi non ha letto `role_permissions`. */
+function roleCell(role: EffectiveRole) {
     return (
-        <span className={`${styles.roleBadge} ${ROLE_BADGE_CLASS[role]}`}>
-            {ROLE_BADGE_LABEL[role]}
+        <span className={styles.twoLines}>
+            <span>
+                <Badge variant="neutral">{ROLE_LABEL[role]}</Badge>
+            </span>
+            <Text as="span" variant="caption" colorVariant="muted">
+                {ROLE_PHRASE[role]}
+            </Text>
         </span>
     );
 }
 
-function ActivitiesCell({ member }: { member: TenantMemberRow }) {
+/** Su quali sedi: lo scope activity-granulare, oggi invisibile in lista. */
+function activitiesCell(member: TenantMemberRow, totalActivities: number | null) {
     if (member.effective_role === "owner" || member.effective_role === "admin") {
         return (
             <Text variant="body-sm" colorVariant="muted">
-                Tutte le sedi
+                {totalActivities == null
+                    ? "Tutte le sedi"
+                    : totalActivities === 1
+                        ? "L'unica sede"
+                        : `Tutte le ${totalActivities} sedi`}
             </Text>
         );
     }
     if (member.activity_names.length === 0) {
-        return (
-            <Text variant="body-sm" colorVariant="muted">
-                —
-            </Text>
-        );
+        return <Text variant="body-sm" colorVariant="muted">—</Text>;
     }
     if (member.activity_names.length <= 2) {
-        return (
-            <Text variant="body-sm">
-                {member.activity_names.join(", ")}
-            </Text>
-        );
+        return <Text variant="body-sm">{member.activity_names.join(", ")}</Text>;
     }
     return (
-        <Text variant="body-sm" title={member.activity_names.join(", ")}>
-            {member.activity_names.length} sedi
-        </Text>
+        <Tooltip content={member.activity_names.join(" · ")}>
+            <span>
+                <Badge variant="neutral">{member.activity_names.length} sedi</Badge>
+            </span>
+        </Tooltip>
     );
 }
 
@@ -86,7 +88,10 @@ export default function TeamPage() {
 
     const [members, setMembers] = useState<TenantMemberRow[]>([]);
     const [loading, setLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [refreshKey, setRefreshKey] = useState(0);
+    // Quante sedi ha l'azienda: «Tutte le 4 sedi» dice più di «Tutte le sedi».
+    const [totalActivities, setTotalActivities] = useState<number | null>(null);
 
     const [inviteDrawerOpen, setInviteDrawerOpen] = useState(false);
     const [memberToRemove, setMemberToRemove] = useState<TenantMemberRow | null>(null);
@@ -253,14 +258,18 @@ export default function TeamPage() {
 
         const fetchMembers = async () => {
             setLoading(true);
+            setLoadError(false);
             try {
                 const data = await listTenantMembers(selectedTenantId);
                 if (cancelled) return;
                 setMembers(data);
             } catch (error) {
+                // Niente lista vuota silenziosa: la pagina lo dichiara con un
+                // banner e un «Riprova».
                 if (cancelled) return;
                 console.error("[BusinessTeamPage] failed to fetch members:", error);
                 setMembers([]);
+                setLoadError(true);
             } finally {
                 if (!cancelled) setLoading(false);
             }
@@ -269,6 +278,18 @@ export default function TeamPage() {
         fetchMembers();
         return () => { cancelled = true; };
     }, [selectedTenantId, refreshKey, permissions, canReadTeam]);
+
+    useEffect(() => {
+        if (!selectedTenantId || (permissions && !canReadTeam)) return;
+        let cancelled = false;
+        getActivities(selectedTenantId)
+            .then(rows => { if (!cancelled) setTotalActivities(rows.length); })
+            .catch(error => {
+                // Il conteggio è un dettaglio della colonna: senza, «Tutte le sedi».
+                console.error("[BusinessTeamPage] activities count failed:", error);
+            });
+        return () => { cancelled = true; };
+    }, [selectedTenantId, permissions, canReadTeam]);
 
     const handleRemove = useCallback((member: TenantMemberRow) => {
         setMemberToRemove(member);
@@ -424,32 +445,34 @@ export default function TeamPage() {
     const activeColumns = useMemo<ColumnDefinition<TenantMemberRow>[]>(() => {
         const base: ColumnDefinition<TenantMemberRow>[] = [
             {
-                id: "email",
-                header: "Email",
+                id: "person",
+                header: "Persona",
                 width: "2fr",
                 cell: (_, row) => {
                     const isSelf = callerUserId && row.user_id === callerUserId;
                     return (
-                        <span className={styles.emailWithBadge}>
+                        <span className={styles.person}>
+                            {/* Iniziali dall'email: i membri non hanno ancora un nome. */}
+                            <Avatar size="sm" name={row.email} />
                             <Text variant="body-sm" className={styles.emailCell}>
                                 {row.email || "—"}
                             </Text>
-                            {isSelf && <Badge variant="secondary">Tu</Badge>}
+                            {isSelf && <Badge variant="brand">Tu</Badge>}
                         </span>
                     );
                 },
             },
             {
                 id: "role",
-                header: "Ruolo",
-                width: "120px",
-                cell: (_, row) => <RoleBadge role={row.effective_role} />,
+                header: "Ruolo e cosa può fare",
+                width: "2fr",
+                cell: (_, row) => roleCell(row.effective_role),
             },
             {
                 id: "activities",
-                header: "Sedi",
-                width: "2fr",
-                cell: (_, row) => <ActivitiesCell member={row} />,
+                header: "Su quali sedi",
+                width: "1.5fr",
+                cell: (_, row) => activitiesCell(row, totalActivities),
             },
         ];
 
@@ -490,7 +513,7 @@ export default function TeamPage() {
         });
 
         return base;
-    }, [permissions, callerUserId, handleChangeRole, handleRemove]);
+    }, [permissions, callerUserId, totalActivities, handleChangeRole, handleRemove]);
 
     const pendingColumns = useMemo<ColumnDefinition<TenantMemberRow>[]>(() => {
         const base: ColumnDefinition<TenantMemberRow>[] = [
@@ -508,13 +531,13 @@ export default function TeamPage() {
                 id: "role",
                 header: "Ruolo",
                 width: "120px",
-                cell: (_, row) => <RoleBadge role={row.effective_role} />,
+                cell: (_, row) => roleCell(row.effective_role),
             },
             {
                 id: "activities",
                 header: "Sedi",
                 width: "1.5fr",
-                cell: (_, row) => <ActivitiesCell member={row} />,
+                cell: (_, row) => activitiesCell(row, totalActivities),
             },
             {
                 id: "invited_by",
@@ -581,11 +604,40 @@ export default function TeamPage() {
         });
 
         return base;
-    }, [permissions, callerUserId, handleChangeRole, handleResendInvite, handleCancelInvite]);
+    }, [permissions, callerUserId, totalActivities, handleChangeRole, handleResendInvite, handleCancelInvite]);
 
-    const membersEmptyState = { title: "Nessun membro trovato." };
-    const membersLoadingState = { message: "Caricamento membri..." };
-    const invitesEmptyState = { title: "Nessun invito in attesa." };
+    const isFiltered = search.trim().length > 0 || roleFilter !== "";
+    const clearFilters = useCallback(() => {
+        setSearch("");
+        setRoleFilter("");
+    }, []);
+    const filteredEmptyState = {
+        title: search.trim() ? `Nessun risultato per “${search.trim()}”` : "Nessun risultato per questo ruolo"
+    };
+    const activeCount = allActiveMemberIds.length;
+    // «Solo tu» (§42.2): lo stato reale di ogni azienda in produzione. Al
+    // posto della tabella, il motivo per invitare qualcuno.
+    const onlyMe = !loading && !loadError && activeCount === 1 && pendingCount === 0;
+    const me = onlyMe ? members.find(m => m.effective_role === "owner" || m.status === "active") : undefined;
+
+    const loadErrorBanner = (
+        <InlineBanner
+            variant="error"
+            action={
+                <Button variant="secondary" size="sm" onClick={() => setRefreshKey(k => k + 1)}>
+                    Riprova
+                </Button>
+            }
+        >
+            Non riusciamo a caricare il team.
+        </InlineBanner>
+    );
+
+    const seatsNote = (
+        <Text as="p" variant="caption" colorVariant="muted">
+            I posti pagati contano le sedi, non le persone: invitare non costa.
+        </Text>
+    );
 
     return (
         <>
@@ -599,13 +651,66 @@ export default function TeamPage() {
                         title="Non hai accesso al Team"
                         description="Lo gestiscono il proprietario, gli amministratori e i manager."
                     />
+                ) : loadError ? (
+                    loadErrorBanner
+                ) : activeTab === "members" && onlyMe && me ? (
+                    <>
+                        <Card flush bodyClassName={styles.rows}>
+                            <ListRow
+                                leading={<Avatar size="sm" name={me.email} />}
+                                title={me.email}
+                                subtitle={ROLE_PHRASE[me.effective_role]}
+                                meta={
+                                    <span className={styles.badges}>
+                                        <Badge variant="brand">Tu</Badge>
+                                        <Badge variant="neutral">{ROLE_LABEL[me.effective_role]}</Badge>
+                                    </span>
+                                }
+                            />
+                        </Card>
+                        <Card>
+                            <EmptyState
+                                variant="inline"
+                                title="Per ora ci sei solo tu"
+                                description="Invita chi lavora con te: ognuno vede solo quello che gli serve."
+                                action={
+                                    canInvite ? (
+                                        <Button variant="primary" onClick={() => setInviteDrawerOpen(true)}>
+                                            Invita membro
+                                        </Button>
+                                    ) : undefined
+                                }
+                            >
+                                <dl className={styles.roleList}>
+                                    {ROLE_ORDER.filter(role => role !== "owner").map(role => (
+                                        <div key={role} className={styles.roleRow}>
+                                            <Text as="dt" variant="body-sm" weight={500}>
+                                                {ROLE_LABEL[role]}
+                                            </Text>
+                                            <Text as="dd" variant="body-sm" colorVariant="muted">
+                                                {ROLE_PHRASE[role]}
+                                            </Text>
+                                        </div>
+                                    ))}
+                                </dl>
+                            </EmptyState>
+                            <div className={styles.notes}>
+                                <Text as="p" variant="caption" colorVariant="muted">
+                                    Chi inviti riceve un'email e sceglie la password da sé: non devi dargli le tue credenziali.
+                                </Text>
+                                {seatsNote}
+                            </div>
+                        </Card>
+                    </>
                 ) : activeTab === "members" ? (
+                    <div className={styles.tableBlock}>
                     <DataTable<TenantMemberRow>
                         data={filteredActiveMembers}
                         columns={activeColumns}
                         isLoading={loading}
-                        emptyState={membersEmptyState}
-                        loadingState={membersLoadingState}
+                        isFiltered={isFiltered}
+                        onClearFilters={clearFilters}
+                        emptyState={filteredEmptyState}
                         getRowId={row => row.membership_id}
                         allRowIds={allActiveMemberIds}
                         selectable={canRemoveAny}
@@ -627,13 +732,16 @@ export default function TeamPage() {
                         onBulkDelete={handleBulkRemoveMembers}
                         bulkActionLabel="Rimuovi dal team"
                     />
+                    {seatsNote}
+                    </div>
                 ) : (
                     <DataTable<TenantMemberRow>
                         data={filteredPendingInvites}
                         columns={pendingColumns}
                         isLoading={loading}
-                        emptyState={invitesEmptyState}
-                        loadingState={membersLoadingState}
+                        isFiltered={isFiltered}
+                        onClearFilters={clearFilters}
+                        emptyState={filteredEmptyState}
                         getRowId={row => row.membership_id}
                         allRowIds={allPendingInviteIds}
                         selectable={canRemoveAny}
@@ -672,7 +780,7 @@ export default function TeamPage() {
                 onClose={() => setMemberToRemove(null)}
                 onConfirm={handleConfirmRemove}
                 title="Rimuovi dal team"
-                message={`Rimuovere ${memberToRemove?.email ?? memberToRemove?.user_id} dal team? Non avrà più accesso a questa azienda. Può essere reinvitato in futuro.`}
+                message={`Rimuovere ${memberToRemove?.email || "questo membro"} dal team? Non avrà più accesso a questa azienda. Potrà essere invitato di nuovo.`}
                 confirmLabel="Rimuovi"
             />
 
@@ -685,7 +793,7 @@ export default function TeamPage() {
                         ? "Rimuovi 1 membro dal team?"
                         : `Rimuovi ${bulkRemovePendingIds.length} membri dal team?`
                 }
-                message="I membri rimossi non avranno più accesso a questa azienda. Possono essere reinvitati in futuro."
+                message="I membri rimossi non avranno più accesso a questa azienda. Potranno essere invitati di nuovo."
                 confirmLabel="Rimuovi"
             />
 
