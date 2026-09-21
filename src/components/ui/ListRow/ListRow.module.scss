@@ -1,6 +1,9 @@
 // ListRow — una riga in una lista di cose (design system §5, scheda ListRow).
 // Altezza row-height (56), padding 0 16, gap 12, divisore fra righe adiacenti.
 // Hover solo se cliccabile; muted = la voce a zero, elencata ma spenta.
+// Sotto 768 il meta scende su una seconda riga sotto il titolo: a 375 non
+// c'è spazio per titolo + Badge + azioni sulla stessa riga.
+@use "@styles/mixins" as *;
 
 .row {
   display: flex;
@@ -80,6 +83,24 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-8);
+}
+
+@include phone {
+  .row {
+    flex-wrap: wrap;
+  }
+
+  .meta {
+    order: 3;
+    flex-basis: 100%;
+    flex-wrap: wrap;
+    padding-bottom: var(--space-8);
+    padding-left: calc(20px + var(--space-12));
+  }
+
+  .body:first-child ~ .meta {
+    padding-left: 0;
+  }
 }
 
 .trailing {
