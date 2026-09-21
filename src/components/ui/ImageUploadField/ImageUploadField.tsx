@@ -76,7 +76,7 @@ function formatsFromAccept(accept: string): string {
     if (accept === "image/*") return "JPG, PNG o WebP";
     return accept
         .split(",")
-        .map(a => a.trim().replace("image/", "").replace("jpeg", "jpg").toUpperCase())
+        .map(a => a.trim().replace("image/", "").replace("jpeg", "jpg").replace("svg+xml", "svg").toUpperCase())
         .filter(Boolean)
         .join(", ");
 }
