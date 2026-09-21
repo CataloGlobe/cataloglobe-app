@@ -116,3 +116,25 @@ export async function revokeInvite(membershipId: string): Promise<void> {
     const { error } = await supabase.rpc("revoke_invite", { p_membership_id: membershipId });
     if (error) throw error;
 }
+
+/**
+ * Invita una persona nell'azienda. RPC `invite_tenant_member`: `activityIds`
+ * è `null` per l'amministratore (tenant-wide). Ritorna l'id della
+ * membership creata. Errori attesi nel messaggio: «user already member»,
+ * «invite already pending»; codici 42501 / 22023 / 44000.
+ */
+export async function inviteTenantMember(
+    tenantId: string,
+    email: string,
+    role: "admin" | "manager" | "staff" | "viewer",
+    activityIds: string[] | null
+): Promise<string> {
+    const { data, error } = await supabase.rpc("invite_tenant_member", {
+        p_tenant_id: tenantId,
+        p_email: email,
+        p_role: role,
+        p_activity_ids: activityIds
+    });
+    if (error) throw error;
+    return typeof data === "string" ? data : "";
+}

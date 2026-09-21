@@ -3,7 +3,7 @@ import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
-import { canDoOnTenant, canChangeRoleOf, canRemoveMember } from "@/lib/permissions";
+import { canDoOnTenant, canChangeRoleOf, canRemoveMember, isOwnerOrAdmin } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useAuth } from "@/context/useAuth";
 import Text from "@/components/ui/Text/Text";
@@ -100,6 +100,7 @@ export default function TeamPage() {
     const [refreshKey, setRefreshKey] = useState(0);
     // Quante sedi ha l'azienda: «Tutte le 4 sedi» dice più di «Tutte le sedi».
     const [totalActivities, setTotalActivities] = useState<number | null>(null);
+    const [activityIds, setActivityIds] = useState<string[] | null>(null);
 
     const [inviteDrawerOpen, setInviteDrawerOpen] = useState(false);
     const [memberToRemove, setMemberToRemove] = useState<TenantMemberRow | null>(null);
@@ -299,7 +300,11 @@ export default function TeamPage() {
         if (!selectedTenantId || (permissions && !canReadTeam)) return;
         let cancelled = false;
         getActivities(selectedTenantId)
-            .then(rows => { if (!cancelled) setTotalActivities(rows.length); })
+            .then(rows => {
+                if (cancelled) return;
+                setTotalActivities(rows.length);
+                setActivityIds(rows.map(a => a.id));
+            })
             .catch(error => {
                 // Il conteggio è un dettaglio della colonna: senza, «Tutte le sedi».
                 console.error("[BusinessTeamPage] activities count failed:", error);
@@ -608,6 +613,15 @@ export default function TeamPage() {
         return base;
     }, [permissions, callerUserId, totalActivities, handleChangeRole, handleResendInvite, handleCancelInvite]);
 
+    // Sedi su cui il caller può assegnare ruoli scoped: tutte per owner/admin,
+    // le sue per un manager. Serve al drawer di invito (banner «senza sedi»).
+    const assignableActivityCount =
+        activityIds == null || !permissions
+            ? null
+            : isOwnerOrAdmin(permissions)
+                ? activityIds.length
+                : activityIds.filter(id => permissions.activityIds.includes(id)).length;
+
     const isFiltered = search.trim().length > 0 || roleFilter !== "";
     const clearFilters = useCallback(() => {
         setSearch("");
@@ -773,6 +787,7 @@ export default function TeamPage() {
                     open={inviteDrawerOpen}
                     onClose={() => setInviteDrawerOpen(false)}
                     tenantId={selectedTenantId}
+                    activityCount={assignableActivityCount}
                     onSuccess={() => setRefreshKey(k => k + 1)}
                 />
             )}
