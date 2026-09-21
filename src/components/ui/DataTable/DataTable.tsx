@@ -16,6 +16,7 @@ import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { useAutoPageSize } from "./useAutoPageSize";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import {
     resolveNumericPageSize,
     withAutoOption,
@@ -32,6 +33,9 @@ export type ColumnDefinition<T> = {
     cell?: (value: CellValue, row: T, rowIndex: number, extra?: CellValue) => ReactNode;
     width?: string;
     align?: "left" | "center" | "right";
+    /** Sotto 768 la colonna sparisce: su telefono restano due colonne più
+     *  le azioni (scheda «DataTable»). La colonna azioni non si nasconde mai. */
+    hideOnPhone?: boolean;
 };
 
 export type DataTableEmptyState = {
@@ -274,11 +278,16 @@ export function DataTable<T>({
 
     // La colonna azioni è sempre l'ultima, a destra (scheda «DataTable»):
     // se il consumer la dichiara altrove, la tabella la sposta in coda.
+    const isPhone = useMediaQuery("(max-width: 767px)");
     const columns = useMemo(() => {
-        const idx = columnsProp.findIndex(c => c.id === ACTIONS_COLUMN_ID);
-        if (idx < 0 || idx === columnsProp.length - 1) return columnsProp;
-        return [...columnsProp.filter((_, i) => i !== idx), columnsProp[idx]];
-    }, [columnsProp]);
+        // Su telefono le colonne `hideOnPhone` escono; le azioni restano.
+        const visible = isPhone
+            ? columnsProp.filter(c => !c.hideOnPhone || c.id === ACTIONS_COLUMN_ID)
+            : columnsProp;
+        const idx = visible.findIndex(c => c.id === ACTIONS_COLUMN_ID);
+        if (idx < 0 || idx === visible.length - 1) return visible;
+        return [...visible.filter((_, i) => i !== idx), visible[idx]];
+    }, [columnsProp, isPhone]);
     const initialSelection: PageSizeSelection = pageSize ?? "auto";
     const [currentPageSize, setCurrentPageSize] =
         useState<PageSizeSelection>(initialSelection);

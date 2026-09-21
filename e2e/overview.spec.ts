@@ -1,28 +1,9 @@
-import { expect, test, type Page } from "@playwright/test";
-import { loadE2eEnv } from "./env";
-
-/**
- * Panoramica azienda (`/business/:businessId/overview`).
- * Con `E2E_BUSINESS_ID` apre l'azienda diretta; altrimenti la prima card del
- * workspace (le `BusinessCard` sono `div[role="button"][tabindex="0"]`,
- * i bottoni veri dentro la card sono `<button>`).
- */
-async function openOverview(page: Page): Promise<void> {
-    const { businessId } = loadE2eEnv();
-    if (businessId) {
-        await page.goto(`/business/${businessId}/overview`);
-        return;
-    }
-    await page.goto("/workspace");
-    const firstCard = page.locator('div[role="button"][tabindex="0"]').first();
-    await expect(firstCard).toBeVisible();
-    await firstCard.click();
-    await page.waitForURL(/\/business\/[0-9a-f-]+\/overview$/);
-}
+import { expect, test } from "@playwright/test";
+import { openBusinessPage } from "./business";
 
 test.describe("Panoramica", () => {
     test.beforeEach(async ({ page }) => {
-        await openOverview(page);
+        await openBusinessPage(page, "overview", "Panoramica");
     });
 
     test("titolo di pagina", async ({ page }) => {
