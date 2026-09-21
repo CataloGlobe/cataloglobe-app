@@ -18,16 +18,22 @@
   min-height: 28px;
 }
 
+// Una riga sola, anche se l'etichetta è un link o un nodo.
 .label {
   min-width: 0;
-  display: flex;
-  align-items: center;
-}
-
-.labelText {
+  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 28px;
+
+  > * {
+    vertical-align: middle;
+  }
+}
+
+.labelText {
+  line-height: inherit;
 }
 
 .track {
