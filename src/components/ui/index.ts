@@ -4,6 +4,7 @@ export { FormGrid, FormSection, FORM_GRID_CLASSES } from "./FormGrid/FormGrid";
 export { ListRow } from "./ListRow/ListRow";
 export { CardGrid, CardGridItem } from "./CardGrid/CardGrid";
 export { StatCard } from "./StatCard/StatCard";
+export { StatusStrip } from "./StatusStrip/StatusStrip";
 export { DataTable } from "./DataTable/DataTable";
 export type { ColumnDefinition } from "./DataTable/DataTable";
 export { ToastItem } from "./Toast/Toast";
