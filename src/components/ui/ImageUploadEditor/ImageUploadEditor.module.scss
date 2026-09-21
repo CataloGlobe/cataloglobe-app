@@ -130,6 +130,16 @@
   background: var(--color-bg-subtle);
 }
 
+// 1:1 (logo, avatar): la scheda ImageUploadField dà 96 px all'anteprima
+// quadrata; la zona vuota resta un po' più larga per icona e testo.
+.previewSquare {
+  max-width: 160px;
+
+  &.previewFilled {
+    max-width: 96px;
+  }
+}
+
 .dropzone {
   position: absolute;
   inset: 0;

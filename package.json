@@ -53,6 +53,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.36.0",
+    "@playwright/test": "^1.63.0",
     "@types/culori": "^4.0.1",
     "@types/node": "^24.9.2",
     "@types/qrcode": "^1.5.6",

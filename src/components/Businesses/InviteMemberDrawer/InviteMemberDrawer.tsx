@@ -12,12 +12,14 @@ interface InviteMemberDrawerProps {
     open: boolean;
     onClose: () => void;
     tenantId: string;
+    /** Sedi assegnabili dal caller; `null` = sconosciuto (v. form). */
+    activityCount: number | null;
     onSuccess?: (newMembershipId: string) => void;
 }
 
 const FORM_ID = "invite-member-form";
 
-export function InviteMemberDrawer({ open, onClose, tenantId, onSuccess }: InviteMemberDrawerProps) {
+export function InviteMemberDrawer({ open, onClose, tenantId, activityCount, onSuccess }: InviteMemberDrawerProps) {
     const { permissions, loading: permissionsLoading } = usePermissions();
     const [saving, setSaving] = useState(false);
 
@@ -65,6 +67,7 @@ export function InviteMemberDrawer({ open, onClose, tenantId, onSuccess }: Invit
                         formId={FORM_ID}
                         tenantId={tenantId}
                         permissions={permissions}
+                        activityCount={activityCount}
                         onSuccess={handleSuccess}
                         onSavingChange={setSaving}
                     />

@@ -26,6 +26,7 @@ npm run build        # tsc -b && vite build
 npm run lint         # eslint .
 npm test             # vitest run
 npm run test:watch   # vitest watch
+npx playwright test  # e2e (Playwright, chromium): serve `.env.e2e.local` — vedi ## Test e2e
 ```
 
 ---
@@ -186,7 +187,7 @@ Esempi in produzione: `SchedaTab` (6 sezioni prodotto), `ActivitySettingsTab`. D
 
 ## Scheduling (Programmazione)
 
-Due `rule_type` su stesso modello `schedules`: `"catalog"` + `"featured"`. Resolver via **competizione** (1 sola regola vince per sede per tipo). Sistema bozze (`enabled=false` finché campi obbligatori mancanti). Periodo + giorni combinabili.
+Quattro `rule_type` su stesso modello `schedules`: `"layout"` (quale catalogo mostrare — è quello che la checklist di Panoramica conta come «regola attiva», `overviewStats.ts`) · `"price"` · `"visibility"` · `"featured"` (`scheduleResolver.ts:25`, `layoutScheduling.ts:23`). Non esiste `"catalog"`. Resolver via **competizione** (1 sola regola vince per sede per tipo). Sistema bozze (`enabled=false` finché campi obbligatori mancanti). Periodo + giorni combinabili.
 
 Dettaglio rule resolver, sistema bozze, simulatore, schema tabelle: `docs/scheduling.md`.
 
@@ -481,9 +482,8 @@ Per query su librerie/SDK del progetto (React 19, Vite 7, Framer Motion v12, Sup
 ### Controllo a vista col browser (MCP playwright)
 
 Obbligatorio per modifiche a: `src/components/PublicCollectionView/`,
-`src/pages/Dashboard/Styles/Editor/`. Non è una suite: non esiste
-`playwright.config`, sono scenari guidati a mano. Richiede `npm run dev:api`
-(vercel dev sulla 3001).
+`src/pages/Dashboard/Styles/Editor/`. Non è la suite e2e (`## Test e2e`): sono
+scenari guidati a mano via MCP. Richiede `npm run dev:api` (vercel dev sulla 3001).
 
 **SOSPESO dal 18/09/2026**: l'ambiente locale non serve `/api`, quindi il
 controllo non è eseguibile. Da ripristinare appena il flusso `vercel dev`
@@ -495,6 +495,19 @@ Per `scheduleResolver.ts`, `schedulingNow.ts`, `resolveActivityCatalogs.ts`:
 `src/tests/scheduling/scheduleResolver.contract.test.ts` verde, coi casi nuovi
 aggiunti nello stesso commit. Il resolver non ha DOM: il browser è lo strumento
 sbagliato, e il bug del menu weekend di Garbagnate l'ha trovato questo test.
+
+### Test e2e (Playwright)
+
+`npx playwright test` — config `playwright.config.ts`, test in `e2e/*.spec.ts`, Vite su
+5174 avviato (o riusato) da Playwright; niente `vercel dev` finché nessuna pagina coperta
+chiama `/api`. Login una volta sola in `e2e/global-setup.ts` con `E2E_EMAIL`/`E2E_PASSWORD`
+da `.env.e2e.local` (ignorato da git; `E2E_BUSINESS_ID` opzionale, altrimenti prima card
+del workspace), sessione in `e2e/.auth/user.json` (ignorato).
+**OTP non automatizzabile**: l'utente e2e va verificato a mano (`/verify-otp`) una volta
+ogni 30 giorni (`otp_user_verifications`); scaduta, il global-setup fallisce con messaggio
+esplicito. Regola M17: il test e2e di una pagina si scrive PRIMA della sua riscrittura e
+resta verde dopo. Locator: nomi accessibili (`getByRole`), non testo label (`required`
+aggiunge ` *` aria-hidden); la sidebar è `navigation "Menu principale"`.
 
 ### Slash commands matched-with-rules
 

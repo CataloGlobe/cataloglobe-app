@@ -86,3 +86,8 @@ node-compile-cache/
 
 # Landing hero mockup — non pubblicare (servito da public/)
 public/hero-concepts.html
+
+# Playwright E2E (sessione salvata dal global-setup + artefatti)
+e2e/.auth/
+playwright-report/
+test-results/

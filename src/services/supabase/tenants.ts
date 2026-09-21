@@ -112,7 +112,7 @@ export async function deleteTenantSoft(tenantId: string): Promise<void> {
                 throw new Error("Autenticazione non valida. Rifai il login e riprova.");
             }
             if (status === 403) {
-                throw new Error("Non sei autorizzato ad eliminare questa attività.");
+                throw new Error("Non sei autorizzato a eliminare questa azienda.");
             }
         }
         throw error;
@@ -190,7 +190,7 @@ export async function purgeTenantNow(tenantId: string): Promise<void> {
                 throw new Error("Autenticazione non valida. Rifai il login e riprova.");
             }
             if (status === 403) {
-                throw new Error("Non sei autorizzato ad eliminare questa attività.");
+                throw new Error("Non sei autorizzato a eliminare questa azienda.");
             }
             if (status === 404) {
                 throw new Error("Attività non trovata.");

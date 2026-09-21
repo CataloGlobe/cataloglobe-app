@@ -74,7 +74,15 @@ export const RadioGroup: React.FC<RadioGroupProps> = ({
             className={containerClassName}
         >
             {({ inputId, describedById, hasError, isDisabled }) => (
-                <div className={`${styles.group} ${variant === "card" ? styles.cards : ""}`.trim()} role="radiogroup" aria-invalid={hasError || undefined} aria-describedby={describedById}>
+                <div
+                    className={`${styles.group} ${variant === "card" ? styles.cards : ""}`.trim()}
+                    role="radiogroup"
+                    // La label di FormField punta a `inputId` con `htmlFor`, ma un
+                    // div non è etichettabile: il gruppo prende il nome da qui.
+                    aria-label={label}
+                    aria-invalid={hasError || undefined}
+                    aria-describedby={describedById}
+                >
                     {options.map(opt => {
                         const radioId = `${inputId}-${opt.value}`;
                         const optDisabled = isDisabled || opt.disabled === true;

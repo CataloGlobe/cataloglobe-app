@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useTenant } from "@/context/useTenant";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
@@ -35,11 +35,18 @@ import { COMPANY } from "@/config/company";
 import { formatPendingChangeLabel } from "./pendingChangeLabel";
 import { SUBSCRIPTION_UNAVAILABLE_MESSAGE, buildSubscriptionSupportMailto } from "./supportMailto";
 import { listPlanPrices } from "@/services/supabase/planPrices";
-import { calculateGraduatedFromPlan } from "@/utils/pricing";
-import { DEFAULT_BILLING_INTERVAL, INTERVAL_ADJECTIVE, INTERVAL_RECURRENCE, intervalUnit, priceCentsFor } from "@/utils/planPricing";
+import { calculateGraduatedFromPlan, nextSeatOffer } from "@/utils/pricing";
+import { DEFAULT_BILLING_INTERVAL, INTERVAL_ADJECTIVE, intervalUnit, priceCentsFor } from "@/utils/planPricing";
 import { canDoOnTenant } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { StatusStrip, type StatusStripTone } from "@/components/ui/StatusStrip/StatusStrip";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { Card } from "@/components/ui/Card/Card";
+import { Divider } from "@/components/ui/Divider/Divider";
+import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { Loader } from "@/components/ui/Loader/Loader";
 import { PlanSeatsSelector } from "@/components/ui/PlanSeatsSelector/PlanSeatsSelector";
 import { AiUsageSection } from "@/pages/Business/components/AiUsageSection";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
@@ -47,36 +54,36 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { usePageHeader } from "@/context/usePageHeader";
 import Text from "@/components/ui/Text/Text";
-import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import {
     ExternalLink,
     CreditCard,
-    Shield,
+    ChevronRight,
     Lock,
-    Info,
     Mail,
     Pencil,
-    AlertTriangle,
     XCircle,
     RotateCcw,
-    BadgePercent,
     CalendarRange
 } from "lucide-react";
 import type { BillingInterval, Plan, PlanCode, PlanPrice } from "@/types/plan";
 import styles from "./SubscriptionPage.module.scss";
 
-const STATUS_CONFIG: Record<string, { label: string; variant: "success" | "primary" | "warning" | "danger" }> = {
-    active:    { label: "Attivo",    variant: "success" },
-    trialing:  { label: "In prova",  variant: "primary" },
-    past_due:  { label: "Scaduto",   variant: "warning" },
-    canceled:  { label: "Cancellato", variant: "danger" },
-    suspended: { label: "Sospeso",   variant: "danger" }
+/**
+ * La mappa stato → strip (§37.5: una sola uscita per stato). Il tono e la
+ * parola del badge dipendono da stato, presenza della subscription e
+ * disdetta programmata; la si legge nel componente, qui solo le parole.
+ */
+const STATUS_BADGE: Record<string, string> = {
+    active: "Attivo",
+    trialing: "In prova",
+    past_due: "Pagamento in ritardo",
+    canceled: "Disdetto",
+    suspended: "Sospeso"
 };
 
-const CHANGE_PLAN_EMAIL = "support@cataloglobe.com";
-const CHANGE_PLAN_MAILTO = `mailto:${CHANGE_PLAN_EMAIL}?subject=${encodeURIComponent("Cambio piano CataloGlobe")}`;
+const CHANGE_PLAN_MAILTO = `mailto:${COMPANY.contact.support}?subject=${encodeURIComponent("Cambio piano CataloGlobe")}`;
 
 // Italian grouping: yearly totals cross €1.000 ("€1.109,83"), monthly ones never
 // did. `useGrouping: "always"` because ICU's it-IT groups only from 10.000 up
@@ -273,7 +280,9 @@ export default function SubscriptionPage() {
         openChange();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [hash, plans]);
-    const [activityCount, setActivityCount] = useState(0);
+    // null finché la lettura non è arrivata: lo strip aspetta, non mostra 0.
+    const [activityCountLoaded, setActivityCountLoaded] = useState<number | null>(null);
+    const activityCount = activityCountLoaded ?? 0;
     const [isChangeOpen, setIsChangeOpen] = useState(false);
     // Flusso a 3 step: scegli piano/sedi → quando applicare → conferma.
     const [changeStep, setChangeStep] = useState<"select" | "when" | "confirm">("select");
@@ -372,7 +381,16 @@ export default function SubscriptionPage() {
             });
     }, [tenantId]);
 
-    // Carica piani + conteggio sedi (per le card del selettore e il floor).
+    // Conteggio sedi: la cifra «usate di pagate» dello strip serve a ogni
+    // lettore (§37.7), non solo a chi può cambiare piano.
+    useEffect(() => {
+        if (!selectedTenant?.id || !canReadBilling) return;
+        getActivityCount(selectedTenant.id)
+            .then(setActivityCountLoaded)
+            .catch(err => console.error("[SubscriptionPage] activity count failed:", err));
+    }, [selectedTenant?.id, canReadBilling]);
+
+    // Carica piani + stato live (per il selettore, il floor e le azioni).
     useEffect(() => {
         if (!selectedTenant?.id || !canManageBilling) return;
         listPublicPlans()
@@ -381,17 +399,12 @@ export default function SubscriptionPage() {
                 console.error("[SubscriptionPage] plans list failed:", err);
                 setPlans([]);
             });
-        getActivityCount(selectedTenant.id)
-            .then(setActivityCount)
-            .catch(err => console.error("[SubscriptionPage] activity count failed:", err));
         reloadSubState();
     }, [selectedTenant?.id, canManageBilling, reloadSubState]);
 
     usePageHeader({
         title: "Abbonamento",
-        subtitle: !canReadBilling
-            ? undefined
-            : "Gestisci il piano e il metodo di pagamento della tua attività.",
+        subtitle: !canReadBilling ? undefined : "Piano, sedi pagate, credito AI e pagamento."
     });
 
     const paidSeats = selectedTenant?.paid_seats ?? 0;
@@ -428,23 +441,36 @@ export default function SubscriptionPage() {
         return calculateGraduatedFromPlan({ ...draftPlanObj, unit_price_cents: unitPriceCents }, draftSeats);
     }, [draftPlanObj, draftSeats, planPrices, billingInterval]);
 
-    if (loading || !selectedTenant) return null;
-
-    if (!permissionsLoading && permissions && !canReadBilling) {
+    if (loading || !selectedTenant || permissionsLoading) {
         return (
             <div className={styles.page}>
-                <div className={styles.restrictedCard}>
-                    <EmptyState
-                        icon={<Lock size={40} strokeWidth={1.5} />}
-                        title="Non hai accesso all'abbonamento"
-                        description="La gestione dell'abbonamento è riservata al proprietario. Contatta il proprietario se hai bisogno di accedere a queste informazioni."
-                    />
-                </div>
+                <Skeleton height="96px" radius="var(--radius-surface)" />
+                {[0, 1, 2].map(i => (
+                    <Card key={i}>
+                        <div className={styles.skeletonCard}>
+                            <Skeleton height="20px" width="30%" />
+                            <Skeleton height="16px" width="70%" />
+                            <Skeleton height="38px" width="40%" />
+                        </div>
+                    </Card>
+                ))}
             </div>
         );
     }
 
-    const statusInfo = STATUS_CONFIG[status ?? ""] ?? { label: status, variant: "secondary" as const };
+    if (!canReadBilling) {
+        return (
+            <div className={styles.page}>
+                <EmptyState
+                    variant="page"
+                    icon={<Lock />}
+                    title="Non hai accesso all'abbonamento"
+                    description="Lo gestiscono il proprietario e gli amministratori."
+                />
+            </div>
+        );
+    }
+
     const isTerminal = status === "canceled" || status === "suspended";
     // Subscription on file but unreadable: plan/seats stay (they describe the
     // service actually delivered), amounts and dates become "Non disponibile",
@@ -477,22 +503,6 @@ export default function SubscriptionPage() {
     // Sconto `once` già consumato ma relativo al periodo corrente: nota
     // informativa, niente prezzo barrato (il pieno vale già dal prossimo rinnovo).
     const consumedDiscount = activeDiscount ? null : subState?.consumedDiscountThisPeriod ?? null;
-
-    const renewalDateText = (() => {
-        if (status === "trialing") {
-            if (trialDaysLeft !== null) {
-                return `${formatDate(selectedTenant.trial_until)} (${trialDaysLeft} giorn${trialDaysLeft === 1 ? "o" : "i"})`;
-            }
-            return "Periodo di prova attivo";
-        }
-        return formatDate(selectedTenant.current_period_end ?? null);
-    })();
-
-    // Visibile solo in prova con una data nota: comunica quando scatta il primo
-    // addebito reale, non solo quando finisce la prova.
-    const firstChargeNote = status === "trialing" && trialDaysLeft !== null
-        ? `Il primo addebito di ${formatEuro(displayAmount)} (${INTERVAL_RECURRENCE[billingInterval]}) parte il ${formatDate(selectedTenant.trial_until)}.`
-        : null;
 
     const handleCheckout = async () => {
         setCheckoutLoading(true);
@@ -1023,396 +1033,351 @@ export default function SubscriptionPage() {
     // first invoice; otherwise the date alone.
     const previewTrialFirstInvoice = preview?.trialFirstInvoiceCents ?? null;
 
-    return (
-        <div className={styles.page}>
-            {canManageBilling && !canCancelBilling && (
-                <div
-                    style={{
-                        display: "flex",
-                        gap: "10px",
-                        alignItems: "flex-start",
-                        background: "var(--info-bg, #eff6ff)",
-                        border: "1px solid var(--info-border, #bfdbfe)",
-                        borderRadius: "8px",
-                        padding: "10px 14px",
-                        color: "var(--info-text, #1e40af)"
-                    }}
-                >
-                    <Info size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
-                    <Text variant="body-sm" weight={500}>
-                        Solo il proprietario può cancellare l&apos;abbonamento. Hai accesso a gestione (metodo pagamento, posti) ma non a cancellazione.
-                    </Text>
-                </div>
-            )}
+    // --- La mappa stato → strip (§37.5, passo 2 del registro) ---------------
+    const seatsWord = displaySeats === 1 ? "sede pagata" : "sedi pagate";
+    const stripTitle = `${displayPlanName} · ${displaySeats} ${seatsWord}${isFounder ? " · Founder" : ""}`;
+    const renewalLabel = status === "trialing" ? "Fine prova" : "Prossimo rinnovo";
+    const renewalValue = status === "trialing" ? formatDate(selectedTenant.trial_until) : formatDate(periodEndDate);
+    const trialDays =
+        status === "trialing" && trialDaysLeft !== null
+            ? ` (${trialDaysLeft} giorn${trialDaysLeft === 1 ? "o" : "i"})`
+            : "";
+    // Importo scomposto (§37.7): «5 × € 59 · sconto volume −10%».
+    const volumeDiscounted = currentPricing.lines.some(l => l.discounted);
+    const amountLabel =
+        displaySeats === 1
+            ? `1 sede a ${formatEuro(currentPricing.fullPrice)}`
+            : `${displaySeats} × ${formatEuro(currentPricing.fullPrice)}${
+                  volumeDiscounted && currentPlan ? ` · sconto volume −${currentPlan.volume_discount_percent}%` : ""
+              }`;
+    const allSeatsUsed = activityCount >= displaySeats && displaySeats > 0;
+    // Stato non leggibile: importo e rinnovo non si inventano, resta la sola
+    // cifra che viene dal DB.
+    const stripFigures = [
+        { value: `${activityCount} di ${displaySeats}`, label: allSeatsUsed ? "sedi pagate · tutte usate" : "sedi pagate" },
+        ...(subUnavailable
+            ? []
+            : [
+                  { value: `${formatEuro(displayAmount)}${unit}`, label: amountLabel },
+                  { value: renewalValue, label: renewalLabel }
+              ])
+    ];
+    // Lo strip aspetta tutti i suoi dati: conteggio sedi e, per chi lo legge,
+    // lo stato Stripe. Mai valori placeholder.
+    const stripReady = activityCountLoaded !== null && (!canManageBilling || !subStateLoading);
 
-            {subUnavailable && subStateUnavailable && (
-                <div className={styles.cancelNote} role="status">
-                    <AlertTriangle size={16} />
-                    <Text variant="body-sm" weight={500}>
-                        {SUBSCRIPTION_UNAVAILABLE_MESSAGE[subStateUnavailable]}
-                    </Text>
-                    {subStateUnavailable === "subscription_missing" ? (
-                        <Button
-                            as="a"
-                            href={supportMailto}
-                            variant="secondary"
-                            size="sm"
-                            leftIcon={<Mail size={14} />}
-                        >
+    const periodWord = billingInterval === "year" ? "all'anno" : "al mese";
+    const seatOffer = currentPlan
+        ? nextSeatOffer(
+              { ...currentPlan, unit_price_cents: priceCentsFor(planPrices, currentPlan.code, billingInterval) },
+              displaySeats,
+              activityCount
+          )
+        : null;
+
+    const couponLine = activeDiscount && discountedAmount != null
+        ? ` ${formatDiscountLine(activeDiscount)}: paghi ${formatEuro(discountedAmount)}${unit}.`
+        : consumedDiscount
+        ? ` ${formatConsumedDiscountNote(consumedDiscount, displayAmount)}`
+        : "";
+    const pendingIntervalLine = pendingIntervalChange ? ` ${PENDING_INTERVAL_MESSAGE[pendingIntervalChange]}` : "";
+
+    const changePlanAction = selfServiceEligible ? (
+        <Button
+            variant="primary"
+            size="sm"
+            onClick={() => openChange()}
+            disabled={plans.length === 0 || pendingIntervalChange !== null}
+            leftIcon={<Pencil size={14} />}
+        >
+            Modifica piano
+        </Button>
+    ) : (
+        <Button as="a" href={CHANGE_PLAN_MAILTO} variant="primary" size="sm" leftIcon={<Mail size={14} />}>
+            Scrivi all&apos;assistenza
+        </Button>
+    );
+    const checkoutAction = (label: string) => (
+        <Button
+            variant="primary"
+            size="sm"
+            onClick={handleCheckout}
+            loading={checkoutLoading}
+            leftIcon={<CreditCard size={14} />}
+        >
+            {label}
+        </Button>
+    );
+    const portalAction = (label: string) => (
+        <Button
+            variant="primary"
+            size="sm"
+            onClick={handlePortal}
+            loading={portalLoading}
+            leftIcon={<ExternalLink size={14} />}
+        >
+            {label}
+        </Button>
+    );
+
+    const strip: { tone: StatusStripTone; badge: string; description: string; action: ReactNode } = (() => {
+        if (subUnavailable && subStateUnavailable) {
+            // Lo stato del tenant è vero (viene dal DB); è Stripe che non si
+            // legge: il badge lo dice, il tono e la riga dicono il resto.
+            return {
+                tone: "warning",
+                badge: STATUS_BADGE[status ?? ""] ?? "Non leggibile",
+                description: SUBSCRIPTION_UNAVAILABLE_MESSAGE[subStateUnavailable],
+                action:
+                    subStateUnavailable === "subscription_missing" ? (
+                        <Button as="a" href={supportMailto} variant="secondary" size="sm" leftIcon={<Mail size={14} />}>
                             Scrivi all&apos;assistenza
                         </Button>
                     ) : (
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={reloadSubState}
-                            leftIcon={<RotateCcw size={14} />}
-                        >
+                        <Button variant="secondary" size="sm" onClick={reloadSubState} leftIcon={<RotateCcw size={14} />}>
                             Ricarica
                         </Button>
-                    )}
-                </div>
+                    )
+            };
+        }
+        if (status === "canceled") {
+            return {
+                tone: "danger",
+                badge: STATUS_BADGE.canceled,
+                description: `L'abbonamento è terminato il ${formatDate(periodEndDate)}. Menù e pagine pubbliche sono offline.`,
+                action: canManageBilling && canStartCheckout ? checkoutAction("Riattiva abbonamento") : null
+            };
+        }
+        if (status === "suspended") {
+            return hasSubscriptionRecord
+                ? {
+                      tone: "danger",
+                      badge: STATUS_BADGE.suspended,
+                      description: "L'abbonamento è sospeso: pagamento non riuscito o messo in pausa. Si riprende dal portale.",
+                      action: canManageBilling ? portalAction("Riprendi su Stripe") : null
+                  }
+                : {
+                      tone: "danger",
+                      badge: "Da attivare",
+                      description: "Questa azienda non ha ancora un abbonamento: menù e pagine pubbliche sono offline.",
+                      action: canManageBilling ? checkoutAction("Attiva ora") : null
+                  };
+        }
+        if (status === "past_due") {
+            return {
+                tone: "warning",
+                badge: STATUS_BADGE.past_due,
+                description: "L'ultimo addebito non è riuscito. Aggiorna il metodo di pagamento per non perdere l'accesso.",
+                action: canManageBilling ? portalAction("Aggiorna il metodo di pagamento") : null
+            };
+        }
+        if (cancelAtPeriodEnd) {
+            return {
+                tone: "warning",
+                badge: "In disdetta",
+                description:
+                    status === "trialing"
+                        ? `La prova resta attiva fino al ${formatDate(periodEndDate)}, poi non ti verrà addebitato nulla.`
+                        : `Resta attivo fino al ${formatDate(periodEndDate)}, poi non si rinnova e non ti verrà addebitato nulla.`,
+                action: canCancelBilling ? (
+                    <Button variant="primary" size="sm" onClick={handleReactivate} loading={reactivateLoading} leftIcon={<RotateCcw size={14} />}>
+                        Riattiva
+                    </Button>
+                ) : null
+            };
+        }
+        if (status === "trialing") {
+            const end = `${formatDate(selectedTenant.trial_until)}${trialDays}`;
+            return hasSubscriptionRecord
+                ? {
+                      tone: "info",
+                      badge: STATUS_BADGE.trialing,
+                      description: `La prova finisce il ${end}. Il primo addebito di ${formatEuro(displayAmount)} sarà quel giorno.${couponLine}${pendingIntervalLine}`,
+                      action: canManageBilling ? changePlanAction : null
+                  }
+                : {
+                      tone: "info",
+                      badge: STATUS_BADGE.trialing,
+                      description: `La prova finisce il ${end}. Senza un metodo di pagamento l'azienda si ferma quel giorno.`,
+                      action: canManageBilling ? checkoutAction("Attiva ora") : null
+                  };
+        }
+        // active (o stato ignoto: si comporta da attivo, il badge lo dice)
+        return {
+            tone: "success",
+            badge: STATUS_BADGE[status ?? ""] ?? (status ?? "—"),
+            description: `Si rinnova il ${formatDate(periodEndDate)}.${couponLine}${pendingIntervalLine}`,
+            action: canManageBilling && !subUnavailable ? changePlanAction : null
+        };
+    })();
+
+    return (
+        <div className={styles.page}>
+            {canManageBilling && !canCancelBilling && (
+                <InlineBanner variant="info">
+                    Solo il proprietario può disdire l&apos;abbonamento. Tu puoi cambiare piano, sedi pagate e metodo di
+                    pagamento.
+                </InlineBanner>
             )}
 
-            {/* --- Piano --- */}
-            <div className={styles.section}>
-                <div className={styles.sectionHeader}>
-                    <CreditCard size={18} />
-                    <Text variant="title-sm" weight={600}>
-                        Il tuo piano
-                    </Text>
-                </div>
+            {stripReady ? (
+                <StatusStrip
+                    tone={strip.tone}
+                    badge={strip.badge}
+                    title={stripTitle}
+                    description={strip.description}
+                    figures={stripFigures}
+                    action={strip.action ?? undefined}
+                />
+            ) : (
+                <Skeleton height="96px" radius="var(--radius-surface)" />
+            )}
 
-                <div className={styles.summaryGrid}>
-                    <div className={styles.summaryItem}>
-                        <Text variant="caption" colorVariant="muted">
-                            Piano
-                        </Text>
-                        <span className={styles.planLabelRow}>
-                            <Text variant="title-sm" weight={700}>
-                                {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"}
-                            </Text>
-                            {isFounder && <Badge variant="primary">Founder</Badge>}
-                        </span>
-                    </div>
+            {status === "canceled" && (
+                <Text as="p" variant="caption" colorVariant="muted" className={styles.exitNote}>
+                    Non vuoi rinnovare?{" "}
+                    <button type="button" className={styles.exitLink} onClick={() => navigate("/workspace")}>
+                        Gestisci o elimina l&apos;azienda dal Workspace.
+                    </button>
+                </Text>
+            )}
 
-                    <div className={styles.summaryItem}>
-                        <Text variant="caption" colorVariant="muted">
-                            Stato
-                        </Text>
-                        <div className={styles.statusRow}>
-                            <Badge variant={statusInfo.variant}>
-                                {statusInfo.label}
-                            </Badge>
-                        </div>
-                    </div>
-
-                    <div className={styles.summaryItem}>
-                        <Text variant="caption" colorVariant="muted">
-                            {status === "trialing" ? "Fine prova" : "Prossimo rinnovo"}
-                        </Text>
-                        <Text variant="title-sm" weight={700}>
-                            {subUnavailable ? "Non disponibile" : renewalDateText}
-                        </Text>
-                        {!subUnavailable && firstChargeNote && (
-                            <Text variant="body-sm" colorVariant="muted">
-                                {firstChargeNote}
-                            </Text>
-                        )}
-                    </div>
-
-                    <div className={styles.summaryItem}>
-                        <Text variant="caption" colorVariant="muted">
-                            Prezzo attuale
-                        </Text>
-                        {subUnavailable ? (
-                            <Text variant="title-sm" weight={700}>
-                                Non disponibile
-                            </Text>
-                        ) : activeDiscount && discountedAmount != null ? (
-                            <span className={styles.priceRow}>
-                                <Text variant="body" weight={500} colorVariant="muted" className={styles.priceStrikethrough}>
-                                    {formatEuro(displayAmount)}
-                                </Text>
-                                <Text variant="title-sm" weight={700}>
-                                    {formatEuro(discountedAmount)}{unit}
-                                </Text>
-                            </span>
-                        ) : (
-                            <Text variant="title-sm" weight={700}>
-                                {formatEuro(displayAmount)}{unit}
-                            </Text>
-                        )}
-                        {!subUnavailable && (
-                            <Text variant="body-sm" colorVariant="muted">
-                                Fatturazione {INTERVAL_ADJECTIVE[billingInterval]}
-                            </Text>
-                        )}
-                        {activeDiscount && (
-                            <Text variant="body-sm" colorVariant="success" weight={500}>
-                                {formatDiscountLine(activeDiscount)}
-                            </Text>
-                        )}
-                    </div>
-
-                    <div className={styles.summaryItem} style={{ gridColumn: "1 / -1" }}>
-                        <Text variant="caption" colorVariant="muted">
-                            Prossimo cambio
-                        </Text>
-                        {subStateLoading ? (
-                            <Skeleton height="1.2em" width="240px" radius="4px" />
-                        ) : subUnavailable ? (
-                            <Text variant="title-sm" weight={700}>
-                                Non disponibile
-                            </Text>
-                        ) : pendingBanner ? (
-                            <Text variant="title-sm" weight={700} colorVariant="primary">
-                                {formatPendingChangeLabel({
-                                    planName: pendingBanner.planName,
-                                    seats: pendingBanner.seats,
-                                    interval: pendingBanner.interval,
-                                    dateLabel: formatDate(pendingBanner.date)
-                                })}
-                            </Text>
-                        ) : (
-                            <Text variant="title-sm" weight={700}>
-                                Nessuno
-                            </Text>
-                        )}
-                    </div>
-                </div>
-
-                {consumedDiscount && (
-                    <div className={styles.consumedNote}>
-                        <BadgePercent size={16} />
-                        <Text variant="body-sm" weight={500}>
-                            {formatConsumedDiscountNote(consumedDiscount, displayAmount)}
-                        </Text>
-                    </div>
-                )}
-
-                {cancelAtPeriodEnd && (
-                    <div className={styles.cancelNote}>
-                        <AlertTriangle size={16} />
-                        <Text variant="body-sm" weight={500}>
-                            {status === "trialing"
-                                ? `Prova attiva fino al ${formatDate(periodEndDate)}, poi disdetta: non ti verrà addebitato nulla.`
-                                : `Abbonamento attivo fino al ${formatDate(periodEndDate)}, poi disdetto.`}
-                        </Text>
-                        {canCancelBilling && (
-                            <Button
-                                variant="secondary"
-                                size="sm"
-                                onClick={handleReactivate}
-                                loading={reactivateLoading}
-                                leftIcon={<RotateCcw size={14} />}
-                            >
-                                Riattiva
-                            </Button>
-                        )}
-                    </div>
-                )}
-
-                {!subStateLoading && pendingBanner && (pendingBanner.isBase || canManageBilling) && (
-                    <div className={styles.contactRow}>
-                        {pendingBanner.isBase && (
-                            <Text variant="body-sm" colorVariant="muted">
-                                Ordini e prenotazioni da QR verranno disattivati al rinnovo.
-                            </Text>
-                        )}
-                        {canManageBilling && (
-                            <div className={styles.scheduledNoteActions}>
-                                <Button
-                                    variant="secondary"
-                                    size="sm"
-                                    onClick={() => setIsCancelScheduleOpen(true)}
-                                    leftIcon={<XCircle size={14} />}
-                                >
-                                    Annulla cambio
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                {canManageBilling && !isTerminal && !subUnavailable && (
-                    <div className={styles.contactRow}>
-                        {pendingIntervalChange ? (
-                            <Text variant="body-sm" colorVariant="muted">
-                                {PENDING_INTERVAL_MESSAGE[pendingIntervalChange]}
-                            </Text>
-                        ) : selfServiceEligible ? (
+            {/* --- La prossima sede (§37.6, §37.7) --- */}
+            {seatOffer && !isTerminal && !subUnavailable && (
+                <Card title="La prossima sede">
+                    <div className={styles.nextSeat}>
+                        {seatOffer.kind === "free" ? (
                             <>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Cambia piano o numero di sedi in autonomia.
+                                <Text as="p" variant="body-sm">
+                                    Hai ancora {seatOffer.freeSeats} {seatOffer.freeSeats === 1 ? "sede pagata libera" : "sedi pagate libere"}: aprirne una non costa niente.
                                 </Text>
-                                <Button
-                                    variant="primary"
-                                    size="sm"
-                                    onClick={() => openChange()}
-                                    disabled={plans.length === 0}
-                                    leftIcon={<Pencil size={14} />}
-                                >
-                                    Modifica piano
-                                </Button>
+                                <div className={styles.nextSeatAction}>
+                                    <Button variant="secondary" size="sm" onClick={() => navigate(`/business/${selectedTenant.id}/locations`)}>
+                                        Vai alle sedi
+                                    </Button>
+                                </div>
+                            </>
+                        ) : seatOffer.kind === "upgrade" ? (
+                            <>
+                                <Text as="p" variant="body-sm">
+                                    Il piano {displayPlanName} copre {displaySeats} {displaySeats === 1 ? "sede" : "sedi"} su {displaySeats}. Per
+                                    aprire la {displaySeats + 1}ª servono
+                                </Text>
+                                <Text as="p" variant="title-md" weight={700}>
+                                    {formatCents(seatOffer.extraPriceCents)} {periodWord} in più
+                                </Text>
+                                <Text as="p" variant="caption" colorVariant="muted">
+                                    {formatCents(seatOffer.listPriceCents)} con lo sconto volume del {seatOffer.volumeDiscountPercent}%,{" "}
+                                    {status === "trialing"
+                                        ? `senza addebito fino al ${formatDate(selectedTenant.trial_until)}.`
+                                        : `addebitati subito in proporzione ai giorni che restano fino al ${formatDate(periodEndDate)}.`}
+                                </Text>
+                                {canManageBilling && (
+                                    <div className={styles.nextSeatAction}>
+                                        <Button
+                                            variant="primary"
+                                            size="sm"
+                                            onClick={() => openChange()}
+                                            disabled={plans.length === 0 || pendingIntervalChange !== null}
+                                        >
+                                            Aggiungi una sede
+                                        </Button>
+                                    </div>
+                                )}
                             </>
                         ) : (
                             <>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Per la tua configurazione multi-sede, scrivici per modificare il piano.
+                                <Text as="p" variant="body-sm">
+                                    Il piano copre {seatOffer.cap} sedi, il massimo in autonomia. Per la {seatOffer.cap + 1}ª serve un piano dedicato.
                                 </Text>
-                                <Button
-                                    as="a"
-                                    href={CHANGE_PLAN_MAILTO}
-                                    variant="primary"
-                                    size="sm"
-                                    leftIcon={<Mail size={14} />}
-                                >
-                                    Contatta assistenza
-                                </Button>
+                                <div className={styles.nextSeatAction}>
+                                    <Button as="a" href={CHANGE_PLAN_MAILTO} variant="secondary" size="sm" leftIcon={<Mail size={14} />}>
+                                        Scrivi all&apos;assistenza
+                                    </Button>
+                                </div>
                             </>
                         )}
                     </div>
-                )}
-            </div>
+                </Card>
+            )}
 
             {/* --- Utilizzo AI (FASE 5) --- */}
             <AiUsageSection usage={aiUsage} planName={displayPlanName} seats={displaySeats} />
 
-            {/* --- Actions (manage + cancel) --- */}
-            {canManageBilling && (
-            <div className={styles.section}>
-                <div className={styles.sectionHeader}>
-                    <Shield size={18} />
-                    <Text variant="title-sm" weight={600}>
-                        Gestione abbonamento
-                    </Text>
-                </div>
+            {/* --- Gestione (§44.8: ListRow con chevron, una riga per uscita) --- */}
+            {canManageBilling && (pendingBanner || hasSubscriptionRecord) && (
+                <Card title="Gestione" flush>
+                    {!subStateLoading && pendingBanner && (
+                        <ListRow
+                            leading={<CalendarRange size={20} aria-hidden />}
+                            title="Cambio programmato"
+                            subtitle={`${formatPendingChangeLabel({
+                                planName: pendingBanner.planName,
+                                seats: pendingBanner.seats,
+                                interval: pendingBanner.interval,
+                                dateLabel: formatDate(pendingBanner.date)
+                            })}${pendingBanner.isBase ? ". Ordini e prenotazioni da QR verranno disattivati al rinnovo." : ""}`}
+                            wrapSubtitle
+                            trailing={
+                                <Button variant="secondary" size="sm" onClick={() => setIsCancelScheduleOpen(true)} leftIcon={<XCircle size={14} />}>
+                                    Annulla cambio
+                                </Button>
+                            }
+                        />
+                    )}
 
-                {!hasSubscriptionRecord && status !== "active" && (
-                    <div className={styles.actionCard}>
-                        <div>
-                            <Text variant="body" weight={500}>
-                                Attiva il tuo abbonamento
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Inserisci un metodo di pagamento per continuare. Non verrai addebitato fino alla fine dell&apos;eventuale periodo di prova.
-                            </Text>
-                        </div>
-                        <Button
-                            variant="primary"
-                            onClick={handleCheckout}
-                            disabled={checkoutLoading}
-                            leftIcon={<CreditCard size={16} />}
-                        >
-                            {checkoutLoading ? "Reindirizzamento..." : "Attiva abbonamento"}
-                        </Button>
-                    </div>
-                )}
+                    {hasSubscriptionRecord && (
+                        <ListRow
+                            leading={<ExternalLink size={20} aria-hidden />}
+                            title="Portale di fatturazione"
+                            subtitle="Metodo di pagamento, fatture e ricevute su Stripe."
+                            onClick={() => void handlePortal()}
+                            trailing={portalLoading ? <Loader size="sm" /> : <ChevronRight size={16} aria-hidden />}
+                        />
+                    )}
 
-                {hasSubscriptionRecord && (
-                    <div className={styles.actionCard}>
-                        <div>
-                            <Text variant="body" weight={500}>
-                                Portale di fatturazione
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Modifica il metodo di pagamento, visualizza le fatture o cancella l&apos;abbonamento.
-                            </Text>
-                        </div>
-                        <Button
-                            variant="secondary"
-                            onClick={handlePortal}
-                            disabled={portalLoading}
-                            leftIcon={<ExternalLink size={16} />}
-                        >
-                            {portalLoading ? "Apertura..." : "Gestisci su Stripe"}
-                        </Button>
-                    </div>
-                )}
+                    {hasSubscriptionRecord && !isTerminal && !subUnavailable && (() => {
+                        const alreadyPending = !subStateLoading && pendingIntervalChange === oppositeInterval;
+                        const blocked = !subStateLoading && intervalBlockReason !== null;
+                        const subtitle = alreadyPending
+                            ? "Lo trovi qui sopra, in «Cambio programmato»."
+                            : blocked
+                            ? INTERVAL_BLOCK_MESSAGE[oppositeInterval][intervalBlockReason]
+                            : oppositeInterval === "year"
+                            ? "Stesso piano e stesse sedi, fatturazione una volta all'anno."
+                            : "Stesso piano e stesse sedi, fatturazione ogni mese dalla scadenza dell'anno in corso.";
+                        const enabled = !subStateLoading && !alreadyPending && !blocked;
+                        return (
+                            <ListRow
+                                leading={<CalendarRange size={20} aria-hidden />}
+                                title={INTERVAL_ACTION_LABEL[oppositeInterval]}
+                                subtitle={subtitle}
+                                wrapSubtitle
+                                muted={!enabled}
+                                onClick={enabled ? () => void openIntervalChange(oppositeInterval) : undefined}
+                                trailing={enabled ? <ChevronRight size={16} aria-hidden /> : undefined}
+                            />
+                        );
+                    })()}
 
-                {hasSubscriptionRecord && !isTerminal && !subUnavailable && (
-                    <div className={styles.actionCard}>
-                        <div>
-                            <Text variant="body" weight={500}>
-                                {INTERVAL_ACTION_LABEL[oppositeInterval]}
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                {!subStateLoading && pendingIntervalChange === oppositeInterval
-                                    ? `Passaggio ${oppositeInterval === "year" ? "all'annuale" : "al mensile"} già programmato: lo trovi in «Prossimo cambio».`
-                                    : !subStateLoading && intervalBlockReason
-                                    ? INTERVAL_BLOCK_MESSAGE[oppositeInterval][intervalBlockReason]
-                                    : oppositeInterval === "year"
-                                    ? "Stesso piano e stesse sedi, fatturazione una volta all'anno."
-                                    : "Stesso piano e stesse sedi, fatturazione ogni mese dalla scadenza dell'anno in corso."}
-                            </Text>
-                        </div>
-                        {!subStateLoading && !intervalBlockReason && (
-                            <Button
-                                variant="secondary"
-                                onClick={() => openIntervalChange(oppositeInterval)}
-                                leftIcon={<CalendarRange size={16} />}
-                            >
-                                {INTERVAL_ACTION_LABEL[oppositeInterval]}
-                            </Button>
-                        )}
-                    </div>
-                )}
-
-                {canCancelBilling && hasSubscriptionRecord && !isTerminal && !cancelAtPeriodEnd && !subUnavailable && (
-                    <div className={styles.actionCard}>
-                        <div>
-                            <Text variant="body" weight={500}>
-                                Disdici abbonamento
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                {status === "trialing"
-                                    ? `La disdetta avrà effetto alla fine della prova, il ${formatDate(periodEndDate)}. Non ti verrà addebitato nulla.`
-                                    : "La disdetta ha effetto a fine periodo. Nessun rimborso; tutto resta attivo fino ad allora."}
-                            </Text>
-                        </div>
-                        <Button
-                            variant="secondary"
-                            onClick={() => setIsCancelOpen(true)}
-                            leftIcon={<XCircle size={16} />}
-                        >
-                            Disdici
-                        </Button>
-                    </div>
-                )}
-
-                {hasSubscriptionRecord && canStartCheckout && (
-                    <>
-                        <div className={styles.actionCard}>
-                            <div>
-                                <Text variant="body" weight={500}>
-                                    Riattiva abbonamento
-                                </Text>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    {`Il tuo abbonamento è stato cancellato. Riattivalo per tornare operativo: l'addebito di ${formatEuro(displayAmount)}${unit} parte subito.`}
-                                </Text>
-                            </div>
-                            <Button
-                                variant="primary"
-                                onClick={handleCheckout}
-                                disabled={checkoutLoading}
-                                leftIcon={<CreditCard size={16} />}
-                            >
-                                {checkoutLoading ? "Reindirizzamento..." : "Riattiva abbonamento"}
-                            </Button>
-                        </div>
-                        {isTerminal && (
-                            <button
-                                type="button"
-                                className={styles.workspaceExitLink}
-                                onClick={() => navigate("/workspace")}
-                            >
-                                Non vuoi rinnovare? Gestisci o elimina l&apos;azienda dal Workspace.
-                            </button>
-                        )}
-                    </>
-                )}
-            </div>
+                    {canCancelBilling && hasSubscriptionRecord && !isTerminal && !subUnavailable && (
+                        <ListRow
+                            leading={<XCircle size={20} aria-hidden />}
+                            title="Disdici abbonamento"
+                            subtitle={
+                                cancelAtPeriodEnd
+                                    ? `Disdetta programmata per il ${formatDate(periodEndDate)}: la riattivi qui sopra.`
+                                    : status === "trialing"
+                                    ? `Ha effetto alla fine della prova, il ${formatDate(periodEndDate)}. Non ti verrà addebitato nulla.`
+                                    : "Ha effetto a fine periodo: nessun rimborso, tutto resta attivo fino ad allora."
+                            }
+                            wrapSubtitle
+                            muted={cancelAtPeriodEnd}
+                            onClick={cancelAtPeriodEnd ? undefined : () => setIsCancelOpen(true)}
+                            trailing={cancelAtPeriodEnd ? undefined : <ChevronRight size={16} aria-hidden />}
+                        />
+                    )}
+                </Card>
             )}
 
             {/* --- Drawer "Modifica piano" self-service --- */}
@@ -1505,19 +1470,10 @@ export default function SubscriptionPage() {
                             />
 
                             {isDowngradeToBase && (
-                                <div className={styles.changeWarning}>
-                                    <AlertTriangle size={16} />
-                                    <Text variant="body-sm" weight={500}>
-                                        Passando a Base, ordini e prenotazioni da QR verranno disattivati al rinnovo.
-                                    </Text>
-                                </div>
+                                <InlineBanner variant="warning">Passando a Base, ordini e prenotazioni da QR verranno disattivati al rinnovo.</InlineBanner>
                             )}
 
-                            {changeError && (
-                                <Text variant="body-sm" className={styles.changeError}>
-                                    {changeError}
-                                </Text>
-                            )}
+                            {changeError && <InlineBanner variant="error">{changeError}</InlineBanner>}
                         </div>
                     ) : changeStep === "when" ? (
                         <div className={styles.changeBody}>
@@ -1526,34 +1482,29 @@ export default function SubscriptionPage() {
                                     <Text variant="body-sm" colorVariant="muted">
                                         Hai un cambio già programmato. Quando vuoi che le sedi in più siano attive?
                                     </Text>
-                                    <div className={styles.whenOptions}>
-                                        <button
-                                            type="button"
-                                            className={`${styles.whenOption} ${applyAt === "now" ? styles.whenOptionSelected : ""}`}
-                                            onClick={() => setApplyAt("now")}
-                                        >
-                                            <Text variant="body" weight={600}>Attive subito</Text>
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                {whenTrialEnds
+                                    <RadioGroup
+                                        variant="card"
+                                        label="Le sedi in più"
+                                        value={applyAt}
+                                        onChange={value => setApplyAt(value as "now" | "renewal")}
+                                        options={[
+                                            {
+                                                value: "now",
+                                                label: "Attive subito",
+                                                description: whenTrialEnds
                                                     ? `Le sedi in più valgono da ora. Sei in prova: nessun addebito fino al ${formatDate(whenTrialEnds)}.`
-                                                    : "Le sedi in più valgono da ora: paghi il prorata per i giorni rimanenti del periodo."}
-                                            </Text>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={`${styles.whenOption} ${applyAt === "renewal" ? styles.whenOptionSelected : ""}`}
-                                            onClick={() => setApplyAt("renewal")}
-                                        >
-                                            <Text variant="body" weight={600}>Dal rinnovo</Text>
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                Nessun addebito oggi. Le sedi partono dal {formatDate(periodEndDate)},
-                                                sul piano {pendingPlanName} già programmato.
-                                            </Text>
-                                        </button>
-                                    </div>
+                                                    : "Le sedi in più valgono da ora: paghi il prorata per i giorni rimanenti del periodo."
+                                            },
+                                            {
+                                                value: "renewal",
+                                                label: "Dal rinnovo",
+                                                description: `Nessun addebito oggi. Le sedi partono dal ${formatDate(periodEndDate)}, sul piano ${pendingPlanName} già programmato.`
+                                            }
+                                        ]}
+                                    />
                                 </>
                             ) : (
-                                <div className={styles.whenInfo}>
+                                <div className={styles.changeBody}>
                                     {whenKind === "tier-up" && (
                                         <Text variant="body-sm">
                                             L&apos;upgrade si applica <strong>subito</strong>: avrai le nuove
@@ -1588,27 +1539,17 @@ export default function SubscriptionPage() {
                                         </Text>
                                     )}
                                     {isDowngradeToBase && (whenKind === "downgrade" || whenKind === "mixed") && (
-                                        <div className={styles.changeWarning}>
-                                            <AlertTriangle size={16} />
-                                            <Text variant="body-sm" weight={500}>
-                                                Passando a Base, ordini e prenotazioni da QR verranno disattivati
-                                                al rinnovo.
-                                            </Text>
-                                        </div>
+                                        <InlineBanner variant="warning">Passando a Base, ordini e prenotazioni da QR verranno disattivati al rinnovo.</InlineBanner>
                                     )}
                                 </div>
                             )}
 
-                            {changeError && (
-                                <Text variant="body-sm" className={styles.changeError}>
-                                    {changeError}
-                                </Text>
-                            )}
+                            {changeError && <InlineBanner variant="error">{changeError}</InlineBanner>}
                         </div>
                     ) : (
                         <div className={styles.changeBody}>
                             {preview && (
-                                <div className={styles.confirmBox}>
+                                <Card bodyClassName={styles.confirmBody}>
                                     {preview.classification === "combined" ? (
                                         <>
                                             <div className={styles.confirmRow}>
@@ -1624,7 +1565,7 @@ export default function SubscriptionPage() {
                                                     ? "La sede aggiunta è attiva subito, riproporzionata a tariffa Pro fino al rinnovo."
                                                     : `Le ${seatDir} sedi aggiunte sono attive subito, riproporzionate a tariffa Pro fino al rinnovo.`}
                                             </Text>
-                                            <div className={styles.confirmDivider} />
+                                            <Divider />
                                             <Text variant="body-sm" colorVariant="muted">
                                                 Il piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)};{" "}
                                                 {previewTrialEnds
@@ -1633,12 +1574,7 @@ export default function SubscriptionPage() {
                                                         : "il primo addebito sarà quel giorno."
                                                     : `da quella data pagherai ${formatCents(preview.nextAmount)}${unit}.`}
                                             </Text>
-                                            <div className={styles.changeWarning}>
-                                                <AlertTriangle size={16} />
-                                                <Text variant="body-sm" weight={500}>
-                                                    Ordini e prenotazioni da QR verranno disattivati al rinnovo.
-                                                </Text>
-                                            </div>
+                                            <InlineBanner variant="warning">Ordini e prenotazioni da QR verranno disattivati al rinnovo.</InlineBanner>
                                         </>
                                     ) : preview.effective === "now" ? (
                                         <>
@@ -1653,7 +1589,7 @@ export default function SubscriptionPage() {
                                                     ? `Sei in prova gratuita: le novità sono attive subito e non ti viene addebitato nulla fino al ${formatDate(previewTrialEnds)}.`
                                                     : "Importo riproporzionato per i giorni rimanenti del periodo in corso."}
                                             </Text>
-                                            <div className={styles.confirmDivider} />
+                                            <Divider />
                                             <div className={styles.confirmRow}>
                                                 <Text variant="body-sm" colorVariant="muted">
                                                     {previewTrialEnds
@@ -1684,30 +1620,21 @@ export default function SubscriptionPage() {
                                                 Da quella data pagherai {formatCents(preview.nextAmount)}{unit}.
                                             </Text>
                                             {isDowngradeToBase && (
-                                                <div className={styles.changeWarning}>
-                                                    <AlertTriangle size={16} />
-                                                    <Text variant="body-sm" weight={500}>
-                                                        Ordini e prenotazioni da QR verranno disattivati al rinnovo.
-                                                    </Text>
-                                                </div>
+                                                <InlineBanner variant="warning">Ordini e prenotazioni da QR verranno disattivati al rinnovo.</InlineBanner>
                                             )}
                                         </>
                                     )}
-                                </div>
+                                </Card>
                             )}
 
-                            {changeError && (
-                                <Text variant="body-sm" className={styles.changeError}>
-                                    {changeError}
-                                </Text>
-                            )}
+                            {changeError && <InlineBanner variant="error">{changeError}</InlineBanner>}
                         </div>
                     )}
                 </DrawerLayout>
             </SystemDrawer>
 
             {/* --- Drawer cambio di intervallo (passi 4a/4b) --- */}
-            <SystemDrawer open={isIntervalOpen} onClose={closeIntervalChange} width={480}>
+            <SystemDrawer open={isIntervalOpen} onClose={closeIntervalChange} size="md">
                 <DrawerLayout
                     header={
                         <Text variant="title-sm" weight={600}>{INTERVAL_ACTION_LABEL[intervalTarget]}</Text>
@@ -1732,20 +1659,20 @@ export default function SubscriptionPage() {
                 >
                     <div className={styles.changeBody}>
                         {intervalPreviewLoading && (
-                            <div className={styles.confirmBox}>
+                            <Card bodyClassName={styles.confirmBody}>
                                 <Skeleton height="1.6em" width="70%" radius="4px" />
                                 <Skeleton height="1.2em" width="90%" radius="4px" />
                                 <Skeleton height="1.2em" width="80%" radius="4px" />
-                            </div>
+                            </Card>
                         )}
                         {intervalPreview && (
-                            <div className={styles.confirmBox}>
+                            <Card bodyClassName={styles.confirmBody}>
                                 {intervalPreview.trialEndsAt ? (
                                     <>
                                         <div className={styles.confirmRow}>
                                             <Text variant="title-sm" weight={700}>Nessun addebito ora.</Text>
                                         </div>
-                                        <div className={styles.confirmDivider} />
+                                        <Divider />
                                         <Text variant="body-sm" colorVariant="muted">
                                             {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"}:{" "}
                                             {formatCents(intervalPreview.nextAmount)} {intervalTarget === "year" ? "all'anno" : "al mese"}.
@@ -1762,7 +1689,7 @@ export default function SubscriptionPage() {
                                                 Fino alla scadenza dell&apos;anno in corso non cambia nulla: stesso piano, stesse sedi, nessun rimborso e nessun addebito.
                                             </Text>
                                         </div>
-                                        <div className={styles.confirmDivider} />
+                                        <Divider />
                                         <Text variant="body-sm" colorVariant="muted">
                                             Il passaggio al mensile avviene il{" "}
                                             <strong>{formatDate(intervalPreview.nextDate)}</strong>, alla scadenza dell&apos;anno in corso.
@@ -1771,7 +1698,7 @@ export default function SubscriptionPage() {
                                             Da quella data: {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"},{" "}
                                             <strong>{formatCents(intervalPreview.nextAmount)} al mese</strong>.
                                         </Text>
-                                        <div className={styles.confirmDivider} />
+                                        <Divider />
                                         <Text variant="body-sm" colorVariant="muted">
                                             Puoi annullare la richiesta in qualsiasi momento prima del{" "}
                                             {formatDate(intervalPreview.nextDate)}, da questa pagina.
@@ -1785,7 +1712,7 @@ export default function SubscriptionPage() {
                                                 {formatCents(intervalPreview.chargeToday)}
                                             </Text>
                                         </div>
-                                        <div className={styles.confirmDivider} />
+                                        <Divider />
                                         <Text variant="body-sm" colorVariant="muted">
                                             {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"}:{" "}
                                             {formatCents(intervalPreview.nextAmount)} all&apos;anno.
@@ -1798,25 +1725,21 @@ export default function SubscriptionPage() {
                                             Non consumato del mese in corso già scalato:{" "}
                                             −{formatCents(Math.max(0, -(intervalPreview.prorationCreditCents ?? 0)))}.
                                         </Text>
-                                        <div className={styles.confirmDivider} />
+                                        <Divider />
                                         <Text variant="body-sm" colorVariant="muted">
                                             L&apos;addebito avviene ora sul metodo di pagamento salvato.
                                         </Text>
                                     </>
                                 )}
-                            </div>
+                            </Card>
                         )}
-                        {intervalError && (
-                            <Text variant="body-sm" className={styles.changeError}>
-                                {intervalError}
-                            </Text>
-                        )}
+                        {intervalError && <InlineBanner variant="error">{intervalError}</InlineBanner>}
                     </div>
                 </DrawerLayout>
             </SystemDrawer>
 
             {/* --- Drawer conferma disdetta --- */}
-            <SystemDrawer open={isCancelOpen} onClose={() => { if (!cancelLoading) setIsCancelOpen(false); }} width={480}>
+            <SystemDrawer open={isCancelOpen} onClose={() => { if (!cancelLoading) setIsCancelOpen(false); }} size="md">
                 <DrawerLayout
                     header={
                         <Text variant="title-sm" weight={600}>Disdici abbonamento</Text>
@@ -1846,15 +1769,7 @@ export default function SubscriptionPage() {
                                 </>
                             )}
                         </Text>
-                        <div className={styles.changeWarning}>
-                            <AlertTriangle size={16} />
-                            <Text variant="body-sm" weight={500}>
-                                Fino a quella data ordini, prenotazioni e cataloghi restano pienamente attivi.{" "}
-                                {status === "trialing"
-                                    ? "Potrai annullare la disdetta in qualsiasi momento prima di quella data."
-                                    : "Potrai annullare la disdetta in qualsiasi momento prima del rinnovo."}
-                            </Text>
-                        </div>
+                        <InlineBanner variant="warning">Fino a quella data ordini, prenotazioni e cataloghi restano pienamente attivi.{" "} {status === "trialing" ? "Potrai annullare la disdetta in qualsiasi momento prima di quella data." : "Potrai annullare la disdetta in qualsiasi momento prima del rinnovo."}</InlineBanner>
                     </div>
                 </DrawerLayout>
             </SystemDrawer>
@@ -1863,7 +1778,7 @@ export default function SubscriptionPage() {
             <SystemDrawer
                 open={isCancelScheduleOpen}
                 onClose={() => { if (!cancelScheduleLoading) setIsCancelScheduleOpen(false); }}
-                width={480}
+                size="md"
             >
                 <DrawerLayout
                     header={

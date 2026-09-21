@@ -24,15 +24,19 @@ export interface MediaFraming {
 }
 
 /**
- * Default framing (centered cover, blur fill). Mirrors the DB column defaults on
- * featured_contents (media_focal_x/y=0.5, media_zoom=1, media_fill_mode='blur').
+ * Default framing: centered cover, no fill. Focal/zoom mirror the DB column
+ * defaults on featured_contents (media_focal_x/y=0.5, media_zoom=1). The fill
+ * is "none" (lotto 5): at zoom 1 the cover path never shows bands, so the
+ * value only matters when the user zooms out in the editor — and there the
+ * plain background is the honest default, blur is a choice. Rows saved with
+ * media_fill_mode='blur' keep their own value.
  * Canonical home is here alongside MediaFraming; featuredContents.ts re-exports.
  */
 export const FRAMING_DEFAULTS: MediaFraming = {
     focalX: 0.5,
     focalY: 0.5,
     zoom: 1,
-    fillMode: "blur",
+    fillMode: "none",
     fillColor: null
 };
 

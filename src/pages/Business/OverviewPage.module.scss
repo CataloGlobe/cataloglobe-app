@@ -1,419 +1,71 @@
+@use "@styles/mixins" as *;
+
 .page {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: var(--space-24);
 }
 
-/* ===== Section wrapper ===== */
-.section {
-  background: var(--card-bg, #ffffff);
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 12px;
-  padding: 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+// Righe ListRow che si toccano dentro Card flush (il body ha gap 12).
+.rows {
+  gap: 0;
 }
 
-/* ===== Section 1 — Business Header ===== */
-.businessHeader {
-  display: flex;
-  align-items: center;
-  gap: 1rem;
+// Fra la procedura guidata e la checklist: un testo, non un componente
+// (§44.7).
+.divider {
+  text-align: center;
 }
 
-.businessAvatar {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  font-weight: 700;
-  font-size: 20px;
+/* ===== C — Cosa hai attivato ===== */
+
+// Otto capacità su due colonne sopra 1024 (scheda ListRow, precisazione
+// §44.7); una colonna sotto, come ogni lista.
+.capabilities {
   display: grid;
-  place-items: center;
-  flex-shrink: 0;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+
+  // Il divisore di ListRow è «riga dopo riga»: in griglia la prima riga
+  // della seconda colonna lo prenderebbe senza avere niente sopra.
+  > :nth-child(2) {
+    border-top: 0;
+  }
+
+  @include below-sidebar {
+    grid-template-columns: minmax(0, 1fr);
+
+    > :nth-child(2) {
+      border-top: 1px solid var(--border);
+    }
+  }
 }
 
-.businessAvatarImg {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  object-fit: cover;
-  flex-shrink: 0;
-}
+/* ===== B — La vetrina adesso ===== */
 
-.businessInfo {
-  display: flex;
-  flex-direction: column;
-}
-
-/* ===== Section 2 — Configuration Status ===== */
-.setupHeader {
+// Scheda a sede unica: QR grande a sinistra, nome · URL · stato a destra.
+// Sotto 768 il QR sta sopra, come su un foglio A6.
+.single {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
+  gap: var(--space-24);
+
+  @include phone {
+    flex-direction: column;
+  }
 }
 
-.setupHeading {
+.singleInfo {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  flex: 1 1 260px;
-}
-
-.setupProgress {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.setupProgressTrack {
-  width: 88px;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--border, #e5e7eb);
-  overflow: hidden;
-}
-
-/* Riempimento su `transform: scaleX()`, non su `width`: la transizione resta
-   sul compositor invece di rilanciare il layout a ogni frame. */
-.setupProgressFill {
-  width: 100%;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--brand-primary);
-  transform-origin: left center;
-  transition: transform 0.25s ease;
-}
-
-.configList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* Percorso consigliato, in testa alla card. Blocco cliccabile e non barra
-   piena: a questa larghezza un'etichetta centrata galleggia nel vuoto, mentre
-   il testo ancorato a sinistra regge. Accento tenue con bordo — resta
-   l'elemento più presente della card senza dominarla. */
-.setupGuided {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid var(--brand-primary);
-  background: var(--brand-primary-soft);
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  transition: background 0.15s;
-
-  &:hover {
-    background: var(--brand-primary-soft-hover);
-  }
-}
-
-/* Quadrato pieno: l'unico punto saturo del blocco, tiene l'accento senza
-   estenderlo a tutta la superficie. Bianco su fondo brand come `.stepMarker`
-   del setup e il primario di `Button`. */
-.setupGuidedIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--brand-primary);
-  color: #fff;
-}
-
-.setupGuidedBody {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.setupGuidedArrow {
-  flex-shrink: 0;
-  color: var(--brand-primary);
-}
-
-/* Separa i due modi di procedere. Il testo sta nel mezzo: un filetto muto
-   direbbe che sotto c'è dell'altro, non che è la stessa cosa fatta a mano. */
-.setupDivider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-
-  &::before,
-  &::after {
-    content: "";
-    flex: 1 1 auto;
-    height: 1px;
-    background: var(--border);
-  }
-}
-
-.configItem {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: #f8fafc;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
-
-  &:hover {
-    background: #f1f5f9;
-    border-color: #e2e8f0;
-  }
-
-  /* Passo chiuso: resta leggibile ma non chiede attenzione. */
-  &[data-state="done"] {
-    background: transparent;
-
-    .configIcon {
-      color: var(--brand-primary);
-    }
-
-    .configTitleRow {
-      opacity: 0.65;
-    }
-
-    &:hover {
-      background: #f8fafc;
-    }
-  }
-
-  /* Prossima mossa: l'unica voce evidenziata. */
-  &[data-state="next"] {
-    background: var(--brand-primary-soft);
-    border-color: var(--brand-primary);
-
-    .configIcon {
-      color: var(--brand-primary);
-    }
-  }
-
-  /* Passi successivi: spenti finché non tocca a loro. */
-  &[data-state="todo"] {
-    background: transparent;
-    opacity: 0.55;
-
-    .configIcon {
-      color: #94a3b8;
-    }
-
-    &:hover {
-      background: #f8fafc;
-      opacity: 0.8;
-    }
-  }
-}
-
-/* Con la procedura guidata in cima il richiamo è già speso su di lei: due
-   inviti in concorrenza nella stessa card. L'evidenziazione cade solo lì —
-   senza guida la checklist è l'unico contenuto e indicare il prossimo passo
-   resta utile. Icona in accento e peso del titolo restano in entrambi i casi. */
-.configList[data-guided] .configItem[data-state="next"] {
-  background: transparent;
-  border-color: transparent;
-}
-
-.configIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  /* Allinea l'icona alla prima riga di testo, non al blocco intero. */
-  margin-top: 1px;
-}
-
-.configBody {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  gap: var(--space-8);
   min-width: 0;
 }
 
-.configTitleRow {
+.singleActions {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
 }
 
-.configTag {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.6;
-  padding: 0 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  color: var(--brand-primary);
-  background: var(--brand-primary-soft);
-}
-
-.configArrow {
-  margin-left: auto;
-  color: #94a3b8;
-  flex-shrink: 0;
-  align-self: center;
-}
-
-/* ===== Section 2b — Tutto pronto: pagine pubbliche ===== */
-.publicHeader {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-/* Cornice del QR: il codice ha bisogno di quiet zone bianca per essere
-   leggibile, quindi il riquadro resta chiaro anche in dark. */
-.qrFrame,
-.qrFrameSm {
-  display: inline-flex;
-  background: #ffffff;
-  border: 1px solid var(--border);
-  flex-shrink: 0;
-}
-
-.qrFrame {
-  padding: 8px;
-  border-radius: 8px;
-}
-
-.qrFrameSm {
-  padding: 4px;
-  border-radius: 6px;
-}
-
-/* Stato del menù: puntino + testo. Il colore non porta mai da solo
-   l'informazione (regola DESIGN.md sugli stati semantici). */
-.statusLine {
-  display: flex;
-  align-items: baseline;
-  gap: 7px;
-  min-width: 0;
-  width: 100%;
-}
-
-.statusDot {
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  flex-shrink: 0;
-  /* Allinea il punto all'altezza della x invece che alla baseline. */
-  transform: translateY(-1px);
-
-  &[data-state="live"] {
-    background: var(--color-green-500);
-  }
-
-  &[data-state="off"] {
-    background: var(--border);
-    box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.08);
-  }
-
-  &[data-state="loading"] {
-    background: var(--border);
-  }
-
-  /* Stato ignoto: puntino VUOTO, non pieno. "Off" è un'informazione ("la
-     vetrina è spenta"), qui invece non sappiamo — un cerchio cavo lo dice senza
-     aggiungere un colore semantico che prometterebbe una diagnosi che non
-     abbiamo. `currentColor` lo tiene agganciato al testo muted della riga. */
-  &[data-state="unknown"] {
-    background: transparent;
-    box-shadow: inset 0 0 0 1px currentColor;
-    opacity: 0.55;
-  }
-}
-
-.menuName {
-  font-weight: 600;
-  color: var(--text);
-}
-
-/* Riga "menù attivo". Resa con `as="span"` perché ospita il placeholder, che è
-   un <div> e dentro un <p> sarebbe HTML invalido; `display: block` le ridà il
-   comportamento di riga che aveva come paragrafo. */
-.menuLine {
-  display: block;
-}
-
-/* Placeholder della riga. Inline-block, così l'altezza resta governata dallo
-   strut della riga (il line-height della variante tipografica) e non dal
-   placeholder: nessuna misura in px da tenere allineata a mano se `body-sm` o
-   `caption` cambiano. */
-.menuLineSkeleton {
-  display: inline-block;
-  vertical-align: middle;
-}
-
-/* Righe separate da un filo, non da blocchi pieni: la lista è densa e il grigio
-   ripetuto su ogni riga pesa più dell'informazione che porta. */
-.publicList {
-  display: flex;
-  flex-direction: column;
-}
-
-/* La riga intera apre la pagina pubblica.
-   Il fondo dell'hover esce dal bordo del testo (`margin-inline` negativo
-   compensato dal padding): senza quel respiro la superficie evidenziata
-   combacia con le lettere e sembra una selezione di testo, non un bersaglio.
-   Il separatore segue la stessa larghezza, così le due geometrie coincidono. */
-.publicRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px;
-  margin-inline: -12px;
-  border-radius: 8px;
-  border-top: 1px solid var(--border);
-  cursor: pointer;
-  transition: background-color 0.15s ease;
-
-  &:first-child {
-    border-top: none;
-  }
-
-  &:hover {
-    background: var(--hover-bg);
-  }
-
-  /* Il focus vive sul link del nome, ma l'anello lo prende la riga: chi arriva
-     con Tab deve vedere QUALE sede sta per aprire, non due parole in grassetto.
-     `outline` invece di `box-shadow` perché segue il border-radius e
-     sopravvive alla forced-colors mode. */
-  &:has(.publicRowName:focus-visible) {
-    outline: 2px solid var(--brand-primary);
-    outline-offset: 2px;
-    background: var(--hover-bg);
-  }
-}
-
-/* Il nome della sede è il collegamento alla pagina pubblica, ma non deve
-   sembrare un link: la riga intera lo è già, e due colori di link accostati
-   (nome + URL) trasformerebbero la riga in un elenco di appigli. */
-.publicRowName {
+.name {
   color: inherit;
   text-decoration: none;
 
@@ -422,169 +74,24 @@
   }
 }
 
-/* Browser senza `:has()`: l'anello resta, solo più stretto attorno al nome.
-   Meglio un focus meno bello che un focus invisibile. */
-@supports not selector(:has(*)) {
-  .publicRowName:focus-visible {
-    outline: 2px solid var(--brand-primary);
-    outline-offset: 2px;
-    border-radius: 3px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .publicRow {
-    transition: none;
-  }
-}
-
-.publicRowBody {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.publicRowUrl {
-  font-size: 12px;
-  color: var(--brand-primary);
+.url {
+  color: var(--text-muted);
   text-decoration: none;
-  /* Gli slug lunghi troncano invece di mandare a capo la riga. */
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 100%;
 
   &:hover {
     text-decoration: underline;
   }
 }
 
-/* Un solo trigger ⋯, sempre visibile. Prima qui stavano due bottoni con
-   etichetta, che su schermo stretto dovevano scendere sotto le informazioni:
-   ora la riga tiene la sua forma a ogni larghezza, niente wrap da gestire. */
-.publicRowActions {
+.status {
   display: flex;
   align-items: center;
-  margin-left: auto;
-  flex-shrink: 0;
+  gap: var(--space-8);
 }
 
-/* Coda delle sedi sospese. Il distacco dal gruppo delle pubblicate è dato dallo
-   spazio prima del filo, non da un filo più spesso: separare due gruppi con un
-   bordo pesante li mette sullo stesso piano gerarchico, mentre qui il secondo è
-   una postilla al primo. Larghezza allineata ai separatori delle righe. */
-.suspendedList {
-  display: flex;
-  flex-direction: column;
-  margin-inline: -12px;
-  margin-top: 8px;
-  padding-top: 8px;
-  border-top: 1px solid var(--border);
-}
-
-.suspendedRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 8px 12px;
-}
-
-/* Neutro, non ambra: la sede è ferma, non in allarme. Stessa scelta dello
-   `StatusBadge variant="neutral"` usato per "Sospesa" nelle card sede — e la
-   regola No-Color-On-Inactive di DESIGN.md dice esattamente questo. */
 .suspendedIcon {
-  display: inline-flex;
-  flex-shrink: 0;
-  color: var(--text);
-  opacity: 0.45;
-}
-
-.suspendedText {
-  min-width: 0;
-  /* Nomi lunghi troncano invece di spingere il bottone fuori dalla riga. */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.suspendedName {
-  font-weight: 600;
-  color: var(--text);
-}
-
-.suspendedRow > *:last-child {
-  margin-left: auto;
-  flex-shrink: 0;
-}
-
-.publicMore {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  align-self: flex-start;
-  padding: 0;
-  border: none;
-  background: none;
-  font-family: inherit;
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--brand-primary);
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-  }
-}
-
-/* ===== Section 3 — Quick Stats ===== */
-.kpiGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 0.75rem;
-}
-
-.kpiCard {
-  background: #f8fafc;
-  border: 1px solid var(--border, #e5e7eb);
-  border-radius: 10px;
-  padding: 1rem 1.25rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  transition: box-shadow 0.2s ease;
-
-  &:hover {
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
-  }
-}
-
-/* ===== Section 4 — Quick Actions ===== */
-.actionsGrid {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.actionBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--border, #e2e8f0);
-  background: #fff;
-  color: #374151;
-  font-size: 13px;
-  font-weight: 500;
-  font-family: inherit;
-  cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, color 0.15s;
-
-  &:hover {
-    border-color: #6366f1;
-    background: rgba(99, 102, 241, 0.05);
-    color: #6366f1;
-  }
+  color: var(--text-muted);
 }
