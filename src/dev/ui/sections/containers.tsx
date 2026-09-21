@@ -279,16 +279,22 @@ function BreadcrumbSection() {
 function AvatarSection() {
     return (
         <>
-            <State label="sm / md / lg con iniziali">
+            <State label="sm 24 · md 32 · lg 40 con iniziali (500, gray-800, su hover-bg)">
                 <Avatar name="Lorenzo Calzi" size="sm" />
                 <Avatar name="Lorenzo Calzi" size="md" />
                 <Avatar name="Lorenzo Calzi" size="lg" />
             </State>
-            <State label="con immagine · rounded · gradient">
-                <Avatar name="CataloGlobe" imageUrl="/favicon/cataloglobe_icon_flat_primary_180.png" />
-                <Avatar name="Lorenzo Calzi" rounded />
-                <Avatar name="Anna Rossi" gradient="linear-gradient(135deg, #f59e0b, #dc2626)" />
+            <State label="con immagine · una lettera (email) · sconosciuto">
+                <Avatar name="CataloGlobe" imageUrl="/favicon/cataloglobe_icon_flat_primary_180.png" size="lg" />
+                <Avatar name="anna@esempio.it" size="md" />
                 <Avatar />
+            </State>
+            <State label="puntino online · su un'immagine (bordo surface) · caricamento">
+                <Avatar name="Giulia Verdi" size="lg" status="online" />
+                <Avatar name="Giulia Verdi" size="md" status="online" onImage />
+                <Avatar loading size="sm" />
+                <Avatar loading size="md" />
+                <Avatar loading size="lg" />
             </State>
         </>
     );
@@ -323,6 +329,6 @@ export const containersSections: GallerySection[] = [
     { id: "emptystate", title: "EmptyState", sheet: "EmptyState", Component: EmptyStateSection },
     { id: "prerequisitesrow", title: "PrerequisitesRow", Component: PrerequisitesRowSection },
     { id: "breadcrumb", title: "Breadcrumb", sheet: "PageHeader", Component: BreadcrumbSection },
-    { id: "avatar", title: "Avatar", Component: AvatarSection },
+    { id: "avatar", title: "Avatar", sheet: "Avatar", Component: AvatarSection },
     { id: "qrcode", title: "QrCode", sheet: "QrCode", Component: QrCodeSection }
 ];
