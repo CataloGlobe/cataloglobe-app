@@ -1,0 +1,109 @@
+// Checklist — cosa manca e cosa c'è già (design system §5, scheda
+// Checklist). Dentro Card flush; riga 56 (ListRow); la riga verde:
+// success-50, bordo success-200, padding 12 16.
+
+// Il body flush di Card ha gap 12: qui le righe si toccano (divisore 1px).
+.body {
+  gap: 0;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  padding: var(--space-8) var(--space-16) var(--space-12);
+  border-bottom: 1px solid var(--border);
+}
+
+.headerText {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-12);
+}
+
+.bar {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.barFill {
+  height: 100%;
+  border-radius: var(--radius-pill);
+  background: var(--success-500);
+  transition: width var(--timing-motion-base) var(--easing-state);
+}
+
+.iconOpen {
+  color: var(--gray-400);
+}
+
+.iconDone {
+  color: var(--success-500);
+}
+
+// Lo stato done: una riga verde apribile con i nomi come Chip spuntati.
+.doneRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  width: auto;
+  margin: 0 var(--space-8);
+  padding: var(--space-12) var(--space-16);
+  border: 1px solid var(--success-200);
+  border-radius: var(--radius-control);
+  background: var(--success-50);
+  color: var(--success-800);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
+}
+
+.doneIcon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--success-500);
+  color: var(--surface);
+}
+
+.doneBody {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-8) var(--space-12);
+}
+
+.doneTitle {
+  color: inherit;
+}
+
+.doneChips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-6);
+}
+
+.chevron {
+  flex-shrink: 0;
+  width: 18px;
+  height: 18px;
+  transition: transform var(--timing-motion-fast) var(--easing-state);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
