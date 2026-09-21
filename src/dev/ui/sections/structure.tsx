@@ -1,8 +1,19 @@
 /* eslint-disable react-refresh/only-export-components -- galleria dev: componenti di sezione + elenco nello stesso file, niente fast refresh da preservare */
+import { useState } from "react";
+import { ChevronRight, MapPin, Store, CheckCircle2, Circle, Pencil, Trash2 } from "lucide-react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { FormGrid, FormSection, FORM_GRID_CLASSES } from "@/components/ui/FormGrid/FormGrid";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { Card } from "@/components/ui/Card/Card";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { Avatar } from "@/components/ui/Avatar/Avatar";
+import { QrCode } from "@/components/ui/QrCode/QrCode";
+import { Switch } from "@/components/ui/Switch/Switch";
+import { Button } from "@/components/ui/Button/Button";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { State, noop, type GallerySection } from "../gallery";
 
 const CITY_OPTIONS = [
@@ -59,6 +70,108 @@ function FormGridSection() {
     );
 }
 
+/* ------------------------------------------------------------------ */
+/* ListRow                                                             */
+/* ------------------------------------------------------------------ */
+
+const ROW_ACTIONS = [
+    { label: "Modifica", icon: Pencil, onClick: noop },
+    { label: "Elimina", icon: Trash2, onClick: noop, variant: "destructive" as const, separator: true }
+];
+
+function ListRowSection() {
+    const [selected, setSelected] = useState("mi");
+    const [openNow, setOpenNow] = useState(true);
+    return (
+        <>
+            <State label="gestione: icona · titolo · sottotitolo · chevron (cliccabile, in Card flush)" column>
+                <Card flush>
+                    <ListRow leading={<MapPin />} title="Trattoria del Porto" subtitle="Via Roma 1, Milano" trailing={<ChevronRight />} onClick={noop} />
+                    <ListRow leading={<MapPin />} title="Osteria della Piazza" subtitle="Piazza Castello 12, Torino · un sottotitolo lunghissimo che va in ellissi perché la riga è una sola" trailing={<ChevronRight />} onClick={noop} />
+                    <ListRow leading={<MapPin />} title="Sede senza indirizzo" trailing={<ChevronRight />} onClick={noop} />
+                </Card>
+            </State>
+            <State label="membro: avatar · nome · ruolo (Badge) · sedi (meta) · azioni" column>
+                <Card flush>
+                    <ListRow
+                        leading={<Avatar name="Lorenzo Calzi" size="sm" />}
+                        title="Lorenzo Calzi"
+                        subtitle="Può fare tutto"
+                        meta={
+                            <>
+                                <Badge variant="brand">Admin</Badge>
+                                <Badge>3 sedi</Badge>
+                            </>
+                        }
+                        trailing={<TableRowActions actions={ROW_ACTIONS} />}
+                    />
+                    <ListRow
+                        leading={<Avatar name="Giulia Verdi" size="sm" />}
+                        title="Giulia Verdi"
+                        subtitle="Gestisce menù e ordini"
+                        meta={
+                            <>
+                                <Badge>Manager</Badge>
+                                <Badge>1 sede</Badge>
+                            </>
+                        }
+                        trailing={<TableRowActions actions={ROW_ACTIONS} />}
+                    />
+                </Card>
+            </State>
+            <State label="vetrina: QR · nome · URL · StatusBadge · azioni" column>
+                <Card flush>
+                    <ListRow
+                        leading={<QrCode value="https://cataloglobe.com/trattoria-del-porto" size={40} fileName="qr-riga" showActions={false} />}
+                        title="Trattoria del Porto"
+                        subtitle="cataloglobe.com/trattoria-del-porto"
+                        meta={<StatusBadge variant="success" label="Menù pubblicato" />}
+                        trailing={<Button variant="ghost" size="sm" onClick={noop}>Apri</Button>}
+                    />
+                    <ListRow
+                        leading={<QrCode value="https://cataloglobe.com/osteria" size={40} fileName="qr-riga-2" showActions={false} />}
+                        title="Osteria della Piazza"
+                        subtitle="cataloglobe.com/osteria"
+                        meta={<StatusBadge variant="warning" label="Nessun menù" />}
+                        trailing={<Button variant="ghost" size="sm" onClick={noop}>Apri</Button>}
+                    />
+                </Card>
+            </State>
+            <State label="checklist: spunta · titolo · «Fai ora» (nuda, in un drawer)" column>
+                <div>
+                    <ListRow leading={<CheckCircle2 />} title="Aggiungi il logo" subtitle="Fatto ieri" muted />
+                    <ListRow leading={<Circle />} title="Pubblica il primo menù" subtitle="Serve un catalogo con almeno un prodotto" trailing={<Button variant="ghost" size="sm" onClick={noop}>Fai ora</Button>} />
+                </div>
+            </State>
+            <State label="trailing Switch (la riga non è cliccabile, agisce il controllo)" column>
+                <Card flush>
+                    <ListRow leading={<Store />} title="Aperto ora" subtitle="Mostra il badge nella pagina pubblica" trailing={<Switch ariaLabel="Aperto ora" checked={openNow} onChange={setOpenNow} />} />
+                </Card>
+            </State>
+            <State label="selezionata (click per cambiare) · link interno (to)" column>
+                <Card flush>
+                    {[
+                        { id: "mi", name: "Milano" },
+                        { id: "to", name: "Torino" },
+                        { id: "bo", name: "Bologna" }
+                    ].map(c => (
+                        <ListRow key={c.id} leading={<MapPin />} title={c.name} subtitle="Sede" selected={selected === c.id} onClick={() => setSelected(c.id)} />
+                    ))}
+                    <ListRow leading={<MapPin />} title="Vai alla galleria (link)" subtitle="react-router Link" to="/dev/ui" trailing={<ChevronRight />} />
+                </Card>
+            </State>
+            <State label="muted (la voce a zero, resta elencata) · caricamento" column>
+                <Card flush>
+                    <ListRow leading={<Store />} title="Prenotazioni" subtitle="0 questa settimana" meta={<Badge>0</Badge>} muted onClick={noop} />
+                    <ListRow loading />
+                    <ListRow loading />
+                </Card>
+            </State>
+        </>
+    );
+}
+
 export const structureSections: GallerySection[] = [
-    { id: "formgrid", title: "FormGrid + FormSection", sheet: "FormGrid", Component: FormGridSection }
+    { id: "formgrid", title: "FormGrid + FormSection", sheet: "FormGrid", Component: FormGridSection },
+    { id: "listrow", title: "ListRow", sheet: "ListRow", Component: ListRowSection }
 ];

@@ -1,0 +1,91 @@
+// ListRow — una riga in una lista di cose (design system §5, scheda ListRow).
+// Altezza row-height (56), padding 0 16, gap 12, divisore fra righe adiacenti.
+// Hover solo se cliccabile; muted = la voce a zero, elencata ma spenta.
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: var(--row-height);
+  padding: 0 var(--space-16);
+  color: var(--text);
+  text-decoration: none;
+  outline: none;
+
+  & + & {
+    border-top: 1px solid var(--border);
+  }
+}
+
+.interactive {
+  cursor: pointer;
+  transition: background-color var(--timing-motion-fast) var(--easing-state);
+
+  &:hover {
+    background: var(--hover-bg);
+  }
+
+  &:focus-visible {
+    box-shadow: inset var(--shadow-focus);
+  }
+}
+
+.selected,
+.interactive.selected:hover {
+  background: var(--brand-primary-soft);
+}
+
+.muted {
+  color: var(--text-muted);
+
+  .leading,
+  .title,
+  .meta {
+    color: var(--text-muted);
+  }
+}
+
+.leading {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+
+  // Icone lucide: 20 per scheda, anche se il chiamante ne passa una da 24.
+  > svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-8) 0;
+}
+
+.title,
+.subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.meta {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+
+.trailing {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: var(--text-muted);
+}
