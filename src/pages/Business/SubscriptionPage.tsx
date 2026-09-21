@@ -43,6 +43,8 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { StatusStrip, type StatusStripTone } from "@/components/ui/StatusStrip/StatusStrip";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Card } from "@/components/ui/Card/Card";
+import { Divider } from "@/components/ui/Divider/Divider";
+import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { Loader } from "@/components/ui/Loader/Loader";
 import { PlanSeatsSelector } from "@/components/ui/PlanSeatsSelector/PlanSeatsSelector";
@@ -61,7 +63,6 @@ import {
     Lock,
     Mail,
     Pencil,
-    AlertTriangle,
     XCircle,
     RotateCcw,
     CalendarRange
@@ -1455,19 +1456,10 @@ export default function SubscriptionPage() {
                             />
 
                             {isDowngradeToBase && (
-                                <div className={styles.changeWarning}>
-                                    <AlertTriangle size={16} />
-                                    <Text variant="body-sm" weight={500}>
-                                        Passando a Base, ordini e prenotazioni da QR verranno disattivati al rinnovo.
-                                    </Text>
-                                </div>
+                                <InlineBanner variant="warning">Passando a Base, ordini e prenotazioni da QR verranno disattivati al rinnovo.</InlineBanner>
                             )}
 
-                            {changeError && (
-                                <Text variant="body-sm" className={styles.changeError}>
-                                    {changeError}
-                                </Text>
-                            )}
+                            {changeError && <InlineBanner variant="error">{changeError}</InlineBanner>}
                         </div>
                     ) : changeStep === "when" ? (
                         <div className={styles.changeBody}>
@@ -1476,34 +1468,29 @@ export default function SubscriptionPage() {
                                     <Text variant="body-sm" colorVariant="muted">
                                         Hai un cambio già programmato. Quando vuoi che le sedi in più siano attive?
                                     </Text>
-                                    <div className={styles.whenOptions}>
-                                        <button
-                                            type="button"
-                                            className={`${styles.whenOption} ${applyAt === "now" ? styles.whenOptionSelected : ""}`}
-                                            onClick={() => setApplyAt("now")}
-                                        >
-                                            <Text variant="body" weight={600}>Attive subito</Text>
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                {whenTrialEnds
+                                    <RadioGroup
+                                        variant="card"
+                                        label="Le sedi in più"
+                                        value={applyAt}
+                                        onChange={value => setApplyAt(value as "now" | "renewal")}
+                                        options={[
+                                            {
+                                                value: "now",
+                                                label: "Attive subito",
+                                                description: whenTrialEnds
                                                     ? `Le sedi in più valgono da ora. Sei in prova: nessun addebito fino al ${formatDate(whenTrialEnds)}.`
-                                                    : "Le sedi in più valgono da ora: paghi il prorata per i giorni rimanenti del periodo."}
-                                            </Text>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            className={`${styles.whenOption} ${applyAt === "renewal" ? styles.whenOptionSelected : ""}`}
-                                            onClick={() => setApplyAt("renewal")}
-                                        >
-                                            <Text variant="body" weight={600}>Dal rinnovo</Text>
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                Nessun addebito oggi. Le sedi partono dal {formatDate(periodEndDate)},
-                                                sul piano {pendingPlanName} già programmato.
-                                            </Text>
-                                        </button>
-                                    </div>
+                                                    : "Le sedi in più valgono da ora: paghi il prorata per i giorni rimanenti del periodo."
+                                            },
+                                            {
+                                                value: "renewal",
+                                                label: "Dal rinnovo",
+                                                description: `Nessun addebito oggi. Le sedi partono dal ${formatDate(periodEndDate)}, sul piano ${pendingPlanName} già programmato.`
+                                            }
+                                        ]}
+                                    />
                                 </>
                             ) : (
-                                <div className={styles.whenInfo}>
+                                <div className={styles.changeBody}>
                                     {whenKind === "tier-up" && (
                                         <Text variant="body-sm">
                                             L&apos;upgrade si applica <strong>subito</strong>: avrai le nuove
@@ -1538,27 +1525,17 @@ export default function SubscriptionPage() {
                                         </Text>
                                     )}
                                     {isDowngradeToBase && (whenKind === "downgrade" || whenKind === "mixed") && (
-                                        <div className={styles.changeWarning}>
-                                            <AlertTriangle size={16} />
-                                            <Text variant="body-sm" weight={500}>
-                                                Passando a Base, ordini e prenotazioni da QR verranno disattivati
-                                                al rinnovo.
-                                            </Text>
-                                        </div>
+                                        <InlineBanner variant="warning">Passando a Base, ordini e prenotazioni da QR verranno disattivati al rinnovo.</InlineBanner>
                                     )}
                                 </div>
                             )}
 
-                            {changeError && (
-                                <Text variant="body-sm" className={styles.changeError}>
-                                    {changeError}
-                                </Text>
-                            )}
+                            {changeError && <InlineBanner variant="error">{changeError}</InlineBanner>}
                         </div>
                     ) : (
                         <div className={styles.changeBody}>
                             {preview && (
-                                <div className={styles.confirmBox}>
+                                <Card bodyClassName={styles.confirmBody}>
                                     {preview.classification === "combined" ? (
                                         <>
                                             <div className={styles.confirmRow}>
@@ -1574,7 +1551,7 @@ export default function SubscriptionPage() {
                                                     ? "La sede aggiunta è attiva subito, riproporzionata a tariffa Pro fino al rinnovo."
                                                     : `Le ${seatDir} sedi aggiunte sono attive subito, riproporzionate a tariffa Pro fino al rinnovo.`}
                                             </Text>
-                                            <div className={styles.confirmDivider} />
+                                            <Divider />
                                             <Text variant="body-sm" colorVariant="muted">
                                                 Il piano passerà a {combinedPlanName} il {formatDate(preview.nextDate)};{" "}
                                                 {previewTrialEnds
@@ -1583,12 +1560,7 @@ export default function SubscriptionPage() {
                                                         : "il primo addebito sarà quel giorno."
                                                     : `da quella data pagherai ${formatCents(preview.nextAmount)}${unit}.`}
                                             </Text>
-                                            <div className={styles.changeWarning}>
-                                                <AlertTriangle size={16} />
-                                                <Text variant="body-sm" weight={500}>
-                                                    Ordini e prenotazioni da QR verranno disattivati al rinnovo.
-                                                </Text>
-                                            </div>
+                                            <InlineBanner variant="warning">Ordini e prenotazioni da QR verranno disattivati al rinnovo.</InlineBanner>
                                         </>
                                     ) : preview.effective === "now" ? (
                                         <>
@@ -1603,7 +1575,7 @@ export default function SubscriptionPage() {
                                                     ? `Sei in prova gratuita: le novità sono attive subito e non ti viene addebitato nulla fino al ${formatDate(previewTrialEnds)}.`
                                                     : "Importo riproporzionato per i giorni rimanenti del periodo in corso."}
                                             </Text>
-                                            <div className={styles.confirmDivider} />
+                                            <Divider />
                                             <div className={styles.confirmRow}>
                                                 <Text variant="body-sm" colorVariant="muted">
                                                     {previewTrialEnds
@@ -1634,30 +1606,21 @@ export default function SubscriptionPage() {
                                                 Da quella data pagherai {formatCents(preview.nextAmount)}{unit}.
                                             </Text>
                                             {isDowngradeToBase && (
-                                                <div className={styles.changeWarning}>
-                                                    <AlertTriangle size={16} />
-                                                    <Text variant="body-sm" weight={500}>
-                                                        Ordini e prenotazioni da QR verranno disattivati al rinnovo.
-                                                    </Text>
-                                                </div>
+                                                <InlineBanner variant="warning">Ordini e prenotazioni da QR verranno disattivati al rinnovo.</InlineBanner>
                                             )}
                                         </>
                                     )}
-                                </div>
+                                </Card>
                             )}
 
-                            {changeError && (
-                                <Text variant="body-sm" className={styles.changeError}>
-                                    {changeError}
-                                </Text>
-                            )}
+                            {changeError && <InlineBanner variant="error">{changeError}</InlineBanner>}
                         </div>
                     )}
                 </DrawerLayout>
             </SystemDrawer>
 
             {/* --- Drawer cambio di intervallo (passi 4a/4b) --- */}
-            <SystemDrawer open={isIntervalOpen} onClose={closeIntervalChange} width={480}>
+            <SystemDrawer open={isIntervalOpen} onClose={closeIntervalChange} size="md">
                 <DrawerLayout
                     header={
                         <Text variant="title-sm" weight={600}>{INTERVAL_ACTION_LABEL[intervalTarget]}</Text>
@@ -1682,20 +1645,20 @@ export default function SubscriptionPage() {
                 >
                     <div className={styles.changeBody}>
                         {intervalPreviewLoading && (
-                            <div className={styles.confirmBox}>
+                            <Card bodyClassName={styles.confirmBody}>
                                 <Skeleton height="1.6em" width="70%" radius="4px" />
                                 <Skeleton height="1.2em" width="90%" radius="4px" />
                                 <Skeleton height="1.2em" width="80%" radius="4px" />
-                            </div>
+                            </Card>
                         )}
                         {intervalPreview && (
-                            <div className={styles.confirmBox}>
+                            <Card bodyClassName={styles.confirmBody}>
                                 {intervalPreview.trialEndsAt ? (
                                     <>
                                         <div className={styles.confirmRow}>
                                             <Text variant="title-sm" weight={700}>Nessun addebito ora.</Text>
                                         </div>
-                                        <div className={styles.confirmDivider} />
+                                        <Divider />
                                         <Text variant="body-sm" colorVariant="muted">
                                             {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"}:{" "}
                                             {formatCents(intervalPreview.nextAmount)} {intervalTarget === "year" ? "all'anno" : "al mese"}.
@@ -1712,7 +1675,7 @@ export default function SubscriptionPage() {
                                                 Fino alla scadenza dell&apos;anno in corso non cambia nulla: stesso piano, stesse sedi, nessun rimborso e nessun addebito.
                                             </Text>
                                         </div>
-                                        <div className={styles.confirmDivider} />
+                                        <Divider />
                                         <Text variant="body-sm" colorVariant="muted">
                                             Il passaggio al mensile avviene il{" "}
                                             <strong>{formatDate(intervalPreview.nextDate)}</strong>, alla scadenza dell&apos;anno in corso.
@@ -1721,7 +1684,7 @@ export default function SubscriptionPage() {
                                             Da quella data: {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"},{" "}
                                             <strong>{formatCents(intervalPreview.nextAmount)} al mese</strong>.
                                         </Text>
-                                        <div className={styles.confirmDivider} />
+                                        <Divider />
                                         <Text variant="body-sm" colorVariant="muted">
                                             Puoi annullare la richiesta in qualsiasi momento prima del{" "}
                                             {formatDate(intervalPreview.nextDate)}, da questa pagina.
@@ -1735,7 +1698,7 @@ export default function SubscriptionPage() {
                                                 {formatCents(intervalPreview.chargeToday)}
                                             </Text>
                                         </div>
-                                        <div className={styles.confirmDivider} />
+                                        <Divider />
                                         <Text variant="body-sm" colorVariant="muted">
                                             {displayPlanName} · {displaySeats} {displaySeats === 1 ? "sede" : "sedi"}:{" "}
                                             {formatCents(intervalPreview.nextAmount)} all&apos;anno.
@@ -1748,25 +1711,21 @@ export default function SubscriptionPage() {
                                             Non consumato del mese in corso già scalato:{" "}
                                             −{formatCents(Math.max(0, -(intervalPreview.prorationCreditCents ?? 0)))}.
                                         </Text>
-                                        <div className={styles.confirmDivider} />
+                                        <Divider />
                                         <Text variant="body-sm" colorVariant="muted">
                                             L&apos;addebito avviene ora sul metodo di pagamento salvato.
                                         </Text>
                                     </>
                                 )}
-                            </div>
+                            </Card>
                         )}
-                        {intervalError && (
-                            <Text variant="body-sm" className={styles.changeError}>
-                                {intervalError}
-                            </Text>
-                        )}
+                        {intervalError && <InlineBanner variant="error">{intervalError}</InlineBanner>}
                     </div>
                 </DrawerLayout>
             </SystemDrawer>
 
             {/* --- Drawer conferma disdetta --- */}
-            <SystemDrawer open={isCancelOpen} onClose={() => { if (!cancelLoading) setIsCancelOpen(false); }} width={480}>
+            <SystemDrawer open={isCancelOpen} onClose={() => { if (!cancelLoading) setIsCancelOpen(false); }} size="md">
                 <DrawerLayout
                     header={
                         <Text variant="title-sm" weight={600}>Disdici abbonamento</Text>
@@ -1796,15 +1755,7 @@ export default function SubscriptionPage() {
                                 </>
                             )}
                         </Text>
-                        <div className={styles.changeWarning}>
-                            <AlertTriangle size={16} />
-                            <Text variant="body-sm" weight={500}>
-                                Fino a quella data ordini, prenotazioni e cataloghi restano pienamente attivi.{" "}
-                                {status === "trialing"
-                                    ? "Potrai annullare la disdetta in qualsiasi momento prima di quella data."
-                                    : "Potrai annullare la disdetta in qualsiasi momento prima del rinnovo."}
-                            </Text>
-                        </div>
+                        <InlineBanner variant="warning">Fino a quella data ordini, prenotazioni e cataloghi restano pienamente attivi.{" "} {status === "trialing" ? "Potrai annullare la disdetta in qualsiasi momento prima di quella data." : "Potrai annullare la disdetta in qualsiasi momento prima del rinnovo."}</InlineBanner>
                     </div>
                 </DrawerLayout>
             </SystemDrawer>
@@ -1813,7 +1764,7 @@ export default function SubscriptionPage() {
             <SystemDrawer
                 open={isCancelScheduleOpen}
                 onClose={() => { if (!cancelScheduleLoading) setIsCancelScheduleOpen(false); }}
-                width={480}
+                size="md"
             >
                 <DrawerLayout
                     header={
