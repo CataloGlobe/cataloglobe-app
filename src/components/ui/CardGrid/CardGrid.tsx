@@ -45,12 +45,14 @@ export function CardGrid({ loading = false, skeletonCount = 6, className, childr
 function CardGridSkeleton() {
     return (
         <div className={styles.item} role="listitem" aria-hidden="true">
-            <div className={styles.media}>
-                <Skeleton width="100%" height="100%" radius="0" />
-            </div>
-            <div className={styles.body}>
-                <Skeleton width="60%" height={14} radius="var(--radius-inner)" />
-                <Skeleton width="40%" height={12} radius="var(--radius-inner)" />
+            <div className={styles.surface}>
+                <div className={styles.media}>
+                    <Skeleton className={styles.mediaSkeleton} radius="0" />
+                </div>
+                <div className={styles.body}>
+                    <Skeleton width="60%" height={14} radius="var(--radius-inner)" />
+                    <Skeleton width="40%" height={12} radius="var(--radius-inner)" />
+                </div>
             </div>
         </div>
     );
@@ -110,7 +112,9 @@ export function CardGridItem({
 
     const body = (
         <>
-            <div className={styles.media}>{mediaNode}</div>
+            <div className={styles.media}>
+                <div className={styles.mediaInner}>{mediaNode}</div>
+            </div>
             <div className={styles.body}>
                 <Text as="div" variant="body-sm" weight={500} className={styles.title}>
                     {title}

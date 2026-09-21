@@ -26,7 +26,9 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-surface);
   box-shadow: var(--shadow-rest);
-  overflow: hidden;
+  // Niente overflow hidden qui: sull'item del grid azzera il contributo
+  // dell'area media (aspect-ratio, padding %) alla riga e la card Skeleton
+  // resta a 84px. Il clip degli angoli lo fa .media.
   transition: border-color var(--timing-motion-fast) var(--easing-state);
 }
 
@@ -35,7 +37,9 @@
 .surface {
   display: flex;
   flex-direction: column;
-  flex: 1;
+  // basis auto, non 0: con basis 0 il grid misura la riga senza il box
+  // aspect-ratio e la card Skeleton resta a 84px.
+  flex: 1 1 auto;
   min-width: 0;
   color: inherit;
   text-decoration: none;
@@ -60,15 +64,38 @@
   box-shadow: 0 0 0 1px var(--brand-primary);
 }
 
+// 16:10 con padding in percentuale, non aspect-ratio: dentro un grid
+// item flex, aspect-ratio non contribuisce all'altezza della riga (Chrome)
+// e le card si sovrappongono; il padding % sulla larghezza sì.
 .media {
   position: relative;
-  aspect-ratio: 16 / 10;
+  flex: 0 0 auto;
+  width: 100%;
   background: var(--hover-bg);
   overflow: hidden;
+  border-radius: calc(var(--radius-surface) - 1px) calc(var(--radius-surface) - 1px) 0 0;
+  transition: opacity var(--timing-motion-fast) var(--easing-state);
+
+  &::before {
+    content: "";
+    display: block;
+    padding-top: 62.5%;
+  }
+}
+
+.mediaInner {
+  position: absolute;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: opacity var(--timing-motion-fast) var(--easing-state);
+}
+
+.mediaSkeleton {
+  position: absolute;
+  inset: 0;
+  width: auto !important;
+  height: auto !important;
 }
 
 .image {
