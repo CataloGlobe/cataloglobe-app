@@ -58,11 +58,14 @@ export function PreviewPane({ device = "phone", onDeviceChange, status = "update
     const [drawerOpen, setDrawerOpen] = useState(false);
     const bodyId = useId();
 
+    // Sotto 768 il dispositivo è già un telefono: nel drawer niente cornice
+    // (375 px non starebbero in un drawer da 375).
+    const framed = device !== "plain" && !isPhone;
     const content = error ? (
         <div className={styles.errorBox}>
             <InlineBanner variant="error">{error}</InlineBanner>
         </div>
-    ) : device === "plain" ? (
+    ) : !framed ? (
         <div className={styles.plain}>{loading ? <Skeleton width="100%" height={320} radius="var(--radius-inner)" /> : children}</div>
     ) : (
         <div className={styles.frameHost}>
@@ -97,7 +100,7 @@ export function PreviewPane({ device = "phone", onDeviceChange, status = "update
 
     const bar = (
         <div className={styles.bar}>
-            {onDeviceChange && device !== "plain" ? (
+            {onDeviceChange && framed ? (
                 <SegmentedControl size="sm" value={device} onChange={onDeviceChange} options={DEVICE_OPTIONS} iconsOnly />
             ) : (
                 <Text as="span" variant="body-sm" weight={500}>
