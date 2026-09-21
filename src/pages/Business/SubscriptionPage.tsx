@@ -43,6 +43,8 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { StatusStrip, type StatusStripTone } from "@/components/ui/StatusStrip/StatusStrip";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Card } from "@/components/ui/Card/Card";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { Loader } from "@/components/ui/Loader/Loader";
 import { PlanSeatsSelector } from "@/components/ui/PlanSeatsSelector/PlanSeatsSelector";
 import { AiUsageSection } from "@/pages/Business/components/AiUsageSection";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
@@ -55,7 +57,7 @@ import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import {
     ExternalLink,
     CreditCard,
-    Shield,
+    ChevronRight,
     Lock,
     Mail,
     Pencil,
@@ -1162,7 +1164,7 @@ export default function SubscriptionPage() {
         if (cancelAtPeriodEnd) {
             return {
                 tone: "warning",
-                badge: `Disdetto dal ${formatDate(periodEndDate)}`,
+                badge: "In disdetta",
                 description:
                     status === "trialing"
                         ? `La prova resta attiva fino al ${formatDate(periodEndDate)}, poi non ti verrà addebitato nulla.`
@@ -1224,31 +1226,6 @@ export default function SubscriptionPage() {
                         Gestisci o elimina l&apos;azienda dal Workspace.
                     </button>
                 </Text>
-            )}
-
-            {!subStateLoading && pendingBanner && (
-                <Card title="Cambio programmato">
-                    <div className={styles.pendingBody}>
-                        <Text as="p" variant="body-sm">
-                            {formatPendingChangeLabel({
-                                planName: pendingBanner.planName,
-                                seats: pendingBanner.seats,
-                                interval: pendingBanner.interval,
-                                dateLabel: formatDate(pendingBanner.date)
-                            })}
-                        </Text>
-                        {pendingBanner.isBase && (
-                            <InlineBanner variant="warning">Ordini e prenotazioni da QR verranno disattivati al rinnovo.</InlineBanner>
-                        )}
-                        {canManageBilling && (
-                            <div className={styles.pendingActions}>
-                                <Button variant="secondary" size="sm" onClick={() => setIsCancelScheduleOpen(true)} leftIcon={<XCircle size={14} />}>
-                                    Annulla cambio
-                                </Button>
-                            </div>
-                        )}
-                    </div>
-                </Card>
             )}
 
             {/* --- La prossima sede (§37.6, §37.7) --- */}
@@ -1313,88 +1290,79 @@ export default function SubscriptionPage() {
             {/* --- Utilizzo AI (FASE 5) --- */}
             <AiUsageSection usage={aiUsage} planName={displayPlanName} seats={displaySeats} />
 
-            {/* --- Actions (manage + cancel) --- */}
-            {canManageBilling && (
-            <div className={styles.section}>
-                <div className={styles.sectionHeader}>
-                    <Shield size={18} />
-                    <Text variant="title-sm" weight={600}>
-                        Gestione abbonamento
-                    </Text>
-                </div>
+            {/* --- Gestione (§44.8: ListRow con chevron, una riga per uscita) --- */}
+            {canManageBilling && (pendingBanner || hasSubscriptionRecord) && (
+                <Card title="Gestione" flush>
+                    {!subStateLoading && pendingBanner && (
+                        <ListRow
+                            leading={<CalendarRange size={20} aria-hidden />}
+                            title={`Cambio programmato: ${formatPendingChangeLabel({
+                                planName: pendingBanner.planName,
+                                seats: pendingBanner.seats,
+                                interval: pendingBanner.interval,
+                                dateLabel: formatDate(pendingBanner.date)
+                            })}`}
+                            subtitle={pendingBanner.isBase ? "Ordini e prenotazioni da QR verranno disattivati al rinnovo." : undefined}
+                            trailing={
+                                <Button variant="secondary" size="sm" onClick={() => setIsCancelScheduleOpen(true)} leftIcon={<XCircle size={14} />}>
+                                    Annulla cambio
+                                </Button>
+                            }
+                        />
+                    )}
 
-                {hasSubscriptionRecord && (
-                    <div className={styles.actionCard}>
-                        <div>
-                            <Text variant="body" weight={500}>
-                                Portale di fatturazione
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Modifica il metodo di pagamento, visualizza le fatture o cancella l&apos;abbonamento.
-                            </Text>
-                        </div>
-                        <Button
-                            variant="secondary"
-                            onClick={handlePortal}
-                            disabled={portalLoading}
-                            leftIcon={<ExternalLink size={16} />}
-                        >
-                            {portalLoading ? "Apertura..." : "Gestisci su Stripe"}
-                        </Button>
-                    </div>
-                )}
+                    {hasSubscriptionRecord && (
+                        <ListRow
+                            leading={<ExternalLink size={20} aria-hidden />}
+                            title="Portale di fatturazione"
+                            subtitle="Metodo di pagamento, fatture e ricevute su Stripe."
+                            onClick={() => void handlePortal()}
+                            trailing={portalLoading ? <Loader size="sm" /> : <ChevronRight size={16} aria-hidden />}
+                        />
+                    )}
 
-                {hasSubscriptionRecord && !isTerminal && !subUnavailable && (
-                    <div className={styles.actionCard}>
-                        <div>
-                            <Text variant="body" weight={500}>
-                                {INTERVAL_ACTION_LABEL[oppositeInterval]}
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                {!subStateLoading && pendingIntervalChange === oppositeInterval
-                                    ? `Passaggio ${oppositeInterval === "year" ? "all'annuale" : "al mensile"} già programmato: lo trovi in «Prossimo cambio».`
-                                    : !subStateLoading && intervalBlockReason
-                                    ? INTERVAL_BLOCK_MESSAGE[oppositeInterval][intervalBlockReason]
-                                    : oppositeInterval === "year"
-                                    ? "Stesso piano e stesse sedi, fatturazione una volta all'anno."
-                                    : "Stesso piano e stesse sedi, fatturazione ogni mese dalla scadenza dell'anno in corso."}
-                            </Text>
-                        </div>
-                        {!subStateLoading && !intervalBlockReason && (
-                            <Button
-                                variant="secondary"
-                                onClick={() => openIntervalChange(oppositeInterval)}
-                                leftIcon={<CalendarRange size={16} />}
-                            >
-                                {INTERVAL_ACTION_LABEL[oppositeInterval]}
-                            </Button>
-                        )}
-                    </div>
-                )}
+                    {hasSubscriptionRecord && !isTerminal && !subUnavailable && (() => {
+                        const alreadyPending = !subStateLoading && pendingIntervalChange === oppositeInterval;
+                        const blocked = !subStateLoading && intervalBlockReason !== null;
+                        const subtitle = alreadyPending
+                            ? "Lo trovi qui sopra, in «Cambio programmato»."
+                            : blocked
+                            ? INTERVAL_BLOCK_MESSAGE[oppositeInterval][intervalBlockReason]
+                            : oppositeInterval === "year"
+                            ? "Stesso piano e stesse sedi, fatturazione una volta all'anno."
+                            : "Stesso piano e stesse sedi, fatturazione ogni mese dalla scadenza dell'anno in corso.";
+                        const enabled = !subStateLoading && !alreadyPending && !blocked;
+                        return (
+                            <ListRow
+                                leading={<CalendarRange size={20} aria-hidden />}
+                                title={INTERVAL_ACTION_LABEL[oppositeInterval]}
+                                subtitle={subtitle}
+                                wrapSubtitle
+                                muted={!enabled}
+                                onClick={enabled ? () => void openIntervalChange(oppositeInterval) : undefined}
+                                trailing={enabled ? <ChevronRight size={16} aria-hidden /> : undefined}
+                            />
+                        );
+                    })()}
 
-                {canCancelBilling && hasSubscriptionRecord && !isTerminal && !cancelAtPeriodEnd && !subUnavailable && (
-                    <div className={styles.actionCard}>
-                        <div>
-                            <Text variant="body" weight={500}>
-                                Disdici abbonamento
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                {status === "trialing"
-                                    ? `La disdetta avrà effetto alla fine della prova, il ${formatDate(periodEndDate)}. Non ti verrà addebitato nulla.`
-                                    : "La disdetta ha effetto a fine periodo. Nessun rimborso; tutto resta attivo fino ad allora."}
-                            </Text>
-                        </div>
-                        <Button
-                            variant="secondary"
-                            onClick={() => setIsCancelOpen(true)}
-                            leftIcon={<XCircle size={16} />}
-                        >
-                            Disdici
-                        </Button>
-                    </div>
-                )}
-
-            </div>
+                    {canCancelBilling && hasSubscriptionRecord && !isTerminal && !subUnavailable && (
+                        <ListRow
+                            leading={<XCircle size={20} aria-hidden />}
+                            title="Disdici abbonamento"
+                            subtitle={
+                                cancelAtPeriodEnd
+                                    ? `Disdetta programmata per il ${formatDate(periodEndDate)}: la riattivi qui sopra.`
+                                    : status === "trialing"
+                                    ? `Ha effetto alla fine della prova, il ${formatDate(periodEndDate)}. Non ti verrà addebitato nulla.`
+                                    : "Ha effetto a fine periodo: nessun rimborso, tutto resta attivo fino ad allora."
+                            }
+                            wrapSubtitle
+                            muted={cancelAtPeriodEnd}
+                            onClick={cancelAtPeriodEnd ? undefined : () => setIsCancelOpen(true)}
+                            trailing={cancelAtPeriodEnd ? undefined : <ChevronRight size={16} aria-hidden />}
+                        />
+                    )}
+                </Card>
             )}
 
             {/* --- Drawer "Modifica piano" self-service --- */}
