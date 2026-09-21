@@ -10,10 +10,12 @@ $global-header-height: 56px;
 .globalHeader {
   height: $global-header-height;
   flex-shrink: 0;
-  background: #fff;
-  border-bottom: 1px solid #E5E7EB;
+  // Superficie a tema: con #fff fisso, in scuro la foglia del breadcrumb
+  // (--text, chiara) spariva su fondo bianco.
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   position: relative;
-  z-index: 30;
+  z-index: var(--z-nav);
 }
 
 .body {
