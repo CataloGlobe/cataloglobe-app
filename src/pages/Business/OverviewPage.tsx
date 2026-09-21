@@ -1,15 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-    CheckCircle2,
-    Circle,
-    ChevronRight,
+    BookOpenText,
+    CalendarCheck,
+    ClipboardList,
     Copy,
     Download,
     ExternalLink,
     Image as ImageIcon,
+    Languages,
+    MessageSquare,
+    Palette,
     PauseCircle,
-    Wand2
+    Pin,
+    Users
 } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useTenantId } from "@/context/useTenantId";
@@ -19,7 +23,12 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { canDoOnActivity, isOwnerOrAdmin } from "@/lib/permissions";
 import Text from "@/components/ui/Text/Text";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
-import { getTenantSetupStatus, type TenantSetupStatus } from "@/services/supabase/overviewStats";
+import {
+    getTenantCapabilities,
+    getTenantSetupStatus,
+    type TenantCapabilities,
+    type TenantSetupStatus
+} from "@/services/supabase/overviewStats";
 import { getActivities } from "@/services/supabase/activities";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import type { V2Activity } from "@/types/activity";
@@ -36,7 +45,7 @@ import { TableRowActions, type TableRowAction } from "@/components/ui/TableRowAc
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
-import { Checklist } from "@/components/ui/Checklist/Checklist";
+import { Checklist, type ChecklistItem } from "@/components/ui/Checklist/Checklist";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -85,17 +94,6 @@ const MAX_VISIBLE_LOCATIONS = 6;
 /** Larghezza dello skeleton a pillola del menù in caricamento: la lunghezza
  *  tipica del nome di un catalogo, in difetto (uno più corto non lascia buco). */
 const MENU_SKELETON_WIDTH = "110px";
-
-type SetupStep = {
-    id: string;
-    done: boolean;
-    /** Titolo a passo compiuto (constatazione). */
-    doneTitle: string;
-    /** Titolo a passo da compiere (azione), usato sia per `next` che per `todo`. */
-    todoTitle: string;
-    description: string;
-    to: string;
-};
 
 /**
  * Stato lasciato da `SetupWizardPage` all'uscita dal percorso guidato. Vive
@@ -158,7 +156,10 @@ export default function OverviewPage() {
     }, [setupExit, pathname, navigate, showToast, tenantId, catalogLabel]);
 
     const [setup, setSetup] = useState<TenantSetupStatus | null>(null);
-    const [loadingSetup, setLoadingSetup] = useState(true);
+    const [setupStatus, setSetupStatus] = useState<FetchStatus>("idle");
+    const [setupRetry, setSetupRetry] = useState(0);
+    const [capabilities, setCapabilities] = useState<TenantCapabilities | null>(null);
+    const [capabilitiesStatus, setCapabilitiesStatus] = useState<FetchStatus>("idle");
     const [locations, setLocations] = useState<Locations | null>(null);
     const [locationsStatus, setLocationsStatus] = useState<FetchStatus>("idle");
     const [locationsRetry, setLocationsRetry] = useState(0);
@@ -198,7 +199,9 @@ export default function OverviewPage() {
     if (tenantId !== loadedTenantId) {
         setLoadedTenantId(tenantId);
         setSetup(null);
-        setLoadingSetup(true);
+        setSetupStatus("idle");
+        setCapabilities(null);
+        setCapabilitiesStatus("idle");
         setLocations(null);
         setLocationsStatus("idle");
         setCatalogFetch({ status: "loading", byActivity: {} });
@@ -217,26 +220,24 @@ export default function OverviewPage() {
         let cancelled = false;
 
         async function loadSetup() {
-            setLoadingSetup(true);
+            setSetupStatus("loading");
             try {
                 const status = await getTenantSetupStatus(tenantId!);
                 if (cancelled) return;
                 setSetup(status);
+                setSetupStatus("ready");
             } catch (error) {
+                // Niente toast e niente skeleton perenne: la card lo dichiara
+                // con un banner e un «Riprova».
                 console.error("[OverviewPage] setup status failed:", error);
                 if (cancelled) return;
-                showToast({
-                    message: "Non è stato possibile verificare lo stato della configurazione.",
-                    type: "error"
-                });
-            } finally {
-                if (!cancelled) setLoadingSetup(false);
+                setSetupStatus("error");
             }
         }
 
         loadSetup();
         return () => { cancelled = true; };
-    }, [tenantId, canSeeSetup, showToast]);
+    }, [tenantId, canSeeSetup, setupRetry]);
 
     // Le basi complete sono il prerequisito della vetrina per owner/admin
     // (§42.1: finché mancano, la pagina è solo la checklist).
@@ -322,6 +323,30 @@ export default function OverviewPage() {
         return () => { cancelled = true; };
     }, [tenantId, showcaseWanted, locationsRetry]);
 
+    // Le capacità seguono le basi: finché mancano, «Cosa hai attivato»
+    // sarebbe un elenco di cose che non puoi ancora usare (§42.1).
+    useEffect(() => {
+        if (!tenantId || !canSeeSetup || !setupIsComplete) return;
+        let cancelled = false;
+
+        async function loadCapabilities() {
+            setCapabilitiesStatus("loading");
+            try {
+                const result = await getTenantCapabilities(tenantId!);
+                if (cancelled) return;
+                setCapabilities(result);
+                setCapabilitiesStatus("ready");
+            } catch (error) {
+                console.error("[OverviewPage] capabilities failed:", error);
+                if (cancelled) return;
+                setCapabilitiesStatus("error");
+            }
+        }
+
+        loadCapabilities();
+        return () => { cancelled = true; };
+    }, [tenantId, canSeeSetup, setupIsComplete, locationsRetry]);
+
     const activeCount = locations?.active.length ?? 0;
     // Sottotitolo solo per i ruoli scoped: la RLS non dice quante sedi ha
     // l'azienda in tutto, quindi il testo dice cosa si vede, non cosa manca.
@@ -350,56 +375,224 @@ export default function OverviewPage() {
     const b = `/business/${tenantId}`;
 
     // I passi sono una sequenza, non una lista paritaria: ognuno serve al
-    // successivo. Lo stato è derivato dai dati, niente flag persistiti.
-    const setupSteps: SetupStep[] = [
-        {
-            id: "location",
-            done: setup?.hasActiveLocation ?? false,
-            doneTitle: "Sede pubblicata",
+    // successivo. Lo stato è derivato dai dati, niente flag persistiti. Il
+    // titolo è l'azione finché il passo è aperto, la constatazione quando è
+    // fatto; la descrizione resta solo sui passi aperti.
+    const step = (
+        id: string,
+        done: boolean,
+        doneTitle: string,
+        todoTitle: string,
+        description: string,
+        to: string
+    ): ChecklistItem => ({
+        id,
+        done,
+        title: done ? doneTitle : todoTitle,
+        description: done ? undefined : description,
+        onAction: () => navigate(to)
+    });
+    const checklistItems: ChecklistItem[] = [
+        step(
+            "location",
+            setup?.hasActiveLocation ?? false,
+            "Sede pubblicata",
             // Zero sedi e sede sospesa sono due situazioni diverse: nel secondo
             // caso la sede c'è già e l'azione è riattivarla, non crearne una.
-            todoTitle: setup?.hasAnyLocation ? "Pubblica una sede" : "Crea la prima sede",
-            description: setup?.hasAnyLocation
+            setup?.hasAnyLocation ? "Pubblica una sede" : "Crea la prima sede",
+            setup?.hasAnyLocation
                 ? "Hai una sede sospesa: finché resta così, la pagina non è raggiungibile."
                 : "È il locale che i clienti raggiungono con il QR.",
-            to: `${b}/locations`
-        },
-        {
-            id: "products",
-            done: setup?.hasProducts ?? false,
-            doneTitle: "Prodotti aggiunti",
-            todoTitle: "Aggiungi i primi prodotti",
-            description: `Piatti, bevande, prezzi: li crei una volta e li riusi in ogni ${catalogLower}.`,
-            to: `${b}/products`
-        },
-        {
-            id: "catalog",
-            done: setup?.hasPopulatedCatalog ?? false,
-            doneTitle: `${catalogLabel} pronto`,
-            todoTitle: `Crea un ${catalogLower}`,
-            description: `I prodotti vanno organizzati in un ${catalogLower} per essere mostrati ai clienti.`,
-            to: `${b}/catalogs`
-        },
-        {
-            id: "rule",
-            done: setup?.hasActiveLayoutRule ?? false,
-            doneTitle: "Regola attiva",
-            todoTitle: "Attiva una regola",
-            description: `Decide quale ${catalogLower} mostrare in quale sede. Senza, la pagina resta vuota.`,
-            to: `${b}/scheduling`
-        }
+            `${b}/locations`
+        ),
+        step(
+            "products",
+            setup?.hasProducts ?? false,
+            "Prodotti aggiunti",
+            "Aggiungi i primi prodotti",
+            `Piatti, bevande, prezzi: li crei una volta e li riusi in ogni ${catalogLower}.`,
+            `${b}/products`
+        ),
+        step(
+            "catalog",
+            setup?.hasPopulatedCatalog ?? false,
+            `${catalogLabel} pronto`,
+            `Crea un ${catalogLower}`,
+            `I prodotti vanno organizzati in un ${catalogLower} per essere mostrati ai clienti.`,
+            `${b}/catalogs`
+        ),
+        step(
+            "rule",
+            setup?.hasActiveLayoutRule ?? false,
+            "Regola attiva",
+            "Attiva una regola",
+            `Decide quale ${catalogLower} mostrare in quale sede. Senza, la pagina resta vuota.`,
+            `${b}/scheduling`
+        )
     ];
 
-    const completedSteps = setupSteps.filter(step => step.done).length;
-    const missingSteps = setupSteps.length - completedSteps;
-    // `next` è la PRIMA voce non soddisfatta: le successive restano spente.
-    const nextStepIndex = setupSteps.findIndex(step => !step.done);
-    const setupComplete = nextStepIndex === -1;
-    const nextStepTag = missingSteps === 1 ? "Ultimo passo" : null;
+    // ── Le basi ──────────────────────────────────────────────────────────────
+    let basesBlock = null;
+    if (canSeeSetup) {
+        if (setupStatus === "error") {
+            basesBlock = (
+                <Card title="Le basi">
+                    <InlineBanner
+                        variant="error"
+                        action={
+                            <Button variant="secondary" size="sm" onClick={() => setSetupRetry(n => n + 1)}>
+                                Riprova
+                            </Button>
+                        }
+                    >
+                        Non riusciamo a verificare la configurazione.
+                    </InlineBanner>
+                </Card>
+            );
+        } else if (setupStatus !== "ready") {
+            basesBlock = <Checklist loading items={[]} />;
+        } else {
+            basesBlock = <Checklist items={checklistItems} />;
+        }
+    }
 
-    // Il blocco compare solo a owner/admin, solo a dati caricati e solo finché
-    // c'è qualcosa da fare: a configurazione completa cede il posto alla vetrina.
-    const showSetupBlock = canSeeSetup && (loadingSetup || !setupComplete);
+    // ── Cosa hai attivato ────────────────────────────────────────────────────
+    // Capacità con uno stato, non conteggi: «cosa di questo prodotto sto
+    // usando» (§38.3). Nomi = voci di sidebar; Traduzioni è «In arrivo» per
+    // definizione (§25.10).
+    const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+    const capability = (
+        key: string,
+        icon: ReactNode,
+        label: string,
+        to: string,
+        state: "active" | "todo" | "soon",
+        detail: string
+    ) => (
+        <ListRow
+            key={key}
+            leading={icon}
+            title={label}
+            subtitle={detail}
+            meta={
+                state === "active" ? (
+                    <StatusBadge variant="success" label="Attivo" />
+                ) : state === "soon" ? (
+                    <StatusBadge variant="info" label="In arrivo" />
+                ) : (
+                    <StatusBadge variant="neutral" label="Non ancora" />
+                )
+            }
+            to={to}
+        />
+    );
+    const c = capabilities;
+    const capabilityRows = c
+        ? [
+              capability(
+                  "styles",
+                  <Palette size={20} />,
+                  businessRouteLabel("styles"),
+                  `${b}/styles`,
+                  c.styles.active ? "active" : "todo",
+                  c.styles.active
+                      ? `${plural(c.styles.total, "stile", "stili")}, ${c.styles.inUse} in uso`
+                      : `Colori e caratteri della tua pagina, senza toccare i ${catalogLower}.`
+              ),
+              capability(
+                  "featured",
+                  <Pin size={20} />,
+                  businessRouteLabel("featured"),
+                  `${b}/featured`,
+                  c.featured.active ? "active" : "todo",
+                  c.featured.active
+                      ? `${plural(c.featured.published, "contenuto pubblicato", "contenuti pubblicati")} su ${c.featured.total}`
+                      : `Un piatto del giorno o una promozione sopra il ${catalogLower}.`
+              ),
+              capability(
+                  "orders",
+                  <ClipboardList size={20} />,
+                  businessRouteLabel("orders"),
+                  `${b}/orders`,
+                  c.ordering.active ? "active" : "todo",
+                  c.ordering.active
+                      ? `attivo su ${plural(c.ordering.locations, "sede", "sedi")} · ${plural(c.ordering.tables, "tavolo", "tavoli")} · ${plural(c.ordering.ordersToday, "ordine oggi", "ordini oggi")}`
+                      : "I clienti ordinano dal QR del tavolo, tu vedi le comande live."
+              ),
+              capability(
+                  "reservations",
+                  <CalendarCheck size={20} />,
+                  businessRouteLabel("reservations"),
+                  `${b}/reservations`,
+                  c.reservations.active ? "active" : "todo",
+                  c.reservations.active
+                      ? `attive su ${plural(c.reservations.locations, "sede", "sedi")} · ${c.reservations.pending} in attesa`
+                      : "Prenotazioni online dalla pagina pubblica, con promemoria."
+              ),
+              capability(
+                  "reviews",
+                  <MessageSquare size={20} />,
+                  businessRouteLabel("reviews"),
+                  `${b}/reviews`,
+                  c.reviews.active ? "active" : "todo",
+                  c.reviews.active
+                      ? `${plural(c.reviews.total, "ricevuta", "ricevute")}, ${c.reviews.pending} senza risposta`
+                      : "La pagina pubblica può chiedere una recensione a fine pasto."
+              ),
+              capability(
+                  "stories",
+                  <BookOpenText size={20} />,
+                  businessRouteLabel("stories"),
+                  `${b}/stories`,
+                  c.stories.active ? "active" : "todo",
+                  c.stories.active
+                      ? plural(c.stories.published, "pubblicata", "pubblicate")
+                      : `Racconta il locale con testo e foto, sotto il ${catalogLower}.`
+              ),
+              capability(
+                  "team",
+                  <Users size={20} />,
+                  businessRouteLabel("team"),
+                  `${b}/team`,
+                  c.team.active ? "active" : "todo",
+                  c.team.active
+                      ? plural(c.team.members, "persona", "persone")
+                      : "Invita chi lavora con te, con i permessi giusti."
+              ),
+              capability(
+                  "languages",
+                  <Languages size={20} />,
+                  businessRouteLabel("languages"),
+                  `${b}/languages`,
+                  "soon",
+                  "Per questo il selettore di lingua non fa ancora niente."
+              )
+          ]
+        : null;
+
+    let capabilitiesBody;
+    if (capabilitiesStatus === "error") {
+        capabilitiesBody = (
+            <InlineBanner
+                variant="error"
+                action={
+                    <Button variant="secondary" size="sm" onClick={() => setLocationsRetry(n => n + 1)}>
+                        Riprova
+                    </Button>
+                }
+            >
+                Non riusciamo a leggere cosa hai attivato.
+            </InlineBanner>
+        );
+    } else if (capabilityRows == null) {
+        capabilitiesBody = (
+            <div className={styles.capabilities}>
+                {[...Array(8)].map((_, i) => <ListRow key={i} loading />)}
+            </div>
+        );
+    } else {
+        capabilitiesBody = <div className={styles.capabilities}>{capabilityRows}</div>;
+    }
 
     // ── Vetrina ──────────────────────────────────────────────────────────────
     const menuStateFor = (activityId: string): ActiveCatalogState =>
@@ -608,130 +801,8 @@ export default function OverviewPage() {
 
     return (
         <div className={styles.page}>
-            {/* ===== Section 2 — Configuration Status ===== */}
-            {showSetupBlock && (
-                <div className={styles.section}>
-                    {loadingSetup || !setup ? (
-                        <>
-                            <Skeleton height="44px" radius="8px" />
-                            <div className={styles.configList}>
-                                {[...Array(4)].map((_, i) => (
-                                    <Skeleton key={i} height="56px" radius="8px" />
-                                ))}
-                            </div>
-                        </>
-                    ) : (
-                        <>
-                            <div className={styles.setupHeader}>
-                                <div className={styles.setupHeading}>
-                                    <Text variant="title-sm" weight={600}>
-                                        Il tuo {catalogLower} non è ancora online
-                                    </Text>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        {missingSteps === 1
-                                            ? `Manca un passaggio: resta solo da dire dove e quando mostrare il ${catalogLower}.`
-                                            : `Mancano ${missingSteps} passaggi. Si fanno in quest'ordine: ognuno serve al successivo.`}
-                                    </Text>
-                                </div>
-                                <div className={styles.setupProgress}>
-                                    <Text variant="caption" colorVariant="muted">
-                                        {completedSteps} di {setupSteps.length}
-                                    </Text>
-                                    <div
-                                        className={styles.setupProgressTrack}
-                                        role="progressbar"
-                                        aria-valuenow={completedSteps}
-                                        aria-valuemin={0}
-                                        aria-valuemax={setupSteps.length}
-                                    >
-                                        <div
-                                            className={styles.setupProgressFill}
-                                            style={{ transform: `scaleX(${completedSteps / setupSteps.length})` }}
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-
-                            {!setup.hasAnyLocation && (
-                                <>
-                                    <button
-                                        type="button"
-                                        className={styles.setupGuided}
-                                        onClick={() => navigate(`${b}/setup`)}
-                                    >
-                                        <span className={styles.setupGuidedIcon} aria-hidden>
-                                            <Wand2 size={18} />
-                                        </span>
-                                        <span className={styles.setupGuidedBody}>
-                                            <Text variant="body-sm" weight={600}>
-                                                Configura con la procedura guidata
-                                            </Text>
-                                            <Text variant="caption" colorVariant="muted">
-                                                Sede, {catalogLower} e pubblicazione in pochi minuti.
-                                            </Text>
-                                        </span>
-                                        <ChevronRight
-                                            size={16}
-                                            className={styles.setupGuidedArrow}
-                                        />
-                                    </button>
-
-                                    <div className={styles.setupDivider}>
-                                        <Text variant="caption" colorVariant="muted">
-                                            Oppure procedi un passo alla volta
-                                        </Text>
-                                    </div>
-                                </>
-                            )}
-
-                            <div
-                                className={styles.configList}
-                                data-guided={!setup.hasAnyLocation || undefined}
-                            >
-                                {setupSteps.map((step, i) => {
-                                    const state = step.done
-                                        ? "done"
-                                        : i === nextStepIndex
-                                            ? "next"
-                                            : "todo";
-
-                                    return (
-                                        <button
-                                            key={step.id}
-                                            className={styles.configItem}
-                                            data-state={state}
-                                            onClick={() => navigate(step.to)}
-                                        >
-                                            <span className={styles.configIcon}>
-                                                {step.done
-                                                    ? <CheckCircle2 size={18} />
-                                                    : <Circle size={18} />
-                                                }
-                                            </span>
-                                            <span className={styles.configBody}>
-                                                <span className={styles.configTitleRow}>
-                                                    <Text variant="body-sm" weight={state === "next" ? 600 : 500}>
-                                                        {step.done ? step.doneTitle : step.todoTitle}
-                                                    </Text>
-                                                    {state === "next" && nextStepTag && (
-                                                        <span className={styles.configTag}>{nextStepTag}</span>
-                                                    )}
-                                                </span>
-                                                {!step.done && (
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        {step.description}
-                                                    </Text>
-                                                )}
-                                            </span>
-                                            <ChevronRight size={14} className={styles.configArrow} />
-                                        </button>
-                                    );
-                                })}
-                            </div>
-                        </>
-                    )}
-                </div>
-            )}
+            {/* Finché le basi mancano, la pagina è solo la checklist (§42.1). */}
+            {canSeeSetup && !setupIsComplete && basesBlock}
 
             {/* ===== B — La vetrina adesso ===== */}
             {showcaseWanted && (
@@ -750,6 +821,16 @@ export default function OverviewPage() {
                 >
                     {showcaseBody}
                 </Card>
+            )}
+
+            {/* ===== C — Cosa hai attivato: le basi collassate + le capacità ===== */}
+            {canSeeSetup && setupIsComplete && (
+                <>
+                    {basesBlock}
+                    <Card title="Cosa hai attivato" flush bodyClassName={styles.rows}>
+                        {capabilitiesBody}
+                    </Card>
+                </>
             )}
         </div>
     );

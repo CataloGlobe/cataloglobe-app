@@ -23,233 +23,27 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
 }
 
-/* ===== Section 2 — Configuration Status ===== */
-.setupHeader {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
+/* ===== C — Cosa hai attivato ===== */
 
-.setupHeading {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-  flex: 1 1 260px;
-}
+// Otto capacità su due colonne sopra 1024 (scheda ListRow, precisazione
+// §44.7); una colonna sotto, come ogni lista.
+.capabilities {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 
-.setupProgress {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-  flex-shrink: 0;
-}
-
-.setupProgressTrack {
-  width: 88px;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--border, #e5e7eb);
-  overflow: hidden;
-}
-
-/* Riempimento su `transform: scaleX()`, non su `width`: la transizione resta
-   sul compositor invece di rilanciare il layout a ogni frame. */
-.setupProgressFill {
-  width: 100%;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--brand-primary);
-  transform-origin: left center;
-  transition: transform 0.25s ease;
-}
-
-.configList {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-/* Percorso consigliato, in testa alla card. Blocco cliccabile e non barra
-   piena: a questa larghezza un'etichetta centrata galleggia nel vuoto, mentre
-   il testo ancorato a sinistra regge. Accento tenue con bordo — resta
-   l'elemento più presente della card senza dominarla. */
-.setupGuided {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 12px;
-  border-radius: 8px;
-  border: 1px solid var(--brand-primary);
-  background: var(--brand-primary-soft);
-  cursor: pointer;
-  text-align: left;
-  font-family: inherit;
-  transition: background 0.15s;
-
-  &:hover {
-    background: var(--brand-primary-soft-hover);
-  }
-}
-
-/* Quadrato pieno: l'unico punto saturo del blocco, tiene l'accento senza
-   estenderlo a tutta la superficie. Bianco su fondo brand come `.stepMarker`
-   del setup e il primario di `Button`. */
-.setupGuidedIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--brand-primary);
-  color: #fff;
-}
-
-.setupGuidedBody {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-  flex: 1 1 auto;
-}
-
-.setupGuidedArrow {
-  flex-shrink: 0;
-  color: var(--brand-primary);
-}
-
-/* Separa i due modi di procedere. Il testo sta nel mezzo: un filetto muto
-   direbbe che sotto c'è dell'altro, non che è la stessa cosa fatta a mano. */
-.setupDivider {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-
-  &::before,
-  &::after {
-    content: "";
-    flex: 1 1 auto;
-    height: 1px;
-    background: var(--border);
-  }
-}
-
-.configItem {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  background: #f8fafc;
-  cursor: pointer;
-  text-align: left;
-  width: 100%;
-  font-family: inherit;
-  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
-
-  &:hover {
-    background: #f1f5f9;
-    border-color: #e2e8f0;
+  // Il divisore di ListRow è «riga dopo riga»: in griglia la prima riga
+  // della seconda colonna lo prenderebbe senza avere niente sopra.
+  > :nth-child(2) {
+    border-top: 0;
   }
 
-  /* Passo chiuso: resta leggibile ma non chiede attenzione. */
-  &[data-state="done"] {
-    background: transparent;
+  @include below-sidebar {
+    grid-template-columns: minmax(0, 1fr);
 
-    .configIcon {
-      color: var(--brand-primary);
-    }
-
-    .configTitleRow {
-      opacity: 0.65;
-    }
-
-    &:hover {
-      background: #f8fafc;
+    > :nth-child(2) {
+      border-top: 1px solid var(--border);
     }
   }
-
-  /* Prossima mossa: l'unica voce evidenziata. */
-  &[data-state="next"] {
-    background: var(--brand-primary-soft);
-    border-color: var(--brand-primary);
-
-    .configIcon {
-      color: var(--brand-primary);
-    }
-  }
-
-  /* Passi successivi: spenti finché non tocca a loro. */
-  &[data-state="todo"] {
-    background: transparent;
-    opacity: 0.55;
-
-    .configIcon {
-      color: #94a3b8;
-    }
-
-    &:hover {
-      background: #f8fafc;
-      opacity: 0.8;
-    }
-  }
-}
-
-/* Con la procedura guidata in cima il richiamo è già speso su di lei: due
-   inviti in concorrenza nella stessa card. L'evidenziazione cade solo lì —
-   senza guida la checklist è l'unico contenuto e indicare il prossimo passo
-   resta utile. Icona in accento e peso del titolo restano in entrambi i casi. */
-.configList[data-guided] .configItem[data-state="next"] {
-  background: transparent;
-  border-color: transparent;
-}
-
-.configIcon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  /* Allinea l'icona alla prima riga di testo, non al blocco intero. */
-  margin-top: 1px;
-}
-
-.configBody {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.configTitleRow {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-
-.configTag {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1.6;
-  padding: 0 8px;
-  border-radius: 4px;
-  white-space: nowrap;
-  color: var(--brand-primary);
-  background: var(--brand-primary-soft);
-}
-
-.configArrow {
-  margin-left: auto;
-  color: #94a3b8;
-  flex-shrink: 0;
-  align-self: center;
 }
 
 /* ===== B — La vetrina adesso ===== */
