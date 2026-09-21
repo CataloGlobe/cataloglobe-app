@@ -26,10 +26,13 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   overflow: hidden;
 }
 
+// In flusso, sotto l'header (--z-nav): il menu tenant che scende
+// dall'header deve passarle sopra. --z-sticky basta per stare sopra il
+// contenuto.
 .desktop {
   position: relative;
   height: 100%;
-  z-index: var(--z-nav);
+  z-index: var(--z-sticky);
 }
 
 // Cassetto su telefono: sopra l'header (--z-nav) e sotto i drawer.
