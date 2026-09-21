@@ -1,0 +1,86 @@
+// ProgressBar — quanto di un tutto, col numero accanto (design system §5,
+// scheda ProgressBar). Altezza 6, radius-pill, traccia hover-bg; il
+// riempimento cambia con motion-base su transform, mai su width.
+
+.root {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  width: 100%;
+  min-width: 0;
+}
+
+.inline {
+  width: auto;
+
+  .track {
+    width: 160px;
+    max-width: 160px;
+  }
+}
+
+.track {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--hover-bg);
+  overflow: hidden;
+}
+
+.fill {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-pill);
+  background: var(--brand-primary);
+  transform-origin: left center;
+  transform: scaleX(0);
+  transition: transform var(--timing-motion-base) var(--easing-state);
+}
+
+.success .fill {
+  background: var(--success-500);
+}
+
+.warning .fill {
+  background: var(--warning-500);
+}
+
+// Senza totale: un riflesso che scorre, come lo Skeleton.
+.indeterminate .fill {
+  transform: none;
+  transition: none;
+  background: linear-gradient(90deg, transparent 0%, var(--brand-primary) 50%, transparent 100%);
+  background-size: 50% 100%;
+  background-repeat: no-repeat;
+  animation: slide 1.2s ease-in-out infinite;
+}
+
+@keyframes slide {
+  0% {
+    background-position: -100% 0;
+  }
+
+  100% {
+    background-position: 300% 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+
+  .indeterminate .fill {
+    animation: none;
+    background: var(--brand-primary);
+    opacity: 0.4;
+  }
+}
+
+.label {
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}

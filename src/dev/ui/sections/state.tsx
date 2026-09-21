@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { OfferBlock } from "@/components/ui/OfferBlock/OfferBlock";
+import { ProgressBar } from "@/components/ui/ProgressBar/ProgressBar";
 import styles from "../DevUiPage.module.scss";
 import { StatusStrip } from "@/components/ui/StatusStrip/StatusStrip";
 import { Checklist, type ChecklistItem } from "@/components/ui/Checklist/Checklist";
@@ -180,8 +181,37 @@ function OfferBlockSection() {
     );
 }
 
+/* ------------------------------------------------------------------ */
+/* ProgressBar                                                         */
+/* ------------------------------------------------------------------ */
+
+function ProgressBarSection() {
+    return (
+        <>
+            <State label="brand: avanzamento («3 di 4», «30 %»)" column>
+                <ProgressBar value={3} max={4} label="3 di 4" />
+                <ProgressBar value={30} label="30 %" />
+            </State>
+            <State label="success: completamento raggiunto" column>
+                <ProgressBar value={4} max={4} variant="success" label="4 di 4" />
+            </State>
+            <State label="warning: oltre l'80 % di un limite (credito AI)" column>
+                <ProgressBar value={15.6} max={18} variant="warning" label="€ 15,60 di € 18" />
+            </State>
+            <State label="indeterminate: import senza totale" column>
+                <ProgressBar variant="indeterminate" label="Importazione in corso" />
+            </State>
+            <State label="inline: max 160 in una riga">
+                <ProgressBar value={12} max={40} label="12 di 40 piatti" inline />
+                <ProgressBar value={0} max={40} label="0 di 40" inline />
+            </State>
+        </>
+    );
+}
+
 export const stateSections: GallerySection[] = [
     { id: "statusstrip", title: "StatusStrip", sheet: "StatusStrip", Component: StatusStripSection },
     { id: "checklist", title: "Checklist", sheet: "Checklist", Component: ChecklistSection },
-    { id: "offerblock", title: "OfferBlock", sheet: "OfferBlock", Component: OfferBlockSection }
+    { id: "offerblock", title: "OfferBlock", sheet: "OfferBlock", Component: OfferBlockSection },
+    { id: "progressbar", title: "ProgressBar", sheet: "ProgressBar", Component: ProgressBarSection }
 ];
