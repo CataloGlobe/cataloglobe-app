@@ -4,8 +4,9 @@ import {
     CheckCircle2,
     Circle,
     ChevronRight,
+    Copy,
     Download,
-    Link as LinkIcon,
+    ExternalLink,
     Image as ImageIcon,
     PauseCircle,
     Wand2
@@ -15,7 +16,7 @@ import { useTenantId } from "@/context/useTenantId";
 import { usePageHeader } from "@/context/usePageHeader";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useToast } from "@/context/Toast/ToastContext";
-import { isOwnerOrAdmin } from "@/lib/permissions";
+import { canDoOnActivity, isOwnerOrAdmin } from "@/lib/permissions";
 import Text from "@/components/ui/Text/Text";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { getTenantSetupStatus, type TenantSetupStatus } from "@/services/supabase/overviewStats";
@@ -25,19 +26,21 @@ import type { V2Activity } from "@/types/activity";
 import { formatInactiveReason } from "@/utils/activityStatus";
 import { getActiveCatalogForActivities, type ActiveCatalogMeta } from "@/services/supabase/activeCatalog";
 import {
-    ACTIVE_CATALOG_ERROR_LABEL,
-    ACTIVE_CATALOG_NONE_LABEL,
     activeCatalogDisplayName,
     deriveActiveCatalogState,
     type ActiveCatalogState,
     type CatalogFetchStatus
 } from "@/utils/activeCatalogStatus";
 import { QrCode, type QrCodeHandle } from "@/components/ui/QrCode/QrCode";
-import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import { TableRowActions, type TableRowAction } from "@/components/ui/TableRowActions/TableRowActions";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { Checklist } from "@/components/ui/Checklist/Checklist";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { businessRouteLabel } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import styles from "./OverviewPage.module.scss";
 
@@ -50,275 +53,38 @@ type PublicLocation = {
     publicUrl: string;
 };
 
-/**
- * Sede sospesa: esiste, ma adesso non ha una pagina pubblica.
- *
- * Niente `slug` né `publicUrl` nel tipo, di proposito: un QR o un link qui
- * porterebbero a una pagina che non risponde, e il blocco starebbe promettendo
- * una vetrina chiusa.
- */
+/** Sede sospesa: esiste, ma adesso non ha una pagina pubblica. Niente `slug`
+ *  né `publicUrl` di proposito: un QR qui porterebbe a una vetrina chiusa. */
 type SuspendedLocation = {
     id: string;
     name: string;
-    /** Valore grezzo dal DB: `null` quando la sospensione non dichiara un
-     *  motivo. Formattato solo al momento di renderlo. */
+    /** `null` quando la sospensione non dichiara un motivo. */
     reason: V2Activity["inactive_reason"];
 };
 
+type Locations = { active: PublicLocation[]; suspended: SuspendedLocation[] };
+
+/** `idle` = non ancora richiesto (il blocco non si vede); `error` è distinto
+ *  da «vuoto», così la pagina dichiara ciò che non ha potuto leggere. */
+type FetchStatus = "idle" | "loading" | "ready" | "error";
+
 /**
- * Esito della risoluzione del menù attivo per l'intero blocco.
- *
- * `status` è tenuto separato dai dati proprio per non ricadere nell'inferenza
- * "mappa vuota = nessun menù": una risoluzione fallita e una vetrina davvero
- * spenta producevano lo stesso stato, e la pagina dichiarava spento ciò che non
- * aveva potuto leggere.
+ * Esito della risoluzione del menù attivo per l'intero blocco. `status` è
+ * separato dai dati per non inferire "mappa vuota = nessun menù": una
+ * risoluzione fallita e una vetrina spenta non sono la stessa cosa.
  */
 type CatalogFetchState = {
     status: CatalogFetchStatus;
     byActivity: Record<string, ActiveCatalogMeta>;
 };
 
-/**
- * Larghezza del placeholder, in px assoluti.
- *
- * NON in percentuale: `.menuLine` è un flex item senza `flex-grow` né `width`,
- * quindi la sua larghezza dipende dal contenuto. Una percentuale si risolverebbe
- * su un contenitore a larghezza indefinita e collasserebbe a 0 — placeholder
- * invisibile. 110px è la lunghezza tipica del nome di un catalogo (10-16
- * caratteri a `caption`/`body-sm`), leggermente in difetto: uno skeleton più
- * corto del testo che arriva non lascia buco, uno più lungo sì.
- */
+/** Con più sedi l'elenco si ferma qui e rimanda a Sedi: in produzione il
+ *  massimo è 7, quasi sempre si vede tutto. */
+const MAX_VISIBLE_LOCATIONS = 6;
+
+/** Larghezza dello skeleton a pillola del menù in caricamento: la lunghezza
+ *  tipica del nome di un catalogo, in difetto (uno più corto non lascia buco). */
 const MENU_SKELETON_WIDTH = "110px";
-
-/**
- * Placeholder della riga "menù attivo", reso DENTRO lo stesso `<Text>` che
- * ospiterà il testo finale.
- *
- * L'altezza non è mai in px: lo skeleton è inline-block alto `1em`, quindi
- * l'altezza della riga resta quella dello strut del paragrafo — il line-height
- * della variante tipografica. Cambiando `body-sm` o `caption` l'allineamento
- * segue da sé, senza costanti da riallineare a mano.
- */
-function MenuLineSkeleton({ width }: { width: string }) {
-    return <Skeleton height="1em" width={width} radius="6px" className={styles.menuLineSkeleton} />;
-}
-
-/**
- * Le due forme della riga pubblica: scheda (sede unica) ed elenco (più sedi).
- *
- * Prima queste differenze erano dedotte da `qrSize > 60` sparso in tre punti
- * del JSX: una misura in px usata come nome in codice della variante. Qui la
- * variante è dichiarata e le differenze discendono da lei, così aggiungerne una
- * quarta non richiede di ricordarsi della soglia.
- */
-const PUBLIC_ROW_VARIANTS = {
-    card: {
-        qrSize: 104,
-        // QR grande: la correzione alta regge un logo sovrapposto e la stampa.
-        qrLevel: "H",
-        nameVariant: "title-sm",
-        statusVariant: "body-sm"
-    },
-    list: {
-        qrSize: 42,
-        // A 42px la ridondanza di livello H mangerebbe i moduli: 'M' resta
-        // leggibile a schermo, che è l'unico uso di questa taglia.
-        qrLevel: "M",
-        nameVariant: "body-sm",
-        statusVariant: "caption"
-    }
-} as const;
-
-type PublicRowVariant = keyof typeof PUBLIC_ROW_VARIANTS;
-
-/** Elementi che gestiscono il proprio click: la riga non deve rubarglielo.
- *  Stesso elenco di `DataTable` — l'`a` dell'URL e il trigger del menu ⋯
- *  restano quindi indipendenti senza bisogno di `stopPropagation` sparsi. */
-const NESTED_INTERACTIVE_SELECTOR =
-    'button, a, input, select, textarea, [role="menuitem"], [data-row-click-ignore="true"]';
-
-/**
- * Riga di una pagina pubblica: QR · info · azioni.
- *
- * Usata da ENTRAMBE le varianti del blocco. La differenza è una sola prop
- * (`variant`), da cui discendono taglia del QR, cornice, livello di correzione
- * e scala tipografica: tenerle in un solo componente rende il disallineamento
- * impossibile per costruzione invece che per disciplina — etichette, ordine e
- * stile delle azioni non possono divergere.
- *
- * L'intera riga apre la pagina pubblica. È l'azione che il gestore compie ogni
- * volta: chiederle un bersaglio da 100px quando la riga intera è disponibile
- * sarebbe avarizia di superficie, soprattutto su telefono.
- */
-function PublicLocationRow({
-    location,
-    variant,
-    qrRef,
-    onOpen,
-    onCopyLink,
-    onDownloadPng,
-    onDownloadSvg,
-    menuState,
-    menuName
-}: {
-    location: PublicLocation;
-    variant: PublicRowVariant;
-    qrRef: (handle: QrCodeHandle | null) => void;
-    onOpen: () => void;
-    onCopyLink: () => void;
-    onDownloadPng: () => void;
-    onDownloadSvg: () => void;
-    menuState: ActiveCatalogState;
-    menuName: string | null;
-}) {
-    const v = PUBLIC_ROW_VARIANTS[variant];
-
-    return (
-        // Il click di riga è una comodità per il mouse; la tastiera passa dal
-        // link vero sul nome. `DataTable` non offriva un pattern da riusare: la
-        // sua riga cliccabile è solo `onClick`, quindi muta per chi non ha un
-        // mouse. Un `role="link"` sul contenitore avrebbe annidato un `<a>` e un
-        // `<button>` dentro un collegamento — ARIA finto con dentro interattivi
-        // veri, la cosa peggiore delle due.
-        <div
-            className={styles.publicRow}
-            data-variant={variant}
-            onClick={event => {
-                const target = event.target as HTMLElement | null;
-                if (target?.closest(NESTED_INTERACTIVE_SELECTOR)) return;
-                onOpen();
-            }}
-        >
-            <span className={variant === "card" ? styles.qrFrame : styles.qrFrameSm}>
-                <QrCode
-                    ref={qrRef}
-                    value={location.publicUrl}
-                    size={v.qrSize}
-                    level={v.qrLevel}
-                    fileName={`${location.slug}-qr`}
-                />
-            </span>
-
-            <span className={styles.publicRowBody}>
-                <Text variant={v.nameVariant} weight={600}>
-                    {/* Il nome È il collegamento: Tab lo raggiunge, Invio lo
-                        apre, il ring di focus lo prende la riga intera. */}
-                    <a
-                        className={styles.publicRowName}
-                        href={location.publicUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                    >
-                        {location.name}
-                    </a>
-                </Text>
-                <a
-                    className={styles.publicRowUrl}
-                    href={location.publicUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >
-                    {location.publicUrl}
-                </a>
-                <MenuStatusLine variant={v.statusVariant} state={menuState} menuName={menuName} />
-            </span>
-
-            <span className={styles.publicRowActions}>
-                {/* Trigger sempre visibile, mai on-hover: su telefono l'hover
-                    non esiste, e un'azione che non si trova non esiste. */}
-                <TableRowActions
-                    actions={[
-                        { label: "Copia link", icon: LinkIcon, onClick: onCopyLink },
-                        { label: "Scarica QR (PNG)", icon: ImageIcon, onClick: onDownloadPng },
-                        { label: "Scarica QR (SVG)", icon: Download, onClick: onDownloadSvg }
-                    ]}
-                />
-            </span>
-        </div>
-    );
-}
-
-/**
- * Riga di una sede sospesa.
- *
- * Deliberatamente più povera della riga pubblicata: niente QR, niente URL,
- * nessun click sull'intera riga. Una sede sospesa non ha una pagina pubblica —
- * darle gli stessi appigli significherebbe offrire di scaricare il QR di una
- * vetrina chiusa. L'unica azione è esplicita e porta dove si risolve il
- * problema, cioè al dettaglio della sede.
- */
-function SuspendedLocationRow({
-    location,
-    onOpen
-}: {
-    location: SuspendedLocation;
-    onOpen: () => void;
-}) {
-    // `formatInactiveReason(null)` risponde "Sospesa": usarlo qui produrrebbe
-    // "Bar Porto è sospesa · Sospesa". Il motivo si formatta solo se esiste.
-    const reason = location.reason ? formatInactiveReason(location.reason) : null;
-
-    return (
-        <div className={styles.suspendedRow}>
-            <span className={styles.suspendedIcon} aria-hidden="true">
-                <PauseCircle size={16} strokeWidth={2} />
-            </span>
-
-            <Text variant="body-sm" colorVariant="muted" className={styles.suspendedText}>
-                <strong className={styles.suspendedName}>{location.name}</strong> è sospesa
-                {reason ? ` · ${reason}` : ""}
-            </Text>
-
-            <Button variant="secondary" size="sm" onClick={onOpen}>
-                Apri sede
-            </Button>
-        </div>
-    );
-}
-
-/**
- * Riga di stato del menù: puntino + testo, mai il colore da solo.
- *
- * `DESIGN.md` fissa la regola per gli stati semantici ("color is always paired
- * with a dot + label") e la misura del puntino (6px); qui è applicata inline
- * invece che con `StatusBadge`, perché una pill sopra ogni riga dell'elenco
- * peserebbe più dell'informazione che porta.
- */
-function MenuStatusLine({
-    variant,
-    state,
-    menuName
-}: {
-    variant: "body-sm" | "caption";
-    /** Quattro stati distinti: `error` non è `none`. */
-    state: ActiveCatalogState;
-    /** Valorizzato solo a stato `resolved`. */
-    menuName: string | null;
-}) {
-    // Il puntino ha uno stato dedicato per l'errore: riusare "off" (vetrina
-    // spenta) direbbe una cosa falsa col colore, che è il canale letto per primo.
-    const dotState =
-        state === "resolved" ? "live" : state === "none" ? "off" : state === "error" ? "unknown" : "loading";
-
-    return (
-        <span className={styles.statusLine}>
-            <span className={styles.statusDot} data-state={dotState} aria-hidden="true" />
-            {/* `as="span"`: lo skeleton è un <div>, che dentro un <p> sarebbe
-                HTML invalido (hydration error). */}
-            <Text as="span" variant={variant} colorVariant="muted" className={styles.menuLine}>
-                {state === "loading" ? (
-                    <MenuLineSkeleton width={MENU_SKELETON_WIDTH} />
-                ) : state === "error" ? (
-                    ACTIVE_CATALOG_ERROR_LABEL
-                ) : state === "resolved" ? (
-                    <strong className={styles.menuName}>{menuName}</strong>
-                ) : (
-                    ACTIVE_CATALOG_NONE_LABEL
-                )}
-            </Text>
-        </span>
-    );
-}
 
 type SetupStep = {
     id: string;
@@ -393,16 +159,13 @@ export default function OverviewPage() {
 
     const [setup, setSetup] = useState<TenantSetupStatus | null>(null);
     const [loadingSetup, setLoadingSetup] = useState(true);
-    const [publicLocations, setPublicLocations] = useState<PublicLocation[] | null>(null);
+    const [locations, setLocations] = useState<Locations | null>(null);
+    const [locationsStatus, setLocationsStatus] = useState<FetchStatus>("idle");
+    const [locationsRetry, setLocationsRetry] = useState(0);
     const [catalogFetch, setCatalogFetch] = useState<CatalogFetchState>({
         status: "loading",
         byActivity: {}
     });
-    /** Sedi non pubblicate. Ricavate dalla stessa `getActivities` già chiamata
-     *  per le sedi attive — `select("*")`, quindi il motivo arriva senza una
-     *  query in più. Prima qui viveva solo un contatore: un numero dice che
-     *  qualcosa è fermo, non quale sede né perché. */
-    const [suspendedLocations, setSuspendedLocations] = useState<SuspendedLocation[]>([]);
 
     // Un handle per sede: ogni QR scarica il proprio file. La mappa è un ref,
     // non uno state — cambiarla non deve far ri-renderizzare la lista.
@@ -414,14 +177,8 @@ export default function OverviewPage() {
         []
     );
 
-    const handleOpenPublicPage = useCallback((url: string) => {
-        window.open(url, "_blank", "noopener,noreferrer");
-    }, []);
-
-    /** La copia negli appunti non lascia traccia visibile: senza conferma il
-     *  gestore non sa se è successo e ripete il gesto. Il toast è la ricevuta.
-     *  `writeText` rifiuta in contesti non sicuri o senza permesso — il catch
-     *  non è teorico. */
+    /** La copia negli appunti non lascia traccia visibile: il toast è la
+     *  ricevuta. `writeText` rifiuta in contesti non sicuri o senza permesso. */
     const handleCopyPublicUrl = useCallback(
         async (url: string) => {
             try {
@@ -436,27 +193,24 @@ export default function OverviewPage() {
 
     // Reset sincrono al cambio tenant, prima del paint. Gli effect girano DOPO
     // il render: senza questo, il primo render sul tenant nuovo rende ancora i
-    // dati del precedente — nome sede, URL pubblico e variante del blocco di un
-    // altro tenant. Azzerare dentro l'effect non basterebbe, lascerebbe comunque
-    // un frame con i dati sbagliati.
-    // Pattern React "adjusting state when a prop changes".
+    // dati del precedente. Pattern React "adjusting state when a prop changes".
     const [loadedTenantId, setLoadedTenantId] = useState<string | null>(tenantId);
     if (tenantId !== loadedTenantId) {
         setLoadedTenantId(tenantId);
         setSetup(null);
         setLoadingSetup(true);
-        setPublicLocations(null);
+        setLocations(null);
+        setLocationsStatus("idle");
         setCatalogFetch({ status: "loading", byActivity: {} });
-        setSuspendedLocations([]);
         qrRefs.current = {};
     }
 
-    usePageHeader({ title: "Panoramica" });
-
     // La checklist è per owner/admin: per i ruoli activity-scoped i count sono
     // filtrati da RLS e possono valere 0 per mancanza di permesso, indistinguibile
-    // da "non configurato".
+    // da "non configurato". La vetrina invece è per tutti (§38.4): la RLS
+    // restringe le sedi a quelle del ruolo senza una riga di codice in più.
     const canSeeSetup = permissions != null && isOwnerOrAdmin(permissions);
+    const isScoped = permissions != null && !isOwnerOrAdmin(permissions);
 
     useEffect(() => {
         if (!tenantId || !canSeeSetup) return;
@@ -484,16 +238,17 @@ export default function OverviewPage() {
         return () => { cancelled = true; };
     }, [tenantId, canSeeSetup, showToast]);
 
-    // Il setup completo è il prerequisito: finché la checklist ha voci aperte
-    // questo blocco non si vede, quindi non ne paghiamo il costo.
+    // Le basi complete sono il prerequisito della vetrina per owner/admin
+    // (§42.1: finché mancano, la pagina è solo la checklist).
     const setupIsComplete = setup != null
         && setup.hasActiveLocation
         && setup.hasProducts
         && setup.hasPopulatedCatalog
         && setup.hasActiveLayoutRule;
+    const showcaseWanted = isScoped || (canSeeSetup && setupIsComplete);
 
     useEffect(() => {
-        if (!tenantId || !canSeeSetup || !setupIsComplete) return;
+        if (!tenantId || !showcaseWanted) return;
         let cancelled = false;
 
         // Due fasi indipendenti, non incatenate: `getActivities` è una query
@@ -501,36 +256,37 @@ export default function OverviewPage() {
         // `getActiveCatalogForActivities` risolve le regole di ogni sede e costa
         // ~1,5s. Attendere la seconda per mostrare la prima terrebbe il blocco
         // vuoto senza motivo.
-        async function loadPublicLocations() {
+        async function loadLocations() {
             let active: PublicLocation[];
+            setLocationsStatus("loading");
 
             // ── Fase 1: struttura ────────────────────────────────────────────
             try {
                 const activities = await getActivities(tenantId!);
                 if (cancelled) return;
 
-                setSuspendedLocations(
-                    activities
-                        .filter(activity => activity.status !== "active")
-                        .sort((a, b) => a.name.localeCompare(b.name, "it"))
-                        .map(activity => ({
-                            id: activity.id,
-                            name: activity.name,
-                            reason: activity.inactive_reason
-                        }))
-                );
-
+                const byName = (a: { name: string }, b: { name: string }) =>
+                    a.name.localeCompare(b.name, "it");
                 active = activities
                     .filter(activity => activity.status === "active")
-                    .sort((a, b) => a.name.localeCompare(b.name, "it"))
+                    .sort(byName)
                     .map(activity => ({
                         id: activity.id,
                         name: activity.name,
                         slug: activity.slug,
                         publicUrl: buildPublicUrl(activity.slug)
                     }));
+                const suspended = activities
+                    .filter(activity => activity.status !== "active")
+                    .sort(byName)
+                    .map(activity => ({
+                        id: activity.id,
+                        name: activity.name,
+                        reason: activity.inactive_reason
+                    }));
 
-                setPublicLocations(active);
+                setLocations({ active, suspended });
+                setLocationsStatus("ready");
                 if (active.length === 0) {
                     // Nessuna sede da risolvere: la fase 2 non parte, ma è
                     // conclusa — non "in errore" e non "in caricamento".
@@ -540,16 +296,12 @@ export default function OverviewPage() {
             } catch (error) {
                 console.error("[OverviewPage] public locations failed:", error);
                 if (cancelled) return;
-                showToast({
-                    message: "Non è stato possibile caricare le pagine pubbliche.",
-                    type: "error"
-                });
+                setLocationsStatus("error");
                 return;
             }
 
             // ── Fase 2: menù attivo per sede ─────────────────────────────────
             // Batch: una sola chiamata per tutte le sedi, mai una per sede.
-            // Riusa il resolver frontend, nessuna logica duplicata qui.
             try {
                 const catalogs = await getActiveCatalogForActivities(
                     tenantId!,
@@ -559,19 +311,30 @@ export default function OverviewPage() {
                 setCatalogFetch({ status: "ready", byActivity: catalogs });
             } catch (error) {
                 // La struttura è già a schermo e resta valida: un fallimento qui
-                // degrada solo la riga del menù, non l'intero blocco. Lo stato
-                // resta `error` — la riga lo dichiara invece di mostrare "spento".
+                // degrada solo il badge del menù, non l'intero blocco.
                 console.error("[OverviewPage] active catalogs failed:", error);
                 if (cancelled) return;
                 setCatalogFetch({ status: "error", byActivity: {} });
             }
         }
 
-        loadPublicLocations();
+        loadLocations();
         return () => { cancelled = true; };
-    }, [tenantId, canSeeSetup, setupIsComplete, showToast]);
+    }, [tenantId, showcaseWanted, locationsRetry]);
 
-    if (tenantLoading || !selectedTenant) {
+    const activeCount = locations?.active.length ?? 0;
+    // Sottotitolo solo per i ruoli scoped: la RLS non dice quante sedi ha
+    // l'azienda in tutto, quindi il testo dice cosa si vede, non cosa manca.
+    const scopedSubtitle =
+        isScoped && locationsStatus === "ready"
+            ? activeCount === 1
+                ? "1 sede nel tuo ruolo · le altre non si vedono"
+                : `${activeCount} sedi nel tuo ruolo · le altre non si vedono`
+            : undefined;
+
+    usePageHeader({ title: "Panoramica", subtitle: scopedSubtitle });
+
+    if (tenantLoading || !selectedTenant || permissions == null) {
         // La forma della pagina che arriva: la vetrina (due righe) e le basi.
         return (
             <div className={styles.page}>
@@ -632,77 +395,216 @@ export default function OverviewPage() {
     // `next` è la PRIMA voce non soddisfatta: le successive restano spente.
     const nextStepIndex = setupSteps.findIndex(step => !step.done);
     const setupComplete = nextStepIndex === -1;
-    // Tag sulla voce `next`: resta solo la chiusura della sequenza. L'"Inizia da
-    // qui" sul primo passo è caduto quando la procedura guidata è salita in cima
-    // alla card: due punti d'inizio in concorrenza, e quello manuale non è
-    // nemmeno il consigliato.
     const nextStepTag = missingSteps === 1 ? "Ultimo passo" : null;
 
     // Il blocco compare solo a owner/admin, solo a dati caricati e solo finché
-    // c'è qualcosa da fare: a configurazione completa cede il posto al blocco
-    // delle pagine pubbliche.
+    // c'è qualcosa da fare: a configurazione completa cede il posto alla vetrina.
     const showSetupBlock = canSeeSetup && (loadingSetup || !setupComplete);
 
-    // Con una sola sede la card porta il QR; con più sedi diventa un elenco,
-    // perché non esiste una sede "principale" da cui prendere il QR.
-    const MAX_VISIBLE_LOCATIONS = 6;
-    // `setupIsComplete` (non `setupComplete`) è la stessa condizione che governa
-    // la fetch: usarla qui evita che il blocco compaia in una combinazione di
-    // stato che l'effect non ha ancora coperto. `!loadingSetup` chiude il caso
-    // del ricaricamento della checklist su un tenant appena selezionato.
-    const showPublicBlock =
-        canSeeSetup
-        && !loadingSetup
-        && setupIsComplete
-        && publicLocations != null
-        && publicLocations.length > 0;
-    const singleLocation = publicLocations?.length === 1 ? publicLocations[0] : null;
-    // Stato per-sede: la riga del menù non deriva più dalla sola presenza della
-    // mappa, così "non risolto" e "nessun menù" restano due cose diverse.
+    // ── Vetrina ──────────────────────────────────────────────────────────────
     const menuStateFor = (activityId: string): ActiveCatalogState =>
         deriveActiveCatalogState(catalogFetch.status, catalogFetch.byActivity[activityId]);
-    const menuNameFor = (activityId: string): string | null =>
-        menuStateFor(activityId) === "resolved"
-            ? activeCatalogDisplayName(catalogFetch.byActivity[activityId])
-            : null;
-    const visibleLocations = publicLocations?.slice(0, MAX_VISIBLE_LOCATIONS) ?? [];
-    // Solo le pubblicate: le sospese non sono più un numero qui, sono righe con
-    // un nome e un motivo in fondo al blocco. Ripeterne il conteggio a due
-    // righe di distanza sarebbe la stessa notizia data due volte, peggio.
-    const publishedCount = publicLocations?.length ?? 0;
-    const locationsSummary =
-        publishedCount === 1 ? "1 sede pubblicata" : `${publishedCount} sedi pubblicate`;
-    const hiddenLocationsCount = Math.max(
-        (publicLocations?.length ?? 0) - MAX_VISIBLE_LOCATIONS,
-        0
+
+    /** Stato del menù: puntino + parola, mai il colore da solo. `error` non è
+     *  `none`: il badge lo dichiara invece di dire «spento». `loading` non è
+     *  uno stato del badge: è uno skeleton a pillola. */
+    const menuBadge = (activityId: string) => {
+        const state = menuStateFor(activityId);
+        if (state === "loading") {
+            return <Skeleton height="22px" width={MENU_SKELETON_WIDTH} radius="var(--radius-pill)" />;
+        }
+        if (state === "resolved") {
+            return (
+                <StatusBadge
+                    variant="success"
+                    label={activeCatalogDisplayName(catalogFetch.byActivity[activityId])}
+                />
+            );
+        }
+        if (state === "error") return <StatusBadge variant="danger" label="Stato non disponibile" />;
+        return <StatusBadge variant="warning" label={`Nessun ${catalogLower} attivo`} />;
+    };
+
+    /** «Risolvi» accompagna solo la vetrina accesa senza menù: il guasto
+     *  silenzioso del prodotto (§38.3). */
+    const resolveButton = (activityId: string) =>
+        menuStateFor(activityId) === "none" ? (
+            <Button variant="ghost" size="sm" onClick={() => navigate(`${b}/scheduling`)}>
+                Risolvi
+            </Button>
+        ) : null;
+
+    /** Collegamenti operativi per sede (§38.4), filtrati dai permessi di chi
+     *  guarda: le pagine della sede stanno nel contesto sede, a tre click da
+     *  qui. Nomi = voci di sidebar. */
+    const operationalLinks = (activityId: string): TableRowAction[] => [
+        {
+            label: businessRouteLabel("orders"),
+            separator: true,
+            hidden: !canDoOnActivity(permissions, "orders.read", activityId),
+            onClick: () => navigate(`${b}/orders`)
+        },
+        {
+            label: businessRouteLabel("reservations"),
+            hidden: !canDoOnActivity(permissions, "reservations.read", activityId),
+            onClick: () => navigate(`${b}/reservations`)
+        },
+        {
+            label: "Disponibilità",
+            hidden: !canDoOnActivity(permissions, "product_availability.write", activityId),
+            onClick: () => navigate(`${b}/locations/${activityId}?tab=availability`)
+        },
+        {
+            label: "Tavoli",
+            hidden: !canDoOnActivity(permissions, "tables.read", activityId),
+            onClick: () => navigate(`${b}/locations/${activityId}?tab=sala`)
+        }
+    ];
+
+    const rowActions = (location: PublicLocation): TableRowAction[] => [
+        { label: "Apri", icon: ExternalLink, onClick: () => window.open(location.publicUrl, "_blank", "noopener,noreferrer") },
+        { label: "Copia link", icon: Copy, onClick: () => void handleCopyPublicUrl(location.publicUrl) },
+        { label: "Scarica QR (PNG)", icon: ImageIcon, onClick: () => void qrRefs.current[location.id]?.downloadPng() },
+        { label: "Scarica QR (SVG)", icon: Download, onClick: () => qrRefs.current[location.id]?.downloadSvg() },
+        ...operationalLinks(location.id)
+    ];
+
+    const publicLink = (location: PublicLocation, className: string, text: string) => (
+        <a className={className} href={location.publicUrl} target="_blank" rel="noopener noreferrer">
+            {text}
+        </a>
     );
 
     /**
-     * Coda del blocco, identica nelle due varianti: un tenant con una sola sede
-     * pubblicata e una sospesa deve vedere la seconda esattamente come chi ne
-     * ha dieci.
-     *
-     * Nessun gate di permesso sull'azione: l'intero blocco è già dietro
-     * `canSeeSetup` (`isOwnerOrAdmin`), quindi chi legge questa riga ha scope
-     * tenant-wide e la pagina sede non ha un gate di lettura proprio — le sue
-     * azioni si proteggono da sole con `activity.manage`. Aggiungerne uno qui
-     * sarebbe una guardia che non può mai scattare.
-     *
-     * Nessun cap: le sospese sono normalmente una o due, e da quando l'header
-     * non le conta più, troncarle in silenzio le farebbe sparire del tutto.
+     * Coda del blocco, identica nelle due forme: niente QR né URL, un solo
+     * bottone che porta dove si risolve. Nessun cap: le sospese sono una o due,
+     * e troncarle in silenzio le farebbe sparire del tutto.
      */
-    const suspendedBlock =
-        suspendedLocations.length > 0 ? (
-            <div className={styles.suspendedList}>
-                {suspendedLocations.map(location => (
-                    <SuspendedLocationRow
+    const suspendedRows = (locations?.suspended ?? []).map(location => {
+        // `formatInactiveReason(null)` risponde "Sospesa": qui il motivo si
+        // formatta solo se esiste, il badge dice già che è sospesa.
+        const reason = location.reason ? formatInactiveReason(location.reason) : undefined;
+        return (
+            <ListRow
+                key={location.id}
+                leading={<PauseCircle size={20} className={styles.suspendedIcon} aria-hidden="true" />}
+                title={location.name}
+                subtitle={reason}
+                meta={<StatusBadge variant="danger" label="Sospesa" />}
+                trailing={
+                    <Button variant="secondary" size="sm" onClick={() => navigate(`${b}/locations/${location.id}`)}>
+                        Apri sede
+                    </Button>
+                }
+            />
+        );
+    });
+
+    const showcaseTitle = isScoped ? "Le tue sedi adesso" : "La vetrina adesso";
+    const showcaseSubtitle =
+        locationsStatus !== "ready"
+            ? undefined
+            : isScoped
+                ? activeCount === 1 ? "1 sede" : `${activeCount} sedi`
+                : activeCount === 1 ? "1 sede pubblicata" : `${activeCount} sedi pubblicate`;
+    const hiddenLocationsCount = Math.max(activeCount - MAX_VISIBLE_LOCATIONS, 0);
+    const single = activeCount === 1 ? locations!.active[0] : null;
+
+    let showcaseBody;
+    if (locationsStatus === "error") {
+        showcaseBody = (
+            <InlineBanner
+                variant="error"
+                action={
+                    <Button variant="secondary" size="sm" onClick={() => setLocationsRetry(n => n + 1)}>
+                        Riprova
+                    </Button>
+                }
+            >
+                Non riusciamo a caricare le pagine pubbliche.
+            </InlineBanner>
+        );
+    } else if (locationsStatus !== "ready") {
+        showcaseBody = (
+            <>
+                <ListRow loading />
+                <ListRow loading />
+            </>
+        );
+    } else if (activeCount === 0) {
+        // Solo per i ruoli scoped: a owner/admin senza sedi attive la pagina
+        // mostra la checklist, non la vetrina.
+        showcaseBody = (
+            <EmptyState
+                variant="inline"
+                title="Nessuna sede nel tuo ruolo"
+                description="Chiedi al proprietario di assegnartene una."
+            />
+        );
+    } else if (single) {
+        // Una sede sola (5 aziende su 8): scheda con QR grande e azioni
+        // esplicite — nasconderne tre dietro tre puntini non risparmia niente.
+        showcaseBody = (
+            <>
+                <div className={styles.single}>
+                    <QrCode
+                        ref={setQrRef(single.id)}
+                        value={single.publicUrl}
+                        size="lg"
+                        level="H"
+                        label={single.name}
+                        fileName={`${single.slug}-qr`}
+                        showActions
+                        onCopyLink={() => void handleCopyPublicUrl(single.publicUrl)}
+                        openHref={single.publicUrl}
+                    />
+                    <div className={styles.singleInfo}>
+                        <Text variant="title-sm" weight={600}>
+                            {publicLink(single, styles.name, single.name)}
+                        </Text>
+                        {publicLink(single, styles.url, single.publicUrl)}
+                        <div className={styles.status}>
+                            {menuBadge(single.id)}
+                            {resolveButton(single.id)}
+                        </div>
+                        <div className={styles.singleActions}>
+                            <TableRowActions actions={operationalLinks(single.id)} />
+                        </div>
+                    </div>
+                </div>
+                {suspendedRows}
+            </>
+        );
+    } else {
+        showcaseBody = (
+            <>
+                {locations!.active.slice(0, MAX_VISIBLE_LOCATIONS).map(location => (
+                    <ListRow
                         key={location.id}
-                        location={location}
-                        onOpen={() => navigate(`${b}/locations/${location.id}`)}
+                        leading={
+                            <QrCode
+                                ref={setQrRef(location.id)}
+                                value={location.publicUrl}
+                                size="sm"
+                                level="M"
+                                fileName={`${location.slug}-qr`}
+                            />
+                        }
+                        title={publicLink(location, styles.name, location.name)}
+                        subtitle={publicLink(location, styles.url, location.publicUrl)}
+                        meta={menuBadge(location.id)}
+                        trailing={
+                            <>
+                                {resolveButton(location.id)}
+                                <TableRowActions actions={rowActions(location)} />
+                            </>
+                        }
                     />
                 ))}
-            </div>
-        ) : null;
+                {suspendedRows}
+            </>
+        );
+    }
 
     return (
         <div className={styles.page}>
@@ -750,22 +652,8 @@ export default function OverviewPage() {
                                 </div>
                             </div>
 
-                            {/* Percorso consigliato in testa, non in coda: chi
-                                arriva qui senza sedi ha davanti quattro
-                                passaggi manuali, e la guida era una didascalia
-                                in fondo che nessuno leggeva come azione.
-                                Solo a zero sedi: la procedura parte sempre
-                                dalla creazione di una sede e non sa riprenderne
-                                una esistente. */}
                             {!setup.hasAnyLocation && (
                                 <>
-                                    {/* Blocco, non barra: `Button fullWidth` in una
-                                        card larga lasciava l'etichetta a galleggiare
-                                        al centro di un vuoto, con la riga di supporto
-                                        staccata sotto come una didascalia orfana.
-                                        Stessa anatomia delle voci della checklist —
-                                        icona, testo, chevron — così i due modi di
-                                        procedere si leggono come parenti. */}
                                     <button
                                         type="button"
                                         className={styles.setupGuided}
@@ -796,10 +684,6 @@ export default function OverviewPage() {
                                 </>
                             )}
 
-                            {/* Stessa condizione del pulsante: con la guida in
-                                cima la voce `next` rinuncia all'evidenziazione,
-                                che competerebbe con lei. Senza guida la
-                                checklist è l'unico contenuto e la mantiene. */}
                             <div
                                 className={styles.configList}
                                 data-guided={!setup.hasAnyLocation || undefined}
@@ -844,79 +728,29 @@ export default function OverviewPage() {
                                     );
                                 })}
                             </div>
-
                         </>
                     )}
                 </div>
             )}
 
-            {/* ===== Section 2b — Tutto pronto: pagine pubbliche ===== */}
-            {showPublicBlock && singleLocation && (
-                <div className={styles.section}>
-                    <div className={styles.publicHeader}>
-                        <Text variant="title-sm" weight={600}>La tua pagina pubblica</Text>
-                        <Text variant="caption" colorVariant="muted">Aggiornata in tempo reale</Text>
-                    </div>
-
-                    <div className={styles.publicList}>
-                        <PublicLocationRow
-                            location={singleLocation}
-                            variant="card"
-                            qrRef={setQrRef(singleLocation.id)}
-                            onOpen={() => handleOpenPublicPage(singleLocation.publicUrl)}
-                            onCopyLink={() => void handleCopyPublicUrl(singleLocation.publicUrl)}
-                            onDownloadPng={() =>
-                                void qrRefs.current[singleLocation.id]?.downloadPng()
-                            }
-                            onDownloadSvg={() => qrRefs.current[singleLocation.id]?.downloadSvg()}
-                            menuState={menuStateFor(singleLocation.id)}
-                            menuName={menuNameFor(singleLocation.id)}
-                        />
-                    </div>
-
-                    {suspendedBlock}
-                </div>
+            {/* ===== B — La vetrina adesso ===== */}
+            {showcaseWanted && (
+                <Card
+                    title={showcaseTitle}
+                    subtitle={showcaseSubtitle}
+                    flush={!single}
+                    bodyClassName={single ? undefined : styles.rows}
+                    actions={
+                        hiddenLocationsCount > 0 ? (
+                            <Button variant="ghost" size="sm" onClick={() => navigate(`${b}/locations`)}>
+                                Vedi tutte le sedi
+                            </Button>
+                        ) : undefined
+                    }
+                >
+                    {showcaseBody}
+                </Card>
             )}
-
-            {showPublicBlock && !singleLocation && (
-                <div className={styles.section}>
-                    <div className={styles.publicHeader}>
-                        <Text variant="title-sm" weight={600}>Le tue pagine pubbliche</Text>
-                        <Text variant="caption" colorVariant="muted">{locationsSummary}</Text>
-                    </div>
-
-                    <div className={styles.publicList}>
-                        {visibleLocations.map(location => (
-                            <PublicLocationRow
-                                key={location.id}
-                                location={location}
-                                variant="list"
-                                qrRef={setQrRef(location.id)}
-                                onOpen={() => handleOpenPublicPage(location.publicUrl)}
-                                onCopyLink={() => void handleCopyPublicUrl(location.publicUrl)}
-                                onDownloadPng={() => void qrRefs.current[location.id]?.downloadPng()}
-                                onDownloadSvg={() => qrRefs.current[location.id]?.downloadSvg()}
-                                menuState={menuStateFor(location.id)}
-                                menuName={menuNameFor(location.id)}
-                            />
-                        ))}
-                    </div>
-
-                    {suspendedBlock}
-
-                    {hiddenLocationsCount > 0 && (
-                        <button
-                            className={styles.publicMore}
-                            onClick={() => navigate(`${b}/locations`)}
-                        >
-                            Vedi tutte le sedi
-                            <ChevronRight size={14} />
-                        </button>
-                    )}
-                </div>
-            )}
-
-
         </div>
     );
 }

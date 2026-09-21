@@ -45,7 +45,7 @@ test.describe("Panoramica", () => {
 
     test("vetrina: la card delle pagine pubbliche", async ({ page }) => {
         const main = page.getByRole("main");
-        await expect(main.getByText("Le tue pagine pubbliche", { exact: true })).toBeVisible();
+        await expect(main.getByText("La vetrina adesso", { exact: true })).toBeVisible();
         await expect(main.getByText(/^(1 sede pubblicata|\d+ sedi pubblicate)$/)).toBeVisible();
     });
 
@@ -64,8 +64,8 @@ test.describe("Panoramica", () => {
         await expect(nameLink).toHaveAttribute("target", "_blank");
         await expect(nameLink).not.toHaveText("");
 
-        // Un QR per sede pubblicata: `qrcode.react` rende un <svg role="img">.
-        await expect(main.locator("svg[role='img']").first()).toBeVisible();
+        // Un QR per sede pubblicata, col nome accessibile della scheda QrCode.
+        await expect(main.getByRole("img", { name: /^QR di / }).first()).toBeVisible();
 
         // Il menu ⋯ della riga (Copia link · Scarica QR).
         await expect(main.getByRole("button", { name: "Azioni" }).first()).toBeVisible();
