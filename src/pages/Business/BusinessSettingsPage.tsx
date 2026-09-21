@@ -16,7 +16,6 @@ import {
 } from "@/components/ui/ImageUploadEditor";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Card } from "@/components/ui/Card/Card";
-import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import { FormGrid } from "@/components/ui/FormGrid";
 import { FormField } from "@/components/ui/FormField/FormField";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -272,14 +271,30 @@ export default function BusinessSettingsPage() {
                 </FormGrid>
             </Card>
 
-            {billingStatus === "ready" && draft.billing && (
-                <SectionCard
-                    title="Dati di fatturazione"
-                    subtitle="Intestano le fatture del tuo abbonamento. Con la Partita IVA serve un recapito e-fattura (Codice Destinatario SDI o PEC)."
-                >
+            <Card
+                title="Dati di fatturazione"
+                subtitle="Intestano le fatture dell'abbonamento. Con la Partita IVA serve un recapito e-fattura: Codice Destinatario SDI o PEC."
+            >
+                {billingStatus === "error" ? (
+                    <InlineBanner
+                        variant="error"
+                        action={
+                            <Button variant="secondary" size="sm" onClick={() => void loadBilling()}>
+                                Riprova
+                            </Button>
+                        }
+                    >
+                        Non riusciamo a caricare i dati di fatturazione.
+                    </InlineBanner>
+                ) : billingStatus === "ready" && draft.billing ? (
                     <BillingDetailsForm value={draft.billing} onChange={patchBilling} disabled={saving} />
-                </SectionCard>
-            )}
+                ) : (
+                    <div className={styles.skeletonCard}>
+                        <Skeleton height="38px" width="60%" />
+                        <Skeleton height="38px" />
+                    </div>
+                )}
+            </Card>
 
             <div className={styles.section}>
                 <Text variant="title-sm" weight={600}>
