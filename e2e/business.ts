@@ -19,6 +19,11 @@ export async function openBusinessPage(page: Page, path: string, sidebarLabel: s
     await expect(firstCard).toBeVisible({ timeout: 15_000 });
     await firstCard.click();
     await page.waitForURL(/\/business\/[0-9a-f-]+\/overview$/);
-    await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: sidebarLabel }).click();
+    // L'URL cambia prima che il layout dell'azienda sia montato (route lazy in
+    // transizione): finché non lo è, la sidebar visibile è ancora quella del
+    // workspace, con una sua «Impostazioni». Si aspetta la voce «Panoramica».
+    const nav = page.getByRole("navigation", { name: "Menu principale" });
+    await expect(nav.getByRole("link", { name: "Panoramica" })).toBeVisible({ timeout: 15_000 });
+    await nav.getByRole("link", { name: sidebarLabel }).click();
     await page.waitForURL(new RegExp(`/business/[0-9a-f-]+/${path}$`));
 }
