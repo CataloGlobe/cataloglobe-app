@@ -181,17 +181,28 @@ function SwitchSection() {
 
 function RadioGroupSection() {
     const [value, setValue] = useState("auto");
+    const [plan, setPlan] = useState("pro");
     const options = [
         { value: "auto", label: "Automatica", description: "Conferma subito se c'è posto." },
         { value: "manual", label: "Manuale", description: "Confermi tu ogni richiesta." },
-        { value: "off", label: "Disattivata", disabled: true }
+        { value: "off", label: "Disattivata", disabled: true, disabledReason: "Serve almeno una sede con la sala configurata." }
+    ];
+    const plans = [
+        { value: "base", label: "Base", description: "Una sede, menù pubblico, QR. 19 € al mese." },
+        { value: "pro", label: "Pro", description: "Fino a 5 sedi, ordini al tavolo, prenotazioni. 48 € al mese." },
+        { value: "dedicated", label: "Dedicato", description: "Oltre 5 sedi: un piano su misura.", disabled: true, disabledReason: "Scrivi all'assistenza per un piano dedicato." }
     ];
     return (
         <>
-            <State label="default">
+            <State label="list (default): radio 16 · etichetta 14/500 · descrizione muta · disabilitata con tooltip">
                 <RadioGroup label="Accettazione" value={value} onChange={setValue} options={options} />
             </State>
-            <State label="helper / error / disabled">
+            <State label="card: riquadri con bordo, selezionato brand + brand-soft, hover, focus (Tab)" column>
+                <div className={styles.narrow}>
+                    <RadioGroup label="Piano" variant="card" value={plan} onChange={setPlan} options={plans} helperText="Puoi cambiarlo quando vuoi." />
+                </div>
+            </State>
+            <State label="helper / error / disabled (list)">
                 <RadioGroup label="Accettazione" value={value} onChange={setValue} options={options} helperText="Puoi cambiarla quando vuoi." />
                 <RadioGroup label="Accettazione" value={value} onChange={setValue} options={options} error="Scegli una modalità." />
                 <RadioGroup label="Accettazione" value={value} onChange={setValue} options={options} disabled />
@@ -255,7 +266,7 @@ export const formsSections: GallerySection[] = [
     { id: "select", title: "Select", sheet: "FormField", Component: SelectSection },
     { id: "textarea", title: "Textarea", sheet: "FormField", Component: TextareaSection },
     { id: "switch", title: "Switch", sheet: "Switch", Component: SwitchSection },
-    { id: "radiogroup", title: "RadioGroup", Component: RadioGroupSection },
+    { id: "radiogroup", title: "RadioGroup", sheet: "RadioGroup", Component: RadioGroupSection },
     { id: "roleselector", title: "RoleSelector", Component: RoleSelectorSection },
     { id: "imageuploadfield", title: "ImageUploadField", Component: ImageUploadFieldSection }
 ];
