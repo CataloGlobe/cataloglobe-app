@@ -231,29 +231,48 @@ function RoleSelectorSection() {
 }
 
 function ImageUploadFieldSection() {
+    const cover = "/favicon/cataloglobe_icon_flat_primary_180.png";
+    const pending = new File([new Uint8Array(2_400_000)], "foto-sala.jpg", { type: "image/jpeg" });
     return (
         <>
-            <State label="vuoto (wide)">
+            <State label="vuoto: wide 16:10 (default) · square · product 4:3, coi vincoli in caption" column>
                 <div className={styles.narrow}>
-                    <ImageUploadField label="Copertina" imageUrl={null} onFileChange={noop} helperText="JPG o PNG, max 2 MB." />
+                    <ImageUploadField label="Copertina della sede" imageUrl={null} onFileChange={noop} helperText="Compare in testa alla pagina pubblica." />
+                </div>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Logo" variant="square" imageUrl={null} onFileChange={noop} accept="image/png,image/svg+xml" maxSizeMb={1} />
+                </div>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Foto del piatto" variant="product" imageUrl={null} onFileChange={noop} />
                 </div>
             </State>
-            <State label="con immagine + rimuovi">
+            <State label="pronto: anteprima FramedMedia + Sostituisci · Inquadra · Rimuovi (wide, square)" column>
                 <div className={styles.narrow}>
-                    <ImageUploadField
-                        label="Copertina"
-                        imageUrl="/favicon/cataloglobe_icon_flat_primary_180.png"
-                        onFileChange={noop}
-                        onRemove={noop}
-                    />
+                    <ImageUploadField label="Copertina" imageUrl={cover} onFileChange={noop} onRemove={noop} onReframe={noop} />
+                </div>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Logo" variant="square" imageUrl={cover} onFileChange={noop} onRemove={noop} />
                 </div>
             </State>
-            <State label="square · disabled">
+            <State label="file pendente (nome + peso · non salvato) · caricamento (ProgressBar)" column>
                 <div className={styles.narrow}>
-                    <ImageUploadField label="Immagine blocco" thumbShape="square" imageUrl={null} onFileChange={noop} />
+                    <ImageUploadField label="Copertina" imageUrl={cover} pendingFile={pending} onFileChange={noop} onRemove={noop} />
+                </div>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Copertina" imageUrl={cover} pendingFile={pending} onFileChange={noop} uploadProgress={62} />
+                </div>
+            </State>
+            <State label="errore (la zona resta) · disabilitato" column>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Copertina" imageUrl={null} onFileChange={noop} error="Il file supera 5 MB." />
                 </div>
                 <div className={styles.narrow}>
                     <ImageUploadField label="Copertina" imageUrl={null} onFileChange={noop} disabled />
+                </div>
+            </State>
+            <State label="trascinamento: trascina un file sulla zona (bordo brand, fondo brand-soft)" column>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Copertina" imageUrl={null} onFileChange={noop} />
                 </div>
             </State>
         </>
@@ -268,5 +287,5 @@ export const formsSections: GallerySection[] = [
     { id: "switch", title: "Switch", sheet: "Switch", Component: SwitchSection },
     { id: "radiogroup", title: "RadioGroup", sheet: "RadioGroup", Component: RadioGroupSection },
     { id: "roleselector", title: "RoleSelector", Component: RoleSelectorSection },
-    { id: "imageuploadfield", title: "ImageUploadField", Component: ImageUploadFieldSection }
+    { id: "imageuploadfield", title: "ImageUploadField", sheet: "ImageUploadField", Component: ImageUploadFieldSection }
 ];
