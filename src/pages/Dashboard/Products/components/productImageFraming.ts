@@ -3,7 +3,8 @@ import { FRAMING_DEFAULTS } from "@components/ui/ImageReframeEditor/types";
 /**
  * Default di lettura per l'immagine prodotto quando `products.image_framing` è
  * NULL (prodotti caricati prima della migration `20260716120000`): centered
- * cover + fill blur, cioè esattamente il render pre-framing → zero regressione.
+ * cover (a zoom 1 il fill non si vede), cioè esattamente il render
+ * pre-framing → zero regressione.
  *
  * Alias di `FRAMING_DEFAULTS` (unica fonte, canonical home in
  * `ImageReframeEditor/types.ts`): i valori erano già identici campo per campo e
