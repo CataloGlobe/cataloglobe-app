@@ -1,11 +1,14 @@
 /* eslint-disable react-refresh/only-export-components -- galleria dev: componenti di sezione + elenco nello stesso file, niente fast refresh da preservare */
 import { useState } from "react";
-import { ChevronRight, MapPin, Store, CheckCircle2, Circle, Pencil, Trash2 } from "lucide-react";
+import { ChevronRight, MapPin, Store, CheckCircle2, Circle, Pencil, Trash2, Palette } from "lucide-react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { FormGrid, FormSection, FORM_GRID_CLASSES } from "@/components/ui/FormGrid/FormGrid";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { CardGrid, CardGridItem } from "@/components/ui/CardGrid/CardGrid";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Card } from "@/components/ui/Card/Card";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -171,7 +174,103 @@ function ListRowSection() {
     );
 }
 
+/* ------------------------------------------------------------------ */
+/* CardGrid                                                            */
+/* ------------------------------------------------------------------ */
+
+// Copertine: SVG inline in data URI, niente asset da servire in galleria.
+function cover(hue: number, label: string) {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 100"><rect width="160" height="100" fill="hsl(${hue} 60% 80%)"/><text x="80" y="56" font-family="sans-serif" font-size="14" text-anchor="middle" fill="hsl(${hue} 40% 30%)">${label}</text></svg>`;
+    return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
+const SEDI = [
+    { id: "porto", name: "Trattoria del Porto", city: "Milano", hue: 210, status: "success" as const },
+    { id: "piazza", name: "Osteria della Piazza", city: "Torino", hue: 30, status: "neutral" as const },
+    { id: "lago", name: "Bar del Lago", city: "Como", hue: 140, status: "success" as const }
+];
+
+function CardGridSection() {
+    const [selected, setSelected] = useState("porto");
+    const actions = (
+        <>
+            <IconButton icon={<Pencil size={16} />} variant="ghost" size="sm" aria-label="Modifica" onClick={noop} />
+            <IconButton icon={<Trash2 size={16} />} variant="ghost" size="sm" aria-label="Elimina" onClick={noop} />
+        </>
+    );
+    return (
+        <>
+            <State label="sedi: immagine · titolo · riga · StatusBadge · azioni al hover (3 → 2 sotto 1024 → 1 sotto 768)" column>
+                <CardGrid aria-label="Sedi">
+                    {SEDI.map(s => (
+                        <CardGridItem
+                            key={s.id}
+                            image={cover(s.hue, s.city)}
+                            title={s.name}
+                            subtitle={`${s.city} · aggiornata ieri`}
+                            badge={<StatusBadge variant={s.status} label={s.status === "success" ? "Pubblicata" : "Bozza"} />}
+                            actions={actions}
+                            to="/dev/ui"
+                        />
+                    ))}
+                </CardGrid>
+            </State>
+            <State label="selezionata (click per cambiare) · sospesa (media attenuata + StatusBadge danger)" column>
+                <CardGrid>
+                    {SEDI.slice(0, 2).map(s => (
+                        <CardGridItem
+                            key={s.id}
+                            image={cover(s.hue, s.city)}
+                            title={s.name}
+                            subtitle={s.city}
+                            selected={selected === s.id}
+                            onClick={() => setSelected(s.id)}
+                        />
+                    ))}
+                    <CardGridItem
+                        image={cover(0, "Sospesa")}
+                        title="Pizzeria chiusa"
+                        subtitle="Roma · sospesa il 3 settembre"
+                        badge={<StatusBadge variant="danger" label="Sospesa" />}
+                        suspended
+                        actions={<TableRowActions actions={ROW_ACTIONS} />}
+                    />
+                </CardGrid>
+            </State>
+            <State label="media custom (campione di stile) · senza sottotitolo · titolo lungo in ellissi" column>
+                <CardGrid>
+                    <CardGridItem
+                        media={<Palette size={40} strokeWidth={1.25} />}
+                        title="Stile «Classico»"
+                        badge={<Badge variant="brand">Predefinito</Badge>}
+                        onClick={noop}
+                    />
+                    <CardGridItem media={<Palette size={40} strokeWidth={1.25} />} title="Stile «Notte»" subtitle="Scuro, serif" onClick={noop} />
+                    <CardGridItem
+                        media={<Palette size={40} strokeWidth={1.25} />}
+                        title="Uno stile con un nome davvero troppo lungo per stare su una riga sola"
+                        subtitle="Anche il sottotitolo va in ellissi quando la card è stretta come qui"
+                        onClick={noop}
+                    />
+                </CardGrid>
+            </State>
+            <State label="caricamento (card Skeleton)" column>
+                <CardGrid loading skeletonCount={3} />
+            </State>
+            <State label="vuoto: la pagina rende EmptyState page, non il grid" column>
+                <EmptyState
+                    icon={<Store />}
+                    title="Nessuna sede"
+                    description="Crea la prima sede per pubblicare un menù."
+                    action={<Button onClick={noop}>Aggiungi sede</Button>}
+                />
+            </State>
+        </>
+    );
+}
+
 export const structureSections: GallerySection[] = [
     { id: "formgrid", title: "FormGrid + FormSection", sheet: "FormGrid", Component: FormGridSection },
-    { id: "listrow", title: "ListRow", sheet: "ListRow", Component: ListRowSection }
+    { id: "listrow", title: "ListRow", sheet: "ListRow", Component: ListRowSection },
+    { id: "cardgrid", title: "CardGrid", sheet: "CardGrid", Component: CardGridSection }
 ];
