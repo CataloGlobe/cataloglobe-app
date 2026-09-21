@@ -1,7 +1,48 @@
 .page {
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: var(--space-24);
+}
+
+.skeletonCard {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+}
+
+// Sotto lo strip «Disdetto»: l'uscita alternativa, in caption (§37.5).
+.exitNote {
+    margin: calc(-1 * var(--space-12)) 0 0;
+}
+
+.exitLink {
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+
+    &:hover {
+        color: var(--text);
+    }
+}
+
+.pendingBody {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-12);
+
+    > p {
+        margin: 0;
+    }
+}
+
+.pendingActions {
+    display: flex;
+    justify-content: flex-end;
 }
 
 .section {
@@ -22,68 +63,6 @@
     color: var(--text);
 }
 
-.summaryGrid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 1.25rem;
-}
-
-.summaryItem {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-// "Prezzo attuale" con coupon attivo: pieno barrato + scontato in evidenza
-.priceRow {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.priceStrikethrough {
-    text-decoration: line-through;
-}
-
-.statusRow {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding-top: 2px;
-}
-
-.seatsInfo {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.seatsNumbers {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.usageBarTrack {
-    height: 8px;
-    background: var(--hover-bg, #e2e8f0);
-    border-radius: 4px;
-    overflow: hidden;
-}
-
-.usageBarFill {
-    height: 100%;
-    background: var(--brand-primary, #6366f1);
-    border-radius: 4px;
-    transition: width 0.3s ease;
-    min-width: 2px;
-}
-
-.usageBarFull {
-    background: #f59e0b;
-}
-
 .actionCard {
     display: flex;
     align-items: center;
@@ -92,78 +71,6 @@
     padding: 1rem;
     background: var(--hover-bg, #f8fafc);
     border-radius: 8px;
-    flex-wrap: wrap;
-}
-
-.restrictedCard {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 12px;
-    padding: 3rem 2rem;
-    background: var(--card-bg, #ffffff);
-    border: 1px solid var(--border, #e5e7eb);
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.restrictedIcon {
-    color: var(--text-muted, #94a3b8);
-}
-
-.restrictedLink {
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    color: var(--brand-primary, #6366f1);
-    font-size: 0.875rem;
-    font-weight: 500;
-    text-decoration: underline;
-
-    &:hover {
-        opacity: 0.8;
-    }
-}
-
-// Discreet workspace exit link on the reactivation wall (terminal state only)
-.workspaceExitLink {
-    align-self: center;
-    background: none;
-    border: none;
-    padding: 4px;
-    cursor: pointer;
-    color: var(--text-muted, #94a3b8);
-    font-size: 0.8125rem;
-    font-weight: 400;
-    text-decoration: underline;
-    text-underline-offset: 2px;
-
-    &:hover {
-        color: var(--text, #334155);
-    }
-}
-
-// Plan label row (name + Founder badge)
-.planLabelRow {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-// Riga azione piatta (testo informativo a sinistra + pulsante a destra),
-// separata da un hairline superiore. Riusata sia per l'azione "Annulla
-// cambio" (cambio programmato pendente) sia per "Modifica piano" — stesso
-// trattamento visivo per le due righe consecutive in fondo alla card.
-.contactRow {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border, #e5e7eb);
     flex-wrap: wrap;
 }
 
@@ -204,64 +111,6 @@
     padding: 10px 12px;
     color: #dc2626;
     font-size: 13px;
-}
-
-// Indicatore "cambio programmato" persistente
-.scheduledNote {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    padding: 10px 14px;
-    border-radius: 10px;
-    background: var(--info-bg, #eff6ff);
-    border: 1px solid var(--info-border, #bfdbfe);
-    color: var(--info-text, #1e40af);
-}
-
-// Gruppo azioni del banner cambio programmato (Modifica + Annulla), spinto a
-// destra come le altre righe-azione (.actionCard / .cancelNote).
-.scheduledNoteActions {
-    margin-left: auto;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-// Nota "periodo corrente già scontato" (coupon once consumato): informativa
-// al passato, stesso vocabolario visivo di .scheduledNote — nessuna azione.
-.consumedNote {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    padding: 10px 14px;
-    border-radius: 10px;
-    background: var(--info-bg, #eff6ff);
-    border: 1px solid var(--info-border, #bfdbfe);
-    color: var(--info-text, #1e40af);
-
-    svg {
-        flex-shrink: 0;
-    }
-}
-
-// Banner disdetta a fine periodo (+ CTA Riattiva)
-.cancelNote {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
-    padding: 10px 14px;
-    border-radius: 10px;
-    background-color: var(--color-warning-50, #fffbeb);
-    border: 1px solid var(--color-warning-200, #fde68a);
-    color: var(--color-warning-700, #b45309);
-
-    > button,
-    > a {
-        margin-left: auto;
-    }
 }
 
 // Flusso "Modifica piano" self-service (drawer)
