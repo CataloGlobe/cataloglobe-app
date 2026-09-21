@@ -1,12 +1,15 @@
 /* eslint-disable react-refresh/only-export-components -- galleria dev: componenti di sezione + elenco nello stesso file, niente fast refresh da preservare */
 import { useState } from "react";
 import { ChevronRight, MapPin, Store, CheckCircle2, Circle, Pencil, Trash2, Palette } from "lucide-react";
+import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { FormGrid, FormSection, FORM_GRID_CLASSES } from "@/components/ui/FormGrid/FormGrid";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { CardGrid, CardGridItem } from "@/components/ui/CardGrid/CardGrid";
+import { StatCard } from "@/components/ui/StatCard/StatCard";
+import styles from "../DevUiPage.module.scss";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Card } from "@/components/ui/Card/Card";
@@ -269,8 +272,53 @@ function CardGridSection() {
     );
 }
 
+/* ------------------------------------------------------------------ */
+/* StatCard                                                            */
+/* ------------------------------------------------------------------ */
+
+function StatCardSection() {
+    return (
+        <>
+            <State label="delta: su · giù · invariato (max tre per riga, colore con segno)" column>
+                <div className={styles.statRow}>
+                    <StatCard label="Visite al menù" value="1.284" delta={{ value: 12.5, period: "vs 30 giorni prima" }} link={{ to: "/dev/ui" }} />
+                    <StatCard label="Ordini" value="96" delta={{ value: -8, period: "vs 30 giorni prima" }} link={{ to: "/dev/ui", label: "Vedi gli ordini" }} />
+                    <StatCard label="Scontrino medio" value="24,50 €" delta={{ value: 0, period: "vs 30 giorni prima" }} />
+                </div>
+            </State>
+            <State label="plain (senza confronto) · delta assoluto (format number)" column>
+                <div className={styles.statRow}>
+                    <StatCard label="Sedi pubblicate" value="3" />
+                    <StatCard label="Prenotazioni oggi" value="18" delta={{ value: 4, period: "rispetto a ieri", format: "number" }} />
+                </div>
+            </State>
+            <State label="hero (una sola per pagina) con distribuzione sotto" column>
+                <div className={styles.statRow}>
+                    <StatCard label="Media recensioni" value="4,6" variant="hero" delta={{ value: 0.2, period: "vs mese scorso", format: "number" }}>
+                        <Text variant="caption" colorVariant="muted">
+                            ★★★★★ 71% · ★★★★ 19% · ★★★ 6% · ★★ 2% · ★ 2%
+                        </Text>
+                    </StatCard>
+                </div>
+            </State>
+            <State label="sotto soglia (< 100 visite): niente delta, la riga dice il conteggio" column>
+                <div className={styles.statRow}>
+                    <StatCard label="Click sul telefono" value="9" delta={{ value: 30, period: "vs 30 giorni prima" }} sample={{ count: 9, total: 151 }} />
+                </div>
+            </State>
+            <State label="caricamento" column>
+                <div className={styles.statRow}>
+                    <StatCard label="Visite" value="" loading />
+                    <StatCard label="Media" value="" variant="hero" loading />
+                </div>
+            </State>
+        </>
+    );
+}
+
 export const structureSections: GallerySection[] = [
     { id: "formgrid", title: "FormGrid + FormSection", sheet: "FormGrid", Component: FormGridSection },
     { id: "listrow", title: "ListRow", sheet: "ListRow", Component: ListRowSection },
-    { id: "cardgrid", title: "CardGrid", sheet: "CardGrid", Component: CardGridSection }
+    { id: "cardgrid", title: "CardGrid", sheet: "CardGrid", Component: CardGridSection },
+    { id: "statcard", title: "StatCard", sheet: "StatCard", Component: StatCardSection }
 ];
