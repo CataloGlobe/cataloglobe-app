@@ -26,7 +26,10 @@ test.describe("Panoramica", () => {
     });
 
     test("titolo di pagina", async ({ page }) => {
-        await expect(page).toHaveTitle("Panoramica | CataloGlobe");
+        // Titolo finale: «Panoramica — {azienda} | CataloGlobe» (MainLayout).
+        // Prima che il tenant sia caricato è «Panoramica | CataloGlobe» per
+        // ~500 ms: agganciare quello verificherebbe uno stato transitorio.
+        await expect(page).toHaveTitle(/^Panoramica — .+ \| CataloGlobe$/);
     });
 
     test("sidebar con voce Panoramica attiva", async ({ page }) => {
