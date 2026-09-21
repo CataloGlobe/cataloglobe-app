@@ -86,28 +86,28 @@ export function Checklist({ title = "Le basi", items, doneTitle = "Le basi ci so
     if (allDone) {
         return (
             <Card flush className={className} bodyClassName={styles.body}>
-                <button
-                    type="button"
-                    className={styles.doneRow}
-                    onClick={() => setExpanded(e => !e)}
-                    aria-expanded={expanded}
-                    aria-controls={panelId}
-                >
-                    <span className={styles.doneIcon} aria-hidden="true">
-                        <Check size={14} strokeWidth={2.5} />
-                    </span>
-                    <span className={styles.doneBody}>
+                <div className={styles.doneRow}>
+                    <button
+                        type="button"
+                        className={styles.doneToggle}
+                        onClick={() => setExpanded(e => !e)}
+                        aria-expanded={expanded}
+                        aria-controls={panelId}
+                    >
+                        <span className={styles.doneIcon} aria-hidden="true">
+                            <Check size={14} strokeWidth={2.5} />
+                        </span>
                         <Text as="span" variant="body-sm" weight={500} className={styles.doneTitle}>
                             {doneTitle}
                         </Text>
-                        <span className={styles.doneChips}>
-                            {items.map(item => (
-                                <Chip key={item.id} label={item.title} selected />
-                            ))}
-                        </span>
-                    </span>
-                    <ChevronDown className={`${styles.chevron} ${expanded ? styles.chevronOpen : ""}`} aria-hidden="true" />
-                </button>
+                        <ChevronDown className={`${styles.chevron} ${expanded ? styles.chevronOpen : ""}`} aria-hidden="true" />
+                    </button>
+                    <div className={styles.doneChips}>
+                        {items.map(item => (
+                            <Chip key={item.id} label={item.title} selected />
+                        ))}
+                    </div>
+                </div>
                 <div id={panelId} hidden={!expanded}>
                     {rows}
                 </div>
