@@ -1,0 +1,160 @@
+// CardGrid — cose che si scelgono guardandole (design system §5, scheda
+// CardGrid). 3 → 2 sotto 1024 → 1 sotto 768; gap 16; media 16:10; padding 16;
+// raggio radius-surface. Nessun lift, nessuna transizione su transform.
+@use "@styles/mixins" as *;
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-16);
+
+  @include below-sidebar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  @include phone {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.item {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  box-shadow: var(--shadow-rest);
+  // Niente overflow hidden qui: sull'item del grid azzera il contributo
+  // dell'area media (aspect-ratio, padding %) alla riga e la card Skeleton
+  // resta a 84px. Il clip degli angoli lo fa .media.
+  transition: border-color var(--timing-motion-fast) var(--easing-state);
+}
+
+// La superficie cliccabile copre tutta la card (link o role=button);
+// le azioni stanno sopra, fuori dal flusso.
+.surface {
+  display: flex;
+  flex-direction: column;
+  // basis auto, non 0: con basis 0 il grid misura la riga senza il box
+  // aspect-ratio e la card Skeleton resta a 84px.
+  flex: 1 1 auto;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+  outline: none;
+}
+
+.interactive {
+  cursor: pointer;
+
+  @include hover {
+    border-color: var(--gray-400);
+  }
+
+  .surface:focus-visible {
+    box-shadow: inset var(--shadow-focus);
+  }
+}
+
+.selected,
+.interactive.selected:hover {
+  border-color: var(--brand-primary);
+  box-shadow: 0 0 0 1px var(--brand-primary);
+}
+
+// 16:10 con padding in percentuale, non aspect-ratio: dentro un grid
+// item flex, aspect-ratio non contribuisce all'altezza della riga (Chrome)
+// e le card si sovrappongono; il padding % sulla larghezza sì.
+.media {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  background: var(--hover-bg);
+  overflow: hidden;
+  border-radius: calc(var(--radius-surface) - 1px) calc(var(--radius-surface) - 1px) 0 0;
+  transition: opacity var(--timing-motion-fast) var(--easing-state);
+
+  &::before {
+    content: "";
+    display: block;
+    padding-top: 62.5%;
+  }
+}
+
+.mediaInner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mediaSkeleton {
+  position: absolute;
+  inset: 0;
+  width: auto !important;
+  height: auto !important;
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.suspended .media {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding: var(--space-16);
+}
+
+.title,
+.subtitle {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.badge {
+  display: flex;
+  gap: var(--space-8);
+  margin-top: var(--space-4);
+}
+
+// Azioni al hover: come la colonna azioni di DataTable, sempre visibili
+// dove il hover non esiste, e alla tastiera via focus-within.
+.actions {
+  position: absolute;
+  top: var(--space-8);
+  right: var(--space-8);
+  display: flex;
+  gap: var(--space-4);
+  padding: var(--space-2);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-float);
+  opacity: 0;
+  transition: opacity var(--timing-motion-fast) var(--easing-state);
+}
+
+.item:hover .actions,
+.item:focus-within .actions,
+.actions:has([data-state="open"]) {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .actions {
+    opacity: 1;
+  }
+}
