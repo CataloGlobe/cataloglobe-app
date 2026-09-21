@@ -226,7 +226,10 @@
   --bg: #0f172a;
   --text: #f9fafb;
   --card-bg: #1e293b;
-  --border: #1f2a3a;
+  // Bordo visibile su entrambi i fondi: #1f2a3a stava a 1,23:1 su --bg e
+  // 1,01:1 su --surface (invisibile sulle card). #3b4a63 = 1,99:1 / 1,63:1,
+  // il primo valore della scala slate con entrambi sopra 1,5:1.
+  --border: #3b4a63;
   --hover-bg: #334155;
   // Accento indigo in entrambi i temi (§44.7): indigo-400 su slate-900.
   --brand-primary: #818cf8;
