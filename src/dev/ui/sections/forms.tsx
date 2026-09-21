@@ -181,17 +181,28 @@ function SwitchSection() {
 
 function RadioGroupSection() {
     const [value, setValue] = useState("auto");
+    const [plan, setPlan] = useState("pro");
     const options = [
         { value: "auto", label: "Automatica", description: "Conferma subito se c'è posto." },
         { value: "manual", label: "Manuale", description: "Confermi tu ogni richiesta." },
-        { value: "off", label: "Disattivata", disabled: true }
+        { value: "off", label: "Disattivata", disabled: true, disabledReason: "Serve almeno una sede con la sala configurata." }
+    ];
+    const plans = [
+        { value: "base", label: "Base", description: "Una sede, menù pubblico, QR. 19 € al mese." },
+        { value: "pro", label: "Pro", description: "Fino a 5 sedi, ordini al tavolo, prenotazioni. 48 € al mese." },
+        { value: "dedicated", label: "Dedicato", description: "Oltre 5 sedi: un piano su misura.", disabled: true, disabledReason: "Scrivi all'assistenza per un piano dedicato." }
     ];
     return (
         <>
-            <State label="default">
+            <State label="list (default): radio 16 · etichetta 14/500 · descrizione muta · disabilitata con tooltip">
                 <RadioGroup label="Accettazione" value={value} onChange={setValue} options={options} />
             </State>
-            <State label="helper / error / disabled">
+            <State label="card: riquadri con bordo, selezionato brand + brand-soft, hover, focus (Tab)" column>
+                <div className={styles.narrow}>
+                    <RadioGroup label="Piano" variant="card" value={plan} onChange={setPlan} options={plans} helperText="Puoi cambiarlo quando vuoi." />
+                </div>
+            </State>
+            <State label="helper / error / disabled (list)">
                 <RadioGroup label="Accettazione" value={value} onChange={setValue} options={options} helperText="Puoi cambiarla quando vuoi." />
                 <RadioGroup label="Accettazione" value={value} onChange={setValue} options={options} error="Scegli una modalità." />
                 <RadioGroup label="Accettazione" value={value} onChange={setValue} options={options} disabled />
@@ -220,29 +231,48 @@ function RoleSelectorSection() {
 }
 
 function ImageUploadFieldSection() {
+    const cover = "/favicon/cataloglobe_icon_flat_primary_180.png";
+    const pending = new File([new Uint8Array(2_400_000)], "foto-sala.jpg", { type: "image/jpeg" });
     return (
         <>
-            <State label="vuoto (wide)">
+            <State label="vuoto: wide 16:10 (default) · square · product 4:3, coi vincoli in caption" column>
                 <div className={styles.narrow}>
-                    <ImageUploadField label="Copertina" imageUrl={null} onFileChange={noop} helperText="JPG o PNG, max 2 MB." />
+                    <ImageUploadField label="Copertina della sede" imageUrl={null} onFileChange={noop} helperText="Compare in testa alla pagina pubblica." />
+                </div>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Logo" variant="square" imageUrl={null} onFileChange={noop} accept="image/png,image/svg+xml" maxSizeMb={1} />
+                </div>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Foto del piatto" variant="product" imageUrl={null} onFileChange={noop} />
                 </div>
             </State>
-            <State label="con immagine + rimuovi">
+            <State label="pronto: anteprima FramedMedia + Sostituisci · Inquadra · Rimuovi (wide, square)" column>
                 <div className={styles.narrow}>
-                    <ImageUploadField
-                        label="Copertina"
-                        imageUrl="/favicon/cataloglobe_icon_flat_primary_180.png"
-                        onFileChange={noop}
-                        onRemove={noop}
-                    />
+                    <ImageUploadField label="Copertina" imageUrl={cover} onFileChange={noop} onRemove={noop} onReframe={noop} />
+                </div>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Logo" variant="square" imageUrl={cover} onFileChange={noop} onRemove={noop} />
                 </div>
             </State>
-            <State label="square · disabled">
+            <State label="file pendente (nome + peso · non salvato) · caricamento (ProgressBar)" column>
                 <div className={styles.narrow}>
-                    <ImageUploadField label="Immagine blocco" thumbShape="square" imageUrl={null} onFileChange={noop} />
+                    <ImageUploadField label="Copertina" imageUrl={cover} pendingFile={pending} onFileChange={noop} onRemove={noop} />
+                </div>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Copertina" imageUrl={cover} pendingFile={pending} onFileChange={noop} uploadProgress={62} />
+                </div>
+            </State>
+            <State label="errore (la zona resta) · disabilitato" column>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Copertina" imageUrl={null} onFileChange={noop} error="Il file supera 5 MB." />
                 </div>
                 <div className={styles.narrow}>
                     <ImageUploadField label="Copertina" imageUrl={null} onFileChange={noop} disabled />
+                </div>
+            </State>
+            <State label="trascinamento: trascina un file sulla zona (bordo brand, fondo brand-soft)" column>
+                <div className={styles.narrow}>
+                    <ImageUploadField label="Copertina" imageUrl={null} onFileChange={noop} />
                 </div>
             </State>
         </>
@@ -255,7 +285,7 @@ export const formsSections: GallerySection[] = [
     { id: "select", title: "Select", sheet: "FormField", Component: SelectSection },
     { id: "textarea", title: "Textarea", sheet: "FormField", Component: TextareaSection },
     { id: "switch", title: "Switch", sheet: "Switch", Component: SwitchSection },
-    { id: "radiogroup", title: "RadioGroup", Component: RadioGroupSection },
+    { id: "radiogroup", title: "RadioGroup", sheet: "RadioGroup", Component: RadioGroupSection },
     { id: "roleselector", title: "RoleSelector", Component: RoleSelectorSection },
-    { id: "imageuploadfield", title: "ImageUploadField", Component: ImageUploadFieldSection }
+    { id: "imageuploadfield", title: "ImageUploadField", sheet: "ImageUploadField", Component: ImageUploadFieldSection }
 ];

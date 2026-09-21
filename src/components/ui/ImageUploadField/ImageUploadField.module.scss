@@ -1,33 +1,43 @@
-@use "@styles/variables" as *;
+// ImageUploadField — un'immagine da caricare (design system §5, scheda
+// ImageUploadField). Zona min 120, padding 24, radius-control, bordo 1px
+// tratteggiato gray-300; trascinamento = bordo brand + fondo brand-soft;
+// anteprima con FramedMedia nel rapporto della variante.
+@use "@styles/mixins" as *;
+
+.root {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  min-width: 0;
+}
 
 .hiddenInput {
   display: none;
 }
 
-/* ===============================
-   STATO VUOTO — dropzone compatto
-=============================== */
-
 .dropzone {
-  width: 100%;
-  min-height: 64px;
-  padding: 0.6rem 1rem;
-
-  border-radius: 10px;
-  border: 1.5px dashed var(--border);
-  background: var(--surface);
-
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
-
-  color: var(--text-muted);
+  gap: var(--space-4);
+  width: 100%;
+  min-height: 120px;
+  padding: var(--space-24);
+  border: 1px dashed var(--gray-300);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  text-align: center;
   cursor: pointer;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  transition:
+    border-color var(--timing-motion-fast) var(--easing-state),
+    background-color var(--timing-motion-fast) var(--easing-state);
 
-  &:hover {
-    border-color: var(--brand-primary);
+  @include hover {
+    border-color: var(--gray-400);
+    background: var(--hover-bg);
   }
 
   &:focus-visible {
@@ -36,51 +46,71 @@
   }
 }
 
-/* ===============================
-   STATO IMMAGINE PRESENTE
-=============================== */
+.dropIcon {
+  color: var(--text-muted);
+  margin-bottom: var(--space-4);
+}
 
-// Blocco compatto: riga miniatura+meta, poi azioni raggruppate sotto —
-// mai stirato a tutta larghezza, mai a mezz'aria accanto alla miniatura.
+.dragging,
+.dragging:hover {
+  border-color: var(--brand-primary);
+  border-style: solid;
+  background: var(--brand-primary-soft);
+}
+
 .filled {
   display: flex;
-  flex-direction: column;
-  gap: 10px;
-  width: fit-content;
-  max-width: 100%;
+  align-items: flex-start;
+  gap: var(--space-16);
   min-width: 0;
+
+  @include phone {
+    flex-direction: column;
+  }
 }
 
-.filledRow {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-
-.thumb {
+.preview {
+  position: relative;
   flex-shrink: 0;
-  object-fit: cover;
-  border-radius: 8px;
+  width: 160px;
+  overflow: hidden;
   border: 1px solid var(--border);
-  background: var(--surface);
+  border-radius: var(--radius-control);
+  background: var(--hover-bg);
+
+  // FramedMedia riempie il box: il rapporto lo dà la variante.
+  > * {
+    width: 100%;
+    height: 100%;
+  }
 }
 
-.thumbWide {
+.square {
   width: 96px;
-  height: 64px;
+  aspect-ratio: 1;
 }
 
-.thumbSquare {
-  width: 64px;
-  height: 64px;
+.wide {
+  aspect-ratio: 16 / 10;
+}
+
+.product {
+  aspect-ratio: 4 / 3;
+}
+
+.side {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
 }
 
 .meta {
-  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
 .fileName {
@@ -91,37 +121,9 @@
 
 .actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
-}
-
-// Bottone reale, ma con hit-area comoda al pollice anche se il size "sm"
-// resta visivamente compatto (~40px di altezza cliccabile).
-.replaceBtn {
-  min-height: 40px;
-}
-
-// Azione distruttiva e rara: testo defilato, mai il rilievo di "Sostituisci".
-.removeBtn {
-  min-height: 40px;
-  padding: 0 4px;
-  background: none;
-  border: none;
-  color: var(--text-muted);
-  font-size: 0.8rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: color 0.15s ease;
-
-  &:hover:not(:disabled) {
-    color: var(--text);
-    text-decoration: underline;
-  }
-
-  &:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-  }
+  gap: var(--space-4);
 }
 
 .disabled {

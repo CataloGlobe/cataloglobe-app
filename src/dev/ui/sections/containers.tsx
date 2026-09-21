@@ -16,7 +16,6 @@ import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import { Avatar } from "@/components/ui/Avatar/Avatar";
 import { QrCode } from "@/components/ui/QrCode/QrCode";
 import { State, noop, type GallerySection } from "../gallery";
-import styles from "../DevUiPage.module.scss";
 
 type Row = { id: string; name: string; status: "success" | "neutral" | "warning"; price: number };
 
@@ -280,16 +279,22 @@ function BreadcrumbSection() {
 function AvatarSection() {
     return (
         <>
-            <State label="sm / md / lg con iniziali">
+            <State label="sm 24 · md 32 · lg 40 con iniziali (500, gray-800, su hover-bg)">
                 <Avatar name="Lorenzo Calzi" size="sm" />
                 <Avatar name="Lorenzo Calzi" size="md" />
                 <Avatar name="Lorenzo Calzi" size="lg" />
             </State>
-            <State label="con immagine · rounded · gradient">
-                <Avatar name="CataloGlobe" imageUrl="/favicon/cataloglobe_icon_flat_primary_180.png" />
-                <Avatar name="Lorenzo Calzi" rounded />
-                <Avatar name="Anna Rossi" gradient="linear-gradient(135deg, #f59e0b, #dc2626)" />
+            <State label="con immagine · una lettera (email) · sconosciuto">
+                <Avatar name="CataloGlobe" imageUrl="/favicon/cataloglobe_icon_flat_primary_180.png" size="lg" />
+                <Avatar name="anna@esempio.it" size="md" />
                 <Avatar />
+            </State>
+            <State label="puntino online · su un'immagine (bordo surface) · caricamento">
+                <Avatar name="Giulia Verdi" size="lg" status="online" />
+                <Avatar name="Giulia Verdi" size="md" status="online" onImage />
+                <Avatar loading size="sm" />
+                <Avatar loading size="md" />
+                <Avatar loading size="lg" />
             </State>
         </>
     );
@@ -297,21 +302,23 @@ function AvatarSection() {
 
 function QrCodeSection() {
     return (
-        <State label="tre taglie (96 / 160 / 240), senza azioni">
-            {[96, 160, 240].map(size => (
-                <QrCode key={size} value="https://cataloglobe.com/trattoria-del-porto" size={size} fileName="qr-galleria" showActions={false} />
-            ))}
-        </State>
-    );
-}
-
-function QrCodeWithActionsSection() {
-    return (
-        <State label="con azioni di download" column>
-            <div className={styles.narrow}>
-                <QrCode value="https://cataloglobe.com/trattoria-del-porto" size={160} fileName="qr-galleria" />
-            </div>
-        </State>
+        <>
+            <State label="taglie della scheda: sm 40 · md 96 · lg 160, con cornice e quiet zone bianca">
+                <QrCode value="https://cataloglobe.com/trattoria-del-porto" size="sm" fileName="qr-sm" />
+                <QrCode value="https://cataloglobe.com/trattoria-del-porto" size="md" fileName="qr-md" label="Tavolo 12" />
+                <QrCode value="https://cataloglobe.com/trattoria-del-porto" size="lg" fileName="qr-lg" label="Trattoria del Porto" />
+            </State>
+            <State label="lg con le azioni: Scarica (PNG/SVG) · Copia link · Apri">
+                <QrCode value="https://cataloglobe.com/trattoria-del-porto" size="lg" fileName="qr-azioni" label="Trattoria del Porto" showActions onCopyLink={noop} openHref="https://cataloglobe.com/trattoria-del-porto" />
+            </State>
+            <State label="in caricamento (Skeleton della stessa taglia) · non disponibile (sede sospesa)">
+                <QrCode value="https://cataloglobe.com/x" size="md" fileName="qr-loading" status="loading" label="Tavolo 12" />
+                <QrCode value="https://cataloglobe.com/x" size="md" fileName="qr-off" status="unavailable" label="Sede sospesa" onCopyLink={noop} />
+            </State>
+            <State label="taglia numerica (storica): nudo, la cornice la mette il chiamante">
+                <QrCode value="https://cataloglobe.com/trattoria-del-porto" size={96} fileName="qr-nudo" />
+            </State>
+        </>
     );
 }
 
@@ -322,15 +329,6 @@ export const containersSections: GallerySection[] = [
     { id: "emptystate", title: "EmptyState", sheet: "EmptyState", Component: EmptyStateSection },
     { id: "prerequisitesrow", title: "PrerequisitesRow", Component: PrerequisitesRowSection },
     { id: "breadcrumb", title: "Breadcrumb", sheet: "PageHeader", Component: BreadcrumbSection },
-    { id: "avatar", title: "Avatar", Component: AvatarSection },
-    {
-        id: "qrcode",
-        title: "QrCode",
-        Component: () => (
-            <>
-                <QrCodeSection />
-                <QrCodeWithActionsSection />
-            </>
-        )
-    }
+    { id: "avatar", title: "Avatar", sheet: "Avatar", Component: AvatarSection },
+    { id: "qrcode", title: "QrCode", sheet: "QrCode", Component: QrCodeSection }
 ];

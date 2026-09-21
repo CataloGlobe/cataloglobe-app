@@ -10,6 +10,8 @@ export { OfferBlock } from "./OfferBlock/OfferBlock";
 export { ProgressBar } from "./ProgressBar/ProgressBar";
 export { Rating } from "./Rating/Rating";
 export { BarList } from "./BarList/BarList";
+export { TrendChart } from "./TrendChart/TrendChart";
+export { PreviewPane } from "./PreviewPane/PreviewPane";
 export { DataTable } from "./DataTable/DataTable";
 export type { ColumnDefinition } from "./DataTable/DataTable";
 export { ToastItem } from "./Toast/Toast";
