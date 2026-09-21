@@ -4,10 +4,15 @@
 // restano pastello anche in scuro, il --text del tema sarebbe illeggibile.
 @use "@styles/mixins" as *;
 
+// Il testo ha diritto a una colonna leggibile (min 280): quando cifre e
+// azione non ci stanno accanto, scendono su una seconda riga invece di
+// schiacciarlo a una parola per riga. Le tre cifre vanno a capo fra loro
+// sotto 768, così a 375 non escono dal bordo.
 .strip {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-24);
+  gap: var(--space-16) var(--space-24);
   padding: var(--space-16) var(--space-24);
   border: 1px solid var(--border);
   border-radius: var(--radius-surface);
@@ -15,14 +20,13 @@
   color: var(--text);
 
   @include phone {
-    flex-wrap: wrap;
     gap: var(--space-12);
     padding: var(--space-16);
   }
 }
 
 .main {
-  flex: 1;
+  flex: 1 1 280px;
   min-width: 0;
   display: flex;
   align-items: center;
@@ -54,9 +58,14 @@
 
 .figures {
   display: flex;
-  gap: var(--space-24);
+  gap: var(--space-12) var(--space-24);
   margin: 0;
-  flex-shrink: 0;
+  flex: 0 1 auto;
+  min-width: 0;
+
+  @include phone {
+    flex-wrap: wrap;
+  }
 }
 
 .figure {
@@ -82,6 +91,8 @@
 
 .action {
   flex-shrink: 0;
+  // Se scende su una riga sua, resta a destra come quando sta accanto.
+  margin-left: auto;
 }
 
 .success {
