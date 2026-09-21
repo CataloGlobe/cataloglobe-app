@@ -10,6 +10,7 @@ import {
     Image as ImageIcon,
     Languages,
     MessageSquare,
+    Wand2,
     Palette,
     PauseCircle,
     Pin,
@@ -431,6 +432,8 @@ export default function OverviewPage() {
         )
     ];
 
+    const missingSteps = checklistItems.filter(item => !item.done).length;
+
     // ── Le basi ──────────────────────────────────────────────────────────────
     let basesBlock = null;
     if (canSeeSetup) {
@@ -801,8 +804,37 @@ export default function OverviewPage() {
 
     return (
         <div className={styles.page}>
-            {/* Finché le basi mancano, la pagina è solo la checklist (§42.1). */}
-            {canSeeSetup && !setupIsComplete && basesBlock}
+            {/* ===== D — Configurazione incompleta (§42.1) =====
+                Finché le basi mancano, la pagina è solo la checklist. A zero
+                sedi la procedura guidata viene prima: è il modo consigliato,
+                e il wizard non sa riprendere una sede esistente. */}
+            {canSeeSetup && !setupIsComplete && (
+                <>
+                    {setupStatus === "ready" && !setup?.hasAnyLocation && (
+                        <>
+                            <EmptyState
+                                variant="page"
+                                icon={<Wand2 />}
+                                title={`Il tuo ${catalogLower} non è ancora online`}
+                                description={
+                                    missingSteps === 1
+                                        ? `Manca un passaggio: resta solo da dire dove e quando mostrare il ${catalogLower}.`
+                                        : `Mancano ${missingSteps} passaggi: sede, prodotti, ${catalogLower} e una regola. La procedura guidata li fa in pochi minuti.`
+                                }
+                                action={
+                                    <Button variant="primary" onClick={() => navigate(`${b}/setup`)}>
+                                        Inizia la procedura guidata
+                                    </Button>
+                                }
+                            />
+                            <Text as="p" variant="caption" colorVariant="muted" className={styles.divider}>
+                                Oppure procedi un passo alla volta
+                            </Text>
+                        </>
+                    )}
+                    {basesBlock}
+                </>
+            )}
 
             {/* ===== B — La vetrina adesso ===== */}
             {showcaseWanted && (
