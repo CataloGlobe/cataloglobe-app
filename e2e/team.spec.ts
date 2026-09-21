@@ -44,9 +44,7 @@ test.describe("Team", () => {
         const drawer = page.getByRole("dialog");
         await expect(drawer.getByText("Invita un membro", { exact: true })).toBeVisible();
         await expect(drawer.getByRole("textbox", { name: "Email", exact: true })).toBeVisible();
-        // Il radiogroup non ha ancora un nome accessibile (gap di RadioGroup,
-        // registro §Team): si prende per ruolo dentro il drawer, 4 ruoli.
-        await expect(drawer.getByRole("radiogroup")).toBeVisible();
+        await expect(drawer.getByRole("radiogroup", { name: "Ruolo" })).toBeVisible();
         await expect(drawer.getByRole("radio")).toHaveCount(4);
         await expect(drawer.getByRole("button", { name: "Invia invito" })).toBeVisible();
         await drawer.getByRole("button", { name: "Annulla", exact: true }).click();
