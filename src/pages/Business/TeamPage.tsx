@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { supabase } from "@/services/supabase/client";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
@@ -30,13 +29,22 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import styles from "./TeamPage.module.scss";
 
 import type { TenantMemberRow, EffectiveRole } from "@/types/team";
-import { listTenantMembers, removeTenantMember } from "@/services/supabase/team";
+import { listTenantMembers, removeTenantMember, resendInvite, revokeInvite } from "@/services/supabase/team";
 
 function formatExpiry(expiresAt: string): string {
     const days = Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86_400_000);
     if (days <= 0) return "scade oggi";
     if (days === 1) return "scade domani";
-    return `tra ${days} gg`;
+    return `scade tra ${days} giorni`;
+}
+
+/** Messaggio utente per gli errori delle RPC sugli inviti. */
+function inviteErrorMessage(err: unknown, fallback: string): string {
+    const msg = (err as { message?: string })?.message ?? "";
+    if (msg.includes("cannot resend invite to an active member")) return "L'invito è già stato accettato.";
+    if (msg.includes("not allowed")) return "Non hai i permessi per questo invito.";
+    if (msg.includes("member not found")) return "Invito non trovato.";
+    return fallback;
 }
 
 /** Ruolo e cosa può fare: cella a due righe (§44.8) — il nome non basta a
@@ -130,8 +138,11 @@ export default function TeamPage() {
             const q = search.trim().toLowerCase();
             result = result.filter(m => m.email?.toLowerCase().includes(q));
         }
+        if (roleFilter) {
+            result = result.filter(m => m.effective_role === roleFilter);
+        }
         return result;
-    }, [members, search]);
+    }, [members, search, roleFilter]);
 
     // Id completi (pre-ricerca) per tab, cosi la prune-selection distingue
     // "membro rimosso" da "membro filtrato dalla ricerca".
@@ -151,6 +162,11 @@ export default function TeamPage() {
         () => members.filter(m => m.status === "pending").length,
         [members]
     );
+
+    // Annullato l'ultimo invito la tab si spegne: si torna a Membri.
+    useEffect(() => {
+        if (!loading && pendingCount === 0 && activeTab === "invites") setActiveTab("members");
+    }, [loading, pendingCount, activeTab]);
 
     // ── Header band: leading (tab line) + actions (search + filtro + CTA) ──
     const leading = useMemo(() => (
@@ -319,30 +335,47 @@ export default function TeamPage() {
         setMemberDrawerTarget(member);
     }, []);
 
-    const handleCancelInvite = useCallback(async (member: TenantMemberRow) => {
-        const { error } = await supabase.rpc("revoke_invite", {
-            p_membership_id: member.membership_id,
-        });
-
-        if (error) {
-            console.error("[BusinessTeamPage] revoke invite failed:", error);
-            const msg = error.message ?? "";
-            let userMessage = "Impossibile annullare l'invito. Riprova più tardi.";
-            if (msg.includes("not allowed")) {
-                userMessage = "Non hai i permessi per annullare questo invito.";
-            } else if (msg.includes("member not found")) {
-                userMessage = "Invito non trovato.";
-            }
-            showToast({ type: "error", message: userMessage });
-            return;
-        }
-
-        showToast({ type: "success", message: "Invito annullato." });
-        setRefreshKey(k => k + 1);
-    }, [showToast]);
-
     const [selectedMemberIds, setSelectedMemberIds] = useState<string[]>([]);
     const [selectedInviteIds, setSelectedInviteIds] = useState<string[]>([]);
+
+    // Annullare un invito chiede conferma, singolo e in blocco: il link che
+    // la persona ha ricevuto smette di funzionare.
+    const [invitesToCancel, setInvitesToCancel] = useState<TenantMemberRow[]>([]);
+    const handleCancelInvite = useCallback((member: TenantMemberRow) => {
+        setInvitesToCancel([member]);
+    }, []);
+
+    const handleConfirmCancelInvites = useCallback(async (): Promise<boolean> => {
+        if (invitesToCancel.length === 0) return false;
+        const results = await Promise.allSettled(
+            invitesToCancel.map(m => revokeInvite(m.membership_id))
+        );
+        const failed = results.filter(r => r.status === "rejected");
+        const ok = results.length - failed.length;
+        if (invitesToCancel.length === 1) {
+            if (failed.length === 0) {
+                showToast({ type: "success", message: "Invito annullato." });
+            } else {
+                const reason = (failed[0] as PromiseRejectedResult).reason;
+                showToast({
+                    type: "error",
+                    message: inviteErrorMessage(reason, "Impossibile annullare l'invito. Riprova più tardi.")
+                });
+            }
+        } else {
+            if (ok > 0) showToast({ type: "success", message: `${ok} inviti annullati` });
+            if (failed.length > 0) {
+                showToast({
+                    type: "error",
+                    message: failed.length === 1 ? "1 invito non annullato" : `${failed.length} inviti non annullati`
+                });
+            }
+        }
+        setSelectedInviteIds([]);
+        setRefreshKey(k => k + 1);
+        return true;
+    }, [invitesToCancel, showToast]);
+
     const [bulkRemovePendingIds, setBulkRemovePendingIds] = useState<string[]>([]);
     const bulkRemoveConfirmOpen = bulkRemovePendingIds.length > 0;
 
@@ -389,56 +422,24 @@ export default function TeamPage() {
         return true;
     }, [bulkRemovePendingIds, showToast]);
 
-    const handleBulkCancelInvites = useCallback(async (ids: string[]) => {
-        if (ids.length === 0) return;
-        const results = await Promise.allSettled(
-            ids.map(id =>
-                supabase
-                    .rpc("revoke_invite", { p_membership_id: id })
-                    .then(({ error }) => {
-                        if (error) throw error;
-                    })
-            )
-        );
-        const failed = results.filter(r => r.status === "rejected").length;
-        const ok = results.length - failed;
-        if (ok > 0) {
-            showToast({
-                type: "success",
-                message: ok === 1 ? "1 invito annullato" : `${ok} inviti annullati`,
-            });
-        }
-        if (failed > 0) {
-            showToast({
-                type: "error",
-                message: failed === 1
-                    ? "1 invito non annullato"
-                    : `${failed} inviti non annullati`,
-            });
-        }
-        setSelectedInviteIds([]);
-        setRefreshKey(k => k + 1);
-    }, [showToast]);
+    const handleBulkCancelInvites = useCallback((ids: string[]) => {
+        const targets = members.filter(m => m.status === "pending" && ids.includes(m.membership_id));
+        if (targets.length === 0) return;
+        setInvitesToCancel(targets);
+    }, [members]);
 
     const handleResendInvite = useCallback(async (member: TenantMemberRow) => {
-        const { error } = await supabase.rpc("resend_invite", {
-            p_membership_id: member.membership_id,
-        });
-
-        if (error) {
-            console.error("[BusinessTeamPage] resend invite failed:", error);
-            const msg = error.message ?? "";
-            let userMessage = "Impossibile rispedire l'invito. Riprova più tardi.";
-            if (msg.includes("cannot resend invite to an active member")) {
-                userMessage = "L'invito è già stato accettato. Non serve rispedirlo.";
-            } else if (msg.includes("not allowed")) {
-                userMessage = "Non hai i permessi per rispedire questo invito.";
-            }
-            showToast({ type: "error", message: userMessage });
+        try {
+            await resendInvite(member.membership_id);
+        } catch (err) {
+            console.error("[BusinessTeamPage] resend invite failed:", err);
+            showToast({
+                type: "error",
+                message: inviteErrorMessage(err, "Impossibile rispedire l'invito. Riprova più tardi.")
+            });
             return;
         }
-
-        showToast({ type: "success", message: "Invito inviato di nuovo." });
+        showToast({ type: "success", message: `Invito inviato di nuovo a ${member.email}.` });
         setRefreshKey(k => k + 1);
     }, [showToast]);
 
@@ -518,9 +519,10 @@ export default function TeamPage() {
     const pendingColumns = useMemo<ColumnDefinition<TenantMemberRow>[]>(() => {
         const base: ColumnDefinition<TenantMemberRow>[] = [
             {
-                id: "email",
-                header: "Email",
+                id: "person",
+                header: "Persona",
                 width: "2fr",
+                // Senza Avatar: non è ancora un utente.
                 cell: (_, row) => (
                     <Text variant="body-sm" className={styles.emailCell}>
                         {row.email || "—"}
@@ -529,13 +531,13 @@ export default function TeamPage() {
             },
             {
                 id: "role",
-                header: "Ruolo",
-                width: "120px",
+                header: "Ruolo e cosa può fare",
+                width: "2fr",
                 cell: (_, row) => roleCell(row.effective_role),
             },
             {
                 id: "activities",
-                header: "Sedi",
+                header: "Su quali sedi",
                 width: "1.5fr",
                 cell: (_, row) => activitiesCell(row, totalActivities),
             },
@@ -552,7 +554,7 @@ export default function TeamPage() {
             {
                 id: "expiry",
                 header: "Scadenza",
-                width: "120px",
+                width: "150px",
                 cell: (_, row) => (
                     <Text variant="body-sm" colorVariant="muted">
                         {row.invite_expires_at ? formatExpiry(row.invite_expires_at) : "—"}
@@ -795,6 +797,19 @@ export default function TeamPage() {
                 }
                 message="I membri rimossi non avranno più accesso a questa azienda. Potranno essere invitati di nuovo."
                 confirmLabel="Rimuovi"
+            />
+
+            <ConfirmDialog
+                isOpen={invitesToCancel.length > 0}
+                onClose={() => setInvitesToCancel([])}
+                onConfirm={handleConfirmCancelInvites}
+                title={invitesToCancel.length === 1 ? "Annulla l'invito" : `Annulla ${invitesToCancel.length} inviti?`}
+                message={
+                    invitesToCancel.length === 1
+                        ? `Annullare l'invito a ${invitesToCancel[0].email}? Il link che ha ricevuto smetterà di funzionare.`
+                        : "I link ricevuti smetteranno di funzionare."
+                }
+                confirmLabel={invitesToCancel.length === 1 ? "Annulla invito" : "Annulla inviti"}
             />
 
             <MemberDrawer

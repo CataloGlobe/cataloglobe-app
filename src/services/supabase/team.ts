@@ -100,3 +100,19 @@ export async function getTenantMemberNames(
     }
     return out;
 }
+
+/** Rispedisce l'email di un invito in attesa. RPC `resend_invite`. Errori
+ *  attesi nel messaggio: «cannot resend invite to an active member»,
+ *  «not allowed». */
+export async function resendInvite(membershipId: string): Promise<void> {
+    const { error } = await supabase.rpc("resend_invite", { p_membership_id: membershipId });
+    if (error) throw error;
+}
+
+/** Annulla un invito in attesa (il link smette di funzionare). RPC
+ *  `revoke_invite`. Errori attesi nel messaggio: «not allowed», «member not
+ *  found». */
+export async function revokeInvite(membershipId: string): Promise<void> {
+    const { error } = await supabase.rpc("revoke_invite", { p_membership_id: membershipId });
+    if (error) throw error;
+}
