@@ -16,7 +16,6 @@ import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import { Avatar } from "@/components/ui/Avatar/Avatar";
 import { QrCode } from "@/components/ui/QrCode/QrCode";
 import { State, noop, type GallerySection } from "../gallery";
-import styles from "../DevUiPage.module.scss";
 
 type Row = { id: string; name: string; status: "success" | "neutral" | "warning"; price: number };
 
