@@ -109,7 +109,7 @@ export function StatCard({ label, value, delta, variant, sample, link, loading =
             {children && <div className={styles.extra}>{children}</div>}
             {link && (
                 <Link to={link.to} className={styles.link}>
-                    <Text as="span" variant="caption" weight={500}>
+                    <Text as="span" variant="caption" weight={500} colorVariant="primary">
                         {link.label ?? "Vedi"}
                     </Text>
                 </Link>
