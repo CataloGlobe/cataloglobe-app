@@ -280,7 +280,9 @@ export default function SubscriptionPage() {
         openChange();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [hash, plans]);
-    const [activityCount, setActivityCount] = useState(0);
+    // null finché la lettura non è arrivata: lo strip aspetta, non mostra 0.
+    const [activityCountLoaded, setActivityCountLoaded] = useState<number | null>(null);
+    const activityCount = activityCountLoaded ?? 0;
     const [isChangeOpen, setIsChangeOpen] = useState(false);
     // Flusso a 3 step: scegli piano/sedi → quando applicare → conferma.
     const [changeStep, setChangeStep] = useState<"select" | "when" | "confirm">("select");
@@ -384,7 +386,7 @@ export default function SubscriptionPage() {
     useEffect(() => {
         if (!selectedTenant?.id || !canReadBilling) return;
         getActivityCount(selectedTenant.id)
-            .then(setActivityCount)
+            .then(setActivityCountLoaded)
             .catch(err => console.error("[SubscriptionPage] activity count failed:", err));
     }, [selectedTenant?.id, canReadBilling]);
 
@@ -1049,13 +1051,20 @@ export default function SubscriptionPage() {
                   volumeDiscounted && currentPlan ? ` · sconto volume −${currentPlan.volume_discount_percent}%` : ""
               }`;
     const allSeatsUsed = activityCount >= displaySeats && displaySeats > 0;
+    // Stato non leggibile: importo e rinnovo non si inventano, resta la sola
+    // cifra che viene dal DB.
     const stripFigures = [
         { value: `${activityCount} di ${displaySeats}`, label: allSeatsUsed ? "sedi pagate · tutte usate" : "sedi pagate" },
-        subUnavailable
-            ? { value: "Non disponibile", label: "importo" }
-            : { value: `${formatEuro(displayAmount)}${unit}`, label: amountLabel },
-        subUnavailable ? { value: "Non disponibile", label: renewalLabel } : { value: renewalValue, label: renewalLabel }
+        ...(subUnavailable
+            ? []
+            : [
+                  { value: `${formatEuro(displayAmount)}${unit}`, label: amountLabel },
+                  { value: renewalValue, label: renewalLabel }
+              ])
     ];
+    // Lo strip aspetta tutti i suoi dati: conteggio sedi e, per chi lo legge,
+    // lo stato Stripe. Mai valori placeholder.
+    const stripReady = activityCountLoaded !== null && (!canManageBilling || !subStateLoading);
 
     const periodWord = billingInterval === "year" ? "all'anno" : "al mese";
     const seatOffer = currentPlan
@@ -1211,14 +1220,18 @@ export default function SubscriptionPage() {
                 </InlineBanner>
             )}
 
-            <StatusStrip
-                tone={strip.tone}
-                badge={strip.badge}
-                title={stripTitle}
-                description={strip.description}
-                figures={stripFigures}
-                action={strip.action ?? undefined}
-            />
+            {stripReady ? (
+                <StatusStrip
+                    tone={strip.tone}
+                    badge={strip.badge}
+                    title={stripTitle}
+                    description={strip.description}
+                    figures={stripFigures}
+                    action={strip.action ?? undefined}
+                />
+            ) : (
+                <Skeleton height="96px" radius="var(--radius-surface)" />
+            )}
 
             {status === "canceled" && (
                 <Text as="p" variant="caption" colorVariant="muted" className={styles.exitNote}>
