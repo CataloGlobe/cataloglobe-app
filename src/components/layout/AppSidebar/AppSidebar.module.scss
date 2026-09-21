@@ -26,27 +26,28 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   overflow: hidden;
 }
 
+// In flusso, sotto l'header (--z-nav): il menu tenant che scende
+// dall'header deve passarle sopra. --z-sticky basta per stare sopra il
+// contenuto.
 .desktop {
   position: relative;
   height: 100%;
-  z-index: var(--z-nav);
+  z-index: var(--z-sticky);
 }
 
-// Cassetto su telefono: deve stare SOPRA AppHeader (fisso, z-index 50,
-// fuori dal lotto 3): --z-nav (20) lo metterebbe sotto l'header e il
-// bottone «Chiudi» sparirebbe. Resta 50/40 finché AppHeader non passa a
-// --z-nav (lotto 4).
+// Cassetto su telefono: sopra l'header (--z-nav) e sotto i drawer.
+// Backdrop e pannello sullo stesso strato: il pannello viene dopo nel DOM.
 .mobile {
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: var(--z-overlay);
 }
 
 /* ===== Overlay ===== */
 .backdrop {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-overlay);
   background: rgba(0, 0, 0, 0.35);
   border: 0;
   cursor: default;

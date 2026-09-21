@@ -1,10 +1,12 @@
 # Scheduling (Programmazione)
 
-Due tipi di regola sullo stesso modello `schedules`:
+Quattro tipi di regola sullo stesso modello `schedules` (`RuleType` in `layoutScheduling.ts:23`; il valore `"catalog"` non esiste):
 
 | `rule_type`           | Route detail                                          | Service                 | Scopo                                                     |
 | --------------------- | ----------------------------------------------------- | ----------------------- | --------------------------------------------------------- |
-| `"catalog"` (default) | `/scheduling/:ruleId` → `ProgrammingRuleDetail`       | `layoutScheduling.ts`   | Assegna catalogo a sede in finestra temporale             |
+| `"layout"`            | `/scheduling/:ruleId` → `ProgrammingRuleDetail`       | `layoutScheduling.ts`   | Assegna catalogo a sede in finestra temporale             |
+| `"price"`             | idem                                                  | `layoutScheduling.ts`   | Override prezzi in finestra                               |
+| `"visibility"`        | idem                                                  | `layoutScheduling.ts`   | Override visibilità prodotti in finestra                  |
 | `"featured"`          | `/scheduling/featured/:ruleId` → `FeaturedRuleDetail` | `featuredScheduling.ts` | Assegna contenuti in evidenza (before/after) in finestra  |
 
 **Risoluzione regole**: tutti e 4 i tipi (layout, featured, price, visibility) usano **competizione** (1 sola regola vince per sede per tipo). Ordine: specificità target (DESC) → specificità temporale (DESC) → priority (ASC) → created_at (ASC) → id (ASC).

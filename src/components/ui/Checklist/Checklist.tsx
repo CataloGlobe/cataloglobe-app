@@ -26,6 +26,10 @@ export interface ChecklistItem {
     title: string;
     /** Una riga sotto il titolo. */
     description?: string;
+    /** Nome breve per il Chip della riga verde («Sede», «Regola»): il titolo
+     *  della riga è una constatazione, il chip è un'etichetta. Se assente,
+     *  il chip usa `title`. */
+    shortTitle?: string;
     done: boolean;
     /** Azione primaria sm sulle righe aperte; default «Fai ora». */
     actionLabel?: string;
@@ -73,6 +77,7 @@ export function Checklist({ title = "Le basi", items, doneTitle = "Le basi ci so
             }
             title={item.title}
             subtitle={item.description}
+            wrapSubtitle
             muted={item.done}
             trailing={
                 !item.done && item.onAction ? (
@@ -105,7 +110,7 @@ export function Checklist({ title = "Le basi", items, doneTitle = "Le basi ci so
                     </button>
                     <div className={styles.doneChips}>
                         {items.map(item => (
-                            <Chip key={item.id} label={item.title} selected />
+                            <Chip key={item.id} label={item.shortTitle ?? item.title} selected />
                         ))}
                     </div>
                 </div>

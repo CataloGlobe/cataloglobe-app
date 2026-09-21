@@ -24,6 +24,9 @@ interface ListRowBaseProps {
     leading?: ReactNode;
     /** Una riga muta, con ellissi. */
     subtitle?: ReactNode;
+    /** Il sottotitolo va a capo fino a due righe invece di troncarsi: per
+     *  le righe in cui è una spiegazione (Checklist), non un dato. */
+    wrapSubtitle?: boolean;
     /** Badge, StatusBadge, cifra. */
     meta?: ReactNode;
     trailing?: ReactNode;
@@ -56,6 +59,7 @@ export function ListRow({
     leading,
     title,
     subtitle,
+    wrapSubtitle = false,
     meta,
     trailing,
     onClick,
@@ -99,7 +103,12 @@ export function ListRow({
                     {title}
                 </Text>
                 {subtitle && (
-                    <Text as="div" variant="caption" colorVariant="muted" className={styles.subtitle}>
+                    <Text
+                        as="div"
+                        variant="caption"
+                        colorVariant="muted"
+                        className={wrapSubtitle ? styles.subtitleWrap : styles.subtitle}
+                    >
                         {subtitle}
                     </Text>
                 )}

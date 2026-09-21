@@ -187,7 +187,7 @@ Esempi in produzione: `SchedaTab` (6 sezioni prodotto), `ActivitySettingsTab`. D
 
 ## Scheduling (Programmazione)
 
-Due `rule_type` su stesso modello `schedules`: `"catalog"` + `"featured"`. Resolver via **competizione** (1 sola regola vince per sede per tipo). Sistema bozze (`enabled=false` finché campi obbligatori mancanti). Periodo + giorni combinabili.
+Quattro `rule_type` su stesso modello `schedules`: `"layout"` (quale catalogo mostrare — è quello che la checklist di Panoramica conta come «regola attiva», `overviewStats.ts`) · `"price"` · `"visibility"` · `"featured"` (`scheduleResolver.ts:25`, `layoutScheduling.ts:23`). Non esiste `"catalog"`. Resolver via **competizione** (1 sola regola vince per sede per tipo). Sistema bozze (`enabled=false` finché campi obbligatori mancanti). Periodo + giorni combinabili.
 
 Dettaglio rule resolver, sistema bozze, simulatore, schema tabelle: `docs/scheduling.md`.
 
