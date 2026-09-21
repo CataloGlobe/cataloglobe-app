@@ -134,7 +134,14 @@ export default function BusinessSettingsPage() {
 
     const isDirty = draft !== null && saved !== null && !isSameDraft(draft, saved);
     const nameValid = draft !== null && draft.name.trim().length > 0;
-    const billingValid = draft === null || draft.billing === null || isBillingDraftComplete(draft.billing);
+    // La completezza fiscale si pretende solo se la fatturazione è stata
+    // toccata: un profilo mai compilato non deve bloccare il cambio del nome.
+    const billingChanged =
+        draft !== null &&
+        saved !== null &&
+        draft.billing !== null &&
+        JSON.stringify(draft.billing) !== JSON.stringify(saved.billing);
+    const billingValid = !billingChanged || (draft?.billing ? isBillingDraftComplete(draft.billing) : true);
     const canSave = isDirty && nameValid && billingValid && !saving;
     useUnsavedChangesGuard(isDirty);
 
@@ -150,9 +157,6 @@ export default function BusinessSettingsPage() {
         try {
             const trimmedName = draft.name.trim();
             const nameChanged = trimmedName !== saved.name;
-            const billingChanged =
-                draft.billing !== null && JSON.stringify(draft.billing) !== JSON.stringify(saved.billing);
-
             if (nameChanged) {
                 await updateTenantName(tenantId, trimmedName);
             }
