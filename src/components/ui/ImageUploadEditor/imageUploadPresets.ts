@@ -100,7 +100,7 @@ export const IMAGE_UPLOAD_PRESETS = {
         backgroundFillModes: ["color", "none"],
         maxSizeMB: 10,
         compressLongEdge: 512,
-        fieldLabel: "Logo attività",
+        fieldLabel: "Logo dell'azienda",
         drawerTitle: "Modifica logo",
         requiresConfirm: true,
         status: "ready",

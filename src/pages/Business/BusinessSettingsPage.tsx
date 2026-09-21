@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Lock } from "lucide-react";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -15,7 +15,10 @@ import {
     type ImageUploadEditorResult
 } from "@/components/ui/ImageUploadEditor";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
-import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
+import { Card } from "@/components/ui/Card/Card";
+import { FormGrid } from "@/components/ui/FormGrid";
+import { FormField } from "@/components/ui/FormField/FormField";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { DeleteTenantDialog } from "@/components/Businesses/DeleteTenantDialog";
@@ -35,9 +38,33 @@ import {
     updateTenantName,
     uploadTenantLogo
 } from "@/services/supabase/tenants";
+import { getActivities } from "@/services/supabase/activities";
 import { TENANT_KEY } from "@/constants/storageKeys";
 import { SUBTYPE_LABELS, DEFAULT_SUBTYPE } from "@/constants/verticalTypes";
 import styles from "./BusinessSettingsPage.module.scss";
+
+/**
+ * Il draft della pagina (§37.4 p. 5, regola B §11): nome e dati di
+ * fatturazione insieme, una sola `UnsavedChangesBar`, una sola guardia.
+ * `billing` è null finché il profilo fiscale non è arrivato (o è fallito):
+ * in quel caso si salva solo il nome.
+ */
+interface SettingsDraft {
+    name: string;
+    billing: BillingDraft | null;
+}
+
+type BillingStatus = "loading" | "ready" | "error";
+
+/** «le sue 3 sedi» / «la sua sede» / «le sue sedi» finché il conteggio non c'è. */
+function describeActivities(count: number | null): string {
+    if (count === null || count === 0) return "le sue sedi";
+    return count === 1 ? "la sua sede" : `le sue ${count} sedi`;
+}
+
+function isSameDraft(a: SettingsDraft, b: SettingsDraft): boolean {
+    return a.name === b.name && JSON.stringify(a.billing) === JSON.stringify(b.billing);
+}
 
 export default function BusinessSettingsPage() {
     const { selectedTenant, loading, refreshTenants } = useTenant();
@@ -46,73 +73,104 @@ export default function BusinessSettingsPage() {
     const canDeleteTenant = permissions ? canDoOnTenant(permissions, "tenant.delete") : false;
     const { showToast } = useToast();
 
-    const [name, setName] = useState("");
+    const [saved, setSaved] = useState<SettingsDraft | null>(null);
+    const [draft, setDraft] = useState<SettingsDraft | null>(null);
     const [saving, setSaving] = useState(false);
+    const [billingStatus, setBillingStatus] = useState<BillingStatus>("loading");
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-
     const [isSavingLogo, setIsSavingLogo] = useState(false);
+    // Quante sedi se ne vanno con l'azienda (§37.4 p. 4): una lettura sola.
+    const [activityCount, setActivityCount] = useState<number | null>(null);
 
-    // Dati di fatturazione: draft inline + UnsavedChangesBar. I campi fiscali
-    // NON sono esposti da user_tenants_view (quindi non stanno su
-    // selectedTenant): si leggono da `tenants` via getTenantFiscalProfile.
-    const [billingSaved, setBillingSaved] = useState<BillingDraft | null>(null);
-    const [billingDraft, setBillingDraft] = useState<BillingDraft | null>(null);
-    const [billingSaving, setBillingSaving] = useState(false);
+    const tenantId = selectedTenant?.id ?? null;
+    const tenantName = selectedTenant?.name ?? "";
 
+    // Il nome arriva dalla view del tenant; i campi fiscali NON ci stanno
+    // (user_tenants_view non li espone) e si leggono a parte da `tenants`.
     useEffect(() => {
-        if (selectedTenant) {
-            setName(selectedTenant.name);
+        if (!tenantId) return;
+        const initial: SettingsDraft = { name: tenantName, billing: null };
+        setSaved(initial);
+        setDraft(initial);
+        // Keyed sull'id: un refresh del tenant non azzera il draft in corso.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [tenantId]);
+
+    const loadBilling = useCallback(async () => {
+        if (!tenantId) return;
+        setBillingStatus("loading");
+        try {
+            const profile = await getTenantFiscalProfile(tenantId);
+            const billing = billingDraftFromProfile(profile);
+            setSaved(prev => (prev ? { ...prev, billing } : prev));
+            setDraft(prev => (prev ? { ...prev, billing } : prev));
+            setBillingStatus("ready");
+        } catch (err) {
+            console.error("[BusinessSettingsPage] fiscal profile load failed:", err);
+            setBillingStatus("error");
         }
-    }, [selectedTenant?.id]);
+    }, [tenantId]);
 
     useEffect(() => {
-        if (!selectedTenant || !canManageTenant) return;
+        if (!canManageTenant) return;
+        void loadBilling();
+    }, [canManageTenant, loadBilling]);
+
+    useEffect(() => {
+        if (!tenantId || !canManageTenant) return;
         let cancelled = false;
-        void getTenantFiscalProfile(selectedTenant.id)
-            .then(profile => {
-                if (cancelled) return;
-                const draft = billingDraftFromProfile(profile);
-                setBillingSaved(draft);
-                setBillingDraft(draft);
+        getActivities(tenantId)
+            .then(list => {
+                if (!cancelled) setActivityCount(list.length);
             })
             .catch(err => {
-                console.error("[BusinessSettingsPage] fiscal profile load failed:", err);
+                // Il numero è un dettaglio della copy: senza, la frase resta vera.
+                console.error("[BusinessSettingsPage] activities count failed:", err);
             });
         return () => {
             cancelled = true;
         };
-        // Keyed sull'id (come l'effect `name` sopra): ricaricare a ogni cambio di
-        // identità dell'oggetto tenant sarebbe inutile.
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedTenant?.id, canManageTenant]);
+    }, [tenantId, canManageTenant]);
 
-    const billingDirty =
-        billingDraft !== null &&
-        billingSaved !== null &&
-        JSON.stringify(billingDraft) !== JSON.stringify(billingSaved);
-    const billingCanSave =
-        billingDirty && billingDraft !== null && isBillingDraftComplete(billingDraft) && !billingSaving;
-    useUnsavedChangesGuard(billingDirty);
+    const isDirty = draft !== null && saved !== null && !isSameDraft(draft, saved);
+    const nameValid = draft !== null && draft.name.trim().length > 0;
+    const billingValid = draft === null || draft.billing === null || isBillingDraftComplete(draft.billing);
+    const canSave = isDirty && nameValid && billingValid && !saving;
+    useUnsavedChangesGuard(isDirty);
 
-    const patchBillingDraft = (patch: Partial<BillingDraft>) =>
-        setBillingDraft(prev => (prev ? { ...prev, ...patch } : prev));
+    const patchDraft = (patch: Partial<SettingsDraft>) => setDraft(prev => (prev ? { ...prev, ...patch } : prev));
+    const patchBilling = (patch: Partial<BillingDraft>) =>
+        setDraft(prev => (prev && prev.billing ? { ...prev, billing: { ...prev.billing, ...patch } } : prev));
 
-    const handleBillingCancel = () => setBillingDraft(billingSaved);
+    const handleCancel = () => setDraft(saved);
 
-    const handleBillingSave = async () => {
-        if (!selectedTenant || !billingDraft || !billingCanSave) return;
-        setBillingSaving(true);
+    const handleSave = async () => {
+        if (!tenantId || !draft || !saved || !canSave) return;
+        setSaving(true);
         try {
-            await updateTenantBillingDetails(selectedTenant.id, billingDraftToPayload(billingDraft));
-            const profile = await getTenantFiscalProfile(selectedTenant.id);
-            const fresh = billingDraftFromProfile(profile);
-            setBillingSaved(fresh);
-            setBillingDraft(fresh);
-            showToast({ message: "Dati di fatturazione aggiornati.", type: "success" });
+            const trimmedName = draft.name.trim();
+            const nameChanged = trimmedName !== saved.name;
+            const billingChanged =
+                draft.billing !== null && JSON.stringify(draft.billing) !== JSON.stringify(saved.billing);
+
+            if (nameChanged) {
+                await updateTenantName(tenantId, trimmedName);
+            }
+            let billing = saved.billing;
+            if (billingChanged && draft.billing) {
+                await updateTenantBillingDetails(tenantId, billingDraftToPayload(draft.billing));
+                billing = billingDraftFromProfile(await getTenantFiscalProfile(tenantId));
+            }
+            if (nameChanged) {
+                await refreshTenants();
+            }
+            const fresh: SettingsDraft = { name: trimmedName, billing };
+            setSaved(fresh);
+            setDraft(fresh);
+            showToast({ message: "Impostazioni aggiornate.", type: "success" });
         } catch (err) {
-            // Stessa mappatura codici di SubscriptionPage. La RPC oggi non valida
-            // la P.IVA lato server (migration separata da fare — TODO sotto): il
-            // blocco resta lato FE via `isBillingDraftComplete`.
+            // Stessa mappatura codici di SubscriptionPage: la RPC segnala con
+            // il nome dell'errore.
             const code = err instanceof Error ? err.name : "";
             if (code === "invalid_vat_number") {
                 showToast({ message: "La Partita IVA non è valida. Controllala e riprova.", type: "error" });
@@ -125,43 +183,25 @@ export default function BusinessSettingsPage() {
                 showToast({ message: "Errore durante il salvataggio. Riprova.", type: "error" });
             }
         } finally {
-            setBillingSaving(false);
+            setSaving(false);
         }
     };
 
     usePageHeader({
-        title: "Impostazioni attività",
-        subtitle: "Gestisci le informazioni e le preferenze di questa attività.",
+        title: "Impostazioni",
+        subtitle: "Nome, dati di fatturazione e logo dell'azienda; qui si elimina."
     });
-
-    const handleSave = async (e: React.FormEvent) => {
-        e.preventDefault();
-        if (!selectedTenant) return;
-        const trimmed = name.trim();
-        if (!trimmed) return;
-
-        setSaving(true);
-        try {
-            await updateTenantName(selectedTenant.id, trimmed);
-            await refreshTenants();
-            showToast({ message: "Informazioni aggiornate.", type: "success" });
-        } catch {
-            showToast({ message: "Errore durante il salvataggio. Riprova.", type: "error" });
-        } finally {
-            setSaving(false);
-        }
-    };
 
     // Riceve dal wrapper l'immagine GIÀ ritagliata (baked, quadrata): carica quel
     // singolo file col servizio esistente. Nessun framing metadata persistito,
     // nessuna nuova colonna DB — tutti i consumer (sidebar, card, pagina pubblica)
     // si aspettano un logo pre-croppato, invariato.
     const handleLogoConfirm = async ({ file }: ImageUploadEditorResult) => {
-        if (!selectedTenant || !file) return;
+        if (!tenantId || !file) return;
         setIsSavingLogo(true);
         try {
-            const path = await uploadTenantLogo(selectedTenant.id, file);
-            await updateTenantLogoUrl(selectedTenant.id, path);
+            const path = await uploadTenantLogo(tenantId, file);
+            await updateTenantLogoUrl(tenantId, path);
             await refreshTenants();
             showToast({ message: "Logo aggiornato.", type: "success" });
         } catch (err) {
@@ -173,10 +213,10 @@ export default function BusinessSettingsPage() {
     };
 
     const handleRemoveLogo = async () => {
-        if (!selectedTenant) return;
+        if (!tenantId) return;
         setIsSavingLogo(true);
         try {
-            await updateTenantLogoUrl(selectedTenant.id, null);
+            await updateTenantLogoUrl(tenantId, null);
             await refreshTenants();
             showToast({ message: "Logo rimosso.", type: "success" });
         } catch {
@@ -187,7 +227,8 @@ export default function BusinessSettingsPage() {
     };
 
     const handleDeleteConfirm = async (): Promise<void> => {
-        await deleteTenantSoft(selectedTenant!.id);
+        if (!tenantId) return;
+        await deleteTenantSoft(tenantId);
         // Rimuove il tenant eliminato dal localStorage prima del reload,
         // così nessun codice futuro che legga questa chiave troverà un ID stale.
         localStorage.removeItem(TENANT_KEY);
@@ -196,139 +237,128 @@ export default function BusinessSettingsPage() {
         window.location.replace("/workspace");
     };
 
-    if (loading || !selectedTenant) return null;
-
-    if (!permissionsLoading && permissions && !canManageTenant) {
+    if (loading || !selectedTenant || permissionsLoading || !draft) {
         return (
             <div className={styles.page}>
-                <div className={styles.emptyWrap}>
-                    <EmptyState
-                        icon={<Lock size={40} strokeWidth={1.5} />}
-                        title="Non hai accesso alle impostazioni"
-                        description="Le impostazioni dell'attività sono riservate a proprietario e amministratori. Contatta un amministratore se hai bisogno di apportare modifiche."
-                    />
-                </div>
+                {[0, 1, 2, 3].map(i => (
+                    <Card key={i}>
+                        <div className={styles.skeletonCard}>
+                            <Skeleton height="20px" width="30%" />
+                            <Skeleton height="38px" />
+                            <Skeleton height="38px" width="60%" />
+                        </div>
+                    </Card>
+                ))}
+            </div>
+        );
+    }
+
+    if (!canManageTenant) {
+        return (
+            <div className={styles.page}>
+                <EmptyState
+                    variant="page"
+                    icon={<Lock />}
+                    title="Non hai accesso alle impostazioni"
+                    description="Le gestiscono il proprietario e gli amministratori."
+                />
             </div>
         );
     }
 
     return (
         <div className={styles.page}>
-            {/* Section 1 — Business info (owner + admin via tenant.manage) */}
-            {canManageTenant && (
-                <div className={styles.section}>
-                    <Text variant="title-sm" weight={600}>
-                        Informazioni attività
-                    </Text>
-
-                    <form id="business-info-form" onSubmit={handleSave} className={styles.form}>
-                        <TextInput
-                            label="Nome attività"
-                            value={name}
-                            onChange={e => setName(e.target.value)}
-                            required
-                        />
-
-                        <div className={styles.readOnlyField}>
-                            <Text variant="body-sm" weight={500}>Tipo di attività</Text>
-                            <span className={styles.typePill}>
+            <Card title="Azienda">
+                <FormGrid cols={2}>
+                    <TextInput
+                        label="Nome dell'azienda"
+                        value={draft.name}
+                        onChange={e => patchDraft({ name: e.target.value })}
+                        required
+                        error={nameValid ? undefined : "Il nome è obbligatorio."}
+                        disabled={saving}
+                    />
+                    {/* «Settore» in sola lettura (§37.4 p. 2): la scheda FormField
+                        prevede lo stato «testo senza bordo», il valore è un Text. */}
+                    <FormField label="Settore" helperText="Scelto alla creazione. Per cambiarlo scrivi al supporto.">
+                        {({ inputId, describedById }) => (
+                            <Text
+                                as="p"
+                                id={inputId}
+                                variant="body"
+                                aria-describedby={describedById}
+                                className={styles.readOnlyValue}
+                            >
                                 {SUBTYPE_LABELS[selectedTenant.business_subtype ?? DEFAULT_SUBTYPE]}
-                            </span>
-                            <span className={styles.readOnlyHint}>
-                                Il tipo di attività non può essere modificato dopo la creazione
-                            </span>
-                        </div>
-                    </form>
+                            </Text>
+                        )}
+                    </FormField>
+                </FormGrid>
+            </Card>
 
-                    <div className={styles.sectionFooter}>
-                        <Button
-                            type="submit"
-                            form="business-info-form"
-                            variant="primary"
-                            disabled={saving || !name.trim()}
-                        >
-                            {saving ? "Salvataggio..." : "Salva modifiche"}
-                        </Button>
-                    </div>
-                </div>
-            )}
-
-            {/* Section — Dati di fatturazione (owner + admin via tenant.manage) */}
-            {canManageTenant && billingDraft && (
-                <SectionCard
-                    title="Dati di fatturazione"
-                    subtitle="Intestano le fatture del tuo abbonamento. Con la Partita IVA serve un recapito e-fattura (Codice Destinatario SDI o PEC)."
-                >
-                    <BillingDetailsForm
-                        value={billingDraft}
-                        onChange={patchBillingDraft}
-                        disabled={billingSaving}
-                    />
-                </SectionCard>
-            )}
-
-            {/* Section 2 — Logo (owner + admin via tenant.manage) */}
-            {canManageTenant && (
-                <div className={styles.section}>
-                    <Text variant="title-sm" weight={600}>
-                        Identità visiva
-                    </Text>
-
-                    <ImageUploadEditor
-                        aspectRatio={IMAGE_UPLOAD_PRESETS.logo.aspectRatio}
-                        backgroundFillModes={IMAGE_UPLOAD_PRESETS.logo.backgroundFillModes}
-                        maxSizeMB={IMAGE_UPLOAD_PRESETS.logo.maxSizeMB}
-                        compressLongEdge={IMAGE_UPLOAD_PRESETS.logo.compressLongEdge}
-                        bake={{ size: 512, format: "image/webp", quality: 0.9, fileName: "logo.webp" }}
-                        fieldLabel={IMAGE_UPLOAD_PRESETS.logo.fieldLabel}
-                        drawerTitle={IMAGE_UPLOAD_PRESETS.logo.drawerTitle}
-                        requiresConfirm={IMAGE_UPLOAD_PRESETS.logo.requiresConfirm}
-                        initialSource={
-                            selectedTenant.logo_url
-                                ? getTenantLogoPublicUrl(selectedTenant.logo_url)
-                                : null
+            <Card
+                title="Dati di fatturazione"
+                subtitle="Intestano le fatture dell'abbonamento. Con la Partita IVA serve un recapito e-fattura: Codice Destinatario SDI o PEC."
+            >
+                {billingStatus === "error" ? (
+                    <InlineBanner
+                        variant="error"
+                        action={
+                            <Button variant="secondary" size="sm" onClick={() => void loadBilling()}>
+                                Riprova
+                            </Button>
                         }
-                        initialAspectRatio={1}
-                        onConfirm={handleLogoConfirm}
-                        onRemove={handleRemoveLogo}
-                        removing={isSavingLogo}
-                    />
-                </div>
-            )}
+                    >
+                        Non riusciamo a caricare i dati di fatturazione.
+                    </InlineBanner>
+                ) : billingStatus === "ready" && draft.billing ? (
+                    <BillingDetailsForm value={draft.billing} onChange={patchBilling} disabled={saving} />
+                ) : (
+                    <div className={styles.skeletonCard}>
+                        <Skeleton height="38px" width="60%" />
+                        <Skeleton height="38px" />
+                    </div>
+                )}
+            </Card>
 
-            {/* Section 3 — Danger zone */}
-            {canManageTenant && (
-                <div className={`${styles.section} ${styles.dangerSection}`}>
-                    <Text variant="title-sm" weight={600}>
-                        Zona pericolosa
+            <Card title="Logo" subtitle="Compare nel workspace, nelle pagine pubbliche e sui PDF del menù.">
+                <ImageUploadEditor
+                    aspectRatio={IMAGE_UPLOAD_PRESETS.logo.aspectRatio}
+                    backgroundFillModes={IMAGE_UPLOAD_PRESETS.logo.backgroundFillModes}
+                    maxSizeMB={IMAGE_UPLOAD_PRESETS.logo.maxSizeMB}
+                    compressLongEdge={IMAGE_UPLOAD_PRESETS.logo.compressLongEdge}
+                    bake={{ size: 512, format: "image/webp", quality: 0.9, fileName: "logo.webp" }}
+                    fieldLabel={IMAGE_UPLOAD_PRESETS.logo.fieldLabel}
+                    drawerTitle={IMAGE_UPLOAD_PRESETS.logo.drawerTitle}
+                    requiresConfirm={IMAGE_UPLOAD_PRESETS.logo.requiresConfirm}
+                    initialSource={selectedTenant.logo_url ? getTenantLogoPublicUrl(selectedTenant.logo_url) : null}
+                    initialAspectRatio={1}
+                    onConfirm={handleLogoConfirm}
+                    onRemove={handleRemoveLogo}
+                    removing={isSavingLogo}
+                />
+            </Card>
+
+            <Card variant="danger" title="Elimina l'azienda">
+                <div className={styles.dangerBody}>
+                    <Text as="p" variant="body-sm" colorVariant="muted">
+                        Con l&apos;azienda spariscono {describeActivities(activityCount)}, i cataloghi, i prodotti,
+                        gli ordini, le prenotazioni e le recensioni; le pagine pubbliche vanno offline subito. Hai 30
+                        giorni per ripristinarla dal Workspace, poi l&apos;eliminazione è definitiva.
                     </Text>
-
                     {!canDeleteTenant && (
                         <InlineBanner variant="info">
-                            Solo il proprietario può eliminare l&apos;azienda.
+                            Solo il proprietario può eliminare l&apos;azienda. Se vuoi solo andartene, chiedi di essere
+                            rimosso dal Team.
                         </InlineBanner>
                     )}
-
-                    <div className={styles.dangerRow}>
-                        <div>
-                            <Text variant="body" weight={500}>
-                                Elimina attività
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                L&apos;attività verrà spostata nell&apos;area &ldquo;In eliminazione&rdquo;.
-                                Potrai ripristinarla entro 30 giorni.
-                            </Text>
-                        </div>
-                        <Button
-                            variant="danger"
-                            onClick={() => setDeleteDialogOpen(true)}
-                            disabled={!canDeleteTenant}
-                        >
-                            Elimina attività
+                    <div className={styles.dangerAction}>
+                        <Button variant="danger" onClick={() => setDeleteDialogOpen(true)} disabled={!canDeleteTenant}>
+                            Elimina l&apos;azienda
                         </Button>
                     </div>
                 </div>
-            )}
+            </Card>
 
             <DeleteTenantDialog
                 isOpen={deleteDialogOpen}
@@ -337,12 +367,12 @@ export default function BusinessSettingsPage() {
                 onConfirm={handleDeleteConfirm}
             />
 
-            {billingDirty && (
+            {isDirty && (
                 <UnsavedChangesBar
-                    isSaving={billingSaving}
-                    onCancel={handleBillingCancel}
-                    onSave={handleBillingSave}
-                    saveDisabled={!billingCanSave}
+                    isSaving={saving}
+                    onCancel={handleCancel}
+                    onSave={handleSave}
+                    saveDisabled={!canSave}
                     saveLabel="Salva"
                 />
             )}

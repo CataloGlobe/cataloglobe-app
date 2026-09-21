@@ -43,9 +43,10 @@ export function DeleteTenantDialog({ isOpen, tenantName, onClose, onConfirm }: P
             onClose={onClose}
             onConfirm={handleConfirm}
             title={`Eliminare “${tenantName}”?`}
-            message="L'attività verrà spostata nell'area “In eliminazione” nel workspace. Potrai ripristinarla entro 30 giorni. Dopo questo periodo verrà eliminata definitivamente."
+            message="Sedi, cataloghi, prodotti, ordini e prenotazioni spariscono e le pagine pubbliche vanno offline subito. Hai 30 giorni per ripristinare l'azienda dal Workspace."
             confirmText={tenantName}
-            confirmLabel="Elimina attività"
+            confirmFieldLabel="Scrivi il nome dell'azienda per confermare"
+            confirmLabel="Elimina l'azienda"
             confirmVariant="danger"
             isLoading={loading}
             error={error}

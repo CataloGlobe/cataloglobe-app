@@ -504,7 +504,16 @@ export function ImageUploadEditor({
             </div>
 
             <div className={styles.fieldBody}>
-                <div className={styles.previewBox} style={{ aspectRatio: String(aspectRatio) }}>
+                <div
+                    className={[
+                        styles.previewBox,
+                        aspectRatio === 1 ? styles.previewSquare : "",
+                        hasImage && initialSource ? styles.previewFilled : ""
+                    ]
+                        .join(" ")
+                        .trim()}
+                    style={{ aspectRatio: String(aspectRatio) }}
+                >
                     {hasImage && initialSource ? (
                         <FramedMedia
                             source={initialSource}
