@@ -162,7 +162,7 @@ export function AppSidebar({
                 )}
 
                 <div className={styles.sidebarScroll}>
-                    <nav className={styles.nav}>
+                    <nav className={styles.nav} aria-label="Menu principale">
                         {groups.map((group, i) => (
                             <Fragment key={i}>
                                 {/* Il titolo è il separatore: il divisore resta solo per i gruppi senza titolo. */}
