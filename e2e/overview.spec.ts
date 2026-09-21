@@ -43,11 +43,31 @@ test.describe("Panoramica", () => {
         }
     });
 
-    test("card presenti", async ({ page }) => {
-        await expect(page.getByText("Statistiche rapide", { exact: true })).toBeVisible();
-        for (const label of ["Sedi", "Prodotti", "Programmi", "Contenuti in evidenza"]) {
-            await expect(page.getByText(label, { exact: true }).last()).toBeVisible();
-        }
-        await expect(page.getByText("Azioni rapide", { exact: true })).toBeVisible();
+    test("vetrina: la card delle pagine pubbliche", async ({ page }) => {
+        const main = page.getByRole("main");
+        await expect(main.getByText("Le tue pagine pubbliche", { exact: true })).toBeVisible();
+        await expect(main.getByText(/^(1 sede pubblicata|\d+ sedi pubblicate)$/)).toBeVisible();
+    });
+
+    test("vetrina: riga di una sede pubblica con nome, URL e QR", async ({ page }) => {
+        const main = page.getByRole("main");
+        // Il link il cui testo È l'URL pubblico: da lì si risale alla sede.
+        const urlLink = main.getByRole("link", { name: /^https?:\/\// }).first();
+        await expect(urlLink).toBeVisible();
+        const href = await urlLink.getAttribute("href");
+        expect(href).toMatch(/^https?:\/\//);
+        await expect(urlLink).toHaveText(href!);
+
+        // Stesso href, testo diverso: il nome della sede come collegamento vero.
+        const nameLink = main.locator(`a[href="${href}"]`).filter({ hasNotText: href! });
+        await expect(nameLink).toBeVisible();
+        await expect(nameLink).toHaveAttribute("target", "_blank");
+        await expect(nameLink).not.toHaveText("");
+
+        // Un QR per sede pubblicata: `qrcode.react` rende un <svg role="img">.
+        await expect(main.locator("svg[role='img']").first()).toBeVisible();
+
+        // Il menu ⋯ della riga (Copia link · Scarica QR).
+        await expect(main.getByRole("button", { name: "Azioni" }).first()).toBeVisible();
     });
 });
