@@ -1297,13 +1297,14 @@ export default function SubscriptionPage() {
                     {!subStateLoading && pendingBanner && (
                         <ListRow
                             leading={<CalendarRange size={20} aria-hidden />}
-                            title={`Cambio programmato: ${formatPendingChangeLabel({
+                            title="Cambio programmato"
+                            subtitle={`${formatPendingChangeLabel({
                                 planName: pendingBanner.planName,
                                 seats: pendingBanner.seats,
                                 interval: pendingBanner.interval,
                                 dateLabel: formatDate(pendingBanner.date)
-                            })}`}
-                            subtitle={pendingBanner.isBase ? "Ordini e prenotazioni da QR verranno disattivati al rinnovo." : undefined}
+                            })}${pendingBanner.isBase ? ". Ordini e prenotazioni da QR verranno disattivati al rinnovo." : ""}`}
+                            wrapSubtitle
                             trailing={
                                 <Button variant="secondary" size="sm" onClick={() => setIsCancelScheduleOpen(true)} leftIcon={<XCircle size={14} />}>
                                     Annulla cambio
