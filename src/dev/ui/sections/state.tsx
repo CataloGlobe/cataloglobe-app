@@ -1,5 +1,10 @@
 /* eslint-disable react-refresh/only-export-components -- galleria dev: componenti di sezione + elenco nello stesso file, niente fast refresh da preservare */
+import { useState } from "react";
 import { Button } from "@/components/ui/Button/Button";
+import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
+import { OfferBlock } from "@/components/ui/OfferBlock/OfferBlock";
+import styles from "../DevUiPage.module.scss";
 import { StatusStrip } from "@/components/ui/StatusStrip/StatusStrip";
 import { Checklist, type ChecklistItem } from "@/components/ui/Checklist/Checklist";
 import { State, noop, type GallerySection } from "../gallery";
@@ -99,7 +104,84 @@ function ChecklistSection() {
     );
 }
 
+/* ------------------------------------------------------------------ */
+/* OfferBlock                                                          */
+/* ------------------------------------------------------------------ */
+
+function OfferBlockSection() {
+    const [open, setOpen] = useState<"upgrade" | "contact" | null>(null);
+    const [loading, setLoading] = useState(false);
+    const close = () => setOpen(null);
+    const act = () => {
+        setLoading(true);
+        window.setTimeout(() => {
+            setLoading(false);
+            close();
+        }, 1500);
+    };
+    return (
+        <>
+            <State label="upgrade: icona · titolo · prezzo + prorata · riga · azione + Annulla (nudo, come sta nel drawer)" column>
+                <div className={styles.narrow}>
+                    <OfferBlock
+                        variant="upgrade"
+                        title="Hai usato tutte le 3 sedi pagate"
+                        price="12 € al mese"
+                        prorata="Oggi paghi 4,80 € per i 12 giorni rimasti"
+                        description="La quarta sede si aggiunge subito al piano, senza cambiare piano."
+                        onAction={noop}
+                        onCancel={noop}
+                    />
+                </div>
+            </State>
+            <State label="contact: oltre 5 sedi, serve un piano dedicato" column>
+                <div className={styles.narrow}>
+                    <OfferBlock
+                        variant="contact"
+                        title="Oltre 5 sedi serve un piano dedicato"
+                        description="Ti rispondiamo entro un giorno lavorativo con un'offerta su misura."
+                        onAction={noop}
+                        onCancel={noop}
+                    />
+                </div>
+            </State>
+            <State label="loading: azione in corso" column>
+                <div className={styles.narrow}>
+                    <OfferBlock variant="upgrade" title="Hai usato tutte le 3 sedi pagate" price="12 € al mese" onAction={noop} onCancel={noop} loading />
+                </div>
+            </State>
+            <State label="nel suo posto: SystemDrawer md (l'azione chiude dopo 1,5 s)">
+                <Button variant="secondary" onClick={() => setOpen("upgrade")}>
+                    Apri upgrade
+                </Button>
+                <Button variant="secondary" onClick={() => setOpen("contact")}>
+                    Apri contact
+                </Button>
+            </State>
+            <SystemDrawer open={open !== null} onClose={close} size="md" aria-labelledby="dev-offer-title">
+                <DrawerLayout title="Nuova sede" titleId="dev-offer-title" onClose={close}>
+                    {open === "contact" ? (
+                        <OfferBlock variant="contact" title="Oltre 5 sedi serve un piano dedicato" description="Ti rispondiamo entro un giorno lavorativo." onAction={act} onCancel={close} loading={loading} />
+                    ) : (
+                        <OfferBlock
+                            variant="upgrade"
+                            title="Hai usato tutte le 3 sedi pagate"
+                            price="12 € al mese"
+                            prorata="Oggi paghi 4,80 € per i 12 giorni rimasti"
+                            description="La quarta sede si aggiunge subito al piano."
+                            onAction={act}
+                            onCancel={close}
+                            loading={loading}
+                        />
+                    )}
+                </DrawerLayout>
+            </SystemDrawer>
+        </>
+    );
+}
+
 export const stateSections: GallerySection[] = [
     { id: "statusstrip", title: "StatusStrip", sheet: "StatusStrip", Component: StatusStripSection },
-    { id: "checklist", title: "Checklist", sheet: "Checklist", Component: ChecklistSection }
+    { id: "checklist", title: "Checklist", sheet: "Checklist", Component: ChecklistSection },
+    { id: "offerblock", title: "OfferBlock", sheet: "OfferBlock", Component: OfferBlockSection }
 ];
