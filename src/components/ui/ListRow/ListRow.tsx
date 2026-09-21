@@ -69,7 +69,9 @@ export function ListRow({
     if (loading) {
         return (
             <div className={`${styles.row} ${className ?? ""}`.trim()} aria-busy="true">
-                <Skeleton width={20} height={20} radius="50%" />
+                <div className={styles.leading}>
+                    <Skeleton width={20} height={20} radius="50%" />
+                </div>
                 <div className={styles.body}>
                     <Skeleton width="40%" height={14} radius="var(--radius-inner)" />
                     <Skeleton width="60%" height={12} radius="var(--radius-inner)" />
