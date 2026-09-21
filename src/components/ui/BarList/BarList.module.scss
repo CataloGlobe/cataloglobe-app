@@ -1,0 +1,63 @@
+// BarList — una serie sola a barre orizzontali (design system §5, scheda
+// BarList). Riga 28, gap 8, etichetta max 40 %, barra 8 brand-primary con
+// radius-inner, conteggio a destra in tabular-nums.
+
+.list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  width: 100%;
+  min-width: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: minmax(0, 40%) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--space-12);
+  min-height: 28px;
+}
+
+.label {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+
+.labelText {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.track {
+  position: relative;
+  height: 8px;
+  min-width: 0;
+}
+
+.bar {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-inner);
+  background: var(--brand-primary);
+  transform-origin: left center;
+  transition: transform var(--timing-motion-base) var(--easing-state);
+}
+
+.value {
+  min-width: 2ch;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.more {
+  display: flex;
+  justify-content: flex-start;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bar {
+    transition: none;
+  }
+}

@@ -6,6 +6,7 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { OfferBlock } from "@/components/ui/OfferBlock/OfferBlock";
 import { ProgressBar } from "@/components/ui/ProgressBar/ProgressBar";
 import { Rating } from "@/components/ui/Rating/Rating";
+import { BarList, type BarListItem } from "@/components/ui/BarList/BarList";
 import { StatCard } from "@/components/ui/StatCard/StatCard";
 import styles from "../DevUiPage.module.scss";
 import { StatusStrip } from "@/components/ui/StatusStrip/StatusStrip";
@@ -238,10 +239,70 @@ function RatingSection() {
     );
 }
 
+/* ------------------------------------------------------------------ */
+/* BarList                                                             */
+/* ------------------------------------------------------------------ */
+
+const STARS: BarListItem[] = [5, 4, 3, 2, 1].map(n => ({
+    id: String(n),
+    label: <Rating value={n} showValue={false} />,
+    value: [2, 2, 6, 19, 71][5 - n] ?? 0
+}));
+
+const SEARCHES: BarListItem[] = [
+    { id: "pizza", label: "pizza", value: 184 },
+    { id: "senza-glutine", label: "senza glutine", value: 96 },
+    { id: "vegano", label: "vegano", value: 71 },
+    { id: "tiramisu", label: "tiramisù", value: 40 },
+    { id: "birra", label: "birra artigianale", value: 33 },
+    { id: "caffe", label: "caffè", value: 12 },
+    { id: "acqua", label: "acqua", value: 9 },
+    { id: "sushi", label: "sushi", value: 0 }
+];
+
+const PRODUCTS: BarListItem[] = [
+    { id: "p1", label: <a href="#barlist">Margherita</a>, value: 412 },
+    { id: "p2", label: <a href="#barlist">Carbonara con guanciale croccante e pecorino romano DOP</a>, value: 260 },
+    { id: "p3", label: <a href="#barlist">Tiramisù</a>, value: 98 }
+];
+
+function BarListSection() {
+    return (
+        <>
+            <State label="distribuzione stelle: Rating come etichetta, la più lunga riempie" column>
+                <div className={styles.narrow}>
+                    <BarList items={STARS} aria-label="Distribuzione delle recensioni" />
+                </div>
+            </State>
+            <State label="parole cercate: max 5 righe + «Mostra altre», una barra a zero resta con «0»" column>
+                <div className={styles.narrow}>
+                    <BarList items={SEARCHES} limit={5} />
+                </div>
+            </State>
+            <State label="link sull'etichetta (apre il drawer) · etichetta lunga in ellissi" column>
+                <div className={styles.narrow}>
+                    <BarList items={PRODUCTS} />
+                </div>
+            </State>
+            <State label="caricamento: 5 righe Skeleton" column>
+                <div className={styles.narrow}>
+                    <BarList items={[]} loading />
+                </div>
+            </State>
+            <State label="vuoto: EmptyState inline con la data da cui si raccoglie" column>
+                <div className={styles.narrow}>
+                    <BarList items={[]} emptyTitle="Ancora nessuna ricerca" emptyDescription="Raccolte dal 19/09/2026." />
+                </div>
+            </State>
+        </>
+    );
+}
+
 export const stateSections: GallerySection[] = [
     { id: "statusstrip", title: "StatusStrip", sheet: "StatusStrip", Component: StatusStripSection },
     { id: "checklist", title: "Checklist", sheet: "Checklist", Component: ChecklistSection },
     { id: "offerblock", title: "OfferBlock", sheet: "OfferBlock", Component: OfferBlockSection },
     { id: "progressbar", title: "ProgressBar", sheet: "ProgressBar", Component: ProgressBarSection },
-    { id: "rating", title: "Rating", sheet: "Rating", Component: RatingSection }
+    { id: "rating", title: "Rating", sheet: "Rating", Component: RatingSection },
+    { id: "barlist", title: "BarList", sheet: "BarList", Component: BarListSection }
 ];

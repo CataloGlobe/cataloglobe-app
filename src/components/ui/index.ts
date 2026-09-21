@@ -9,6 +9,7 @@ export { Checklist } from "./Checklist/Checklist";
 export { OfferBlock } from "./OfferBlock/OfferBlock";
 export { ProgressBar } from "./ProgressBar/ProgressBar";
 export { Rating } from "./Rating/Rating";
+export { BarList } from "./BarList/BarList";
 export { DataTable } from "./DataTable/DataTable";
 export type { ColumnDefinition } from "./DataTable/DataTable";
 export { ToastItem } from "./Toast/Toast";
