@@ -172,13 +172,18 @@
 }
 
 // Su telefono la cella stringe l'orizzontale a 12: a 375 px i 24 per lato
-// mangiavano metà della colonna (§45.6). La tabella a due colonne è del
-// lotto 5.
+// mangiavano metà della colonna (§45.6). Le colonne `hideOnPhone` escono
+// (DataTable.tsx) e il ⋯ è sempre visibile: senza hover, un'azione che non
+// si vede non esiste.
 @include phone {
     .cell,
     .headerCell {
         padding-left: var(--space-12);
         padding-right: var(--space-12);
+    }
+
+    .row .cellActions > * {
+        opacity: 1;
     }
 }
 

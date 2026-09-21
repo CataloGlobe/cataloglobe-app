@@ -471,12 +471,14 @@ export default function TeamPage() {
             {
                 id: "role",
                 header: "Ruolo e cosa può fare",
+                hideOnPhone: true,
                 width: "2fr",
                 cell: (_, row) => roleCell(row.effective_role),
             },
             {
                 id: "activities",
                 header: "Su quali sedi",
+                hideOnPhone: true,
                 width: "1.5fr",
                 cell: (_, row) => activitiesCell(row, totalActivities),
             },
@@ -537,18 +539,21 @@ export default function TeamPage() {
             {
                 id: "role",
                 header: "Ruolo e cosa può fare",
+                hideOnPhone: true,
                 width: "2fr",
                 cell: (_, row) => roleCell(row.effective_role),
             },
             {
                 id: "activities",
                 header: "Su quali sedi",
+                hideOnPhone: true,
                 width: "1.5fr",
                 cell: (_, row) => activitiesCell(row, totalActivities),
             },
             {
                 id: "invited_by",
                 header: "Invitato da",
+                hideOnPhone: true,
                 width: "1.5fr",
                 cell: (_, row) => (
                     <Text variant="body-sm" colorVariant="muted">
@@ -559,6 +564,7 @@ export default function TeamPage() {
             {
                 id: "expiry",
                 header: "Scadenza",
+                hideOnPhone: true,
                 width: "150px",
                 cell: (_, row) => (
                     <Text variant="body-sm" colorVariant="muted">
