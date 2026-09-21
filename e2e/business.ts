@@ -14,7 +14,9 @@ export async function openBusinessPage(page: Page, path: string, sidebarLabel: s
     }
     await page.goto("/workspace");
     const firstCard = page.locator('div[role="button"][tabindex="0"]').first();
-    await expect(firstCard).toBeVisible();
+    // Il workspace carica tenant e inviti prima di rendere le card: con più
+    // worker in parallelo i 5 s di default non bastano sempre.
+    await expect(firstCard).toBeVisible({ timeout: 15_000 });
     await firstCard.click();
     await page.waitForURL(/\/business\/[0-9a-f-]+\/overview$/);
     await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: sidebarLabel }).click();
