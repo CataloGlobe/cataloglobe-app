@@ -77,6 +77,7 @@ export function Checklist({ title = "Le basi", items, doneTitle = "Le basi ci so
             }
             title={item.title}
             subtitle={item.description}
+            wrapSubtitle
             muted={item.done}
             trailing={
                 !item.done && item.onAction ? (
