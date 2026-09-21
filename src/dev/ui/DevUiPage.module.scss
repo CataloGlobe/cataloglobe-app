@@ -212,3 +212,17 @@
     padding-top: 0;
   }
 }
+
+// Finta pagina pubblica per il PreviewPane.
+.fakePage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+}
+
+.fakeCard {
+  padding: var(--space-12);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}

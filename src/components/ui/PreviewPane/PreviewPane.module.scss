@@ -1,0 +1,96 @@
+// PreviewPane — la colonna dell'anteprima accanto a un editor (design system
+// §5, scheda PreviewPane). Sticky a space-24 sotto l'header; sotto 1024 sta
+// sotto l'editor e si collassa; sotto 768 è un bottone che apre un drawer lg.
+@use "@styles/mixins" as *;
+
+.pane {
+  position: sticky;
+  top: var(--space-24);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  width: 100%;
+  min-width: 360px;
+  max-height: calc(100vh - var(--space-48));
+
+  @include phone {
+    min-width: 0;
+  }
+}
+
+.narrow {
+  position: static;
+  max-height: none;
+}
+
+.bar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-8) var(--space-12);
+  min-height: 32px;
+}
+
+.status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.statusText {
+  min-width: 0;
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.body {
+  min-height: 0;
+  overflow: auto;
+}
+
+.frameHost {
+  display: flex;
+  justify-content: center;
+  padding: var(--space-16);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--hover-bg);
+}
+
+.frameSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  background: var(--surface);
+  min-height: 100%;
+}
+
+.plain {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.errorBox {
+  padding: var(--space-16);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+}
+
+.phoneTrigger {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.drawerBody {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}

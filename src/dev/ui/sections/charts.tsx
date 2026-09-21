@@ -1,6 +1,9 @@
 /* eslint-disable react-refresh/only-export-components -- galleria dev: componenti di sezione + elenco nello stesso file, niente fast refresh da preservare */
 import { TrendChart, type TrendPoint } from "@/components/ui/TrendChart/TrendChart";
 import { StatCard } from "@/components/ui/StatCard/StatCard";
+import { useState } from "react";
+import { PreviewPane } from "@/components/ui/PreviewPane/PreviewPane";
+import Text from "@/components/ui/Text/Text";
 import { State, type GallerySection } from "../gallery";
 import styles from "../DevUiPage.module.scss";
 
@@ -58,6 +61,67 @@ function TrendChartSection() {
     );
 }
 
+/* ------------------------------------------------------------------ */
+/* PreviewPane                                                         */
+/* ------------------------------------------------------------------ */
+
+function FakePublicPage() {
+    return (
+        <div className={styles.fakePage}>
+            <Text variant="title-md" weight={600}>
+                Trattoria del Porto
+            </Text>
+            <Text variant="body-sm" colorVariant="muted">
+                Via Roma 1, Milano · aperto fino alle 23
+            </Text>
+            {["Antipasti", "Primi", "Secondi", "Dolci"].map(c => (
+                <div key={c} className={styles.fakeCard}>
+                    <Text variant="body-sm" weight={500}>
+                        {c}
+                    </Text>
+                    <Text variant="caption" colorVariant="muted">
+                        6 piatti
+                    </Text>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+function PreviewPaneSection() {
+    const [device, setDevice] = useState<"phone" | "desktop">("phone");
+    return (
+        <>
+            <State label="phone (default), aggiornata, switch telefono/desktop; sotto 1024 collassabile, sotto 768 bottone + drawer lg" column>
+                <PreviewPane device={device} onDeviceChange={setDevice}>
+                    <FakePublicPage />
+                </PreviewPane>
+            </State>
+            <State label="non aggiornata (StatusBadge neutral + testo)" column>
+                <PreviewPane device="phone" status="stale">
+                    <FakePublicPage />
+                </PreviewPane>
+            </State>
+            <State label="plain: senza cornice (cappello delle Storie)" column>
+                <PreviewPane device="plain">
+                    <FakePublicPage />
+                </PreviewPane>
+            </State>
+            <State label="caricamento: Skeleton dentro la cornice" column>
+                <PreviewPane device="phone" loading>
+                    <FakePublicPage />
+                </PreviewPane>
+            </State>
+            <State label="errore di render: InlineBanner al posto del contenuto" column>
+                <PreviewPane device="phone" error="L'anteprima non si è caricata: lo stile ha un token non valido.">
+                    <FakePublicPage />
+                </PreviewPane>
+            </State>
+        </>
+    );
+}
+
 export const chartsSections: GallerySection[] = [
-    { id: "trendchart", title: "TrendChart", sheet: "TrendChart", Component: TrendChartSection }
+    { id: "trendchart", title: "TrendChart", sheet: "TrendChart", Component: TrendChartSection },
+    { id: "previewpane", title: "PreviewPane", sheet: "PreviewPane", Component: PreviewPaneSection }
 ];
