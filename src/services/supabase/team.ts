@@ -138,3 +138,35 @@ export async function inviteTenantMember(
     if (error) throw error;
     return typeof data === "string" ? data : "";
 }
+
+/**
+ * Cambia ruolo e sedi di un membro o di un invito in attesa. RPC
+ * `change_member_role`: `activityIds` è `null` per l'amministratore. Codici
+ * attesi: 42501 (permesso, self-mod, target owner/admin), 44000, 22023.
+ */
+export async function changeMemberRole(
+    membershipId: string,
+    role: "admin" | "manager" | "staff" | "viewer",
+    activityIds: string[] | null
+): Promise<void> {
+    const { error } = await supabase.rpc("change_member_role", {
+        p_membership_id: membershipId,
+        p_new_role: role,
+        p_activity_ids: activityIds
+    });
+    if (error) throw error;
+}
+
+/** Accetta un invito dal suo token (Workspace). Ritorna il tenant a cui si
+ *  è entrati. Errori attesi nel messaggio: «invite expired», «already accepted». */
+export async function acceptInviteByToken(token: string): Promise<string | null> {
+    const { data, error } = await supabase.rpc("accept_invite_by_token", { p_token: token });
+    if (error) throw error;
+    return (data as string | null) ?? null;
+}
+
+/** Rifiuta un invito dal suo token (Workspace). */
+export async function declineInviteByToken(token: string): Promise<void> {
+    const { error } = await supabase.rpc("decline_invite_by_token", { p_token: token });
+    if (error) throw error;
+}
