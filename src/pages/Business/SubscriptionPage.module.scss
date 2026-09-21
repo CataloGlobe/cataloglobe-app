@@ -30,6 +30,22 @@
     }
 }
 
+.nextSeat {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-8);
+
+    > p {
+        margin: 0;
+    }
+}
+
+.nextSeatAction {
+    display: flex;
+    justify-content: flex-end;
+    padding-top: var(--space-8);
+}
+
 .pendingBody {
     display: flex;
     flex-direction: column;

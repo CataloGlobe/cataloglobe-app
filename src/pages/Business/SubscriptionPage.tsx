@@ -35,7 +35,7 @@ import { COMPANY } from "@/config/company";
 import { formatPendingChangeLabel } from "./pendingChangeLabel";
 import { SUBSCRIPTION_UNAVAILABLE_MESSAGE, buildSubscriptionSupportMailto } from "./supportMailto";
 import { listPlanPrices } from "@/services/supabase/planPrices";
-import { calculateGraduatedFromPlan } from "@/utils/pricing";
+import { calculateGraduatedFromPlan, nextSeatOffer } from "@/utils/pricing";
 import { DEFAULT_BILLING_INTERVAL, INTERVAL_ADJECTIVE, intervalUnit, priceCentsFor } from "@/utils/planPricing";
 import { canDoOnTenant } from "@/lib/permissions";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -1054,6 +1054,15 @@ export default function SubscriptionPage() {
         subUnavailable ? { value: "Non disponibile", label: renewalLabel } : { value: renewalValue, label: renewalLabel }
     ];
 
+    const periodWord = billingInterval === "year" ? "all'anno" : "al mese";
+    const seatOffer = currentPlan
+        ? nextSeatOffer(
+              { ...currentPlan, unit_price_cents: priceCentsFor(planPrices, currentPlan.code, billingInterval) },
+              displaySeats,
+              activityCount
+          )
+        : null;
+
     const couponLine = activeDiscount && discountedAmount != null
         ? ` ${formatDiscountLine(activeDiscount)}: paghi ${formatEuro(discountedAmount)}${unit}.`
         : consumedDiscount
@@ -1237,6 +1246,65 @@ export default function SubscriptionPage() {
                                     Annulla cambio
                                 </Button>
                             </div>
+                        )}
+                    </div>
+                </Card>
+            )}
+
+            {/* --- La prossima sede (§37.6, §37.7) --- */}
+            {seatOffer && !isTerminal && !subUnavailable && (
+                <Card title="La prossima sede">
+                    <div className={styles.nextSeat}>
+                        {seatOffer.kind === "free" ? (
+                            <>
+                                <Text as="p" variant="body-sm">
+                                    Hai ancora {seatOffer.freeSeats} {seatOffer.freeSeats === 1 ? "sede pagata libera" : "sedi pagate libere"}: aprirne una non costa niente.
+                                </Text>
+                                <div className={styles.nextSeatAction}>
+                                    <Button variant="secondary" size="sm" onClick={() => navigate(`/business/${selectedTenant.id}/locations`)}>
+                                        Vai alle sedi
+                                    </Button>
+                                </div>
+                            </>
+                        ) : seatOffer.kind === "upgrade" ? (
+                            <>
+                                <Text as="p" variant="body-sm">
+                                    Il piano {displayPlanName} copre {displaySeats} {displaySeats === 1 ? "sede" : "sedi"} su {displaySeats}. Per
+                                    aprire la {displaySeats + 1}ª servono
+                                </Text>
+                                <Text as="p" variant="title-md" weight={700}>
+                                    {formatCents(seatOffer.extraPriceCents)} {periodWord} in più
+                                </Text>
+                                <Text as="p" variant="caption" colorVariant="muted">
+                                    {formatCents(seatOffer.listPriceCents)} con lo sconto volume del {seatOffer.volumeDiscountPercent}%,{" "}
+                                    {status === "trialing"
+                                        ? `senza addebito fino al ${formatDate(selectedTenant.trial_until)}.`
+                                        : `addebitati subito in proporzione ai giorni che restano fino al ${formatDate(periodEndDate)}.`}
+                                </Text>
+                                {canManageBilling && (
+                                    <div className={styles.nextSeatAction}>
+                                        <Button
+                                            variant="primary"
+                                            size="sm"
+                                            onClick={() => openChange()}
+                                            disabled={plans.length === 0 || pendingIntervalChange !== null}
+                                        >
+                                            Aggiungi una sede
+                                        </Button>
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <>
+                                <Text as="p" variant="body-sm">
+                                    Il piano copre {seatOffer.cap} sedi, il massimo in autonomia. Per la {seatOffer.cap + 1}ª serve un piano dedicato.
+                                </Text>
+                                <div className={styles.nextSeatAction}>
+                                    <Button as="a" href={CHANGE_PLAN_MAILTO} variant="secondary" size="sm" leftIcon={<Mail size={14} />}>
+                                        Scrivi all&apos;assistenza
+                                    </Button>
+                                </div>
+                            </>
                         )}
                     </div>
                 </Card>
