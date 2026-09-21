@@ -15,27 +15,6 @@
   border-bottom: 1px solid var(--border);
 }
 
-.headerText {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-12);
-}
-
-.bar {
-  height: 4px;
-  border-radius: var(--radius-pill);
-  background: var(--border);
-  overflow: hidden;
-}
-
-.barFill {
-  height: 100%;
-  border-radius: var(--radius-pill);
-  background: var(--success-500);
-  transition: width var(--timing-motion-base) var(--easing-state);
-}
-
 .iconOpen {
   color: var(--gray-400);
 }

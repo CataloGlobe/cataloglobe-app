@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/Card/Card";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { Chip } from "@/components/ui/Chip/Chip";
 import { Button } from "@/components/ui/Button/Button";
+import { ProgressBar } from "@/components/ui/ProgressBar/ProgressBar";
 import styles from "./Checklist.module.scss";
 
 /**
@@ -124,27 +125,12 @@ export function Checklist({ title = "Le basi", items, doneTitle = "Le basi ci so
 }
 
 function ChecklistHeader({ title, done, total }: { title: string; done: number; total: number }) {
-    const pct = total > 0 ? Math.round((done / total) * 100) : 0;
     return (
         <div className={styles.header}>
-            <div className={styles.headerText}>
-                <Text as="span" variant="body-sm" weight={500}>
-                    {title}
-                </Text>
-                <Text as="span" variant="caption" colorVariant="muted">
-                    {done} di {total}
-                </Text>
-            </div>
-            <div
-                className={styles.bar}
-                role="progressbar"
-                aria-valuemin={0}
-                aria-valuemax={total}
-                aria-valuenow={done}
-                aria-label={`${done} di ${total}`}
-            >
-                <div className={styles.barFill} style={{ width: `${pct}%` }} />
-            </div>
+            <Text as="span" variant="body-sm" weight={500}>
+                {title}
+            </Text>
+            <ProgressBar value={done} max={total} variant={total > 0 && done === total ? "success" : "brand"} label={`${done} di ${total}`} />
         </div>
     );
 }
