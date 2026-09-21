@@ -1,7 +1,8 @@
 .slot {
   position: relative;
-  background: #ffffff;
-  border-bottom: 1px solid #e5e7eb;
+  // A tema: con #fff fisso, in scuro la tab attiva (--text, chiara) spariva.
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
   padding: 0 24px;
   // Altezza canonica della banda = controllo 38px + padding-y 12*2 ≈ 62px.
   // Vale per entrambe le modalità, così il passaggio comoda ↔ compatta non fa
