@@ -7,9 +7,9 @@ import { openBusinessPage } from "./business";
  * sede — e quella dell'azienda sparisce. Scritto **prima** del guscio: finché
  * P0 non c'è questi test sono rossi per disegno.
  *
- * Perimetro P0: solo la navigazione. Comande e Prenotazioni sono annunciate e
- * non navigabili finché le pagine non prendono la sede dal path (§46.1 j),
- * quindi si verificano come voci presenti e disabilitate, non come link.
+ * P1: Comande e Prenotazioni sono rotte della sede (`/comande`,
+ * `/prenotazioni`) e prendono la sede dal path; `/orders` reindirizza
+ * nell'ultima sede usata.
  *
  * Locator per ruolo, mai per tag. Nessuna scrittura.
  */
@@ -26,6 +26,18 @@ function nav(page: Page) {
 /** L'intestazione del contesto: dove sei, e come si esce. */
 function contextNav(page: Page) {
     return page.getByRole("navigation", { name: "Contesto" });
+}
+
+/** Gli indirizzi delle sedi della griglia, nell'ordine in cui compaiono. */
+async function locationPaths(page: Page): Promise<string[]> {
+    await openBusinessPage(page, "locations", "Sedi");
+    await page.getByRole("radio", { name: "Vista griglia" }).click();
+    const cards = page.getByRole("main").getByRole("listitem");
+    await expect(cards.first()).toBeVisible({ timeout: 15_000 });
+    const hrefs = await cards.locator("a").evaluateAll(links =>
+        links.map(l => (l as HTMLAnchorElement).getAttribute("href") ?? "").filter(h => h.includes("/locations/"))
+    );
+    return [...new Set(hrefs.map(h => h.replace(/[?#].*$/, "")))];
 }
 
 /** Apre la prima sede della griglia e ritorna il suo nome. */
@@ -54,17 +66,50 @@ test.describe("Contesto di sede", () => {
         }
     });
 
-    test("le due voci operative sono annunciate e non ancora navigabili", async ({ page }) => {
+    test("tutte e cinque le voci sono navigabili", async ({ page }) => {
+        await openFirstLocation(page);
+        const sidebar = nav(page);
+        for (const voce of SEDE_VOCI) {
+            await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible({ timeout: 15_000 });
+        }
+        await expect(sidebar.locator('[aria-disabled="true"]')).toHaveCount(0);
+    });
+
+    test("Comande e Prenotazioni sono rotte della sede", async ({ page }) => {
         await openFirstLocation(page);
         const sidebar = nav(page);
 
-        for (const voce of ["Comande", "Prenotazioni"]) {
-            const item = sidebar.getByText(voce, { exact: true }).locator("xpath=ancestor-or-self::*[@aria-disabled='true'][1]");
-            await expect(item).toHaveCount(1, { timeout: 15_000 });
-        }
-        for (const voce of ["Sala", "Disponibilità", "Scheda"]) {
-            await expect(sidebar.getByRole("link", { name: voce, exact: true })).toBeVisible();
-        }
+        await sidebar.getByRole("link", { name: "Comande", exact: true }).click();
+        await expect(page).toHaveURL(/\/comande$/, { timeout: 15_000 });
+        await expect(page.getByRole("main")).toBeVisible();
+
+        await sidebar.getByRole("link", { name: "Prenotazioni", exact: true }).click();
+        await expect(page).toHaveURL(/\/prenotazioni$/, { timeout: 15_000 });
+        await expect(page.getByRole("main")).toBeVisible();
+    });
+
+    test("cambiando sede nell'URL cambia la sede del contesto", async ({ page }) => {
+        const paths = await locationPaths(page);
+        test.skip(paths.length < 2, "serve più di una sede");
+
+        await page.goto(`${paths[0]}/comande`);
+        await expect(page).toHaveURL(/\/comande$/, { timeout: 15_000 });
+        const primo = await contextNav(page).innerText();
+
+        await page.goto(`${paths[1]}/comande`);
+        await expect(page).toHaveURL(/\/comande$/, { timeout: 15_000 });
+        await expect
+            .poll(async () => (await contextNav(page).innerText()) !== primo, { timeout: 15_000 })
+            .toBe(true);
+    });
+
+    test("/orders porta dentro una sede, non resta una pagina d'azienda", async ({ page }) => {
+        const paths = await locationPaths(page);
+        await page.goto(`${paths[0]}/comande`);
+        await expect(page).toHaveURL(/\/comande$/, { timeout: 15_000 });
+
+        await page.goto(page.url().replace(/\/locations\/.*$/, "/orders"));
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$|\/locations$/, { timeout: 15_000 });
     });
 
     test("«Tutte le sedi» riporta all'elenco", async ({ page }) => {
