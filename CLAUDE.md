@@ -217,8 +217,6 @@ UI shared CRUD tavoli in `src/components/Tables/`:
 - `TablesLiveView/` — vista operativa live tavoli (card per zona, read-only) usata in tab "Tavoli" di pagina Ordini. Realtime via hook `useTablesLiveRealtime` (Step 4c): 1 canale con 3 binding `postgres_changes` su `orders + order_groups + customer_sessions` filter `activity_id=eq.<id>`, refetch debounced 250ms di `listTablesWithState`, reconnect-resilience via refetch su `SUBSCRIBED`. Niente polling. Card cliccabili via prop opzionale `onTableClick`. Filtri Tutti/Aperti/Liberi/Manutenzione, raggruppamento per `zone_name` (no-zone fallback ultimo).
 - `TableDetailDrawer/` — drawer admin read-only (Step 4c) per dettaglio tavolo. Pattern `SystemDrawer + DrawerLayout` (footer solo "Chiudi", nessuna azione operativa). Mostra: stato (Libero/Occupato/Manutenzione + seats), sessioni attive (customer_name + tempo trascorso `now - first_seen_at` calcolato all'apertura — snapshot statico, no ticking timer), open `order_group`, ordini attivi (submitted/acknowledged/ready) + ordini serviti del tavolo. Service helper `getOpenOrderGroupForTable(tenantId, tableId)` in `customerSessions.ts` (filtro tenant+table esplicito oltre RLS).
 
-UI riusabili in `src/components/ui/`:
-
 Pagina Ordini (`src/pages/Dashboard/Orders/`):
 - 3 tab principali: Comande (board a 3 colonne Nuove/In lavorazione/Pronte + filtro per tavolo) / Tavoli (`<TablesLiveView>`) / Storico (delivered + cancelled della giornata operativa, con azione Ripristina sui delivered — Step 5b).
 - Rotta di sede `/locations/:activityId/comande` (sede dal path, §46.1); `/orders` reindirizza all'ultima sede usata. Nessun selettore di sede in pagina.
