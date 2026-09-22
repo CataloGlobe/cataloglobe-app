@@ -1,21 +1,15 @@
 import React, { useState } from "react";
-import { IconAlertTriangle } from "@tabler/icons-react";
-import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
-import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
-import { Button } from "@/components/ui/Button/Button";
-import Text from "@/components/ui/Text/Text";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { deleteActivityClosure } from "@/services/supabase/activityClosures";
 import { useToast } from "@/context/Toast/ToastContext";
 import type { V2ActivityClosure } from "@/types/activity-closures";
-import styles from "./HoursServices.module.scss";
 
 function formatClosureTitle(c: V2ActivityClosure): string {
     const d = new Date(c.closure_date + "T12:00:00");
     const dateStr = d.toLocaleDateString("it-IT", { day: "numeric", month: "long", year: "numeric" });
     if (c.end_date) {
         const e = new Date(c.end_date + "T12:00:00");
-        const endStr = e.toLocaleDateString("it-IT", { day: "numeric", month: "long" });
-        return `${dateStr} – ${endStr}`;
+        return `${dateStr} – ${e.toLocaleDateString("it-IT", { day: "numeric", month: "long" })}`;
     }
     return dateStr;
 }
@@ -28,78 +22,42 @@ type Props = {
     onSuccess: () => void | Promise<void>;
 };
 
-export function ActivityClosureDeleteDrawer({
-    open,
-    onClose,
-    closure,
-    tenantId,
-    onSuccess,
-}: Props) {
+/**
+ * Eliminare una chiusura è una riga senza dipendenze: `ConfirmDialog`, non
+ * un drawer (registro Sedi #59).
+ */
+export function ActivityClosureDeleteDrawer({ open, onClose, closure, tenantId, onSuccess }: Props) {
     const { showToast } = useToast();
     const [isDeleting, setIsDeleting] = useState(false);
 
-    const handleDelete = async () => {
-        if (!closure) return;
+    const handleDelete = async (): Promise<boolean> => {
+        if (!closure) return false;
         setIsDeleting(true);
         try {
             await deleteActivityClosure(closure.id, tenantId);
             showToast({ message: "Chiusura eliminata.", type: "success" });
             await onSuccess();
-            onClose();
+            return true;
         } catch (err: unknown) {
-            const msg = (err as Error).message ?? "Errore durante l'eliminazione.";
-            showToast({ message: msg, type: "error" });
+            showToast({ message: (err as Error).message ?? "Impossibile eliminare la chiusura.", type: "error" });
+            return false;
         } finally {
             setIsDeleting(false);
         }
     };
 
+    const name = closure ? `${closure.label ? `${closure.label} · ` : ""}${formatClosureTitle(closure)}` : "";
+
     return (
-        <SystemDrawer open={open} onClose={onClose} width={480}>
-            <DrawerLayout
-                header={
-                    <div>
-                        <Text variant="title-sm" weight={600}>
-                            Elimina chiusura
-                        </Text>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Questa azione non può essere annullata.
-                        </Text>
-                    </div>
-                }
-                footer={
-                    <>
-                        <Button variant="secondary" onClick={onClose} disabled={isDeleting}>
-                            Annulla
-                        </Button>
-                        <Button
-                            variant="danger"
-                            onClick={handleDelete}
-                            loading={isDeleting}
-                        >
-                            Elimina
-                        </Button>
-                    </>
-                }
-            >
-                {closure && (
-                    <div className={styles.closureDeleteBox}>
-                        <IconAlertTriangle
-                            size={20}
-                            className={styles.closureDeleteIcon}
-                        />
-                        <div className={styles.closureDeleteText}>
-                            <Text variant="body-sm" weight={600}>
-                                {formatClosureTitle(closure)}
-                                {closure.label ? ` — ${closure.label}` : ""}
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                La chiusura verrà rimossa definitivamente.
-                            </Text>
-                        </div>
-                    </div>
-                )}
-            </DrawerLayout>
-        </SystemDrawer>
+        <ConfirmDialog
+            isOpen={open && closure !== undefined}
+            onClose={onClose}
+            onConfirm={handleDelete}
+            title={`Elimina la chiusura «${name}»?`}
+            message="Il giorno torna agli orari normali."
+            confirmLabel="Elimina"
+            confirmVariant="danger"
+            isLoading={isDeleting}
+        />
     );
 }

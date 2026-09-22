@@ -1,12 +1,20 @@
 import React, { useState, useMemo, useCallback } from "react";
 import { X, Plus } from "lucide-react";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { FormField } from "@/components/ui/FormField/FormField";
+import { FormGrid } from "@/components/ui/FormGrid/FormGrid";
+import { DateInput } from "@/components/ui/Input/DateInput";
+import { TextInput } from "@/components/ui/Input/TextInput";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { TimeInput } from "@/components/ui/Input/TimeInput";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { createActivityClosure, updateActivityClosure } from "@/services/supabase/activityClosures";
 import { useToast } from "@/context/Toast/ToastContext";
 import type { V2ActivityClosure, ClosureSlot } from "@/types/activity-closures";
 import Text from "@/components/ui/Text/Text";
-import styles from "./HoursServices.module.scss";
+import styles from "./ActivityHoursForm.module.scss";
 
 const MAX_SLOTS = 5;
 
@@ -186,149 +194,112 @@ export const ActivityClosureForm: React.FC<ActivityClosureFormProps> = ({
 
     return (
         <form id={formId} onSubmit={handleSubmit} noValidate>
-            <div className={styles.closureFormLayout}>
-
-                {/* Data inizio */}
-                <div className={styles.closureFormField}>
-                    <label htmlFor={`${formId}-date`} className={styles.closureFormLabel}>
-                        Data
-                    </label>
-                    <input
-                        id={`${formId}-date`}
-                        type="date"
-                        value={closureDate}
-                        onChange={(e) => { setClosureDate(e.target.value); setDateError(undefined); }}
-                        className={`${styles.closureFormInput}${dateError ? ` ${styles.closureFormInputError}` : ""}`}
-                    />
-                    {dateError && <span className={styles.closureFormError}>{dateError}</span>}
-                </div>
-
-                {/* Data fine */}
-                <div className={styles.closureFormField}>
-                    <label htmlFor={`${formId}-end-date`} className={styles.closureFormLabel}>
-                        Data fine
-                        <span className={styles.closureFormLabelOptional}>opzionale</span>
-                    </label>
-                    <Text variant="caption" colorVariant="muted">
-                        Per chiusure su più giorni consecutivi (es. ferie estive).
-                    </Text>
-                    <input
-                        id={`${formId}-end-date`}
-                        type="date"
-                        value={endDate}
-                        onChange={(e) => handleEndDateChange(e.target.value)}
-                        className={`${styles.closureFormInput}${endDateError ? ` ${styles.closureFormInputError}` : ""}`}
-                    />
-                    {endDateError && <span className={styles.closureFormError}>{endDateError}</span>}
-                    {hasEndDate && (
-                        <Text variant="caption" colorVariant="muted">
-                            Le chiusure su più giorni sono sempre totali.
-                        </Text>
-                    )}
-                </div>
-
-                {/* Etichetta */}
-                <div className={styles.closureFormField}>
-                    <label htmlFor={`${formId}-label`} className={styles.closureFormLabel}>
-                        Etichetta
-                        <span className={styles.closureFormLabelOptional}>opzionale</span>
-                    </label>
-                    <input
-                        id={`${formId}-label`}
-                        type="text"
-                        placeholder="es. Natale, Ferie, Manutenzione"
-                        value={label}
-                        onChange={(e) => setLabel(e.target.value)}
-                        className={styles.closureFormInput}
-                        maxLength={120}
-                    />
-                </div>
-
-                {/* is_closed toggle */}
+            <FormGrid cols={1} autoFocus>
+                <DateInput
+                    label="Data inizio"
+                    value={closureDate}
+                    onChange={e => {
+                        setClosureDate(e.target.value);
+                        setDateError(undefined);
+                    }}
+                    error={dateError}
+                    required
+                />
+                <DateInput
+                    label="Data fine (opzionale)"
+                    value={endDate}
+                    onChange={e => handleEndDateChange(e.target.value)}
+                    error={endDateError}
+                    helperText={
+                        hasEndDate
+                            ? "Con la data di fine è chiusura piena per tutto il periodo."
+                            : "Per chiusure su più giorni consecutivi, come le ferie."
+                    }
+                />
+                <TextInput
+                    label="Etichetta (opzionale)"
+                    placeholder="es. Natale, Ferie, Manutenzione"
+                    value={label}
+                    onChange={e => setLabel(e.target.value)}
+                    maxLength={120}
+                />
                 {!hasEndDate && (
-                    <div className={styles.closureFormToggleRow}>
-                        <div className={styles.closureFormToggleText}>
-                            <span className={styles.closureFormToggleLabel}>
-                                {isClosed ? "Chiuso tutto il giorno" : "Orari speciali"}
-                            </span>
-                            <span className={styles.closureFormToggleHint}>
-                                {isClosed
-                                    ? "La sede sarà completamente chiusa in questa data."
-                                    : "La sede aprirà con orari diversi dal solito."}
-                            </span>
-                        </div>
-                        <Switch
-                            checked={isClosed}
-                            onChange={handleIsClosedChange}
-                            containerClassName={styles.closureFormToggleSwitch}
-                        />
-                    </div>
+                    <Switch
+                        label={isClosed ? "Chiuso tutto il giorno" : "Orari speciali"}
+                        description={
+                            isClosed
+                                ? "La sede è chiusa per tutta la giornata."
+                                : "La sede apre con orari diversi dal solito, fino a cinque fasce."
+                        }
+                        checked={isClosed}
+                        onChange={handleIsClosedChange}
+                    />
                 )}
-
-                {/* Multi-slot editor */}
                 {!isClosed && !hasEndDate && (
-                    <div className={styles.closureFormField}>
-                        <label className={styles.closureFormLabel}>Fasce orarie</label>
-                        <div className={styles.daySlotsCol}>
-                            {slots.map((slot, i) => {
-                                const err = getSlotError(i);
-                                return (
-                                    <div key={i} className={styles.slotRow}>
-                                        <div className={styles.slotInputs}>
-                                            <TimeInput
-                                                value={slot.opens_at ?? ""}
-                                                onChange={e => updateSlot(i, { opens_at: e.target.value || null })}
-                                                aria-label={`Fascia ${i + 1} apertura`}
-                                            />
-                                            <span className={styles.slotSeparator}>–</span>
-                                            <TimeInput
-                                                value={slot.closes_at ?? ""}
-                                                onChange={e => {
-                                                    const newClosesAt = e.target.value || null;
-                                                    const cnd =
-                                                        newClosesAt !== null && slot.opens_at !== null
-                                                            ? timesToMinutes(newClosesAt) < timesToMinutes(slot.opens_at)
-                                                            : false;
-                                                    updateSlot(i, { closes_at: newClosesAt, closes_next_day: cnd });
-                                                }}
-                                                aria-label={`Fascia ${i + 1} chiusura`}
-                                            />
-                                            {slot.closes_next_day && (
-                                                <span
-                                                    className={styles.overnightBadge}
-                                                    title="Chiude il giorno successivo"
-                                                    aria-label="Chiude il giorno successivo"
-                                                >
-                                                    +1
-                                                </span>
+                    <FormField label="Fasce orarie">
+                        {() => (
+                            <div className={styles.slots}>
+                                {slots.map((slot, i) => {
+                                    const err = getSlotError(i);
+                                    return (
+                                        <div key={i} className={styles.slot}>
+                                            <div className={styles.slotInputs}>
+                                                <TimeInput
+                                                    containerClassName={styles.time}
+                                                    value={slot.opens_at ?? ""}
+                                                    onChange={e => updateSlot(i, { opens_at: e.target.value || null })}
+                                                    aria-label={`Fascia ${i + 1} apertura`}
+                                                />
+                                                <Text as="span" variant="body-sm" colorVariant="muted" aria-hidden>
+                                                    –
+                                                </Text>
+                                                <TimeInput
+                                                    containerClassName={styles.time}
+                                                    value={slot.closes_at ?? ""}
+                                                    onChange={e => {
+                                                        const newClosesAt = e.target.value || null;
+                                                        const cnd =
+                                                            newClosesAt !== null && slot.opens_at !== null
+                                                                ? timesToMinutes(newClosesAt) < timesToMinutes(slot.opens_at)
+                                                                : false;
+                                                        updateSlot(i, { closes_at: newClosesAt, closes_next_day: cnd });
+                                                    }}
+                                                    aria-label={`Fascia ${i + 1} chiusura`}
+                                                />
+                                                {slot.closes_next_day && (
+                                                    <Tooltip content="Chiude il giorno successivo: si ricava dagli orari.">
+                                                        <span>
+                                                            <Badge variant="neutral">→ giorno dopo</Badge>
+                                                        </span>
+                                                    </Tooltip>
+                                                )}
+                                                <IconButton
+                                                    icon={<X size={16} />}
+                                                    size="sm"
+                                                    aria-label={`Rimuovi fascia ${i + 1}`}
+                                                    onClick={() => removeSlot(i)}
+                                                />
+                                            </div>
+                                            {err && (
+                                                <Text variant="caption" colorVariant="error" role="alert">
+                                                    {err}
+                                                </Text>
                                             )}
-                                            <button
-                                                type="button"
-                                                className={styles.removeSlotBtn}
-                                                onClick={() => removeSlot(i)}
-                                                aria-label={`Rimuovi fascia ${i + 1}`}
-                                            >
-                                                <X size={14} />
-                                            </button>
                                         </div>
-                                        {err && <span className={styles.slotError}>{err}</span>}
+                                    );
+                                })}
+                                {slots.length < MAX_SLOTS && (
+                                    <div>
+                                        <Button type="button" variant="ghost" size="sm" leftIcon={<Plus size={14} />} onClick={addSlot}>
+                                            Fascia
+                                        </Button>
                                     </div>
-                                );
-                            })}
-                            {slots.length < MAX_SLOTS && (
-                                <button
-                                    type="button"
-                                    className={styles.addSlotBtn}
-                                    onClick={addSlot}
-                                >
-                                    <Plus size={14} />
-                                    Aggiungi fascia
-                                </button>
-                            )}
-                        </div>
-                    </div>
+                                )}
+                            </div>
+                        )}
+                    </FormField>
                 )}
-            </div>
+            </FormGrid>
         </form>
     );
 };
