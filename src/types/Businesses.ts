@@ -43,6 +43,8 @@ export interface BusinessCardProps {
 
 export interface BusinessListProps {
     businesses: BusinessWithCapabilities[];
+    /** Primo caricamento: card o righe Skeleton al posto dei dati. */
+    isLoading?: boolean;
     viewMode?: "grid" | "list";
     onEdit: (business: BusinessWithCapabilities) => void;
     onDelete?: (id: string) => void;
@@ -58,6 +60,8 @@ export interface BusinessListProps {
      * di riconoscere i due casi.
      */
     hasActiveFilter?: boolean;
+    /** «Azzera filtri» dell'empty state filtrato. */
+    onClearFilters?: () => void;
 }
 
 export type BusinessWithCapabilities = V2Activity & {

@@ -1,7 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
-import { Card } from "@/components/ui/Card/Card";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { IconFolder, IconFolderPlus } from "@tabler/icons-react";
@@ -19,11 +18,17 @@ import { useSearchParams } from "react-router-dom";
 interface ActivityGroupsSectionProps {
     searchQuery?: string;
     canWrite?: boolean;
+    /**
+     * Contatore che la pagina incrementa quando la testata chiede «Nuovo
+     * gruppo»: a ogni cambio la sezione apre il drawer di creazione.
+     */
+    createRequest?: number;
 }
 
 export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
     searchQuery: externalSearchQuery = "",
-    canWrite = true
+    canWrite = true,
+    createRequest = 0
 }) => {
     const tenantId = useTenantId();
     const { showToast } = useToast();
@@ -208,11 +213,10 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
     );
 
     useEffect(() => {
-        if (!canWrite) return;
-        const handleOpenDrawer = () => handleCreate();
-        window.addEventListener("open-group-drawer", handleOpenDrawer);
-        return () => window.removeEventListener("open-group-drawer", handleOpenDrawer);
-    }, [tenantId, canWrite]);
+        if (!canWrite || createRequest === 0) return;
+        handleCreate();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [createRequest]);
 
     return (
         <div className={styles.container}>

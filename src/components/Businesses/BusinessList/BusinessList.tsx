@@ -29,7 +29,9 @@ export const BusinessList: React.FC<BusinessListProps> = ({
     catalogsStatus = "loading",
     onManageAvailability,
     onCreateClick,
-    hasActiveFilter = false
+    hasActiveFilter = false,
+    onClearFilters,
+    isLoading = false
 }) => {
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
@@ -209,22 +211,25 @@ export const BusinessList: React.FC<BusinessListProps> = ({
         [activeCatalogsMap, catalogsStatus, onManageAvailability, onEdit, onDelete, navigate]
     );
 
-    if (businesses.length === 0) {
+    if (!isLoading && businesses.length === 0) {
+        if (hasActiveFilter) {
+            return (
+                <EmptyState
+                    variant="filtered"
+                    title="Nessun risultato"
+                    description="Nessuna sede corrisponde alla ricerca."
+                    onClearFilters={onClearFilters}
+                />
+            );
+        }
         return (
             <EmptyState
-                icon={<MapPin size={40} strokeWidth={1.5} />}
-                title={
-                    hasActiveFilter
-                        ? "Nessun risultato"
-                        : "Le sedi sono i locali che i clienti raggiungono con il QR"
-                }
-                description={
-                    hasActiveFilter
-                        ? "Nessuna sede corrisponde alla ricerca."
-                        : "Ogni sede ha il suo indirizzo e il suo link pubblico. Se gestisci più locali, li trovi tutti qui."
-                }
+                variant="page"
+                icon={<MapPin />}
+                title="Le sedi sono i locali che i clienti raggiungono con il QR"
+                description="Ogni sede ha il suo indirizzo e il suo link pubblico. Se gestisci più locali, li trovi tutti qui."
                 action={
-                    !hasActiveFilter && onCreateClick ? (
+                    onCreateClick ? (
                         <Button variant="primary" onClick={onCreateClick}>
                             Aggiungi la prima sede
                         </Button>
@@ -243,6 +248,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
             <DataTable
                 data={businesses}
                 columns={columns}
+                isLoading={isLoading}
                 onRowClick={business => navigate(`/business/${businessId}/locations/${business.id}`)}
             />
         );
@@ -251,6 +257,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
     return (
         <LocationsGrid
             businesses={businesses}
+            isLoading={isLoading}
             onEdit={onEdit}
             onDelete={onDelete}
             activeCatalogsMap={activeCatalogsMap}
