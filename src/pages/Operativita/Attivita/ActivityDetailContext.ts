@@ -4,16 +4,16 @@ import type { V2ActivityHours } from "@/types/activity-hours";
 import type { ActivityDraft } from "./useActivityDraft";
 
 /** Le sei rotte della scheda (registro Sedi, chiusura 1 e 9). */
-export const ACTIVITY_SECTIONS = ["anagrafica", "orari", "canali", "pubblicazione", "sala", "disponibilita"] as const;
+export const ACTIVITY_SECTIONS = ["anagrafica", "orari", "ordini-prenotazioni", "pubblicazione", "sala", "disponibilita"] as const;
 export type ActivitySection = (typeof ACTIVITY_SECTIONS)[number];
 
 /** Le quattro pagine del locale (§31.1): sono le tab della testata. */
-export const ACTIVITY_PAGES: readonly ActivitySection[] = ["anagrafica", "orari", "canali", "pubblicazione"];
+export const ACTIVITY_PAGES: readonly ActivitySection[] = ["anagrafica", "orari", "ordini-prenotazioni", "pubblicazione"];
 
 export const ACTIVITY_SECTION_LABELS: Record<ActivitySection, string> = {
     anagrafica: "Anagrafica",
     orari: "Orari",
-    canali: "Canali",
+    "ordini-prenotazioni": "Ordini e prenotazioni",
     pubblicazione: "Pubblicazione",
     sala: "Sala",
     disponibilita: "Disponibilità"
@@ -38,7 +38,8 @@ export interface ActivityDetailOutletContext {
     canManageHours: boolean;
     canDelete: boolean;
     draft: ActivityDraft;
-    /** Va a un'altra sezione della stessa sede (`canali#ordini` compreso). */
+    /** Va a un'altra sezione della stessa sede (`ordini-prenotazioni#ordini`
+     *  compreso). */
     goToSection: (section: ActivitySection, hash?: string) => void;
 }
 

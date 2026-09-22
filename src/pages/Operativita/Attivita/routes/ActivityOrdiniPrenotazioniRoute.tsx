@@ -31,7 +31,7 @@ import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnTenant } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { useToast } from "@/context/Toast/ToastContext";
-import styles from "./ActivityCanaliRoute.module.scss";
+import styles from "./ActivityOrdiniPrenotazioniRoute.module.scss";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -43,13 +43,14 @@ type NumericRuleField =
     | "reservation_horizon_days";
 
 /**
- * Canali (§31.1): cosa può fare un cliente da questo locale, e con che
- * regole. Ordini al tavolo e prenotazioni restano due sezioni distinte, con
+ * Ordini e prenotazioni (§31.1): cosa può fare un cliente da questo locale,
+ * e con che regole. Si chiamava «Canali»: il nome nominava il contenitore,
+ * non le due cose dentro. Ordini al tavolo e prenotazioni restano due sezioni distinte, con
  * le ancore `#ordini` e `#prenotazioni`. Gli interruttori e le email degli
  * avvisi salvano subito (§31.4); l'email privacy e le cinque regole di
  * accettazione stanno nel draft di pagina (§31.2).
  */
-export default function ActivityCanaliRoute() {
+export default function ActivityOrdiniPrenotazioniRoute() {
     const { activity, tenantId, reload, canManage, hours, isHoursLoading, legalName, draft, goToSection } =
         useActivityDetail();
     const { hash } = useLocation();
@@ -166,7 +167,7 @@ export default function ActivityCanaliRoute() {
     const privacyEmail = d.reservation_privacy_contact_email ?? "";
 
     useEffect(() => {
-        return draft.registerValidator("canali", () => {
+        return draft.registerValidator("ordini-prenotazioni", () => {
             const email = (d.reservation_privacy_contact_email ?? "").trim();
             if (email !== "" && !EMAIL_RE.test(email)) {
                 return "Email per le richieste sui dati personali: inserisci un indirizzo valido.";

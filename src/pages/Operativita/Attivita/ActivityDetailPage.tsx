@@ -41,8 +41,8 @@ const LEGACY_TAB_REDIRECT: Record<string, { section: ActivitySection; hash?: str
     info: { section: "anagrafica" },
     media: { section: "anagrafica" },
     hours: { section: "orari" },
-    ordering: { section: "canali", hash: "ordini" },
-    reservations: { section: "canali", hash: "prenotazioni" },
+    ordering: { section: "ordini-prenotazioni", hash: "ordini" },
+    reservations: { section: "ordini-prenotazioni", hash: "prenotazioni" },
     settings: { section: "pubblicazione" },
     "hours-services": { section: "pubblicazione" },
     "access-control": { section: "pubblicazione" },
@@ -55,8 +55,8 @@ const isSection = (v: string): v is ActivitySection =>
     (ACTIVITY_SECTIONS as readonly string[]).includes(v);
 
 /**
- * Il locale in quattro pagine (§31): Anagrafica · Orari · Canali ·
- * Pubblicazione, più Sala e Disponibilità come rotte senza tab. Questo
+ * Il locale in quattro pagine (§31): Anagrafica · Orari · Ordini e
+ * prenotazioni · Pubblicazione, più Sala e Disponibilità come rotte senza tab. Questo
  * parent legge la sede, gli orari e la ragione sociale una volta, tiene il
  * draft unico con la sua barra e la guardia all'uscita, e dà tutto alle
  * rotte figlie via `Outlet` (`useActivityDetail`).
@@ -117,7 +117,7 @@ const ActivityDetailPage: React.FC = () => {
     }, [fetchData]);
 
     // Orari a livello pagina: dato della sede, non di una rotta. Li scrive
-    // Orari, li legge anche Canali (prerequisito delle prenotazioni); una sola
+    // Orari, li leggono anche Ordini e prenotazioni (prerequisito); una sola
     // fonte, ricaricata dopo ogni scrittura via `loadHours`.
     const [hours, setHours] = useState<V2ActivityHours[]>([]);
     const [isHoursLoading, setIsHoursLoading] = useState(true);
@@ -140,7 +140,8 @@ const ActivityDetailPage: React.FC = () => {
 
     // Ragione sociale a livello pagina: `get_user_tenants()` (fonte di
     // `selectedTenant`) non espone i campi fiscali, quindi il contesto non
-    // basta. Una lettura per apertura sede; la legge Canali per il
+    // basta. Una lettura per apertura sede; la leggono Ordini e prenotazioni
+    // per il
     // prerequisito dell'informativa privacy. `null` = non ancora letta.
     const [legalName, setLegalName] = useState<string | null | undefined>(undefined);
 

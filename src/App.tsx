@@ -84,7 +84,8 @@ const StyleEditorPage = lazy(() => import("./pages/Dashboard/Styles/StyleEditorP
 const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/ActivityDetailPage"));
 const ActivityAnagraficaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityAnagraficaRoute"));
 const ActivityOrariRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrariRoute"));
-const ActivityCanaliRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityCanaliRoute"));
+const ActivityOrdiniPrenotazioniRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrdiniPrenotazioniRoute"));
+const ActivityCanaliRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityCanaliRedirect"));
 const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityPubblicazioneRoute"));
 const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySalaRoute"));
 const ActivityDisponibilitaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityDisponibilitaRoute"));
@@ -238,7 +239,8 @@ export default function App() {
                     <Route index element={<Navigate to="anagrafica" replace />} />
                     <Route path="anagrafica" element={<ActivityAnagraficaRoute />} />
                     <Route path="orari" element={<ActivityOrariRoute />} />
-                    <Route path="canali" element={<ActivityCanaliRoute />} />
+                    <Route path="ordini-prenotazioni" element={<ActivityOrdiniPrenotazioniRoute />} />
+                    <Route path="canali" element={<ActivityCanaliRedirect />} />
                     <Route path="pubblicazione" element={<ActivityPubblicazioneRoute />} />
                     <Route path="sala" element={<ActivitySalaRoute />} />
                     <Route path="disponibilita" element={<ActivityDisponibilitaRoute />} />

@@ -30,7 +30,7 @@ interface PrintersSectionProps {
 }
 
 /**
- * Card «Stampanti» della pagina Canali: le stampanti Sunmi collegate con
+ * Card «Stampanti» della pagina Ordini e prenotazioni: le stampanti Sunmi collegate con
  * lo stato per stampante (registro Sedi #71), «Collega» e «Scollega».
  *
  * Gating come TablesManagement: `tables.manage` (permesso) + `canEdit`

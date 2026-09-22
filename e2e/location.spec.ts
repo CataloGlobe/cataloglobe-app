@@ -5,8 +5,9 @@ import { openBusinessPage } from "./business";
  * Scheda della sede (`/business/:businessId/locations/:activityId`), vista da
  * un amministratore. Copre le feature che sopravvivono alla riscrittura in
  * quattro pagine (registro feature, §Scheda passo 2): l'apertura dalla
- * griglia di Sedi; le quattro sezioni Anagrafica · Orari · Canali ·
- * Pubblicazione (oggi Profilo · Orari · Ordinazioni · Impostazioni) con un
+ * griglia di Sedi; le quattro sezioni Anagrafica · Orari · Ordini e
+ * prenotazioni · Pubblicazione (prima Profilo · Orari · Ordinazioni ·
+ * Impostazioni, poi Canali) con un
  * contenuto ciascuna; il drawer dell'indirizzo web aperto e chiuso senza
  * salvare; la zona pericolosa aperta e chiusa senza eliminare; il redirect
  * dai vecchi `?tab=`. I locator accettano i nomi di oggi e quelli decisi
@@ -17,7 +18,7 @@ import { openBusinessPage } from "./business";
 const TAB = {
     anagrafica: /^(Profilo|Anagrafica)$/,
     orari: /^Orari$/,
-    canali: /^(Ordinazioni|Canali)$/,
+    ordini: /^(Ordinazioni|Canali|Ordini e prenotazioni)$/,
     pubblicazione: /^(Impostazioni|Pubblicazione)$/
 };
 
@@ -51,7 +52,7 @@ test.describe("Scheda della sede", () => {
         await page.getByRole("tab", { name: TAB.orari }).click();
         await expect(main.getByText(/^(Orari di apertura|Settimana)$/).first()).toBeVisible({ timeout: 15_000 });
 
-        await page.getByRole("tab", { name: TAB.canali }).click();
+        await page.getByRole("tab", { name: TAB.ordini }).click();
         await expect(main.getByText(/^(Ordinazioni dal tavolo|Ordini al tavolo)$/).first()).toBeVisible({ timeout: 15_000 });
 
         await page.getByRole("tab", { name: TAB.pubblicazione }).click();
@@ -83,12 +84,20 @@ test.describe("Scheda della sede", () => {
 
     test("i vecchi ?tab= portano alla sezione giusta", async ({ page }) => {
         await openFirstLocation(page);
-        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|canali|pubblicazione)$/, "");
+        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-prenotazioni|canali|pubblicazione)$/, "");
         await page.goto(`${base}?tab=info`);
         await expect(page.getByRole("tab", { name: TAB.anagrafica })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
         await expect(page).toHaveURL(/(tab=profile|\/anagrafica)/);
         await page.goto(`${base}?tab=hours-services`);
         await expect(page.getByRole("tab", { name: TAB.pubblicazione })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
         await expect(page).toHaveURL(/(tab=settings|\/pubblicazione)/);
+    });
+
+    test("il vecchio indirizzo /canali porta a Ordini e prenotazioni, ancora compresa", async ({ page }) => {
+        await openFirstLocation(page);
+        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-prenotazioni|canali|pubblicazione)$/, "");
+        await page.goto(`${base}/canali#prenotazioni`);
+        await expect(page.getByRole("tab", { name: TAB.ordini })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+        await expect(page).toHaveURL(/\/ordini-prenotazioni#prenotazioni$/);
     });
 });

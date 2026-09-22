@@ -14,7 +14,7 @@ import styles from "./ActivityOrariRoute.module.scss";
 
 /**
  * Orari (§31.1): settimana e chiusure straordinarie. Gli orari arrivano dal
- * parent (li legge anche Canali); le chiusure vivono solo qui. L'editor
+ * parent (li leggono anche Ordini e prenotazioni); le chiusure vivono solo qui. L'editor
  * degli orari è un drawer lg (registro Sedi, chiusura 6).
  */
 export default function ActivityOrariRoute() {

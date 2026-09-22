@@ -5,7 +5,7 @@ import { useActivityDetail } from "../ActivityDetailContext";
 
 /**
  * Sala: tavoli, zone e capienza. Rotta senza tab (§29.3): ci si arriva dai
- * rimandi di Canali. Si riorganizzerà in Servizio quando esisterà (§18).
+ * rimandi di Ordini e prenotazioni. Si riorganizzerà in Servizio quando esisterà (§18).
  */
 export default function ActivitySalaRoute() {
     const { activity, tenantId, reload, canManage, goToSection } = useActivityDetail();
@@ -29,8 +29,8 @@ export default function ActivitySalaRoute() {
                     />
                 ) : (
                     <TablesEmptyState
-                        onGoToOrdering={() => goToSection("canali", "ordini")}
-                        onGoToReservations={() => goToSection("canali", "prenotazioni")}
+                        onGoToOrdering={() => goToSection("ordini-prenotazioni", "ordini")}
+                        onGoToReservations={() => goToSection("ordini-prenotazioni", "prenotazioni")}
                     />
                 )
             )}

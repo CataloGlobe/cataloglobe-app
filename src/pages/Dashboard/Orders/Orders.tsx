@@ -251,7 +251,7 @@ export default function Orders() {
     const { businessId } = useParams<{ businessId: string }>();
     const printersHref =
         businessId && selectedActivityId
-            ? `/business/${businessId}/locations/${selectedActivityId}/canali#ordini`
+            ? `/business/${businessId}/locations/${selectedActivityId}/ordini-prenotazioni#ordini`
             : undefined;
 
     // Table detail + close drawer (tab "Tavoli"): ora interni a
