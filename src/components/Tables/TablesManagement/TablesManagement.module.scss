@@ -16,68 +16,10 @@
     flex-direction: column;
 }
 
-.capacityHeader {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    padding: 20px 24px;
-    border-bottom: 1px solid #F3F4F6;
-}
-
-.capacityTitle {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-    color: #111827;
-    letter-spacing: -0.01em;
-}
-
-.capacitySubtitle {
-    margin: 0;
-    font-size: 0.8125rem;
-    color: #6B7280;
-}
-
 .capacityBody {
     display: flex;
     flex-direction: column;
-    gap: 16px;
-    padding: 18px 24px 22px;
-
-    p {
-        margin: 0;
-    }
-}
-
-.capacityRow {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 12px;
-    align-items: start;
-
-    @media (max-width: 767px) {
-        grid-template-columns: minmax(0, 1fr);
-    }
-}
-
-.capacityField {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.capacityHint {
-    font-size: 11px;
-    line-height: 1.4;
-    color: var(--color-text-muted, #6b7280);
-}
-
-// Divergenza fra capienza digitata e posti mappati: segnala, non impedisce.
-.capacityWarning {
-    font-size: 11px;
-    line-height: 1.4;
-    color: var(--color-warning-700);
-    margin-top: 4px;
+    gap: var(--space-16);
 }
 
 .content {
@@ -115,38 +57,6 @@
 .toolbarCta {
     box-sizing: border-box;
     height: var(--control-height, 38px);
-}
-
-// Dropdown "Altro" — pattern coerente con TableRowActions.
-.dropdownContent {
-    min-width: 200px;
-    background: var(--card-bg, #FFFFFF);
-    border: 1px solid var(--border, #E5E7EB);
-    border-radius: 10px;
-    padding: 6px 0;
-    box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
-    z-index: 50;
-}
-
-.dropdownItem {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
-    font-size: 13.5px;
-    color: var(--text, #0F172A);
-    cursor: pointer;
-    outline: none;
-    user-select: none;
-
-    &[data-highlighted] {
-        background: var(--hover-bg, #F8FAFC);
-    }
-
-    &[data-disabled] {
-        opacity: 0.5;
-        pointer-events: none;
-    }
 }
 
 .labelCell {

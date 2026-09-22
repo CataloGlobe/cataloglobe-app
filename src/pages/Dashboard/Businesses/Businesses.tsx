@@ -31,7 +31,6 @@ import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
-import { ActivityVisibilityDrawer } from "@/pages/Operativita/Attivita/components/ActivityVisibilityDrawer/ActivityVisibilityDrawer";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityGroupsSection } from "@/components/Businesses/ActivityGroupsSection/ActivityGroupsSection";
 
@@ -116,14 +115,6 @@ export default function Businesses() {
   const [catalogsStatus, setCatalogsStatus] =
     useState<CatalogFetchStatus>("loading");
 
-
-  // ======================================
-  // STATE: Drawer disponibilità prodotti
-  // ======================================
-  const [visibilityDrawerTarget, setVisibilityDrawerTarget] = useState<{
-    activityId: string;
-    activityName: string;
-  } | null>(null);
 
   // ======================================
   // STATE: Filtri e Vista
@@ -591,21 +582,14 @@ export default function Businesses() {
                 onDelete={canDelete ? handleDelete : undefined}
                 activeCatalogsMap={activeCatalogsMap}
                 catalogsStatus={catalogsStatus}
-                onManageAvailability={(id, name) =>
-                  setVisibilityDrawerTarget({
-                    activityId: id,
-                    activityName: name,
-                  })
+                // «Gestisci» apre la pagina della sede (§19.5): il drawer da
+                // 900 non esiste più.
+                onManageAvailability={id =>
+                  navigate(`/business/${businessId}/locations/${id}/disponibilita`)
                 }
                 onCreateClick={canCreate ? handleAddActivity : undefined}
               />
 
-              <ActivityVisibilityDrawer
-                open={visibilityDrawerTarget !== null}
-                onClose={() => setVisibilityDrawerTarget(null)}
-                activityId={visibilityDrawerTarget?.activityId ?? ""}
-                activityName={visibilityDrawerTarget?.activityName ?? ""}
-              />
             </>
           ) : (
             <ActivityGroupsSection
