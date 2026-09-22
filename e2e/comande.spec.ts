@@ -44,14 +44,21 @@ async function openComande(page: Page): Promise<void> {
     await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$/, { timeout: 15_000 });
     // La board è pronta quando la card della fixture c'è (il nome del tavolo
     // compare anche come `option` del filtro, nascosta: non basta a dirlo).
-    await expect(page.getByRole("main").getByRole("button", { name: "Altre azioni" })).toHaveCount(1, { timeout: 15_000 });
+    await expect(cardMenus(page)).toHaveCount(1, { timeout: 15_000 });
+}
+
+/**
+ * Il menu ⋯ delle card della board. Il nome porta il tavolo («Altre azioni per
+ * T TEST»): senza, a 375 collideva con l'overflow della banda compatta.
+ */
+function cardMenus(page: Page) {
+    return page.getByRole("main").getByRole("button", { name: /^Altre azioni per / });
 }
 
 /** Il menu ⋯ della card della fixture: è l'unica comanda attiva della sede. */
 async function openCardMenu(page: Page): Promise<void> {
-    const trigger = page.getByRole("main").getByRole("button", { name: "Altre azioni" });
-    await expect(trigger).toHaveCount(1);
-    await trigger.click();
+    await expect(cardMenus(page)).toHaveCount(1);
+    await page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` }).click();
 }
 
 async function selectMainTab(page: Page, name: "Comande" | "Tavoli" | "Storico"): Promise<void> {
@@ -71,6 +78,17 @@ test.describe("Comande", () => {
         await expect(page.getByText("Nessuna comanda in lavorazione")).toBeVisible();
         await expect(page.getByText("Nessuna comanda pronta")).toBeVisible();
         await expect(page.getByText("Nessuna nuova comanda")).toHaveCount(0);
+
+        // La card della fixture: tavolo, articoli, totale, azione della colonna.
+        const main = page.getByRole("main");
+        // `visible`: il nome del tavolo è anche un'`option` (nascosta) del filtro.
+        await expect(main.getByText(TAVOLO, { exact: true }).filter({ visible: true })).toBeVisible();
+        for (const articolo of ARTICOLI) {
+            await expect(main.getByText(articolo, { exact: true })).toBeVisible();
+        }
+        await expect(main.getByText("Totale", { exact: true })).toBeVisible();
+        await expect(main.getByText("5,80 €", { exact: true })).toBeVisible();
+        await expect(main.getByRole("button", { name: "Conferma", exact: true })).toBeVisible();
 
         await expect(page.getByRole("button", { name: "Crea ordine" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Aggiorna" })).toBeVisible();
@@ -121,7 +139,7 @@ test.describe("Comande", () => {
 
         // Torna in Nuove, dove era.
         await expect(page.getByText("Nessuna nuova comanda")).toHaveCount(0);
-        await expect(page.getByRole("main").getByRole("button", { name: "Altre azioni" })).toHaveCount(1);
+        await expect(cardMenus(page)).toHaveCount(1);
     });
 
     test("«Crea ordine» apre il drawer a taglia lg, senza inviare niente", async ({ page }) => {
@@ -155,13 +173,13 @@ test.describe("Comande", () => {
         test.skip(altri.length === 0, "serve un secondo tavolo");
         await filtro.selectOption({ label: altri[0] });
         await expect(page.getByText("Nessuna nuova comanda")).toBeVisible();
-        await expect(page.getByRole("main").getByRole("button", { name: "Altre azioni" })).toHaveCount(0);
+        await expect(cardMenus(page)).toHaveCount(0);
 
         await filtro.selectOption({ label: TAVOLO });
         await expect(page.getByText("Nessuna nuova comanda")).toHaveCount(0);
 
         await filtro.selectOption({ label: "Tutti i tavoli" });
-        await expect(page.getByRole("main").getByRole("button", { name: "Altre azioni" })).toHaveCount(1);
+        await expect(cardMenus(page)).toHaveCount(1);
     });
 
     test("la tab Tavoli mostra i tavoli e apre il dettaglio del tavolo", async ({ page }) => {
@@ -232,10 +250,7 @@ test.describe("Comande", () => {
             for (const colonna of COLONNE) {
                 await expect(page.getByRole("main").getByText(colonna, { exact: true }).first()).toBeAttached();
             }
-            // Sotto 1024 la banda compatta ha un suo «Altre azioni» (l'overflow),
-            // prima della board nel DOM: quello della card è l'ultimo. Due
-            // controlli con lo stesso nome — anomalia a verbale, non del test.
-            await expect(page.getByRole("main").getByRole("button", { name: "Altre azioni" }).last()).toBeVisible();
+            await expect(page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` })).toBeVisible();
             const overflow = await page.evaluate(
                 () => document.documentElement.scrollWidth - document.documentElement.clientWidth
             );
