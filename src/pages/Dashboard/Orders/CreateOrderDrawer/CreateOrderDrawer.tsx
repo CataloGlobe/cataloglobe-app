@@ -393,40 +393,11 @@ export function CreateOrderDrawer({
                         <div className={styles.body}>
                             <div className={styles.menuPanel}>{renderMenuBody()}</div>
 
-                            <aside
-                                className={styles.orderPanel}
-                                aria-label="Pannello ordine"
-                            >
-                                <div className={styles.orderPanelHeader}>
-                                    <div className={styles.orderPanelHeaderCaption}>
-                                        Tavolo
-                                    </div>
-                                    {selectedTable ? (
-                                        <div className={styles.orderPanelHeaderValue}>
-                                            {selectedTable.label}
-                                        </div>
-                                    ) : (
-                                        <div className={styles.orderPanelHeaderEmpty}>
-                                            Nessun tavolo selezionato
-                                        </div>
-                                    )}
-                                </div>
-                                <div className={styles.orderPanelBody}>
-                                    <CartSummary
-                                        items={selection}
-                                        total={total}
-                                        orderNote={orderNote}
-                                        onOrderNoteChange={setOrderNote}
-                                        onUpdateQty={handleUpdateQty}
-                                        onRemove={handleRemoveItem}
-                                    />
-                                </div>
-                            </aside>
                         </div>
 
-                        {/* Sticky cart bar (mobile / 1-col layout): info +
-                            espansione carrello. Submit vive nel footer del
-                            drawer, qui niente bottone per evitare doppione. */}
+                        {/* Barra del carrello: conteggio, totale, espansione.
+                            Submit vive nel footer del drawer, qui niente
+                            bottone per evitare doppione. */}
                         <div className={styles.stickyBar}>
                             <button
                                 type="button"
