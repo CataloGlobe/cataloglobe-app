@@ -107,9 +107,11 @@ export function Tabs<T extends TabsValue>({ value, onChange, variant: rawVariant
 
 interface TabsListProps {
     children: React.ReactNode;
+    /** Nome del tablist, quando la pagina ne ha più d'uno (es. testata + stati). */
+    "aria-label"?: string;
 }
 
-function TabsList({ children }: TabsListProps) {
+function TabsList({ children, "aria-label": ariaLabel }: TabsListProps) {
     const { value, itemRefs } = useTabsContext();
     const listRef = useRef<HTMLDivElement>(null);
     const [indicator, setIndicator] = useState<{ width: number; left: number; animate: boolean } | null>(null);
@@ -182,6 +184,7 @@ function TabsList({ children }: TabsListProps) {
         <div
             className={`${styles.list} ${!atEnd ? styles.overflowEnd : ""}`}
             role="tablist"
+            aria-label={ariaLabel}
             ref={listRef}
         >
             {children}
