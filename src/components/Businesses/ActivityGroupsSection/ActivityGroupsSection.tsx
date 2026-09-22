@@ -1,19 +1,17 @@
-import React, { useEffect, useState, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Folders } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { Badge } from "@/components/ui/Badge/Badge";
-import Text from "@/components/ui/Text/Text";
-import { IconFolder, IconFolderPlus } from "@tabler/icons-react";
+import { Button } from "@/components/ui/Button/Button";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
-import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import styles from "./ActivityGroupsSection.module.scss";
-
-import { getActivityGroups, deleteActivityGroup } from "@/services/supabase/activity-groups";
-import { V2ActivityGroupWithCounts } from "@/types/activity-group";
-import { useDrawer } from "@/context/Drawer/useDrawer";
+import { getActivityGroups, getGroupsForActivity, deleteActivityGroup } from "@/services/supabase/activity-groups";
+import type { V2ActivityGroupWithCounts } from "@/types/activity-group";
 import { ActivityGroupDrawer } from "../ActivityGroupDrawer";
-import { useSearchParams } from "react-router-dom";
 
 interface ActivityGroupsSectionProps {
     searchQuery?: string;
@@ -25,6 +23,13 @@ interface ActivityGroupsSectionProps {
     createRequest?: number;
 }
 
+type DrawerState = { open: false } | { open: true; mode: "create" } | { open: true; mode: "edit"; groupId: string };
+
+/**
+ * Seconda tab della pagina Sedi: i gruppi di sedi, bersaglio delle regole di
+ * Programmazione (§32.3). Tabella, drawer crea/modifica, eliminazione singola
+ * e multipla (un gruppo si ricrea: §32bis vale per le sedi, non qui).
+ */
 export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
     searchQuery: externalSearchQuery = "",
     canWrite = true,
@@ -32,18 +37,18 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
 }) => {
     const tenantId = useTenantId();
     const { showToast } = useToast();
-    const { openDrawer, closeDrawer } = useDrawer();
 
     const [isLoading, setIsLoading] = useState(true);
     const [groups, setGroups] = useState<V2ActivityGroupWithCounts[]>([]);
     const [searchParams] = useSearchParams();
     const highlightActivityId = searchParams.get("highlight");
     const [highlightedGroupIds, setHighlightedGroupIds] = useState<string[]>([]);
-    const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
+    const [drawer, setDrawer] = useState<DrawerState>({ open: false });
+    const [deleteTarget, setDeleteTarget] = useState<V2ActivityGroupWithCounts | null>(null);
     const [bulkDeletePendingIds, setBulkDeletePendingIds] = useState<string[]>([]);
     const bulkDeleteConfirmOpen = bulkDeletePendingIds.length > 0;
 
-    const loadGroups = async () => {
+    const loadGroups = useCallback(async () => {
         if (!tenantId) return;
         try {
             setIsLoading(true);
@@ -51,25 +56,20 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
             setGroups(data);
 
             if (highlightActivityId) {
-                const activityGroups = await import("@/services/supabase/activity-groups").then(
-                    m => m.getGroupsForActivity(highlightActivityId, tenantId!)
-                );
+                const activityGroups = await getGroupsForActivity(highlightActivityId, tenantId);
                 setHighlightedGroupIds(activityGroups.map(g => g.id));
             }
         } catch (error) {
-            console.error("Errore nel caricamento dei gruppi attività:", error);
-            showToast({
-                message: "Impossibile caricare i gruppi attività.",
-                type: "error"
-            });
+            console.error("Errore nel caricamento dei gruppi di sedi:", error);
+            showToast({ message: "Impossibile caricare i gruppi di sedi.", type: "error" });
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [tenantId, highlightActivityId, showToast]);
 
     useEffect(() => {
-        loadGroups();
-    }, [tenantId]);
+        void loadGroups();
+    }, [loadGroups]);
 
     const filteredGroups = useMemo(() => {
         if (!externalSearchQuery) return groups;
@@ -77,84 +77,46 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
     }, [groups, externalSearchQuery]);
     const allGroupIds = useMemo(() => groups.map(g => g.id), [groups]);
 
-    const handleCreate = () => {
-        openDrawer({
-            title: "Nuovo gruppo attività",
-            content: (
-                <ActivityGroupDrawer
-                    mode="create"
-                    onSuccess={() => {
-                        loadGroups();
-                        closeDrawer();
-                    }}
-                    onClose={closeDrawer}
-                />
-            )
-        });
-    };
+    const openCreate = useCallback(() => setDrawer({ open: true, mode: "create" }), []);
 
-    const handleEdit = (group: V2ActivityGroupWithCounts) => {
-        openDrawer({
-            title: "Modifica gruppo attività",
-            content: (
-                <ActivityGroupDrawer
-                    mode="edit"
-                    groupId={group.id}
-                    onSuccess={() => {
-                        loadGroups();
-                        closeDrawer();
-                    }}
-                    onClose={closeDrawer}
-                />
-            )
-        });
-    };
+    useEffect(() => {
+        if (!canWrite || createRequest === 0) return;
+        openCreate();
+    }, [createRequest, canWrite, openCreate]);
 
-    const handleDelete = (groupId: string) => {
-        setDeleteTargetId(groupId);
+    const handleDrawerSuccess = () => {
+        void loadGroups();
+        setDrawer({ open: false });
     };
 
     const handleConfirmDelete = async (): Promise<boolean> => {
-        if (!deleteTargetId) return false;
+        if (!deleteTarget || !tenantId) return false;
         try {
-            await deleteActivityGroup(deleteTargetId, tenantId!);
-            showToast({
-                message: "Gruppo eliminato con successo.",
-                type: "success"
-            });
-            loadGroups();
+            await deleteActivityGroup(deleteTarget.id, tenantId);
+            showToast({ message: "Gruppo eliminato.", type: "success" });
+            void loadGroups();
             return true;
         } catch (error) {
             console.error("Errore eliminazione gruppo:", error);
-            showToast({
-                message: "Errore durante l'eliminazione del gruppo.",
-                type: "error"
-            });
+            showToast({ message: "Errore durante l'eliminazione del gruppo.", type: "error" });
             return false;
         }
     };
 
-    const handleBulkDelete = (selectedIds: string[]) => {
-        if (selectedIds.length === 0) return;
-        setBulkDeletePendingIds(selectedIds);
-    };
-
     const handleConfirmBulkDelete = async (): Promise<boolean> => {
-        if (bulkDeletePendingIds.length === 0) return false;
+        if (bulkDeletePendingIds.length === 0 || !tenantId) return false;
         try {
-            await Promise.all(bulkDeletePendingIds.map(id => deleteActivityGroup(id, tenantId!)));
+            await Promise.all(bulkDeletePendingIds.map(id => deleteActivityGroup(id, tenantId)));
             showToast({
-                message: `${bulkDeletePendingIds.length} gruppi eliminati con successo.`,
+                message:
+                    bulkDeletePendingIds.length === 1 ? "Gruppo eliminato." : `${bulkDeletePendingIds.length} gruppi eliminati.`,
                 type: "success"
             });
-            loadGroups();
+            void loadGroups();
             return true;
         } catch (error) {
             console.error("Errore eliminazione multipla gruppi:", error);
-            showToast({
-                message: "Errore durante l'eliminazione di alcuni gruppi.",
-                type: "error"
-            });
+            showToast({ message: "Errore durante l'eliminazione di alcuni gruppi.", type: "error" });
             return false;
         }
     };
@@ -163,30 +125,24 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
         () => [
             {
                 id: "name",
-                header: "Nome gruppo",
+                header: "Gruppo",
                 width: "2fr",
                 cell: (_, group) => (
-                    <div className={styles.colName}>
-                        <Text variant="body-sm" weight={600}>
-                            {group.name}
-                        </Text>
-                        {group.description && (
-                            <Text
-                                variant="body-sm"
-                                colorVariant="muted"
-                                className={styles.description}
-                            >
-                                {group.description}
-                            </Text>
-                        )}
+                    <div className={DATA_TABLE_CLASSES.cellTwoLine}>
+                        <span>{group.name}</span>
+                        {group.description && <span>{group.description}</span>}
                     </div>
                 )
             },
             {
                 id: "count",
-                header: "N° Attività",
-                width: "1.5fr",
-                cell: (_, group) => <Badge variant="secondary">{group.member_count} attività</Badge>
+                header: "Sedi",
+                width: "1fr",
+                cell: (_, group) => (
+                    <Badge variant="secondary">
+                        {group.member_count} {group.member_count === 1 ? "sede" : "sedi"}
+                    </Badge>
+                )
             },
             {
                 id: "actions",
@@ -196,10 +152,14 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
                 cell: (_, group) => (
                     <TableRowActions
                         actions={[
-                            { label: "Modifica", onClick: () => handleEdit(group), hidden: !canWrite },
+                            {
+                                label: "Modifica",
+                                onClick: () => setDrawer({ open: true, mode: "edit", groupId: group.id }),
+                                hidden: !canWrite
+                            },
                             {
                                 label: "Elimina",
-                                onClick: () => handleDelete(group.id),
+                                onClick: () => setDeleteTarget(group),
                                 variant: "destructive",
                                 separator: true,
                                 hidden: !canWrite || group.is_system
@@ -212,87 +172,72 @@ export const ActivityGroupsSection: React.FC<ActivityGroupsSectionProps> = ({
         [canWrite]
     );
 
-    useEffect(() => {
-        if (!canWrite || createRequest === 0) return;
-        handleCreate();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [createRequest]);
+    const showEmpty = !isLoading && filteredGroups.length === 0;
 
     return (
-        <div className={styles.container}>
-            {isLoading ? (
-                <div className={styles.loadingState}>
-                    <Text variant="body-sm" colorVariant="muted">
-                        Caricamento gruppi...
-                    </Text>
-                </div>
-            ) : filteredGroups.length === 0 ? (
-                <div className={styles.emptyState}>
-                    {externalSearchQuery ? (
-                        <>
-                            <IconFolder size={48} stroke={1} className={styles.emptyIcon} />
-                            <Text variant="title-sm" weight={600}>
-                                Nessun gruppo trovato
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Nessun gruppo corrisponde alla ricerca.
-                            </Text>
-                        </>
-                    ) : (
-                        <>
-                            <IconFolderPlus size={48} stroke={1} className={styles.emptyIcon} />
-                            <Text variant="title-sm" weight={600}>
-                                Nessun gruppo creato
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Organizza le tue attività in gruppi per applicare regole mirate.
-                            </Text>
-                            {canWrite && (
-                                <button
-                                    type="button"
-                                    className={styles.createCta}
-                                    onClick={handleCreate}
-                                >
-                                    Crea il tuo primo gruppo
-                                </button>
-                            )}
-                        </>
-                    )}
-                </div>
-            ) : (
-                <>
-                    <DataTable
-                        data={filteredGroups}
-                        allRowIds={allGroupIds}
-                        columns={columns}
-                        selectable={canWrite}
-                        onBulkDelete={canWrite ? handleBulkDelete : undefined}
-                        highlightedRowIds={highlightedGroupIds}
+        <>
+            {showEmpty ? (
+                externalSearchQuery ? (
+                    <EmptyState
+                        variant="filtered"
+                        title="Nessun risultato"
+                        description="Nessun gruppo corrisponde alla ricerca."
                     />
-                </>
+                ) : (
+                    <EmptyState
+                        variant="page"
+                        icon={<Folders />}
+                        title="Nessun gruppo di sedi"
+                        description="Un gruppo raccoglie più sedi: le regole di Programmazione lo puntano come bersaglio unico."
+                        action={
+                            canWrite ? (
+                                <Button variant="primary" onClick={openCreate}>
+                                    Crea il primo gruppo
+                                </Button>
+                            ) : undefined
+                        }
+                    />
+                )
+            ) : (
+                <DataTable
+                    data={filteredGroups}
+                    isLoading={isLoading}
+                    allRowIds={allGroupIds}
+                    columns={columns}
+                    selectable={canWrite}
+                    onBulkDelete={canWrite ? ids => setBulkDeletePendingIds(ids) : undefined}
+                    bulkActionLabel="Elimina selezionati"
+                    highlightedRowIds={highlightedGroupIds}
+                />
             )}
 
+            <ActivityGroupDrawer
+                open={drawer.open}
+                mode={drawer.open ? drawer.mode : "create"}
+                groupId={drawer.open && drawer.mode === "edit" ? drawer.groupId : undefined}
+                onSuccess={handleDrawerSuccess}
+                onClose={() => setDrawer({ open: false })}
+            />
+
             <ConfirmDialog
-                isOpen={deleteTargetId !== null}
-                onClose={() => setDeleteTargetId(null)}
+                isOpen={deleteTarget !== null}
+                onClose={() => setDeleteTarget(null)}
                 onConfirm={handleConfirmDelete}
-                title="Elimina gruppo"
-                message="Sei sicuro di voler eliminare questo gruppo?"
+                title={`Elimina «${deleteTarget?.name ?? ""}»`}
+                message="Le regole di Programmazione che puntano solo questo gruppo passano in bozza. Le sedi restano."
                 confirmLabel="Elimina"
+                confirmVariant="danger"
             />
 
             <ConfirmDialog
                 isOpen={bulkDeleteConfirmOpen}
                 onClose={() => setBulkDeletePendingIds([])}
                 onConfirm={handleConfirmBulkDelete}
-                title={
-                    bulkDeletePendingIds.length === 1
-                        ? "Elimina 1 gruppo?"
-                        : `Elimina ${bulkDeletePendingIds.length} gruppi?`
-                }
-                message="I gruppi eliminati non potranno essere recuperati."
+                title={bulkDeletePendingIds.length === 1 ? "Elimina 1 gruppo?" : `Elimina ${bulkDeletePendingIds.length} gruppi?`}
+                message="Le regole di Programmazione che puntano solo questi gruppi passano in bozza. Le sedi restano."
                 confirmLabel="Elimina"
+                confirmVariant="danger"
             />
-        </div>
+        </>
     );
 };

@@ -74,7 +74,8 @@ test.describe("Sedi", () => {
         await page.getByRole("tab", { name: "Gruppi di sedi" }).click();
         await expect(page).toHaveURL(/tab=groups/);
         const main = page.getByRole("main");
-        await expect(main.getByText(/^(Nome gruppo|Nessun gruppo creato)$/).first()).toBeVisible({ timeout: 15_000 });
+        // Intestazione «Nome gruppo» (pagina vecchia) o «Gruppo» (DataTable), oppure il vuoto.
+        await expect(main.getByText(/^(Nome gruppo|Gruppo|Nessun gruppo)/).first()).toBeVisible({ timeout: 15_000 });
         await expect(page.getByRole("textbox", { name: /Cerca gruppo/ })).toBeVisible();
     });
 });
