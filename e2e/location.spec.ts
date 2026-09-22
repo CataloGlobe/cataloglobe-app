@@ -34,9 +34,14 @@ async function openFirstLocation(page: Page): Promise<void> {
 }
 
 test.describe("Scheda della sede", () => {
-    test("si apre dalla griglia, con breadcrumb e sezioni", async ({ page }) => {
+    test("si apre dalla griglia, con l'uscita dal contesto e le sezioni", async ({ page }) => {
         await openFirstLocation(page);
-        await expect(page.getByRole("link", { name: "Sedi", exact: true }).first()).toBeVisible();
+        // La via di ritorno non è più la briciola: dentro il contesto di sede
+        // la navbar porta la pill del locale e l'uscita sta nella sidebar
+        // (§46.1 g).
+        await expect(
+            page.getByRole("navigation", { name: "Contesto" }).getByRole("link", { name: /^(Tutte le sedi|Azienda)$/ })
+        ).toBeVisible();
         for (const name of Object.values(TAB)) {
             await expect(page.getByRole("tab", { name })).toBeVisible();
         }
