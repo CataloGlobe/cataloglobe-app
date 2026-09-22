@@ -1,33 +1,15 @@
-@use "@styles/variables" as *;
-
-.listWrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-  padding: 0;
-}
-
-.nameCell {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-}
-
+// Lista sedi: la tabella è DataTable; qui solo la cella del menù attivo, che
+// può portare sotto il nome la riga ambra degli override.
 .catalogCell {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: var(--space-2);
+  min-width: 0;
 }
 
-/* Riga avviso override attivi (hidden/unavailable) — solo se presenti,
-   nessun automatismo di reset: solo promemoria passivo per il gestore. */
-.catalogWarningRow {
-  display: flex;
+.catalogWarning {
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-}
-
-.catalogWarningIcon {
-  flex-shrink: 0;
-  color: $warning;
+  gap: var(--space-4);
+  color: var(--warning-500);
 }
