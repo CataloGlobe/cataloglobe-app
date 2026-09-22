@@ -32,11 +32,12 @@ test.describe("Sedi", () => {
     test("griglia: una card per sede con stato e menù attivo", async ({ page }) => {
         await page.getByRole("radio", { name: "Vista griglia" }).click();
         const main = page.getByRole("main");
-        const cards = main.locator("article");
+        // Card della griglia: `article` sulla pagina vecchia, `listitem` di CardGrid dopo.
+        const cards = main.locator('article, [role="listitem"]');
         await expect(cards.first()).toBeVisible({ timeout: 15_000 });
         expect(await cards.count()).toBeGreaterThan(1);
         const first = cards.first();
-        await expect(first.getByText(/^(Pubblicata|Sospesa)$/)).toBeVisible();
+        await expect(first.getByText(/^(Pubblicata|Sospesa)/)).toBeVisible();
         await expect(first.getByText("Menu attivo ora")).toBeVisible();
         await expect(first.getByRole("button", { name: "Azioni sede" })).toBeVisible();
     });
@@ -56,7 +57,7 @@ test.describe("Sedi", () => {
         await page.getByRole("textbox", { name: /Cerca sede/ }).fill("nessuna-sede-con-questo-nome");
         const main = page.getByRole("main");
         await expect(main.getByText("Nessun risultato")).toBeVisible();
-        await expect(main.locator("article")).toHaveCount(0);
+        await expect(main.locator('article, [role="listitem"]')).toHaveCount(0);
     });
 
     test("drawer «Nuova sede»: si apre e si chiude senza creare", async ({ page }) => {

@@ -130,6 +130,12 @@
   margin-top: var(--space-4);
 }
 
+// Riga in fondo, fuori dalla superficie cliccabile: un dato con la sua azione.
+.footer {
+  border-top: 1px solid var(--border);
+  padding: var(--space-12) var(--space-16);
+}
+
 // Azioni al hover: come la colonna azioni di DataTable, sempre visibili
 // dove il hover non esiste, e alla tastiera via focus-within.
 .actions {

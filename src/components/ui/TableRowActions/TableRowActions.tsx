@@ -15,6 +15,8 @@ export interface TableRowAction {
 
 interface TableRowActionsProps {
     actions: TableRowAction[];
+    /** Nome accessibile del «⋯»; default «Azioni». Fuori da una tabella (card) conviene dire di cosa: «Azioni sede». */
+    ariaLabel?: string;
 }
 
 /**
@@ -23,7 +25,7 @@ interface TableRowActionsProps {
  * lo decide chi compone le azioni (`separator: true`). La tabella marca la
  * cella che lo contiene come colonna azioni e la mostra al hover/focus.
  */
-export function TableRowActions({ actions }: TableRowActionsProps) {
+export function TableRowActions({ actions, ariaLabel = "Azioni" }: TableRowActionsProps) {
     const visibleActions = actions.filter(a => !a.hidden);
 
     return (
@@ -32,7 +34,7 @@ export function TableRowActions({ actions }: TableRowActionsProps) {
             trigger={
                 <IconButton
                     icon={<MoreHorizontal size={16} />}
-                    aria-label="Azioni"
+                    aria-label={ariaLabel}
                     variant="ghost"
                     size="sm"
                     className={styles.trigger}
