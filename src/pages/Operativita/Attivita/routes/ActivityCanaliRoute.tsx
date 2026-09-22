@@ -243,9 +243,7 @@ export default function ActivityCanaliRoute() {
                 "Senza ragione sociale l'informativa privacy delle prenotazioni non si pubblica: chi la apre dal modulo trova un avviso che lo invita a contattarti. Si inserisce con i dati di fatturazione, in Impostazioni.",
             done: hasLegalName,
             actionLabel: "Vai a Impostazioni",
-            onAction: () => {
-                window.location.assign(`/business/${tenantId}/settings`);
-            }
+            to: `/business/${tenantId}/settings`
         }
     ];
 
