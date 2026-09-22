@@ -100,4 +100,13 @@ test.describe("Scheda della sede", () => {
         await expect(page.getByRole("tab", { name: TAB.ordini })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
         await expect(page).toHaveURL(/\/ordini-prenotazioni#prenotazioni$/);
     });
+
+    test("un segmento sconosciuto sotto la sede apre l'Anagrafica, non «Pagina non trovata»", async ({ page }) => {
+        await openFirstLocation(page);
+        const base = page.url().replace(/[?#].*$/, "").replace(/\/(anagrafica|orari|ordini-prenotazioni|canali|pubblicazione)$/, "");
+        await page.goto(`${base}/ordini`);
+        await expect(page.getByRole("tab", { name: TAB.anagrafica })).toHaveAttribute("aria-selected", "true", { timeout: 15_000 });
+        await expect(page).toHaveURL(/\/anagrafica$/);
+        await expect(page.getByText("Pagina non trovata")).toHaveCount(0);
+    });
 });

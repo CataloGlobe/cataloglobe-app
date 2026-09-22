@@ -85,7 +85,7 @@ const ActivityDetailPage = lazy(() => import("./pages/Operativita/Attivita/Activ
 const ActivityAnagraficaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityAnagraficaRoute"));
 const ActivityOrariRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrariRoute"));
 const ActivityOrdiniPrenotazioniRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrdiniPrenotazioniRoute"));
-const ActivityCanaliRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityCanaliRedirect"));
+const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySectionRedirect"));
 const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityPubblicazioneRoute"));
 const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySalaRoute"));
 const ActivityDisponibilitaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityDisponibilitaRoute"));
@@ -240,10 +240,14 @@ export default function App() {
                     <Route path="anagrafica" element={<ActivityAnagraficaRoute />} />
                     <Route path="orari" element={<ActivityOrariRoute />} />
                     <Route path="ordini-prenotazioni" element={<ActivityOrdiniPrenotazioniRoute />} />
-                    <Route path="canali" element={<ActivityCanaliRedirect />} />
+                    <Route path="canali" element={<ActivitySectionRedirect to="ordini-prenotazioni" keepHash />} />
                     <Route path="pubblicazione" element={<ActivityPubblicazioneRoute />} />
                     <Route path="sala" element={<ActivitySalaRoute />} />
                     <Route path="disponibilita" element={<ActivityDisponibilitaRoute />} />
+                    {/* Un segmento sconosciuto sotto la sede apre l'Anagrafica:
+                        un link vecchio o storto resta dentro la scheda invece di
+                        finire sulla pagina "non trovata" di tutto il sito. */}
+                    <Route path="*" element={<ActivitySectionRedirect to="anagrafica" />} />
                 </Route>
 
                 <Route path="orders" element={<Orders />} />
