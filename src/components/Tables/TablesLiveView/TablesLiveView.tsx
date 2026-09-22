@@ -16,6 +16,7 @@ import { updateTable } from "@/services/supabase/tables";
 import type { V2TableWithState } from "@/types/orders";
 
 import { TableDetailDrawer } from "@/components/Tables/TableDetailDrawer/TableDetailDrawer";
+import { SYSTEM_DRAWER_MOTION_MS } from "@/components/layout/SystemDrawer/drawerSize";
 import TableCloseDrawer from "@/pages/Dashboard/Tables/TableCloseDrawer";
 
 import { deriveTableStatus } from "@/utils/tableState";
@@ -29,13 +30,7 @@ export interface TablesLiveViewProps {
     activityId: string;
 }
 
-/**
- * Durata exit-anim del SystemDrawer (motion.div drawer: transition
- * duration 0.25s). Usata per sequenziare detail → close: chiudiamo il
- * detail, attendiamo che l'animazione finisca, apriamo il close. NIENTE
- * stacking. Se SystemDrawer cambia la sua durata, aggiorna qui.
- */
-const DRAWER_EXIT_DURATION_MS = 250;
+
 
 type StatusFilter = "all" | "occupied" | "free" | "maintenance";
 
@@ -140,8 +135,8 @@ export function TablesLiveView({
     //    Guard: se non trovata (tavolo rimosso da realtime tra click e
     //    callback) → toast soft + non aprire il close.
     // 2. chiudi detail.
-    // 3. attendi DRAWER_EXIT_DURATION_MS (matchato all'exit anim di
-    //    SystemDrawer drawer motion.div) e poi apri close.
+    // 3. attendi SYSTEM_DRAWER_MOTION_MS (la durata che SystemDrawer esporta
+    //    per la sua uscita) e poi apri close.
     const handleRequestClose = useCallback(
         (tableId: string) => {
             const found = items.find(t => t.id === tableId);
@@ -160,7 +155,7 @@ export function TablesLiveView({
             transitionTimerRef.current = window.setTimeout(() => {
                 transitionTimerRef.current = null;
                 setIsCloseOpen(true);
-            }, DRAWER_EXIT_DURATION_MS);
+            }, SYSTEM_DRAWER_MOTION_MS);
         },
         [items, showToast]
     );

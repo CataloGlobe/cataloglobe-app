@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { resolveDrawerSize, type SystemDrawerSize } from "./drawerSize";
+import { resolveDrawerSize, SYSTEM_DRAWER_MOTION_MS, type SystemDrawerSize } from "./drawerSize";
 import styles from "./SystemDrawer.module.scss";
 
 export type { SystemDrawerSize } from "./drawerSize";
@@ -150,7 +150,7 @@ export const SystemDrawer = ({
     // prefers-reduced-motion nessuna animazione.
     const transition = reducedMotion
         ? { duration: 0 }
-        : { duration: 0.2, ease: [0.4, 0, 0.2, 1] as const };
+        : { duration: SYSTEM_DRAWER_MOTION_MS / 1000, ease: [0.4, 0, 0.2, 1] as const };
 
     return createPortal(
         <AnimatePresence>
