@@ -18,7 +18,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { resolveBusinessRoute, businessRouteLabel } from "@components/layout/AppHeader/navbarBreadcrumbRoutes";
-import { ACTIVITY_SECTION_LABELS, type ActivitySection } from "@/pages/Operativita/Attivita/ActivityDetailContext";
+import { ACTIVITY_SECTION_LABELS } from "@/pages/Operativita/Attivita/ActivityDetailContext";
 import { useAiImportSession } from "@/hooks/useAiImportSession";
 import { useAiUsage } from "@/hooks/useAiUsage";
 import { useCheckoutReturnSync } from "@/hooks/useCheckoutReturnSync";
@@ -29,6 +29,14 @@ import type { BusinessOutletContext } from "./outletContext";
 import styles from "./MainLayout.module.scss";
 
 const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
+
+/** Le pagine che vivono dentro una sede: le sei della scheda più le due
+ *  operative, che sono pagine d'azienda montate sul contesto. */
+const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
+    ...ACTIVITY_SECTION_LABELS,
+    comande: "Comande",
+    prenotazioni: "Prenotazioni"
+};
 
 /** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
 const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/[^/]+/;
@@ -53,9 +61,9 @@ function resolvePageTitle(businessId: string, pathname: string, catalogLabel: st
     if (second && first === 'products') return 'Dettaglio prodotto';
     if (second && first === 'catalogs') return `Dettaglio ${catalogLabel.toLowerCase()}`;
     if (second && first === 'locations') {
-        // Le sei pagine della sede sono rotte: il titolo dice in quale sei,
-        // altrimenti sei schede del browser si chiamano tutte uguale.
-        const label = ACTIVITY_SECTION_LABELS[third as ActivitySection];
+        // Le pagine della sede sono rotte: il titolo dice in quale sei,
+        // altrimenti le schede del browser si chiamano tutte uguale.
+        const label = SEDE_PAGE_LABELS[third];
         return label ? `Sede · ${label}` : 'Dettaglio sede';
     }
     if (second && first === 'scheduling') return 'Dettaglio regola';
