@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Lock, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
@@ -52,6 +52,10 @@ export interface AppSidebarNavItem {
     loadingLabel?: string;
     /** Funzione del piano Pro: lucchetto con tooltip «Pro». La voce resta navigabile. */
     locked?: boolean;
+    /** Altri percorsi che tengono la voce corrente, oltre a `to`: la «Scheda»
+     *  della sede resta accesa su tutte e quattro le sue pagine. Confronto per
+     *  prefisso, valutato in OR con il match di `NavLink`. */
+    matchPrefixes?: string[];
 }
 
 export interface AppSidebarNavGroup {
@@ -132,6 +136,7 @@ export function AppSidebar({
     footerSlot
 }: AppSidebarProps) {
     const collapsedDesktop = !isMobile && collapsed;
+    const { pathname } = useLocation();
     return (
         <>
             {isMobile && mobileOpen && (
@@ -208,7 +213,12 @@ export function AppSidebar({
                                                         to={link.to}
                                                         end={link.end}
                                                         className={({ isActive }) =>
-                                                            [styles.link, isActive ? styles.active : ""].join(" ")
+                                                            [
+                                                                styles.link,
+                                                                isActive || link.matchPrefixes?.some(p => pathname.startsWith(p))
+                                                                    ? styles.active
+                                                                    : ""
+                                                            ].join(" ")
                                                         }
                                                         onClick={() => {
                                                             if (isMobile) onRequestClose();
