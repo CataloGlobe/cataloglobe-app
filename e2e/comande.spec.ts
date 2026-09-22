@@ -137,8 +137,13 @@ test.describe("Comande", () => {
         await selectMainTab(page, "Tavoli");
 
         const filtri = page.getByRole("main").getByRole("radiogroup");
+        // Dizionario (§18.4 + P2): «Aperti», «Fuori servizio» — mai «Occupati»,
+        // mai «Manutenzione».
         await expect(filtri.getByRole("radio", { name: "Tutti", exact: true })).toBeVisible({ timeout: 15_000 });
-        await expect(filtri.getByRole("radio", { name: "Liberi", exact: true })).toBeVisible();
+        for (const f of ["Aperti", "Liberi", "Fuori servizio"]) {
+            await expect(filtri.getByRole("radio", { name: f, exact: true })).toBeVisible();
+        }
+        await expect(page.getByRole("main").getByText(/manutenzione|occupat/i)).toHaveCount(0);
 
         const tavolo = page.getByRole("main").getByRole("button", { name: new RegExp(`^${TAVOLO}, `) });
         await expect(tavolo).toBeVisible({ timeout: 15_000 });
@@ -147,6 +152,7 @@ test.describe("Comande", () => {
         const drawer = page.getByRole("dialog");
         await expect(drawer).toBeVisible();
         await expect(drawer.getByText(TAVOLO).first()).toBeVisible();
+        await expect(drawer.getByText(/manutenzione|occupat/i)).toHaveCount(0);
         await page.keyboard.press("Escape");
         await expect(drawer).toHaveCount(0);
     });

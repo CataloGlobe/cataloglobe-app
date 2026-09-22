@@ -44,9 +44,9 @@ const NO_ZONE_LABEL = "Senza zona";
 
 const FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
     { value: "all", label: "Tutti" },
-    { value: "occupied", label: "Occupati" },
+    { value: "occupied", label: "Aperti" },
     { value: "free", label: "Liberi" },
-    { value: "maintenance", label: "Manutenzione" }
+    { value: "maintenance", label: "Fuori servizio" }
 ];
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -62,8 +62,8 @@ type TableStatus = "free" | "occupied" | "maintenance";
 
 const STATUS_LABELS: Record<TableStatus, string> = {
     free: "Libero",
-    occupied: "Occupato",
-    maintenance: "Manutenzione"
+    occupied: "Aperto",
+    maintenance: "Fuori servizio"
 };
 
 function formatElapsedLabel(fromIso: string): string {
@@ -317,7 +317,7 @@ export function TablesLiveView({
         <div className={styles.wrapper}>
             <div className={styles.summaryRow}>
                 <Text variant="body-sm" colorVariant="muted">
-                    {summary.open} {summary.open === 1 ? "occupato" : "occupati"} ·{" "}
+                    {summary.open} {summary.open === 1 ? "aperto" : "aperti"} ·{" "}
                     {summary.free} {summary.free === 1 ? "libero" : "liberi"}
                     {summary.seats > 0 && ` · ${summary.seats} coperti`}
                 </Text>
@@ -399,8 +399,8 @@ export function TablesLiveView({
                                         },
                                         {
                                             label: t.maintenance_mode
-                                                ? "Rimuovi manutenzione"
-                                                : "Metti in manutenzione",
+                                                ? "Rimetti in servizio"
+                                                : "Metti fuori servizio",
                                             icon: Wrench,
                                             hidden: status === "occupied" || !canManage,
                                             onClick: () =>

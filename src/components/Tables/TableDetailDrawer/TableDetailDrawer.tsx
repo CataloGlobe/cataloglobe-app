@@ -85,7 +85,7 @@ interface Props {
      */
     onRequestClose?: (tableId: string) => void;
     /**
-     * Notifica al parent che il flag manutenzione del tavolo e' stato
+     * Notifica al parent che il flag «fuori servizio» (maintenance_mode) del tavolo e' stato
      * toggleato. Il parent dovrebbe rifare il fetch della lista (es.
      * `useTablesLiveRealtime.refetch`) per sincronizzare card, filtri e
      * KPI. `tables` non e' in publication `supabase_realtime`, quindi
@@ -203,9 +203,9 @@ function tableStatusInfo(status: TableStatus): {
 } {
     switch (status) {
         case "maintenance":
-            return { variant: "warning", label: "Manutenzione" };
+            return { variant: "warning", label: "Fuori servizio" };
         case "occupied":
-            return { variant: "success", label: "Occupato" };
+            return { variant: "success", label: "Aperto" };
         default:
             return { variant: "neutral", label: "Libero" };
     }
