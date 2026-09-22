@@ -129,7 +129,9 @@ export default function SedeSidebar({
     const header = collapsedDesktop ? (
         <div className={styles.headerCollapsed}>
             <Tooltip content={summary ? `${backLabel} · ${summary.name}` : backLabel} side="right" sideOffset={28}>
-                {back}
+                <Link to={backTo} className={styles.back} aria-label={backLabel}>
+                    <ArrowLeft size={16} aria-hidden="true" />
+                </Link>
             </Tooltip>
         </div>
     ) : (

@@ -25,7 +25,6 @@ import { useLocation, useParams } from "react-router-dom";
 import { Store } from "lucide-react";
 import Breadcrumb, { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
 import Text from "@/components/ui/Text/Text";
-import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { useActivitySummary } from "@/hooks/useActivitySummary";
 import { useBreadcrumb } from "@/context/useBreadcrumb";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
@@ -52,14 +51,15 @@ const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/([^/]+)/;
 function NavbarSedePill({ activityId }: { activityId: string }) {
     const summary = useActivitySummary(activityId);
     if (!summary) return null;
-    const suspended = summary.status === "inactive";
+    // Solo il nome: lo stato lo dice l'intestazione della sidebar, e sulla
+    // scheda anche la testata della pagina. Tre volte nella stessa schermata
+    // erano due di troppo.
     return (
         <span className={styles.sedePill}>
             <Store size={14} aria-hidden="true" />
             <Text as="span" variant="body-sm" weight={500} className={styles.sedeName}>
                 {summary.name}
             </Text>
-            <StatusBadge variant={suspended ? "neutral" : "success"} label={suspended ? "Sospesa" : "Pubblicata"} />
         </span>
     );
 }
