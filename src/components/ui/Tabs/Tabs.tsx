@@ -23,7 +23,7 @@ export type TabsValue = string | number;
  * come `primary`, con avviso in dev. Si toglie nel lotto 6.
  */
 export type TabsVariant = "primary" | "secondary" | "line";
-export type TabsBadgeTone = "neutral" | "brand";
+export type TabsBadgeTone = "neutral" | "brand" | "outline";
 
 let warnedSecondary = false;
 function resolveVariant(variant: TabsVariant | undefined): TabsVariant | undefined {
@@ -216,7 +216,8 @@ interface TabProps<T extends TabsValue> {
     disabledTooltip?: React.ReactNode;
     /** Contatore accanto all'etichetta, reso con `Badge`. */
     badge?: React.ReactNode;
-    /** `neutral` (default) · `brand` se il contatore sono cose da fare. */
+    /** `neutral` (default) · `brand` se il contatore sono cose da fare ·
+     *  `outline` su un fondo `hover-bg`. */
     badgeTone?: TabsBadgeTone;
 }
 
@@ -258,7 +259,9 @@ function Tab<T extends TabsValue>({
                 {children}
             </span>
             {badge !== undefined && badge !== null && badge !== false && (
-                <Badge variant={badgeTone} className={styles.tabBadge}>
+                // `presentation`: il contatore fa parte del nome del tab
+                // («Nuove 1»), non è una regione live a sé.
+                <Badge variant={badgeTone} className={styles.tabBadge} role="presentation">
                     {badge}
                 </Badge>
             )}
