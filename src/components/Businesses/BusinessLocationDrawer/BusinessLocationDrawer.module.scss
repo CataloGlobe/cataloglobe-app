@@ -1,12 +1,5 @@
 .header {
     display: flex;
     flex-direction: column;
-    gap: 0.25rem;
-}
-
-.seatOffer {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-    padding: 1.25rem;
+    gap: var(--space-4);
 }

@@ -22,7 +22,10 @@
 
 import { useMemo } from "react";
 import { useLocation, useParams } from "react-router-dom";
+import { Store } from "lucide-react";
 import Breadcrumb, { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
+import Text from "@/components/ui/Text/Text";
+import { useActivitySummary } from "@/hooks/useActivitySummary";
 import { useBreadcrumb } from "@/context/useBreadcrumb";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { useSedeScope } from "@/hooks/useSedeScope";
@@ -35,6 +38,31 @@ import {
     type BusinessRouteKey
 } from "./navbarBreadcrumbRoutes";
 import styles from "./NavbarBreadcrumb.module.scss";
+
+/** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
+const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/([^/]+)/;
+
+/**
+ * Dentro il contesto di sede la navbar dice **quale** sede, e basta: il
+ * selettore di scope non compare (§46.1 g — due dichiarazioni di scope nella
+ * stessa schermata sono una di troppo) e la briciola non ripete il nome, che
+ * è già qui e nella sidebar.
+ */
+function NavbarSedePill({ activityId }: { activityId: string }) {
+    const summary = useActivitySummary(activityId);
+    if (!summary) return null;
+    // Solo il nome: lo stato lo dice l'intestazione della sidebar, e sulla
+    // scheda anche la testata della pagina. Tre volte nella stessa schermata
+    // erano due di troppo.
+    return (
+        <span className={styles.sedePill}>
+            <Store size={14} aria-hidden="true" />
+            <Text as="span" variant="body-sm" weight={500} className={styles.sedeName}>
+                {summary.name}
+            </Text>
+        </span>
+    );
+}
 
 /**
  * Segmento sede + separator di chiusura. Renderizzato solo se l'utente
@@ -65,6 +93,8 @@ export function NavbarBreadcrumb() {
         [pathname, businessId]
     );
 
+    const sedeActivityId = SEDE_CONTEXT_PATH.exec(pathname)?.[1];
+
     const items = useMemo<BreadcrumbItem[]>(() => {
         // Se una pagina di dettaglio ha registrato i propri segmenti,
         // usali tal quali: la pagina sa già come mostrare la propria chain.
@@ -90,6 +120,15 @@ export function NavbarBreadcrumb() {
     const showSedeSelector = routeInfo.key
         ? SEDE_NAVBAR_ROUTES.has(routeInfo.key) && !routeInfo.isDetail
         : false;
+
+    if (sedeActivityId) {
+        return (
+            <div className={styles.row}>
+                <span className={styles.separator} aria-hidden="true">/</span>
+                <NavbarSedePill activityId={sedeActivityId} />
+            </div>
+        );
+    }
 
     if (items.length === 0 && !showSedeSelector) return null;
 

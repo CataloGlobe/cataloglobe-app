@@ -71,6 +71,19 @@
   padding: var(--space-8) 0;
 }
 
+// Un pill (Badge, StatusBadge, Chip) nel sottotitolo è un `inline-flex`: la
+// sua baseline è quella del testo che contiene, quindi scende sotto la
+// baseline della riga e dipinge fino al bordo del box, senza l'interlinea che
+// il testo si porta dietro. Il titolo, sopra, quell'interlinea ce l'ha:
+// misurato su Orari a 1280, 12.4px fra il divisore e il disegno del titolo
+// contro 8px fra il pill e il divisore sotto. Due pixel dal sopra al sotto
+// pareggiano il bianco senza cambiare l'altezza della riga: le righe con un
+// sottotitolo di solo testo non sono toccate.
+.body:has(.subtitle [data-pill], .subtitleWrap [data-pill]) {
+  padding-top: calc(var(--space-8) - var(--space-2));
+  padding-bottom: calc(var(--space-8) + var(--space-2));
+}
+
 .title,
 .subtitle {
   overflow: hidden;

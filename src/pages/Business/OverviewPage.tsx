@@ -654,12 +654,12 @@ export default function OverviewPage() {
         {
             label: "Disponibilità",
             hidden: !canDoOnActivity(permissions, "product_availability.write", activityId),
-            onClick: () => navigate(`${b}/locations/${activityId}?tab=availability`)
+            onClick: () => navigate(`${b}/locations/${activityId}/disponibilita`)
         },
         {
             label: "Tavoli",
             hidden: !canDoOnActivity(permissions, "tables.read", activityId),
-            onClick: () => navigate(`${b}/locations/${activityId}?tab=sala`)
+            onClick: () => navigate(`${b}/locations/${activityId}/sala`)
         }
     ];
 

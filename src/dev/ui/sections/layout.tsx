@@ -7,6 +7,9 @@ import { SearchInput } from "@/components/ui/Input/SearchInput";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { AppSidebar, type AppSidebarNavGroup } from "@/components/layout/AppSidebar/AppSidebar";
 import { PageHeaderSlot } from "@/components/layout/PageHeaderSlot";
+import { Card } from "@/components/ui/Card/Card";
+import { PageIndex, PageIndexLayout } from "@/components/ui/PageIndex/PageIndex";
+import { usePageIndexActive } from "@/components/ui/PageIndex/usePageIndexActive";
 import { PageHeaderProvider } from "@/context/PageHeaderProvider";
 import { usePageHeader } from "@/context/usePageHeader";
 import { State, noop, type GallerySection } from "../gallery";
@@ -117,7 +120,51 @@ function PageHeaderSlotSection() {
     );
 }
 
+/* ------------------------------------------------------------------ */
+/* PageIndex                                                           */
+/* ------------------------------------------------------------------ */
+
+const INDEX_SECTIONS = [
+    { id: "pi-identita", label: "Identità" },
+    { id: "pi-indirizzo", label: "Indirizzo web" },
+    { id: "pi-copertina", label: "Copertina" },
+    { id: "pi-pagamenti", label: "Pagamenti", summary: "3 su 7" },
+    { id: "pi-tariffe", label: "Tariffe", summary: "1 su 5" }
+];
+
+function PageIndexSection() {
+    const [activeId, setActiveId] = useState<string>(INDEX_SECTIONS[0].id);
+    const liveActive = usePageIndexActive(INDEX_SECTIONS.map(s => s.id));
+    return (
+        <>
+            <State label="corrente controllata: cinque voci su una riga, il «n su m» solo dove manca qualcosa" column>
+                <div style={{ maxWidth: 220 }}>
+                    <PageIndex sections={INDEX_SECTIONS} activeId={activeId} onSelect={setActiveId} />
+                </div>
+            </State>
+            <State label="PageIndexLayout + usePageIndexActive: l'indice segue lo scroll delle Card (sotto 1024 la colonna non c'è)" column>
+                <PageIndexLayout
+                    index={<PageIndex sections={INDEX_SECTIONS} activeId={liveActive} />}
+                >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+                        {INDEX_SECTIONS.map(section => (
+                            <Card key={section.id} title={section.label} subtitle={section.summary}>
+                                <div id={section.id} style={{ minHeight: 160, scrollMarginTop: 24 }}>
+                                    <Text variant="body-sm" colorVariant="muted">
+                                        Contenuto della sezione «{section.label}».
+                                    </Text>
+                                </div>
+                            </Card>
+                        ))}
+                    </div>
+                </PageIndexLayout>
+            </State>
+        </>
+    );
+}
+
 export const layoutSections: GallerySection[] = [
+    { id: "pageindex", title: "PageIndex", sheet: "PageIndex", Component: PageIndexSection },
     { id: "appsidebar", title: "AppSidebar", sheet: "AppSidebar", Component: AppSidebarSection },
     { id: "pageheaderslot", title: "PageHeaderSlot", sheet: "PageHeader", Component: PageHeaderSlotSection }
 ];

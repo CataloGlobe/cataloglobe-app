@@ -1,0 +1,6 @@
+// Solo layout: le superfici sono le due Card.
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-24);
+}

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import TenantSidebar from "@components/layout/Sidebar/TenantSidebar";
+import SedeSidebar from "@components/layout/Sidebar/SedeSidebar";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
 import { OperationalAlerts } from "@components/layout/OperationalAlerts/OperationalAlerts";
 import { PageHeaderSlot } from "@components/layout/PageHeaderSlot";
@@ -17,6 +18,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { resolveBusinessRoute, businessRouteLabel } from "@components/layout/AppHeader/navbarBreadcrumbRoutes";
+import { ACTIVITY_SECTION_LABELS } from "@/pages/Operativita/Attivita/ActivityDetailContext";
 import { useAiImportSession } from "@/hooks/useAiImportSession";
 import { useAiUsage } from "@/hooks/useAiUsage";
 import { useCheckoutReturnSync } from "@/hooks/useCheckoutReturnSync";
@@ -27,6 +29,17 @@ import type { BusinessOutletContext } from "./outletContext";
 import styles from "./MainLayout.module.scss";
 
 const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
+
+/** Le pagine che vivono dentro una sede: le sei della scheda più le due
+ *  operative, che sono pagine d'azienda montate sul contesto. */
+const SEDE_PAGE_LABELS: Record<string, string | undefined> = {
+    ...ACTIVITY_SECTION_LABELS,
+    comande: "Comande",
+    prenotazioni: "Prenotazioni"
+};
+
+/** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
+const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/[^/]+/;
 
 /**
  * Titolo di pagina per il <title> del browser. `resolvePageTitle` è
@@ -47,7 +60,12 @@ function resolvePageTitle(businessId: string, pathname: string, catalogLabel: st
     if (first === 'scheduling' && second === 'featured' && third) return 'Regola in evidenza';
     if (second && first === 'products') return 'Dettaglio prodotto';
     if (second && first === 'catalogs') return `Dettaglio ${catalogLabel.toLowerCase()}`;
-    if (second && first === 'locations') return 'Dettaglio sede';
+    if (second && first === 'locations') {
+        // Le pagine della sede sono rotte: il titolo dice in quale sei,
+        // altrimenti le schede del browser si chiamano tutte uguale.
+        const label = SEDE_PAGE_LABELS[third];
+        return label ? `Sede · ${label}` : 'Dettaglio sede';
+    }
     if (second && first === 'scheduling') return 'Dettaglio regola';
     if (second && first === 'featured') return 'Dettaglio in evidenza';
     if (second && first === 'styles') return 'Editor stile';
@@ -71,6 +89,9 @@ export default function MainLayout() {
 
     const { catalogLabel } = useVerticalConfig();
     const pageName = businessId ? resolvePageTitle(businessId, pathname, catalogLabel) : undefined;
+    // Dentro una sede la sidebar è la sua (§46.1): il contesto è il path, non
+    // uno stato. `/locations` senza id resta azienda — è la porta, non la casa.
+    const inSedeContext = SEDE_CONTEXT_PATH.test(pathname);
     const tenantName = selectedTenant?.name;
     usePageTitle(pageName && tenantName ? `${pageName} — ${tenantName}` : pageName);
 
@@ -249,16 +270,26 @@ export default function MainLayout() {
                         </header>
 
                         <div className={styles.body}>
-                            <TenantSidebar
-                                isMobile={isMobile}
-                                mobileOpen={mobileSidebarOpen}
-                                collapsed={!isMobile && sidebarCollapsed}
-                                onRequestClose={() => setMobileSidebarOpen(false)}
-                                onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                                translationPendingCount={translationPendingCount}
-                                importInProgress={importInProgress}
-                                supportUnread={supportUnread}
-                            />
+                            {inSedeContext ? (
+                                <SedeSidebar
+                                    isMobile={isMobile}
+                                    mobileOpen={mobileSidebarOpen}
+                                    collapsed={!isMobile && sidebarCollapsed}
+                                    onRequestClose={() => setMobileSidebarOpen(false)}
+                                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                />
+                            ) : (
+                                <TenantSidebar
+                                    isMobile={isMobile}
+                                    mobileOpen={mobileSidebarOpen}
+                                    collapsed={!isMobile && sidebarCollapsed}
+                                    onRequestClose={() => setMobileSidebarOpen(false)}
+                                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                    translationPendingCount={translationPendingCount}
+                                    importInProgress={importInProgress}
+                                    supportUnread={supportUnread}
+                                />
+                            )}
 
                             <main className={styles.main}>
                                 <PageHeaderSlot scrollContainerRef={contentRef} />

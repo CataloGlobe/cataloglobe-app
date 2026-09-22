@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Grid2X2, Layers, MoreHorizontal, Plus, QrCode, RotateCw } from "lucide-react";
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { Menu } from "@/components/ui/Menu";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
@@ -13,6 +14,8 @@ import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
+import { FormGrid } from "@/components/ui/FormGrid/FormGrid";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { UnsavedChangesBar } from "@/components/ui/UnsavedChangesBar/UnsavedChangesBar";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import { Card } from "@/components/ui/Card/Card";
@@ -34,9 +37,9 @@ import type { V2Table, V2TableWithState } from "@/types/orders";
 import { TableZonesAndGroupsDrawer } from "@/components/Tables/TableZonesAndGroupsDrawer/TableZonesAndGroupsDrawer";
 import { TableForm } from "@/components/Tables/TableForm/TableForm";
 
-import TableDeleteDrawer from "@/pages/Dashboard/Tables/TableDeleteDrawer";
-import TableRegenerateTokenDrawer from "@/pages/Dashboard/Tables/TableRegenerateTokenDrawer";
-import TableQrPreviewDrawer from "@/pages/Dashboard/Tables/TableQrPreviewDrawer";
+import TableDeleteDrawer from "@/components/Tables/TableDeleteDrawer/TableDeleteDrawer";
+import TableRegenerateTokenDrawer from "@/components/Tables/TableRegenerateTokenDrawer/TableRegenerateTokenDrawer";
+import TableQrPreviewDrawer from "@/components/Tables/TableQrPreviewDrawer/TableQrPreviewDrawer";
 
 import styles from "./TablesManagement.module.scss";
 
@@ -260,6 +263,9 @@ export function TablesManagement({
     const cancelCapacity = useCallback(() => {
         setCapacityDraft(savedCapacity);
     }, [savedCapacity]);
+
+    // Il bulk chiede conferma: i tavoli si ricreano, i QR stampati no.
+    const [pendingBulkIds, setPendingBulkIds] = useState<string[]>([]);
 
     const handleBulkDelete = useCallback(
         async (ids: string[]) => {
@@ -511,6 +517,7 @@ export function TablesManagement({
         {
             id: "zone",
             header: "Zona",
+            hideOnPhone: true,
             width: "1fr",
             accessor: row => row.zone_name,
             cell: (_v, row) =>
@@ -539,6 +546,7 @@ export function TablesManagement({
                   {
                       id: "capacity_range",
                       header: "Min–Max",
+            hideOnPhone: true,
                       width: "100px",
                       accessor: row => row.max_seats ?? row.seats,
                       cell: (_v, row) => {
@@ -562,6 +570,7 @@ export function TablesManagement({
                   {
                       id: "combination_group",
                       header: "Accostamento",
+            hideOnPhone: true,
                       width: "1fr",
                       accessor: row => row.combination_group_name,
                       cell: (_v, row) => {
@@ -580,6 +589,7 @@ export function TablesManagement({
                   {
                       id: "bookable_online",
                       header: "Assegnabile",
+            hideOnPhone: true,
                       width: "110px",
                       accessor: row => row.bookable_online,
                       cell: (_v, row) => {
@@ -658,64 +668,50 @@ export function TablesManagement({
                 legge invece di doverlo raccontare. Solo con prenotazioni:
                 alle ordinazioni QR la capienza non serve. */}
             {reservationsEnabled && (
-                <Card className={styles.capacityCard}>
-                    <div className={styles.capacityHeader}>
-                        <h3 className={styles.capacityTitle}>Capienza della sala</h3>
-                        <p className={styles.capacitySubtitle}>
-                            Coperti accettabili dalle prenotazioni online e durata media di un tavolo.
-                        </p>
-                    </div>
+                <Card
+                    title="Capienza della sala"
+                    subtitle="Coperti accettabili dalle prenotazioni online e durata media di un tavolo"
+                    className={styles.capacityCard}
+                >
                     <div className={styles.capacityBody}>
-                        <div className={styles.capacityRow}>
-                            <div className={styles.capacityField}>
-                                <NumberInput
-                                    label="Capienza (coperti)"
-                                    placeholder="Es. 40"
-                                    min={1}
-                                    value={capacityDraft.capacity}
-                                    onChange={e =>
-                                        setCapacityDraft(d => ({ ...d, capacity: e.target.value }))
-                                    }
-                                    disabled={isSavingCapacity || !canManageActivity}
-                                />
-                                {capacityDraft.capacity.trim() === "" && (
-                                    <p className={styles.capacityHint}>
-                                        Senza capienza impostata, le prenotazioni online non hanno limiti
-                                        e la conferma automatica non è disponibile.
-                                    </p>
-                                )}
-                                {seatsSummary.tablesCount > 0 && (
-                                    <p className={styles.capacityHint}>
-                                        {`Posti mappati sui tavoli: ${seatsSummary.totalSeats} su ${seatsSummary.tablesCount} ${seatsSummary.tablesCount === 1 ? "tavolo" : "tavoli"}.`}
-                                        {seatsSummary.tablesWithoutSeats > 0 &&
-                                            ` ${seatsSummary.tablesWithoutSeats} ${seatsSummary.tablesWithoutSeats === 1 ? "tavolo non dichiara" : "tavoli non dichiarano"} i posti, quindi la somma è parziale.`}
-                                    </p>
-                                )}
-                                {capacityMismatch && (
-                                    <p className={styles.capacityWarning}>
-                                        {capacityMismatch.delta < 0
-                                            ? `I tavoli reggono ${seatsSummary.totalSeats} posti, meno della capienza impostata: alcune prenotazioni accettate potrebbero restare senza tavolo.`
-                                            : `Il modulo online si ferma a ${capacityMismatch.declared} coperti anche se i tavoli ne reggono ${seatsSummary.totalSeats}. Se è voluto — per esempio la cucina non regge la sala piena — va bene così.`}
-                                    </p>
-                                )}
-                            </div>
-                            <div className={styles.capacityField}>
-                                <NumberInput
-                                    label="Durata media tavolo (minuti)"
-                                    placeholder="120"
-                                    min={15}
-                                    max={600}
-                                    value={capacityDraft.durationMinutes}
-                                    onChange={e =>
-                                        setCapacityDraft(d => ({ ...d, durationMinutes: e.target.value }))
-                                    }
-                                    disabled={isSavingCapacity || !canManageActivity}
-                                />
-                                <p className={styles.capacityHint}>
-                                    Durata occupazione tipica di un tavolo. Default 120.
-                                </p>
-                            </div>
-                        </div>
+                        <FormGrid cols={2}>
+                            <NumberInput
+                                label="Capienza (coperti)"
+                                placeholder="Es. 40"
+                                min={1}
+                                value={capacityDraft.capacity}
+                                onChange={e => setCapacityDraft(d => ({ ...d, capacity: e.target.value }))}
+                                disabled={isSavingCapacity || !canManageActivity}
+                                helperText={
+                                    capacityDraft.capacity.trim() === ""
+                                        ? "Senza capienza le prenotazioni online non hanno limiti e la conferma automatica non è disponibile."
+                                        : seatsSummary.tablesCount > 0
+                                            ? `Posti mappati sui tavoli: ${seatsSummary.totalSeats} su ${seatsSummary.tablesCount} ${seatsSummary.tablesCount === 1 ? "tavolo" : "tavoli"}.${
+                                                  seatsSummary.tablesWithoutSeats > 0
+                                                      ? ` ${seatsSummary.tablesWithoutSeats} ${seatsSummary.tablesWithoutSeats === 1 ? "tavolo non dichiara" : "tavoli non dichiarano"} i posti: la somma è parziale.`
+                                                      : ""
+                                              }`
+                                            : undefined
+                                }
+                            />
+                            <NumberInput
+                                label="Durata media tavolo (minuti)"
+                                placeholder="120"
+                                min={15}
+                                max={600}
+                                value={capacityDraft.durationMinutes}
+                                onChange={e => setCapacityDraft(d => ({ ...d, durationMinutes: e.target.value }))}
+                                disabled={isSavingCapacity || !canManageActivity}
+                                helperText="Quanto resta occupato un tavolo, di solito. Default 120."
+                            />
+                        </FormGrid>
+                        {capacityMismatch && (
+                            <InlineBanner variant="warning">
+                                {capacityMismatch.delta < 0
+                                    ? `I tavoli reggono ${seatsSummary.totalSeats} posti, meno della capienza impostata: alcune prenotazioni accettate potrebbero restare senza tavolo.`
+                                    : `Il modulo online si ferma a ${capacityMismatch.declared} coperti anche se i tavoli ne reggono ${seatsSummary.totalSeats}. Se è voluto — per esempio la cucina non regge la sala piena — va bene così.`}
+                            </InlineBanner>
+                        )}
                         {isCapacityDirty && (
                             <UnsavedChangesBar
                                 isSaving={isSavingCapacity}
@@ -738,8 +734,9 @@ export function TablesManagement({
                             placeholder="Cerca per nome o zona..."
                         />
                         {canManage && (
-                            <DropdownMenu.Root>
-                                <DropdownMenu.Trigger asChild>
+                            <Menu
+                                align="end"
+                                trigger={
                                     <Button
                                         variant="outline"
                                         leftIcon={<MoreHorizontal size={16} />}
@@ -749,34 +746,21 @@ export function TablesManagement({
                                     >
                                         Altro
                                     </Button>
-                                </DropdownMenu.Trigger>
-                                <DropdownMenu.Portal>
-                                    <DropdownMenu.Content
-                                        className={styles.dropdownContent}
-                                        align="end"
-                                        sideOffset={6}
+                                }
+                            >
+                                <Menu.Item icon={Layers} onSelect={() => setIsZoneDrawerOpen(true)} disabled={!activityId || !canEdit}>
+                                    Zone e accostamenti
+                                </Menu.Item>
+                                {orderingEnabled && (
+                                    <Menu.Item
+                                        icon={QrCode}
+                                        onSelect={() => void handleGenerateQrAll()}
+                                        disabled={!activityId || items.length === 0 || isGeneratingQrAll || !canEdit}
                                     >
-                                        <DropdownMenu.Item
-                                            className={styles.dropdownItem}
-                                            onSelect={() => setIsZoneDrawerOpen(true)}
-                                            disabled={!activityId || !canEdit}
-                                        >
-                                            <Layers size={14} />
-                                            <span>Zone e accostamenti</span>
-                                        </DropdownMenu.Item>
-                                        {orderingEnabled && (
-                                            <DropdownMenu.Item
-                                                className={styles.dropdownItem}
-                                                onSelect={() => void handleGenerateQrAll()}
-                                                disabled={!activityId || items.length === 0 || isGeneratingQrAll || !canEdit}
-                                            >
-                                                <QrCode size={14} />
-                                                <span>{isGeneratingQrAll ? "Generazione..." : "Genera QR"}</span>
-                                            </DropdownMenu.Item>
-                                        )}
-                                    </DropdownMenu.Content>
-                                </DropdownMenu.Portal>
-                            </DropdownMenu.Root>
+                                        {isGeneratingQrAll ? "Generazione…" : "Genera QR"}
+                                    </Menu.Item>
+                                )}
+                            </Menu>
                         )}
                         {canManage && (
                             <Button
@@ -824,7 +808,7 @@ export function TablesManagement({
                         selectable={canManage}
                         selectedRowIds={selectedTableIds}
                         onSelectedRowsChange={setSelectedTableIds}
-                        onBulkDelete={canManage ? handleBulkDelete : undefined}
+                        onBulkDelete={canManage ? ids => setPendingBulkIds(ids) : undefined}
                     />
                 )}
             </div>
@@ -880,6 +864,20 @@ export function TablesManagement({
                 </DrawerLayout>
             </SystemDrawer>
 
+            <ConfirmDialog
+                isOpen={pendingBulkIds.length > 0}
+                onClose={() => setPendingBulkIds([])}
+                onConfirm={async () => {
+                    const ids = pendingBulkIds;
+                    setPendingBulkIds([]);
+                    await handleBulkDelete(ids);
+                    return true;
+                }}
+                title={pendingBulkIds.length === 1 ? "Elimina 1 tavolo?" : `Elimina ${pendingBulkIds.length} tavoli?`}
+                message="I QR stampati di questi tavoli non funzioneranno più. I tavoli si possono ricreare, con QR nuovi."
+                confirmLabel="Elimina"
+                confirmVariant="danger"
+            />
             <TableDeleteDrawer
                 open={isDeleteOpen}
                 table={itemToDelete}

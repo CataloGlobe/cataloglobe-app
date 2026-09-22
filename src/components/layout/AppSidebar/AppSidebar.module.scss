@@ -60,6 +60,20 @@ $footer-padding-x-expanded: $scroll-padding-x + $item-padding-x + math.div($icon
   justify-content: flex-end;
 }
 
+/* ===== Intestazione del contesto (sede) ===== */
+// Fuori dallo scroll: dove sei non scorre via con le voci. Il divisore la
+// separa dalle voci; il contenuto (compresa la resa collassata) lo decide
+// chi passa lo slot.
+.headerSlot {
+  flex-shrink: 0;
+  padding: var(--space-8);
+  border-bottom: 1px solid var(--border);
+}
+
+.sidebar[data-collapsed="true"] .headerSlot {
+  padding: var(--space-8) var(--space-4);
+}
+
 /* ===== Scroll area ===== */
 .sidebarScroll {
   flex: 1;

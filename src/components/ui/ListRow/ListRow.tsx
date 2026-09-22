@@ -14,6 +14,9 @@ import styles from "./ListRow.module.scss";
  *
  * Altezza `row-height` (56, = riga di tabella), padding 0 16, gap 12,
  * divisore 1px fra righe adiacenti. Vive in `Card flush` o nudo in un drawer.
+ * Ogni riga porta `data-list-row`: è il segnale con cui la Card capisce che il
+ * suo body è una lista e annulla il proprio gap — il divisore separa le righe,
+ * lo spazio in mezzo no (prima ogni pagina se lo azzerava da sé).
  * Hover solo se cliccabile (`onClick` o `to`). Chi mette un controllo nel
  * trailing di una riga cliccabile ferma lui la propagazione del click.
  *
@@ -72,7 +75,7 @@ export function ListRow({
 }: ListRowProps) {
     if (loading) {
         return (
-            <div className={`${styles.row} ${className ?? ""}`.trim()} aria-busy="true">
+            <div className={`${styles.row} ${className ?? ""}`.trim()} data-list-row="" aria-busy="true">
                 <div className={styles.leading}>
                     <Skeleton width={20} height={20} radius="50%" />
                 </div>
@@ -120,7 +123,7 @@ export function ListRow({
 
     if (to && !muted) {
         return (
-            <Link to={to} className={classes} aria-current={selected || undefined} aria-label={ariaLabel}>
+            <Link to={to} className={classes} data-list-row="" aria-current={selected || undefined} aria-label={ariaLabel}>
                 {content}
             </Link>
         );
@@ -139,6 +142,7 @@ export function ListRow({
                 role="button"
                 tabIndex={0}
                 className={classes}
+                data-list-row=""
                 onClick={onClick}
                 onKeyDown={onKeyDown}
                 aria-pressed={selected || undefined}
@@ -150,7 +154,7 @@ export function ListRow({
     }
 
     return (
-        <div className={classes} aria-label={ariaLabel}>
+        <div className={classes} data-list-row="" aria-label={ariaLabel}>
             {content}
         </div>
     );

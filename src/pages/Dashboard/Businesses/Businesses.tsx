@@ -1,35 +1,25 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   getActivities,
-  updateActivity,
-  uploadActivityCover,
-  deleteActivityAtomic,
-  countActivityDeleteImpact,
-  DeleteActivityError,
-  type ActivityDeleteImpact,
   type SeatLimitInfo,
 } from "@/services/supabase/activities";
 import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog";
 import { getPlanByCode } from "@/services/supabase/plans";
 import { listPlanPrices } from "@/services/supabase/planPrices";
 import { getTenantBillingInterval } from "@/services/supabase/tenants";
-import { calculateGraduatedFromPlan } from "@/utils/pricing";
+import { nextSeatOffer } from "@/utils/pricing";
 import { priceCentsFor, DEFAULT_BILLING_INTERVAL } from "@/utils/planPricing";
 import type { Plan, PlanPrice, BillingInterval } from "@/types/plan";
 import type { CatalogFetchStatus } from "@/utils/activeCatalogStatus";
 import type {
   ActiveCatalogMeta,
   BusinessWithCapabilities,
-  BusinessFormValues,
-  SlugInlineState,
 } from "@/types/Businesses";
 
-import Text from "@components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
-import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderAction, PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import {
@@ -41,33 +31,22 @@ import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
-import { ActivityVisibilityDrawer } from "@/pages/Operativita/Attivita/components/ActivityVisibilityDrawer/ActivityVisibilityDrawer";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityGroupsSection } from "@/components/Businesses/ActivityGroupsSection/ActivityGroupsSection";
 
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import {
-  useCreateActivity,
-  getSlugSuggestions,
-  isReservedSlug,
-  validateBusinessForm,
-} from "@/hooks/useCreateActivity";
-
-import { sanitizeSlugForSave } from "@/utils/slugify";
-import { compressImage, COMPRESS_PROFILES } from "@/utils/compressImage";
-
-// Tipi importati da "@/types/Businesses"
+import { useCreateActivity } from "@/hooks/useCreateActivity";
 
 import { LayoutGrid, List as ListIcon } from "lucide-react";
 import styles from "./Businesses.module.scss";
 import {
   BusinessLocationDrawer,
-  type SeatUpgradeOffer,
+  type SeatLimitOffer,
 } from "@/components/Businesses/BusinessLocationDrawer/BusinessLocationDrawer";
 import { Button } from "@/components/ui";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { DeleteActivityDialog } from "@/components/Businesses/DeleteActivityDialog/DeleteActivityDialog";
 
 function formatDateIt(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -99,10 +78,7 @@ export default function Businesses() {
     ? canDoOnTenant(permissions, "activity_groups.write")
     : false;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [deleteImpact, setDeleteImpact] = useState<ActivityDeleteImpact | null>(null);
-  const [isLoadingDeleteImpact, setIsLoadingDeleteImpact] = useState(false);
 
   // Piano + prezzi del tenant: servono solo per calcolare il blocco "offerta"
   // nel drawer di creazione quando il piano è al limite di sedi (vedi
@@ -139,32 +115,6 @@ export default function Businesses() {
   const [catalogsStatus, setCatalogsStatus] =
     useState<CatalogFetchStatus>("loading");
 
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState<BusinessFormValues | null>(null);
-  const [editErrors, setEditErrors] = useState<
-    Partial<Record<keyof BusinessFormValues, string>>
-  >({});
-  const [editCoverFile, setEditCoverFile] = useState<File | null>(null);
-  const [isEditing, setIsEditing] = useState(false);
-  const [editingBusiness, setEditingBusiness] =
-    useState<BusinessWithCapabilities | null>(null);
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  // ======================================
-  // STATE: Drawer disponibilità prodotti
-  // ======================================
-  const [visibilityDrawerTarget, setVisibilityDrawerTarget] = useState<{
-    activityId: string;
-    activityName: string;
-  } | null>(null);
-
-  // ======================================
-  // SLUGS
-  // ======================================
-  const [editSlugState, setEditSlugState] = useState<SlugInlineState>({
-    type: "idle",
-  });
 
   // ======================================
   // STATE: Filtri e Vista
@@ -254,80 +204,49 @@ export default function Businesses() {
     return true;
   }, [canEdit, showToast, subscriptionInactiveMessage]);
 
-  // Seat limit safety net (dialog at click should pre-empt this)
+  // Rete di sicurezza: il drawer si apre già sull'offerta quando il limite è
+  // noto; qui si arriva solo se il piano non era caricato al click. Stessa
+  // frase dell'offerta, nessun redirect.
   const guardSeatLimit = useCallback(() => {
     if (selectedTenant && businesses.length >= selectedTenant.paid_seats) {
       const paidSeats = selectedTenant.paid_seats;
-      const seatsLabel = paidSeats === 1 ? "una sede" : `${paidSeats} sedi`;
-      if (isOwner(userRole)) {
-        showToast({
-          message: `Hai raggiunto il limite di sedi. Il tuo piano include ${seatsLabel}. Apri la pagina abbonamento per espandere.`,
-          type: "error",
-          duration: 4000,
-        });
-        navigate(`/business/${businessId}/subscription`);
-      } else if (isAdmin(userRole)) {
-        showToast({
-          message: `Hai raggiunto il limite di sedi. Il piano include ${seatsLabel}. Solo il proprietario può espandere l'abbonamento.`,
-          type: "error",
-          duration: 4000,
-        });
-      } else {
-        showToast({
-          message: `Hai raggiunto il limite di sedi. Il piano include ${seatsLabel}. Contatta il proprietario.`,
-          type: "error",
-          duration: 4000,
-        });
-      }
+      showToast({
+        message: `Hai usato tutte le ${paidSeats} sedi pagate. ${
+          isOwner(userRole) || isAdmin(userRole)
+            ? "Aggiungine una al piano da Abbonamento."
+            : "Chiedi al proprietario di aggiungerne una al piano."
+        }`,
+        type: "error",
+        duration: 4000,
+      });
       return false;
     }
     return true;
-  }, [
-    selectedTenant,
-    businesses.length,
-    userRole,
-    showToast,
-    navigate,
-    businessId,
-  ]);
+  }, [selectedTenant, businesses.length, userRole, showToast]);
 
-  // Stato "offerta" del drawer di creazione quando il piano è al limite di
-  // sedi. `null` finché il piano non è caricato o finché c'è margine — il
-  // drawer mostra il form. `upgrade`: entro il tetto self-service, con
-  // prezzo aggiuntivo calcolato dallo stesso schema di SubscriptionPage
-  // (`calculateGraduatedFromPlan`). `contact_support`: oltre il tetto,
-  // nessun prezzo — solo assistenza.
-  const seatOffer = useMemo<SeatUpgradeOffer | null>(() => {
+  // Offerta al posto del form quando le sedi pagate sono finite: `null`
+  // finché il piano non è caricato o finché c'è margine. Il prezzo della
+  // sede successiva viene da `nextSeatOffer`, la stessa fonte di Abbonamento.
+  const seatOffer = useMemo<SeatLimitOffer | null>(() => {
     const paidSeats = selectedTenant?.paid_seats ?? 0;
     const usedSeats = businesses.length;
     if (usedSeats < paidSeats || !currentPlan) return null;
 
-    const selfServiceCap = currentPlan.max_self_service_seats;
-    if (usedSeats >= selfServiceCap) {
-      return {
-        kind: "contact_support",
-        planName: currentPlan.name,
-        usedSeats,
-        paidSeats,
-      };
-    }
-
     const unitPriceCents = priceCentsFor(planPrices, currentPlan.code, billingInterval);
-    const planForGraduation = { ...currentPlan, unit_price_cents: unitPriceCents };
-    const currentBreakdown = calculateGraduatedFromPlan(planForGraduation, paidSeats);
-    const nextBreakdown = calculateGraduatedFromPlan(planForGraduation, paidSeats + 1);
+    const offer = nextSeatOffer(
+      { ...currentPlan, unit_price_cents: unitPriceCents },
+      paidSeats,
+      usedSeats,
+    );
+    if (offer.kind === "free") return null;
 
+    const renewal = selectedTenant?.current_period_end ?? null;
     return {
-      kind: "upgrade",
-      info: {
-        planName: currentPlan.name,
-        usedSeats,
-        paidSeats,
-        extraPriceCents: Math.round((nextBreakdown.subtotal - currentBreakdown.subtotal) * 100),
-        listPriceCents: Math.round(nextBreakdown.fullPrice * 100),
-        volumeDiscountPercent: currentPlan.volume_discount_percent,
-        renewalDateLabel: formatDateIt(selectedTenant?.current_period_end ?? null),
-      },
+      offer,
+      planName: currentPlan.name,
+      paidSeats,
+      interval: billingInterval,
+      renewalDateLabel: renewal ? formatDateIt(renewal) : null,
     };
   }, [selectedTenant, businesses.length, currentPlan, planPrices, billingInterval]);
 
@@ -420,12 +339,16 @@ export default function Businesses() {
     setCreateSlugState({ type: "idle" });
   }, [canEdit, showToast, subscriptionInactiveMessage, setCreateSlugState]);
 
+  // Richiesta «Nuovo gruppo» dalla testata alla sezione: un contatore che la
+  // sezione osserva, al posto dell'evento DOM che c'era prima.
+  const [groupCreateRequest, setGroupCreateRequest] = useState(0);
+
   const handleNewGroup = useCallback(() => {
     if (!canEdit) {
       showToast({ message: subscriptionInactiveMessage(), type: "error" });
       return;
     }
-    window.dispatchEvent(new CustomEvent("open-group-drawer"));
+    setGroupCreateRequest((n) => n + 1);
   }, [canEdit, showToast, subscriptionInactiveMessage]);
 
   // La primaria cambia con la tab attiva: due azioni diverse, mai entrambe.
@@ -533,55 +456,21 @@ export default function Businesses() {
   // ======================================
   // CALLBACK: delete business
   // ======================================
-  const handleDelete = useCallback(
-    (id: string) => {
-      setDeleteTargetId(id);
-      setShowDeleteModal(true);
-      setDeleteImpact(null);
-      if (tenantId) {
-        setIsLoadingDeleteImpact(true);
-        countActivityDeleteImpact(tenantId, id)
-          .then(setDeleteImpact)
-          .catch((error) => {
-            console.error("Errore nel calcolo dell'impatto eliminazione:", error);
-            setDeleteImpact(null);
-          })
-          .finally(() => setIsLoadingDeleteImpact(false));
-      }
-    },
-    [tenantId],
-  );
-
-  const closeDeleteModal = useCallback(() => {
-    setShowDeleteModal(false);
-    setDeleteTargetId(null);
-    setDeleteImpact(null);
-    setIsLoadingDeleteImpact(false);
+  const handleDelete = useCallback((id: string) => {
+    setDeleteTargetId(id);
   }, []);
 
-  const confirmDelete = useCallback(async () => {
-    if (!deleteTargetId) return;
-    setIsDeleting(true);
+  const closeDeleteModal = useCallback(() => {
+    setDeleteTargetId(null);
+  }, []);
 
-    try {
-      const result = await deleteActivityAtomic(deleteTargetId);
-
+  // Il dialogo (condiviso con la scheda) elimina e avvisa; qui restano il
+  // ricarico dell'elenco e il promemoria sulle sedi pagate, che solo il
+  // proprietario può cambiare (coerente col gate di creazione).
+  const handleDeleted = useCallback(
+    async () => {
+      closeDeleteModal();
       await refreshBusinesses();
-
-      const disabled = result.affected_schedules_disabled ?? 0;
-      const message =
-        disabled === 1
-          ? "Sede eliminata. 1 regola di programmazione è stata spostata in bozze perché senza target."
-          : disabled > 1
-            ? `Sede eliminata. ${disabled} regole di programmazione sono state spostate in bozze perché senza target.`
-            : "Sede eliminata con successo.";
-      const duration = disabled > 0 ? 4000 : 2500;
-
-      showToast({ message, type: "success", duration });
-
-      // Promemoria: se il piano copre più sedi di quante ne restano,
-      // suggerisci all'owner di ridurre le sedi per pagare meno.
-      // Solo l'owner può modificare l'abbonamento (coerente col create-gate).
       const remainingSeats = businesses.length - 1;
       if (
         selectedTenant &&
@@ -589,261 +478,44 @@ export default function Businesses() {
         selectedTenant.paid_seats > remainingSeats
       ) {
         showToast({
-          message: `Sede eliminata. Il piano copre ${selectedTenant.paid_seats} sedi, ora ne hai ${remainingSeats}.`,
+          message: `Il piano copre ${selectedTenant.paid_seats} sedi, ora ne hai ${remainingSeats}.`,
           type: "info",
           duration: 6000,
           actionLabel: "Modifica piano",
           onAction: () => navigate(`/business/${businessId}/subscription`),
         });
       }
-    } catch (e) {
-      console.error("Errore durante l'eliminazione della sede:", e);
-      let message = "Errore durante l'eliminazione della sede.";
-      if (e instanceof DeleteActivityError) {
-        if (e.code === "FK_VIOLATION") {
-          // Safety net: dopo la migration analytics_events CASCADE,
-          // questo branch resta per future FK NO ACTION non gestite.
-          message =
-            "Impossibile eliminare la sede: ci sono dati collegati che impediscono l'eliminazione. Contatta il supporto.";
-        } else if (e.code === "INSUFFICIENT_PERMISSION") {
-          message = "Non hai i permessi per eliminare questa sede.";
-        } else if (e.code === "AUTH_EXPIRED") {
-          message = "Sessione scaduta. Effettua di nuovo il login.";
-        }
-      }
-      showToast({ message, type: "error", duration: 3500 });
-    } finally {
-      setIsDeleting(false);
-      closeDeleteModal();
-    }
-  }, [
-    deleteTargetId,
-    refreshBusinesses,
-    showToast,
-    selectedTenant,
-    userRole,
-    businesses,
-    navigate,
-    businessId,
-    closeDeleteModal,
-  ]);
-
-  // ======================================
-  // CALLBACK: edit business
-  // ======================================
-  const handleEditClick = useCallback(
-    (business: BusinessWithCapabilities) => {
-      if (!canEdit) {
-        showToast({ message: subscriptionInactiveMessage(), type: "error" });
-        return;
-      }
-      setEditingBusiness(business);
-      setEditingId(business.id);
-      setEditForm({
-        name: business.name,
-        city: business.city ?? "",
-        address: business.address ?? "",
-        street_number: business.street_number ?? "",
-        postal_code: business.postal_code ?? "",
-        province: business.province ?? "",
-        slug: business.slug,
-        coverPreview: business.cover_image ?? null,
-      });
-      setEditCoverFile(null);
-      setIsEditOpen(true);
-      setEditSlugState({ type: "idle" });
-    },
-    [canEdit, showToast, subscriptionInactiveMessage],
-  );
-
-  const handleEditFieldChange = useCallback(
-    <K extends keyof BusinessFormValues>(
-      field: K,
-      value: BusinessFormValues[K],
-    ) => {
-      setEditForm((prev) => {
-        if (!prev) return prev;
-        if (field === "slug") {
-          const next = value as string;
-
-          if (
-            editingBusiness &&
-            sanitizeSlugForSave(next) !== editingBusiness.slug
-          ) {
-            setEditSlugState({ type: "warning" });
-          } else {
-            setEditSlugState({ type: "idle" });
-          }
-
-          return { ...prev, slug: next };
-        }
-
-        return { ...prev, [field]: value };
-      });
-    },
-    [editingBusiness],
-  );
-
-  const handleEditCoverChange = useCallback((file: File | null) => {
-    if (!file) {
-      setEditCoverFile(null);
-      setEditForm((prev) => (prev ? { ...prev, coverPreview: null } : prev));
-      return;
-    }
-
-    setEditCoverFile(file);
-
-    const url = URL.createObjectURL(file);
-    setEditForm((prev) => (prev ? { ...prev, coverPreview: url } : prev));
-  }, []);
-
-  const handleSaveEdit = useCallback(
-    async (e: React.FormEvent<HTMLFormElement>) => {
-      e.preventDefault();
-
-      if (!editingId || !editForm || !editingBusiness) return;
-
-      const errors = validateBusinessForm(editForm);
-      setEditErrors(errors);
-
-      if (Object.keys(errors).length > 0) {
-        showToast({
-          message: "Compila tutti i campi obbligatori.",
-          type: "info",
-          duration: 2000,
-        });
-        return;
-      }
-
-      // Slug pulizia
-      const cleanedSlug = sanitizeSlugForSave(editForm.slug);
-
-      if (isReservedSlug(cleanedSlug)) {
-        setEditErrors((prev) => ({
-          ...prev,
-          slug: "Questo slug è riservato. Scegline un altro.",
-        }));
-        showToast({
-          message: "Slug riservato: scegli un altro valore.",
-          type: "error",
-          duration: 2500,
-        });
-        return;
-      }
-
-      if (!cleanedSlug) {
-        showToast({
-          message: "Inserisci uno slug valido.",
-          type: "info",
-          duration: 2500,
-        });
-        return;
-      }
-
-      // Controllo unicità slug
-      const slugAlreadyUsed = businesses.some(
-        (b) => b.id !== editingId && b.slug === cleanedSlug,
-      );
-
-      if (slugAlreadyUsed) {
-        const suggestions = await getSlugSuggestions(
-          cleanedSlug,
-          editForm?.city,
-        );
-        setEditSlugState({ type: "conflict", suggestions });
-        return;
-      }
-
-      setIsEditing(true);
-
-      try {
-        await updateActivity(editingId, tenantId!, {
-          name: editForm.name,
-          city: editForm.city,
-          address: editForm.address,
-          street_number: editForm.street_number || null,
-          postal_code: editForm.postal_code || null,
-          province: editForm.province || null,
-          slug: cleanedSlug,
-        });
-
-        if (editCoverFile) {
-          const compressedCover = await compressImage(
-            editCoverFile,
-            COMPRESS_PROFILES.cover,
-          );
-          await uploadActivityCover(
-            { id: editingId, slug: editForm.slug, tenant_id: tenantId! },
-            compressedCover,
-          );
-        }
-
-        // RESET
-        setIsEditOpen(false);
-        setEditingId(null);
-        setEditingBusiness(null);
-        setEditForm(null);
-        setEditErrors({});
-        setEditCoverFile(null);
-
-        await refreshBusinesses();
-      } catch (err) {
-        console.error("Errore aggiornamento business:", err);
-        showToast({
-          message: "Errore durante l'aggiornamento.",
-          type: "error",
-          duration: 2500,
-        });
-      } finally {
-        setIsEditing(false);
-        setEditSlugState({ type: "idle" });
-      }
     },
     [
-      editingId,
-      editForm,
-      editCoverFile,
-      editingBusiness,
-      businesses,
+      closeDeleteModal,
       refreshBusinesses,
+      businesses.length,
+      selectedTenant,
+      userRole,
       showToast,
+      navigate,
+      businessId,
     ],
   );
 
-  function BusinessCardSkeleton() {
-    return (
-      <div className={styles.skeletonCard}>
-        {/* Top */}
-        <div className={styles.skeletonTop}>
-          <Skeleton width="80px" height="80px" radius="8px" />
-          <div className={styles.skeletonInfo}>
-            <Skeleton width="140px" height="16px" />
-            <Skeleton width="90px" height="14px" />
-            <Skeleton width="150px" height="14px" />
-          </div>
-          <Skeleton width="70px" height="70px" radius="8px" />
-        </div>
-
-        {/* Bottom actions */}
-        <div className={styles.skeletonActions}>
-          <Skeleton height="36px" radius="6px" />
-          <Skeleton height="36px" radius="6px" />
-          <Skeleton height="36px" radius="6px" />
-          <Skeleton height="36px" radius="6px" />
-        </div>
-      </div>
-    );
-  }
+  // «Modifica» dall'elenco apre la scheda della sede: identità e copertina
+  // vivono là (registro Sedi, chiusura 4), niente secondo form qui.
+  const handleEditClick = useCallback(
+    (business: BusinessWithCapabilities) => {
+      navigate(`/business/${businessId}/locations/${business.id}/anagrafica`);
+    },
+    [navigate, businessId],
+  );
 
   // ======================================
   // RENDER
   // ======================================
   const showInitialSkeleton = isLoadingBusinesses && businesses.length === 0;
 
-  const deleteTargetName = useMemo(
-    () => businesses.find((b) => b.id === deleteTargetId)?.name ?? "",
-    [businesses, deleteTargetId],
-  );
+  const deleteTarget = useMemo(() => {
+    const found = businesses.find((b) => b.id === deleteTargetId);
+    return found ? { id: found.id, name: found.name ?? "" } : null;
+  }, [businesses, deleteTargetId]);
 
   // Filtro lista sedi sulla query della banda (name/slug/city/address).
   const filteredBusinesses = useMemo(() => {
@@ -900,198 +572,44 @@ export default function Businesses() {
                 onOpenPlanDrawer={openPlanUpgradeFromOffer}
               />
 
-              <BusinessLocationDrawer
-                open={isEditOpen}
-                mode="edit"
-                values={editForm}
-                errors={editErrors}
-                loading={isEditing}
-                onFieldChange={handleEditFieldChange}
-                onCoverChange={handleEditCoverChange}
-                slugState={editSlugState}
-                onPickSlugSuggestion={(slug) => {
-                  setEditForm((prev) => (prev ? { ...prev, slug } : prev));
-                  if (editingBusiness && slug !== editingBusiness.slug) {
-                    setEditSlugState({ type: "warning" });
-                  } else {
-                    setEditSlugState({ type: "idle" });
-                  }
-                }}
-                onSubmit={handleSaveEdit}
-                onClose={() => {
-                  setIsEditOpen(false);
-                  setEditingId(null);
-                  setEditingBusiness(null);
-                  setEditForm(null);
-                  setEditCoverFile(null);
-                  setEditSlugState({ type: "idle" });
-                  setEditErrors({});
-                }}
+              <BusinessList
+                businesses={filteredBusinesses}
+                isLoading={showInitialSkeleton}
+                hasActiveFilter={hasActiveFilter}
+                onClearFilters={() => setSearchTerm("")}
+                viewMode={viewMode}
+                onEdit={handleEditClick}
+                onDelete={canDelete ? handleDelete : undefined}
+                activeCatalogsMap={activeCatalogsMap}
+                catalogsStatus={catalogsStatus}
+                // «Gestisci» apre la pagina della sede (§19.5): il drawer da
+                // 900 non esiste più.
+                onManageAvailability={id =>
+                  navigate(`/business/${businessId}/locations/${id}/disponibilita`)
+                }
+                onCreateClick={canCreate ? handleAddActivity : undefined}
               />
 
-              {/* Lista attività */}
-              {showInitialSkeleton ? (
-                <>
-                  <BusinessCardSkeleton />
-                  <BusinessCardSkeleton />
-                  <BusinessCardSkeleton />
-                </>
-              ) : (
-                <>
-                  <BusinessList
-                    businesses={filteredBusinesses}
-                    hasActiveFilter={hasActiveFilter}
-                    viewMode={viewMode}
-                    onEdit={handleEditClick}
-                    onDelete={canDelete ? handleDelete : undefined}
-                    activeCatalogsMap={activeCatalogsMap}
-                    catalogsStatus={catalogsStatus}
-                    onManageAvailability={(id, name) =>
-                      setVisibilityDrawerTarget({
-                        activityId: id,
-                        activityName: name,
-                      })
-                    }
-                    onCreateClick={
-                      canCreate ? () => setIsCreateOpen(true) : undefined
-                    }
-                  />
-
-                  <ActivityVisibilityDrawer
-                    open={visibilityDrawerTarget !== null}
-                    onClose={() => setVisibilityDrawerTarget(null)}
-                    activityId={visibilityDrawerTarget?.activityId ?? ""}
-                    activityName={visibilityDrawerTarget?.activityName ?? ""}
-                  />
-                </>
-              )}
             </>
           ) : (
             <ActivityGroupsSection
               searchQuery={searchTerm}
               canWrite={canManageGroups}
+              createRequest={groupCreateRequest}
             />
           )}
 
-          <ConfirmDialog
-            isOpen={showDeleteModal}
+          <DeleteActivityDialog
+            isOpen={deleteTarget !== null}
+            activity={deleteTarget}
+            businessId={businessId ?? ""}
+            tenantId={tenantId ?? ""}
             onClose={closeDeleteModal}
-            onConfirm={confirmDelete}
-            title={`Elimina «${deleteTargetName}»`}
-            message="Non si può annullare. Insieme alla sede vengono eliminati i suoi tavoli, i QR dei tavoli, le prenotazioni, le stampanti collegate e lo storico degli ordini."
-            confirmLabel={isDeleting ? "Eliminazione in corso..." : "Elimina"}
-            confirmVariant="danger"
-            isLoading={isDeleting}
-          >
-              <Text variant="body-sm" colorVariant="muted">
-                Il piano non cambia: i posti pagati restano quelli di adesso.
-              </Text>
-
-              {isLoadingDeleteImpact && (
-                <Text variant="body-sm" colorVariant="muted">
-                  Controllo quali regole di Programmazione la usano…
-                </Text>
-              )}
-
-              {!isLoadingDeleteImpact &&
-                deleteImpact &&
-                deleteImpact.schedulesGoingDraft.length > 0 &&
-                (() => {
-                  const directTarget = deleteImpact.schedulesGoingDraft.filter(
-                    (s) => s.cause === "direct_target"
-                  );
-                  const groupEmptied = deleteImpact.schedulesGoingDraft.filter(
-                    (s) => s.cause === "group_emptied"
-                  );
-                  const renderList = (schedules: typeof deleteImpact.schedulesGoingDraft) => (
-                    <>
-                      <ul className={styles.deleteImpactScheduleList}>
-                        {schedules.slice(0, 5).map((schedule) => (
-                          <li key={schedule.id}>
-                            <Link
-                              to={`/business/${businessId}/scheduling/${
-                                schedule.rule_type === "featured" ? "featured/" : ""
-                              }${schedule.id}`}
-                              onClick={closeDeleteModal}
-                            >
-                              {schedule.name ?? "Regola senza nome"}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                      {schedules.length > 5 && (
-                        <Text variant="caption" colorVariant="muted">
-                          +{schedules.length - 5} altre
-                        </Text>
-                      )}
-                    </>
-                  );
-
-                  return (
-                    <>
-                      {directTarget.length > 0 && (
-                        <div className={styles.deleteImpactSchedules}>
-                          <Text variant="body-sm">
-                            {directTarget.length === 1 ? (
-                              <>
-                                <Text as="span" variant="body-sm" weight={600}>
-                                  1 regola passerà in bozza
-                                </Text>{" "}
-                                perché questa era la sua unica sede. Se vuoi
-                                tenerla attiva, aprila e puntala su un&apos;altra
-                                sede prima di eliminare.
-                              </>
-                            ) : (
-                              <>
-                                <Text as="span" variant="body-sm" weight={600}>
-                                  {directTarget.length} regole passeranno in
-                                  bozza
-                                </Text>{" "}
-                                perché questa era la loro unica sede. Se vuoi
-                                tenerle attive, aprile e puntale su
-                                un&apos;altra sede prima di eliminare.
-                              </>
-                            )}
-                          </Text>
-                          {renderList(directTarget)}
-                        </div>
-                      )}
-
-                      {groupEmptied.length > 0 && (
-                        <div className={styles.deleteImpactSchedules}>
-                          <Text variant="body-sm">
-                            {groupEmptied.length === 1 ? (
-                              <>
-                                <Text as="span" variant="body-sm" weight={600}>
-                                  1 regola smetterà di raggiungere sedi
-                                </Text>{" "}
-                                perché questa era l&apos;ultima sede del gruppo
-                                a cui è collegata. Resta attiva — se aggiungi
-                                un&apos;altra sede al gruppo torna operativa da
-                                sola.
-                              </>
-                            ) : (
-                              <>
-                                <Text as="span" variant="body-sm" weight={600}>
-                                  {groupEmptied.length} regole smetteranno di
-                                  raggiungere sedi
-                                </Text>{" "}
-                                perché questa era l&apos;ultima sede dei
-                                rispettivi gruppi. Restano attive — se
-                                aggiungi un&apos;altra sede al gruppo tornano
-                                operative da sole.
-                              </>
-                            )}
-                          </Text>
-                          {renderList(groupEmptied)}
-                        </div>
-                      )}
-                    </>
-                  );
-                })()}
-          </ConfirmDialog>
+            onDeleted={handleDeleted}
+          />
         </section>
       )}
     </PageGate>
   );
 }
+
