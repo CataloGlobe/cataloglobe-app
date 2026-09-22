@@ -207,8 +207,13 @@ const ActivityDetailPage: React.FC = () => {
         ) : null
     ), [statusLabel, activity?.status]);
 
+    // In compatto il picker dice dove sei anche su Sala e Disponibilità, che
+    // non sono tab: la voce compare solo mentre ci sei.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        sections: ACTIVITY_PAGES.map(value => ({ value, label: ACTIVITY_SECTION_LABELS[value] })),
+        sections: [
+            ...ACTIVITY_PAGES.map(value => ({ value, label: ACTIVITY_SECTION_LABELS[value] })),
+            ...(ACTIVITY_PAGES.includes(section) ? [] : [{ value: section, label: ACTIVITY_SECTION_LABELS[section] }])
+        ],
         activeSection: section,
         onSectionChange: value => goToSection(value as ActivitySection),
         statusIndicator: statusLabel ? { label: statusLabel } : undefined

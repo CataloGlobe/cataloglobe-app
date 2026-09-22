@@ -517,6 +517,7 @@ export function TablesManagement({
         {
             id: "zone",
             header: "Zona",
+            hideOnPhone: true,
             width: "1fr",
             accessor: row => row.zone_name,
             cell: (_v, row) =>
@@ -545,6 +546,7 @@ export function TablesManagement({
                   {
                       id: "capacity_range",
                       header: "Min–Max",
+            hideOnPhone: true,
                       width: "100px",
                       accessor: row => row.max_seats ?? row.seats,
                       cell: (_v, row) => {
@@ -568,6 +570,7 @@ export function TablesManagement({
                   {
                       id: "combination_group",
                       header: "Accostamento",
+            hideOnPhone: true,
                       width: "1fr",
                       accessor: row => row.combination_group_name,
                       cell: (_v, row) => {
@@ -586,6 +589,7 @@ export function TablesManagement({
                   {
                       id: "bookable_online",
                       header: "Assegnabile",
+            hideOnPhone: true,
                       width: "110px",
                       accessor: row => row.bookable_online,
                       cell: (_v, row) => {
