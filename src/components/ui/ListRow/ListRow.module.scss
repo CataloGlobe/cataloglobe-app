@@ -129,6 +129,17 @@
   .body:first-child ~ .meta {
     padding-left: 0;
   }
+
+  // `metaInline`: una cifra corta resta accanto al titolo.
+  .row.metaInline {
+    flex-wrap: nowrap;
+  }
+
+  .row.metaInline .meta {
+    order: 0;
+    flex-basis: auto;
+    padding: 0;
+  }
 }
 
 .trailing {
