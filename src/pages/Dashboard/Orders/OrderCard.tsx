@@ -16,7 +16,6 @@ import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { Menu } from "@/components/ui/Menu/Menu";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
@@ -206,6 +205,7 @@ export default function OrderCard({
                 subtitle={[tableZone, formatRelativeTime(order.submitted_at)].filter(Boolean).join(" · ")}
                 badge={attribution}
                 flush
+                bodyClassName={styles.body}
             >
                 {SHOW_UNVERIFIED_BADGE && order.group_verified_at == null && (
                     <div className={styles.block}>
@@ -243,28 +243,33 @@ export default function OrderCard({
                     </div>
                 )}
 
-                {visibleItems.map(item => {
-                    const isCancelled = item.cancelled_at != null;
-                    return (
-                        <ListRow
-                            key={item.id}
-                            leading={
+                <ul className={styles.items}>
+                    {visibleItems.map(item => {
+                        const isCancelled = item.cancelled_at != null;
+                        const detail = formatItemDetail(item);
+                        return (
+                            <li key={item.id} className={styles.item} data-cancelled={isCancelled || undefined}>
                                 <Text as="span" variant="body-sm" weight={600} colorVariant="muted">
                                     {item.quantity}×
                                 </Text>
-                            }
-                            title={item.product_name_snapshot}
-                            subtitle={formatItemDetail(item)}
-                            wrapSubtitle="full"
-                            muted={isCancelled}
-                            meta={
-                                isCancelled ? (
-                                    <StatusBadge variant="neutral" label="Annullato" />
-                                ) : undefined
-                            }
-                        />
-                    );
-                })}
+                                <span className={styles.itemName}>
+                                    <Text as="span" variant="body-sm" weight={500}>
+                                        {item.product_name_snapshot}
+                                    </Text>
+                                    {isCancelled && <StatusBadge variant="neutral" label="Annullato" />}
+                                    {detail && (
+                                        <Text as="span" variant="caption" colorVariant="muted" className={styles.itemDetail}>
+                                            {detail}
+                                        </Text>
+                                    )}
+                                </span>
+                                <Text as="span" variant="body-sm" colorVariant="muted" className={styles.itemAmount}>
+                                    {formatEur(item.line_total)}
+                                </Text>
+                            </li>
+                        );
+                    })}
+                </ul>
                 {hasOverflow && (
                     <div className={styles.expander}>
                         <Button variant="ghost" size="sm" onClick={() => setItemsExpanded(prev => !prev)}>
@@ -286,11 +291,14 @@ export default function OrderCard({
                     </div>
                 )}
 
-                <ListRow
-                    title="Totale"
-                    meta={<Text weight={600}>{formatEur(order.total_amount)}</Text>}
-                    metaInline
-                />
+                <div className={styles.total}>
+                    <Text as="span" variant="body-sm" weight={600}>
+                        Totale
+                    </Text>
+                    <Text as="span" weight={600}>
+                        {formatEur(order.total_amount)}
+                    </Text>
+                </div>
 
                 {canManage !== false && (
                     <div className={styles.footer}>
