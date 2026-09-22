@@ -45,7 +45,7 @@ test.describe("Sedi", () => {
     test("lista: le colonne della tabella", async ({ page }) => {
         await page.getByRole("radio", { name: "Vista lista" }).click();
         const main = page.getByRole("main");
-        for (const header of ["Indirizzo", "Città", "Stato", "Menu attivo ora"]) {
+        for (const header of ["Indirizzo", "Stato", "Menu attivo ora"]) {
             await expect(main.getByText(header, { exact: true }).first()).toBeVisible({ timeout: 15_000 });
         }
         await expect(main.getByText(/^(Pubblicata|Sospesa)$/).first()).toBeVisible();

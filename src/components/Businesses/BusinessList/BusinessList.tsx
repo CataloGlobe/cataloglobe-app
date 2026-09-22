@@ -57,19 +57,18 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 width: "1.5fr",
                 hideOnPhone: true,
                 accessor: b => b.address,
-                cell: (_, b) => <Text variant="body-sm">{b.address ?? "—"}</Text>
-            },
-            {
-                id: "city",
-                header: "Città",
-                width: "1fr",
-                accessor: b => b.city,
-                cell: (_, b) => <Text variant="body-sm">{b.city ?? "—"}</Text>
+                cell: (_, b) => (
+                    <div className={DATA_TABLE_CLASSES.cellTwoLine}>
+                        <span>{b.address ?? "—"}</span>
+                        <span>{b.city ?? ""}</span>
+                    </div>
+                )
             },
             {
                 id: "status",
                 header: "Stato",
                 width: "100px",
+                hideOnPhone: true,
                 align: "center",
                 cell: (_, business) =>
                     business.status === "inactive" ? (
@@ -127,6 +126,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 id: "manage",
                 header: "",
                 width: "110px",
+                hideOnPhone: true,
                 align: "right",
                 cell: (_, business) => {
                     // Anche a stato ignoto: il drawer riceve solo `activityId`
