@@ -262,23 +262,25 @@ test.describe("Comande", () => {
 
             const stati = page.getByRole("tablist", { name: "Stato delle comande" });
             await expect(stati).toBeVisible();
-            // Contatori nelle etichette, dopo il filtro. La fixture è in Nuove.
-            // Il contatore è un Badge (`role=status`): fuori dal nome del tab.
-            const tab = (nome: string) => stati.getByRole("tab", { name: nome, exact: true });
-            await expect(tab("Nuove")).toHaveAttribute("aria-selected", "true");
-            await expect(tab("Nuove").getByRole("status")).toHaveText("1");
-            await expect(tab("In lavorazione").getByRole("status")).toHaveText("0");
-            await expect(tab("Pronte").getByRole("status")).toHaveText("0");
+            // Contatori nelle etichette, dopo il filtro, dentro il nome del tab
+            // («Nuove 1»). La fixture è in Nuove.
+            const tab = (nome: string, n: number) =>
+                stati.getByRole("tab", { name: new RegExp(`^${nome}\\s*${n}$`) });
+            await expect(tab("Nuove", 1)).toHaveAttribute("aria-selected", "true");
+            await expect(tab("In lavorazione", 0)).toBeVisible();
+            await expect(tab("Pronte", 0)).toBeVisible();
+            // Il contatore non è più una regione live.
+            await expect(stati.getByRole("status")).toHaveCount(0);
 
             // Si vede una lista sola.
             await expect(page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` })).toBeVisible();
             await expect(page.getByText("Nessuna comanda pronta")).toBeHidden();
 
-            await tab("Pronte").click();
+            await tab("Pronte", 0).click();
             await expect(page.getByText("Nessuna comanda pronta")).toBeVisible();
             await expect(page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` })).toBeHidden();
 
-            await tab("Nuove").click();
+            await tab("Nuove", 1).click();
             await expect(page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` })).toBeVisible();
         });
     }

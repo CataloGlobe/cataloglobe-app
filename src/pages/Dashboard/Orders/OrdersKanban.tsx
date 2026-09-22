@@ -183,7 +183,7 @@ export default function OrdersKanban({
                                     key={col.status}
                                     value={col.status}
                                     badge={count}
-                                    badgeTone={col.status === "submitted" && count > 0 ? "brand" : "neutral"}
+                                    badgeTone={col.status === "submitted" && count > 0 ? "brand" : "outline"}
                                 >
                                     <span
                                         className={
@@ -218,7 +218,7 @@ export default function OrdersKanban({
                                     {col.title}
                                 </Text>
                                 <Badge
-                                    variant={col.status === "submitted" && colOrders.length > 0 ? "brand" : "neutral"}
+                                    variant={col.status === "submitted" && colOrders.length > 0 ? "brand" : "outline"}
                                 >
                                     {colOrders.length}
                                 </Badge>
