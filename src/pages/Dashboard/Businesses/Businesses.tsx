@@ -14,7 +14,7 @@ import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog
 import { getPlanByCode } from "@/services/supabase/plans";
 import { listPlanPrices } from "@/services/supabase/planPrices";
 import { getTenantBillingInterval } from "@/services/supabase/tenants";
-import { calculateGraduatedFromPlan } from "@/utils/pricing";
+import { nextSeatOffer } from "@/utils/pricing";
 import { priceCentsFor, DEFAULT_BILLING_INTERVAL } from "@/utils/planPricing";
 import type { Plan, PlanPrice, BillingInterval } from "@/types/plan";
 import type { CatalogFetchStatus } from "@/utils/activeCatalogStatus";
@@ -47,7 +47,7 @@ import { LayoutGrid, List as ListIcon } from "lucide-react";
 import styles from "./Businesses.module.scss";
 import {
   BusinessLocationDrawer,
-  type SeatUpgradeOffer,
+  type SeatLimitOffer,
 } from "@/components/Businesses/BusinessLocationDrawer/BusinessLocationDrawer";
 import { Button } from "@/components/ui";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
@@ -259,43 +259,29 @@ export default function Businesses() {
     businessId,
   ]);
 
-  // Stato "offerta" del drawer di creazione quando il piano è al limite di
-  // sedi. `null` finché il piano non è caricato o finché c'è margine — il
-  // drawer mostra il form. `upgrade`: entro il tetto self-service, con
-  // prezzo aggiuntivo calcolato dallo stesso schema di SubscriptionPage
-  // (`calculateGraduatedFromPlan`). `contact_support`: oltre il tetto,
-  // nessun prezzo — solo assistenza.
-  const seatOffer = useMemo<SeatUpgradeOffer | null>(() => {
+  // Offerta al posto del form quando le sedi pagate sono finite: `null`
+  // finché il piano non è caricato o finché c'è margine. Il prezzo della
+  // sede successiva viene da `nextSeatOffer`, la stessa fonte di Abbonamento.
+  const seatOffer = useMemo<SeatLimitOffer | null>(() => {
     const paidSeats = selectedTenant?.paid_seats ?? 0;
     const usedSeats = businesses.length;
     if (usedSeats < paidSeats || !currentPlan) return null;
 
-    const selfServiceCap = currentPlan.max_self_service_seats;
-    if (usedSeats >= selfServiceCap) {
-      return {
-        kind: "contact_support",
-        planName: currentPlan.name,
-        usedSeats,
-        paidSeats,
-      };
-    }
-
     const unitPriceCents = priceCentsFor(planPrices, currentPlan.code, billingInterval);
-    const planForGraduation = { ...currentPlan, unit_price_cents: unitPriceCents };
-    const currentBreakdown = calculateGraduatedFromPlan(planForGraduation, paidSeats);
-    const nextBreakdown = calculateGraduatedFromPlan(planForGraduation, paidSeats + 1);
+    const offer = nextSeatOffer(
+      { ...currentPlan, unit_price_cents: unitPriceCents },
+      paidSeats,
+      usedSeats,
+    );
+    if (offer.kind === "free") return null;
 
+    const renewal = selectedTenant?.current_period_end ?? null;
     return {
-      kind: "upgrade",
-      info: {
-        planName: currentPlan.name,
-        usedSeats,
-        paidSeats,
-        extraPriceCents: Math.round((nextBreakdown.subtotal - currentBreakdown.subtotal) * 100),
-        listPriceCents: Math.round(nextBreakdown.fullPrice * 100),
-        volumeDiscountPercent: currentPlan.volume_discount_percent,
-        renewalDateLabel: formatDateIt(selectedTenant?.current_period_end ?? null),
-      },
+      offer,
+      planName: currentPlan.name,
+      paidSeats,
+      interval: billingInterval,
+      renewalDateLabel: renewal ? formatDateIt(renewal) : null,
     };
   }, [selectedTenant, businesses.length, currentPlan, planPrices, billingInterval]);
 
