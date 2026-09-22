@@ -41,9 +41,11 @@ function describeDay(dayIndex: number, slots: V2ActivityHours[]): React.ReactNod
 }
 
 /**
- * Card «Settimana» della pagina Orari (registro Sedi #54): un `ListRow` per
- * giorno con le fasce, la visibilità pubblica come interruttore immediato,
- * «Modifica» che apre l'editor.
+ * Card «Settimana» della pagina Orari (registro Sedi #54): la visibilità
+ * pubblica è la prima riga, con l'interruttore nel trailing come ogni altro
+ * controllo di riga; poi un `ListRow` per giorno con le fasce. Nella testata
+ * resta solo «Modifica», che apre l'editor: un interruttore lì dentro
+ * competeva con il bottone e si leggeva come un'azione sulla card.
  */
 export const ActivityHoursSection: React.FC<ActivityHoursSectionProps> = ({
     hours,
@@ -67,21 +69,11 @@ export const ActivityHoursSection: React.FC<ActivityHoursSectionProps> = ({
             title="Settimana"
             subtitle={isLoading ? undefined : hasHours ? `${openDays} ${openDays === 1 ? "giorno aperto" : "giorni aperti"}` : "Nessun orario ancora"}
             actions={
-                <>
-                    {hasHours && (
-                        <Switch
-                            label="Orari visibili sulla pagina pubblica"
-                            checked={hoursPublic}
-                            onChange={next => onHoursPublicChange?.(next)}
-                            disabled={!onHoursPublicChange || isHoursPublicSaving}
-                        />
-                    )}
-                    {onEditRequest && (
-                        <Button variant="secondary" size="sm" onClick={onEditRequest}>
-                            {hasHours ? "Modifica" : "Imposta orari"}
-                        </Button>
-                    )}
-                </>
+                onEditRequest ? (
+                    <Button variant="secondary" size="sm" onClick={onEditRequest}>
+                        {hasHours ? "Modifica" : "Imposta orari"}
+                    </Button>
+                ) : undefined
             }
             flush={isLoading || hasHours}
         >
@@ -102,9 +94,29 @@ export const ActivityHoursSection: React.FC<ActivityHoursSectionProps> = ({
                     }
                 />
             ) : (
-                DAY_NAMES.map((name, i) => (
-                    <ListRow key={name} title={name} subtitle={describeDay(i, byDay.get(i) ?? [])} />
-                ))
+                <>
+                    <ListRow
+                        title="Orari visibili sulla pagina pubblica"
+                        subtitle={
+                            hoursPublic
+                                ? "Chi apre la pagina pubblica legge la settimana sotto il menù."
+                                : "La settimana resta privata: serve alle prenotazioni, non si mostra."
+                        }
+                        wrapSubtitle
+                        trailing={
+                            <Switch
+                                ariaLabel="Orari visibili sulla pagina pubblica"
+                                size="sm"
+                                checked={hoursPublic}
+                                onChange={next => onHoursPublicChange?.(next)}
+                                disabled={!onHoursPublicChange || isHoursPublicSaving}
+                            />
+                        }
+                    />
+                    {DAY_NAMES.map((name, i) => (
+                        <ListRow key={name} title={name} subtitle={describeDay(i, byDay.get(i) ?? [])} />
+                    ))}
+                </>
             )}
         </Card>
     );
