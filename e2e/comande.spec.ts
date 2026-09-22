@@ -1,0 +1,198 @@
+import { expect, test, type Page } from "@playwright/test";
+import { openBusinessPage } from "./business";
+
+/**
+ * Comande (lotto `ds-5-comande`, §47.1). Scritto sulla pagina di **oggi**,
+ * prima di ricomporla: deve essere verde prima e dopo (P0 del passo 2).
+ *
+ * Fixture su staging: la sede «Garbagnate» dell'azienda di test ha tre tavoli
+ * e una sola comanda attiva, in Nuove, sul tavolo «T TEST». L'unica scrittura
+ * del file è la transizione con undo: «Annulla ordine» e poi «Annulla» nel
+ * toast, che la riporta in Nuove — stato netto invariato (cresce solo la
+ * `version`). Per questo il file gira in serie: un test che legge la card
+ * mentre un altro la sta annullando cadrebbe per un motivo che non è suo.
+ * Stessa ragione, un livello sopra: `--repeat-each` con più worker manda due
+ * copie del gruppo in parallelo sulla stessa comanda (409 «già cancellata»,
+ * misurato); per ripetere il file si usa `--workers=1`.
+ *
+ * Locator per ruolo o per testo visibile, mai per tag o classe.
+ */
+
+const SEDE = /Garbagnate/;
+const TAVOLO = "T TEST";
+const COLONNE = ["Nuove", "In lavorazione", "Pronte"] as const;
+
+test.describe.configure({ mode: "serial" });
+
+function nav(page: Page) {
+    return page.getByRole("navigation", { name: "Menu principale" });
+}
+
+/** Entra nella sede di test dalla griglia delle Sedi e apre Comande dalla sua sidebar. */
+async function openComande(page: Page): Promise<void> {
+    await openBusinessPage(page, "locations", "Sedi");
+    await page.getByRole("radio", { name: "Vista griglia" }).click();
+    const card = page.getByRole("main").getByRole("listitem").filter({ hasText: SEDE }).first();
+    await expect(card).toBeVisible({ timeout: 15_000 });
+    await card.getByRole("link").first().click();
+    // L'indice della sede reindirizza all'Anagrafica: cliccare prima che il
+    // redirect sia avvenuto farebbe vincere il redirect sul click.
+    await page.waitForURL(/\/locations\/[0-9a-f-]+\/anagrafica$/);
+    await nav(page).getByRole("link", { name: "Comande", exact: true }).click();
+    await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$/, { timeout: 15_000 });
+    // La board è pronta quando la card della fixture c'è (il nome del tavolo
+    // compare anche come `option` del filtro, nascosta: non basta a dirlo).
+    await expect(page.getByRole("main").getByRole("button", { name: "Altre azioni" })).toHaveCount(1, { timeout: 15_000 });
+}
+
+/** Il menu ⋯ della card della fixture: è l'unica comanda attiva della sede. */
+async function openCardMenu(page: Page): Promise<void> {
+    const trigger = page.getByRole("main").getByRole("button", { name: "Altre azioni" });
+    await expect(trigger).toHaveCount(1);
+    await trigger.click();
+}
+
+async function selectMainTab(page: Page, name: "Comande" | "Tavoli" | "Storico"): Promise<void> {
+    await page.getByRole("tab", { name, exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(name === "Comande" ? "/comande(\\?tab=comande)?$" : `tab=${name.toLowerCase()}`));
+}
+
+test.describe("Comande", () => {
+    test("si apre dal contesto della sede, con le tre colonne", async ({ page }) => {
+        await openComande(page);
+
+        await expect(page.getByRole("tab", { name: "Comande", exact: true })).toHaveAttribute("aria-selected", "true");
+        for (const colonna of COLONNE) {
+            await expect(page.getByRole("main").getByText(colonna, { exact: true })).toBeVisible();
+        }
+        // La fixture è in Nuove: le altre due colonne sono vuote.
+        await expect(page.getByText("Nessuna comanda in lavorazione")).toBeVisible();
+        await expect(page.getByText("Nessuna comanda pronta")).toBeVisible();
+        await expect(page.getByText("Nessuna nuova comanda")).toHaveCount(0);
+
+        await expect(page.getByRole("button", { name: "Crea ordine" })).toBeVisible();
+        await expect(page.getByRole("button", { name: "Aggiorna" })).toBeVisible();
+        await expect(page.getByRole("button", { name: /suoni notifiche/ })).toHaveAttribute("aria-pressed", /true|false/);
+    });
+
+    test("il dettaglio della comanda si apre dal menu della card", async ({ page }) => {
+        await openComande(page);
+        await openCardMenu(page);
+        await page.getByRole("menuitem", { name: "Vedi dettaglio" }).click();
+
+        const drawer = page.getByRole("dialog");
+        await expect(drawer).toBeVisible();
+        await expect(drawer.getByText(TAVOLO).first()).toBeVisible();
+
+        await page.keyboard.press("Escape");
+        await expect(drawer).toHaveCount(0);
+    });
+
+    test("annullare una comanda si ripara dal toast", async ({ page }) => {
+        await openComande(page);
+        await openCardMenu(page);
+        await page.getByRole("menuitem", { name: "Annulla ordine" }).click();
+
+        const drawer = page.getByRole("dialog");
+        await expect(drawer).toBeVisible();
+        await drawer.getByRole("button", { name: "Annulla ordine" }).click();
+
+        // Esce dalla board, e il toast offre l'undo.
+        await expect(page.getByText(`Ordine ${TAVOLO} cancellato`)).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByText("Nessuna nuova comanda")).toBeVisible();
+
+        await page.getByRole("button", { name: "Annulla", exact: true }).click();
+        await expect(page.getByText(`Ordine ${TAVOLO} ripristinato`)).toBeVisible({ timeout: 15_000 });
+
+        // Torna in Nuove, dove era.
+        await expect(page.getByText("Nessuna nuova comanda")).toHaveCount(0);
+        await expect(page.getByRole("main").getByRole("button", { name: "Altre azioni" })).toHaveCount(1);
+    });
+
+    test("il filtro per tavolo restringe la board", async ({ page }) => {
+        await openComande(page);
+        const filtro = page.getByRole("main").getByRole("combobox").filter({
+            has: page.getByRole("option", { name: "Tutti i tavoli" })
+        });
+        await expect(filtro).toBeVisible();
+
+        // Un tavolo diverso da quello della fixture: la board si svuota.
+        const altri = (await filtro.getByRole("option").allInnerTexts()).filter(
+            t => t !== "Tutti i tavoli" && t !== TAVOLO
+        );
+        test.skip(altri.length === 0, "serve un secondo tavolo");
+        await filtro.selectOption({ label: altri[0] });
+        await expect(page.getByText("Nessuna nuova comanda")).toBeVisible();
+        await expect(page.getByRole("main").getByRole("button", { name: "Altre azioni" })).toHaveCount(0);
+
+        await filtro.selectOption({ label: TAVOLO });
+        await expect(page.getByText("Nessuna nuova comanda")).toHaveCount(0);
+
+        await filtro.selectOption({ label: "Tutti i tavoli" });
+        await expect(page.getByRole("main").getByRole("button", { name: "Altre azioni" })).toHaveCount(1);
+    });
+
+    test("la tab Tavoli mostra i tavoli e apre il dettaglio del tavolo", async ({ page }) => {
+        await openComande(page);
+        await selectMainTab(page, "Tavoli");
+
+        const filtri = page.getByRole("main").getByRole("radiogroup");
+        await expect(filtri.getByRole("radio", { name: "Tutti", exact: true })).toBeVisible({ timeout: 15_000 });
+        await expect(filtri.getByRole("radio", { name: "Liberi", exact: true })).toBeVisible();
+
+        const tavolo = page.getByRole("main").getByRole("button", { name: new RegExp(`^${TAVOLO}, `) });
+        await expect(tavolo).toBeVisible({ timeout: 15_000 });
+        await tavolo.click();
+
+        const drawer = page.getByRole("dialog");
+        await expect(drawer).toBeVisible();
+        await expect(drawer.getByText(TAVOLO).first()).toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(drawer).toHaveCount(0);
+    });
+
+    test("lo Storico ha i segmenti, il giorno e la tabella", async ({ page }) => {
+        await openComande(page);
+        await selectMainTab(page, "Storico");
+
+        const segmenti = page.getByRole("main").getByRole("radiogroup");
+        for (const s of ["Tutti", "Serviti", "Annullati"]) {
+            await expect(segmenti.getByRole("radio", { name: s, exact: true })).toBeVisible({ timeout: 15_000 });
+        }
+        // Oggi: non si va avanti.
+        await expect(page.getByRole("button", { name: "Giorno successivo" })).toBeDisabled();
+
+        // Un giorno indietro, poi di nuovo oggi: la tabella o il suo vuoto, mai un errore.
+        await page.getByRole("button", { name: "Giorno precedente" }).click();
+        await expect(page.getByRole("button", { name: "Giorno successivo" })).toBeEnabled();
+        await page.getByRole("button", { name: "Giorno successivo" }).click();
+        await expect(page.getByRole("button", { name: "Giorno successivo" })).toBeDisabled();
+
+        await expect(page.getByText("Errore caricamento storico")).toHaveCount(0);
+        await expect(
+            page.getByRole("main").getByRole("columnheader", { name: "Tavolo" })
+                .or(page.getByText("Nessun ordine nello storico di oggi"))
+                .first()
+        ).toBeVisible({ timeout: 15_000 });
+    });
+
+    for (const width of [1280, 768, 375]) {
+        test(`a ${width} i tre stati si leggono e la pagina non scorre di lato`, async ({ page }) => {
+            // Si entra da desktop: a 375 la sidebar è un cassetto chiuso.
+            await openComande(page);
+            await page.setViewportSize({ width, height: 900 });
+
+            for (const colonna of COLONNE) {
+                await expect(page.getByRole("main").getByText(colonna, { exact: true }).first()).toBeAttached();
+            }
+            // Sotto 1024 la banda compatta ha un suo «Altre azioni» (l'overflow),
+            // prima della board nel DOM: quello della card è l'ultimo. Due
+            // controlli con lo stesso nome — anomalia a verbale, non del test.
+            await expect(page.getByRole("main").getByRole("button", { name: "Altre azioni" }).last()).toBeVisible();
+            const overflow = await page.evaluate(
+                () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+            );
+            expect(overflow).toBeLessThanOrEqual(0);
+        });
+    }
+});
