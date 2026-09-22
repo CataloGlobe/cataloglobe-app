@@ -6,6 +6,8 @@
 .grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
+  // Le tessere di una riga hanno la stessa altezza: la più alta detta la riga.
+  align-items: stretch;
   gap: var(--space-16);
 
   @include below-sidebar {
@@ -131,7 +133,9 @@
 }
 
 // Riga in fondo, fuori dalla superficie cliccabile: un dato con la sua azione.
+// margin-top auto: sta in fondo anche quando la tessera è più alta del suo contenuto.
 .footer {
+  margin-top: auto;
   border-top: 1px solid var(--border);
   padding: var(--space-12) var(--space-16);
 }
