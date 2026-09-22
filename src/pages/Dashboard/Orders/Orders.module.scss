@@ -1,14 +1,16 @@
+@use "@styles/mixins" as *;
+
 .container {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-// Scroll interno per-colonna (board Comande): solo desktop e solo quando la
+// Scroll interno per-colonna (board Comande): solo sopra 1024 e solo quando la
 // tab attiva e' "comande". L'altezza bounded si propaga da qui giu' fino a
 // .columnList (vedi OrdersKanban.module.scss). Tavoli/Storico restano ad
 // altezza auto -> page-scroll come prima (wrapper .container condiviso).
-@media (min-width: 900px) {
+@media (min-width: $bp-sidebar) {
   .container[data-active-tab="comande"] {
     flex: 1;
     min-height: 0;
@@ -51,20 +53,13 @@
   color: var(--text-muted, #6b6f76);
 }
 
-.activitySelect,
+// Il filtro per tavolo è un `Select` di sistema: qui solo la larghezza.
+// Sotto 1024 va a tutta larghezza, sopra il selettore di stato.
 .tableFilter {
-  padding: 8px 12px;
-  border: 1px solid var(--border-default, #e1e3e8);
-  border-radius: 6px;
-  font-size: 14px;
-  background: var(--surface-elevated, #fff);
-  color: var(--text-primary, #1a1d21);
-  cursor: pointer;
+  width: 240px;
 
-  &:focus {
-    outline: none;
-    border-color: var(--accent-default, #2563eb);
-    box-shadow: 0 0 0 3px var(--accent-soft, rgba(37, 99, 235, 0.12));
+  @include below-sidebar {
+    width: 100%;
   }
 }
 
@@ -75,15 +70,6 @@
   flex-wrap: wrap;
 }
 
-.cardsList {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1fr;
-
-  @media (min-width: 1200px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
 
 .historySection {
   // Anello intermedio della catena flex Storico: toolbar (auto) + DataTable

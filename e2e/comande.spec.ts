@@ -71,8 +71,9 @@ test.describe("Comande", () => {
         await openComande(page);
 
         await expect(page.getByRole("tab", { name: "Comande", exact: true })).toHaveAttribute("aria-selected", "true");
+        // Le corsie sono regioni col nome dello stato.
         for (const colonna of COLONNE) {
-            await expect(page.getByRole("main").getByText(colonna, { exact: true })).toBeVisible();
+            await expect(page.getByRole("main").getByRole("region", { name: colonna })).toBeVisible();
         }
         // La fixture è in Nuove: le altre due colonne sono vuote.
         await expect(page.getByText("Nessuna comanda in lavorazione")).toBeVisible();
@@ -161,9 +162,7 @@ test.describe("Comande", () => {
 
     test("il filtro per tavolo restringe la board", async ({ page }) => {
         await openComande(page);
-        const filtro = page.getByRole("main").getByRole("combobox").filter({
-            has: page.getByRole("option", { name: "Tutti i tavoli" })
-        });
+        const filtro = page.getByRole("main").getByRole("combobox", { name: "Filtra per tavolo" });
         await expect(filtro).toBeVisible();
 
         // Un tavolo diverso da quello della fixture: la board si svuota.
@@ -240,6 +239,46 @@ test.describe("Comande", () => {
                 .first()
         ).toBeVisible({ timeout: 15_000 });
     });
+
+    test("sopra 1024 tre colonne affiancate, niente selettore di stato", async ({ page }) => {
+        await openComande(page);
+        await page.setViewportSize({ width: 1280, height: 900 });
+        await expect(page.getByRole("tablist", { name: "Stato delle comande" })).toBeHidden();
+
+        const main = page.getByRole("main");
+        const tops = await Promise.all(
+            COLONNE.map(c => main.getByRole("region", { name: c }).evaluate(el => Math.round(el.getBoundingClientRect().top)))
+        );
+        expect(new Set(tops).size).toBe(1); // stessa riga
+    });
+
+    for (const width of [768, 375]) {
+        test(`a ${width} una lista sola, scelta coi contatori`, async ({ page }) => {
+            await openComande(page);
+            await page.setViewportSize({ width, height: 900 });
+
+            const stati = page.getByRole("tablist", { name: "Stato delle comande" });
+            await expect(stati).toBeVisible();
+            // Contatori nelle etichette, dopo il filtro. La fixture è in Nuove.
+            // Il contatore è un Badge (`role=status`): fuori dal nome del tab.
+            const tab = (nome: string) => stati.getByRole("tab", { name: nome, exact: true });
+            await expect(tab("Nuove")).toHaveAttribute("aria-selected", "true");
+            await expect(tab("Nuove").getByRole("status")).toHaveText("1");
+            await expect(tab("In lavorazione").getByRole("status")).toHaveText("0");
+            await expect(tab("Pronte").getByRole("status")).toHaveText("0");
+
+            // Si vede una lista sola.
+            await expect(page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` })).toBeVisible();
+            await expect(page.getByText("Nessuna comanda pronta")).toBeHidden();
+
+            await tab("Pronte").click();
+            await expect(page.getByText("Nessuna comanda pronta")).toBeVisible();
+            await expect(page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` })).toBeHidden();
+
+            await tab("Nuove").click();
+            await expect(page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` })).toBeVisible();
+        });
+    }
 
     for (const width of [1280, 768, 375]) {
         test(`a ${width} i tre stati si leggono e la pagina non scorre di lato`, async ({ page }) => {

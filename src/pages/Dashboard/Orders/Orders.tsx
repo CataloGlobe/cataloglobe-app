@@ -7,6 +7,7 @@ import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { Select } from "@/components/ui/Select/Select";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Button } from "@/components/ui/Button/Button";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
@@ -1074,18 +1075,16 @@ export default function Orders() {
 
                     {tables.length > 0 && (
                         <div className={styles.filtersRow}>
-                            <select
-                                className={styles.tableFilter}
+                            <Select
+                                aria-label="Filtra per tavolo"
+                                containerClassName={styles.tableFilter}
                                 value={tableFilter}
                                 onChange={e => setTableFilter(e.target.value)}
-                            >
-                                <option value="all">Tutti i tavoli</option>
-                                {tables.map(t => (
-                                    <option key={t.id} value={t.id}>
-                                        {t.label}
-                                    </option>
-                                ))}
-                            </select>
+                                options={[
+                                    { value: "all", label: "Tutti i tavoli" },
+                                    ...tables.map(t => ({ value: t.id, label: t.label }))
+                                ]}
+                            />
                         </div>
                     )}
 
