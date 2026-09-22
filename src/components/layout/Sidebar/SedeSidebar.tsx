@@ -19,12 +19,10 @@ import styles from "./SedeSidebar.module.scss";
  * I permessi si chiedono **su questa sede** (`canDoOnActivity`): dentro il
  * contesto la domanda è «posso qui», non «posso da qualche parte».
  *
- * P0 (§46.1 j): Comande e Prenotazioni sono annunciate e non navigabili
- * finché le pagine non prendono la sede dal path — farle puntare alle pagine
- * d'azienda porterebbe l'utente su un'altra sede.
+ * Comande e Prenotazioni sono le pagine d'azienda montate sulle rotte della
+ * sede: prendono la sede dal path (`useActivityScope`), quindi la voce porta
+ * sempre su questa sede e non su quella che il selettore ricordava.
  */
-
-const NOT_YET = "Arriva con le rotte di sede";
 
 function buildGroups(businessId: string, activityId: string): SidebarNavGroup[] {
     const s = `/business/${businessId}/locations/${activityId}`;
@@ -36,8 +34,6 @@ function buildGroups(businessId: string, activityId: string): SidebarNavGroup[] 
                     to: `${s}/comande`,
                     label: "Comande",
                     icon: <ClipboardList size={18} />,
-                    disabled: true,
-                    disabledHint: NOT_YET,
                     permission: perms => canDoOnActivity(perms, "orders.read", activityId),
                     requiresFeature: "table_ordering"
                 },
@@ -45,8 +41,6 @@ function buildGroups(businessId: string, activityId: string): SidebarNavGroup[] 
                     to: `${s}/prenotazioni`,
                     label: "Prenotazioni",
                     icon: <CalendarCheck size={18} />,
-                    disabled: true,
-                    disabledHint: NOT_YET,
                     permission: perms => canDoOnActivity(perms, "reservations.read", activityId),
                     requiresFeature: "table_reservation"
                 },

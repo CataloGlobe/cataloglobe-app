@@ -14,7 +14,7 @@ import { PageGate } from "@/components/PageGate/PageGate";
 
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
-import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
+import { useActivityScope } from "@/hooks/useActivityScope";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 
@@ -152,12 +152,11 @@ export default function Orders() {
     const { canEdit } = useSubscriptionGuard();
     const [searchParams, setSearchParams] = useSearchParams();
 
-    // Sede in modalità single-site: viene dal selettore navbar
-    // (SEDE_NAVBAR_ROUTES + SEDE_SINGLE_SITE_ROUTES → niente "Tutte le sedi",
-    // localStorage cross-session via key globale "cataloglobe:orders:lastActivityId").
-    const sedeScope = useSedeScope({ routeKey: "orders" });
-    const selectedActivityId: string | null =
-        sedeScope.value === SCOPE_ALL ? null : sedeScope.value;
+    // La sede arriva dal path dentro il contesto (`/locations/:id/comande`),
+    // altrimenti dal selettore navbar in modalità single-site (niente "Tutte
+    // le sedi", localStorage cross-session "cataloglobe:orders:lastActivityId").
+    const sedeScope = useActivityScope({ routeKey: "orders" });
+    const selectedActivityId: string | null = sedeScope.activityId;
 
     // Main tabs (3 sezioni principali), init da ?tab=
     const initialMainTab: MainTab = useMemo(() => {

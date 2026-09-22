@@ -233,6 +233,12 @@ export default function App() {
                 <Route path="overview" element={<Overview />} />
 
                 <Route path="locations" element={<Businesses />} />
+                {/* Comande e prenotazioni della sede: le pagine operative
+                    montate dentro il contesto, con la sede presa dal path
+                    (§46.1). Fuori dal parent della scheda: non sono sue
+                    pagine, e non devono ereditarne testata e draft. */}
+                <Route path="locations/:activityId/comande" element={<Orders />} />
+                <Route path="locations/:activityId/prenotazioni" element={<Reservations />} />
                 {/* La scheda della sede: quattro pagine (§31) più Sala e
                     Disponibilità; i vecchi `?tab=` li reindirizza il parent. */}
                 <Route path="locations/:activityId" element={<ActivityDetailPage />}>
