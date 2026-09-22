@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, Outlet, useLocation, useParams } from "react-router-dom";
 import TenantSidebar from "@components/layout/Sidebar/TenantSidebar";
+import SedeSidebar from "@components/layout/Sidebar/SedeSidebar";
 import { AppHeader } from "@components/layout/AppHeader/AppHeader";
 import { OperationalAlerts } from "@components/layout/OperationalAlerts/OperationalAlerts";
 import { PageHeaderSlot } from "@components/layout/PageHeaderSlot";
@@ -28,6 +29,9 @@ import type { BusinessOutletContext } from "./outletContext";
 import styles from "./MainLayout.module.scss";
 
 const SIDEBAR_COLLAPSED_KEY = "cg:sidebar-collapsed";
+
+/** `/business/:businessId/locations/:activityId[/...]` — dentro una sede. */
+const SEDE_CONTEXT_PATH = /^\/business\/[^/]+\/locations\/[^/]+/;
 
 /**
  * Titolo di pagina per il <title> del browser. `resolvePageTitle` è
@@ -77,6 +81,9 @@ export default function MainLayout() {
 
     const { catalogLabel } = useVerticalConfig();
     const pageName = businessId ? resolvePageTitle(businessId, pathname, catalogLabel) : undefined;
+    // Dentro una sede la sidebar è la sua (§46.1): il contesto è il path, non
+    // uno stato. `/locations` senza id resta azienda — è la porta, non la casa.
+    const inSedeContext = SEDE_CONTEXT_PATH.test(pathname);
     const tenantName = selectedTenant?.name;
     usePageTitle(pageName && tenantName ? `${pageName} — ${tenantName}` : pageName);
 
@@ -255,16 +262,26 @@ export default function MainLayout() {
                         </header>
 
                         <div className={styles.body}>
-                            <TenantSidebar
-                                isMobile={isMobile}
-                                mobileOpen={mobileSidebarOpen}
-                                collapsed={!isMobile && sidebarCollapsed}
-                                onRequestClose={() => setMobileSidebarOpen(false)}
-                                onToggleCollapse={() => setSidebarCollapsed(v => !v)}
-                                translationPendingCount={translationPendingCount}
-                                importInProgress={importInProgress}
-                                supportUnread={supportUnread}
-                            />
+                            {inSedeContext ? (
+                                <SedeSidebar
+                                    isMobile={isMobile}
+                                    mobileOpen={mobileSidebarOpen}
+                                    collapsed={!isMobile && sidebarCollapsed}
+                                    onRequestClose={() => setMobileSidebarOpen(false)}
+                                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                />
+                            ) : (
+                                <TenantSidebar
+                                    isMobile={isMobile}
+                                    mobileOpen={mobileSidebarOpen}
+                                    collapsed={!isMobile && sidebarCollapsed}
+                                    onRequestClose={() => setMobileSidebarOpen(false)}
+                                    onToggleCollapse={() => setSidebarCollapsed(v => !v)}
+                                    translationPendingCount={translationPendingCount}
+                                    importInProgress={importInProgress}
+                                    supportUnread={supportUnread}
+                                />
+                            )}
 
                             <main className={styles.main}>
                                 <PageHeaderSlot scrollContainerRef={contentRef} />

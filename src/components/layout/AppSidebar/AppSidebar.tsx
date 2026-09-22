@@ -175,7 +175,13 @@ export function AppSidebar({
                     </div>
                 )}
 
-                {headerSlot && <div className={styles.headerSlot}>{headerSlot}</div>}
+                {/* Landmark a sé: il rimando che porta fuori dal contesto è
+                    navigazione, ma non è una voce del menu. */}
+                {headerSlot && (
+                    <nav className={styles.headerSlot} aria-label="Contesto">
+                        {headerSlot}
+                    </nav>
+                )}
 
                 <div className={styles.sidebarScroll}>
                     <nav className={styles.nav} aria-label="Menu principale">

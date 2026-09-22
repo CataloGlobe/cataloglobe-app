@@ -63,3 +63,33 @@ function pick(tenantId: string | null | undefined, activityId: string | undefine
         inactiveReason: row.inactive_reason ?? null
     };
 }
+
+/**
+ * Quante sedi ha l'azienda: serve solo a decidere come si esce dal contesto
+ * («Tutte le sedi» o «Azienda»). `null` finché la cache non è popolata — chi
+ * chiama sceglie il default prudente.
+ */
+export function useActivitiesCount(): number | null {
+    const tenantId = useTenantId();
+    const [count, setCount] = useState<number | null>(() => readActivitiesCache(tenantId ?? "")?.length ?? null);
+
+    useEffect(() => {
+        if (!tenantId) {
+            setCount(null);
+            return;
+        }
+        let cancelled = false;
+        getActivitiesCached(tenantId)
+            .then(rows => {
+                if (!cancelled) setCount(rows.length);
+            })
+            .catch(() => {
+                if (!cancelled) setCount(null);
+            });
+        return () => {
+            cancelled = true;
+        };
+    }, [tenantId]);
+
+    return count;
+}

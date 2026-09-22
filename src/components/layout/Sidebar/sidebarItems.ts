@@ -27,6 +27,9 @@ export interface SidebarNavItem {
     /** Voce annunciata e non ancora navigabile: attenuata, con il perché nel tooltip. */
     disabled?: boolean;
     disabledHint?: string;
+    /** Altri percorsi che tengono la voce corrente (prefissi): una voce sola
+     *  per più pagine, come la «Scheda» di una sede. */
+    matchPrefixes?: string[];
     /** Spinner ambra + conteggio delle traduzioni in corso (`translationPendingCount`). */
     showTranslationBadge?: boolean;
     /** Spinner senza numero: import AI in volo (`importInProgress`). */
@@ -89,6 +92,7 @@ export function buildSidebarGroups(
                         end: item.end,
                         disabled: item.disabled,
                         disabledHint: item.disabledHint,
+                        matchPrefixes: item.matchPrefixes,
                         locked: !!item.requiresFeature && !hasFeature(item.requiresFeature),
                         loading: showTranslation || showImport,
                         loadingLabel: showTranslation

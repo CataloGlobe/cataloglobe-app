@@ -23,6 +23,11 @@ function nav(page: Page) {
     return page.getByRole("navigation", { name: "Menu principale" });
 }
 
+/** L'intestazione del contesto: dove sei, e come si esce. */
+function contextNav(page: Page) {
+    return page.getByRole("navigation", { name: "Contesto" });
+}
+
 /** Apre la prima sede della griglia e ritorna il suo nome. */
 async function openFirstLocation(page: Page): Promise<string> {
     await openBusinessPage(page, "locations", "Sedi");
@@ -64,7 +69,7 @@ test.describe("Contesto di sede", () => {
 
     test("«Tutte le sedi» riporta all'elenco", async ({ page }) => {
         await openFirstLocation(page);
-        await nav(page).getByRole("link", { name: /^(Tutte le sedi|Azienda)$/ }).click();
+        await contextNav(page).getByRole("link", { name: /^(Tutte le sedi|Azienda)$/ }).click();
         await expect(page).toHaveURL(/\/(locations|overview)$/, { timeout: 15_000 });
         await expect(nav(page).getByRole("link", { name: "Panoramica", exact: true })).toBeVisible();
     });
@@ -94,22 +99,24 @@ test.describe("Contesto di sede", () => {
         expect(sedeName.length).toBeGreaterThan(0);
 
         // 1280: il nome sta nell'intestazione della sidebar.
-        await expect(nav(page).getByText(sedeName, { exact: true })).toBeVisible({ timeout: 15_000 });
+        await expect(contextNav(page).getByText(sedeName, { exact: true })).toBeVisible({ timeout: 15_000 });
 
         // 768: la sidebar è collassata a icone, il nome passa alla navbar.
         await page.setViewportSize({ width: 768, height: 900 });
         await expect(page.getByRole("banner").getByText(sedeName, { exact: true })).toBeVisible({ timeout: 15_000 });
-        await expect(nav(page).getByRole("link", { name: /^(Tutte le sedi|Azienda)$/ })).toBeVisible();
+        await expect(contextNav(page).getByRole("link", { name: /^(Tutte le sedi|Azienda)$/ })).toBeVisible();
     });
 
     test("a 375 il contesto vive nel cassetto, e la sede si legge nella navbar", async ({ page }) => {
-        await page.setViewportSize({ width: 375, height: 800 });
+        // Si entra da desktop: a 375 la sidebar è un cassetto chiuso e
+        // l'helper di navigazione non vedrebbe le voci dell'azienda.
         await openFirstLocation(page);
+        await page.setViewportSize({ width: 375, height: 800 });
 
         await page.getByRole("button", { name: "Apri menù di navigazione" }).click();
         const sidebar = nav(page);
         await expect(sidebar.getByRole("link", { name: "Scheda", exact: true })).toBeVisible({ timeout: 15_000 });
-        await expect(sidebar.getByRole("link", { name: /^(Tutte le sedi|Azienda)$/ })).toBeVisible();
+        await expect(contextNav(page).getByRole("link", { name: /^(Tutte le sedi|Azienda)$/ })).toBeVisible();
     });
 
     test("dentro la sede non c'è il selettore di sede della navbar", async ({ page }) => {
