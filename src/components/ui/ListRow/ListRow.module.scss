@@ -79,7 +79,7 @@
 // contro 8px fra il pill e il divisore sotto. Due pixel dal sopra al sotto
 // pareggiano il bianco senza cambiare l'altezza della riga: le righe con un
 // sottotitolo di solo testo non sono toccate.
-.body:has(.subtitle [data-pill], .subtitleWrap [data-pill]) {
+.body:has(.subtitle [data-pill], .subtitleWrap [data-pill], .subtitleFull [data-pill]) {
   padding-top: calc(var(--space-8) - var(--space-2));
   padding-bottom: calc(var(--space-8) + var(--space-2));
 }
@@ -97,6 +97,12 @@
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  padding: var(--space-4) 0;
+}
+
+// Senza limite: il dato che tagliato mentirebbe (aggiunte e note di un articolo).
+.subtitleFull {
+  overflow-wrap: anywhere;
   padding: var(--space-4) 0;
 }
 
