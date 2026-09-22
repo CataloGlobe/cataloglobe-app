@@ -4,7 +4,7 @@ import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { Checklist, type ChecklistItem } from "@/components/ui/Checklist/Checklist";
-import { FormGrid } from "@/components/ui/FormGrid/FormGrid";
+import { FormGrid, FormSection } from "@/components/ui/FormGrid/FormGrid";
 import { FormField } from "@/components/ui/FormField/FormField";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Menu } from "@/components/ui/Menu";
@@ -241,7 +241,7 @@ export default function ActivityOrdiniPrenotazioniRoute() {
             title: "Ragione sociale dell'azienda presente",
             shortTitle: "Ragione sociale",
             description:
-                "Senza ragione sociale l'informativa privacy delle prenotazioni non si pubblica: chi la apre dal modulo trova un avviso che lo invita a contattarti. Si inserisce con i dati di fatturazione, in Impostazioni.",
+                "Senza, l'informativa privacy non si pubblica: chi la apre trova un avviso che invita a contattarti.",
             done: hasLegalName,
             actionLabel: "Vai a Impostazioni",
             to: `/business/${tenantId}/settings`
@@ -272,22 +272,38 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                             disabled={isOrderingLocked || !canManage}
                             description={
                                 activity.ordering_enabled
-                                    ? "Con gli ordini attivi ogni tavolo ha un QR. I clienti ordinano, le comande arrivano in Comande in tempo reale."
-                                    : "I clienti vedono il menù in sola lettura: il tasto Invia ordine è disabilitato. Riattiva quando vuoi."
+                                    ? "Ogni tavolo ha il suo QR."
+                                    : "Il menù resta leggibile, «Invia ordine» no."
                             }
                         />
                         {isOrderingLocked && lockedCaption}
-                        <Text variant="caption" colorVariant="muted">
-                            I tavoli e i loro QR si gestiscono nella{" "}
-                            <Link to="../sala" relative="path" className={styles.link}>
-                                sala
-                            </Link>
-                            . Le comande si lavorano in{" "}
-                            <Link to={`/business/${tenantId}/orders`} className={styles.link}>
-                                Comande
-                            </Link>
-                            .
-                        </Text>
+                        {/* A canale spento la card diceva solo «Sospesi»: qui sotto
+                            c'è cosa succede accendendolo, e dove vivono le cose. */}
+                        <ul className={styles.points}>
+                            <li>
+                                <Text as="span" variant="caption" colorVariant="muted">
+                                    I tavoli e i loro QR stanno nella{" "}
+                                    <Link to="../sala" relative="path" className={styles.link}>
+                                        sala
+                                    </Link>
+                                    .
+                                </Text>
+                            </li>
+                            <li>
+                                <Text as="span" variant="caption" colorVariant="muted">
+                                    Le comande arrivano in tempo reale in{" "}
+                                    <Link to={`/business/${tenantId}/orders`} className={styles.link}>
+                                        Comande
+                                    </Link>
+                                    .
+                                </Text>
+                            </li>
+                            <li>
+                                <Text as="span" variant="caption" colorVariant="muted">
+                                    Con una stampante collegata si stampano da sole.
+                                </Text>
+                            </li>
+                        </ul>
                     </div>
                 </Card>
                 {activity.ordering_enabled && <PrintersSection tenantId={tenantId} activityId={activity.id} />}
@@ -317,11 +333,18 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                             disabled={isReservationsLocked || !canManage}
                             description={
                                 activity.enable_reservations
-                                    ? "I clienti chiedono un tavolo dalla pagina pubblica della sede."
-                                    : "Il modulo di prenotazione non compare sulla pagina pubblica. Riattiva quando vuoi."
+                                    ? "Il modulo è sulla pagina pubblica della sede."
+                                    : "Il modulo non compare sulla pagina pubblica."
                             }
                         />
                         {isReservationsLocked && lockedCaption}
+                        <Text variant="caption" colorVariant="muted">
+                            Le richieste che arrivano si gestiscono in{" "}
+                            <Link to={`/business/${tenantId}/reservations`} className={styles.link}>
+                                Prenotazioni
+                            </Link>
+                            .
+                        </Text>
                     </div>
                 </Card>
 
@@ -340,16 +363,16 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                         )
                                     }
                                     disabled={!canManage}
-                                    description="Alle 18:00 del giorno prima, chi ha una prenotazione confermata riceve un'email che gliela ricorda, con un pulsante per confermare che verrà e il link per disdire."
+                                    description="Alle 18:00 del giorno prima: email con il tasto per confermare la presenza e il link per disdire."
                                 />
                                 <FormField
                                     label="Email per gli avvisi"
                                     helperText={
                                         reservationEmails.length === 0
                                             ? ownerEmail
-                                                ? `Chi riceve la notifica quando arriva una richiesta. Vuoto: gli avvisi vanno a ${ownerEmail} (proprietario dell'azienda).`
-                                                : "Chi riceve la notifica quando arriva una richiesta. Vuoto: gli avvisi vanno all'email del proprietario dell'azienda."
-                                            : "Chi riceve la notifica quando arriva una richiesta."
+                                                ? `Chi riceve l'avviso di una nuova richiesta. Vuoto: ${ownerEmail}.`
+                                                : "Chi riceve l'avviso di una nuova richiesta. Vuoto: il proprietario dell'azienda."
+                                            : "Chi riceve l'avviso di una nuova richiesta."
                                     }
                                 >
                                     {({ inputId }) => (
@@ -403,9 +426,9 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                     helperText={
                                         privacyEmail.trim() === ""
                                             ? ownerEmail
-                                                ? `Viene pubblicata nell'informativa privacy delle prenotazioni. Vuota: nell'informativa compare ${ownerEmail} (titolare dell'account).`
-                                                : "Viene pubblicata nell'informativa privacy delle prenotazioni. Vuota: nell'informativa compare l'email del titolare dell'account."
-                                            : "Viene pubblicata nell'informativa privacy delle prenotazioni: è l'indirizzo a cui i clienti scrivono per sapere quali dati hai su di loro o chiederne la cancellazione."
+                                                ? `Pubblicata nell'informativa privacy. Vuota: ${ownerEmail}.`
+                                                : "Pubblicata nell'informativa privacy. Vuota: l'email del titolare dell'account."
+                                            : "Pubblicata nell'informativa privacy: è l'indirizzo per chi chiede quali dati hai su di lui."
                                     }
                                 />
                             </FormGrid>
@@ -465,15 +488,14 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                 )}
                                 {d.reservation_confirmation_mode === "auto" && !autoDisabled && (
                                     <InlineBanner variant="warning">
-                                        Con la conferma automatica, per non sforare la capienza devi inserire in CataloGlobe
-                                        tutte le prenotazioni, comprese quelle telefoniche e i walk-in. Se ne mancano, il
-                                        calcolo è sbagliato e i clienti possono confermare oltre i posti disponibili.
+                                        Il calcolo vale solo se in CataloGlobe ci sono tutte le prenotazioni, telefoniche e
+                                        walk-in compresi: se ne mancano, i clienti possono confermare oltre i posti.
                                     </InlineBanner>
                                 )}
 
                                 <FormField
                                     label="Ampiezza della fascia"
-                                    helperText="È anche il passo degli orari proposti nel modulo pubblico: con 30 minuti il cliente vede 20:00, 20:30, 21:00. I limiti qui sotto valgono per ogni fascia di questa ampiezza."
+                                    helperText="È il passo degli orari proposti: con 30 minuti il cliente vede 20:00, 20:30, 21:00."
                                 >
                                     {() => (
                                         <SegmentedControl<number>
@@ -488,12 +510,10 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                     )}
                                 </FormField>
 
-                                <Text variant="body-sm" colorVariant="muted">
-                                    La capienza limita quante persone stanno nel locale. Questi limiti dicono quante ne
-                                    arrivano insieme: quattro tavoli tutti alle 20:00 mandano in coda la cucina anche a
-                                    sala mezza vuota. Vuoto vuol dire nessun limite, non zero. Con entrambi impostati vale
-                                    il più restrittivo; valgono solo per le prenotazioni online.
-                                </Text>
+                                <FormSection
+                                    title="Quanti ne arrivano insieme"
+                                    description="Non quante persone stanno in sala: quante ne accetti per fascia. Vuoto = nessun limite; con entrambi vale il più restrittivo. Solo online."
+                                >
                                 <FormGrid cols={2}>
                                     <NumberInput
                                         label="Persone per fascia"
@@ -512,11 +532,12 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                         disabled={!canManage}
                                     />
                                 </FormGrid>
+                                </FormSection>
 
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Quando si può prenotare online: quanto tempo prima, al minimo e al massimo. Vale solo
-                                    online — a mano puoi inserire una prenotazione per qualsiasi data e ora.
-                                </Text>
+                                <FormSection
+                                    title="Quanto tempo prima"
+                                    description="Vale solo online: a mano una prenotazione si inserisce per qualsiasi data e ora."
+                                >
                                 <FormGrid cols={2}>
                                     <NumberInput
                                         label="Preavviso minimo (minuti)"
@@ -525,7 +546,7 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                         value={numberText("reservation_min_notice_minutes")}
                                         onChange={e => setNumber("reservation_min_notice_minutes", e.target.value, false)}
                                         disabled={!canManage}
-                                        helperText="Gli orari più vicini di così non vengono proposti: con 120, alle 18:00 spariscono gli orari fino alle 20:00. Zero: nessun preavviso. Massimo 10080, una settimana."
+                                        helperText="Con 120, alle 18:00 spariscono gli orari fino alle 20:00. Zero: nessun preavviso."
                                     />
                                     <NumberInput
                                         label="Orizzonte (giorni)"
@@ -534,25 +555,18 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                         value={numberText("reservation_horizon_days")}
                                         onChange={e => setNumber("reservation_horizon_days", e.target.value, false)}
                                         disabled={!canManage}
-                                        helperText="Fino a quanti giorni in avanti si può prenotare, oggi compreso: con 90 l'ultimo giorno prenotabile è fra 89 giorni. Da 1 a 365."
+                                        helperText="Quanti giorni in avanti, oggi compreso: con 90 l'ultimo è fra 89 giorni."
                                     />
                                 </FormGrid>
+                                </FormSection>
                                 {showNoticeHorizonWarning && (
                                     <InlineBanner variant="warning">
-                                        Con questo preavviso nessun orario rientra nell'orizzonte: online non sarà
-                                        prenotabile nulla. Puoi salvare comunque, ma probabilmente non è quello che vuoi.
+                                        Con questo preavviso nessun orario rientra nell'orizzonte: online non si prenota
+                                        nulla. Si può salvare lo stesso.
                                     </InlineBanner>
                                 )}
                             </FormGrid>
                         </Card>
-
-                        <Text variant="caption" colorVariant="muted">
-                            Qui si configura. Le prenotazioni che arrivano si lavorano in{" "}
-                            <Link to={`/business/${tenantId}/reservations`} className={styles.link}>
-                                Prenotazioni
-                            </Link>
-                            .
-                        </Text>
                     </>
                 )}
             </section>
