@@ -1,0 +1,6 @@
+// Chip a scelta multipla (metodi di pagamento, servizi): solo il flusso.
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-8);
+}

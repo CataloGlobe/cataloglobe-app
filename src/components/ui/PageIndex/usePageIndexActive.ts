@@ -17,6 +17,10 @@ export function usePageIndexActive(ids: string[]): string | null {
             for (const el of elements) {
                 if (el.getBoundingClientRect().top <= threshold) current = el.id;
             }
+            // In fondo alla pagina l'ultima sezione non arriva mai al terzo
+            // alto: se è tutta in vista, è lei la corrente.
+            const last = elements[elements.length - 1];
+            if (last.getBoundingClientRect().bottom <= window.innerHeight + 8) current = last.id;
             setActiveId(current);
         };
         const observer = new IntersectionObserver(pick, { threshold: [0, 0.25, 0.5, 0.75, 1] });

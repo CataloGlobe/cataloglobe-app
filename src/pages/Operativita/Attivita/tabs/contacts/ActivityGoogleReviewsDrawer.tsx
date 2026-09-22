@@ -60,7 +60,7 @@ export const ActivityGoogleReviewsDrawer: React.FC<ActivityGoogleReviewsDrawerPr
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={520}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
             <DrawerLayout
                 header={
                     <div>

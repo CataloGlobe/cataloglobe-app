@@ -58,6 +58,7 @@
 
   &:hover {
     background: var(--hover-bg);
+    text-decoration: none;
   }
 
   &:focus-visible {
@@ -73,14 +74,14 @@
 }
 
 .label {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
   color: inherit;
 }
 
 .summary {
   flex: 0 1 auto;
-  max-width: 45%;
+  max-width: 50%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

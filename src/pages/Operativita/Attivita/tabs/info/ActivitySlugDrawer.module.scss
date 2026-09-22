@@ -1,0 +1,11 @@
+.body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-24);
+}
+
+.aliases {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-surface);
+    overflow: hidden;
+}
