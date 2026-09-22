@@ -87,6 +87,8 @@ test.describe("Comande", () => {
         await expect(drawer.getByText(TAVOLO).first()).toBeVisible();
         // Il contenuto che la ricomposizione (P3) deve conservare.
         await expect(drawer.getByText("Articoli", { exact: true })).toBeVisible();
+        // Stesso nome dello stato in ogni superficie: la colonna è «Nuove», la comanda «Nuova».
+        await expect(drawer.getByText("Nuova", { exact: true })).toBeVisible();
         for (const articolo of ARTICOLI) {
             // Non `exact`: oggi quantità e nome stanno nello stesso testo («1x
             // Hamburger»). `first()`: lo scontrino nascosto viene dopo nel DOM.
@@ -186,6 +188,8 @@ test.describe("Comande", () => {
         // La comanda in Nuove è un ordine in corso, confermabile da qui.
         await expect(drawer.getByText(/^Ordini in corso/)).toBeVisible({ timeout: 15_000 });
         await expect(drawer.getByRole("button", { name: "Conferma" })).toBeVisible();
+        await expect(drawer.getByText("Nuova", { exact: true })).toBeVisible();
+        await expect(drawer.getByText(/Da prendere|Da confermare|In preparazione/)).toHaveCount(0);
         await expect(drawer.getByText("Totale in corso", { exact: true })).toBeVisible();
         await expect(drawer.getByText("Fuori servizio", { exact: true })).toBeVisible();
         await expect(drawer.getByRole("switch").or(drawer.getByRole("checkbox")).first()).toBeDisabled();

@@ -9,9 +9,9 @@ import { Card } from "@/components/ui/Card/Card";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import type { StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
 import type { V2OrderWithItems } from "@/types/orders";
 import PrintReceipt from "./PrintReceipt";
+import { orderStatusBadge } from "./orderStatusBadge";
 import styles from "./OrderDetailDrawer.module.scss";
 
 /**
@@ -99,24 +99,6 @@ function itemDetail(item: OrderItem): string | null {
     return parts.length > 0 ? parts.join(" · ") : null;
 }
 
-function statusInfo(status: V2OrderWithItems["status"]): {
-    variant: StatusBadgeVariant;
-    label: string;
-} {
-    switch (status) {
-        case "submitted":
-            return { variant: "warning", label: "Da prendere" };
-        case "acknowledged":
-            return { variant: "success", label: "In corso" };
-        case "ready":
-            return { variant: "success", label: "Pronto" };
-        case "delivered":
-            return { variant: "neutral", label: "Consegnato" };
-        case "cancelled":
-            return { variant: "neutral", label: "Cancellato" };
-    }
-}
-
 export default function OrderDetailDrawer({
     open,
     order,
@@ -161,7 +143,7 @@ export default function OrderDetailDrawer({
         );
     }
 
-    const { variant: stVariant, label: stLabel } = statusInfo(order.status);
+    const { variant: stVariant, label: stLabel } = orderStatusBadge(order.status);
     const canPrint = order.status !== "cancelled";
 
     // Padre rettificato (NON l'ordine-che-È-storno, gestito dal banner più sotto).

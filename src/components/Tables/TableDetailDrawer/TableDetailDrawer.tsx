@@ -39,6 +39,7 @@ import {
     listRectifiableResiduals,
     rectifyOrder
 } from "@/services/supabase/orders";
+import { orderStatusBadge } from "@/pages/Dashboard/Orders/orderStatusBadge";
 import OrderRectifyForm, {
     type RectifyFormState
 } from "@/pages/Dashboard/Orders/OrderRectifyForm";
@@ -178,24 +179,6 @@ function formatElapsedMinutes(fromIso: string): string {
     const h = Math.floor(totalMin / 60);
     const m = totalMin % 60;
     return m === 0 ? `${h} h` : `${h} h ${m} min`;
-}
-
-function orderStatusInfo(status: OrderStatus): {
-    variant: StatusBadgeVariant;
-    label: string;
-} {
-    switch (status) {
-        case "submitted":
-            return { variant: "warning", label: "Da confermare" };
-        case "acknowledged":
-            return { variant: "warning", label: "In preparazione" };
-        case "ready":
-            return { variant: "success", label: "Pronto" };
-        case "delivered":
-            return { variant: "neutral", label: "Servito" };
-        case "cancelled":
-            return { variant: "neutral", label: "Annullato" };
-    }
 }
 
 function tableStatusInfo(status: TableStatus): {
@@ -739,7 +722,7 @@ export function TableDetailDrawer({
                                 ) : (
                                     <>
                                         {activeOrders.map(o => {
-                                            const { variant, label } = orderStatusInfo(o.status);
+                                            const { variant, label } = orderStatusBadge(o.status);
                                             const isPending = o.status === "submitted";
                                             return (
                                                 <ListRow
@@ -795,7 +778,7 @@ export function TableDetailDrawer({
                                         o.status === "delivered" && o.delivered_at
                                             ? formatAbsolute(o.delivered_at)
                                             : formatAbsolute(o.submitted_at);
-                                    const { variant, label } = orderStatusInfo(o.status);
+                                    const { variant, label } = orderStatusBadge(o.status);
                                     // Storna solo su delivered; disabilitato a netto≤0.
                                     const canStorna = canManageTable && o.status === "delivered";
                                     const stornaDisabled = unit.netto <= 0;
