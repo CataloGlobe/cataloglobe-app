@@ -218,6 +218,45 @@ test.describe("Comande", () => {
         await expect(drawer).toHaveCount(0);
     });
 
+    test("i tavoli sono una griglia per zona: 3, 2, 1 colonne", async ({ page }) => {
+        await openComande(page);
+        await selectMainTab(page, "Tavoli");
+        const main = page.getByRole("main");
+
+        // «Senza zona» ha due tavoli: si legge dalla posizione delle tessere.
+        const zona = main.getByRole("list", { name: "Senza zona" });
+        await expect(zona.getByRole("listitem")).toHaveCount(2, { timeout: 15_000 });
+        const tops = () =>
+            zona.getByRole("listitem").evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().top)));
+        const lefts = () =>
+            zona.getByRole("listitem").evaluateAll(els => els.map(e => Math.round(e.getBoundingClientRect().left)));
+
+        expect(new Set(await tops()).size).toBe(1); // 1280: in riga
+        await page.setViewportSize({ width: 768, height: 900 });
+        await expect.poll(async () => new Set(await tops()).size).toBe(1); // 768: due per riga
+        await page.setViewportSize({ width: 375, height: 900 });
+        await expect.poll(async () => new Set(await lefts()).size).toBe(1); // 375: una colonna
+    });
+
+    test("il filtro «Aperti» e «Liberi» della vista tavoli", async ({ page }) => {
+        await openComande(page);
+        await selectMainTab(page, "Tavoli");
+        const main = page.getByRole("main");
+        const filtri = main.getByRole("radiogroup");
+
+        await filtri.getByRole("radio", { name: "Aperti", exact: true }).click();
+        const tavolo = main.getByRole("button", { name: new RegExp(`^${TAVOLO}, Aperto`) });
+        await expect(tavolo).toBeVisible();
+        await expect(main.getByRole("listitem").filter({ hasText: TAVOLO })).toContainText("5,80 €");
+
+        await filtri.getByRole("radio", { name: "Liberi", exact: true }).click();
+        await expect(tavolo).toBeHidden();
+        await expect(main.getByText("Nessun tavolo per questo filtro")).toBeVisible();
+
+        await filtri.getByRole("radio", { name: "Tutti", exact: true }).click();
+        await expect(tavolo).toBeVisible();
+    });
+
     test("lo Storico ha i segmenti, il giorno e la tabella", async ({ page }) => {
         await openComande(page);
         await selectMainTab(page, "Storico");
