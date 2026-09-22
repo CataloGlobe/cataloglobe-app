@@ -4,7 +4,9 @@ import styles from "./Badge.module.scss";
 import clsx from "clsx";
 
 /**
- * `neutral` e `brand` sono le varianti del sistema (scheda «Badge»).
+ * `neutral`, `brand` e `outline` sono le varianti del sistema (scheda «Badge»).
+ * `outline` è il contatore che resta leggibile su un fondo `hover-bg` (le
+ * corsie della board), dove `neutral` ha lo stesso fondo e sparisce.
  * `primary | secondary | success | danger | warning` restano per i consumer
  * esistenti e rendono come prima: deprecate, si tolgono nel lotto 6. Un colore
  * che porta un significato è uno stato → `StatusBadge`.
@@ -12,6 +14,7 @@ import clsx from "clsx";
 export type BadgeVariant =
     | "neutral"
     | "brand"
+    | "outline"
     | "primary"
     | "secondary"
     | "success"
@@ -35,6 +38,12 @@ export interface BadgeProps extends PropsWithChildren {
     left?: number | string;
 
     className?: string;
+    /**
+     * Default `status`. Dentro un controllo che si legge per nome (un tab, un
+     * bottone) passare `presentation`: `status` toglie il numero dal nome
+     * accessibile e ne fa una regione live.
+     */
+    role?: "status" | "presentation";
 }
 
 const DEPRECATED_VARIANTS: ReadonlySet<string> = new Set([
@@ -62,7 +71,8 @@ export const Badge = ({
     right,
     bottom,
     left,
-    className
+    className,
+    role = "status"
 }: BadgeProps) => {
     // Senza variante: `neutral`. Con `color` e senza variante il testo resta
     // bianco come prima (il fondo custom era sempre pieno e scuro).
@@ -96,7 +106,7 @@ export const Badge = ({
             weight={500}
             className={clsx(styles.badge, styles[resolved], absolute && styles.absolute, className)}
             style={style}
-            role="status"
+            role={role}
             data-pill=""
         >
             {children}
