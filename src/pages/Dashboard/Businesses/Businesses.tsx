@@ -4,10 +4,6 @@ import { useTenant } from "@/context/useTenant";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   getActivities,
-  deleteActivityAtomic,
-  countActivityDeleteImpact,
-  DeleteActivityError,
-  type ActivityDeleteImpact,
   type SeatLimitInfo,
 } from "@/services/supabase/activities";
 import { getActiveCatalogForActivities } from "@/services/supabase/activeCatalog";
@@ -23,7 +19,6 @@ import type {
   BusinessWithCapabilities,
 } from "@/types/Businesses";
 
-import Text from "@components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderAction, PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -36,7 +31,6 @@ import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
-import { ActivityVisibilityDrawer } from "@/pages/Operativita/Attivita/components/ActivityVisibilityDrawer/ActivityVisibilityDrawer";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ActivityGroupsSection } from "@/components/Businesses/ActivityGroupsSection/ActivityGroupsSection";
 
@@ -52,8 +46,7 @@ import {
 import { Button } from "@/components/ui";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { ActivityDeleteImpactBanners } from "@/components/Businesses/ActivityDeleteImpactBanners/ActivityDeleteImpactBanners";
+import { DeleteActivityDialog } from "@/components/Businesses/DeleteActivityDialog/DeleteActivityDialog";
 
 function formatDateIt(iso: string | null | undefined): string {
   if (!iso) return "—";
@@ -85,10 +78,7 @@ export default function Businesses() {
     ? canDoOnTenant(permissions, "activity_groups.write")
     : false;
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
-  const [deleteImpact, setDeleteImpact] = useState<ActivityDeleteImpact | null>(null);
-  const [isLoadingDeleteImpact, setIsLoadingDeleteImpact] = useState(false);
 
   // Piano + prezzi del tenant: servono solo per calcolare il blocco "offerta"
   // nel drawer di creazione quando il piano è al limite di sedi (vedi
@@ -125,15 +115,6 @@ export default function Businesses() {
   const [catalogsStatus, setCatalogsStatus] =
     useState<CatalogFetchStatus>("loading");
 
-  const [isDeleting, setIsDeleting] = useState(false);
-
-  // ======================================
-  // STATE: Drawer disponibilità prodotti
-  // ======================================
-  const [visibilityDrawerTarget, setVisibilityDrawerTarget] = useState<{
-    activityId: string;
-    activityName: string;
-  } | null>(null);
 
   // ======================================
   // STATE: Filtri e Vista
@@ -475,55 +456,21 @@ export default function Businesses() {
   // ======================================
   // CALLBACK: delete business
   // ======================================
-  const handleDelete = useCallback(
-    (id: string) => {
-      setDeleteTargetId(id);
-      setShowDeleteModal(true);
-      setDeleteImpact(null);
-      if (tenantId) {
-        setIsLoadingDeleteImpact(true);
-        countActivityDeleteImpact(tenantId, id)
-          .then(setDeleteImpact)
-          .catch((error) => {
-            console.error("Errore nel calcolo dell'impatto eliminazione:", error);
-            setDeleteImpact(null);
-          })
-          .finally(() => setIsLoadingDeleteImpact(false));
-      }
-    },
-    [tenantId],
-  );
-
-  const closeDeleteModal = useCallback(() => {
-    setShowDeleteModal(false);
-    setDeleteTargetId(null);
-    setDeleteImpact(null);
-    setIsLoadingDeleteImpact(false);
+  const handleDelete = useCallback((id: string) => {
+    setDeleteTargetId(id);
   }, []);
 
-  const confirmDelete = useCallback(async () => {
-    if (!deleteTargetId) return;
-    setIsDeleting(true);
+  const closeDeleteModal = useCallback(() => {
+    setDeleteTargetId(null);
+  }, []);
 
-    try {
-      const result = await deleteActivityAtomic(deleteTargetId);
-
+  // Il dialogo (condiviso con la scheda) elimina e avvisa; qui restano il
+  // ricarico dell'elenco e il promemoria sulle sedi pagate, che solo il
+  // proprietario può cambiare (coerente col gate di creazione).
+  const handleDeleted = useCallback(
+    async () => {
+      closeDeleteModal();
       await refreshBusinesses();
-
-      const disabled = result.affected_schedules_disabled ?? 0;
-      const message =
-        disabled === 1
-          ? "Sede eliminata. 1 regola di programmazione è stata spostata in bozze perché senza target."
-          : disabled > 1
-            ? `Sede eliminata. ${disabled} regole di programmazione sono state spostate in bozze perché senza target.`
-            : "Sede eliminata con successo.";
-      const duration = disabled > 0 ? 4000 : 2500;
-
-      showToast({ message, type: "success", duration });
-
-      // Promemoria: se il piano copre più sedi di quante ne restano,
-      // suggerisci all'owner di ridurre le sedi per pagare meno.
-      // Solo l'owner può modificare l'abbonamento (coerente col create-gate).
       const remainingSeats = businesses.length - 1;
       if (
         selectedTenant &&
@@ -531,50 +478,31 @@ export default function Businesses() {
         selectedTenant.paid_seats > remainingSeats
       ) {
         showToast({
-          message: `Sede eliminata. Il piano copre ${selectedTenant.paid_seats} sedi, ora ne hai ${remainingSeats}.`,
+          message: `Il piano copre ${selectedTenant.paid_seats} sedi, ora ne hai ${remainingSeats}.`,
           type: "info",
           duration: 6000,
           actionLabel: "Modifica piano",
           onAction: () => navigate(`/business/${businessId}/subscription`),
         });
       }
-    } catch (e) {
-      console.error("Errore durante l'eliminazione della sede:", e);
-      let message = "Errore durante l'eliminazione della sede.";
-      if (e instanceof DeleteActivityError) {
-        if (e.code === "FK_VIOLATION") {
-          // Safety net: dopo la migration analytics_events CASCADE,
-          // questo branch resta per future FK NO ACTION non gestite.
-          message =
-            "Impossibile eliminare la sede: ci sono dati collegati che impediscono l'eliminazione. Contatta il supporto.";
-        } else if (e.code === "INSUFFICIENT_PERMISSION") {
-          message = "Non hai i permessi per eliminare questa sede.";
-        } else if (e.code === "AUTH_EXPIRED") {
-          message = "Sessione scaduta. Effettua di nuovo il login.";
-        }
-      }
-      showToast({ message, type: "error", duration: 3500 });
-    } finally {
-      setIsDeleting(false);
-      closeDeleteModal();
-    }
-  }, [
-    deleteTargetId,
-    refreshBusinesses,
-    showToast,
-    selectedTenant,
-    userRole,
-    businesses,
-    navigate,
-    businessId,
-    closeDeleteModal,
-  ]);
+    },
+    [
+      closeDeleteModal,
+      refreshBusinesses,
+      businesses.length,
+      selectedTenant,
+      userRole,
+      showToast,
+      navigate,
+      businessId,
+    ],
+  );
 
   // «Modifica» dall'elenco apre la scheda della sede: identità e copertina
   // vivono là (registro Sedi, chiusura 4), niente secondo form qui.
   const handleEditClick = useCallback(
     (business: BusinessWithCapabilities) => {
-      navigate(`/business/${businessId}/locations/${business.id}?tab=profile`);
+      navigate(`/business/${businessId}/locations/${business.id}/anagrafica`);
     },
     [navigate, businessId],
   );
@@ -584,10 +512,10 @@ export default function Businesses() {
   // ======================================
   const showInitialSkeleton = isLoadingBusinesses && businesses.length === 0;
 
-  const deleteTargetName = useMemo(
-    () => businesses.find((b) => b.id === deleteTargetId)?.name ?? "",
-    [businesses, deleteTargetId],
-  );
+  const deleteTarget = useMemo(() => {
+    const found = businesses.find((b) => b.id === deleteTargetId);
+    return found ? { id: found.id, name: found.name ?? "" } : null;
+  }, [businesses, deleteTargetId]);
 
   // Filtro lista sedi sulla query della banda (name/slug/city/address).
   const filteredBusinesses = useMemo(() => {
@@ -654,21 +582,14 @@ export default function Businesses() {
                 onDelete={canDelete ? handleDelete : undefined}
                 activeCatalogsMap={activeCatalogsMap}
                 catalogsStatus={catalogsStatus}
-                onManageAvailability={(id, name) =>
-                  setVisibilityDrawerTarget({
-                    activityId: id,
-                    activityName: name,
-                  })
+                // «Gestisci» apre la pagina della sede (§19.5): il drawer da
+                // 900 non esiste più.
+                onManageAvailability={id =>
+                  navigate(`/business/${businessId}/locations/${id}/disponibilita`)
                 }
                 onCreateClick={canCreate ? handleAddActivity : undefined}
               />
 
-              <ActivityVisibilityDrawer
-                open={visibilityDrawerTarget !== null}
-                onClose={() => setVisibilityDrawerTarget(null)}
-                activityId={visibilityDrawerTarget?.activityId ?? ""}
-                activityName={visibilityDrawerTarget?.activityName ?? ""}
-              />
             </>
           ) : (
             <ActivityGroupsSection
@@ -678,34 +599,14 @@ export default function Businesses() {
             />
           )}
 
-          <ConfirmDialog
-            isOpen={showDeleteModal}
+          <DeleteActivityDialog
+            isOpen={deleteTarget !== null}
+            activity={deleteTarget}
+            businessId={businessId ?? ""}
+            tenantId={tenantId ?? ""}
             onClose={closeDeleteModal}
-            onConfirm={confirmDelete}
-            title={`Elimina «${deleteTargetName}»`}
-            message="Non si può annullare. Insieme alla sede vengono eliminati i suoi tavoli, i QR dei tavoli, le prenotazioni, le stampanti collegate e lo storico degli ordini."
-            confirmLabel={isDeleting ? "Eliminazione in corso..." : "Elimina"}
-            confirmVariant="danger"
-            isLoading={isDeleting}
-          >
-            <Text variant="body-sm" colorVariant="muted">
-              Il piano non cambia: le sedi pagate restano quelle di adesso.
-            </Text>
-
-            {isLoadingDeleteImpact && (
-              <Text variant="body-sm" colorVariant="muted">
-                Controllo quali regole di Programmazione la usano…
-              </Text>
-            )}
-
-            {!isLoadingDeleteImpact && deleteImpact && (
-              <ActivityDeleteImpactBanners
-                impact={deleteImpact}
-                businessId={businessId ?? ""}
-                onNavigate={closeDeleteModal}
-              />
-            )}
-          </ConfirmDialog>
+            onDeleted={handleDeleted}
+          />
         </section>
       )}
     </PageGate>

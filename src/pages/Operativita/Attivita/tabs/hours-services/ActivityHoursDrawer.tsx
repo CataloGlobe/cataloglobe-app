@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
-import Text from "@/components/ui/Text/Text";
 import { ActivityHoursForm } from "./ActivityHoursForm";
 import type { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
@@ -34,18 +33,10 @@ export function ActivityHoursDrawer({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={680}>
+        <SystemDrawer open={open} onClose={onClose} size="lg">
             <DrawerLayout
-                header={
-                    <div>
-                        <Text variant="title-sm" weight={600}>
-                            Orari di apertura
-                        </Text>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Imposta gli orari settimanali della sede.
-                        </Text>
-                    </div>
-                }
+                title="Orari di apertura"
+                onClose={onClose}
                 footer={
                     <>
                         <Button variant="secondary" onClick={onClose} disabled={isSaving}>

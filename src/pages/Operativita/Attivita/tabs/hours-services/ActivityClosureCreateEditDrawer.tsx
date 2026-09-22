@@ -35,16 +35,16 @@ export function ActivityClosureCreateEditDrawer({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={520}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
             <DrawerLayout
                 header={
                     <div>
                         <Text variant="title-sm" weight={600}>
-                            {mode === "create" ? "Nuova chiusura straordinaria" : "Modifica chiusura"}
+                            {mode === "create" ? "Nuova chiusura" : "Modifica chiusura"}
                         </Text>
                         <Text variant="body-sm" colorVariant="muted">
                             {mode === "create"
-                                ? "Aggiungi una data di chiusura o con orari speciali."
+                                ? "Un giorno, un periodo, oppure orari speciali per un giorno."
                                 : "Modifica i dettagli di questa chiusura."}
                         </Text>
                     </div>

@@ -97,6 +97,7 @@ export const Badge = ({
             className={clsx(styles.badge, styles[resolved], absolute && styles.absolute, className)}
             style={style}
             role="status"
+            data-pill=""
         >
             {children}
         </Text>

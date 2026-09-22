@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { useHref, useLinkClickHandler } from "react-router-dom";
 import { Check, ChevronDown, Circle, CircleCheck } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Card } from "@/components/ui/Card/Card";
@@ -34,6 +35,10 @@ export interface ChecklistItem {
     /** Azione primaria sm sulle righe aperte; default «Fai ora». */
     actionLabel?: string;
     onAction?: () => void;
+    /** Rotta dove si risolve la mancanza: l'azione diventa un link vero
+     *  (apribile in una scheda nuova) e naviga col router, senza ricaricare
+     *  l'applicazione. Ha la precedenza su `onAction`. */
+    to?: string;
 }
 
 export interface ChecklistProps {
@@ -80,7 +85,9 @@ export function Checklist({ title = "Le basi", items, doneTitle = "Le basi ci so
             wrapSubtitle
             muted={item.done}
             trailing={
-                !item.done && item.onAction ? (
+                item.done ? undefined : item.to ? (
+                    <ChecklistLinkAction to={item.to} label={item.actionLabel ?? "Fai ora"} />
+                ) : item.onAction ? (
                     <Button variant="primary" size="sm" onClick={item.onAction}>
                         {item.actionLabel ?? "Fai ora"}
                     </Button>
@@ -126,6 +133,22 @@ export function Checklist({ title = "Le basi", items, doneTitle = "Le basi ci so
             <ChecklistHeader title={title} done={doneCount} total={total} />
             {rows}
         </Card>
+    );
+}
+
+/**
+ * L'azione con `to` è un'ancora vera con l'href risolto dal router: il tasto
+ * centrale e «apri in una scheda nuova» funzionano, il click normale naviga
+ * senza ricaricare (niente `window.location.assign`).
+ */
+function ChecklistLinkAction({ to, label }: { to: string; label: string }) {
+    const href = useHref(to);
+    const handleClick = useLinkClickHandler<HTMLAnchorElement>(to);
+
+    return (
+        <Button as="a" variant="primary" size="sm" href={href} onClick={handleClick}>
+            {label}
+        </Button>
     );
 }
 
