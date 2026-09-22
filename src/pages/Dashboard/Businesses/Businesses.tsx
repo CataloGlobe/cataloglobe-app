@@ -511,7 +511,7 @@ export default function Businesses() {
   // vivono là (registro Sedi, chiusura 4), niente secondo form qui.
   const handleEditClick = useCallback(
     (business: BusinessWithCapabilities) => {
-      navigate(`/business/${businessId}/locations/${business.id}?tab=profile`);
+      navigate(`/business/${businessId}/locations/${business.id}/anagrafica`);
     },
     [navigate, businessId],
   );
