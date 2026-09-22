@@ -18,6 +18,17 @@
   gap: var(--space-12);
 }
 
+// I tre punti sotto l'interruttore: una riga ciascuno, allineati al testo
+// della descrizione. Niente pallini — sono rimandi, non un elenco puntato.
+.points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
 .locked {
   display: inline-flex;
   align-items: center;

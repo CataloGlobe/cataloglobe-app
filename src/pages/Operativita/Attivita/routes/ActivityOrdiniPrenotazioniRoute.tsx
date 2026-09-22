@@ -4,7 +4,7 @@ import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { Checklist, type ChecklistItem } from "@/components/ui/Checklist/Checklist";
-import { FormGrid } from "@/components/ui/FormGrid/FormGrid";
+import { FormGrid, FormSection } from "@/components/ui/FormGrid/FormGrid";
 import { FormField } from "@/components/ui/FormField/FormField";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Menu } from "@/components/ui/Menu";
@@ -272,22 +272,38 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                             disabled={isOrderingLocked || !canManage}
                             description={
                                 activity.ordering_enabled
-                                    ? "Con gli ordini attivi ogni tavolo ha un QR. I clienti ordinano, le comande arrivano in Comande in tempo reale."
-                                    : "I clienti vedono il menù in sola lettura: il tasto Invia ordine è disabilitato. Riattiva quando vuoi."
+                                    ? "Ogni tavolo ha il suo QR."
+                                    : "Il menù resta leggibile, «Invia ordine» no."
                             }
                         />
                         {isOrderingLocked && lockedCaption}
-                        <Text variant="caption" colorVariant="muted">
-                            I tavoli e i loro QR si gestiscono nella{" "}
-                            <Link to="../sala" relative="path" className={styles.link}>
-                                sala
-                            </Link>
-                            . Le comande si lavorano in{" "}
-                            <Link to={`/business/${tenantId}/orders`} className={styles.link}>
-                                Comande
-                            </Link>
-                            .
-                        </Text>
+                        {/* A canale spento la card diceva solo «Sospesi»: qui sotto
+                            c'è cosa succede accendendolo, e dove vivono le cose. */}
+                        <ul className={styles.points}>
+                            <li>
+                                <Text as="span" variant="caption" colorVariant="muted">
+                                    I tavoli e i loro QR stanno nella{" "}
+                                    <Link to="../sala" relative="path" className={styles.link}>
+                                        sala
+                                    </Link>
+                                    .
+                                </Text>
+                            </li>
+                            <li>
+                                <Text as="span" variant="caption" colorVariant="muted">
+                                    Le comande arrivano in tempo reale in{" "}
+                                    <Link to={`/business/${tenantId}/orders`} className={styles.link}>
+                                        Comande
+                                    </Link>
+                                    .
+                                </Text>
+                            </li>
+                            <li>
+                                <Text as="span" variant="caption" colorVariant="muted">
+                                    Con una stampante collegata si stampano da sole.
+                                </Text>
+                            </li>
+                        </ul>
                     </div>
                 </Card>
                 {activity.ordering_enabled && <PrintersSection tenantId={tenantId} activityId={activity.id} />}
@@ -317,11 +333,18 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                             disabled={isReservationsLocked || !canManage}
                             description={
                                 activity.enable_reservations
-                                    ? "I clienti chiedono un tavolo dalla pagina pubblica della sede."
-                                    : "Il modulo di prenotazione non compare sulla pagina pubblica. Riattiva quando vuoi."
+                                    ? "Il modulo è sulla pagina pubblica della sede."
+                                    : "Il modulo non compare sulla pagina pubblica."
                             }
                         />
                         {isReservationsLocked && lockedCaption}
+                        <Text variant="caption" colorVariant="muted">
+                            Le richieste che arrivano si gestiscono in{" "}
+                            <Link to={`/business/${tenantId}/reservations`} className={styles.link}>
+                                Prenotazioni
+                            </Link>
+                            .
+                        </Text>
                     </div>
                 </Card>
 
@@ -487,10 +510,10 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                     )}
                                 </FormField>
 
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Non quante persone stanno in sala: quante ne accetti per fascia. Vuoto = nessun
-                                    limite; con entrambi vale il più restrittivo. Solo online.
-                                </Text>
+                                <FormSection
+                                    title="Quanti ne arrivano insieme"
+                                    description="Non quante persone stanno in sala: quante ne accetti per fascia. Vuoto = nessun limite; con entrambi vale il più restrittivo. Solo online."
+                                >
                                 <FormGrid cols={2}>
                                     <NumberInput
                                         label="Persone per fascia"
@@ -509,11 +532,12 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                         disabled={!canManage}
                                     />
                                 </FormGrid>
+                                </FormSection>
 
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Quanto tempo prima si può prenotare online. A mano, una prenotazione si inserisce
-                                    per qualsiasi data e ora.
-                                </Text>
+                                <FormSection
+                                    title="Quanto tempo prima"
+                                    description="Vale solo online: a mano una prenotazione si inserisce per qualsiasi data e ora."
+                                >
                                 <FormGrid cols={2}>
                                     <NumberInput
                                         label="Preavviso minimo (minuti)"
@@ -534,6 +558,7 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                         helperText="Quanti giorni in avanti, oggi compreso: con 90 l'ultimo è fra 89 giorni."
                                     />
                                 </FormGrid>
+                                </FormSection>
                                 {showNoticeHorizonWarning && (
                                     <InlineBanner variant="warning">
                                         Con questo preavviso nessun orario rientra nell'orizzonte: online non si prenota
@@ -542,14 +567,6 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                                 )}
                             </FormGrid>
                         </Card>
-
-                        <Text variant="caption" colorVariant="muted">
-                            Qui si configura. Le prenotazioni che arrivano si lavorano in{" "}
-                            <Link to={`/business/${tenantId}/reservations`} className={styles.link}>
-                                Prenotazioni
-                            </Link>
-                            .
-                        </Text>
                     </>
                 )}
             </section>
