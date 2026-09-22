@@ -1,13 +1,15 @@
 // BusinessCreateCard.tsx
 import React from "react";
-import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
-import type { BusinessFormValues } from "@/types/Businesses";
-import styles from "./BusinessCreateCard.module.scss";
-import { FileInput } from "@/components/ui/Input/FileInput";
 import { InfoTooltip } from "@/components/ui/Tooltip/InfoTooltip";
 import { AddressAutocomplete } from "@/components/ui/AddressAutocomplete/AddressAutocomplete";
+import { FormGrid, FORM_GRID_CLASSES } from "@/components/ui/FormGrid";
+import { ImageUploadField } from "@/components/ui/ImageUploadField/ImageUploadField";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { Chip } from "@/components/ui/Chip/Chip";
+import type { BusinessFormValues, SlugInlineState } from "@/types/Businesses";
 import { buildPublicUrl } from "@/utils/publicUrl";
+import styles from "./BusinessCreateCard.module.scss";
 
 interface BusinessCreateCardProps {
     values: BusinessFormValues;
@@ -25,11 +27,11 @@ interface BusinessCreateCardProps {
     mode?: "create" | "edit";
 }
 
-type SlugInlineState =
-    | { type: "idle" }
-    | { type: "warning" }
-    | { type: "conflict"; suggestions: string[] };
-
+/**
+ * Il form della sede: una `FormGrid` a due colonne (una sotto 768), usata
+ * dal drawer «Nuova sede» e dal passo 1 del setup guidato. La griglia è
+ * dichiarata qui, non imposta dall'esterno per posizione dei figli.
+ */
 export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
     values,
     errors,
@@ -43,29 +45,17 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
     mode = "create"
 }) => {
     const isCreate = mode === "create";
-    // Il dominio pubblico può differire da quello del backoffice: comporre
-    // l'anteprima da `window.location.origin` mostrava un indirizzo che il
-    // cliente non userà mai (in dev, localhost). Lo slug vuoto resta un
-    // placeholder, così l'anteprima è leggibile prima che l'utente scriva.
+    // Il dominio pubblico può differire da quello del backoffice: l'anteprima
+    // viene da `buildPublicUrl`, mai da `window.location.origin`.
     const finalUrl = buildPublicUrl(values.slug || "<slug>");
 
     return (
-        <section className={styles.createCard} aria-label="Aggiungi nuova sede">
-            <form id={formId} onSubmit={onSubmit} className={styles.formContainer}>
-                {/* ⚠️ L'ORDINE DI QUESTI CAMPI È PORTANTE (mode="create").
-                    Il setup guidato dispone questo stesso form su due colonne
-                    dall'esterno, con `order` e `grid-column` applicati ai figli
-                    diretti per posizione (`:nth-child`) — vedi
-                    `src/pages/Setup/steps/SetupActivityStep.module.scss`.
-                    Riordinare o inserire un campo qui non rompe questa pagina,
-                    ma scompagina il passo 1 del setup in silenzio: aggiornare
-                    anche quel file nello stesso commit. */}
-                {/* Nome */}
+        <form id={formId} onSubmit={onSubmit} aria-label="Aggiungi nuova sede">
+            <FormGrid cols={2} autoFocus>
                 <TextInput
-                    label="Nome sede"
-                    tooltip={
-                        <InfoTooltip content="Questo nome sarà visibile ai clienti nel catalogo pubblico" />
-                    }
+                    containerClassName={FORM_GRID_CLASSES.span}
+                    label="Nome della sede"
+                    tooltip={<InfoTooltip content="Lo vedono i clienti nella pagina pubblica." />}
                     placeholder={namePlaceholder ?? "Es. McDonald's - Via Certosa"}
                     value={values.name}
                     onChange={e => onFieldChange("name", e.target.value)}
@@ -73,24 +63,23 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                     required
                 />
 
-                {/* Ricerca indirizzo */}
-                <AddressAutocomplete
-                    placeholder="Cerca via, piazza, corso..."
-                    onSelect={result => {
-                        onFieldChange("address", result.address);
-                        onFieldChange("street_number", result.street_number);
-                        onFieldChange("postal_code", result.postal_code);
-                        onFieldChange("city", result.city);
-                        onFieldChange("province", result.province);
-                    }}
-                />
+                <div className={FORM_GRID_CLASSES.span}>
+                    <AddressAutocomplete
+                        label="Cerca l'indirizzo"
+                        placeholder="Cerca via, piazza, corso…"
+                        onSelect={result => {
+                            onFieldChange("address", result.address);
+                            onFieldChange("street_number", result.street_number);
+                            onFieldChange("postal_code", result.postal_code);
+                            onFieldChange("city", result.city);
+                            onFieldChange("province", result.province);
+                        }}
+                    />
+                </div>
 
-                {/* Via */}
                 <TextInput
+                    containerClassName={FORM_GRID_CLASSES.span}
                     label="Via"
-                    tooltip={
-                        <InfoTooltip content="Utilizzato per la visualizzazione e per eventuali integrazioni con mappe" />
-                    }
                     placeholder="Es. Via Roma"
                     value={values.address}
                     onChange={e => onFieldChange("address", e.target.value)}
@@ -98,37 +87,32 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                     required
                 />
 
-                {/* Civico | CAP | Provincia */}
-                <div className={styles.row3}>
-                    <TextInput
-                        label="Civico"
-                        required
-                        placeholder="Es. 10"
-                        value={values.street_number}
-                        onChange={e => onFieldChange("street_number", e.target.value)}
-                        error={errors?.street_number}
-                    />
-                    <TextInput
-                        label="CAP"
-                        required
-                        placeholder="Es. 20100"
-                        value={values.postal_code}
-                        onChange={e => onFieldChange("postal_code", e.target.value)}
-                        error={errors?.postal_code}
-                        maxLength={5}
-                    />
-                    <TextInput
-                        label="Provincia"
-                        required
-                        placeholder="Es. MI"
-                        value={values.province}
-                        onChange={e => onFieldChange("province", e.target.value.toUpperCase())}
-                        error={errors?.province}
-                        maxLength={2}
-                    />
-                </div>
-
-                {/* Città */}
+                <TextInput
+                    label="Civico"
+                    required
+                    placeholder="Es. 10"
+                    value={values.street_number}
+                    onChange={e => onFieldChange("street_number", e.target.value)}
+                    error={errors?.street_number}
+                />
+                <TextInput
+                    label="CAP"
+                    required
+                    placeholder="Es. 20100"
+                    value={values.postal_code}
+                    onChange={e => onFieldChange("postal_code", e.target.value)}
+                    error={errors?.postal_code}
+                    maxLength={5}
+                />
+                <TextInput
+                    label="Provincia"
+                    required
+                    placeholder="Es. MI"
+                    value={values.province}
+                    onChange={e => onFieldChange("province", e.target.value.toUpperCase())}
+                    error={errors?.province}
+                    maxLength={2}
+                />
                 <TextInput
                     label="Città"
                     placeholder="Es. Milano"
@@ -138,76 +122,60 @@ export const BusinessCreateCard: React.FC<BusinessCreateCardProps> = ({
                     required
                 />
 
-                {/* Slug — solo in creazione */}
+                {/* Indirizzo web — solo in creazione: dopo si cambia dalla scheda. */}
                 {isCreate && (
-                    <div className={styles.slugContainer}>
+                    <div className={`${FORM_GRID_CLASSES.span} ${styles.slug}`}>
                         <TextInput
-                            label="Slug"
+                            label="Indirizzo web"
                             placeholder="es. snoopy-bar"
                             value={values.slug}
                             onChange={e => onFieldChange("slug", e.target.value)}
                             error={errors?.slug}
-                            helperText={`URL finale: ${finalUrl}`}
+                            helperText={`Sarà ${finalUrl}`}
                             required
                         />
 
                         {slugState.type === "warning" && (
-                            <Text variant="caption" colorVariant="warning">
-                                Attenzione: cambiando lo slug, i QR code già stampati e i link condivisi
-                                potrebbero non funzionare più.
-                            </Text>
+                            <InlineBanner variant="warning">
+                                Cambiando l&apos;indirizzo web, i QR già stampati e i link condivisi potrebbero non
+                                funzionare più.
+                            </InlineBanner>
                         )}
 
                         {slugState.type === "conflict" && (
-                            <div className={styles.slugConflict} role="alert" aria-live="polite">
-                                <Text variant="caption" colorVariant="warning">
-                                    Questo indirizzo è già in uso. Scegli un&apos;alternativa:
-                                </Text>
-
-                                {slugState.suggestions.length > 0 && (
-                                    <div className={styles.slugSuggestions}>
-                                        {/* Prima opzione: evidenziata come consigliata */}
-                                        <button
-                                            type="button"
-                                            className={styles.slugSuggestionPrimary}
-                                            onClick={() => onPickSlugSuggestion(slugState.suggestions[0])}
-                                        >
-                                            <span className={styles.slugSuggestionLabel}>Consigliato</span>
-                                            <span className={styles.slugSuggestionText}>
-                                                {slugState.suggestions[0]}
-                                            </span>
-                                        </button>
-
-                                        {/* Opzioni secondarie */}
-                                        {slugState.suggestions.slice(1).length > 0 && (
-                                            <div className={styles.slugSuggestionSecondaryRow}>
-                                                {slugState.suggestions.slice(1).map(s => (
-                                                    <button
-                                                        key={s}
-                                                        type="button"
-                                                        className={styles.slugSuggestionSecondary}
-                                                        onClick={() => onPickSlugSuggestion(s)}
-                                                    >
-                                                        {s}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
+                            <InlineBanner variant="warning">
+                                <div className={styles.conflict}>
+                                    <span>Questo indirizzo è già in uso. Scegli un&apos;alternativa:</span>
+                                    {slugState.suggestions.length > 0 && (
+                                        <div className={styles.suggestions} role="group" aria-label="Indirizzi disponibili">
+                                            {slugState.suggestions.map((s, i) => (
+                                                <Chip
+                                                    key={s}
+                                                    label={s}
+                                                    selected={i === 0}
+                                                    ariaLabel={i === 0 ? `Consigliato: ${s}` : s}
+                                                    onClick={() => onPickSlugSuggestion(s)}
+                                                />
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </InlineBanner>
                         )}
                     </div>
                 )}
 
-                {/* Cover */}
-                <FileInput
-                    label="Foto copertina"
-                    accept="image/*"
-                    helperText="PNG o JPG, max 5MB"
-                    onChange={onCoverChange}
-                />
-            </form>
-        </section>
+                <div className={FORM_GRID_CLASSES.span}>
+                    <ImageUploadField
+                        label="Foto di copertina"
+                        variant="wide"
+                        maxSizeMb={5}
+                        imageUrl={values.coverPreview}
+                        onFileChange={onCoverChange}
+                        onRemove={values.coverPreview ? () => onCoverChange(null) : undefined}
+                    />
+                </div>
+            </FormGrid>
+        </form>
     );
 };

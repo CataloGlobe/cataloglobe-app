@@ -71,6 +71,12 @@ export interface CardGridItemProps {
     badge?: ReactNode;
     /** Azioni: compaiono al hover / focus-within (IconButton ghost, TableRowActions). */
     actions?: ReactNode;
+    /**
+     * Riga in fondo alla card, fuori dalla superficie cliccabile: un dato vivo
+     * con la sua azione (il menù attivo di una sede e «Gestisci»). Un bottone
+     * dentro il link sarebbe markup invalido, quindi sta qui sotto.
+     */
+    footer?: ReactNode;
     /** Bordo `brand-primary`. */
     selected?: boolean;
     /** Media attenuata; il chiamante mette lo StatusBadge danger nel badge. */
@@ -90,6 +96,7 @@ export function CardGridItem({
     subtitle,
     badge,
     actions,
+    footer,
     selected = false,
     suspended = false,
     onClick,
@@ -136,6 +143,7 @@ export function CardGridItem({
             {actions}
         </div>
     ) : null;
+    const footerNode = footer ? <div className={styles.footer}>{footer}</div> : null;
 
     if (to) {
         return (
@@ -143,6 +151,7 @@ export function CardGridItem({
                 <Link to={to} className={styles.surface} aria-current={selected || undefined} aria-label={ariaLabel}>
                     {body}
                 </Link>
+                {footerNode}
                 {actionsNode}
             </div>
         );
@@ -169,6 +178,7 @@ export function CardGridItem({
                 >
                     {body}
                 </div>
+                {footerNode}
                 {actionsNode}
             </div>
         );
@@ -177,6 +187,7 @@ export function CardGridItem({
     return (
         <div className={classes} role="listitem" aria-label={ariaLabel}>
             <div className={styles.surface}>{body}</div>
+            {footerNode}
             {actionsNode}
         </div>
     );

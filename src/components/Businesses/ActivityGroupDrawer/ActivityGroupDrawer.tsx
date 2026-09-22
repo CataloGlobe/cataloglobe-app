@@ -1,10 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
+import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
+import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { Button } from "@/components/ui";
 import Text from "@/components/ui/Text/Text";
+import { FormGrid, FormSection } from "@/components/ui/FormGrid";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
 import {
     createActivityGroup,
     updateActivityGroup,
@@ -12,17 +17,26 @@ import {
     syncGroupMembers
 } from "@/services/supabase/activity-groups";
 import { getActivities } from "@/services/supabase/activities";
-import { V2Activity } from "@/types/activity";
+import type { V2Activity } from "@/types/activity";
 import styles from "./ActivityGroupDrawer.module.scss";
 
 interface ActivityGroupDrawerProps {
+    open: boolean;
     mode: "create" | "edit";
     groupId?: string;
     onSuccess: () => void;
     onClose: () => void;
 }
 
+const FORM_ID = "activity-group-form";
+
+/**
+ * Drawer «Nuovo gruppo di sedi» / «Modifica gruppo di sedi»: nome,
+ * descrizione e le sedi che ne fanno parte, una spunta per sede.
+ * Il gruppo si popola solo a mano (§32.3).
+ */
 export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
+    open,
     mode,
     groupId,
     onSuccess,
@@ -34,27 +48,31 @@ export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
     const [isLoading, setIsLoading] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
-    // Form state
     const [name, setName] = useState("");
+    const [nameError, setNameError] = useState<string | undefined>();
     const [description, setDescription] = useState("");
     const [selectedActivityIds, setSelectedActivityIds] = useState<string[]>([]);
     const [isSystem, setIsSystem] = useState(false);
-
-    // Data lists
     const [allActivities, setAllActivities] = useState<V2Activity[]>([]);
 
     useEffect(() => {
+        if (!open) return;
+        // Ogni apertura riparte pulita: il drawer resta montato fra un uso e l'altro.
+        setName("");
+        setNameError(undefined);
+        setDescription("");
+        setSelectedActivityIds([]);
+        setIsSystem(false);
+
         const loadInitialData = async () => {
             if (!tenantId) return;
             setIsLoading(true);
             try {
-                // Carica tutte le attività
                 const activities = await getActivities(tenantId);
                 setAllActivities(activities);
 
-                // Se in edit, carica i dati del gruppo e i membri
                 if (mode === "edit" && groupId) {
-                    const { group, activityIds } = await getGroupWithMembers(groupId, tenantId!);
+                    const { group, activityIds } = await getGroupWithMembers(groupId, tenantId);
                     setName(group.name);
                     setDescription(group.description || "");
                     setIsSystem(group.is_system);
@@ -62,17 +80,14 @@ export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
                 }
             } catch (error) {
                 console.error("Errore caricamento dati drawer gruppi:", error);
-                showToast({
-                    message: "Errore nel caricamento dei dati.",
-                    type: "error"
-                });
+                showToast({ message: "Errore nel caricamento dei dati.", type: "error" });
             } finally {
                 setIsLoading(false);
             }
         };
 
-        loadInitialData();
-    }, [groupId, mode, tenantId]);
+        void loadInitialData();
+    }, [open, groupId, mode, tenantId, showToast]);
 
     const handleToggleActivity = (id: string) => {
         setSelectedActivityIds(prev =>
@@ -80,12 +95,13 @@ export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
         );
     };
 
-    const handleSave = async () => {
+    const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
         if (!name.trim()) {
+            setNameError("Il nome è obbligatorio.");
             showToast({ message: "Il nome è obbligatorio.", type: "error" });
             return;
         }
-
         if (!tenantId) return;
 
         setIsSaving(true);
@@ -100,8 +116,8 @@ export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
                 });
                 currentGroupId = newGroup.id;
             } else if (mode === "edit" && groupId) {
-                await updateActivityGroup(groupId, tenantId!, {
-                    name: isSystem ? undefined : name.trim(), // Non permettere cambio nome se sistema
+                await updateActivityGroup(groupId, tenantId, {
+                    name: isSystem ? undefined : name.trim(), // il nome di un gruppo di sistema non si cambia
                     description: description.trim() || null
                 });
             }
@@ -116,79 +132,100 @@ export const ActivityGroupDrawer: React.FC<ActivityGroupDrawerProps> = ({
             });
             onSuccess();
         } catch (error) {
-            console.error("Errore salvataggio gruppo attività:", error);
-            showToast({
-                message: "Errore durante il salvataggio.",
-                type: "error"
-            });
+            console.error("Errore salvataggio gruppo sedi:", error);
+            showToast({ message: "Errore durante il salvataggio.", type: "error" });
         } finally {
             setIsSaving(false);
         }
     };
 
-    if (isLoading) {
-        return <div className={styles.loading}>Caricamento...</div>;
-    }
+    const safeClose = () => {
+        if (!isSaving) onClose();
+    };
 
     return (
-        <div className={styles.drawerContent}>
-            <div className={styles.formSection}>
-                <TextInput
-                    label="Nome gruppo"
-                    value={name}
-                    onChange={e => setName((e.target as HTMLInputElement).value)}
-                    placeholder="Esempio: Ristoranti Centro"
-                    disabled={isSystem}
-                    required
-                />
-                <Textarea
-                    label="Descrizione (opzionale)"
-                    value={description}
-                    onChange={e => setDescription((e.target as HTMLTextAreaElement).value)}
-                    placeholder="Aggiungi una breve descrizione..."
-                    rows={3}
-                />
-            </div>
+        <SystemDrawer open={open} onClose={safeClose} size="md">
+            <DrawerLayout
+                header={
+                    <Text variant="title-sm" weight={700}>
+                        {mode === "create" ? "Nuovo gruppo di sedi" : "Modifica gruppo di sedi"}
+                    </Text>
+                }
+                footer={
+                    <>
+                        <Button variant="secondary" onClick={safeClose} disabled={isSaving}>
+                            Annulla
+                        </Button>
+                        <Button
+                            variant="primary"
+                            type="submit"
+                            form={FORM_ID}
+                            loading={isSaving}
+                            disabled={isSaving || isLoading}
+                        >
+                            {mode === "create" ? "Crea gruppo" : "Salva modifiche"}
+                        </Button>
+                    </>
+                }
+            >
+                <form id={FORM_ID} onSubmit={handleSubmit} className={styles.form}>
+                    <FormGrid autoFocus={!isLoading}>
+                        <TextInput
+                            label="Nome del gruppo"
+                            value={name}
+                            onChange={e => {
+                                setName(e.target.value);
+                                if (nameError) setNameError(undefined);
+                            }}
+                            placeholder="Es. Ristoranti centro"
+                            disabled={isSystem || isLoading}
+                            helperText={isSystem ? "Il nome di un gruppo di sistema non si cambia." : undefined}
+                            error={nameError}
+                            required
+                        />
+                        <Textarea
+                            label="Descrizione (opzionale)"
+                            value={description}
+                            onChange={e => setDescription(e.target.value)}
+                            placeholder="Aggiungi una breve descrizione…"
+                            rows={3}
+                            disabled={isLoading}
+                        />
+                    </FormGrid>
 
-            <div className={styles.membershipSection}>
-                <Text variant="body-sm" weight={600} className={styles.sectionTitle}>
-                    Seleziona Attività
-                </Text>
-                <div className={styles.activityList}>
-                    {allActivities.length === 0 ? (
-                        <Text variant="body-sm" colorVariant="muted">
-                            Nessuna attività disponibile.
-                        </Text>
-                    ) : (
-                        allActivities.map(activity => (
-                            <label key={activity.id} className={styles.activityItem}>
-                                <input
-                                    type="checkbox"
-                                    checked={selectedActivityIds.includes(activity.id)}
-                                    onChange={() => handleToggleActivity(activity.id)}
-                                />
-                                <div className={styles.activityInfo}>
-                                    <Text variant="body-sm" weight={500}>
-                                        {activity.name}
-                                    </Text>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        {activity.city}, {activity.address}
-                                    </Text>
-                                </div>
-                            </label>
-                        ))
-                    )}
-                </div>
-            </div>
-
-            <div className={styles.footer}>
-                <Button variant="secondary" onClick={onClose} disabled={isSaving}>
-                    Annulla
-                </Button>
-                <Button variant="primary" onClick={handleSave} loading={isSaving}>
-                    {mode === "create" ? "Crea gruppo" : "Salva modifiche"}
-                </Button>
-            </div>
-        </div>
+                    <FormSection title="Sedi nel gruppo" description="Le regole di Programmazione che puntano il gruppo valgono per queste sedi.">
+                        {isLoading ? (
+                            <div className={styles.members}>
+                                <ListRow loading />
+                                <ListRow loading />
+                                <ListRow loading />
+                            </div>
+                        ) : allActivities.length === 0 ? (
+                            <Text variant="body-sm" colorVariant="muted">
+                                Nessuna sede disponibile.
+                            </Text>
+                        ) : (
+                            <div className={styles.members}>
+                                {allActivities.map(activity => (
+                                    <ListRow
+                                        key={activity.id}
+                                        leading={
+                                            <CheckboxInput
+                                                aria-label={activity.name}
+                                                checked={selectedActivityIds.includes(activity.id)}
+                                                onChange={() => handleToggleActivity(activity.id)}
+                                            />
+                                        }
+                                        title={activity.name}
+                                        subtitle={[activity.city, activity.address].filter(Boolean).join(", ")}
+                                        selected={selectedActivityIds.includes(activity.id)}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                    </FormSection>
+                </form>
+            </DrawerLayout>
+        </SystemDrawer>
     );
 };
