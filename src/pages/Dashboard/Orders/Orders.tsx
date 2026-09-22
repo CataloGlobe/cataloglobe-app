@@ -8,6 +8,9 @@ import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Select } from "@/components/ui/Select/Select";
+import { DateInput } from "@/components/ui/Input/DateInput";
+import Text from "@/components/ui/Text/Text";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Button } from "@/components/ui/Button/Button";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
@@ -64,22 +67,6 @@ import styles from "./Orders.module.scss";
 
 type MainTab = "comande" | "tavoli" | "storico";
 type HistoryFilter = "all" | "delivered" | "cancelled";
-
-// Label giorno Storico (es. "sab 5 lug"). Costruito da campi locali della
-// data civile, coerente con dateLocal (mai `new Date("YYYY-MM-DD")`).
-const historyDayFormatter = new Intl.DateTimeFormat("it-IT", {
-    weekday: "short",
-    day: "numeric",
-    month: "short"
-});
-function formatHistoryDay(iso: string): string {
-    const y = Number(iso.slice(0, 4));
-    const mo = Number(iso.slice(5, 7));
-    const d = Number(iso.slice(8, 10));
-    if (!y || !mo || !d) return iso;
-    const raw = historyDayFormatter.format(new Date(y, mo - 1, d));
-    return raw.charAt(0).toUpperCase() + raw.slice(1);
-}
 
 /**
  * Riga Storico con gli storni figli agganciati. `storni` vive qui (non in
@@ -586,10 +573,11 @@ export default function Orders() {
 
     // ── Storico: navigazione giorno operativo ──
     const isToday = historyDate === today;
-    const dayLabel = useMemo(() => {
+    // La data la mostra il campo; «Oggi» / «Ieri» restano accanto, come testo.
+    const relativeDayLabel = useMemo(() => {
         if (historyDate === today) return "Oggi";
         if (historyDate === shiftIsoDate(today, -1)) return "Ieri";
-        return formatHistoryDay(historyDate);
+        return null;
     }, [historyDate, today]);
     const goPrevDay = useCallback(() => {
         setHistoryDate(d => shiftIsoDate(d, -1));
@@ -1150,35 +1138,32 @@ export default function Orders() {
                                     ]}
                                 />
                                 <div className={styles.dayNav}>
-                                    <button
-                                        type="button"
-                                        className={styles.dayNavBtn}
+                                    <IconButton
+                                        icon={<ChevronLeft size={18} />}
+                                        variant="secondary"
                                         onClick={goPrevDay}
                                         aria-label="Giorno precedente"
-                                    >
-                                        <ChevronLeft size={18} />
-                                    </button>
-                                    <label className={styles.dayField}>
-                                        <Calendar size={15} aria-hidden="true" />
-                                        <span className={styles.dayLabel}>{dayLabel}</span>
-                                        <input
-                                            type="date"
-                                            className={styles.dayInput}
-                                            value={historyDate}
-                                            max={today}
-                                            onChange={e => onPickDay(e.target.value)}
-                                            aria-label="Scegli il giorno dello storico"
-                                        />
-                                    </label>
-                                    <button
-                                        type="button"
-                                        className={styles.dayNavBtn}
+                                    />
+                                    <DateInput
+                                        containerClassName={styles.dayField}
+                                        startAdornment={<Calendar size={16} aria-hidden="true" />}
+                                        value={historyDate}
+                                        max={today}
+                                        onChange={e => onPickDay(e.target.value)}
+                                        aria-label="Scegli il giorno dello storico"
+                                    />
+                                    <IconButton
+                                        icon={<ChevronRight size={18} />}
+                                        variant="secondary"
                                         onClick={goNextDay}
                                         disabled={isToday}
                                         aria-label="Giorno successivo"
-                                    >
-                                        <ChevronRight size={18} />
-                                    </button>
+                                    />
+                                    {relativeDayLabel && (
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            {relativeDayLabel}
+                                        </Text>
+                                    )}
                                 </div>
                             </div>
                             <DataTable<HistoryRowWithStorni>

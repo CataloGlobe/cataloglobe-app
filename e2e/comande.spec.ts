@@ -21,6 +21,8 @@ import { openBusinessPage } from "./business";
 const SEDE = /Garbagnate/;
 const TAVOLO = "T TEST";
 const COLONNE = ["Nuove", "In lavorazione", "Pronte"] as const;
+/** Un giorno dello storico con una comanda servita (fixture). */
+const GIORNO_STORICO = "2026-09-13";
 /** Gli articoli della comanda della fixture. */
 const ARTICOLI = ["Hamburger", "McToast"] as const;
 
@@ -280,6 +282,44 @@ test.describe("Comande", () => {
                 .or(page.getByText("Nessun ordine nello storico di oggi"))
                 .first()
         ).toBeVisible({ timeout: 15_000 });
+    });
+
+    test("lo Storico a 375: due colonne, le azioni a vista, niente scroll di lato", async ({ page }) => {
+        await openComande(page);
+        await selectMainTab(page, "Storico");
+        // Un giorno con una comanda servita (fixture: 13/09, tavolo T1).
+        const giorno = page.getByLabel("Scegli il giorno dello storico");
+        // Prima il giorno d'apertura deve aver finito di caricare: loadHistory
+        // non scarta le risposte superate, e una risposta di «oggi» in ritardo
+        // sovrascriverebbe il giorno scelto (anomalia a verbale, non del test).
+        await expect(page.getByRole("main").getByText(/^\d+ element[oi]$/)).toBeVisible({ timeout: 15_000 });
+        await giorno.fill(GIORNO_STORICO);
+        const main = page.getByRole("main");
+        await expect(main.getByRole("button", { name: "Azioni", exact: true }).first()).toBeVisible({ timeout: 15_000 });
+
+        // 1280: tutte le colonne.
+        for (const col of ["Stato", "Tavolo", "Operatore", "Orario", "Totale"]) {
+            await expect(main.getByText(col, { exact: true }).first()).toBeVisible();
+        }
+
+        await page.setViewportSize({ width: 375, height: 900 });
+        await expect(main.getByText("Operatore", { exact: true })).toHaveCount(0);
+        await expect(main.getByText("Orario", { exact: true })).toHaveCount(0);
+        await expect(main.getByText("Tavolo", { exact: true }).first()).toBeVisible();
+        await expect(main.getByText("Totale", { exact: true }).first()).toBeVisible();
+
+        const azioni = main.getByRole("button", { name: "Azioni", exact: true }).first();
+        await expect(azioni).toBeVisible();
+        const box = await azioni.boundingBox();
+        expect(box && box.x + box.width).toBeLessThanOrEqual(375);
+        const overflow = await page.evaluate(
+            () => document.documentElement.scrollWidth - document.documentElement.clientWidth
+        );
+        expect(overflow).toBeLessThanOrEqual(0);
+
+        await azioni.click();
+        await expect(page.getByRole("menuitem", { name: "Vedi dettaglio" })).toBeVisible();
+        await page.keyboard.press("Escape");
     });
 
     test("sopra 1024 tre colonne affiancate, niente selettore di stato", async ({ page }) => {

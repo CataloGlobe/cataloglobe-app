@@ -52,6 +52,7 @@ export function makeHistoryColumns({
     return [
         {
             id: "status",
+            hideOnPhone: true,
             header: "Stato",
             width: "120px",
             accessor: (row) => row.status,
@@ -100,6 +101,7 @@ export function makeHistoryColumns({
         },
         {
             id: "operator",
+            hideOnPhone: true,
             header: "Operatore",
             accessor: (row) => row.created_by_user_id,
             cell: (_value, row) => {
@@ -117,6 +119,7 @@ export function makeHistoryColumns({
         },
         {
             id: "time",
+            hideOnPhone: true,
             header: "Orario",
             width: "130px",
             accessor: (row) =>
