@@ -122,6 +122,23 @@ test.describe("Comande", () => {
         await expect(page.getByRole("main").getByRole("button", { name: "Altre azioni" })).toHaveCount(1);
     });
 
+    test("«Crea ordine» apre il drawer a taglia lg, senza inviare niente", async ({ page }) => {
+        await openComande(page);
+        await page.getByRole("button", { name: "Crea ordine" }).click();
+
+        const drawer = page.getByRole("dialog");
+        await expect(drawer).toBeVisible();
+        await expect(drawer.getByRole("combobox").first()).toBeVisible();
+        await expect(drawer.getByPlaceholder("Cerca prodotto...")).toBeVisible();
+        await expect(drawer.getByRole("button", { name: "Invia comanda" })).toBeDisabled({ timeout: 15_000 });
+        // lg = 720 (scheda SystemDrawer); sopra lg non esiste.
+        const width = await drawer.evaluate(el => Math.round(el.getBoundingClientRect().width));
+        expect(width).toBeLessThanOrEqual(720);
+
+        await drawer.getByRole("button", { name: "Annulla" }).click();
+        await expect(drawer).toHaveCount(0);
+    });
+
     test("il filtro per tavolo restringe la board", async ({ page }) => {
         await openComande(page);
         const filtro = page.getByRole("main").getByRole("combobox").filter({

@@ -1,6 +1,8 @@
-// Container query host: il drawer ha width variabile (960 desktop / 100%
-// mobile), quindi il layout reagisce all'inline-size del contenuto, non
-// alla viewport.
+// Container query host: il layout reagisce all'inline-size del contenuto,
+// non alla viewport. Il drawer è `lg` (720, contenuto ~672): sotto la soglia
+// dei 768, quindi ricerca e prodotti sopra, carrello nella barra in fondo —
+// la stessa colonna del telefono. Le due colonne restano per un contenitore
+// ≥ 768 (misurato a 720: il configuratore respira, niente sborda).
 .shell {
   container-type: inline-size;
   container-name: createOrder;

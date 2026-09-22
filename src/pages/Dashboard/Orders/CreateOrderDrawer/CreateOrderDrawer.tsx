@@ -312,7 +312,7 @@ export function CreateOrderDrawer({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={960}>
+        <SystemDrawer open={open} onClose={onClose} size="lg">
             <DrawerLayout
                 header={
                     <Text variant="title-sm" weight={600}>
