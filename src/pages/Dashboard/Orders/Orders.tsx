@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { AlertCircle, Calendar, ChevronLeft, ChevronRight, ClipboardList, Plus, RefreshCw, RotateCcw, Volume2, VolumeX } from "lucide-react";
+import { AlertCircle, Calendar, ChevronLeft, ChevronRight, Plus, RefreshCw, RotateCcw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -152,9 +152,9 @@ export default function Orders() {
     const { canEdit } = useSubscriptionGuard();
     const [searchParams, setSearchParams] = useSearchParams();
 
-    // La sede arriva dal path dentro il contesto (`/locations/:id/comande`),
-    // altrimenti dal selettore navbar in modalità single-site (niente "Tutte
-    // le sedi", localStorage cross-session "cataloglobe:orders:lastActivityId").
+    // La sede arriva dal path: la pagina è montata solo dentro il contesto
+    // (`/locations/:id/comande`, §46.1), quindi qui c'è sempre. Il `null` del
+    // tipo resta perché `useActivityScope` serve anche le pagine d'azienda.
     const sedeScope = useActivityScope({ routeKey: "orders" });
     const selectedActivityId: string | null = sedeScope.activityId;
 
@@ -1089,36 +1089,28 @@ export default function Orders() {
                         </div>
                     )}
 
-                    {!selectedActivityId ? (
-                        <EmptyState
-                            icon={<ClipboardList size={40} strokeWidth={1.5} />}
-                            title="Seleziona una sede"
-                            description="Scegli una sede per visualizzare le comande in corso."
-                        />
-                    ) : (
-                        <OrdersKanban
-                            orders={filteredOrders}
-                            tables={tables}
-                            operatorNames={operatorNames}
-                            comandaPrintStates={comandaPrintStates}
-                            onReprint={handleReprint}
-                            printersHref={printersHref}
-                            isLoading={isLoadingOrders}
-                            error={ordersError}
-                            onRetry={() => void refetchOrders()}
-                            onAcknowledge={handleAcknowledge}
-                            onMarkReady={handleMarkReady}
-                            onDeliver={handleDeliver}
-                            onCancel={handleCancelOpen}
-                            onCancelItem={handleCancelItemOpen}
-                            onViewDetail={handleViewDetail}
-                            onUnacknowledge={handleUnacknowledge}
-                            onUnready={handleUnready}
-                            pulseSubmittedToken={pulseToken}
-                            canManage={canManage}
-                            canEdit={canEdit}
-                        />
-                    )}
+                    <OrdersKanban
+                        orders={filteredOrders}
+                        tables={tables}
+                        operatorNames={operatorNames}
+                        comandaPrintStates={comandaPrintStates}
+                        onReprint={handleReprint}
+                        printersHref={printersHref}
+                        isLoading={isLoadingOrders}
+                        error={ordersError}
+                        onRetry={() => void refetchOrders()}
+                        onAcknowledge={handleAcknowledge}
+                        onMarkReady={handleMarkReady}
+                        onDeliver={handleDeliver}
+                        onCancel={handleCancelOpen}
+                        onCancelItem={handleCancelItemOpen}
+                        onViewDetail={handleViewDetail}
+                        onUnacknowledge={handleUnacknowledge}
+                        onUnready={handleUnready}
+                        pulseSubmittedToken={pulseToken}
+                        canManage={canManage}
+                        canEdit={canEdit}
+                    />
                 </>
             )}
 
@@ -1131,13 +1123,7 @@ export default function Orders() {
 
             {mainTab === "storico" && (
                 <>
-                    {!selectedActivityId ? (
-                        <EmptyState
-                            icon={<ClipboardList size={40} strokeWidth={1.5} />}
-                            title="Seleziona una sede"
-                            description="Scegli una sede per visualizzare lo storico della giornata."
-                        />
-                    ) : historyError ? (
+                    {historyError ? (
                         <EmptyState
                             icon={<AlertCircle size={40} strokeWidth={1.5} />}
                             title="Errore caricamento storico"
