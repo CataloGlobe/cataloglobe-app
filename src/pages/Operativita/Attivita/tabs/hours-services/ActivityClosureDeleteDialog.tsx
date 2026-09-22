@@ -26,7 +26,7 @@ type Props = {
  * Eliminare una chiusura è una riga senza dipendenze: `ConfirmDialog`, non
  * un drawer (registro Sedi #59).
  */
-export function ActivityClosureDeleteDrawer({ open, onClose, closure, tenantId, onSuccess }: Props) {
+export function ActivityClosureDeleteDialog({ open, onClose, closure, tenantId, onSuccess }: Props) {
     const { showToast } = useToast();
     const [isDeleting, setIsDeleting] = useState(false);
 

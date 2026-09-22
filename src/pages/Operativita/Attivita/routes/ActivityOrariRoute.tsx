@@ -3,7 +3,7 @@ import { ActivityHoursSection } from "../tabs/hours-services/ActivityHoursSectio
 import { ActivityHoursDrawer } from "../tabs/hours-services/ActivityHoursDrawer";
 import { ActivityClosuresSection } from "../tabs/hours-services/ActivityClosuresSection";
 import { ActivityClosureCreateEditDrawer } from "../tabs/hours-services/ActivityClosureCreateEditDrawer";
-import { ActivityClosureDeleteDrawer } from "../tabs/hours-services/ActivityClosureDeleteDrawer";
+import { ActivityClosureDeleteDialog } from "../tabs/hours-services/ActivityClosureDeleteDialog";
 import { ActivityBlockTimeRangeDrawer } from "../tabs/hours-services/ActivityBlockTimeRangeDrawer";
 import { useActivityDetail } from "../ActivityDetailContext";
 import { listActivityClosures } from "@/services/supabase/activityClosures";
@@ -136,7 +136,7 @@ export default function ActivityOrariRoute() {
                 closures={closures}
                 onSuccess={loadClosures}
             />
-            <ActivityClosureDeleteDrawer
+            <ActivityClosureDeleteDialog
                 open={isClosureDeleteOpen}
                 onClose={() => setIsClosureDeleteOpen(false)}
                 closure={selectedClosure}
