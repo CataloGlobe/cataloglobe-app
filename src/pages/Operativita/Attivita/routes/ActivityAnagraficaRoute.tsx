@@ -160,19 +160,22 @@ export default function ActivityAnagraficaRoute() {
     );
 
     const selectedFees = (d.fees ?? []).filter(f => f.value && f.value.trim() !== "").length;
+    // Il riepilogo nell'indice esiste solo dove manca qualcosa: una lista
+    // piena non ha niente da dire, e «7 campi» non cambia mai.
+    const partial = (chosen: number, total: number) => (chosen < total ? `${chosen} su ${total}` : undefined);
     const sections = [
-        { id: "identita", label: "Identità", summary: "7 campi" },
-        { id: "indirizzo-web", label: "Indirizzo web", summary: activity.slug },
-        { id: "copertina", label: "Copertina", summary: activity.cover_image ? "1 foto" : "nessuna" },
-        { id: "contatti", label: "Contatti", summary: "3 campi" },
-        { id: "social", label: "Social", summary: "3 campi" },
-        { id: "pagamenti", label: "Metodi di pagamento", summary: `${(d.payment_methods ?? []).length} su ${PAYMENT_METHODS.length}` },
-        { id: "servizi", label: "Servizi offerti", summary: `${(d.services ?? []).length} su ${SERVICES.length}` },
-        { id: "tariffe", label: "Tariffe", summary: `${selectedFees} su 5` }
+        { id: "identita", label: "Identità" },
+        { id: "indirizzo-web", label: "Indirizzo web" },
+        { id: "copertina", label: "Copertina" },
+        { id: "contatti", label: "Contatti" },
+        { id: "social", label: "Social" },
+        { id: "pagamenti", label: "Pagamenti", summary: partial((d.payment_methods ?? []).length, PAYMENT_METHODS.length) },
+        { id: "servizi", label: "Servizi", summary: partial((d.services ?? []).length, SERVICES.length) },
+        { id: "tariffe", label: "Tariffe", summary: partial(selectedFees, 5) }
     ];
 
     return (
-        <PageIndexLayout index={<PageIndex sections={sections} activeId={activeId} footer="8 sezioni, un solo Salva" />}>
+        <PageIndexLayout index={<PageIndex sections={sections} activeId={activeId} />}>
             <div className={styles.page}>
                 <section id="identita" className={styles.section}>
                     <Card title="Identità" subtitle="Il nome e l'indirizzo che vedono i clienti">

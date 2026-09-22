@@ -5,8 +5,13 @@ import styles from "./PageIndex.module.scss";
 export interface PageIndexSection {
     /** L'`id` dell'elemento di sezione nella pagina (l'ancora). */
     id: string;
+    /** Etichetta corta: sta su una riga, a 200px di colonna. «Pagamenti»,
+     *  non «Metodi di pagamento» — il titolo per esteso è nella Card. */
     label: string;
-    /** Dato di riepilogo muto, a destra: «7 campi», «3 su 7», lo slug. */
+    /** Dato di riepilogo muto, a destra, solo quando dice che manca
+     *  qualcosa: «3 su 7» di una lista incompleta. Un conteggio che non
+     *  cambia mai («7 campi») e un valore che si legge già nella sezione
+     *  (lo slug) sono rumore: si omettono. */
     summary?: string;
 }
 
@@ -15,8 +20,6 @@ export interface PageIndexProps {
     activeId: string | null;
     /** Default: scroll all'ancora. */
     onSelect?: (id: string) => void;
-    /** Riga muta in coda: «8 sezioni, un solo Salva». */
-    footer?: string;
     "aria-label"?: string;
     className?: string;
 }
@@ -30,8 +33,12 @@ function scrollToSection(id: string) {
  * §31.3): dice dove sei e porta dove vuoi andare. Solo con cinque o più
  * sezioni; sotto 1024 non c'è. Le sezioni della pagina portano `id` e
  * `scroll-margin-top`; la corrente arriva da `usePageIndexActive`.
+ *
+ * Ogni voce è una riga sola: etichetta corta a sinistra e, solo dove c'è
+ * qualcosa da finire, un «n su m» a destra. L'indice dice dove sei, non
+ * ripete il contenuto della pagina.
  */
-export function PageIndex({ sections, activeId, onSelect, footer, "aria-label": ariaLabel = "In questa pagina", className }: PageIndexProps) {
+export function PageIndex({ sections, activeId, onSelect, "aria-label": ariaLabel = "In questa pagina", className }: PageIndexProps) {
     return (
         <nav className={[styles.index, className ?? ""].join(" ").trim()} aria-label={ariaLabel}>
             <Text as="span" variant="caption-xs" colorVariant="muted" weight={600} className={styles.eyebrow}>
@@ -64,11 +71,6 @@ export function PageIndex({ sections, activeId, onSelect, footer, "aria-label": 
                     );
                 })}
             </ul>
-            {footer && (
-                <Text as="span" variant="caption" colorVariant="muted" className={styles.footer}>
-                    {footer}
-                </Text>
-            )}
         </nav>
     );
 }

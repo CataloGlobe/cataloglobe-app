@@ -125,10 +125,10 @@ function PageHeaderSlotSection() {
 /* ------------------------------------------------------------------ */
 
 const INDEX_SECTIONS = [
-    { id: "pi-identita", label: "Identità", summary: "7 campi" },
-    { id: "pi-indirizzo", label: "Indirizzo web", summary: "trattoria-del-porto" },
-    { id: "pi-copertina", label: "Copertina", summary: "1 foto" },
-    { id: "pi-contatti", label: "Contatti", summary: "3 campi" },
+    { id: "pi-identita", label: "Identità" },
+    { id: "pi-indirizzo", label: "Indirizzo web" },
+    { id: "pi-copertina", label: "Copertina" },
+    { id: "pi-pagamenti", label: "Pagamenti", summary: "3 su 7" },
     { id: "pi-tariffe", label: "Tariffe", summary: "1 su 5" }
 ];
 
@@ -137,19 +137,14 @@ function PageIndexSection() {
     const liveActive = usePageIndexActive(INDEX_SECTIONS.map(s => s.id));
     return (
         <>
-            <State label="corrente controllata: cinque voci con il dato di riepilogo, coda muta" column>
+            <State label="corrente controllata: cinque voci su una riga, il «n su m» solo dove manca qualcosa" column>
                 <div style={{ maxWidth: 220 }}>
-                    <PageIndex
-                        sections={INDEX_SECTIONS}
-                        activeId={activeId}
-                        onSelect={setActiveId}
-                        footer="5 sezioni, un solo Salva"
-                    />
+                    <PageIndex sections={INDEX_SECTIONS} activeId={activeId} onSelect={setActiveId} />
                 </div>
             </State>
             <State label="PageIndexLayout + usePageIndexActive: l'indice segue lo scroll delle Card (sotto 1024 la colonna non c'è)" column>
                 <PageIndexLayout
-                    index={<PageIndex sections={INDEX_SECTIONS} activeId={liveActive} footer="5 sezioni, un solo Salva" />}
+                    index={<PageIndex sections={INDEX_SECTIONS} activeId={liveActive} />}
                 >
                     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
                         {INDEX_SECTIONS.map(section => (
