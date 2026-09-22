@@ -123,6 +123,9 @@ test.describe("Comande", () => {
     });
 
     test("annullare una comanda si ripara dal toast", async ({ page }) => {
+        // Due chiamate edge (cancel + uncancel) e due toast in fila: coi 4
+        // worker della suite i 30 s di default non bastano sempre (misurato).
+        test.setTimeout(60_000);
         await openComande(page);
         await openCardMenu(page);
         await page.getByRole("menuitem", { name: "Annulla ordine" }).click();
