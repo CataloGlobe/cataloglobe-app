@@ -41,18 +41,6 @@
   height: var(--control-height, 38px);
 }
 
-.activitySelector {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.activitySelectorLabel {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text-muted, #6b6f76);
-}
-
 // Il filtro per tavolo è un `Select` di sistema: qui solo la larghezza.
 // Sotto 1024 va a tutta larghezza, sopra il selettore di stato.
 .tableFilter {
