@@ -29,13 +29,10 @@ import ModalLayout, {
     ModalLayoutFooter,
     ModalLayoutHeader
 } from "@/components/ui/ModalLayout/ModalLayout";
-import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { DeleteActivityDialog } from "@/components/Businesses/DeleteActivityDialog/DeleteActivityDialog";
 import { SuspendActivityDialog } from "../components/SuspendActivityDialog";
 import { ExportCatalogDrawer } from "./ExportCatalogDrawer";
-import {
-    deleteActivityAtomic,
-    updateActivity
-} from "@/services/supabase/activities";
+import { updateActivity } from "@/services/supabase/activities";
 import { getTenantLogoPublicUrl } from "@/services/supabase/tenants";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenant } from "@/context/useTenant";
@@ -55,6 +52,8 @@ interface ActivitySettingsTabProps {
     tenantId: string;
     onReload: () => Promise<void>;
     canWrite?: boolean;
+    /** `activities.delete`: senza, la zona pericolosa non c'è. */
+    canDelete?: boolean;
 }
 
 /**
@@ -66,7 +65,8 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
     activity,
     tenantId,
     onReload,
-    canWrite = true
+    canWrite = true,
+    canDelete = false
 }) => {
     const { showToast } = useToast();
     const { selectedTenant } = useTenant();
@@ -237,17 +237,10 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
         [activity.id, tenantId, suspendDialogMode, onReload, showToast]
     );
 
-    const handleDeleteActivity = useCallback(async (): Promise<boolean> => {
-        try {
-            await deleteActivityAtomic(activity.id);
-            showToast({ message: "Sede eliminata con successo.", type: "success" });
-            navigate(`/business/${tenantId}/locations`);
-            return true;
-        } catch {
-            showToast({ message: "Errore durante l'eliminazione della sede.", type: "error" });
-            return false;
-        }
-    }, [activity.id, tenantId, navigate, showToast]);
+    // Il dialogo condiviso elimina e avvisa; qui si torna all'elenco.
+    const handleDeleted = useCallback(() => {
+        navigate(`/business/${tenantId}/locations`);
+    }, [tenantId, navigate]);
 
     return (
         <>
@@ -440,6 +433,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                 </Card>
 
                 {/* ── Eliminazione ─────────────────────────────────────────── */}
+                {canDelete && (
                 <Card className={`${cards.card} ${styles.destructiveCard}`}>
                     <div className={styles.destructiveHeader}>
                         <AlertTriangle size={16} />
@@ -464,6 +458,7 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                         </Button>
                     </div>
                 </Card>
+                )}
             </div>
 
             {/* ── Drawers ──────────────────────────────────────────────────── */}
@@ -487,13 +482,13 @@ export const ActivitySettingsTab: React.FC<ActivitySettingsTabProps> = ({
                         : null
                 }
             />
-            <ConfirmDialog
+            <DeleteActivityDialog
                 isOpen={isDeleteOpen}
+                activity={{ id: activity.id, name: activity.name }}
+                businessId={tenantId}
+                tenantId={tenantId}
                 onClose={() => setIsDeleteOpen(false)}
-                title="Elimina sede"
-                message="Questa azione è irreversibile. La sede e tutte le configurazioni associate verranno eliminate definitivamente."
-                confirmLabel="Elimina"
-                onConfirm={handleDeleteActivity}
+                onDeleted={handleDeleted}
             />
 
             {/* ── QR Preview Modal ─────────────────────────────────────────── */}

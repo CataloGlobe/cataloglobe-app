@@ -22,7 +22,7 @@ import { V2Activity } from "@/types/activity";
 import type { V2ActivityHours } from "@/types/activity-hours";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
-import { canDoOnActivity } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnTenant } from "@/lib/permissions";
 import styles from "./ActivityDetailPage.module.scss";
 
 // Ordine = sequenza in cui affrontarle (FASE 6). `availability` (visibilità
@@ -110,6 +110,9 @@ const ActivityDetailPage: React.FC = () => {
     const canManage = activityId && permissions
         ? canDoOnActivity(permissions, "activity.manage", activityId)
         : false;
+    // Eliminare una sede è tenant-scoped (proprietario e amministratore):
+    // senza il permesso la zona pericolosa non si mostra (registro Sedi #85).
+    const canDelete = permissions ? canDoOnTenant(permissions, "activities.delete") : false;
     const canManageHours = activityId && permissions
         ? canDoOnActivity(permissions, "activity_hours.write", activityId)
         : false;
@@ -326,6 +329,7 @@ const ActivityDetailPage: React.FC = () => {
                         tenantId={businessId!}
                         onReload={fetchData}
                         canWrite={canManage}
+                        canDelete={canDelete}
                     />
                 )}
             </div>
