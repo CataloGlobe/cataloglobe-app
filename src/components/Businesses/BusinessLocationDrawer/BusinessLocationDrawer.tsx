@@ -170,7 +170,7 @@ export const BusinessLocationDrawer: React.FC<Props> = React.memo(
         if (!values && !isOfferView) return null;
 
         return (
-            <SystemDrawer open={open} onClose={safeClose} width={520}>
+            <SystemDrawer open={open} onClose={safeClose} size="md">
                 <DrawerLayout header={header} footer={footer}>
                     {isOfferView && seatOffer ? (
                         <div className={styles.seatOffer}>
