@@ -22,66 +22,21 @@ import {
     Archive
 } from "lucide-react";
 import { usePermissions } from "@/context/PermissionsContext";
-import {
-    canDoOnTenant,
-    canDoOnAnyActivity,
-    type UserPermissions
-} from "@/lib/permissions";
-import { usePlanFeatures, type PlanFeature } from "@/lib/planFeatures";
+import { canDoOnTenant, canDoOnAnyActivity } from "@/lib/permissions";
+import { usePlanFeatures } from "@/lib/planFeatures";
 import { businessRouteLabel } from "@/components/layout/AppHeader/navbarBreadcrumbRoutes";
-import {
-    AppSidebar,
-    type AppSidebarNavGroup,
-    type AppSidebarNavItem
-} from "@/components/layout/AppSidebar/AppSidebar";
+import { AppSidebar } from "@/components/layout/AppSidebar/AppSidebar";
+import { buildSidebarGroups, type SidebarNavGroup } from "./sidebarItems";
 
 /**
- * TenantSidebar — il costruttore dei gruppi della sidebar business (scheda
- * «AppSidebar»): permessi, etichette da `businessRouteLabel` (fonte unica
- * dei nomi di pagina), i tre segnali che arrivano da MainLayout. Il markup
- * è tutto di `AppSidebar`: qui si costruiscono solo i dati.
+ * TenantSidebar — il costruttore delle voci del contesto **azienda** (scheda
+ * «AppSidebar»): dichiara le voci con la loro etichetta da
+ * `businessRouteLabel` (fonte unica dei nomi di pagina) e il permesso che le
+ * merita; il filtro per permessi, piano e segnali è condiviso con la sidebar
+ * di sede (`buildSidebarGroups`). Il markup è tutto di `AppSidebar`.
  */
 
-interface NavItem {
-    to: string;
-    label: string;
-    icon: React.ReactNode;
-    end?: boolean;
-    /** Permission check. Se undefined → sempre visibile. */
-    permission?: (perms: UserPermissions) => boolean;
-    /**
-     * Feature gate (plan-based). When set and the current plan does NOT
-     * include the feature, the item remains VISIBLE and CLICKABLE with a
-     * "Pro" lock — the destination page itself shows the locked state.
-     * Different from `permission`, which HIDES the item.
-     */
-    requiresFeature?: PlanFeature;
-    /**
-     * Mostra il contatore "traduzioni in corso" con lo spinner ambra e il
-     * conteggio pending tenant-wide (alimentato dalla prop
-     * `translationPendingCount`). Visibile solo quando il conteggio è > 0.
-     */
-    showTranslationBadge?: boolean;
-    /**
-     * Mostra lo spinner "import AI in corso" (senza numero). Alimentato dalla
-     * prop `importInProgress`.
-     */
-    showImportBadge?: boolean;
-    /**
-     * Mostra un pallino (senza numero) quando c'è una risposta del supporto non
-     * ancora letta. Alimentato dalla prop `supportUnread`, calcolata una volta
-     * in MainLayout: la sidebar è montata su ogni pagina e non deve interrogare
-     * il DB per conto proprio.
-     */
-    showUnreadDot?: boolean;
-}
-
-interface NavGroup {
-    title: string | null;
-    items: NavItem[];
-}
-
-function buildGroups(businessId: string, catalogLabel: string): NavGroup[] {
+function buildGroups(businessId: string, catalogLabel: string): SidebarNavGroup[] {
     const b = `/business/${businessId}`;
     return [
         {
@@ -222,41 +177,16 @@ export default function TenantSidebar({
     const { catalogLabel } = useVerticalConfig();
     const { permissions } = usePermissions();
     const { hasFeature } = usePlanFeatures();
-    const allGroups = buildGroups(businessId, catalogLabel);
-
-    // Filtra voci per permission: se permissions non ancora caricate, mostra
-    // tutte (default ottimistico). Una volta caricate, applica gating.
-    const groups: AppSidebarNavGroup[] = allGroups
-        .map(group => ({
-            title: group.title ?? undefined,
-            items: group.items
-                .filter(item => {
-                    if (!item.permission) return true; // sempre visibile
-                    if (!permissions) return true;     // loading: ottimistico
-                    return item.permission(permissions);
-                })
-                .map((item): AppSidebarNavItem => {
-                    const showTranslation = !!item.showTranslationBadge && translationPendingCount > 0;
-                    const showImport = !!item.showImportBadge && importInProgress;
-                    return {
-                        to: item.to,
-                        label: item.label,
-                        icon: item.icon,
-                        end: item.end,
-                        locked: !!item.requiresFeature && !hasFeature(item.requiresFeature),
-                        loading: showTranslation || showImport,
-                        loadingLabel: showTranslation
-                            ? t("sidebar.translations_in_progress")
-                            : showImport
-                                ? "Importazione menù con AI in corso"
-                                : undefined,
-                        badge: showTranslation ? translationPendingCount : undefined,
-                        showDot: !!item.showUnreadDot && supportUnread,
-                        dotLabel: item.showUnreadDot ? "Hai una risposta non letta" : undefined
-                    };
-                })
-        }))
-        .filter(group => group.items.length > 0);
+    const groups = buildSidebarGroups(buildGroups(businessId, catalogLabel), {
+        permissions,
+        hasFeature,
+        signals: {
+            translationPendingCount,
+            translationLabel: t("sidebar.translations_in_progress"),
+            importInProgress,
+            supportUnread
+        }
+    });
 
     return (
         <AppSidebar

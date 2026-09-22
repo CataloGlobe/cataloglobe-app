@@ -14,7 +14,7 @@ import { Select } from "@/components/ui/Select/Select";
 import type { SelectOption } from "@/components/ui/Select/Select";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
-import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
+import { useActivityScope } from "@/hooks/useActivityScope";
 import { shiftIsoDate, todayIsoDate } from "@/utils/dateLocal";
 import {
     listPendingReservations,
@@ -185,7 +185,7 @@ export default function Reservations() {
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { hasFeature } = usePlanFeatures();
     const { permissions, loading: permissionsLoading } = usePermissions();
-    const sedeScope = useSedeScope();
+    const sedeScope = useActivityScope();
     const [searchParams, setSearchParams] = useSearchParams();
 
     const canRead = useMemo(
@@ -260,8 +260,9 @@ export default function Reservations() {
         }, { replace: true });
     }, [setSearchParams]);
 
-    // Scope deriva da useSedeScope (navbar). SCOPE_ALL → "__all__" downstream.
-    const scope: Scope = sedeScope.value === SCOPE_ALL ? "__all__" : sedeScope.value;
+    // Dentro il contesto la sede è nel path; fuori, dal selettore navbar
+    // («tutte le sedi» → "__all__" downstream).
+    const scope: Scope = sedeScope.activityId ?? "__all__";
 
     // Channel filter (toolbar dropdown). Client-side, applied to the in-memory
     // dataset together with the scope filter. "all" = no narrowing.

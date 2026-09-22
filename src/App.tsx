@@ -86,6 +86,7 @@ const ActivityAnagraficaRoute = lazy(() => import("./pages/Operativita/Attivita/
 const ActivityOrariRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrariRoute"));
 const ActivityOrdiniPrenotazioniRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrdiniPrenotazioniRoute"));
 const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySectionRedirect"));
+const OrdersRedirect = lazy(() => import("./pages/Dashboard/Orders/OrdersRedirect"));
 const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityPubblicazioneRoute"));
 const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySalaRoute"));
 const ActivityDisponibilitaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityDisponibilitaRoute"));
@@ -233,6 +234,12 @@ export default function App() {
                 <Route path="overview" element={<Overview />} />
 
                 <Route path="locations" element={<Businesses />} />
+                {/* Comande e prenotazioni della sede: le pagine operative
+                    montate dentro il contesto, con la sede presa dal path
+                    (§46.1). Fuori dal parent della scheda: non sono sue
+                    pagine, e non devono ereditarne testata e draft. */}
+                <Route path="locations/:activityId/comande" element={<Orders />} />
+                <Route path="locations/:activityId/prenotazioni" element={<Reservations />} />
                 {/* La scheda della sede: quattro pagine (§31) più Sala e
                     Disponibilità; i vecchi `?tab=` li reindirizza il parent. */}
                 <Route path="locations/:activityId" element={<ActivityDetailPage />}>
@@ -250,7 +257,9 @@ export default function App() {
                     <Route path="*" element={<ActivitySectionRedirect to="anagrafica" />} />
                 </Route>
 
-                <Route path="orders" element={<Orders />} />
+                {/* Le comande sono di una sede: il vecchio indirizzo d'azienda
+                    porta dentro il contesto (§46.1). */}
+                <Route path="orders" element={<OrdersRedirect />} />
                 <Route path="reservations" element={<Reservations />} />
                 <Route path="guests" element={<Guests />} />
 

@@ -1,5 +1,5 @@
 import { Fragment, type ReactNode } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Lock, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
@@ -11,9 +11,13 @@ import styles from "./AppSidebar.module.scss";
 
 /**
  * AppSidebar — l'unica navigazione (scheda «AppSidebar»): una sidebar sola,
- * che riceve tutto e non sa niente. I gruppi li costruiscono i tre
- * costruttori (TenantSidebar con i permessi, AdminSidebar, WorkspaceSidebar):
- * aggiungere una sezione = aggiungere una voce a `groups`.
+ * che riceve tutto e non sa niente. I gruppi li costruiscono i costruttori
+ * (TenantSidebar e SedeSidebar con i permessi, AdminSidebar,
+ * WorkspaceSidebar): aggiungere una sezione = aggiungere una voce a `groups`.
+ *
+ * `headerSlot` è l'intestazione del contesto, sopra le voci e fuori dallo
+ * scroll: dentro una sede porta «← Tutte le sedi», il nome del locale e il
+ * suo stato. Resta vuoto nel contesto azienda.
  *
  * Lo SCSS dello stato collassato usa selettori discendenti
  * (`.sidebar[data-collapsed="true"] .link/.label/.icon`): markup e stile
@@ -48,6 +52,10 @@ export interface AppSidebarNavItem {
     loadingLabel?: string;
     /** Funzione del piano Pro: lucchetto con tooltip «Pro». La voce resta navigabile. */
     locked?: boolean;
+    /** Altri percorsi che tengono la voce corrente, oltre a `to`: la «Scheda»
+     *  della sede resta accesa su tutte e quattro le sue pagine. Confronto per
+     *  prefisso, valutato in OR con il match di `NavLink`. */
+    matchPrefixes?: string[];
 }
 
 export interface AppSidebarNavGroup {
@@ -63,6 +71,10 @@ export interface AppSidebarProps {
     collapsed: boolean;
     onRequestClose: () => void;
     onToggleCollapse: () => void;
+    /** Intestazione del contesto, sopra le voci: dove sei e come si esce
+     *  (la sede, con «← Tutte le sedi»). Chi lo passa rende anche la sua
+     *  versione collassata — il `collapsed` lo riceve già. */
+    headerSlot?: ReactNode;
     /** Contenuto opzionale reso in fondo alla nav, sopra il footer di collapse. */
     footerSlot?: ReactNode;
 }
@@ -120,9 +132,11 @@ export function AppSidebar({
     collapsed,
     onRequestClose,
     onToggleCollapse,
+    headerSlot,
     footerSlot
 }: AppSidebarProps) {
     const collapsedDesktop = !isMobile && collapsed;
+    const { pathname } = useLocation();
     return (
         <>
             {isMobile && mobileOpen && (
@@ -161,6 +175,14 @@ export function AppSidebar({
                     </div>
                 )}
 
+                {/* Landmark a sé: il rimando che porta fuori dal contesto è
+                    navigazione, ma non è una voce del menu. */}
+                {headerSlot && (
+                    <nav className={styles.headerSlot} aria-label="Contesto">
+                        {headerSlot}
+                    </nav>
+                )}
+
                 <div className={styles.sidebarScroll}>
                     <nav className={styles.nav} aria-label="Menu principale">
                         {groups.map((group, i) => (
@@ -197,7 +219,12 @@ export function AppSidebar({
                                                         to={link.to}
                                                         end={link.end}
                                                         className={({ isActive }) =>
-                                                            [styles.link, isActive ? styles.active : ""].join(" ")
+                                                            [
+                                                                styles.link,
+                                                                isActive || link.matchPrefixes?.some(p => pathname.startsWith(p))
+                                                                    ? styles.active
+                                                                    : ""
+                                                            ].join(" ")
                                                         }
                                                         onClick={() => {
                                                             if (isMobile) onRequestClose();
