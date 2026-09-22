@@ -221,6 +221,7 @@ export default function OrderDetailDrawer({
                                     title={item.product_name_snapshot}
                                     subtitle={itemDetail(item)}
                                     wrapSubtitle="full"
+                                    metaInline
                                     muted={isCancelled}
                                     meta={
                                         <>
@@ -238,6 +239,7 @@ export default function OrderDetailDrawer({
                         })}
                         <ListRow
                             title="Totale"
+                            metaInline
                             meta={
                                 showNet ? (
                                     <>
@@ -263,12 +265,14 @@ export default function OrderDetailDrawer({
                         <ListRow
                             leading={<Check size={16} aria-hidden className={styles.eventDone} />}
                             title="Inviato"
+                            metaInline
                             meta={<Text variant="body-sm" colorVariant="muted">{formatAbsolute(order.submitted_at)}</Text>}
                         />
                         {order.acknowledged_at && (
                             <ListRow
                                 leading={<Check size={16} aria-hidden className={styles.eventDone} />}
                                 title="Confermato"
+                                metaInline
                                 meta={<Text variant="body-sm" colorVariant="muted">{formatAbsolute(order.acknowledged_at)}</Text>}
                             />
                         )}
@@ -276,6 +280,7 @@ export default function OrderDetailDrawer({
                             <ListRow
                                 leading={<Check size={16} aria-hidden className={styles.eventDone} />}
                                 title="Consegnato"
+                                metaInline
                                 meta={<Text variant="body-sm" colorVariant="muted">{formatAbsolute(order.delivered_at)}</Text>}
                             />
                         )}
@@ -296,6 +301,7 @@ export default function OrderDetailDrawer({
                                         .join(" · ") || undefined
                                 }
                                 wrapSubtitle="full"
+                                metaInline
                                 meta={<Text variant="body-sm" colorVariant="muted">{formatAbsolute(order.cancelled_at)}</Text>}
                             />
                         )}

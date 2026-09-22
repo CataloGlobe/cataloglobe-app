@@ -229,6 +229,7 @@ function renderStornoRow(s: V2OrderWithItems) {
             }
             subtitle={s.notes || undefined}
             wrapSubtitle="full"
+            metaInline
             meta={<Text variant="body-sm" weight={500}>{formatEur(-s.total_amount)}</Text>}
         />
     );
@@ -756,6 +757,7 @@ export function TableDetailDrawer({
                                         })}
                                         <ListRow
                                             title="Totale in corso"
+                                            metaInline
                                             meta={<Text weight={600}>{formatEur(activeTotal)}</Text>}
                                         />
                                     </>
@@ -833,6 +835,7 @@ export function TableDetailDrawer({
                                 {currentTotal != null && (
                                     <ListRow
                                         title="Da pagare"
+                                        metaInline
                                         subtitle={
                                             recentOrders.some(o => o.is_rectification)
                                                 ? "storni già scalati"
