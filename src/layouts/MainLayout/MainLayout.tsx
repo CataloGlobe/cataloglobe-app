@@ -17,6 +17,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useTranslationCoverage } from "@/hooks/useTranslationCoverage";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { resolveBusinessRoute, businessRouteLabel } from "@components/layout/AppHeader/navbarBreadcrumbRoutes";
+import { ACTIVITY_SECTION_LABELS, type ActivitySection } from "@/pages/Operativita/Attivita/ActivityDetailContext";
 import { useAiImportSession } from "@/hooks/useAiImportSession";
 import { useAiUsage } from "@/hooks/useAiUsage";
 import { useCheckoutReturnSync } from "@/hooks/useCheckoutReturnSync";
@@ -47,7 +48,12 @@ function resolvePageTitle(businessId: string, pathname: string, catalogLabel: st
     if (first === 'scheduling' && second === 'featured' && third) return 'Regola in evidenza';
     if (second && first === 'products') return 'Dettaglio prodotto';
     if (second && first === 'catalogs') return `Dettaglio ${catalogLabel.toLowerCase()}`;
-    if (second && first === 'locations') return 'Dettaglio sede';
+    if (second && first === 'locations') {
+        // Le sei pagine della sede sono rotte: il titolo dice in quale sei,
+        // altrimenti sei schede del browser si chiamano tutte uguale.
+        const label = ACTIVITY_SECTION_LABELS[third as ActivitySection];
+        return label ? `Sede · ${label}` : 'Dettaglio sede';
+    }
     if (second && first === 'scheduling') return 'Dettaglio regola';
     if (second && first === 'featured') return 'Dettaglio in evidenza';
     if (second && first === 'styles') return 'Editor stile';
