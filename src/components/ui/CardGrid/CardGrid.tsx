@@ -119,9 +119,13 @@ export function CardGridItem({
 
     const body = (
         <>
-            <div className={styles.media}>
-                <div className={styles.mediaInner}>{mediaNode}</div>
-            </div>
+            {/* Senza immagine né media niente area 16:10: la card è un dato
+                (un tavolo della sala), non una cosa che si riconosce a vista. */}
+            {mediaNode && (
+                <div className={styles.media}>
+                    <div className={styles.mediaInner}>{mediaNode}</div>
+                </div>
+            )}
             <div className={styles.body}>
                 <Text as="div" variant="body-sm" weight={500} className={styles.title}>
                     {title}

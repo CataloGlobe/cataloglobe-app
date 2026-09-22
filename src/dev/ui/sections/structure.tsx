@@ -250,6 +250,7 @@ function CardGridSection() {
                         onClick={noop}
                     />
                     <CardGridItem media={<Palette size={40} strokeWidth={1.25} />} title="Stile «Notte»" subtitle="Scuro, serif" onClick={noop} />
+                    <CardGridItem title="T4 · Sala" subtitle="4 posti · da 35 min" badge={<StatusBadge variant="success" label="Aperto" />} footer="2 comande · 38,50 €" onClick={noop} />
                     <CardGridItem
                         media={<Palette size={40} strokeWidth={1.25} />}
                         title="Uno stile con un nome davvero troppo lungo per stare su una riga sola"
