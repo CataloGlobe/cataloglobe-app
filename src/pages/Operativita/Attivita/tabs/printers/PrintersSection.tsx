@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
-import { CircleHelp, Plus, Printer as PrinterIcon, RefreshCw, Unlink } from "lucide-react";
+import { Printer as PrinterIcon, Unlink } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import { Card } from "@/components/ui/Card/Card";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import Text from "@/components/ui/Text/Text";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
@@ -27,8 +30,8 @@ interface PrintersSectionProps {
 }
 
 /**
- * Corpo della Card "Stampanti" (tab Ordinazioni della sede): lista stampanti Sunmi
- * collegate + CTA "Collega stampante" + azione "Scollega" per riga.
+ * Card «Stampanti» della pagina Canali: le stampanti Sunmi collegate con
+ * lo stato per stampante (registro Sedi #71), «Collega» e «Scollega».
  *
  * Gating come TablesManagement: `tables.manage` (permesso) + `canEdit`
  * (abbonamento). Lettura: `tables.read` → se assente non si fetcha (evita
@@ -166,111 +169,79 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
       : <StatusBadge variant="warning" label="Offline" />;
   };
 
-  return (
-    <div className={styles.body}>
-      <div className={styles.toolbar}>
-        <p className={styles.hint}>
-          Le stampanti collegate ricevono le comande della sede. Puoi collegarne
-          più di una, per esempio cucina e bar.
-        </p>
-        <div className={styles.toolbarActions}>
-          {items.length > 0 && (
-            <Button
-              variant="ghost"
-              size="sm"
-              leftIcon={<RefreshCw size={16} />}
-              loading={isStatusLoading}
-              onClick={() => loadStatus()}
-            >
-              Aggiorna stato
-            </Button>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            leftIcon={<CircleHelp size={16} />}
-            onClick={() => setIsGuideOpen(true)}
-          >
-            Come collegare una stampante
-          </Button>
-          {canManage && (
-            <Button
-              variant="primary"
-              size="sm"
-              leftIcon={<Plus size={16} />}
-              onClick={() => setIsBindOpen(true)}
-            >
-              Collega stampante
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {canManage && items.length > 0 && (
-        <p className={styles.purchaseNote}>
-          Funzionano solo le stampanti acquistate dal nostro link: vengono
-          abbinate al nostro sistema al momento della spedizione. Gli stessi
-          modelli comprati altrove non possono essere collegati.{" "}
-          <a href={PRINTER_PURCHASE_URL} target="_blank" rel="noopener noreferrer">
-            Compra una stampante
-          </a>
-        </p>
+  const actions = (
+    <>
+      {items.length > 0 && (
+        <Button variant="ghost" size="sm" loading={isStatusLoading} onClick={() => loadStatus()}>
+          Aggiorna stato
+        </Button>
       )}
+      <Button variant="ghost" size="sm" onClick={() => setIsGuideOpen(true)}>
+        Come si collega
+      </Button>
+      {canManage && (
+        <Button variant="primary" size="sm" onClick={() => setIsBindOpen(true)}>
+          Collega
+        </Button>
+      )}
+    </>
+  );
 
+  return (
+    <Card
+      title="Stampanti"
+      subtitle="Lo stato è hardware, non configurazione"
+      actions={actions}
+      flush={!isLoading && items.length > 0}
+    >
       {isLoading ? (
-        <div className={styles.skeleton} aria-hidden="true" />
+        <>
+          <ListRow loading />
+          <ListRow loading />
+        </>
       ) : items.length === 0 ? (
         <EmptyState
-          icon={<PrinterIcon size={40} strokeWidth={1.5} />}
+          variant="inline"
+          icon={<PrinterIcon />}
           title="Nessuna stampante collegata"
           description={
             canManage
-              ? "Collega una stampante Sunmi per ricevere le comande in cucina."
+              ? "Si collega col numero di serie della stampante più un nome. Funzionano solo le stampanti acquistate dal nostro link: vengono abbinate al nostro sistema alla spedizione."
               : "Non ci sono stampanti collegate a questa sede."
           }
           action={
-            canManage && (
-              <div className={styles.emptyActions}>
-                <Button variant="secondary" size="sm" onClick={() => setIsGuideOpen(true)}>
-                  Come collegare una stampante
-                </Button>
-                <Button
-                  as="a"
-                  href={PRINTER_PURCHASE_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  variant="ghost"
-                  size="sm"
-                >
-                  Compra una stampante
-                </Button>
-              </div>
-            )
+            canManage ? (
+              <Button
+                as="a"
+                href={PRINTER_PURCHASE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="secondary"
+                size="sm"
+              >
+                Compra una stampante
+              </Button>
+            ) : undefined
           }
-          compact
         />
       ) : (
-        <ul className={styles.list}>
+        <>
           {items.map((p) => (
-            <li key={p.id} className={styles.row}>
-              <PrinterIcon
-                size={18}
-                strokeWidth={1.5}
-                className={styles.rowIcon}
-              />
-              <div className={styles.rowText}>
-                <span className={styles.rowLabel}>{p.label}</span>
-                <span className={styles.rowSn}>SN {p.sn}</span>
-              </div>
-              <div className={styles.rowStatus}>
-                {renderStatusBadge(p)}
-                {p.out_of_paper && (
-                  <StatusBadge variant="warning" label="Carta esaurita" />
-                )}
-              </div>
-              {canManage && (
-                <div className={styles.rowActions}>
+            <ListRow
+              key={p.id}
+              leading={<PrinterIcon size={20} strokeWidth={1.75} />}
+              title={p.label}
+              subtitle={`SN ${p.sn}`}
+              meta={
+                <span className={styles.status}>
+                  {renderStatusBadge(p)}
+                  {p.out_of_paper && <StatusBadge variant="warning" label="Carta esaurita" />}
+                </span>
+              }
+              trailing={
+                canManage ? (
                   <TableRowActions
+                    ariaLabel={`Azioni stampante ${p.label}`}
                     actions={[
                       {
                         label: "Scollega",
@@ -280,11 +251,17 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
                       },
                     ]}
                   />
-                </div>
-              )}
-            </li>
+                ) : undefined
+              }
+            />
           ))}
-        </ul>
+          <div className={styles.note}>
+            <Text variant="caption" colorVariant="muted">
+              Una stampante offline non blocca gli ordini: il cliente ordina e la comanda arriva a schermo,
+              ma in cucina nessuno la vede su carta.
+            </Text>
+          </div>
+        </>
       )}
 
       <PrinterBindDrawer
@@ -304,6 +281,6 @@ export const PrintersSection: React.FC<PrintersSectionProps> = ({
       />
 
       <PrinterGuideModal isOpen={isGuideOpen} onClose={() => setIsGuideOpen(false)} />
-    </div>
+    </Card>
   );
 };
