@@ -30,6 +30,7 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
         <span
             className={`${styles.badge} ${styles[resolved]} ${className ?? ""}`}
             aria-label={label}
+            data-pill=""
         >
             <span className={styles.dot} aria-hidden />
             <span className={styles.label}>{label}</span>

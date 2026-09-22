@@ -65,6 +65,15 @@
   padding: var(--space-8) 0;
 }
 
+// Un body che contiene ListRow è una lista: le righe si toccano e a separarle
+// è il loro divisore. Col gap del body (12) lo spazio finiva tutto sotto una
+// riga e niente sopra la successiva — il divisore restava a 12 dal contenuto
+// di sopra e a 8 da quello di sotto. Panoramica e Checklist lo azzeravano già
+// per conto loro; ora lo fa il componente, e quelle restano come sono.
+.body:has(> [data-list-row]) {
+  gap: 0;
+}
+
 // Unica variante cromatica: la cornice avvisa e il titolo lo dice, il body
 // resta neutro (il bottone danger sta nell'header, a destra).
 .danger {
