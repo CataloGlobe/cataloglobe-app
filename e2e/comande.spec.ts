@@ -21,6 +21,8 @@ import { openBusinessPage } from "./business";
 const SEDE = /Garbagnate/;
 const TAVOLO = "T TEST";
 const COLONNE = ["Nuove", "In lavorazione", "Pronte"] as const;
+/** Gli articoli della comanda della fixture. */
+const ARTICOLI = ["Hamburger", "McToast"] as const;
 
 test.describe.configure({ mode: "serial" });
 
@@ -83,6 +85,17 @@ test.describe("Comande", () => {
         const drawer = page.getByRole("dialog");
         await expect(drawer).toBeVisible();
         await expect(drawer.getByText(TAVOLO).first()).toBeVisible();
+        // Il contenuto che la ricomposizione (P3) deve conservare.
+        await expect(drawer.getByText("Articoli", { exact: true })).toBeVisible();
+        for (const articolo of ARTICOLI) {
+            // Non `exact`: oggi quantità e nome stanno nello stesso testo («1x
+            // Hamburger»). `first()`: lo scontrino nascosto viene dopo nel DOM.
+            await expect(drawer.getByText(articolo).first()).toBeVisible();
+        }
+        await expect(drawer.getByText("Totale", { exact: true })).toBeVisible();
+        await expect(drawer.getByText(/^Inviato/).first()).toBeVisible();
+        await expect(drawer.getByRole("button", { name: /^(Stampa|Ristampa comanda)$/ })).toBeVisible();
+        await expect(drawer.getByRole("button", { name: "Chiudi" }).first()).toBeVisible();
 
         await page.keyboard.press("Escape");
         await expect(drawer).toHaveCount(0);
@@ -153,6 +166,13 @@ test.describe("Comande", () => {
         await expect(drawer).toBeVisible();
         await expect(drawer.getByText(TAVOLO).first()).toBeVisible();
         await expect(drawer.getByText(/manutenzione|occupat/i)).toHaveCount(0);
+        // La comanda in Nuove è un ordine in corso, confermabile da qui.
+        await expect(drawer.getByText(/^Ordini in corso/)).toBeVisible({ timeout: 15_000 });
+        await expect(drawer.getByRole("button", { name: "Conferma" })).toBeVisible();
+        await expect(drawer.getByText("Totale in corso", { exact: true })).toBeVisible();
+        await expect(drawer.getByText("Fuori servizio", { exact: true })).toBeVisible();
+        await expect(drawer.getByRole("switch").or(drawer.getByRole("checkbox")).first()).toBeDisabled();
+        await expect(drawer.getByRole("button", { name: /^(Chiudi tavolo|Fatto)$/ })).toBeVisible();
         await page.keyboard.press("Escape");
         await expect(drawer).toHaveCount(0);
     });
