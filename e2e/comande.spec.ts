@@ -304,6 +304,9 @@ test.describe("Comande", () => {
         for (const col of ["Stato", "Tavolo", "Operatore", "Orario", "Totale"]) {
             await expect(main.getByText(col, { exact: true }).first()).toBeVisible();
         }
+        // Lo stato ha lo stesso nome delle altre superfici (orderStatusBadge).
+        await expect(main.getByText("Servita", { exact: true })).toBeVisible();
+        await expect(main.getByText("Servito", { exact: true })).toHaveCount(0);
 
         await page.setViewportSize({ width: 375, height: 900 });
         await expect(main.getByText("Operatore", { exact: true })).toHaveCount(0);

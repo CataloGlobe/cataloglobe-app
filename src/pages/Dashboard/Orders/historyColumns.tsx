@@ -3,6 +3,7 @@ import type { ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import Text from "@/components/ui/Text/Text";
+import { orderStatusBadge } from "./orderStatusBadge";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import type { V2OrderWithItems, V2Table } from "@/types/orders";
 import styles from "./historyColumns.module.scss";
@@ -66,12 +67,10 @@ export function makeHistoryColumns({
                         </Text>
                     );
                 }
+                const { variant, label } = orderStatusBadge(row.status);
                 return (
                     <div className={styles.statusCell}>
-                        <StatusBadge
-                            variant={row.status === "delivered" ? "success" : "neutral"}
-                            label={row.status === "delivered" ? "Servito" : "Annullato"}
-                        />
+                        <StatusBadge variant={variant} label={label} />
                         {row.rectified && (
                             <span className={styles.rettificatoChip}>Rettificato</span>
                         )}
