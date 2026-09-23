@@ -246,22 +246,38 @@ export type MenuStub = {
     writes: WriteCall[];
     /** Registra la risposta finta di una scrittura (test di cablaggio). */
     onWrite: (key: string, handler: WriteHandler) => void;
-    /** Toglie un permesso dalla risposta vera di `get_my_permissions`. */
+    /**
+     * Toglie un permesso dalla risposta vera di `get_my_permissions`. Risolve
+     * `revoked` alla prima risposta riscritta: prima di allora le azioni sono
+     * nascoste comunque (permessi in caricamento), e un «non c'è» passerebbe
+     * senza aver provato niente.
+     */
     revoke: (permission: string) => Promise<void>;
+    revoked: Promise<void>;
 };
 
 export async function stubMenu(page: Page): Promise<MenuStub> {
     const tables = makeTables();
     const handlers = new Map<string, WriteHandler>();
+    let markRevoked: () => void = () => {};
+    const revoked = new Promise<void>(resolve => {
+        markRevoked = resolve;
+    });
     const stub: MenuStub = {
         writes: [],
         onWrite: (key, handler) => handlers.set(key, handler),
+        revoked,
         revoke: async permission => {
             await page.route(/\/rest\/v1\/rpc\/get_my_permissions/, async route => {
-                const response = await route.fetch();
-                const rows = (await response.json()) as Array<{ permissions: string[] | null }>;
-                for (const row of rows) row.permissions = (row.permissions ?? []).filter(p => p !== permission);
-                await route.fulfill({ response, json: rows });
+                try {
+                    const response = await route.fetch();
+                    const rows = (await response.json()) as Array<{ permissions: string[] | null }>;
+                    for (const row of rows) row.permissions = (row.permissions ?? []).filter(p => p !== permission);
+                    await route.fulfill({ response, json: rows });
+                    markRevoked();
+                } catch {
+                    // Pagina chiusa a metà richiesta (fine del test): niente da riscrivere.
+                }
             });
         }
     };

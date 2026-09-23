@@ -222,6 +222,9 @@ test.describe("Menù — elenco", () => {
     test("in sola lettura: niente azioni che scrivono", async ({ page }) => {
         await stub.revoke("catalogs.write");
         await openList(page);
+        await stub.revoked;
+        // Il controllo positivo prima: la pagina è quella giusta e carica.
+        await expect(page.getByRole("radio", { name: "Vista lista" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Crea menù" })).toHaveCount(0);
         await expect(page.getByRole("button", { name: "Importa con AI" })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
@@ -515,6 +518,7 @@ test.describe("Menù — dettaglio", () => {
     test("in sola lettura il dettaglio si guarda e basta", async ({ page }) => {
         await stub.revoke("catalogs.write");
         await openCarta(page);
+        await stub.revoked;
         await selectCategory(page, "Antipasti");
         await expect(main(page).getByText("Olive ascolane", { exact: true })).toBeVisible();
         await expect(main(page).getByRole("button", { name: "Nuova portata" })).toHaveCount(0);
