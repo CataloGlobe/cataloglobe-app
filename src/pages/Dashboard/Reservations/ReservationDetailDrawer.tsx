@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import {
     Armchair,
     CalendarDays,
@@ -298,6 +298,8 @@ export default function ReservationDetailDrawer({
     seatingPartySize,
     onSetSeatingPartySize
 }: Props) {
+    // Il titolo canonico di DrawerLayout nomina il dialog (`aria-labelledby`).
+    const titleId = useId();
     const durationMin = activityDurationMinutes ?? DEFAULT_DURATION_MINUTES;
 
     // ── Quale tavolo si sta guardando ────────────────────────────────
@@ -423,10 +425,8 @@ export default function ReservationDetailDrawer({
 
     if (!reservation) {
         return (
-            <SystemDrawer open={open} onClose={onClose} width={560}>
-                <DrawerLayout
-                    header={<Text variant="title-sm" weight={600}>Prenotazione</Text>}
-                >
+            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+                <DrawerLayout title="Prenotazione" titleId={titleId} onClose={onClose}>
                     <div className={styles.drawerBody}>
                         <Text variant="body" colorVariant="muted">
                             Nessuna prenotazione selezionata.
@@ -608,18 +608,14 @@ export default function ReservationDetailDrawer({
         </div>
     );
 
-    const header = (
-        <div className={styles.drawerHeaderTitle}>
-            <Text variant="title-sm" weight={600}>Prenotazione</Text>
-            <StatusBadge variant={st.variant} label={st.label} />
-        </div>
-    );
 
     if (asking && closeFlow.kind === "ask") {
         return (
-            <SystemDrawer open={open} onClose={onClose} width={560}>
+            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
                 <DrawerLayout
-                    header={header}
+                    title="Prenotazione"
+                    titleId={titleId}
+                    onClose={onClose}
                     footer={
                         <SeatingCloseQuestionFooter
                             flow={closeFlow}
@@ -636,8 +632,8 @@ export default function ReservationDetailDrawer({
     }
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={560}>
-            <DrawerLayout header={header} footer={footer}>
+        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+            <DrawerLayout title="Prenotazione" titleId={titleId} onClose={onClose} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Hero: data eroe + meta + sede ─────────────────── */}
                     <section className={styles.drawerHero}>
@@ -651,6 +647,9 @@ export default function ReservationDetailDrawer({
                             <span className={styles.drawerHeroDateText}>
                                 {formatDateIt(reservation.reservation_date)}
                             </span>
+                            {/* Lo stato stava nell'intestazione: quella
+                                canonica di DrawerLayout ha solo titolo e chiudi. */}
+                            <StatusBadge variant={st.variant} label={st.label} />
                         </div>
 
                         {/* Conferma del cliente, per esteso con data e ora.

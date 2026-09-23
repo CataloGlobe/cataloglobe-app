@@ -29,7 +29,9 @@ export function SeatingCloseQuestionBody({ flow }: BodyProps) {
     const deliverable = flow.options.includes("deliver");
     return (
         <div className={styles.drawerBody}>
-            <section className={styles.drawerQuestion} role="alertdialog" aria-live="polite">
+            {/* Non un `alertdialog`: è uno stato del drawer, che è già il dialog.
+                Il cambio si annuncia con la regione live. */}
+            <section className={styles.drawerQuestion} aria-live="polite">
                 <h3 className={styles.drawerQuestionTitle}>
                     {closeQuestionTitle(flow.pendingOrders)}
                 </h3>

@@ -207,9 +207,11 @@ test.describe("Prenotazioni", () => {
         await selectTab(page, /^Agenda/);
 
         await main(page).getByText("Sara Conti").first().click();
-        const drawer = page.getByRole("dialog");
+        const drawer = page.getByRole("dialog", { name: "Prenotazione" });
         await expect(drawer).toBeVisible();
-        await expect(drawer.getByText("Prenotazione", { exact: true })).toBeVisible();
+        // Taglia di sistema `md` (520), non più i 560 scritti a mano.
+        expect(await drawer.evaluate(el => Math.round(el.getBoundingClientRect().width))).toBe(520);
+        await expect(drawer.getByRole("button", { name: "Chiudi" })).toBeVisible();
         await expect(drawer.getByText("Confermata", { exact: true })).toBeVisible();
         await expect(drawer.getByRole("button", { name: "Modifica" })).toBeVisible();
         await expect(drawer.getByRole("button", { name: "Annulla prenotazione" })).toBeVisible();
@@ -229,10 +231,29 @@ test.describe("Prenotazioni", () => {
         await openPrenotazioni(page);
         await page.getByRole("button", { name: "Nuova prenotazione" }).first().click();
 
-        const drawer = page.getByRole("dialog");
-        await expect(drawer.getByText("Nuova prenotazione").first()).toBeVisible();
+        const drawer = page.getByRole("dialog", { name: "Nuova prenotazione" });
+        await expect(drawer).toBeVisible();
         await expect(drawer.getByRole("button", { name: "Crea prenotazione" })).toBeVisible();
+        expect(await drawer.evaluate(el => Math.round(el.getBoundingClientRect().width))).toBe(520);
         await drawer.getByRole("button", { name: "Annulla", exact: true }).click();
+        await expect(drawer).toHaveCount(0);
+        expect(stub.writes).toHaveLength(0);
+    });
+
+    test("il form con qualcosa di scritto chiede prima di chiudersi (§27)", async ({ page }) => {
+        await openPrenotazioni(page);
+        await page.getByRole("button", { name: "Nuova prenotazione" }).first().click();
+        const drawer = page.getByRole("dialog", { name: "Nuova prenotazione" });
+        await drawer.getByLabel(/Nome cliente/).fill("Mario Rossi");
+
+        await drawer.getByRole("button", { name: "Annulla", exact: true }).click();
+        const guard = page.getByRole("alertdialog", { name: "Uscire senza salvare?" });
+        await expect(guard).toBeVisible();
+        await guard.getByRole("button", { name: "Resta" }).click();
+        await expect(drawer.getByLabel(/Nome cliente/)).toHaveValue("Mario Rossi");
+
+        await page.keyboard.press("Escape");
+        await guard.getByRole("button", { name: "Esci senza salvare" }).click();
         await expect(drawer).toHaveCount(0);
         expect(stub.writes).toHaveLength(0);
     });

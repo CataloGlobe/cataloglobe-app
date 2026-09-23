@@ -66,6 +66,11 @@ interface ReservationFormProps {
      * senza le quali l'avviso di capienza qui sopra non vedrebbe niente.
      */
     onDateChange?: (iso: string | null) => void;
+    /**
+     * Il form si scosta dai valori con cui si è aperto. Il drawer lo usa per
+     * la guardia di uscita (§27): chiudere perderebbe quello che si è scritto.
+     */
+    onDirtyChange?: (dirty: boolean) => void;
 }
 
 function normalizeTime(value: string): string {
@@ -83,7 +88,8 @@ export function ReservationForm({
     entityData,
     onSuccess,
     onSavingChange,
-    onDateChange
+    onDateChange,
+    onDirtyChange
 }: ReservationFormProps) {
     const { showToast } = useToast();
     const { permissions } = usePermissions();
@@ -137,6 +143,35 @@ export function ReservationForm({
     const [customerPhone, setCustomerPhone] = useState(entityData?.customer_phone ?? "");
     const [customerEmail, setCustomerEmail] = useState(entityData?.customer_email ?? "");
     const [notes, setNotes] = useState(entityData?.notes ?? "");
+
+    // I valori con cui il form si è aperto: il confronto è con questi, non con
+    // l'ultimo salvataggio (il form non salva a pezzi).
+    const [initial] = useState(() => ({
+        activityId: defaultActivityId,
+        reservationDate: entityData?.reservation_date ?? "",
+        reservationTime: entityData?.reservation_time ? entityData.reservation_time.slice(0, 5) : "",
+        partySize: entityData?.party_size ? String(entityData.party_size) : "2",
+        customerName: entityData?.customer_name ?? "",
+        customerPhone: entityData?.customer_phone ?? "",
+        customerEmail: entityData?.customer_email ?? "",
+        notes: entityData?.notes ?? ""
+    }));
+    const isDirty =
+        activityId !== initial.activityId ||
+        reservationDate !== initial.reservationDate ||
+        reservationTime !== initial.reservationTime ||
+        partySize !== initial.partySize ||
+        customerName !== initial.customerName ||
+        customerPhone !== initial.customerPhone ||
+        customerEmail !== initial.customerEmail ||
+        notes !== initial.notes;
+    const onDirtyChangeRef = useRef(onDirtyChange);
+    useEffect(() => {
+        onDirtyChangeRef.current = onDirtyChange;
+    }, [onDirtyChange]);
+    useEffect(() => {
+        onDirtyChangeRef.current?.(isDirty);
+    }, [isDirty]);
 
     const [nameError, setNameError] = useState<string>();
     const [phoneError, setPhoneError] = useState<string>();

@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
-import Text from "@/components/ui/Text/Text";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { TableMultiSelect } from "@/components/ui/TableMultiSelect/TableMultiSelect";
 import type { V2Table } from "@/types/orders";
@@ -43,6 +42,7 @@ export default function WalkinCreateDrawer({
     occupiedBy,
     onSubmit
 }: Props) {
+    const titleId = useId();
     const [tableIds, setTableIds] = useState<string[]>([]);
     const [partySize, setPartySize] = useState("");
     const [saving, setSaving] = useState(false);
@@ -94,13 +94,11 @@ export default function WalkinCreateDrawer({
     );
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={520}>
+        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId}>
             <DrawerLayout
-                header={
-                    <Text variant="title-sm" weight={600}>
-                        Tavolata senza prenotazione
-                    </Text>
-                }
+                title="Tavolata senza prenotazione"
+                titleId={titleId}
+                onClose={onClose}
                 footer={footer}
             >
                 <form id={FORM_ID} onSubmit={handleSubmit} className={styles.drawerBody}>

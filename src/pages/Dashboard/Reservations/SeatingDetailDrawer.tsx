@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Armchair, Clock, Users } from "lucide-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
@@ -82,6 +82,7 @@ export default function SeatingDetailDrawer({
     onComplete,
     onUndo
 }: Props) {
+    const titleId = useId();
     // "da 45 min" resta vero anche senza eventi: un tick al minuto.
     const [now, setNow] = useState(() => new Date());
     useEffect(() => {
@@ -126,9 +127,11 @@ export default function SeatingDetailDrawer({
         // cos'è successo. Nessun auto-close: un drawer che si chiude da solo
         // sotto le mani è peggio.
         return (
-            <SystemDrawer open={open} onClose={onClose} width={520}>
+            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
                 <DrawerLayout
-                    header={<Text variant="title-sm" weight={600}>Tavolata</Text>}
+                    title="Tavolata"
+                    titleId={titleId}
+                    onClose={onClose}
                     footer={
                         <div className={styles.drawerFooter}>
                             <Button variant="secondary" onClick={onClose}>
@@ -139,7 +142,7 @@ export default function SeatingDetailDrawer({
                 >
                     <div className={styles.drawerBody}>
                         <Text variant="body" colorVariant="muted">
-                            Questa tavolata è stata annullata.
+                            Questa tavolata non è più in sala.
                         </Text>
                     </div>
                 </DrawerLayout>
@@ -253,20 +256,14 @@ export default function SeatingDetailDrawer({
         </div>
     );
 
-    const header = (
-        <div className={styles.drawerHeaderTitle}>
-            <Text variant="title-sm" weight={600}>
-                Tavolata
-            </Text>
-            <span className={styles.serviceWalkinMark}>Senza prenotazione</span>
-        </div>
-    );
 
     if (asking && closeFlow.kind === "ask") {
         return (
-            <SystemDrawer open={open} onClose={onClose} width={520}>
+            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
                 <DrawerLayout
-                    header={header}
+                    title="Tavolata"
+                    titleId={titleId}
+                    onClose={onClose}
                     footer={
                         <SeatingCloseQuestionFooter
                             flow={closeFlow}
@@ -283,8 +280,8 @@ export default function SeatingDetailDrawer({
     }
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={520}>
-            <DrawerLayout header={header} footer={footer}>
+        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+            <DrawerLayout title="Tavolata" titleId={titleId} onClose={onClose} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Hero: i tavoli sono il nome ───────────────── */}
                     <section className={styles.drawerHero}>
@@ -298,6 +295,7 @@ export default function SeatingDetailDrawer({
                             <span className={styles.drawerHeroDateText}>
                                 {title ?? "Nessun tavolo"}
                             </span>
+                            <span className={styles.serviceWalkinMark}>Senza prenotazione</span>
                         </div>
                         <div className={styles.drawerHeroMeta}>
                             <span className={styles.drawerHeroMetaItem}>

@@ -927,10 +927,9 @@
   }
 }
 
-.drawerHeaderTitle {
-  display: flex;
-  align-items: center;
-  gap: 12px;
+/* Riga d'apertura del drawer crea/modifica (era il sottotitolo nell'intestazione). */
+.drawerLead {
+  margin: 0 0 var(--space-16);
 }
 
 .drawerFooter {
