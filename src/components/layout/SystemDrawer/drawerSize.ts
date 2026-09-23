@@ -40,3 +40,11 @@ export function resolveDrawerSize(
     );
     return { size: "lg", explicitWidth: width };
 }
+
+/**
+ * Durata dell'apertura/chiusura del pannello, in ms. Chi deve aspettare la
+ * fine dell'uscita (un drawer che sostituisce un altro, senza impilarli) la
+ * legge da qui invece di copiarla: la copia in `TablesLiveView` diceva 250
+ * mentre il pannello animava in 200.
+ */
+export const SYSTEM_DRAWER_MOTION_MS = 200;

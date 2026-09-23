@@ -28,10 +28,16 @@ interface ListRowBaseProps {
     /** Una riga muta, con ellissi. */
     subtitle?: ReactNode;
     /** Il sottotitolo va a capo fino a due righe invece di troncarsi: per
-     *  le righe in cui è una spiegazione (Checklist), non un dato. */
-    wrapSubtitle?: boolean;
+     *  le righe in cui è una spiegazione (Checklist), non un dato.
+     *  `"full"`: va a capo senza limite — per il dato che non si può tagliare
+     *  (le aggiunte e le note di un articolo nel dettaglio della comanda). */
+    wrapSubtitle?: boolean | "full";
     /** Badge, StatusBadge, cifra. */
     meta?: ReactNode;
+    /** Il meta resta in riga anche sotto 768, invece di scendere sotto il
+     *  titolo: per una cifra corta (un importo, una quantità), non per un
+     *  gruppo di badge. */
+    metaInline?: boolean;
     trailing?: ReactNode;
     /** Riga cliccabile: hover, focus, Enter/Spazio. */
     onClick?: (event: MouseEvent<HTMLElement>) => void;
@@ -64,6 +70,7 @@ export function ListRow({
     subtitle,
     wrapSubtitle = false,
     meta,
+    metaInline = false,
     trailing,
     onClick,
     to,
@@ -93,6 +100,7 @@ export function ListRow({
         interactive ? styles.interactive : "",
         selected ? styles.selected : "",
         muted ? styles.muted : "",
+        metaInline ? styles.metaInline : "",
         className ?? ""
     ]
         .join(" ")
@@ -110,7 +118,13 @@ export function ListRow({
                         as="div"
                         variant="caption"
                         colorVariant="muted"
-                        className={wrapSubtitle ? styles.subtitleWrap : styles.subtitle}
+                        className={
+                            wrapSubtitle === "full"
+                                ? styles.subtitleFull
+                                : wrapSubtitle
+                                  ? styles.subtitleWrap
+                                  : styles.subtitle
+                        }
                     >
                         {subtitle}
                     </Text>

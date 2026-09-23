@@ -16,7 +16,12 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import { AlertCircle } from "lucide-react";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
 import Text from "@/components/ui/Text/Text";
 import OrderCard from "./OrderCard";
 import type { V2OrderWithItems, V2Table } from "@/types/orders";
@@ -138,81 +143,126 @@ export default function OrdersKanban({
         return map;
     }, [orders]);
 
+    // Sotto 1024 si vede una lista sola, scelta dal selettore di stato (passo 2
+    // «375 e 768»). All'apertura: la prima lista non vuota. Dopo resta quella
+    // scelta: una comanda nuova non sposta la vista, la annunciano contatore e
+    // pulse. Sopra 1024 il valore non conta — le tre colonne sono tutte a vista.
+    const [narrowStatus, setNarrowStatus] = useState<ColumnDef["status"] | null>(null);
+    useEffect(() => {
+        if (narrowStatus !== null || isLoading) return;
+        const firstNonEmpty = COLUMNS.find(c => byStatus[c.status].length > 0);
+        setNarrowStatus(firstNonEmpty?.status ?? "submitted");
+    }, [narrowStatus, isLoading, byStatus]);
+    const activeNarrow = narrowStatus ?? "submitted";
+
     if (error) {
         return (
-            <div className={styles.errorBanner}>
-                <Text variant="body-sm">{error}</Text>
-                <Button variant="secondary" onClick={onRetry}>
-                    Riprova
-                </Button>
-            </div>
+            <EmptyState
+                variant="inline"
+                icon={<AlertCircle />}
+                title="Non riusciamo a caricare le comande"
+                description={error}
+                action={
+                    <Button variant="secondary" onClick={onRetry}>
+                        Riprova
+                    </Button>
+                }
+            />
         );
     }
 
     return (
-        <div className={styles.kanban}>
-            {COLUMNS.map(col => {
-                const colOrders = byStatus[col.status];
-                return (
-                    <div
-                        key={col.status}
-                        className={styles.column}
-                        data-status={col.status}
-                    >
-                        <div
-                            className={`${styles.columnHeader}${
-                                isPulsing && col.status === "submitted"
-                                    ? ` ${styles.columnHeaderPulsing}`
-                                    : ""
-                            }`}
+        <div className={styles.board} data-narrow-status={activeNarrow}>
+            <div className={styles.stateTabs}>
+                <Tabs<ColumnDef["status"]> value={activeNarrow} onChange={setNarrowStatus} variant="line">
+                    <Tabs.List aria-label="Stato delle comande">
+                        {COLUMNS.map(col => {
+                            const count = byStatus[col.status].length;
+                            return (
+                                <Tabs.Tab
+                                    key={col.status}
+                                    value={col.status}
+                                    badge={count}
+                                    badgeTone={col.status === "submitted" && count > 0 ? "brand" : "outline"}
+                                >
+                                    <span
+                                        className={
+                                            isPulsing && col.status === "submitted" ? styles.pulsing : undefined
+                                        }
+                                    >
+                                        {col.title}
+                                    </span>
+                                </Tabs.Tab>
+                            );
+                        })}
+                    </Tabs.List>
+                </Tabs>
+            </div>
+
+            <div className={styles.kanban}>
+                {COLUMNS.map(col => {
+                    const colOrders = byStatus[col.status];
+                    return (
+                        <section
+                            key={col.status}
+                            className={styles.column}
+                            data-status={col.status}
+                            aria-label={col.title}
                         >
-                            <span className={styles.columnTitleGroup}>
-                                <span className={styles.columnDot} aria-hidden />
-                                <span className={styles.columnTitle}>{col.title}</span>
-                            </span>
-                            <span className={styles.columnCount}>{colOrders.length}</span>
-                        </div>
-                        <div className={styles.columnList}>
-                            {isLoading && colOrders.length === 0 ? (
-                                <>
-                                    <div className={styles.skeleton} />
-                                    <div className={styles.skeleton} />
-                                </>
-                            ) : colOrders.length === 0 ? (
-                                <div className={styles.emptyColumn}>{col.emptyLabel}</div>
-                            ) : (
-                                colOrders.map(order => {
-                                    const table = tables.find(
-                                        t => t.id === order.table_id
-                                    );
-                                    return (
-                                        <OrderCard
-                                            key={order.id}
-                                            order={order}
-                                            tableLabel={table?.label ?? "?"}
-                                            tableZone={table?.zone_name ?? null}
-                                            operatorNames={operatorNames}
-                                            comandaPrintState={comandaPrintStates?.get(order.id) ?? null}
-                                            onReprint={onReprint}
-                                            printersHref={printersHref}
-                                            onAcknowledge={onAcknowledge}
-                                            onMarkReady={onMarkReady}
-                                            onDeliver={onDeliver}
-                                            onCancel={onCancel}
-                                            onCancelItem={onCancelItem}
-                                            onViewDetail={onViewDetail}
-                                            onUnacknowledge={onUnacknowledge}
-                                            onUnready={onUnready}
-                                            canManage={canManage}
-                                            canEdit={canEdit}
-                                        />
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
-                );
-            })}
+                            <header
+                                className={`${styles.columnHeader}${
+                                    isPulsing && col.status === "submitted" ? ` ${styles.pulsing}` : ""
+                                }`}
+                            >
+                                <Text as="span" variant="body-sm" weight={600}>
+                                    {col.title}
+                                </Text>
+                                <Badge
+                                    variant={col.status === "submitted" && colOrders.length > 0 ? "brand" : "outline"}
+                                >
+                                    {colOrders.length}
+                                </Badge>
+                            </header>
+                            <div className={styles.columnList}>
+                                {isLoading && colOrders.length === 0 ? (
+                                    <>
+                                        <Skeleton height={160} radius="var(--radius-surface)" />
+                                        <Skeleton height={160} radius="var(--radius-surface)" />
+                                    </>
+                                ) : colOrders.length === 0 ? (
+                                    <EmptyState variant="inline" title={col.emptyLabel} />
+                                ) : (
+                                    colOrders.map(order => {
+                                        const table = tables.find(t => t.id === order.table_id);
+                                        return (
+                                            <OrderCard
+                                                key={order.id}
+                                                order={order}
+                                                tableLabel={table?.label ?? "?"}
+                                                tableZone={table?.zone_name ?? null}
+                                                operatorNames={operatorNames}
+                                                comandaPrintState={comandaPrintStates?.get(order.id) ?? null}
+                                                onReprint={onReprint}
+                                                printersHref={printersHref}
+                                                onAcknowledge={onAcknowledge}
+                                                onMarkReady={onMarkReady}
+                                                onDeliver={onDeliver}
+                                                onCancel={onCancel}
+                                                onCancelItem={onCancelItem}
+                                                onViewDetail={onViewDetail}
+                                                onUnacknowledge={onUnacknowledge}
+                                                onUnready={onUnready}
+                                                canManage={canManage}
+                                                canEdit={canEdit}
+                                            />
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </section>
+                    );
+                })}
+            </div>
         </div>
     );
 }

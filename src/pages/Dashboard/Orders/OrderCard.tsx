@@ -1,9 +1,7 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-    AlertCircle,
     Ban,
-    Clock,
     MoreVertical,
     Eye,
     Printer,
@@ -13,9 +11,13 @@ import {
     User
 } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
+import { Card } from "@/components/ui/Card/Card";
 import { IconButton } from "@/components/ui/Button/IconButton";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Menu } from "@/components/ui/Menu/Menu";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { formatRelativeTime } from "@/utils/relativeTime";
 import type { V2OrderItem, V2OrderWithItems } from "@/types/orders";
@@ -105,11 +107,10 @@ function formatEur(n: number): string {
 }
 
 /**
- * Compone i modifier reali di un item (primary_option + addons).
- * Ritorna null se l'item non ha modifier — il consumer salta la riga
- * corsivo invece di mostrare una stringa vuota.
+ * Modificatori (opzione + aggiunte) e nota della riga, in una riga di testo.
+ * `null` se non c'è niente: la `ListRow` resta a una riga.
  */
-function formatItemModifiers(item: V2OrderItem): string | null {
+function formatItemDetail(item: V2OrderItem): string | null {
     const parts: string[] = [];
     if (item.options_snapshot.primary_option) {
         parts.push(item.options_snapshot.primary_option.value_name);
@@ -117,8 +118,10 @@ function formatItemModifiers(item: V2OrderItem): string | null {
     for (const addon of item.options_snapshot.addons) {
         parts.push(addon.value_name);
     }
-    if (parts.length === 0) return null;
-    return parts.join(", ");
+    const modifiers = parts.join(", ");
+    const note = item.item_notes?.trim();
+    const detail = [modifiers, note ? `“${note}”` : ""].filter(Boolean).join(" · ");
+    return detail || null;
 }
 
 export default function OrderCard({
@@ -143,6 +146,7 @@ export default function OrderCard({
     const [isProcessing, setIsProcessing] = useState(false);
     const [itemsExpanded, setItemsExpanded] = useState(false);
     const [isReprinting, setIsReprinting] = useState(false);
+    const titleId = useId();
 
     async function handleReprint() {
         if (!onReprint) return;
@@ -170,270 +174,212 @@ export default function OrderCard({
 
     const trimmedOrderNotes = order.notes?.trim();
     const hasOrderNotes = !!trimmedOrderNotes;
+    const printFailed = comandaPrintState === "failed" && order.status !== "cancelled";
+
+    const attribution =
+        order.created_by_user_id != null ? (
+            <Badge>
+                <User size={12} aria-hidden /> {operatorNames?.get(order.created_by_user_id) ?? "Staff"}
+            </Badge>
+        ) : (
+            <Badge>
+                <User size={12} aria-hidden /> Cliente
+            </Badge>
+        );
+
+    const primaryAction = (label: string, action: () => Promise<void>) => (
+        <Button
+            className={styles.primaryCta}
+            variant="primary"
+            onClick={() => void runPrimary(action)}
+            loading={isProcessing}
+            disabled={canEdit === false || isProcessing}
+        >
+            {label}
+        </Button>
+    );
 
     return (
-        <div className={styles.card} data-status={order.status}>
-            <div className={styles.header}>
-                <div className={styles.tableInfo}>
-                    <Text weight={600}>{tableLabel}</Text>
-                    {tableZone && (
-                        <Text variant="body-sm" colorVariant="muted">
-                            {" "}
-                            · {tableZone}
-                        </Text>
-                    )}
-                </div>
-                <div className={styles.headerRight}>
-                    {order.created_by_user_id != null ? (() => {
-                        const operatorName = operatorNames?.get(order.created_by_user_id);
-                        const titleText = operatorName ?? "Comanda staff";
-                        const ariaText = operatorName
-                            ? `Comanda inserita da ${operatorName}`
-                            : "Comanda inserita dallo staff";
-                        return (
-                            <span
-                                className={styles.attributionStaff}
-                                title={titleText}
-                                aria-label={ariaText}
-                            >
-                                <User size={12} aria-hidden />
-                            </span>
-                        );
-                    })() : (
-                        <span
-                            className={styles.attributionCustomer}
-                            title="Comanda cliente"
-                            aria-label="Comanda inviata dal cliente"
-                        >
-                            <User size={12} aria-hidden />
-                        </span>
-                    )}
-                    <span className={styles.timeStamp}>
-                        <Clock size={14} />
-                        <Text variant="body-sm" colorVariant="muted">
-                            {formatRelativeTime(order.submitted_at)}
-                        </Text>
-                    </span>
-                </div>
-            </div>
+        // Una comanda è un article col nome del tavolo: la board la trova per ruolo.
+        <article className={styles.card} data-status={order.status} aria-labelledby={titleId}>
+            <Card
+                title={tableLabel}
+                titleId={titleId}
+                subtitle={[tableZone, formatRelativeTime(order.submitted_at)].filter(Boolean).join(" · ")}
+                badge={attribution}
+                flush
+                bodyClassName={styles.body}
+            >
+                {SHOW_UNVERIFIED_BADGE && order.group_verified_at == null && (
+                    <div className={styles.block}>
+                        <StatusBadge variant="warning" label="Primo ordine · verifica il tavolo" />
+                    </div>
+                )}
 
-            {SHOW_UNVERIFIED_BADGE && order.group_verified_at == null && (
-                <div className={styles.unverifiedRow}>
-                    <span
-                        className={styles.unverifiedBadge}
-                        title="Il primo ordine di questo tavolo non è ancora stato confermato"
-                    >
-                        <AlertCircle size={13} aria-hidden />
-                        Primo ordine · verifica il tavolo
-                    </span>
-                </div>
-            )}
-
-            {comandaPrintState === "failed" && order.status !== "cancelled" && (
-                <div className={styles.printFailedRow}>
-                    <span
-                        className={styles.printFailedBadge}
-                        title="La stampa in cucina non è riuscita: avvisa a voce o riprova"
-                    >
-                        <Printer size={13} aria-hidden />
-                        Comanda non stampata
-                    </span>
-                    {onReprint && (
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => void handleReprint()}
-                            loading={isReprinting}
-                            disabled={canEdit === false || isReprinting}
-                        >
-                            Riprova
-                        </Button>
-                    )}
-                    {printersHref && (
-                        <Link to={printersHref} className={styles.printersLink}>
-                            Stato stampanti
-                        </Link>
-                    )}
-                </div>
-            )}
-
-            <div className={styles.items}>
-                {visibleItems.map(item => {
-                    const modifiers = formatItemModifiers(item);
-                    const itemNotes = item.item_notes?.trim();
-                    const isCancelled = item.cancelled_at != null;
-                    return (
-                        <div
-                            key={item.id}
-                            className={
-                                isCancelled
-                                    ? `${styles.itemRow} ${styles.itemRowCancelled}`
-                                    : styles.itemRow
+                {printFailed && (
+                    <div className={styles.block}>
+                        <InlineBanner
+                            variant="error"
+                            icon={<Printer size={16} aria-hidden />}
+                            action={
+                                onReprint ? (
+                                    <Button
+                                        variant="secondary"
+                                        size="sm"
+                                        onClick={() => void handleReprint()}
+                                        loading={isReprinting}
+                                        disabled={canEdit === false || isReprinting}
+                                    >
+                                        Riprova
+                                    </Button>
+                                ) : undefined
                             }
                         >
-                            <span className={styles.itemQty}>{item.quantity}×</span>
-                            <div className={styles.itemBody}>
+                            Comanda non stampata: avvisa a voce o riprova.
+                            {printersHref && (
+                                <>
+                                    {" "}
+                                    <Link to={printersHref}>Stato stampanti</Link>
+                                </>
+                            )}
+                        </InlineBanner>
+                    </div>
+                )}
+
+                <ul className={styles.items}>
+                    {visibleItems.map(item => {
+                        const isCancelled = item.cancelled_at != null;
+                        const detail = formatItemDetail(item);
+                        return (
+                            <li key={item.id} className={styles.item} data-cancelled={isCancelled || undefined}>
+                                <Text as="span" variant="body-sm" weight={600} colorVariant="muted">
+                                    {item.quantity}×
+                                </Text>
                                 <span className={styles.itemName}>
-                                    {item.product_name_snapshot}
-                                    {isCancelled && (
-                                        <span className={styles.cancelledPill}>
-                                            <Ban size={11} aria-hidden />
-                                            Annullato
-                                        </span>
+                                    <Text as="span" variant="body-sm" weight={500}>
+                                        {item.product_name_snapshot}
+                                    </Text>
+                                    {isCancelled && <StatusBadge variant="neutral" label="Annullato" />}
+                                    {detail && (
+                                        <Text as="span" variant="caption" colorVariant="muted" className={styles.itemDetail}>
+                                            {detail}
+                                        </Text>
                                     )}
                                 </span>
-                                {modifiers && (
-                                    <span className={styles.itemModifiers}>{modifiers}</span>
-                                )}
-                                {itemNotes && (
-                                    <span className={styles.itemNotes}>“{itemNotes}”</span>
-                                )}
-                            </div>
-                        </div>
-                    );
-                })}
+                                <Text as="span" variant="body-sm" colorVariant="muted" className={styles.itemAmount}>
+                                    {formatEur(item.line_total)}
+                                </Text>
+                            </li>
+                        );
+                    })}
+                </ul>
                 {hasOverflow && (
-                    <button
-                        type="button"
-                        className={styles.expander}
-                        onClick={() => setItemsExpanded(prev => !prev)}
-                    >
-                        {itemsExpanded
-                            ? "Mostra meno"
-                            : `+${overflowCount} ${overflowCount === 1 ? "piatto" : "piatti"}`}
-                    </button>
+                    <div className={styles.expander}>
+                        <Button variant="ghost" size="sm" onClick={() => setItemsExpanded(prev => !prev)}>
+                            {itemsExpanded
+                                ? "Mostra meno"
+                                : `+${overflowCount} ${overflowCount === 1 ? "piatto" : "piatti"}`}
+                        </Button>
+                    </div>
                 )}
-            </div>
 
-            {hasOrderNotes && (
-                <div className={styles.orderNotes}>
-                    <AlertCircle size={14} className={styles.orderNotesIcon} />
-                    <Text variant="body-sm">{trimmedOrderNotes}</Text>
+                {hasOrderNotes && (
+                    <div className={styles.block}>
+                        {printFailed ? (
+                            // Un solo banner per superficie: il secondo è un testo.
+                            <Text variant="body-sm">Nota: {trimmedOrderNotes}</Text>
+                        ) : (
+                            <InlineBanner variant="info">{trimmedOrderNotes}</InlineBanner>
+                        )}
+                    </div>
+                )}
+
+                <div className={styles.total}>
+                    <Text as="span" variant="body-sm" weight={600}>
+                        Totale
+                    </Text>
+                    <Text as="span" weight={600}>
+                        {formatEur(order.total_amount)}
+                    </Text>
                 </div>
-            )}
 
-            <div className={styles.total}>
-                <Text weight={600}>Totale</Text>
-                <Text weight={600}>{formatEur(order.total_amount)}</Text>
-            </div>
+                {canManage !== false && (
+                    <div className={styles.footer}>
+                        <Menu
+                            align="start"
+                            side="top"
+                            trigger={
+                                <IconButton
+                                    icon={<MoreVertical size={18} />}
+                                    variant="secondary"
+                                    aria-label={`Altre azioni per ${tableLabel}`}
+                                    disabled={isProcessing}
+                                />
+                            }
+                        >
+                            {(order.status === "submitted" ||
+                                order.status === "acknowledged" ||
+                                order.status === "ready") && (
+                                <Menu.Item icon={Ban} onSelect={() => onCancelItem(order)}>
+                                    Annulla articolo
+                                </Menu.Item>
+                            )}
+                            {order.status === "acknowledged" && (
+                                <Menu.Item
+                                    icon={CheckCheck}
+                                    onSelect={() => void runPrimary(() => onDeliver(order))}
+                                >
+                                    Servito direttamente
+                                </Menu.Item>
+                            )}
+                            {order.status === "acknowledged" && onUnacknowledge && (
+                                <Menu.Item
+                                    icon={CornerUpLeft}
+                                    onSelect={() => void runPrimary(() => onUnacknowledge(order))}
+                                >
+                                    Rimetti in Nuove
+                                </Menu.Item>
+                            )}
+                            {order.status === "ready" && onUnready && (
+                                <Menu.Item
+                                    icon={CornerUpLeft}
+                                    onSelect={() => void runPrimary(() => onUnready(order))}
+                                >
+                                    Rimetti in lavorazione
+                                </Menu.Item>
+                            )}
+                            <Menu.Item icon={Eye} onSelect={() => onViewDetail(order)}>
+                                Vedi dettaglio
+                            </Menu.Item>
+                            <Menu.Separator />
+                            <Menu.Item
+                                icon={Trash2}
+                                variant="destructive"
+                                onSelect={() => onCancel(order)}
+                            >
+                                Annulla ordine
+                            </Menu.Item>
+                        </Menu>
 
-            {canManage !== false && <div className={styles.footer}>
-                <Menu
-                    align="start"
-                    side="top"
-                    trigger={
-                        <button
-                            type="button"
-                            className={styles.menuTrigger}
-                            aria-label="Altre azioni"
-                            disabled={isProcessing}
-                        >
-                            <MoreVertical size={18} />
-                        </button>
-                    }
-                >
-                    {(order.status === "submitted" ||
-                        order.status === "acknowledged" ||
-                        order.status === "ready") && (
-                        <Menu.Item icon={Ban} onSelect={() => onCancelItem(order)}>
-                            Annulla articolo
-                        </Menu.Item>
-                    )}
-                    {order.status === "acknowledged" && (
-                        <Menu.Item
-                            icon={CheckCheck}
-                            onSelect={() => void runPrimary(() => onDeliver(order))}
-                        >
-                            Servito direttamente
-                        </Menu.Item>
-                    )}
-                    {order.status === "acknowledged" && onUnacknowledge && (
-                        <Menu.Item
-                            icon={CornerUpLeft}
-                            onSelect={() => void runPrimary(() => onUnacknowledge(order))}
-                        >
-                            Rimetti in Nuove
-                        </Menu.Item>
-                    )}
-                    {order.status === "ready" && onUnready && (
-                        <Menu.Item
-                            icon={CornerUpLeft}
-                            onSelect={() => void runPrimary(() => onUnready(order))}
-                        >
-                            Rimetti in lavorazione
-                        </Menu.Item>
-                    )}
-                    <Menu.Item icon={Eye} onSelect={() => onViewDetail(order)}>
-                        Vedi dettaglio
-                    </Menu.Item>
-                    <Menu.Separator />
-                    <Menu.Item
-                        icon={Trash2}
-                        variant="destructive"
-                        onSelect={() => onCancel(order)}
-                    >
-                        Annulla ordine
-                    </Menu.Item>
-                </Menu>
+                        {comandaPrintState === "done" && onReprint && order.status !== "cancelled" && (
+                            <Tooltip content="Ristampa comanda">
+                                <IconButton
+                                    icon={<Printer size={16} />}
+                                    aria-label="Ristampa comanda"
+                                    variant="secondary"
+                                    onClick={() => void handleReprint()}
+                                    disabled={isProcessing || isReprinting || canEdit === false}
+                                />
+                            </Tooltip>
+                        )}
 
-                {comandaPrintState === "done" && onReprint && order.status !== "cancelled" && (
-                    <Tooltip content="Ristampa comanda">
-                        <IconButton
-                            icon={<Printer size={16} />}
-                            aria-label="Ristampa comanda"
-                            variant="secondary"
-                            className={styles.footerIconBtn}
-                            onClick={() => void handleReprint()}
-                            disabled={isProcessing || isReprinting || canEdit === false}
-                        />
-                    </Tooltip>
+                        {order.status === "submitted" && primaryAction("Conferma", () => onAcknowledge(order))}
+                        {order.status === "acknowledged" && onMarkReady && primaryAction("Pronto", () => onMarkReady(order))}
+                        {order.status === "acknowledged" && !onMarkReady && primaryAction("Consegna", () => onDeliver(order))}
+                        {order.status === "ready" && primaryAction("Servita", () => onDeliver(order))}
+                    </div>
                 )}
-
-                {order.status === "submitted" && (
-                    <Button
-                        className={`${styles.primaryCta} ${styles.ctaSubmitted}`}
-                        variant="primary"
-                        onClick={() => void runPrimary(() => onAcknowledge(order))}
-                        loading={isProcessing}
-                        disabled={canEdit === false || isProcessing}
-                    >
-                        Conferma
-                    </Button>
-                )}
-                {order.status === "acknowledged" && onMarkReady && (
-                    <Button
-                        className={`${styles.primaryCta} ${styles.ctaAcknowledged}`}
-                        variant="primary"
-                        onClick={() => void runPrimary(() => onMarkReady(order))}
-                        loading={isProcessing}
-                        disabled={canEdit === false || isProcessing}
-                    >
-                        Pronto
-                    </Button>
-                )}
-                {order.status === "acknowledged" && !onMarkReady && (
-                    <Button
-                        className={`${styles.primaryCta} ${styles.ctaReady}`}
-                        variant="primary"
-                        onClick={() => void runPrimary(() => onDeliver(order))}
-                        loading={isProcessing}
-                        disabled={canEdit === false || isProcessing}
-                    >
-                        Consegna
-                    </Button>
-                )}
-                {order.status === "ready" && (
-                    <Button
-                        className={`${styles.primaryCta} ${styles.ctaReady}`}
-                        variant="primary"
-                        onClick={() => void runPrimary(() => onDeliver(order))}
-                        loading={isProcessing}
-                        disabled={canEdit === false || isProcessing}
-                    >
-                        Servita
-                    </Button>
-                )}
-            </div>}
-        </div>
+            </Card>
+        </article>
     );
 }

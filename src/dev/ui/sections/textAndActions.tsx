@@ -334,6 +334,10 @@ function BadgeSection() {
                 <Badge variant="brand">Nuovo</Badge>
                 <Badge variant="brand">3</Badge>
             </State>
+            <State label="outline · il contatore su fondo hover-bg">
+                <Badge variant="outline">0</Badge>
+                <Badge variant="outline">12</Badge>
+            </State>
             <State label="deprecate (rendono come prima, warn in dev)">
                 {(["primary", "secondary", "success", "danger", "warning"] as const).map(variant => (
                     <Badge key={variant} variant={variant}>

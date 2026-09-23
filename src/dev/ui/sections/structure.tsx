@@ -95,6 +95,7 @@ function ListRowSection() {
                     <ListRow leading={<MapPin />} title="Trattoria del Porto" subtitle="Via Roma 1, Milano" trailing={<ChevronRight />} onClick={noop} />
                     <ListRow leading={<MapPin />} title="Osteria della Piazza" subtitle="Piazza Castello 12, Torino · un sottotitolo lunghissimo che va in ellissi perché la riga è una sola" trailing={<ChevronRight />} onClick={noop} />
                     <ListRow leading={<MapPin />} title="Sede senza indirizzo" trailing={<ChevronRight />} onClick={noop} />
+                    <ListRow title="Cheeseburger" subtitle="Cottura: al sangue · + bacon, + cheddar, + cipolla croccante, + salsa BBQ, + jalapeños, + uovo · Note: senza sale, allergia alla senape — da portare insieme agli antipasti" meta="2× · € 21,80" wrapSubtitle="full" metaInline />
                 </Card>
             </State>
             <State label="membro: avatar · nome · ruolo (Badge) · sedi (meta) · azioni" column>
@@ -249,6 +250,7 @@ function CardGridSection() {
                         onClick={noop}
                     />
                     <CardGridItem media={<Palette size={40} strokeWidth={1.25} />} title="Stile «Notte»" subtitle="Scuro, serif" onClick={noop} />
+                    <CardGridItem title="T4 · Sala" subtitle="4 posti · da 35 min" badge={<StatusBadge variant="success" label="Aperto" />} footer="2 comande · 38,50 €" onClick={noop} />
                     <CardGridItem
                         media={<Palette size={40} strokeWidth={1.25} />}
                         title="Uno stile con un nome davvero troppo lungo per stare su una riga sola"
