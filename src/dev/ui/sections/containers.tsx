@@ -3,6 +3,9 @@ import { useState } from "react";
 import { Inbox, Pencil, Plus, Trash2, Copy } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { Card } from "@/components/ui/Card/Card";
 import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -66,6 +69,7 @@ function SampleTable(props: Partial<React.ComponentProps<typeof DataTable<Row>>>
 }
 
 function CardSection() {
+    const [tab, setTab] = useState("products");
     return (
         <>
             <State label="con titolo" column>
@@ -109,6 +113,33 @@ function CardSection() {
                     }
                 >
                     <Text variant="body-sm">Eliminando la sede perdi tavoli, prenotazioni e QR collegati.</Text>
+                </Card>
+            </State>
+            <State label="stretta (280) con un «+» solo icona: resta accanto al titolo, il nome è nel tooltip" column>
+                <div className={styles.narrowCard}>
+                    <Card
+                        title="Categorie"
+                        flush
+                        actions={
+                            <Tooltip content="Nuova categoria">
+                                <IconButton size="sm" icon={<Plus size={16} />} aria-label="Nuova categoria" onClick={noop} />
+                            </Tooltip>
+                        }
+                    >
+                        <Text variant="body-sm">Il body della card.</Text>
+                    </Card>
+                </div>
+            </State>
+            <State label="con tabs: Tabs line a tutta larghezza, a filo sotto la testata, baseline da bordo a bordo" column>
+                <Card title="Antipasti" badge={<Badge>4 prodotti</Badge>} tabs={
+                    <Tabs variant="line" value={tab} onChange={v => setTab(String(v))}>
+                        <Tabs.List>
+                            <Tabs.Tab value="products">Prodotti</Tabs.Tab>
+                            <Tabs.Tab value="translations">Traduzioni</Tabs.Tab>
+                        </Tabs.List>
+                    </Tabs>
+                }>
+                    <Text variant="body-sm">{tab === "products" ? "Il pannello dei prodotti." : "Il pannello delle traduzioni."}</Text>
                 </Card>
             </State>
             <State label="flush + DataTable" column>

@@ -35,6 +35,8 @@ import {
 } from "@dnd-kit/sortable";
 import { IconChevronDown, IconChevronRight, IconArrowLeft, IconPlus } from "@tabler/icons-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import {
@@ -1691,18 +1693,21 @@ export default function CatalogEngine() {
                         </>
                     ) : undefined
                 }
+                tabs={
+                    canWrite ? (
+                        <Tabs
+                            variant="line"
+                            value={rightPaneTab}
+                            onChange={v => setRightPaneTab(v as "products" | "translations")}
+                        >
+                            <Tabs.List>
+                                <Tabs.Tab value="products">Prodotti</Tabs.Tab>
+                                <Tabs.Tab value="translations">Traduzioni</Tabs.Tab>
+                            </Tabs.List>
+                        </Tabs>
+                    ) : undefined
+                }
             >
-                {canWrite && (
-                    <Tabs
-                        value={rightPaneTab}
-                        onChange={v => setRightPaneTab(v as "products" | "translations")}
-                    >
-                        <Tabs.List>
-                            <Tabs.Tab value="products">Prodotti</Tabs.Tab>
-                            <Tabs.Tab value="translations">Traduzioni</Tabs.Tab>
-                        </Tabs.List>
-                    </Tabs>
-                )}
 
                 {rightPaneTab === "products" || !canWrite ? (
                     <>
@@ -1795,6 +1800,24 @@ export default function CatalogEngine() {
         productPlural: productLabelPlural.toLowerCase()
     };
 
+    // Il «+» della testata: il nome è nel tooltip e nell'etichetta accessibile.
+    // Spento con la bozza aperta, e il tooltip dice perché: un bottone spento
+    // non riceve il puntatore, quindi il trigger è lo span che lo avvolge.
+    const newRootCategoryLabel = `Nuova ${categoryLower}`;
+    const newRootCategoryButton = (
+        <Tooltip content={structureLockReason ?? newRootCategoryLabel}>
+            <span className={styles.tooltipTrigger}>
+                <IconButton
+                    size="sm"
+                    icon={<IconPlus size={16} />}
+                    aria-label={newRootCategoryLabel}
+                    disabled={Boolean(structureLockReason)}
+                    onClick={openCreateRootCategoryDrawer}
+                />
+            </span>
+        </Tooltip>
+    );
+
     const treeCard = (
         <Card
             className={styles.treeCard}
@@ -1804,6 +1827,7 @@ export default function CatalogEngine() {
             // Con la bozza aperta l'albero lo dice: si rinomina e si riordina,
             // il resto aspetta il salvataggio (§49.1/2).
             subtitle={canWrite && structureLockReason ? "Con modifiche da salvare si rinomina e si riordina soltanto." : undefined}
+            actions={canWrite ? newRootCategoryButton : undefined}
         >
             <CatalogTree
                 nodes={tree}
@@ -1821,22 +1845,6 @@ export default function CatalogEngine() {
                 readOnly={!canWrite}
                 labels={treeLabels}
             />
-            {/* In fondo all'albero, come l'ultima riga: nella testata della card
-                a 280 (240 fra 768 e 1023) il «+» andava a capo. */}
-            {canWrite && (
-                <div className={styles.treeFooter}>
-                    <Button
-                        variant="ghost"
-                        size="sm"
-                        leftIcon={<IconPlus size={14} />}
-                        disabled={Boolean(structureLockReason)}
-                        title={structureLockReason}
-                        onClick={openCreateRootCategoryDrawer}
-                    >
-                        {`Nuova ${categoryLower}`}
-                    </Button>
-                </div>
-            )}
         </Card>
     );
 

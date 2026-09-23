@@ -302,12 +302,39 @@ test.describe("Menù — dettaglio", () => {
         const viniX = (await tree.getByRole("button", { name: /^(Espandi|Comprimi) Vini$/ }).boundingBox())!.x;
         const bianchiX = (await tree.getByRole("button", { name: /^(Espandi|Comprimi) Bianchi$/ }).boundingBox())!.x;
         expect(Math.round(bianchiX - viniX)).toBe(16);
+        // Righe staccate di 4, e il «+» nella testata della card, sopra l'albero.
+        const boxes = await Promise.all((await rows.all()).map(async r => (await r.boundingBox())!));
+        for (let i = 1; i < boxes.length; i++) {
+            expect(Math.round(boxes[i].y - (boxes[i - 1].y + boxes[i - 1].height))).toBe(4);
+        }
+        const plus = main(page).getByRole("button", { name: "Nuova categoria" });
+        await expect(plus).toHaveCount(1);
+        expect((await plus.boundingBox())!.y).toBeLessThan(boxes[0].y);
+        expect(Math.abs((await plus.boundingBox())!.y - (await main(page).getByText("Categorie", { exact: true }).first().boundingBox())!.y)).toBeLessThan(12);
         // Il nome al terzo livello non si tronca.
         const deep = node(page, "Fruttati e aromatici");
         expect(await deep.evaluate(el => {
             const label = el.firstElementChild as HTMLElement;
             return label.scrollWidth <= label.clientWidth;
         })).toBe(true);
+    });
+
+    test("le tab della categoria: baseline a tutta larghezza, a filo sotto la testata", async ({ page }) => {
+        await openCarta(page);
+        await selectCategory(page, "Antipasti");
+        const tablist = main(page).getByRole("tablist");
+        const card = tablist.locator("xpath=ancestor::section[1]");
+        const band = tablist.locator("xpath=ancestor::*[parent::section][1]");
+        const header = card.locator("xpath=./header");
+        const c = (await card.boundingBox())!;
+        const b = (await band.boundingBox())!;
+        const h = (await header.boundingBox())!;
+        // Da bordo a bordo della card (dentro la cornice di 1 px).
+        expect(Math.round(b.width)).toBe(Math.round(c.width) - 2);
+        // Subito sotto la testata, senza spazio.
+        expect(Math.round(b.y)).toBe(Math.round(h.y + h.height));
+        // La baseline è un bordo di 1 px della banda.
+        expect(await band.evaluate(el => getComputedStyle(el).borderBottomWidth)).toBe("1px");
     });
 
     test("riordino da tastiera fra sorelle, in bozza, poi Salva", async ({ page }) => {
