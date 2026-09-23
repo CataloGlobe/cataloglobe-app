@@ -1,14 +1,20 @@
+import { useId } from "react";
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
-import { IconChevronRight, IconFolder, IconGripVertical, IconTrash } from "@tabler/icons-react";
+import { IconChevronRight, IconGripVertical, IconTrash } from "@tabler/icons-react";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import Text from "@/components/ui/Text/Text";
 import styles from "../CatalogEngine.module.scss";
-import { CatalogTreeFlatNode } from "./CatalogTree.types";
+import { CatalogTreeFlatNode, CatalogTreeLabels } from "./CatalogTree.types";
+
+/** Il tetto dei livelli (L1–L3): lo applicano i drawer e il trascinamento; qui lo si dice. */
+export const MAX_CATEGORY_LEVEL = 3;
 
 type CatalogTreeNodeProps = {
     flatNode: CatalogTreeFlatNode;
     selected: boolean;
+    labels: CatalogTreeLabels;
     onSelect: (categoryId: string) => void;
     onToggleExpand: (categoryId: string) => void;
     onCreateSubCategory: (categoryId: string) => void;
@@ -21,9 +27,16 @@ type CatalogTreeNodeProps = {
     isValidInsideTarget?: boolean;
 };
 
+/**
+ * Una riga dell'albero delle categorie (passo 2 P4): piatta, 32 px (40 sul
+ * telefono) come la voce della sidebar, perché l'albero è navigazione. Il
+ * nome sceglie, il chevron espande: due bersagli distinti. Maniglia e kebab
+ * compaiono al passaggio, al focus e sulla riga scelta.
+ */
 export function CatalogTreeNode({
     flatNode,
     selected,
+    labels,
     onSelect,
     onToggleExpand,
     onCreateSubCategory,
@@ -36,18 +49,30 @@ export function CatalogTreeNode({
     isValidInsideTarget = false
 }: CatalogTreeNodeProps) {
     const { node, depth, hasChildren, isExpanded } = flatNode;
+    const countId = useId();
 
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: node.id,
         disabled
     });
 
+    const total = node.totalProductCount;
+    const inChildren = total - node.directProductCount;
+    const products = (n: number) => `${n} ${n === 1 ? labels.product : labels.productPlural}`;
+    // Il numero sulla riga è il totale con le sotto-categorie; la testata della
+    // categoria conta solo i suoi. Quando differiscono, lo dice la descrizione.
+    const countDescription =
+        total === 0
+            ? "vuota: i clienti non la vedono"
+            : inChildren > 0
+                ? `${products(total)}, ${inChildren} nelle sotto-${labels.categoryPlural}`
+                : products(total);
+
     const className = [
-        styles.treeNodeRow,
-        selected ? styles.treeNodeRowActive : "",
-        isDragging ? styles.treeNodeRowDragging : "",
-        depth === 0 ? styles.treeNodeDepth0 : "",
-        isDescendantOfDragging ? styles.treeNodeChildDragging : "",
+        styles.treeRow,
+        selected ? styles.treeRowSelected : "",
+        isDragging ? styles.treeRowDragging : "",
+        isDescendantOfDragging ? styles.treeRowChildDragging : "",
         dropPosition === "before" ? styles.dropBefore : "",
         dropPosition === "after" ? styles.dropAfter : "",
         dropPosition === "inside" && isValidInsideTarget ? styles.dropInside : "",
@@ -56,80 +81,78 @@ export function CatalogTreeNode({
         .filter(Boolean)
         .join(" ");
 
+    const atMaxLevel = node.level >= MAX_CATEGORY_LEVEL;
+
     return (
-        <div
+        <li
             ref={setNodeRef}
             className={className}
             style={{
                 transform: CSS.Transform.toString(transform),
-                transition
-            }}
+                transition,
+                "--tree-depth": depth
+            } as React.CSSProperties}
         >
-            {/* data-depth drives the ::before guide-line in SCSS; --tree-depth feeds the depth-aware calc() */}
-            <div
-                className={styles.treeNodeMain}
-                data-depth={depth}
-                style={{
-                    paddingLeft: `${8 + depth * 20}px`,
-                    "--tree-depth": depth
-                } as React.CSSProperties}
-            >
-                {!readOnly && (
-                    <button
-                        type="button"
-                        className={styles.treeDragHandle}
-                        aria-label="Riordina categoria"
-                        disabled={disabled}
-                        {...attributes}
-                        {...listeners}
-                    >
-                        <IconGripVertical size={14} />
-                    </button>
-                )}
-
-                {hasChildren ? (
-                    <button
-                        type="button"
-                        className={`${styles.treeExpandBtn} ${isExpanded ? styles.treeExpandOpen : ""}`}
-                        onClick={() => onToggleExpand(node.id)}
-                        aria-label={isExpanded ? "Comprimi categoria" : "Espandi categoria"}
-                    >
-                        <IconChevronRight size={14} />
-                    </button>
-                ) : (
-                    <span className={styles.treeExpandSpacer} />
-                )}
-
+            {!readOnly && (
                 <button
                     type="button"
-                    className={styles.treeSelectBtn}
-                    onClick={() => onSelect(node.id)}
-                    aria-current={selected ? "true" : undefined}
+                    className={styles.treeHandle}
+                    aria-label={`Riordina ${node.name}`}
+                    disabled={disabled}
+                    {...attributes}
+                    {...listeners}
                 >
-                    <span className={styles.treeLabelIcon} aria-hidden="true">
-                        <IconFolder size={15} />
-                    </span>
-                    <Text
-                        variant="body-sm"
-                        weight={selected ? 600 : 500}
-                        className={styles.treeLabelText}
-                    >
-                        {node.name}
-                    </Text>
+                    <IconGripVertical size={14} />
                 </button>
-            </div>
+            )}
 
-            <div className={styles.treeNodeMeta}>
-                <span className={styles.treeNodeCount}>{node.totalProductCount}</span>
+            {hasChildren ? (
+                <button
+                    type="button"
+                    className={`${styles.treeExpand} ${isExpanded ? styles.treeExpandOpen : ""}`}
+                    onClick={() => onToggleExpand(node.id)}
+                    aria-expanded={isExpanded}
+                    aria-label={`${isExpanded ? "Comprimi" : "Espandi"} ${node.name}`}
+                >
+                    <IconChevronRight size={14} />
+                </button>
+            ) : (
+                <span className={styles.treeExpandSpacer} aria-hidden="true" />
+            )}
 
-                {!readOnly && <div className={styles.treeNodeActions}>
+            <button
+                type="button"
+                className={styles.treeSelect}
+                onClick={() => onSelect(node.id)}
+                aria-current={selected ? "true" : undefined}
+                aria-describedby={countId}
+            >
+                <Text as="span" variant="body-sm" weight={selected ? 600 : 500} className={styles.treeLabel}>
+                    {node.name}
+                </Text>
+            </button>
+
+            <span className={styles.treeCount}>
+                <span aria-hidden="true">
+                    {total === 0 ? <Badge variant="outline">vuota</Badge> : <Badge variant="neutral">{total}</Badge>}
+                </span>
+                <span id={countId} className={styles.srOnly}>
+                    {countDescription}
+                </span>
+            </span>
+
+            {!readOnly && (
+                <span className={styles.treeActions}>
                     <TableRowActions
+                        ariaLabel={`Azioni ${node.name}`}
                         actions={[
                             { label: "Modifica", onClick: () => onEditCategory(node.id) },
                             {
-                                label: "Crea sotto-categoria",
+                                label: `Crea sotto-${labels.category}`,
                                 onClick: () => onCreateSubCategory(node.id),
-                                hidden: node.level >= 3
+                                // Al terzo livello la voce resta, spenta col perché (§49.1/4).
+                                disabled: atMaxLevel,
+                                description: atMaxLevel ? "Massimo tre livelli." : undefined
                             },
                             {
                                 label: "Elimina",
@@ -140,8 +163,8 @@ export function CatalogTreeNode({
                             }
                         ]}
                     />
-                </div>}
-            </div>
-        </div>
+                </span>
+            )}
+        </li>
     );
 }

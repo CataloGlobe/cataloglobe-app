@@ -1819,7 +1819,7 @@ export default function CatalogEngine() {
                 <Card className={styles.categoryCard} bodyClassName={styles.categoryBody}>
                     {canWrite ? (
                         <EmptyState
-                            title={`Nessuna ${categoryLower}`}
+                            title={`Questo ${catalogLabel.toLowerCase()} non ha ancora ${categoryLabelPlural.toLowerCase()}`}
                             description={`Le ${categoryLabelPlural.toLowerCase()} dividono il ${catalogLabel.toLowerCase()}: Antipasti, Pizze, Vini. I prodotti stanno dentro.`}
                             action={
                                 <Button variant="primary" onClick={openCreateRootCategoryDrawer}>
@@ -1956,6 +1956,13 @@ export default function CatalogEngine() {
         );
     };
 
+    const treeLabels = {
+        category: categoryLower,
+        categoryPlural: categoryLabelPlural.toLowerCase(),
+        product: productLabel.toLowerCase(),
+        productPlural: productLabelPlural.toLowerCase()
+    };
+
     const treeCard = (
         <Card
             className={styles.treeCard}
@@ -1987,6 +1994,7 @@ export default function CatalogEngine() {
                 onReparent={handleReparent}
                 isReordering={false}
                 readOnly={!canWrite}
+                labels={treeLabels}
             />
         </Card>
     );

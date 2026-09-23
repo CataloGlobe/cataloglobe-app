@@ -34,395 +34,192 @@
   min-height: 0;
 }
 
-.catalogTree {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
+// ── Albero delle categorie (passo 2 P4) ─────────────────────────────────
+// Righe piatte a 32 (40 sul telefono), come la voce della sidebar: l'albero
+// è navigazione, non un elenco di cose. Rientro di 16 per livello; maniglia
+// e kebab compaiono al passaggio, al focus e sulla riga scelta.
 
 .treeList {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--space-8);
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: var(--spacing-3, 12px) var(--spacing-3, 12px) var(--spacing-4, 16px);
-
-  /* ── Separator: faint inset line between tree groups ─────────────── */
-  > * + * {
-    position: relative;
-    &::before {
-      content: "";
-      position: absolute;
-      top: -3px;
-      left: 8px;
-      right: 8px;
-      height: 1px;
-      background: var(--color-gray-200, #e2e8f0);
-      opacity: 0.6;
-      pointer-events: none;
-    }
-  }
 }
 
-.treeEmptyState {
-  padding: var(--spacing-8, 32px) var(--spacing-4, 16px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-2, 8px);
-  text-align: center;
-  color: var(--color-gray-500, #64748b);
-}
-
-/* ── Tree group: each root-level category and its visible children ──────── */
-.treeGroup {
-  /* Slightly stronger surface to lift each group from the pane background */
-  background: rgba(247, 249, 253, 0.75);
-  /* Stronger border than before (gray-100 → gray-200) for clear separation */
-  border: 1px solid var(--color-gray-200, #e2e8f0);
-  border-radius: 12px;
-  padding: 4px;
-  margin-bottom: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
-
-/* ── Tree node row ─────────────────────────────────────────────────────── */
-.treeNodeRow {
+.treeRow {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-2, 8px);
-  min-height: 38px;
-  border-radius: 10px;
-  padding-right: 6px;
-  background: transparent;
-  /* Single border declaration (overrides the conflicting border-left shorthand) */
-  border: 1px solid transparent;
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-/* ── Hover / focus state: white surface + visible border ────────────────── */
-.treeNodeRow:hover,
-.treeNodeRow:focus-within {
-  background: #ffffff;
-  /* Stronger hover border than before (#e4e9f2 → #cfd7e8) */
-  border-color: #cfd7e8;
-  box-shadow: 0 1px 4px rgba(100, 116, 139, 0.08);
-}
-
-/* ── Selected / active state ────────────────────────────────────────────── */
-.treeNodeRowActive {
-  /* Left accent line indicating the selected item */
-  background: linear-gradient(90deg, #eef2ff 0%, #f6f8ff 100%);
-  border-color: #c7d4ff;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
-}
-
-/* ── Dragging original: empty slot ─────────────────────────────────────── */
-.treeNodeRowDragging {
-  opacity: 0.3;
-  box-shadow: none;
-  background: transparent !important;
-  border: 1px dashed var(--color-gray-300, #cbd5e1) !important;
-}
-
-/* ── Descendant of the dragging node: brand tint ──────────────────────── */
-.treeNodeChildDragging {
-  background: rgba(99, 102, 241, 0.06);
-  border-left: 3px solid rgba(99, 102, 241, 0.3);
-  opacity: 0.7;
-}
-
-/* ── Drop indicators: before (line above) ──────────────────────────────── */
-.dropBefore {
-  &::before {
-    content: "";
-    position: absolute;
-    top: -2px;
-    left: 4px;
-    right: 4px;
-    height: 2px;
-    background: var(--brand-primary, #6366f1);
-    border-radius: 2px;
-    pointer-events: none;
-    z-index: 10;
-  }
-}
-
-/* ── Drop indicators: after (line below) ───────────────────────────────── */
-.dropAfter {
-  &::after {
-    content: "";
-    position: absolute;
-    bottom: -2px;
-    left: 4px;
-    right: 4px;
-    height: 2px;
-    background: var(--brand-primary, #6366f1);
-    border-radius: 2px;
-    pointer-events: none;
-    z-index: 10;
-  }
-}
-
-/* ── Drop inside: valid parent target ──────────────────────────────────── */
-.dropInside {
-  background: rgba(99, 102, 241, 0.08) !important;
-  border: 1px dashed #6366f1 !important;
-  box-shadow: none !important;
-}
-
-/* ── Drop inside: invalid parent (depth overflow or descendant) ─────────── */
-.dropInsideInvalid {
-  background: rgba(239, 68, 68, 0.06) !important;
-  border: 1px dashed #ef4444 !important;
-  box-shadow: none !important;
-}
-
-/* ── DragOverlay ghost card ─────────────────────────────────────────────── */
-.dragOverlayGhost {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #ffffff;
-  border: 1px solid #c7d4ff;
-  border-radius: 10px;
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.12),
-    0 2px 8px rgba(99, 102, 241, 0.15);
-  transform: scale(1.02);
-  cursor: grabbing;
-  max-width: 240px;
-}
-
-.dragOverlayIcon {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--brand-primary, #6366f1);
-  background: #e8eeff;
-  flex-shrink: 0;
-}
-
-.dragOverlayName {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-gray-800, #1e293b);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── Node main content area: contains drag handle, expand btn, select btn ── */
-.treeNodeMain {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-  position: relative;
-
-  /* ── Nested row indicator ────────────────────────────────────────────────
-     Short (2px × 16px) pill anchored to the parent's drag-handle column.
-     Layout per row: [ paddingLeft = 8 + D×20 ] [ grab 24px ] [ chevron ] …
-     Parent drag-handle center = 8 + (D-1)×20 + 12 = D×20
-     Subtract 1px to visually center the 2px pill on that column.
-     --tree-depth is set as an inline CSS variable by CatalogTreeNode.tsx.
-  ─────────────────────────────────────────────────────────────────────── */
-  &[data-depth]:not([data-depth="0"])::before {
-    content: "";
-    position: absolute;
-    left: calc(var(--tree-depth, 1) * 20px - 1px);
-    top: 50%;
-    transform: translateY(-50%);
-    width: 2px;
-    height: 16px;
-    border-radius: 2px;
-    background: rgba(120, 130, 160, 0.25);
-    pointer-events: none;
-  }
-}
-
-/* ── Drag handle: slightly more visible at rest ─────────────────────────── */
-.treeDragHandle {
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-sm, 8px);
-  background: transparent;
-  /* Resting: gray-300 instead of gray-400 — faintly visible without hover */
-  color: var(--color-gray-300, #cbd5e1);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  transition:
-    color 0.12s ease,
-    background 0.12s ease;
-
-  /* Show at full strength and background on hover */
-  .treeNodeRow:hover &,
-  .treeNodeRow:focus-within & {
-    color: var(--color-gray-500, #64748b);
-  }
+  gap: var(--space-2);
+  min-height: var(--space-32);
+  padding-left: calc(var(--tree-depth, 0) * var(--space-16));
+  border-radius: var(--radius-inner);
+  color: var(--text);
 
   &:hover {
-    color: var(--color-gray-600, #475569);
-    background: #e2e8f0;
-  }
-
-  &:active {
-    cursor: grabbing;
+    background: var(--hover-bg);
   }
 }
 
-.treeExpandBtn {
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-sm, 8px);
-  background: transparent;
-  color: var(--color-gray-500, #64748b);
+.treeRowSelected {
+  background: var(--brand-primary-soft);
+  color: var(--on-brand-soft);
+
+  &:hover {
+    background: var(--brand-primary-soft);
+  }
+}
+
+.treeRowDragging {
+  opacity: 0.4;
+}
+
+.treeRowChildDragging {
+  opacity: 0.6;
+}
+
+// Indicatori di rilascio: una linea sopra o sotto, un bordo per «dentro».
+.dropBefore::before,
+.dropAfter::after {
+  content: "";
+  position: absolute;
+  left: var(--space-8);
+  right: var(--space-8);
+  height: 2px;
+  background: var(--brand-primary);
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+}
+
+.dropBefore::before {
+  top: -1px;
+}
+
+.dropAfter::after {
+  bottom: -1px;
+}
+
+.dropInside {
+  box-shadow: inset 0 0 0 2px var(--brand-primary);
+}
+
+.dropInsideInvalid {
+  box-shadow: inset 0 0 0 2px var(--danger);
+}
+
+.dragOverlayGhost {
+  padding: var(--space-6) var(--space-12);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+}
+
+// Bottoni dell'albero: senza fondo né bordo, il fuoco si vede.
+.treeHandle,
+.treeExpand,
+.treeSelect {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  transition: transform 0.15s ease;
-}
-
-.treeExpandOpen {
-  transform: rotate(90deg);
-}
-
-.treeExpandSpacer {
-  width: 24px;
-  height: 24px;
-  display: inline-block;
-}
-
-.treeSelectBtn {
   border: none;
   background: transparent;
   color: inherit;
   padding: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-  text-align: left;
   cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: -2px;
+    border-radius: var(--radius-inner);
+  }
 }
 
-/* ── Folder icon container ──────────────────────────────────────────────── */
-.treeLabelIcon {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
+.treeHandle,
+.treeExpand,
+.treeExpandSpacer {
+  flex: 0 0 auto;
+  width: var(--space-20);
+  height: var(--space-24);
   justify-content: center;
-  /* Nested items use the neutral muted style */
-  color: #7a88a1;
-  background: #edf2f8;
-  flex-shrink: 0;
-  transition:
-    color 0.12s ease,
-    background 0.12s ease;
 }
 
-/* Root-level icon: slightly more saturated to signal parent rank */
-.treeNodeDepth0 .treeLabelIcon {
-  color: #5b6bd8;
-  background: #e8eeff;
+.treeHandle {
+  color: var(--text-muted);
+  cursor: grab;
+  opacity: 0;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:disabled {
+    cursor: default;
+  }
 }
 
-.treeLabelText {
-  display: inline-block;
+.treeExpand {
+  color: var(--text-muted);
+
+  svg {
+    transform: rotate(0deg);
+  }
+}
+
+.treeExpandOpen svg {
+  transform: rotate(90deg);
+}
+
+.treeSelect {
+  flex: 1 1 auto;
   min-width: 0;
-  max-width: 100%;
-  white-space: nowrap;
+  min-height: var(--space-32);
+  text-align: left;
+}
+
+.treeLabel {
+  min-width: 0;
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-/* Active state overrides all depth-based icon styles */
-.treeNodeRowActive .treeLabelIcon {
-  color: var(--brand-primary, #6366f1);
-  background: #e2e9ff;
-}
-
-.treeNodeMeta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-left: 4px;
-}
-
-.treeNodeCount {
-  min-width: 22px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  border: 1px solid var(--color-gray-200, #e2e8f0);
-  background: #f8fafc;
-  color: var(--color-gray-500, #64748b);
-  font-size: 11px;
-  font-weight: 600;
+.treeCount {
+  flex: 0 0 auto;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
 
-.treeNodeRowActive .treeNodeCount {
-  background: #ffffff;
-  border-color: #ccd8ff;
-  color: #4a5cd8;
-}
-
-.treeNodeActions {
+.treeActions {
+  flex: 0 0 auto;
   display: inline-flex;
-  align-items: center;
-  gap: 2px;
   opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
 }
 
-.treeNodeRow:hover .treeNodeActions,
-.treeNodeRow:focus-within .treeNodeActions {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.treeMenuTrigger {
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-sm, 8px);
-  background: transparent;
-  color: var(--color-gray-500, #64748b);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-
-  &:hover {
-    background: var(--color-gray-100, #f1f5f9);
-    color: var(--color-gray-800, #1e293b);
+.treeRow:hover,
+.treeRow:focus-within,
+.treeRowSelected {
+  .treeHandle,
+  .treeActions {
+    opacity: 1;
   }
+}
+
+// Il kebab aperto resta visibile anche quando il puntatore è nel menu.
+.treeActions:has([data-state="open"]) {
+  opacity: 1;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 // Wraps DndContext → DataTable in the split-pane right column.
@@ -677,6 +474,20 @@
 // seconda all'altezza della finestra lasciava alla tabella qualche decina di
 // pixel sotto la testata della card. La striscia dell'albero resta da 280
 // finché il passo P8 non la rifà in due viste.
+// Sul telefono la riga dell'albero è un bersaglio da dito: 40, come la voce
+// della sidebar; la maniglia resta a vista (niente passaggio del puntatore).
+@media (max-width: 767px) {
+  .treeRow,
+  .treeSelect {
+    min-height: calc(var(--space-32) + var(--space-8));
+  }
+
+  .treeHandle,
+  .treeActions {
+    opacity: 1;
+  }
+}
+
 @media (max-width: 1023px) {
   .engine,
   .layout {

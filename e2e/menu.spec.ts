@@ -245,6 +245,54 @@ test.describe("Menù — dettaglio", () => {
         await expect(main(page)).toContainText(/1 prodott/);
     });
 
+    test("l'albero dice i conteggi, le vuote e il tetto dei livelli", async ({ page }) => {
+        await openCarta(page);
+        // Il numero è il totale con le sotto-portate, e il nome accessibile lo spiega.
+        await expect(node(page, "Vini")).toHaveAccessibleDescription("4 prodotti, 3 nelle sotto-portate");
+        await expect(node(page, "Dessert")).toHaveAccessibleDescription(/vuota/);
+        await expect(node(page, "Bianchi").locator("xpath=ancestor::li[1]")).toContainText("2");
+        // Il chevron dice se è aperto.
+        await expect(main(page).getByRole("button", { name: "Comprimi Vini" })).toHaveAttribute("aria-expanded", "true");
+        await main(page).getByRole("button", { name: "Espandi Bianchi" }).click();
+        await expect(main(page).getByRole("button", { name: "Comprimi Bianchi" })).toHaveAttribute("aria-expanded", "true");
+
+        // Al terzo livello «Crea sotto-portata» c'è, spenta, col perché.
+        await node(page, "Fruttati e aromatici").hover();
+        await main(page).getByRole("button", { name: "Azioni Fruttati e aromatici" }).click();
+        const sub = page.getByRole("menuitem", { name: /Crea sotto-portata/ });
+        await expect(sub).toHaveAttribute("aria-disabled", "true");
+        await expect(sub).toContainText("Massimo tre livelli.");
+        await page.keyboard.press("Escape");
+        // Al secondo livello si può.
+        await node(page, "Bianchi").hover();
+        await main(page).getByRole("button", { name: "Azioni Bianchi" }).click();
+        await expect(page.getByRole("menuitem", { name: /Crea sotto-portata/ })).not.toHaveAttribute("aria-disabled", "true");
+    });
+
+    test("riordino da tastiera fra sorelle, in bozza, poi Salva", async ({ page }) => {
+        stub.onWrite("catalog_categories.PATCH", ({ params, body }) => ({ id: params.get("id")!.slice(3), catalog_id: MENU.carta, name: "x", level: 1, parent_category_id: null, created_at: new Date().toISOString(), ...(body as object) }));
+        await openCarta(page);
+        const handle = main(page).getByRole("button", { name: "Riordina Pizze" });
+        await handle.focus();
+        await page.keyboard.press("Space");
+        await page.waitForTimeout(200);
+        await page.keyboard.press("ArrowDown");
+        await page.waitForTimeout(300);
+        await page.keyboard.press("Space");
+        await page.waitForTimeout(200);
+        // Ora Vini viene prima di Pizze, e niente è ancora scritto.
+        const order = await main(page).getByRole("list", { name: "Portate" }).getByRole("button", { name: /^(Antipasti|Pizze|Vini|Dessert)$/ }).allTextContents();
+        expect(order).toEqual(["Antipasti", "Vini", "Pizze", "Dessert"]);
+        expect(stub.writes.filter(w => w.key === "catalog_categories.PATCH")).toHaveLength(0);
+
+        await saveDraft(page);
+        await expect.poll(() => stub.writes.filter(w => w.key === "catalog_categories.PATCH").length).toBe(2);
+        const patches = stub.writes.filter(w => w.key === "catalog_categories.PATCH");
+        const byId = Object.fromEntries(patches.map(w => [w.params.get("id"), w.body]));
+        expect(byId[`eq.${CAT.vini}`]).toEqual({ sort_order: 10 });
+        expect(byId[`eq.${CAT.pizze}`]).toEqual({ sort_order: 20 });
+    });
+
     test("prodotti della categoria: prezzi, segni, codice, ricerca", async ({ page }) => {
         await openCarta(page);
         await selectCategory(page, "Antipasti");
@@ -356,7 +404,7 @@ test.describe("Menù — dettaglio", () => {
         await openCarta(page);
         // Il «⋯» del nodo compare al passaggio del puntatore.
         await node(page, "Dessert").hover();
-        await actionsOf(node(page, "Dessert")).click();
+        await main(page).getByRole("button", { name: "Azioni Dessert" }).click();
         await page.getByRole("menuitem", { name: "Elimina" }).click();
         await dialog(page).getByRole("button", { name: "Elimina" }).click();
         await expect.poll(() => write(stub, "catalog_categories.DELETE")).toBeTruthy();
@@ -403,12 +451,12 @@ test.describe("Menù — dettaglio", () => {
     test("si apre sulla prima categoria, col conteggio nella testata", async ({ page }) => {
         await openCarta(page);
         await expect(page).toHaveURL(new RegExp(`categoryId=${CAT.antipasti}`));
-        await expect(main(page).getByText("4 prodotti", { exact: true })).toBeVisible();
+        await expect(main(page).getByRole("status").filter({ hasText: /^4 prodotti$/ })).toBeVisible();
         // Le varianti non contano due volte: Pizze ha 12 prodotti su 14 righe.
         await selectCategory(page, "Pizze");
-        await expect(main(page).getByText("12 prodotti", { exact: true })).toBeVisible();
+        await expect(main(page).getByRole("status").filter({ hasText: /^12 prodotti$/ })).toBeVisible();
         await selectCategory(page, "Vini");
-        await expect(main(page).getByText("1 prodotto", { exact: true })).toBeVisible();
+        await expect(main(page).getByRole("status").filter({ hasText: /^1 prodotto$/ })).toBeVisible();
         // A bozza pulita la testata dice «Salvato».
         await expect(page.getByRole("status").filter({ hasText: "Salvato" }).first()).toBeVisible();
     });

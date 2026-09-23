@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import {
     DndContext,
     DragOverlay,
@@ -7,14 +7,19 @@ import {
     closestCenter,
     useSensor,
     useSensors,
+    type Announcements,
     type ClientRect
 } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import { IconFolder } from "@tabler/icons-react";
-import Text from "@/components/ui/Text/Text";
+import {
+    SortableContext,
+    verticalListSortingStrategy,
+    arrayMove,
+    sortableKeyboardCoordinates
+} from "@dnd-kit/sortable";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import styles from "../CatalogEngine.module.scss";
 import { CatalogTreeNode } from "./CatalogTreeNode";
-import { CatalogTreeFlatNode, CatalogTreeNodeData } from "./CatalogTree.types";
+import { CatalogTreeFlatNode, CatalogTreeLabels, CatalogTreeNodeData } from "./CatalogTree.types";
 
 type DropPosition = "before" | "inside" | "after";
 
@@ -39,6 +44,7 @@ type CatalogTreeProps = {
     isReordering?: boolean;
     /** Sola lettura (`catalogs.write` assente): niente «+», kebab né trascinamento. */
     readOnly?: boolean;
+    labels: CatalogTreeLabels;
 };
 
 const ROOT_PARENT_KEY = "__root__";
@@ -112,7 +118,8 @@ export function CatalogTree({
     onReorderSiblings,
     onReparent,
     isReordering = false,
-    readOnly = false
+    readOnly = false,
+    labels
 }: CatalogTreeProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
     const [overId, setOverId] = useState<string | null>(null);
@@ -120,10 +127,13 @@ export function CatalogTree({
 
     const pointerYRef = useRef<number>(0);
     const cleanupPointerRef = useRef<(() => void) | null>(null);
+    // Da tastiera non c'è un puntatore da cui leggere sopra/dentro/sotto (#262):
+    // il rilascio si decide dalla direzione, e solo fra sorelle.
+    const keyboardDragRef = useRef(false);
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-        useSensor(KeyboardSensor)
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
     const visibleNodes = useMemo(
@@ -174,196 +184,169 @@ export function CatalogTree({
         setDropPosition(null);
     };
 
+    const nameOf = (id: string | number | undefined) =>
+        visibleNodes.find(fn => fn.node.id === id)?.node.name ?? "";
+
+    const sameParent = (a: string | number, b: string | number) => {
+        const nodeA = visibleNodes.find(fn => fn.node.id === a)?.node;
+        const nodeB = visibleNodes.find(fn => fn.node.id === b)?.node;
+        return Boolean(nodeA && nodeB && nodeA.parent_category_id === nodeB.parent_category_id);
+    };
+
+    const announcements: Announcements = {
+        onDragStart: ({ active }) =>
+            `Sposti ${nameOf(active.id)}. Frecce su e giù per cambiare posto, Invio per lasciarla, Esc per annullare.`,
+        onDragOver: ({ active, over }) =>
+            over && over.id !== active.id
+                ? sameParent(active.id, over.id)
+                    ? `Vicino a ${nameOf(over.id)}.`
+                    : `${nameOf(over.id)} è a un altro livello: da tastiera si riordina fra ${labels.categoryPlural} dello stesso livello.`
+                : undefined,
+        onDragEnd: ({ active, over }) =>
+            over && over.id !== active.id && sameParent(active.id, over.id)
+                ? `${nameOf(active.id)} spostata vicino a ${nameOf(over.id)}. Si salva con Salva.`
+                : `${nameOf(active.id)} resta dov'era.`,
+        onDragCancel: ({ active }) => `Spostamento annullato: ${nameOf(active.id)} resta dov'era.`
+    };
+
+    if (visibleNodes.length === 0) {
+        return (
+            <EmptyState
+                variant="inline"
+                title={`Nessuna ${labels.category}`}
+                description={
+                    readOnly
+                        ? undefined
+                        : `Crea la prima con «+». Le ${labels.categoryPlural} si annidano fino a tre livelli.`
+                }
+            />
+        );
+    }
+
     return (
-        <div className={styles.catalogTree}>
-            {visibleNodes.length === 0 ? (
-                <div className={styles.treeEmptyState}>
-                    <IconFolder size={36} stroke={1.25} />
-                    <Text variant="body-sm" weight={600}>
-                        Nessuna categoria
-                    </Text>
-                    {!readOnly && (
-                        <Text variant="caption" colorVariant="muted">
-                            Crea una categoria root per iniziare.
-                        </Text>
-                    )}
-                </div>
-            ) : (
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragStart={({ active }) => {
-                        setActiveId(active.id as string);
-                        const handler = (e: PointerEvent) => {
-                            pointerYRef.current = e.clientY;
-                        };
-                        window.addEventListener("pointermove", handler);
-                        cleanupPointerRef.current = () =>
-                            window.removeEventListener("pointermove", handler);
-                    }}
-                    onDragOver={({ over }) => {
-                        const newOverId = over ? (over.id as string) : null;
-                        setOverId(newOverId);
-                        if (!over) setDropPosition(null);
-                    }}
-                    onDragMove={({ over }) => {
-                        if (over) {
-                            setDropPosition(computeDropPos(over.rect, pointerYRef.current));
-                        }
-                    }}
-                    onDragEnd={({ active, over }) => {
-                        cleanupPointerRef.current?.();
-                        cleanupPointerRef.current = null;
+        <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            accessibility={{
+                announcements,
+                screenReaderInstructions: {
+                    draggable: `Spazio per prendere la ${labels.category}, frecce per spostarla, Spazio per lasciarla, Esc per annullare.`
+                }
+            }}
+            onDragStart={({ active, activatorEvent }) => {
+                setActiveId(active.id as string);
+                keyboardDragRef.current = activatorEvent instanceof KeyboardEvent;
+                const handler = (e: PointerEvent) => {
+                    pointerYRef.current = e.clientY;
+                };
+                window.addEventListener("pointermove", handler);
+                cleanupPointerRef.current = () => window.removeEventListener("pointermove", handler);
+            }}
+            onDragOver={({ over }) => {
+                setOverId(over ? (over.id as string) : null);
+                if (!over) setDropPosition(null);
+            }}
+            onDragMove={({ over }) => {
+                if (over && !keyboardDragRef.current) {
+                    setDropPosition(computeDropPos(over.rect, pointerYRef.current));
+                }
+            }}
+            onDragEnd={({ active, over }) => {
+                cleanupPointerRef.current?.();
+                cleanupPointerRef.current = null;
+                const byKeyboard = keyboardDragRef.current;
+                keyboardDragRef.current = false;
 
-                        const finalDropPos = over
-                            ? computeDropPos(over.rect, pointerYRef.current)
-                            : null;
+                const activeIndex = visibleNodeIds.indexOf(active.id as string);
+                const overIndex = over ? visibleNodeIds.indexOf(over.id as string) : -1;
+                const finalDropPos: DropPosition | null = !over
+                    ? null
+                    : byKeyboard
+                        ? overIndex > activeIndex
+                            ? "after"
+                            : "before"
+                        : computeDropPos(over.rect, pointerYRef.current);
 
-                        resetDragState();
+                resetDragState();
 
-                        if (!over || !finalDropPos || active.id === over.id) return;
+                if (!over || !finalDropPos || active.id === over.id) return;
 
-                        const activeItemNode = visibleNodes.find(
-                            fn => fn.node.id === active.id
-                        )?.node;
-                        const overItemNode = visibleNodes.find(
-                            fn => fn.node.id === over.id
-                        )?.node;
+                const activeItemNode = visibleNodes.find(fn => fn.node.id === active.id)?.node;
+                const overItemNode = visibleNodes.find(fn => fn.node.id === over.id)?.node;
 
-                        if (!activeItemNode || !overItemNode) return;
-                        if (draggingDescendantIds.has(overItemNode.id)) return;
+                if (!activeItemNode || !overItemNode) return;
+                if (draggingDescendantIds.has(overItemNode.id)) return;
 
-                        const sameParent =
-                            activeItemNode.parent_category_id ===
-                            overItemNode.parent_category_id;
+                const siblings = activeItemNode.parent_category_id === overItemNode.parent_category_id;
 
-                        if (
-                            (finalDropPos === "before" || finalDropPos === "after") &&
-                            sameParent
-                        ) {
-                            // Reorder siblings — existing behaviour
-                            const parentKey =
-                                activeItemNode.parent_category_id ?? ROOT_PARENT_KEY;
-                            const siblings = siblingMap.get(parentKey) ?? [];
-                            const oldIndex = siblings.indexOf(activeItemNode.id);
-                            const newIndex = siblings.indexOf(overItemNode.id);
-                            if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
-                            const reordered = arrayMove(siblings, oldIndex, newIndex);
-                            void onReorderSiblings(activeItemNode.parent_category_id, reordered);
-                            return;
-                        }
+                if ((finalDropPos === "before" || finalDropPos === "after") && siblings) {
+                    // Riordino fra sorelle: in bozza.
+                    const parentKey = activeItemNode.parent_category_id ?? ROOT_PARENT_KEY;
+                    const siblingIds = siblingMap.get(parentKey) ?? [];
+                    const oldIndex = siblingIds.indexOf(activeItemNode.id);
+                    const newIndex = siblingIds.indexOf(overItemNode.id);
+                    if (oldIndex < 0 || newIndex < 0 || oldIndex === newIndex) return;
+                    void onReorderSiblings(activeItemNode.parent_category_id, arrayMove(siblingIds, oldIndex, newIndex));
+                    return;
+                }
 
-                        // Reparenting — validate then delegate to CatalogEngine
-                        if (!onReparent) return;
+                // Da tastiera si riordina soltanto: cambiare livello è «Modifica».
+                if (byKeyboard || !onReparent) return;
 
-                        if (finalDropPos === "inside") {
-                            // Target must be a valid parent and not already L3
-                            if (
-                                !validParentIds.has(overItemNode.id) ||
-                                overItemNode.level >= 3
-                            )
-                                return;
-                        } else {
-                            // before/after cross-parent: new parent is overNode's parent
-                            const newParentId = overItemNode.parent_category_id ?? null;
-                            if (!validParentIds.has(newParentId)) return;
-                        }
+                if (finalDropPos === "inside") {
+                    if (!validParentIds.has(overItemNode.id) || overItemNode.level >= 3) return;
+                } else {
+                    const newParentId = overItemNode.parent_category_id ?? null;
+                    if (!validParentIds.has(newParentId)) return;
+                }
 
-                        void onReparent(activeItemNode.id, overItemNode.id, finalDropPos);
-                    }}
-                    onDragCancel={() => {
-                        cleanupPointerRef.current?.();
-                        cleanupPointerRef.current = null;
-                        resetDragState();
-                    }}
+                void onReparent(activeItemNode.id, overItemNode.id, finalDropPos);
+            }}
+            onDragCancel={() => {
+                cleanupPointerRef.current?.();
+                cleanupPointerRef.current = null;
+                keyboardDragRef.current = false;
+                resetDragState();
+            }}
+        >
+            <SortableContext items={visibleNodeIds} strategy={verticalListSortingStrategy}>
+                <ul
+                    className={styles.treeList}
+                    aria-label={labels.categoryPlural.charAt(0).toUpperCase() + labels.categoryPlural.slice(1)}
                 >
-                    <SortableContext items={visibleNodeIds} strategy={verticalListSortingStrategy}>
-                        <div className={styles.treeList}>
-                            {useMemo(() => {
-                                const groups: CatalogTreeFlatNode[][] = [];
-                                let currentGroup: CatalogTreeFlatNode[] = [];
+                    {visibleNodes.map(flatNode => {
+                        const isOverThisNode =
+                            activeId !== null && overId === flatNode.node.id && overId !== activeId;
+                        const nodeDropPos = isOverThisNode ? dropPosition : null;
+                        const isValidInsideTarget =
+                            nodeDropPos === "inside" &&
+                            validParentIds.has(flatNode.node.id) &&
+                            flatNode.node.level < 3;
 
-                                visibleNodes.forEach(flatNode => {
-                                    if (flatNode.depth === 0) {
-                                        if (currentGroup.length > 0) groups.push(currentGroup);
-                                        currentGroup = [flatNode];
-                                    } else {
-                                        currentGroup.push(flatNode);
-                                    }
-                                });
-                                if (currentGroup.length > 0) groups.push(currentGroup);
-
-                                return groups.map((group, groupIdx) => (
-                                    <div key={`group-${groupIdx}`} className={styles.treeGroup}>
-                                        {group.map(flatNode => {
-                                            const isOverThisNode =
-                                                activeId !== null &&
-                                                overId === flatNode.node.id &&
-                                                overId !== activeId;
-                                            const nodeDropPos = isOverThisNode
-                                                ? dropPosition
-                                                : null;
-                                            const isValidInsideTarget =
-                                                nodeDropPos === "inside" &&
-                                                validParentIds.has(flatNode.node.id) &&
-                                                flatNode.node.level < 3;
-
-                                            return (
-                                                <CatalogTreeNode
-                                                    key={flatNode.node.id}
-                                                    flatNode={flatNode}
-                                                    selected={
-                                                        selectedCategoryId === flatNode.node.id
-                                                    }
-                                                    onSelect={onSelectCategory}
-                                                    onToggleExpand={onToggleExpand}
-                                                    onCreateSubCategory={onCreateSubCategory}
-                                                    onEditCategory={onEditCategory}
-                                                    onDeleteCategory={onDeleteCategory}
-                                                    disabled={readOnly || isReordering || activeId !== null}
-                                                    readOnly={readOnly}
-                                                    isDescendantOfDragging={draggingDescendantIds.has(
-                                                        flatNode.node.id
-                                                    )}
-                                                    dropPosition={nodeDropPos}
-                                                    isValidInsideTarget={isValidInsideTarget}
-                                                />
-                                            );
-                                        })}
-                                    </div>
-                                ));
-                            }, [
-                                visibleNodes,
-                                selectedCategoryId,
-                                onSelectCategory,
-                                onToggleExpand,
-                                onCreateSubCategory,
-                                onEditCategory,
-                                onDeleteCategory,
-                                isReordering,
-                                readOnly,
-                                activeId,
-                                overId,
-                                dropPosition,
-                                draggingDescendantIds,
-                                validParentIds
-                            ])}
-                        </div>
-                    </SortableContext>
-                    <DragOverlay>
-                        {activeNode ? (
-                            <div className={styles.dragOverlayGhost}>
-                                <span className={styles.dragOverlayIcon}>
-                                    <IconFolder size={15} />
-                                </span>
-                                <span className={styles.dragOverlayName}>
-                                    {activeNode.node.name}
-                                </span>
-                            </div>
-                        ) : null}
-                    </DragOverlay>
-                </DndContext>
-            )}
-        </div>
+                        return (
+                            <CatalogTreeNode
+                                key={flatNode.node.id}
+                                flatNode={flatNode}
+                                labels={labels}
+                                selected={selectedCategoryId === flatNode.node.id}
+                                onSelect={onSelectCategory}
+                                onToggleExpand={onToggleExpand}
+                                onCreateSubCategory={onCreateSubCategory}
+                                onEditCategory={onEditCategory}
+                                onDeleteCategory={onDeleteCategory}
+                                disabled={readOnly || isReordering}
+                                readOnly={readOnly}
+                                isDescendantOfDragging={draggingDescendantIds.has(flatNode.node.id)}
+                                dropPosition={nodeDropPos}
+                                isValidInsideTarget={isValidInsideTarget}
+                            />
+                        );
+                    })}
+                </ul>
+            </SortableContext>
+            <DragOverlay>
+                {activeNode ? <div className={styles.dragOverlayGhost}>{activeNode.node.name}</div> : null}
+            </DragOverlay>
+        </DndContext>
     );
 }
