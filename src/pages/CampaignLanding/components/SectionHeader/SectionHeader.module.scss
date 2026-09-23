@@ -1,0 +1,53 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// Colori solo dai token: sul tono scuro cambiano per scope (data-tone),
+// SectionHeader non sa su che fondo sta.
+.header {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.center {
+    align-items: center;
+    margin-inline: auto;
+    text-align: center;
+}
+
+.w520 { max-width: 520px; }
+.w740 { max-width: 740px; }
+.w820 { max-width: 820px; }
+.w940 { max-width: 940px; }
+
+.eyebrow {
+    @include ld-eyebrow;
+    margin: 0;
+    color: var(--ld-muted);
+}
+
+.title {
+    @include ld-h2;
+    margin: 0;
+    color: var(--ld-ink);
+    text-wrap: balance;
+}
+
+.display {
+    @include ld-display;
+}
+
+.lede {
+    @include ld-lede;
+    margin: 0;
+    color: var(--ld-body);
+    text-wrap: pretty;
+}
+
+.highlight {
+    color: var(--ld-hl-ink);
+    text-decoration-line: underline;
+    text-decoration-color: var(--ld-hl-line);
+    text-decoration-thickness: 0.08em;
+    text-underline-offset: 0.14em;
+    text-decoration-skip-ink: none;
+}

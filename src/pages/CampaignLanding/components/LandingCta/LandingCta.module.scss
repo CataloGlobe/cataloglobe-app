@@ -1,0 +1,98 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.wrap {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+}
+
+.wrapBlock {
+    display: flex;
+    width: 100%;
+}
+
+.cta {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+    transition:
+        background-color 160ms ease,
+        border-color 160ms ease,
+        color 160ms ease,
+        box-shadow 160ms ease;
+
+    &:focus-visible {
+        outline: 2px solid var(--ld-brand);
+        outline-offset: 3px;
+    }
+}
+
+// ── size ──
+.lg {
+    @include ld-cta;
+    padding: 17px 28px;
+    border-radius: var(--ld-r-cta);
+}
+
+.md {
+    font-family: var(--ld-font-sans);
+    font-weight: 600;
+    font-size: 14px;
+    line-height: 1.2;
+    padding: 10px 20px;
+    border-radius: var(--ld-r-pill);
+}
+
+.block {
+    width: 100%;
+    align-self: stretch; // anche dentro .wrap (flex a colonna)
+}
+
+// ── look ──
+.filled {
+    background: var(--ld-azione);
+    color: var(--ld-on-azione);
+    box-shadow: var(--ld-shadow-cta);
+
+    &:hover {
+        background: var(--ld-azione-hover);
+    }
+}
+
+.outline {
+    background: transparent;
+    color: var(--ld-ink);
+    border-color: var(--ld-line);
+
+    &:hover {
+        border-color: var(--ld-azione);
+        color: var(--ld-azione);
+    }
+}
+
+// «Accedi»-style su foto: fondo non traslante, backdrop-filter ammesso.
+.glass {
+    background: rgba(255, 255, 255, 0.14);
+    color: var(--ld-on-azione);
+    border-color: rgba(255, 255, 255, 0.28);
+    -webkit-backdrop-filter: blur(12px);
+    backdrop-filter: blur(12px);
+
+    &:hover {
+        background: rgba(255, 255, 255, 0.22);
+    }
+}
+
+.note {
+    @include ld-small;
+    margin: 0;
+    color: var(--ld-muted);
+    text-align: center;
+}

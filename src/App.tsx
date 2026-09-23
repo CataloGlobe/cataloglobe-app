@@ -92,6 +92,10 @@ const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes
 const ActivityDisponibilitaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityDisponibilitaRoute"));
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
 
+// Landing di campagna (in costruzione): route di sviluppo /landing-dev, attiva
+// anche in produzione. Lo swap su / e /b arriva quando la pagina è completa.
+const CampaignLandingPage = lazy(() => import("@pages/CampaignLanding"));
+
 // Galleria dei componenti — solo sviluppo. Il ternario su import.meta.env.DEV
 // è statico al build: in produzione l'import() sparisce e il chunk non esiste.
 const DevUiPage = import.meta.env.DEV ? lazy(() => import("./dev/ui/DevUiPage")) : null;
@@ -320,6 +324,10 @@ export default function App() {
 
             {/* Status page pubblica — DEVE stare prima del catch-all /:slug */}
             <Route path="/status" element={<StatusPage />} />
+
+            {/* Landing di campagna — route di sviluppo, prima del catch-all /:slug */}
+            <Route path="/landing-dev" element={<CampaignLandingPage variante="form" />} />
+            <Route path="/landing-dev/b" element={<CampaignLandingPage variante="signup" />} />
 
             {/* Admin (cross-tenant) — gate via platform_admins / is_platform_admin() */}
             <Route

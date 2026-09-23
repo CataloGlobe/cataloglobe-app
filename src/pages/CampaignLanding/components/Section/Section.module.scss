@@ -1,0 +1,30 @@
+.section {
+    padding: var(--ld-sec-y) var(--ld-sec-x);
+    // Rileggere il token nello scope della sezione: il `color` ereditato dalla
+    // radice è già risolto e ignorerebbe il ridefinirsi del tono scuro.
+    color: var(--ld-body);
+}
+
+.paper {
+    background: var(--ld-paper);
+}
+
+.white {
+    background: var(--ld-paper-2);
+}
+
+.dark {
+    background: var(--ld-scuro);
+}
+
+.flush {
+    padding-inline: 0;
+}
+
+// Il contenuto arriva ai bordi del padding orizzontale, come nel canvas.
+// Il layout interno (colonne, gap) è affare di ogni sezione.
+.inner {
+    width: 100%;
+    max-width: var(--ld-page-max);
+    margin-inline: auto;
+}

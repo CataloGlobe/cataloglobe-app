@@ -1,0 +1,76 @@
+@use "sass:math";
+
+// Mobile-first, un solo breakpoint di layout. Fra 768 e 1023 vale il layout
+// mobile su colonna larga: scelta, non buco (il traffico è da smartphone).
+// @media sul viewport, non @container: la landing non vive in un device frame.
+$ld-bp-desktop: 1024px;
+
+@mixin desktop {
+    @media (min-width: $ld-bp-desktop) {
+        @content;
+    }
+}
+
+// Interpolazione lineare fra le due larghezze del canvas (390 e 1280).
+// Valori in px senza unità: ld-fluid(40, 64) → clamp(40px, …, 64px).
+@function ld-fluid($min, $max, $vmin: 390, $vmax: 1280) {
+    $slope: math.div($max - $min, $vmax - $vmin);
+    $intercept: $min - $slope * $vmin;
+    $vw: math.div(math.round($slope * 100 * 10000), 10000);
+    $px: math.div(math.round($intercept * 100), 100);
+    @return clamp(#{$min}px, #{$px}px + #{$vw}vw, #{$max}px);
+}
+
+// ── Tipografia (scala normalizzata dal canvas) ──────────────────────────────
+// Young Serif esiste solo a 400: mai chiedere 700 (il browser lo falserebbe).
+
+@mixin ld-display {
+    font-family: var(--ld-font-serif);
+    font-weight: 400;
+    font-size: ld-fluid(40, 64);
+    line-height: 1.08;
+}
+
+@mixin ld-h2 {
+    font-family: var(--ld-font-serif);
+    font-weight: 400;
+    font-size: ld-fluid(30, 40);
+    line-height: 1.12;
+}
+
+@mixin ld-lede {
+    font-family: var(--ld-font-sans);
+    font-weight: 400;
+    font-size: ld-fluid(17, 20);
+    line-height: 1.55;
+}
+
+@mixin ld-body {
+    font-family: var(--ld-font-sans);
+    font-weight: 400;
+    font-size: ld-fluid(15, 16);
+    line-height: 1.5;
+}
+
+@mixin ld-small {
+    font-family: var(--ld-font-sans);
+    font-weight: 400;
+    font-size: 13px;
+    line-height: 1.45;
+}
+
+@mixin ld-eyebrow {
+    font-family: var(--ld-font-sans);
+    font-weight: 600;
+    font-size: 12px;
+    line-height: 1.4;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+@mixin ld-cta {
+    font-family: var(--ld-font-sans);
+    font-weight: 600;
+    font-size: 17px;
+    line-height: 1.2;
+}

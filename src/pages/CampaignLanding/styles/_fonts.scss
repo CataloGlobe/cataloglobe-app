@@ -1,0 +1,5 @@
+// Font della landing di campagna, self-hosted in public/fonts/ come Inter.
+// Unico punto di caricamento: incluso solo da Frame.module.scss, quindi entra
+// nel CSS del chunk lazy della landing e mai nel bundle admin. Niente preload
+// in index.html: lo pagherebbe ogni pagina dell'app.
+@import url("/fonts/app-campaign.css");
