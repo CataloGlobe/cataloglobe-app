@@ -1,15 +1,13 @@
 import { useId } from "react";
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
-import { IconChevronRight, IconGripVertical, IconTrash } from "@tabler/icons-react";
+import { IconChevronRight, IconGripVertical } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import Text from "@/components/ui/Text/Text";
 import styles from "../CatalogEngine.module.scss";
 import { CatalogTreeFlatNode, CatalogTreeLabels } from "./CatalogTree.types";
-
-/** Il tetto dei livelli (L1–L3): lo applicano i drawer e il trascinamento; qui lo si dice. */
-export const MAX_CATEGORY_LEVEL = 3;
+import { categoryActions } from "./categoryActions";
 
 type CatalogTreeNodeProps = {
     flatNode: CatalogTreeFlatNode;
@@ -18,8 +16,10 @@ type CatalogTreeNodeProps = {
     onSelect: (categoryId: string) => void;
     onToggleExpand: (categoryId: string) => void;
     onCreateSubCategory: (categoryId: string) => void;
-    onEditCategory: (categoryId: string) => void;
+    onRenameCategory: (categoryId: string) => void;
+    onMoveCategory: (categoryId: string) => void;
     onDeleteCategory: (categoryId: string) => void;
+    structureLockReason?: string;
     disabled?: boolean;
     readOnly?: boolean;
     isDescendantOfDragging?: boolean;
@@ -40,8 +40,10 @@ export function CatalogTreeNode({
     onSelect,
     onToggleExpand,
     onCreateSubCategory,
-    onEditCategory,
+    onRenameCategory,
+    onMoveCategory,
     onDeleteCategory,
+    structureLockReason,
     disabled = false,
     readOnly = false,
     isDescendantOfDragging = false,
@@ -80,8 +82,6 @@ export function CatalogTreeNode({
     ]
         .filter(Boolean)
         .join(" ");
-
-    const atMaxLevel = node.level >= MAX_CATEGORY_LEVEL;
 
     return (
         <li
@@ -145,23 +145,15 @@ export function CatalogTreeNode({
                 <span className={styles.treeActions}>
                     <TableRowActions
                         ariaLabel={`Azioni ${node.name}`}
-                        actions={[
-                            { label: "Modifica", onClick: () => onEditCategory(node.id) },
-                            {
-                                label: `Crea sotto-${labels.category}`,
-                                onClick: () => onCreateSubCategory(node.id),
-                                // Al terzo livello la voce resta, spenta col perché (§49.1/4).
-                                disabled: atMaxLevel,
-                                description: atMaxLevel ? "Massimo tre livelli." : undefined
-                            },
-                            {
-                                label: "Elimina",
-                                icon: IconTrash,
-                                onClick: () => onDeleteCategory(node.id),
-                                variant: "destructive",
-                                separator: true
-                            }
-                        ]}
+                        actions={categoryActions({
+                            level: node.level,
+                            categoryLabel: labels.category,
+                            structureLockReason,
+                            onRename: () => onRenameCategory(node.id),
+                            onMove: () => onMoveCategory(node.id),
+                            onCreateSub: () => onCreateSubCategory(node.id),
+                            onDelete: () => onDeleteCategory(node.id)
+                        })}
                     />
                 </span>
             )}

@@ -61,10 +61,18 @@ async function selectCategory(page: Page, name: string): Promise<void> {
     await expect(main(page).getByRole("heading", { name, exact: true }).or(main(page).getByText(name, { exact: true }).nth(1))).toBeVisible();
 }
 
-/** Apre «Modifica» della categoria scelta dal kebab nella sua testata. */
-async function editCategory(page: Page): Promise<void> {
+/** Apre una voce del kebab nella testata della categoria scelta. */
+async function categoryMenu(page: Page, item: string | RegExp): Promise<void> {
     await main(page).getByRole("button", { name: /^Azioni della/ }).click();
-    await page.getByRole("menuitem", { name: "Modifica", exact: true }).click();
+    await page.getByRole("menuitem", { name: item }).click();
+}
+
+/** Rinomina la categoria scelta: in bozza, «Applica». */
+async function renameCategory(page: Page, name: string): Promise<void> {
+    await categoryMenu(page, "Rinomina");
+    await dialog(page).getByRole("textbox", { name: /Nome/ }).fill(name);
+    await dialog(page).getByRole("button", { name: "Applica" }).click();
+    await expect(node(page, name)).toBeVisible();
 }
 
 function write(stub: MenuStub, key: string): WriteCall | undefined {
@@ -315,14 +323,7 @@ test.describe("Menù — dettaglio", () => {
         await openCarta(page);
         await selectCategory(page, "Antipasti");
 
-        const rename = async (name: string) => {
-            await editCategory(page);
-            await dialog(page).getByRole("textbox", { name: /Nome/ }).fill(name);
-            await dialog(page).getByRole("button", { name: /^(Salva|Applica)$/ }).click();
-            await expect(node(page, name)).toBeVisible();
-        };
-
-        await rename("Stuzzichini");
+        await renameCategory(page, "Stuzzichini");
         expect(stub.writes.filter(w => w.key === "catalog_categories.PATCH")).toHaveLength(0);
         await page.getByRole("button", { name: /^Annulla( modifiche)?$/ }).first().click();
         // Dopo P3 l'«Annulla» della testata chiede conferma.
@@ -330,7 +331,7 @@ test.describe("Menù — dettaglio", () => {
         if (await discard.isVisible().catch(() => false)) await discard.click();
         await expect(node(page, "Antipasti")).toBeVisible();
 
-        await rename("Stuzzichini");
+        await renameCategory(page, "Stuzzichini");
         await saveDraft(page);
         await expect.poll(() => write(stub, "catalog_categories.PATCH")).toBeTruthy();
         const call = write(stub, "catalog_categories.PATCH")!;
@@ -376,7 +377,7 @@ test.describe("Menù — dettaglio", () => {
     test("crea una categoria principale: POST con livello e genitore", async ({ page }) => {
         stub.onWrite("catalog_categories.POST", ({ body }) => ({ id: "e2e0c000-0000-4000-a000-000000000999", created_at: new Date().toISOString(), ...(body as object[])[0] }));
         await openCarta(page);
-        await main(page).getByRole("button", { name: /^(Crea categoria principale|Nuova (categoria|portata))$/ }).first().click();
+        await main(page).getByRole("button", { name: "Nuova portata" }).first().click();
         await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Contorni");
         await dialog(page).getByRole("button", { name: /^(Salva|Crea)$/ }).click();
         await expect.poll(() => write(stub, "catalog_categories.POST")).toBeTruthy();
@@ -385,18 +386,22 @@ test.describe("Menù — dettaglio", () => {
         ]);
     });
 
-    test("con la bozza aperta non si crea una categoria", async ({ page }) => {
+    test("con la bozza aperta i gesti che scrivono subito sono spenti, col perché", async ({ page }) => {
         await openCarta(page);
         await selectCategory(page, "Antipasti");
-        await editCategory(page);
-        await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Stuzzichini");
-        await dialog(page).getByRole("button", { name: /^(Salva|Applica)$/ }).click();
-        await expect(node(page, "Stuzzichini")).toBeVisible();
+        await renameCategory(page, "Stuzzichini");
 
-        const create = main(page).getByRole("button", { name: /^(Crea categoria principale|Nuova (categoria|portata))$/ }).first();
-        if (await create.isEnabled()) await create.click();
-        await expect(page.getByRole("dialog")).toHaveCount(0);
-        expect(stub.writes.filter(w => w.key === "catalog_categories.POST")).toHaveLength(0);
+        await expect(main(page).getByRole("button", { name: "Nuova portata" })).toBeDisabled();
+        await expect(main(page).getByText("Con modifiche da salvare si rinomina e si riordina soltanto.")).toBeVisible();
+        await main(page).getByRole("button", { name: /^Azioni della/ }).click();
+        for (const item of [/^Sposta in/, /^Crea sotto-portata/, /^Elimina/]) {
+            const entry = page.getByRole("menuitem", { name: item });
+            await expect(entry).toHaveAttribute("aria-disabled", "true");
+            await expect(entry).toContainText("Salva o annulla le modifiche prima.");
+        }
+        await expect(page.getByRole("menuitem", { name: "Rinomina" })).not.toHaveAttribute("aria-disabled", "true");
+        await page.keyboard.press("Escape");
+        expect(stub.writes.filter(w => w.key.startsWith("catalog_categories."))).toHaveLength(0);
     });
 
     test("elimina una categoria: DELETE sul suo id", async ({ page }) => {
@@ -406,6 +411,8 @@ test.describe("Menù — dettaglio", () => {
         await node(page, "Dessert").hover();
         await main(page).getByRole("button", { name: "Azioni Dessert" }).click();
         await page.getByRole("menuitem", { name: "Elimina" }).click();
+        await expect(dialog(page)).toContainText("Eliminare «Dessert»?");
+        await expect(dialog(page)).toContainText("I prodotti restano.");
         await dialog(page).getByRole("button", { name: "Elimina" }).click();
         await expect.poll(() => write(stub, "catalog_categories.DELETE")).toBeTruthy();
         expect(write(stub, "catalog_categories.DELETE")!.params.get("id")).toBe(`eq.${CAT.dessert}`);
@@ -415,9 +422,9 @@ test.describe("Menù — dettaglio", () => {
         stub.onWrite("catalog_categories.PATCH", ({ body }) => ({ id: CAT.rossi, catalog_id: MENU.carta, name: "Rossi", created_at: new Date().toISOString(), ...(body as object) }));
         await openCarta(page);
         await selectCategory(page, "Rossi");
-        await editCategory(page);
-        await dialog(page).getByRole("combobox", { name: /Sposta/ }).selectOption({ label: "Nessuna (categoria principale)" });
-        await dialog(page).getByRole("button", { name: /^(Salva|Sposta)$/ }).click();
+        await categoryMenu(page, /^Sposta in/);
+        await dialog(page).getByRole("combobox", { name: "Dentro" }).selectOption({ label: "Nessuna (portata principale)" });
+        await dialog(page).getByRole("button", { name: "Sposta" }).click();
         await expect.poll(() => write(stub, "catalog_categories.PATCH")).toBeTruthy();
         const call = write(stub, "catalog_categories.PATCH")!;
         expect(call.params.get("id")).toBe(`eq.${CAT.rossi}`);
@@ -436,7 +443,7 @@ test.describe("Menù — dettaglio", () => {
         await openCarta(page);
         await selectCategory(page, "Antipasti");
         await expect(main(page).getByText("Olive ascolane", { exact: true })).toBeVisible();
-        await expect(main(page).getByRole("button", { name: /^(Crea categoria principale|Nuova (categoria|portata))$/ })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: "Nuova portata" })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Azioni della/ })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /Aggiungi prodott/ })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Riordina/ })).toHaveCount(0);
@@ -463,10 +470,7 @@ test.describe("Menù — dettaglio", () => {
 
     test("uscire con la bozza aperta chiede cosa fare", async ({ page }) => {
         await openCarta(page);
-        await editCategory(page);
-        await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Stuzzichini");
-        await dialog(page).getByRole("button", { name: /^(Salva|Applica)$/ }).click();
-        await expect(node(page, "Stuzzichini")).toBeVisible();
+        await renameCategory(page, "Stuzzichini");
 
         await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
         const guard = page.getByRole("alertdialog").filter({ hasText: "Modifiche non salvate" });

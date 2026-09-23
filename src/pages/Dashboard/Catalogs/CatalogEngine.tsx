@@ -57,11 +57,13 @@ import { getProductGroups, ProductGroup } from "@/services/supabase/productGroup
 import { listAttributeDefinitions } from "@/services/supabase/attributes";
 import { supabase } from "@/services/supabase/client";
 import { CatalogTree } from "./components/CatalogTree";
+import { categoryActions } from "./components/categoryActions";
 import { CatalogTreeNodeData } from "./components/CatalogTree.types";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { Card } from "@/components/ui/Card/Card";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
 import {
@@ -321,7 +323,10 @@ export default function CatalogEngine() {
     const [productSearch, setProductSearch] = useState("");
     const [rightPaneTab, setRightPaneTab] = useState<"products" | "translations">("products");
 
-    const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
+    // I gesti della categoria (passo 2 P5, §49.1/2): tre drawer `sm`, uno per
+    // gesto. «Nuova» e «Sposta» scrivono subito; «Rinomina» va in bozza.
+    const [categoryDrawer, setCategoryDrawer] = useState<"create" | "rename" | "move" | null>(null);
+    const isCategoryDrawerOpen = categoryDrawer !== null;
     const [editingCategory, setEditingCategory] = useState<V2CatalogCategory | null>(null);
     const [categoryName, setCategoryName] = useState("");
     const [categoryParentId, setCategoryParentId] = useState("");
@@ -771,16 +776,16 @@ export default function CatalogEngine() {
     }, [isUnifiedAddProductDrawerOpen]);
 
     const createParentOptions = useMemo(() => {
-        const options = [{ value: "", label: "Nessuna (categoria principale)" }];
+        const options = [{ value: "", label: `Nessuna (${categoryLower} principale)` }];
         for (const node of flattenTreeDFS(tree)) {
             if (node.level >= 3) continue;
             const prefix = "-- ".repeat(node.level - 1);
             options.push({ value: node.id, label: `${prefix}${node.name}` });
         }
         return options;
-    }, [tree]);
+    }, [tree, categoryLower]);
 
-    const editParentOptions = useMemo(() => {
+    const moveParentOptions = useMemo(() => {
         if (!editingCategory) return createParentOptions;
 
         const childrenMap = buildChildrenMap(categories);
@@ -788,7 +793,7 @@ export default function CatalogEngine() {
         const maxDepthBelow = getMaxDepthBelow(editingCategory.id, categories);
 
         const options: { value: string; label: string }[] = [
-            { value: "", label: "Nessuna (categoria principale)" }
+            { value: "", label: `Nessuna (${categoryLower} principale)` }
         ];
 
         for (const node of flattenTreeDFS(tree)) {
@@ -801,9 +806,9 @@ export default function CatalogEngine() {
         }
 
         return options;
-    }, [editingCategory, categories, tree, createParentOptions]);
+    }, [editingCategory, categories, tree, createParentOptions, categoryLower]);
 
-    const editParentDepthFiltered = useMemo((): boolean => {
+    const moveDepthFiltered = useMemo((): boolean => {
         if (!editingCategory) return false;
         const childrenMap = buildChildrenMap(categories);
         const descendantIds = new Set(collectDescendantIds(editingCategory.id, childrenMap));
@@ -818,128 +823,109 @@ export default function CatalogEngine() {
         );
     }, [editingCategory, categories, tree]);
 
+    // Un gesto che scrive subito non parte con la bozza aperta: il ricaricamento
+    // la scarterebbe. La voce è spenta e dice perché prima del clic (§49.1/2).
+    const structureLockReason = isDirty ? "Salva o annulla le modifiche prima." : undefined;
+
     const openCreateRootCategoryDrawer = useCallback(() => {
-        if (isDirty) {
-            showToast({
-                message: "Salva o annulla le modifiche prima di creare o eliminare categorie.",
-                type: "info"
-            });
-            return;
-        }
+        if (isDirty) return;
         setEditingCategory(null);
         setCategoryName("");
         setCategoryParentId("");
-        setIsCategoryDrawerOpen(true);
-    }, [isDirty, showToast]);
+        setCategoryDrawer("create");
+    }, [isDirty]);
 
     const openCreateSubCategoryDrawer = useCallback(
         (parentCategoryId: string) => {
-            if (isDirty) {
-                showToast({
-                    message: "Salva o annulla le modifiche prima di creare o eliminare categorie.",
-                    type: "info"
-                });
-                return;
-            }
-
+            if (isDirty) return;
             const parent = categoriesById.get(parentCategoryId);
-            if (!parent) return;
-
-            if (parent.level >= 3) {
-                showToast({
-                    message: "Non puoi creare categorie oltre il livello 3.",
-                    type: "error"
-                });
-                return;
-            }
-
+            if (!parent || parent.level >= 3) return;
             setEditingCategory(null);
             setCategoryName("");
             setCategoryParentId(parent.id);
             setExpandedCategoryIds(prev => new Set(prev).add(parent.id));
-            setIsCategoryDrawerOpen(true);
+            setCategoryDrawer("create");
         },
-        [categoriesById, isDirty, showToast]
+        [categoriesById, isDirty]
     );
 
-    const openEditCategoryDrawer = useCallback(
+    const openRenameCategoryDrawer = useCallback(
         (categoryId: string) => {
             const category = categoriesById.get(categoryId);
             if (!category) return;
             setEditingCategory(category);
             setCategoryName(category.name);
-            setCategoryParentId(category.parent_category_id ?? "");
-            setIsCategoryDrawerOpen(true);
+            setCategoryDrawer("rename");
         },
         [categoriesById]
     );
 
+    const openMoveCategoryDrawer = useCallback(
+        (categoryId: string) => {
+            if (isDirty) return;
+            const category = categoriesById.get(categoryId);
+            if (!category) return;
+            setEditingCategory(category);
+            setCategoryParentId(category.parent_category_id ?? "");
+            setCategoryDrawer("move");
+        },
+        [categoriesById, isDirty]
+    );
+
     const openDeleteCategoryDrawer = useCallback(
         (categoryId: string) => {
-            if (isDirty) {
-                showToast({
-                    message: "Salva o annulla le modifiche prima di creare o eliminare categorie.",
-                    type: "info"
-                });
-                return;
-            }
+            if (isDirty) return;
             const category = categoriesById.get(categoryId);
             if (!category) return;
             setCategoryToDelete(category);
         },
-        [categoriesById, isDirty, showToast]
+        [categoriesById, isDirty]
     );
+
+    const [categoryNameError, setCategoryNameError] = useState<string | undefined>();
 
     const handleSaveCategory = useCallback(
         async (event: React.FormEvent) => {
             event.preventDefault();
-            if (!currentTenantId || !catalogId) return;
+            if (!currentTenantId || !catalogId || !categoryDrawer) return;
 
-            if (!categoryName.trim()) {
-                showToast({ message: "Il nome della categoria è obbligatorio.", type: "error" });
+            if (categoryDrawer !== "move" && !categoryName.trim()) {
+                setCategoryNameError("Scrivi un nome.");
                 return;
             }
 
-            if (editingCategory) {
+            // Rinomina: in bozza, come il riordino. Si pubblica con Salva.
+            if (categoryDrawer === "rename" && editingCategory) {
+                setCategories(prev =>
+                    prev.map(cat =>
+                        cat.id === editingCategory.id ? { ...cat, name: categoryName.trim() } : cat
+                    )
+                );
+                setIsDirty(true);
+                setCategoryDrawer(null);
+                return;
+            }
+
+            if (isDirty) return;
+
+            // Sposta: subito, con i livelli dei discendenti.
+            if (categoryDrawer === "move" && editingCategory) {
                 const newParentId = categoryParentId || null;
-                const parentChanged = newParentId !== (editingCategory.parent_category_id ?? null);
-
-                if (!parentChanged) {
-                    // Only name changed — optimistic update
-                    setCategories(prev =>
-                        prev.map(cat =>
-                            cat.id === editingCategory.id ? { ...cat, name: categoryName.trim() } : cat
-                        )
-                    );
-                    setIsDirty(true);
-                    setIsCategoryDrawerOpen(false);
+                if (newParentId === (editingCategory.parent_category_id ?? null)) {
+                    setCategoryDrawer(null);
                     return;
                 }
-
-                // Parent changed — save immediately
-                if (isDirty) {
-                    showToast({
-                        message: "Salva o annulla le modifiche prima di spostare la categoria.",
-                        type: "info"
-                    });
-                    return;
-                }
-
                 setIsSavingCategory(true);
                 try {
                     const parentCategory = newParentId ? (categoriesById.get(newParentId) ?? null) : null;
                     const newLevel = parentCategory ? ((parentCategory.level + 1) as 1 | 2 | 3) : 1;
-
                     const newSiblings = categories.filter(
                         c => c.parent_category_id === newParentId && c.id !== editingCategory.id
                     );
                     const newSortOrder =
-                        newSiblings.length > 0
-                            ? Math.max(...newSiblings.map(c => c.sort_order)) + 10
-                            : 0;
+                        newSiblings.length > 0 ? Math.max(...newSiblings.map(c => c.sort_order)) + 10 : 0;
 
                     await updateCategory(editingCategory.id, currentTenantId, {
-                        name: categoryName.trim(),
                         parent_category_id: newParentId,
                         level: newLevel,
                         sort_order: newSortOrder
@@ -947,20 +933,11 @@ export default function CatalogEngine() {
 
                     const levelDiff = newLevel - editingCategory.level;
                     if (levelDiff !== 0) {
-                        const childrenMap = buildChildrenMap(categories);
-                        const descendantIds = collectDescendantIds(editingCategory.id, childrenMap);
-                        await Promise.all(
-                            descendantIds.map(descId => {
-                                const desc = categoriesById.get(descId);
-                                if (!desc) return Promise.resolve();
-                                const newDescLevel = (desc.level + levelDiff) as 1 | 2 | 3;
-                                return updateCategory(descId, currentTenantId, { level: newDescLevel });
-                            })
-                        );
+                        await updateDescendantLevels(editingCategory.id, currentTenantId, levelDiff, categories);
                     }
 
-                    showToast({ message: "Categoria spostata.", type: "success" });
-                    setIsCategoryDrawerOpen(false);
+                    showToast({ message: `${categoryLabel} spostata.`, type: "success" });
+                    setCategoryDrawer(null);
                     await loadData();
                 } catch (error: unknown) {
                     console.error(error);
@@ -974,32 +951,25 @@ export default function CatalogEngine() {
                 return;
             }
 
+            // Nuova: subito.
             setIsSavingCategory(true);
             try {
                 const parentId = categoryParentId || null;
                 const parentCategory = parentId ? (categoriesById.get(parentId) ?? null) : null;
-                if (parentCategory && parentCategory.level >= 3) {
-                    showToast({
-                        message: "La categoria padre selezionata è già al livello massimo.",
-                        type: "error"
-                    });
-                    return;
-                }
+                if (parentCategory && parentCategory.level >= 3) return;
 
                 const targetLevel = parentCategory ? ((parentCategory.level + 1) as 1 | 2 | 3) : 1;
-                const finalSortOrder = getNextSortOrder(parentId);
-
                 const createdCategory = await createCategory(
                     currentTenantId,
                     catalogId,
                     categoryName.trim(),
                     targetLevel,
                     parentId,
-                    finalSortOrder
+                    getNextSortOrder(parentId)
                 );
 
-                showToast({ message: "Categoria creata.", type: "success" });
-                setIsCategoryDrawerOpen(false);
+                showToast({ message: `${categoryLabel} creata.`, type: "success" });
+                setCategoryDrawer(null);
                 await loadData();
                 setSelectedCategoryInUrl(createdCategory.id);
             } catch (error: unknown) {
@@ -1016,6 +986,8 @@ export default function CatalogEngine() {
             catalogId,
             categories,
             categoriesById,
+            categoryDrawer,
+            categoryLabel,
             categoryName,
             categoryParentId,
             currentTenantId,
@@ -1027,6 +999,22 @@ export default function CatalogEngine() {
             showToast
         ]
     );
+
+    // L'impatto dell'eliminazione, detto prima di confermare (#263): la
+    // cascata porta via sotto-categorie e collegamenti, non i prodotti.
+    const deleteImpactText = useMemo(() => {
+        if (!categoryToDelete) return "";
+        const descendantIds = collectDescendantIds(categoryToDelete.id, buildChildrenMap(categories));
+        const branch = new Set([categoryToDelete.id, ...descendantIds]);
+        const links = categoryProducts.filter(link => branch.has(link.category_id)).length;
+        const parts: string[] = [];
+        if (descendantIds.length > 0) {
+            parts.push(`${descendantIds.length} ${descendantIds.length === 1 ? `sotto-${categoryLower}` : `sotto-${categoryLabelPlural.toLowerCase()}`}`);
+        }
+        if (links > 0) parts.push(`${links} ${links === 1 ? "collegamento" : "collegamenti"} ai prodotti`);
+        const what = parts.length > 0 ? `Si eliminano anche ${parts.join(" e ")}. ` : "";
+        return `${what}I prodotti restano. Non si torna indietro.`;
+    }, [categoryToDelete, categories, categoryProducts, categoryLower, categoryLabelPlural]);
 
     const handleDeleteCategory = useCallback(async () => {
         if (!currentTenantId || !categoryToDelete) return;
@@ -1850,20 +1838,15 @@ export default function CatalogEngine() {
                             )}
                             <TableRowActions
                                 ariaLabel={`Azioni della ${categoryLower}`}
-                                actions={[
-                                    { label: "Modifica", onClick: () => openEditCategoryDrawer(selectedCategory.id) },
-                                    {
-                                        label: `Crea sotto-${categoryLower}`,
-                                        onClick: () => openCreateSubCategoryDrawer(selectedCategory.id),
-                                        hidden: selectedCategory.level >= 3
-                                    },
-                                    {
-                                        label: "Elimina",
-                                        onClick: () => openDeleteCategoryDrawer(selectedCategory.id),
-                                        variant: "destructive",
-                                        separator: true
-                                    }
-                                ]}
+                                actions={categoryActions({
+                                    level: selectedCategory.level,
+                                    categoryLabel: categoryLower,
+                                    structureLockReason,
+                                    onRename: () => openRenameCategoryDrawer(selectedCategory.id),
+                                    onMove: () => openMoveCategoryDrawer(selectedCategory.id),
+                                    onCreateSub: () => openCreateSubCategoryDrawer(selectedCategory.id),
+                                    onDelete: () => openDeleteCategoryDrawer(selectedCategory.id)
+                                })}
                             />
                         </>
                     ) : undefined
@@ -1969,11 +1952,16 @@ export default function CatalogEngine() {
             bodyClassName={styles.treeBody}
             flush
             title={categoryLabelPlural}
+            // Con la bozza aperta l'albero lo dice: si rinomina e si riordina,
+            // il resto aspetta il salvataggio (§49.1/2).
+            subtitle={canWrite && structureLockReason ? "Con modifiche da salvare si rinomina e si riordina soltanto." : undefined}
             actions={
                 canWrite ? (
                     <IconButton
                         icon={<IconPlus size={16} />}
                         aria-label={`Nuova ${categoryLower}`}
+                        title={structureLockReason}
+                        disabled={Boolean(structureLockReason)}
                         variant="ghost"
                         size="sm"
                         onClick={openCreateRootCategoryDrawer}
@@ -1988,8 +1976,10 @@ export default function CatalogEngine() {
                 onToggleExpand={toggleCategoryExpansion}
                 onSelectCategory={categoryId => setSelectedCategoryInUrl(categoryId)}
                 onCreateSubCategory={openCreateSubCategoryDrawer}
-                onEditCategory={openEditCategoryDrawer}
+                onRenameCategory={openRenameCategoryDrawer}
+                onMoveCategory={openMoveCategoryDrawer}
                 onDeleteCategory={openDeleteCategoryDrawer}
+                structureLockReason={structureLockReason}
                 onReorderSiblings={handleReorderSiblings}
                 onReparent={handleReparent}
                 isReordering={false}
@@ -2041,29 +2031,22 @@ export default function CatalogEngine() {
                 onDiscard={handleCancelChanges}
             />
 
-            <SystemDrawer
-                open={isCategoryDrawerOpen}
-                onClose={() => setIsCategoryDrawerOpen(false)}
-                width={420}
-            >
+            <SystemDrawer open={isCategoryDrawerOpen} onClose={() => setCategoryDrawer(null)} size="sm">
                 <DrawerLayout
                     header={
-                        <div>
-                            <Text variant="title-sm" weight={700}>
-                                {editingCategory ? "Modifica categoria" : "Nuova categoria"}
-                            </Text>
-                            {!editingCategory && categoryParentId && (
-                                <Text variant="caption" colorVariant="muted">
-                                    Parent preimpostato dalla selezione nel tree.
-                                </Text>
-                            )}
-                        </div>
+                        <Text variant="title-sm" weight={700}>
+                            {categoryDrawer === "rename"
+                                ? `Rinomina «${editingCategory?.name ?? ""}»`
+                                : categoryDrawer === "move"
+                                    ? `Sposta «${editingCategory?.name ?? ""}»`
+                                    : `Nuova ${categoryLower}`}
+                        </Text>
                     }
                     footer={
                         <>
                             <Button
                                 variant="secondary"
-                                onClick={() => setIsCategoryDrawerOpen(false)}
+                                onClick={() => setCategoryDrawer(null)}
                                 disabled={isSavingCategory}
                             >
                                 Annulla
@@ -2074,7 +2057,7 @@ export default function CatalogEngine() {
                                 form="catalog-category-form"
                                 loading={isSavingCategory}
                             >
-                                Salva
+                                {categoryDrawer === "rename" ? "Applica" : categoryDrawer === "move" ? "Sposta" : "Crea"}
                             </Button>
                         </>
                     }
@@ -2083,73 +2066,58 @@ export default function CatalogEngine() {
                         id="catalog-category-form"
                         onSubmit={handleSaveCategory}
                         className={styles.form}
+                        noValidate
                     >
-                        <TextInput
-                            label="Nome"
-                            value={categoryName}
-                            onChange={event => setCategoryName(event.target.value)}
-                            placeholder="Es: Antipasti, Bevande..."
-                            required
-                        />
-
-                        <Select
-                            label={editingCategory ? "Sposta sotto" : "Inserisci sotto"}
-                            value={categoryParentId}
-                            onChange={event => setCategoryParentId(event.target.value)}
-                            options={editingCategory ? editParentOptions : createParentOptions}
-                        />
-                        <Text variant="caption" colorVariant="muted">
-                            {editingCategory
-                                ? "Sposta questa categoria all'interno di un'altra. Seleziona 'Nessuna' per renderla una categoria principale."
-                                : "Seleziona la categoria all'interno della quale inserire questa nuova categoria. Lascia vuoto per crearla come categoria principale."}
-                        </Text>
-                        {editingCategory && editParentDepthFiltered && (
+                        {categoryDrawer !== "move" && (
+                            <TextInput
+                                label="Nome"
+                                value={categoryName}
+                                onChange={event => {
+                                    setCategoryName(event.target.value);
+                                    setCategoryNameError(undefined);
+                                }}
+                                error={categoryNameError}
+                                placeholder="Es. Antipasti, Bevande"
+                                required
+                            />
+                        )}
+                        {categoryDrawer === "rename" && (
                             <Text variant="caption" colorVariant="muted">
-                                Alcune categorie non sono disponibili perché supererebbero il limite di 3 livelli di profondità.
+                                Il nuovo nome si pubblica con Salva, insieme alle altre modifiche.
+                            </Text>
+                        )}
+                        {categoryDrawer !== "rename" && (
+                            <Select
+                                label="Dentro"
+                                value={categoryParentId}
+                                onChange={event => setCategoryParentId(event.target.value)}
+                                options={categoryDrawer === "move" ? moveParentOptions : createParentOptions}
+                                helperText={`Le ${categoryLabelPlural.toLowerCase()} si annidano fino a tre livelli.`}
+                            />
+                        )}
+                        {categoryDrawer === "move" && moveDepthFiltered && (
+                            <Text variant="caption" colorVariant="muted">
+                                {`Alcune ${categoryLabelPlural.toLowerCase()} non sono fra le destinazioni: con le sue sotto-${categoryLabelPlural.toLowerCase()} si andrebbe oltre il terzo livello.`}
+                            </Text>
+                        )}
+                        {categoryDrawer === "move" && (
+                            <Text variant="caption" colorVariant="muted">
+                                Lo spostamento si salva subito.
                             </Text>
                         )}
                     </form>
                 </DrawerLayout>
             </SystemDrawer>
 
-            <SystemDrawer
-                open={Boolean(categoryToDelete)}
+            <ConfirmDialog
+                isOpen={Boolean(categoryToDelete)}
                 onClose={() => setCategoryToDelete(null)}
-                width={420}
-            >
-                <DrawerLayout
-                    header={
-                        <Text variant="title-sm" weight={700}>
-                            Elimina categoria
-                        </Text>
-                    }
-                    footer={
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setCategoryToDelete(null)}
-                                disabled={isDeletingCategory}
-                            >
-                                Annulla
-                            </Button>
-                            <Button
-                                variant="danger"
-                                onClick={handleDeleteCategory}
-                                loading={isDeletingCategory}
-                            >
-                                Elimina
-                            </Button>
-                        </>
-                    }
-                >
-                    <div className={styles.deleteWarning}>
-                        <Text variant="body-sm">
-                            Eliminando "<strong>{categoryToDelete?.name}</strong>" verranno rimosse
-                            anche le relative sotto-categorie e i collegamenti ai prodotti.
-                        </Text>
-                    </div>
-                </DrawerLayout>
-            </SystemDrawer>
+                onConfirm={handleDeleteCategory}
+                isLoading={isDeletingCategory}
+                title={`Eliminare «${categoryToDelete?.name ?? ""}»?`}
+                message={deleteImpactText}
+                confirmLabel="Elimina"
+            />
 
             <SystemDrawer
                 open={isUnifiedAddProductDrawerOpen}

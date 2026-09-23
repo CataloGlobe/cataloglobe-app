@@ -30,7 +30,8 @@ type CatalogTreeProps = {
     onToggleExpand: (categoryId: string) => void;
     onSelectCategory: (categoryId: string) => void;
     onCreateSubCategory: (categoryId: string) => void;
-    onEditCategory: (categoryId: string) => void;
+    onRenameCategory: (categoryId: string) => void;
+    onMoveCategory: (categoryId: string) => void;
     onDeleteCategory: (categoryId: string) => void;
     onReorderSiblings: (
         parentCategoryId: string | null,
@@ -45,6 +46,11 @@ type CatalogTreeProps = {
     /** Sola lettura (`catalogs.write` assente): niente «+», kebab né trascinamento. */
     readOnly?: boolean;
     labels: CatalogTreeLabels;
+    /**
+     * Con la bozza aperta: i gesti che scrivono subito si spengono col perché,
+     * e il trascinamento cambia solo l'ordine fra sorelle, non il livello.
+     */
+    structureLockReason?: string;
 };
 
 const ROOT_PARENT_KEY = "__root__";
@@ -113,13 +119,15 @@ export function CatalogTree({
     onToggleExpand,
     onSelectCategory,
     onCreateSubCategory,
-    onEditCategory,
+    onRenameCategory,
+    onMoveCategory,
     onDeleteCategory,
     onReorderSiblings,
     onReparent,
     isReordering = false,
     readOnly = false,
-    labels
+    labels,
+    structureLockReason
 }: CatalogTreeProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
     const [overId, setOverId] = useState<string | null>(null);
@@ -290,8 +298,9 @@ export function CatalogTree({
                     return;
                 }
 
-                // Da tastiera si riordina soltanto: cambiare livello è «Modifica».
-                if (byKeyboard || !onReparent) return;
+                // Da tastiera si riordina soltanto: cambiare livello è «Sposta in…».
+                // Con la bozza aperta nemmeno col puntatore: scrive subito (#261).
+                if (byKeyboard || structureLockReason || !onReparent) return;
 
                 if (finalDropPos === "inside") {
                     if (!validParentIds.has(overItemNode.id) || overItemNode.level >= 3) return;
@@ -319,6 +328,7 @@ export function CatalogTree({
                             activeId !== null && overId === flatNode.node.id && overId !== activeId;
                         const nodeDropPos = isOverThisNode ? dropPosition : null;
                         const isValidInsideTarget =
+                            !structureLockReason &&
                             nodeDropPos === "inside" &&
                             validParentIds.has(flatNode.node.id) &&
                             flatNode.node.level < 3;
@@ -332,7 +342,9 @@ export function CatalogTree({
                                 onSelect={onSelectCategory}
                                 onToggleExpand={onToggleExpand}
                                 onCreateSubCategory={onCreateSubCategory}
-                                onEditCategory={onEditCategory}
+                                onRenameCategory={onRenameCategory}
+                                onMoveCategory={onMoveCategory}
+                                structureLockReason={structureLockReason}
                                 onDeleteCategory={onDeleteCategory}
                                 disabled={readOnly || isReordering}
                                 readOnly={readOnly}
