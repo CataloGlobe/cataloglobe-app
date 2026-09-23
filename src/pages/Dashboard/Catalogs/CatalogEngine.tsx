@@ -62,7 +62,6 @@ import { categoryActions } from "./components/categoryActions";
 import { CatalogTreeNodeData } from "./components/CatalogTree.types";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { Card } from "@/components/ui/Card/Card";
-import { IconButton } from "@/components/ui/Button/IconButton";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import Skeleton from "@/components/ui/Skeleton/Skeleton";
@@ -291,9 +290,10 @@ export default function CatalogEngine() {
     const { showToast } = useToast();
     const { catalogLabel, categoryLabel, categoryLabelPlural, productLabel, productLabelPlural } = useVerticalConfig();
     const categoryLower = categoryLabel.toLowerCase();
-    // Sotto 1024 le due card si impilano e la pagina scorre: la tabella non ha
-    // un'altezza da misurare, e la pagina è di 25 righe invece che «Auto».
-    const isStacked = useMediaQuery("(max-width: 1023px)");
+    // Sotto 768 il dettaglio è a due viste (passo 2 P8): l'albero, oppure la
+    // categoria scelta con il ritorno. La pagina scorre, quindi la tabella non
+    // ha un'altezza da misurare e va a pagine da 25 invece che «Auto».
+    const isPhone = useMediaQuery("(max-width: 767px)");
     // Chi ha solo `catalogs.read` vede il menù com'è: nessuna azione che
     // scrive (#224). Finché i permessi caricano, niente azioni.
     const { permissions } = usePermissions();
@@ -742,13 +742,15 @@ export default function CatalogEngine() {
     // Senza una categoria nell'URL (o con una che non c'è più) si apre la
     // prima: «Seleziona una categoria» con sei categorie pronte era un clic
     // in più per arrivare a qualunque cosa (#253).
+    // Sul telefono no: senza categoria la vista è l'albero, e aprire la prima
+    // lo salterebbe.
     useEffect(() => {
         if (isLoading) return;
         if (selectedCategoryId && categoriesById.has(selectedCategoryId)) return;
-        const fallbackRootId = tree[0]?.id ?? null;
+        const fallbackRootId = isPhone ? null : (tree[0]?.id ?? null);
         if (fallbackRootId === selectedCategoryId) return;
         setSelectedCategoryInUrl(fallbackRootId, true);
-    }, [categoriesById, isLoading, selectedCategoryId, setSelectedCategoryInUrl, tree]);
+    }, [categoriesById, isLoading, isPhone, selectedCategoryId, setSelectedCategoryInUrl, tree]);
 
     useEffect(() => {
         setAssignSelectedIds([]);
@@ -1841,10 +1843,12 @@ export default function CatalogEngine() {
                                     <DataTable<ProductRow>
                                         data={visibleRows}
                                         columns={columns}
-                                        selectable={canWrite}
-                                        onBulkDelete={canWrite ? handleBulkRemoveSelected : undefined}
+                                        // Sul telefono niente selezione multipla: i 48 px della
+                                        // casella vanno al nome, e «Togli da qui» resta nella riga.
+                                        selectable={canWrite && !isPhone}
+                                        onBulkDelete={canWrite && !isPhone ? handleBulkRemoveSelected : undefined}
                                         bulkActionLabel="Togli da qui"
-                                        pageSize={isStacked ? 25 : undefined}
+                                        pageSize={isPhone ? 25 : undefined}
                                         isFiltered={productSearch.trim().length > 0}
                                         onClearFilters={() => setProductSearch("")}
                                         emptyState={{
@@ -1918,19 +1922,6 @@ export default function CatalogEngine() {
             // Con la bozza aperta l'albero lo dice: si rinomina e si riordina,
             // il resto aspetta il salvataggio (§49.1/2).
             subtitle={canWrite && structureLockReason ? "Con modifiche da salvare si rinomina e si riordina soltanto." : undefined}
-            actions={
-                canWrite ? (
-                    <IconButton
-                        icon={<IconPlus size={16} />}
-                        aria-label={`Nuova ${categoryLower}`}
-                        title={structureLockReason}
-                        disabled={Boolean(structureLockReason)}
-                        variant="ghost"
-                        size="sm"
-                        onClick={openCreateRootCategoryDrawer}
-                    />
-                ) : undefined
-            }
         >
             <CatalogTree
                 nodes={tree}
@@ -1949,7 +1940,38 @@ export default function CatalogEngine() {
                 readOnly={!canWrite}
                 labels={treeLabels}
             />
+            {/* In fondo all'albero, come l'ultima riga: nella testata della card
+                a 280 (240 fra 768 e 1023) il «+» andava a capo. */}
+            {canWrite && (
+                <div className={styles.treeFooter}>
+                    <Button
+                        variant="ghost"
+                        size="sm"
+                        leftIcon={<IconPlus size={14} />}
+                        disabled={Boolean(structureLockReason)}
+                        title={structureLockReason}
+                        onClick={openCreateRootCategoryDrawer}
+                    >
+                        {`Nuova ${categoryLower}`}
+                    </Button>
+                </div>
+            )}
         </Card>
+    );
+
+    // Sotto 768: una vista alla volta. Con una categoria scelta, il ritorno
+    // all'albero sta sopra la sua card.
+    const phoneCategoryView = isPhone && selectedCategory !== null;
+    const backToTree = (
+        <Button
+            variant="ghost"
+            size="sm"
+            leftIcon={<IconArrowLeft size={14} />}
+            onClick={() => setSelectedCategoryInUrl(null)}
+            className={styles.backToTree}
+        >
+            {categoryLabelPlural}
+        </Button>
     );
 
     if (notFound) {
@@ -1983,8 +2005,21 @@ export default function CatalogEngine() {
                 </div>
             ) : (
                 <div className={styles.layout}>
-                    {treeCard}
-                    {renderRightPane()}
+                    {isPhone ? (
+                        phoneCategoryView ? (
+                            <div className={styles.phoneView}>
+                                {backToTree}
+                                {renderRightPane()}
+                            </div>
+                        ) : (
+                            treeCard
+                        )
+                    ) : (
+                        <>
+                            {treeCard}
+                            {renderRightPane()}
+                        </>
+                    )}
                 </div>
             )}
 

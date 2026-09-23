@@ -58,7 +58,10 @@ function node(page: Page, name: string): Locator {
 
 async function selectCategory(page: Page, name: string): Promise<void> {
     await node(page, name).click();
-    await expect(main(page).getByRole("heading", { name, exact: true }).or(main(page).getByText(name, { exact: true }).nth(1))).toBeVisible();
+    // Il titolo della card della categoria: sul telefono l'albero sparisce, e
+    // il nome resta una volta sola.
+    await expect(page).toHaveURL(/categoryId=/);
+    await expect(main(page).getByText(name, { exact: true }).last()).toBeVisible();
 }
 
 /** Apre una voce del kebab nella testata della categoria scelta. */
@@ -562,7 +565,20 @@ for (const viewport of [
             await expect(node(page, "Antipasti")).toBeVisible({ timeout: 15_000 });
             await selectCategory(page, "Antipasti");
             await expect(main(page).getByText("Olive ascolane", { exact: true })).toBeVisible();
+            // Il prezzo resta nella riga anche sul telefono.
+            await expect(main(page).getByText("€5.50")).toBeVisible();
             await noSideScroll(page);
+            if (viewport.width < 768) {
+                // Due viste: la categoria prende il posto dell'albero, e si torna.
+                await expect(node(page, "Pizze")).toHaveCount(0);
+                await main(page).getByRole("button", { name: "Portate" }).click();
+                await expect(node(page, "Pizze")).toBeVisible();
+                await expect(main(page).getByText("Olive ascolane", { exact: true })).toHaveCount(0);
+                await expect(page).not.toHaveURL(/categoryId=/);
+            } else {
+                // Due colonne: l'albero resta accanto.
+                await expect(node(page, "Pizze")).toBeVisible();
+            }
         });
     });
 }
