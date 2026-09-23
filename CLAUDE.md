@@ -504,6 +504,9 @@ ogni 30 giorni (`otp_user_verifications`); scaduta, il global-setup fallisce con
 esplicito. Regola M17: il test e2e di una pagina si scrive PRIMA della sua riscrittura e
 resta verde dopo. Locator: nomi accessibili (`getByRole`), non testo label (`required`
 aggiunge ` *` aria-hidden); la sidebar è `navigation "Menu principale"`.
+Pagine con scritture (Menù): stub dei dati via `page.route` (`e2e/menuStub.ts`).
+Ogni write non registrata risponde 500, così un gesto non previsto fa fallire il test;
+i test di sola lettura aspettano `stub.revoked` prima di controllare un'assenza.
 
 ### Slash commands matched-with-rules
 
