@@ -29,7 +29,8 @@
     column-gap: var(--space-8);
     align-items: baseline;
 
-    &[data-cancelled] .itemName,
+    // Solo nome e importo: su .itemName il barrato colpiva il badge.
+    &[data-cancelled] .itemName > :first-child,
     &[data-cancelled] .itemAmount {
         color: var(--text-muted);
         text-decoration: line-through;
