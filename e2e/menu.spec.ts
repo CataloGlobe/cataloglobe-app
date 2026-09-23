@@ -400,6 +400,34 @@ test.describe("Menù — dettaglio", () => {
         ]);
     });
 
+    test("aggiungere: l'elenco è il drawer, creare è l'uscita, gli ereditati bloccati", async ({ page }) => {
+        await openCarta(page);
+        await selectCategory(page, "Bianchi");
+        await main(page).getByRole("button", { name: "Aggiungi prodotti" }).first().click();
+        await expect(dialog(page)).toContainText("Aggiungi prodotti");
+        await expect(dialog(page)).toContainText("In Bianchi");
+        await expect(dialog(page).getByRole("tab")).toHaveCount(0);
+        // Prosecco sta in Vini, che contiene Bianchi: si vede, non si sceglie.
+        const prosecco = dialog(page).getByText("Prosecco", { exact: true });
+        await expect(prosecco.locator("xpath=ancestor::*[.//*[@aria-label='Seleziona riga']][1]")).toContainText("Già nella portata che la contiene");
+        await expect(checkboxOf(prosecco)).toBeDisabled();
+        // Il kebab della riga apre solo il prodotto.
+        const heading = (await dialog(page).getByText("In Bianchi").boundingBox())!;
+        await dialog(page).getByRole("button", { name: "Azioni Tiramisù" }).click();
+        await expect(page.getByRole("menuitem")).toHaveCount(1);
+        await expect(page.getByRole("menuitem", { name: "Apri il prodotto" })).toBeVisible();
+        // Si chiude il menu con un clic fuori: Esc chiuderebbe anche il drawer
+        // (a menu aperto il resto è aria-hidden, quindi il clic è per coordinate).
+        await page.mouse.click(heading.x + 4, heading.y + heading.height / 2);
+        await expect(page.getByRole("menu")).toHaveCount(0);
+
+        await dialog(page).getByRole("button", { name: "Crea un prodotto" }).click();
+        await expect(dialog(page)).toContainText("Nuovo prodotto");
+        await expect(dialog(page).getByRole("button", { name: "Crea e aggiungi" })).toBeVisible();
+        await dialog(page).getByRole("button", { name: "Torna all'elenco" }).click();
+        await expect(dialog(page).getByText("Tiramisù", { exact: true })).toBeVisible();
+    });
+
     test("crea una categoria principale: POST con livello e genitore", async ({ page }) => {
         stub.onWrite("catalog_categories.POST", ({ body }) => ({ id: "e2e0c000-0000-4000-a000-000000000999", created_at: new Date().toISOString(), ...(body as object[])[0] }));
         await openCarta(page);

@@ -334,7 +334,9 @@ export default function CatalogEngine() {
 
     // Unified Add Product Drawer
     const [isUnifiedAddProductDrawerOpen, setIsUnifiedAddProductDrawerOpen] = useState(false);
-    const [addProductMode, setAddProductMode] = useState<"existing" | "new">("new");
+    // «Aggiungi prodotti» fa una cosa sola (§23.3/2): l'elenco da associare è
+    // il drawer; creare un prodotto nuovo è l'uscita in fondo, nello stesso drawer.
+    const [addProductMode, setAddProductMode] = useState<"existing" | "new">("existing");
     const [isSavingProduct, setIsSavingProduct] = useState(false);
     const [createIntent, setCreateIntent] = useState<CreateIntent>("associate");
     const [lastCreatedProduct, setLastCreatedProduct] = useState<V2Product | null>(null);
@@ -342,9 +344,6 @@ export default function CatalogEngine() {
     const productListRef = useRef<HTMLDivElement>(null);
 
     // Inline edit state (drawer "Aggiungi prodotto" — tab Esistente)
-    const [editingProduct, setEditingProduct] = useState<V2Product | null>(null);
-    const [isEditingReadOnly, setIsEditingReadOnly] = useState(false);
-    const [isSavingEditProduct, setIsSavingEditProduct] = useState(false);
 
     // Main-table edit/remove state
 
@@ -752,8 +751,6 @@ export default function CatalogEngine() {
     }, [categoriesById, isLoading, selectedCategoryId, setSelectedCategoryInUrl, tree]);
 
     useEffect(() => {
-        setEditingProduct(null);
-        setIsEditingReadOnly(false);
         setAssignSelectedIds([]);
         setAssignInitialIds(new Set());
         setExpandedProductGroupIds(new Set());
@@ -1315,10 +1312,11 @@ export default function CatalogEngine() {
         ]);
         setIsDirty(true);
 
+        // In bozza: il toast lo dice, invece di far credere che sia salvato.
         const msgs: string[] = [];
-        if (toAdd.length > 0) msgs.push(`${toAdd.length} ${toAdd.length === 1 ? "prodotto associato" : "prodotti associati"}`);
-        if (toRemove.length > 0) msgs.push(`${toRemove.length} ${toRemove.length === 1 ? "rimosso" : "rimossi"}`);
-        showToast({ message: msgs.join(", ") + ".", type: "success" });
+        if (toAdd.length > 0) msgs.push(`${toAdd.length} ${toAdd.length === 1 ? "aggiunto" : "aggiunti"}`);
+        if (toRemove.length > 0) msgs.push(`${toRemove.length} ${toRemove.length === 1 ? "tolto" : "tolti"}`);
+        showToast({ message: `${msgs.join(", ")}. Si pubblica con Salva.`, type: "success" });
 
         setAssignSelectedIds([]);
         setAssignInitialIds(new Set());
@@ -1327,16 +1325,6 @@ export default function CatalogEngine() {
         assignSelectedIds, catalogId, categoryProducts,
         currentTenantId, selectedCategoryId, showToast
     ]);
-
-    const handleInlineEditSuccess = useCallback((updatedProduct?: V2Product) => {
-        if (updatedProduct) {
-            setAllProducts(prev =>
-                prev.map(p => p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p)
-            );
-        }
-        setEditingProduct(null);
-        setIsEditingReadOnly(false);
-    }, []);
 
     // «Togli da qui» (§23.3): in bozza, quindi senza conferma — si ritira con
     // «Annulla». Il prodotto resta nell'azienda e negli altri menù.
@@ -1402,7 +1390,7 @@ export default function CatalogEngine() {
         } else {
             setNewlyAddedProductId(product.id);
             showToast({
-                message: "Prodotto creato. Completa prezzi e configurazioni quando vuoi.",
+                message: `«${product.name}» creato fra i prodotti. Aggiunto qui: si pubblica con Salva.`,
                 type: "success",
                 actionLabel: "Configura ora",
                 onAction: () =>
@@ -1701,7 +1689,7 @@ export default function CatalogEngine() {
                         </Text>
                         {inheritedProductIds.has(row.id) && (
                             <Text variant="caption" colorVariant="muted">
-                                Ereditato dalla categoria padre
+                                {`Già nella ${categoryLower} che la contiene`}
                             </Text>
                         )}
                     </div>
@@ -1733,38 +1721,18 @@ export default function CatalogEngine() {
                 header: "",
                 width: "56px",
                 align: "right",
-                cell: (_value, row) => {
-                    const isInherited = inheritedProductIds.has(row.id);
-                    return (
-                        <TableRowActions
-                            actions={[
-                                isInherited
-                                    ? {
-                                        label: "Visualizza dettaglio",
-                                        onClick: () => {
-                                            setEditingProduct(row);
-                                            setIsEditingReadOnly(true);
-                                        }
-                                    }
-                                    : {
-                                        label: "Modifica",
-                                        onClick: () => {
-                                            setEditingProduct(row);
-                                            setIsEditingReadOnly(false);
-                                        }
-                                    },
-                                {
-                                    label: `Apri il ${productLower}`,
-                                    onClick: () => openProductPage(row.id)
-                                }
-                            ]}
-                        />
-                    );
-                }
+                // Il prodotto si guarda e si modifica nella sua pagina (§49.1/3).
+                cell: (_value, row) => (
+                    <TableRowActions
+                        ariaLabel={`Azioni ${row.name}`}
+                        actions={[{ label: `Apri il ${productLower}`, onClick: () => openProductPage(row.id) }]}
+                    />
+                )
             }
         ];
     }, [
         inheritedProductIds,
+        categoryLower,
         openProductPage,
         productLower,
         formatPriceByProductId,
@@ -1785,8 +1753,7 @@ export default function CatalogEngine() {
     }`;
 
     const openAddProductDrawer = () => {
-        const saved = localStorage.getItem(`cg_product_drawer_last_tab_${currentTenantId}`);
-        setAddProductMode(saved === "existing" || saved === "new" ? saved : "new");
+        setAddProductMode("existing");
         setIsUnifiedAddProductDrawerOpen(true);
     };
 
@@ -2119,179 +2086,96 @@ export default function CatalogEngine() {
                 open={isUnifiedAddProductDrawerOpen}
                 onClose={() => {
                     setIsUnifiedAddProductDrawerOpen(false);
-                    setEditingProduct(null);
-                    setIsEditingReadOnly(false);
                     setAssignSelectedIds([]);
                     setAssignInitialIds(new Set());
                     setAssignGroupId(null);
                     setAssignProductSearch("");
                 }}
-                width={520}
+                size="md"
             >
                 <DrawerLayout
-                    headerFlush={!editingProduct}
                     header={
-                        editingProduct ? (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                <button
-                                    type="button"
-                                    className={styles.assignBackBtn}
-                                    onClick={() => {
-                                        setEditingProduct(null);
-                                        setIsEditingReadOnly(false);
-                                    }}
-                                >
-                                    <IconArrowLeft size={13} />
-                                    Aggiungi prodotto
-                                </button>
-                                <Text variant="title-sm" weight={700}>
-                                    {isEditingReadOnly ? "Dettaglio" : "Modifica"}: {editingProduct.name}
-                                </Text>
-                                <Text variant="caption" colorVariant="muted">
-                                    Categoria: {selectedCategory?.name ?? "—"}
-                                </Text>
-                            </div>
-                        ) : (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                <div>
-                                    <Text variant="title-sm" weight={700}>
-                                        Aggiungi prodotto
-                                    </Text>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Categoria: {selectedCategory?.name ?? "—"}
-                                    </Text>
-                                </div>
-                                <Tabs
-                                    value={addProductMode}
-                                    onChange={v => {
-                                        const tab = v as "existing" | "new";
-                                        setAddProductMode(tab);
-                                        localStorage.setItem(
-                                            `cg_product_drawer_last_tab_${currentTenantId}`,
-                                            tab
-                                        );
-                                    }}
-                                >
-                                    <Tabs.List>
-                                        <Tabs.Tab value="new">Nuovo</Tabs.Tab>
-                                        <Tabs.Tab value="existing">Esistente</Tabs.Tab>
-                                    </Tabs.List>
-                                </Tabs>
-                            </div>
-                        )
-                    }
-                    footer={
-                        editingProduct ? (
-                            <>
+                        <div className={styles.drawerHeading}>
+                            {addProductMode === "new" && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() =>
-                                        window.open(
-                                            `/business/${currentTenantId}/products/${editingProduct.id}`,
-                                            "_blank"
-                                        )
-                                    }
+                                    leftIcon={<IconArrowLeft size={14} />}
+                                    onClick={() => setAddProductMode("existing")}
                                 >
-                                    Apri in Piatti →
+                                    Torna all'elenco
                                 </Button>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => {
-                                        setEditingProduct(null);
-                                        setIsEditingReadOnly(false);
-                                    }}
-                                >
-                                    {isEditingReadOnly ? "Chiudi" : "Annulla"}
-                                </Button>
-                                {!isEditingReadOnly && (
-                                    <Button
-                                        variant="primary"
-                                        type="submit"
-                                        form="product-form-edit-inline"
-                                        loading={isSavingEditProduct}
-                                        disabled={isSavingEditProduct}
-                                    >
-                                        Salva modifiche
-                                    </Button>
-                                )}
-                            </>
-                        ) : (
-                            <>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => setIsUnifiedAddProductDrawerOpen(false)}
-                                >
-                                    Annulla
-                                </Button>
-                                {addProductMode === "existing" ? (
-                                    <Button
-                                        variant="primary"
-                                        onClick={handleBulkAssignItems}
-                                        disabled={!assignHasChanges}
-                                    >
-                                        Associa selezionati ({assignSelectedIds.length})
-                                    </Button>
-                                ) : (
-                                    <SplitButton
-                                        primaryLabel="Crea e associa"
-                                        loading={isSavingProduct}
-                                        onPrimaryClick={() => {
-                                            setCreateIntent("associate");
-                                            const form = document.getElementById(
-                                                "product-form-unified"
-                                            ) as HTMLFormElement | null;
-                                            form?.requestSubmit();
-                                        }}
-                                        options={[
-                                            {
-                                                label: "Crea e configura",
-                                                onClick: () => {
-                                                    setCreateIntent("configure");
-                                                    const form = document.getElementById(
-                                                        "product-form-unified"
-                                                    ) as HTMLFormElement | null;
-                                                    form?.requestSubmit();
-                                                }
-                                            }
-                                        ]}
-                                    />
-                                )}
-                            </>
-                        )
+                            )}
+                            <Text variant="title-sm" weight={700}>
+                                {addProductMode === "new"
+                                    ? `Nuovo ${productLower}`
+                                    : `Aggiungi ${productLabelPlural.toLowerCase()}`}
+                            </Text>
+                            <Text variant="caption" colorVariant="muted">
+                                {`In ${selectedCategory?.name ?? "—"}`}
+                            </Text>
+                        </div>
                     }
-                >
-                    {editingProduct ? (
-                        <ProductForm
-                            formId="product-form-edit-inline"
-                            mode="edit"
-                            productData={editingProduct}
-                            parentProduct={null}
-                            tenantId={currentTenantId ?? null}
-                            onSuccess={handleInlineEditSuccess}
-                            onSavingChange={setIsSavingEditProduct}
-                        />
-                    ) : addProductMode === "existing" ? (
-                        <div className={styles.form}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                                <Select
-                                    label="Gruppo prodotto"
-                                    value={assignGroupId ?? ""}
-                                    onChange={event => setAssignGroupId(event.target.value || null)}
+                    footer={
+                        <>
+                            <Button variant="secondary" onClick={() => setIsUnifiedAddProductDrawerOpen(false)}>
+                                Annulla
+                            </Button>
+                            {addProductMode === "existing" ? (
+                                <Button
+                                    variant="primary"
+                                    onClick={handleBulkAssignItems}
+                                    disabled={!assignHasChanges}
+                                >
+                                    {`Aggiungi (${assignSelectedIds.filter(id => !assignInitialIds.has(id)).length})`}
+                                </Button>
+                            ) : (
+                                <SplitButton
+                                    primaryLabel="Crea e aggiungi"
+                                    loading={isSavingProduct}
+                                    onPrimaryClick={() => {
+                                        setCreateIntent("associate");
+                                        const form = document.getElementById(
+                                            "product-form-unified"
+                                        ) as HTMLFormElement | null;
+                                        form?.requestSubmit();
+                                    }}
                                     options={[
-                                        { value: "", label: "Tutti i gruppi" },
-                                        ...productGroups.map(g => ({ value: g.id, label: g.name }))
+                                        {
+                                            label: "Crea e configura",
+                                            onClick: () => {
+                                                setCreateIntent("configure");
+                                                const form = document.getElementById(
+                                                    "product-form-unified"
+                                                ) as HTMLFormElement | null;
+                                                form?.requestSubmit();
+                                            }
+                                        }
                                     ]}
                                 />
+                            )}
+                        </>
+                    }
+                >
+                    {addProductMode === "existing" ? (
+                        <div className={styles.form}>
+                            <Select
+                                label="Gruppo"
+                                value={assignGroupId ?? ""}
+                                onChange={event => setAssignGroupId(event.target.value || null)}
+                                options={[
+                                    { value: "", label: "Tutti i gruppi" },
+                                    ...productGroups.map(g => ({ value: g.id, label: g.name }))
+                                ]}
+                            />
 
-                                <SearchInput
-                                    value={assignProductSearch}
-                                    onChange={event => setAssignProductSearch(event.target.value)}
-                                    onClear={() => setAssignProductSearch("")}
-                                    placeholder="Cerca prodotto..."
-                                    allowClear
-                                />
-                            </div>
+                            <SearchInput
+                                value={assignProductSearch}
+                                onChange={event => setAssignProductSearch(event.target.value)}
+                                onClear={() => setAssignProductSearch("")}
+                                placeholder={`Cerca ${productLower}…`}
+                                allowClear
+                            />
 
                             <div className={styles.assignTableWrap}>
                                 <DataTable<V2Product>
@@ -2306,23 +2190,28 @@ export default function CatalogEngine() {
                                     }
                                     isRowSelectable={row => !inheritedProductIds.has(row.id)}
                                     allRowIds={allProducts.map(p => p.id)}
+                                    isFiltered={assignProductSearch.trim().length > 0 || assignGroupId !== null}
+                                    onClearFilters={() => {
+                                        setAssignProductSearch("");
+                                        setAssignGroupId(null);
+                                    }}
                                     emptyState={{
-                                        title: "Nessun prodotto disponibile da associare."
+                                        title: `Nessun ${productLower} da aggiungere.`
                                     }}
                                     pageSize={25}
                                     pageSizeOptions={[25, 50, 100, "all"]}
-                                    maxHeight="calc(100dvh - 320px)"
-                                    rowWrapper={(row, rowData) =>
-                                        inheritedProductIds.has(rowData.id) ? (
-                                            <div className={styles.assignRowInheritedWrapper}>
-                                                {row}
-                                            </div>
-                                        ) : (
-                                            row
-                                        )
-                                    }
+                                    maxHeight="calc(100dvh - 360px)"
                                     showSelectionBar={false}
                                 />
+                            </div>
+
+                            <div className={styles.createExit}>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    {`Non c'è?`}
+                                </Text>
+                                <Button variant="ghost" size="sm" onClick={() => setAddProductMode("new")}>
+                                    {`Crea un ${productLower}`}
+                                </Button>
                             </div>
                         </div>
                     ) : (
@@ -2339,7 +2228,6 @@ export default function CatalogEngine() {
                     )}
                 </DrawerLayout>
             </SystemDrawer>
-
         </section>
     );
 }

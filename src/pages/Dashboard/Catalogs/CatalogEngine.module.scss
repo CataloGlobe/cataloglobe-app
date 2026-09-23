@@ -312,6 +312,23 @@
   white-space: nowrap;
 }
 
+// ── Drawer «Aggiungi prodotti» (passo 2 P7) ────────────────────────────
+.drawerHeading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+// L'uscita verso la creazione: in fondo all'elenco, una riga e un bottone.
+.createExit {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  padding-top: var(--space-8);
+  border-top: 1px solid var(--border);
+}
+
 .dragCell {
   color: var(--text-muted);
   display: inline-flex;
