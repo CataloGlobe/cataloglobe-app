@@ -539,7 +539,7 @@ export default function ReservationDetailDrawer({
                         </Button>
                     )}
                     <Button variant="danger" onClick={() => handleAction("cancel")}>
-                        Annulla
+                        Annulla prenotazione
                     </Button>
                     {/* Immediato, non differito: vedi la nota sulle props. */}
                     {showArrive && (
@@ -554,7 +554,7 @@ export default function ReservationDetailDrawer({
                 </>
             ) : reservation.status === "seated" ? (
                 <>
-                    {/* "Annulla arrivo" e "Servizio concluso" dicono due cose
+                    {/* "Annulla apertura" e "Servizio concluso" dicono due cose
                         opposte — "non è successo" contro "è finito" — e la
                         prima cancella mentre la seconda conserva. Lo spazio in
                         mezzo è il modo in cui l'interfaccia dice che non sono
@@ -567,7 +567,7 @@ export default function ReservationDetailDrawer({
                             disabled={seatingBusy !== null}
                             onClick={() => void runSeatingAction("undo_arrival", onUndoArrival)}
                         >
-                            Annulla arrivo
+                            Annulla apertura
                         </Button>
                     )}
                     <span className={styles.drawerFooterSpacer} aria-hidden />

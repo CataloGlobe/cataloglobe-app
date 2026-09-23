@@ -6,7 +6,8 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { OCCUPYING_STATUSES } from "@/utils/reservationTableConflicts";
-import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { statusMeta } from "@/utils/reservationStatusMeta";
 import {
     TableAssignmentBadge,
     type TableAssignmentView
@@ -111,33 +112,14 @@ function formatRangeLabel(start: Date, end: Date): string {
     return `${fmt.format(start)} – ${fmt.format(end)}`;
 }
 
-function statusBadgeFor(status: V2Reservation["status"]): {
-    variant: StatusBadgeVariant;
-    label: string;
-} {
-    switch (status) {
-        case "confirmed":
-            return { variant: "success", label: "Confermata" };
-        case "seated":
-            return { variant: "success", label: "Al tavolo" };
-        case "completed":
-            return { variant: "neutral", label: "Completata" };
-        case "pending":
-            return { variant: "warning", label: "In attesa" };
-        case "declined":
-            return { variant: "neutral", label: "Rifiutata" };
-        case "cancelled":
-            return { variant: "neutral", label: "Annullata" };
-        case "no_show":
-            return { variant: "neutral", label: "Non presentato" };
-    }
-}
-
-/** Status tone used by the Settimana grid chips. Mirrors StatusBadge palette. */
-function statusToneFor(status: V2Reservation["status"]): "confirmed" | "pending" | "terminal" {
-    if (status === "confirmed" || status === "seated") return "confirmed";
-    if (status === "pending") return "pending";
-    return "terminal";
+/**
+ * Il tono della chip della Settimana viene dal dizionario unico (§14, §18.5):
+ * la variante di `statusMeta`. Si sbiadiscono solo annullate e rifiutate —
+ * «Servita» e «Non presentato» sono com'è andata la serata, non righe da
+ * nascondere.
+ */
+function isDimmed(status: V2Reservation["status"]): boolean {
+    return status === "cancelled" || status === "declined";
 }
 
 const WEEKDAY_ABBR_IT = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"];
@@ -305,7 +287,7 @@ export default function ReservationsAgenda({
     // ── Days view row ───────────────────────────────────────────────────────
     const renderTimelineRow = (r: V2Reservation) => {
         const isTerminal = TERMINAL.has(r.status);
-        const badge = statusBadgeFor(r.status);
+        const badge = statusMeta(r.status);
         const tableView = tableViews.get(r.id);
         return (
             <button
@@ -460,8 +442,7 @@ export default function ReservationsAgenda({
 
     // ── Render: Week grid ───────────────────────────────────────────────────
     const renderWeekChip = (r: V2Reservation) => {
-        const tone = statusToneFor(r.status);
-        const badge = statusBadgeFor(r.status);
+        const badge = statusMeta(r.status);
         // La chip è già satura: il tavolo sta solo nel `title`, con il
         // conflitto quando c'è.
         const tableView = tableViews.get(r.id);
@@ -475,7 +456,8 @@ export default function ReservationsAgenda({
                 key={r.id}
                 type="button"
                 className={styles.weekChip}
-                data-tone={tone}
+                data-tone={badge.variant}
+                data-dimmed={isDimmed(r.status) || undefined}
                 onClick={() => onOpenDetail(r)}
                 aria-label={`${r.customer_name} ${r.reservation_time.slice(0, 5)} · ${badge.label}`}
                 title={`${badge.label} — ${r.customer_name} · ${r.party_size}${tableTitle}`}

@@ -71,7 +71,9 @@ test.describe("Prenotazioni", () => {
         await expect(page.getByRole("button", { name: "Nuova prenotazione" }).first()).toBeVisible();
 
         // La coda è una card in cima all'Agenda.
-        await expect(main(page).getByText("Da gestire", { exact: true })).toBeVisible();
+        // (La prima occorrenza è il titolo della card: sotto, le righe in agenda
+        // hanno lo stato «Da gestire».)
+        await expect(main(page).getByText("Da gestire", { exact: true }).first()).toBeVisible();
         // Lo stato di oggi: 4 prenotazioni accettate, ~15 coperti, 3 da gestire.
         const oggi = main(page).getByRole("status", { name: /arrivo|prenotazione oggi/ });
         await expect(oggi).toContainText("Oggi");
@@ -138,6 +140,20 @@ test.describe("Prenotazioni", () => {
         ]);
     });
 
+    test("cablaggio: «Annulla apertura» spedisce undo_seating con la tavolata, e il toast dice come riaprire", async ({ page }) => {
+        await openPrenotazioni(page);
+        stub.onWrite("undo_seating", () => null);
+
+        await main(page).getByText("Paolo Gallo").first().click();
+        const drawer = page.getByRole("dialog");
+        await drawer.getByRole("button", { name: "Annulla apertura" }).click();
+
+        await expect.poll(() => stub.writes).toEqual([
+            { fn: "undo_seating", body: { p_seating_id: stub.seatingId } }
+        ]);
+        await expect(page.getByText("Apertura annullata. Per riaprirla: Arrivato.")).toBeVisible();
+    });
+
     test("Agenda: i giorni con le righe e lo stato, poi la settimana", async ({ page }) => {
         await openPrenotazioni(page);
         await selectTab(page, /^Agenda/);
@@ -147,8 +163,10 @@ test.describe("Prenotazioni", () => {
         await expect(m.getByText("Sara Conti").first()).toBeVisible();
         await expect(m.getByText("Confermata", { exact: true }).first()).toBeVisible();
         await expect(m.getByText("Al tavolo", { exact: true }).first()).toBeVisible();
-        // Il dizionario unico arriva in P6: oggi «Completata», domani «Servita».
-        await expect(m.getByText(/^(Completata|Servita)$/).first()).toBeVisible();
+        // Un dizionario solo (§14, §18.5): «Servita», mai «Completata»; la
+        // richiesta in agenda è «Da gestire», mai «In attesa».
+        await expect(m.getByText("Servita", { exact: true }).first()).toBeVisible();
+        await expect(m.getByText(/^(Completata|In attesa)$/)).toHaveCount(0);
         await expect(m.getByText("Ospite di Varedo")).toHaveCount(0);
 
         await m.getByRole("radio", { name: "Settimana" }).click();
@@ -194,7 +212,7 @@ test.describe("Prenotazioni", () => {
         await expect(drawer.getByText("Prenotazione", { exact: true })).toBeVisible();
         await expect(drawer.getByText("Confermata", { exact: true })).toBeVisible();
         await expect(drawer.getByRole("button", { name: "Modifica" })).toBeVisible();
-        await expect(drawer.getByRole("button", { name: /^Annulla( prenotazione)?$/ })).toBeVisible();
+        await expect(drawer.getByRole("button", { name: "Annulla prenotazione" })).toBeVisible();
         await expect(drawer.getByRole("button", { name: "Arrivato" })).toBeVisible();
         await page.keyboard.press("Escape");
         await expect(drawer).toHaveCount(0);

@@ -680,28 +680,26 @@
     transform: scale(0.98);
   }
 
-  /* Tone palette mirrors StatusBadge: success / warning / neutral. */
-  &[data-tone="confirmed"] {
-    background: #d1fae5;
-    color: #065f46;
-    border-color: color-mix(in srgb, #065f46 18%, transparent);
+  /* I toni sono le varianti di StatusBadge (`statusMeta`), con i suoi token:
+     niente colori fissi, e il tema scuro li segue. */
+  &[data-tone="success"] {
+    background: var(--success-100);
+    color: var(--success-800);
   }
 
-  &[data-tone="pending"] {
-    background: var(--color-warning-100, #fef3c7);
-    color: var(--color-warning-700, #b45309);
-    border-color: color-mix(
-      in srgb,
-      var(--color-warning-700, #b45309) 20%,
-      transparent
-    );
+  &[data-tone="warning"] {
+    background: var(--warning-100);
+    color: var(--warning-800);
   }
 
-  &[data-tone="terminal"] {
-    background: #f3f4f6;
-    color: #6b7280;
-    border-color: color-mix(in srgb, #6b7280 18%, transparent);
-    opacity: 0.75;
+  &[data-tone="neutral"] {
+    background: var(--hover-bg);
+    color: var(--gray-800);
+  }
+
+  /* Solo annullate e rifiutate: l'interruttore «Annullate» le mostra sbiadite. */
+  &[data-dimmed] {
+    opacity: 0.6;
   }
 }
 
@@ -942,7 +940,7 @@
   flex-wrap: wrap;
 }
 
-/* Spinge "Servizio concluso" lontano da "Annulla arrivo". I due gesti dicono
+/* Spinge "Servizio concluso" lontano da "Annulla apertura". I due gesti dicono
    cose opposte — "è finito" contro "non è successo" — e affiancarli li
    farebbe sembrare due varianti della stessa azione. */
 .drawerFooterSpacer {

@@ -1211,7 +1211,8 @@ export default function Reservations() {
             }
             await undoSeating(seatingId, tenantId);
             await loadData();
-            showToast({ message: "Arrivo annullato.", type: "info" });
+            // §48.2/1: nessuna conferma, e il toast dice come si ripara.
+            showToast({ message: "Apertura annullata. Per riaprirla: Arrivato.", type: "info" });
             return true;
         } catch (err) {
             showToast({
@@ -1444,7 +1445,7 @@ export default function Reservations() {
         if (!tenantId || !selectedSeatingId) return false;
         return runSeatingGesture(
             () => undoSeating(selectedSeatingId, tenantId),
-            "Tavolata annullata.",
+            "Apertura annullata. Per riaprirla: Senza prenotazione.",
             "info"
         );
     }, [tenantId, selectedSeatingId, runSeatingGesture]);

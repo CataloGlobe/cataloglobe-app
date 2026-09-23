@@ -119,6 +119,8 @@ export type WriteHandler = (body: unknown) => unknown;
 
 export type ReservationsStub = {
     rows: StubReservation[];
+    /** L'id della tavolata aperta (quella della prenotazione «Al tavolo»). */
+    seatingId: string;
     /** Ogni chiamata a un'edge function intercettata, in ordine. */
     writes: { fn: string; body: unknown }[];
     /** Registra la risposta finta di un'edge function (test di cablaggio). */
@@ -128,7 +130,8 @@ export type ReservationsStub = {
 export async function stubReservations(page: Page): Promise<ReservationsStub> {
     const rows = makeReservations();
     const handlers = new Map<string, WriteHandler>();
-    const stub: ReservationsStub = { rows, writes: [], onWrite: (fn, h) => handlers.set(fn, h) };
+    const seatingId = "00000000-0000-4000-9000-000000000001";
+    const stub: ReservationsStub = { rows, seatingId, writes: [], onWrite: (fn, h) => handlers.set(fn, h) };
 
     await page.route("**/rest/v1/reservations?**", async (route: Route) => {
         if (route.request().method() !== "GET") return route.fulfill({ status: 500, json: { message: "scrittura non prevista dall'e2e" } });
@@ -143,7 +146,7 @@ export async function stubReservations(page: Page): Promise<ReservationsStub> {
             json: seated
                 ? [
                       {
-                          id: "00000000-0000-4000-9000-000000000001",
+                          id: seatingId,
                           tenant_id: TENANT_ID,
                           activity_id: GARBAGNATE_ID,
                           status: "open",
@@ -170,6 +173,29 @@ export async function stubReservations(page: Page): Promise<ReservationsStub> {
         })
     );
     await page.route("**/rest/v1/seating_tables?**", route => route.fulfill({ json: [] }));
+    // La tavolata di una prenotazione (`getSeatingForReservation`, `maybeSingle`):
+    // quella aperta per la prenotazione «Al tavolo», nessuna per le altre.
+    await page.route("**/rest/v1/seatings?**", route => {
+        const reservationId = new URL(route.request().url()).searchParams
+            .get("seating_reservations.reservation_id")
+            ?.replace(/^eq\./, "");
+        const open = seated && reservationId === seated.id;
+        return route.fulfill({
+            json: open
+                ? {
+                      id: seatingId,
+                      tenant_id: TENANT_ID,
+                      activity_id: GARBAGNATE_ID,
+                      status: "open",
+                      party_size: seated.party_size,
+                      opened_at: new Date(Date.now() - 45 * 60_000).toISOString(),
+                      closed_at: null,
+                      closed_reason: null,
+                      opened_by_user_id: null
+                  }
+                : null
+        });
+    });
 
     const intercept = async (route: Route) => {
         const fn = new URL(route.request().url()).pathname.split("/").pop() ?? "";
