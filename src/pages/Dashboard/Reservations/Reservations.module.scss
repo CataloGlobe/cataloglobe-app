@@ -1575,39 +1575,39 @@
 }
 
 /* ── Ricerca (FASE 5.2b) ───────────────────────────────── */
-/* I risultati coprono tutto il tempo: la data ha una colonna sua, prima
-   del nome, e porta l'anno. In fondo al file: `.searchRow` estende `.row`
-   e ne sovrascrive le colonne, quindi deve venire DOPO. */
+/* I risultati sono una DataTable (P10): qui solo il nome-bottone. */
 .searchResults {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
-.searchCount {
-  margin: 0;
-  font-size: 13px;
-  color: var(--color-text-secondary, #4b5563);
+// Segno del canale + nome: il nome è il bottone che apre la riga da tastiera.
+.searchName {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-8);
+  min-width: 0;
 }
 
-.searchRow {
-  @extend .row;
-  grid-template-columns: auto 1fr auto;
-}
-
-.searchDate {
-  display: flex;
-  flex-direction: column;
-  min-width: 120px;
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.3;
-  color: var(--color-text-primary, #111827);
-  text-transform: capitalize;
-}
-
-.searchTime {
-  font-size: 13px;
+.searchNameButton {
+  appearance: none;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-inner);
+  background: none;
+  color: inherit;
+  font: inherit;
   font-weight: 500;
-  color: var(--color-text-secondary, #4b5563);
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
 }

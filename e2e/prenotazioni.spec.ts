@@ -229,6 +229,20 @@ test.describe("Prenotazioni", () => {
         await expect(m.getByRole("button", { name: /Marco Rossi/ })).toBeVisible();
         await expect(m.getByText("Giulia Bianchi")).toHaveCount(0);
 
+        // Una tabella: la data con l'anno, lo stato; da tastiera si apre dal nome.
+        await expect(m.getByRole("columnheader", { name: "Stato" }).or(m.getByText("Stato", { exact: true })).first()).toBeVisible();
+        await expect(m.getByText(/\b20\d\d\b/).first()).toBeVisible();
+        await m.getByRole("button", { name: "Marco Rossi", exact: true }).focus();
+        await page.keyboard.press("Enter");
+        await expect(page.getByRole("dialog")).toContainText("Marco Rossi");
+        await page.getByRole("dialog").getByRole("button", { name: "Chiudi" }).first().click();
+
+        // Nessun risultato: lo dice, e suggerisce come cercare.
+        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).first().fill("Zzyzx");
+        await expect(m.getByText("Nessuna prenotazione trovata")).toBeVisible({ timeout: 10_000 });
+        await page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca per nome o telefono/)).first().fill("Rossi");
+        await expect(m.getByText(/^1 prenotazione/)).toBeVisible({ timeout: 10_000 });
+
         // Il clic su una scheda chiude la ricerca e apre la scheda (§48.2/3).
         await page.getByRole("tab", { name: "Servizio", exact: true }).click();
         await expect(m.getByText(/in sala adesso/i)).toBeVisible();
@@ -353,6 +367,14 @@ test.describe("Prenotazioni", () => {
                 await expect(main(page).getByText("Sara Conti").first()).toBeVisible({ timeout: 15_000 });
                 await noSideScroll(page);
             }
+
+            // La ricerca: una tabella, che a 375 tiene solo data, nome e stato.
+            // In testata compatta il campo si apre dal bottone «Cerca».
+            const openSearch = page.getByRole("button", { name: "Cerca", exact: true });
+            if (await openSearch.isVisible()) await openSearch.click();
+            await page.getByRole("textbox", { name: /Cerca per nome o telefono/ }).filter({ visible: true }).fill("Rossi");
+            await expect(main(page).getByRole("button", { name: "Marco Rossi", exact: true })).toBeVisible({ timeout: 10_000 });
+            await noSideScroll(page);
         });
     }
 });
