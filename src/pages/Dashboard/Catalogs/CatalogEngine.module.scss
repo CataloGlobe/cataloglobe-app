@@ -204,6 +204,15 @@
   }
 }
 
+// Su uno schermo touch (anche un tablet fra 768 e 1023) non c'è passaggio
+// del puntatore: maniglia e kebab restano a vista, come nelle card.
+@media (hover: none) {
+  .treeHandle,
+  .treeActions {
+    opacity: 1;
+  }
+}
+
 // Il kebab aperto resta visibile anche quando il puntatore è nel menu.
 .treeActions:has([data-state="open"]) {
   opacity: 1;

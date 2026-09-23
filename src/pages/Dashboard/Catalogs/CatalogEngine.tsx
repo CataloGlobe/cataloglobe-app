@@ -1581,10 +1581,10 @@ export default function CatalogEngine() {
                 id: "price",
                 header: "Prezzo",
                 accessor: row => row.id,
-                width: "100px",
+                width: "max-content",
                 align: "right",
                 cell: (_value, row) => (
-                    <Text variant="body-sm" colorVariant="muted">
+                    <Text variant="body-sm" colorVariant="muted" className={styles.price}>
                         {getDisplayPrice({
                             base_price:
                                 (formatsCountByProductId[row.id] ?? 0) === 1
