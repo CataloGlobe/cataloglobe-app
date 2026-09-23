@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { CSS } from "@dnd-kit/utilities";
 import { useSortable } from "@dnd-kit/sortable";
-import { IconChevronRight, IconGripVertical } from "@tabler/icons-react";
+import { IconChevronRight, IconFolder, IconFolderOpen, IconGripVertical, IconListDetails } from "@tabler/icons-react";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import Text from "@/components/ui/Text/Text";
@@ -28,10 +28,13 @@ type CatalogTreeNodeProps = {
 };
 
 /**
- * Una riga dell'albero delle categorie (passo 2 P4): piatta, 32 px (40 sul
- * telefono) come la voce della sidebar, perché l'albero è navigazione. Il
- * nome sceglie, il chevron espande: due bersagli distinti. Maniglia e kebab
- * compaiono al passaggio, al focus e sulla riga scelta.
+ * Una riga dell'albero delle categorie: piatta, 32 px (40 sul telefono) come
+ * la voce della sidebar, perché l'albero è navigazione. Slot fissi da
+ * sinistra: maniglia (una colonna sola per tutti i livelli) · rientro con le
+ * linee guida · chevron · icona · nome · contatore/kebab. Il nome sceglie, il
+ * chevron espande: due bersagli distinti. Il kebab prende il posto del
+ * contatore al passaggio, al focus e sulla riga scelta, così il nome al terzo
+ * livello resta intero anche a 280.
  */
 export function CatalogTreeNode({
     flatNode,
@@ -52,6 +55,10 @@ export function CatalogTreeNode({
 }: CatalogTreeNodeProps) {
     const { node, depth, hasChildren, isExpanded } = flatNode;
     const countId = useId();
+
+    // Cartella per chi ha figli (aperta quando è espansa), elenco per le foglie:
+    // si legge a colpo d'occhio cosa contiene altre categorie e cosa prodotti.
+    const TypeIcon = hasChildren ? (isExpanded ? IconFolderOpen : IconFolder) : IconListDetails;
 
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
         id: node.id,
@@ -106,6 +113,8 @@ export function CatalogTreeNode({
                 </button>
             )}
 
+            <span className={styles.treeIndent} aria-hidden="true" />
+
             {hasChildren ? (
                 <button
                     type="button"
@@ -120,6 +129,8 @@ export function CatalogTreeNode({
                 <span className={styles.treeExpandSpacer} aria-hidden="true" />
             )}
 
+            <TypeIcon size={16} stroke={1.75} className={styles.treeIcon} aria-hidden="true" />
+
             <button
                 type="button"
                 className={styles.treeSelect}
@@ -132,31 +143,39 @@ export function CatalogTreeNode({
                 </Text>
             </button>
 
-            <span className={styles.treeCount}>
-                <span aria-hidden="true">
-                    {total === 0 ? <Badge variant="outline">vuota</Badge> : <Badge variant="neutral">{total}</Badge>}
+            <span className={styles.treeTrailing}>
+                <span className={styles.treeCount}>
+                    <span aria-hidden="true">
+                        {total === 0 ? (
+                            <Badge variant="outline">vuota</Badge>
+                        ) : (
+                            <Badge variant="neutral" className={styles.treeBadge}>
+                                {total}
+                            </Badge>
+                        )}
+                    </span>
+                    <span id={countId} className={styles.srOnly}>
+                        {countDescription}
+                    </span>
                 </span>
-                <span id={countId} className={styles.srOnly}>
-                    {countDescription}
-                </span>
-            </span>
 
-            {!readOnly && (
-                <span className={styles.treeActions}>
-                    <TableRowActions
-                        ariaLabel={`Azioni ${node.name}`}
-                        actions={categoryActions({
-                            level: node.level,
-                            categoryLabel: labels.category,
-                            structureLockReason,
-                            onRename: () => onRenameCategory(node.id),
-                            onMove: () => onMoveCategory(node.id),
-                            onCreateSub: () => onCreateSubCategory(node.id),
-                            onDelete: () => onDeleteCategory(node.id)
-                        })}
-                    />
-                </span>
-            )}
+                {!readOnly && (
+                    <span className={styles.treeActions}>
+                        <TableRowActions
+                            ariaLabel={`Azioni ${node.name}`}
+                            actions={categoryActions({
+                                level: node.level,
+                                categoryLabel: labels.category,
+                                structureLockReason,
+                                onRename: () => onRenameCategory(node.id),
+                                onMove: () => onMoveCategory(node.id),
+                                onCreateSub: () => onCreateSubCategory(node.id),
+                                onDelete: () => onDeleteCategory(node.id)
+                            })}
+                        />
+                    </span>
+                )}
+            </span>
         </li>
     );
 }

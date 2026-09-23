@@ -283,6 +283,33 @@ test.describe("Menù — dettaglio", () => {
         await expect(page.getByRole("menuitem", { name: /Crea sotto-categoria/ })).not.toHaveAttribute("aria-disabled", "true");
     });
 
+    test("albero a 1280: righe basse, maniglia e chevron in colonna, il terzo livello intero", async ({ page }) => {
+        await openCarta(page);
+        const tree = main(page).getByRole("list", { name: "Categorie" });
+        const rows = tree.getByRole("listitem");
+        for (const name of ["Vini", "Bianchi"]) {
+            const expand = tree.getByRole("button", { name: `Espandi ${name}` });
+            if (await expand.count()) await expand.click();
+        }
+        await expect(node(page, "Fruttati e aromatici")).toBeVisible();
+        for (const row of await rows.all()) {
+            expect((await row.boundingBox())!.height).toBeLessThanOrEqual(36);
+        }
+        // Le maniglie stanno in una colonna sola, a ogni livello; i chevron
+        // pure, rientrati del livello.
+        const handleX = await Promise.all((await tree.getByRole("button", { name: /^Riordina / }).all()).map(async h => Math.round((await h.boundingBox())!.x)));
+        expect(new Set(handleX).size).toBe(1);
+        const viniX = (await tree.getByRole("button", { name: /^(Espandi|Comprimi) Vini$/ }).boundingBox())!.x;
+        const bianchiX = (await tree.getByRole("button", { name: /^(Espandi|Comprimi) Bianchi$/ }).boundingBox())!.x;
+        expect(Math.round(bianchiX - viniX)).toBe(16);
+        // Il nome al terzo livello non si tronca.
+        const deep = node(page, "Fruttati e aromatici");
+        expect(await deep.evaluate(el => {
+            const label = el.firstElementChild as HTMLElement;
+            return label.scrollWidth <= label.clientWidth;
+        })).toBe(true);
+    });
+
     test("riordino da tastiera fra sorelle, in bozza, poi Salva", async ({ page }) => {
         stub.onWrite("catalog_categories.PATCH", ({ params, body }) => ({ id: params.get("id")!.slice(3), catalog_id: MENU.carta, name: "x", level: 1, parent_category_id: null, created_at: new Date().toISOString(), ...(body as object) }));
         await openCarta(page);

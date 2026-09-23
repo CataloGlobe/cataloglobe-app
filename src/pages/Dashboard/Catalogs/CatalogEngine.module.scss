@@ -33,10 +33,11 @@
   min-height: 0;
 }
 
-// ── Albero delle categorie (passo 2 P4) ─────────────────────────────────
+// ── Albero delle categorie ──────────────────────────────────────────────
 // Righe piatte a 32 (40 sul telefono), come la voce della sidebar: l'albero
-// è navigazione, non un elenco di cose. Rientro di 16 per livello; maniglia
-// e kebab compaiono al passaggio, al focus e sulla riga scelta.
+// è navigazione, non un elenco di cose. Slot fissi da sinistra: maniglia 20
+// (una colonna per tutti i livelli) · rientro di 16 per livello con le linee
+// guida · chevron 20 · icona 16 · nome · contatore o kebab nello stesso slot.
 
 .treeList {
   list-style: none;
@@ -50,9 +51,8 @@
   position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
   min-height: var(--space-32);
-  padding-left: calc(var(--tree-depth, 0) * var(--space-16));
+  padding-right: var(--space-4);
   border-radius: var(--radius-inner);
   color: var(--text);
 
@@ -170,6 +170,31 @@
   transform: rotate(90deg);
 }
 
+// Il rientro porta le linee guida: una riga di 1 px per ogni antenato,
+// sotto il centro del suo chevron (10 px dentro ogni passo da 16). Le righe
+// sono contigue, quindi le linee corrono senza interruzioni fra fratelli.
+.treeIndent {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: calc(var(--tree-depth, 0) * var(--space-16));
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0 9px,
+    var(--border) 9px 10px,
+    transparent 10px var(--space-16)
+  );
+}
+
+.treeIcon {
+  flex: 0 0 auto;
+  margin: 0 var(--space-6) 0 var(--space-2);
+  color: var(--text-muted);
+}
+
+.treeRowSelected .treeIcon {
+  color: inherit;
+}
+
 .treeSelect {
   flex: 1 1 auto;
   min-width: 0;
@@ -184,14 +209,30 @@
   text-overflow: ellipsis;
 }
 
-.treeCount {
+// Contatore e kebab nello slot finale. Col puntatore (da 768) condividono
+// lo stesso posto: a riposo il numero, al passaggio, al focus e sulla riga
+// scelta il kebab (il numero della scelta resta nella testata della sua
+// card), così il nome ha lo spazio del kebab. Al tocco stanno affiancati.
+.treeTrailing {
   flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: var(--space-4);
+}
+
+.treeCount,
+.treeActions {
   display: inline-flex;
 }
 
+// Il numero si legge e basta: nello slot condiviso non deve prendere il clic
+// destinato al kebab («vuota» è più larga del bottone).
+.treeCount {
+  pointer-events: none;
+}
+
 .treeActions {
-  flex: 0 0 auto;
-  display: inline-flex;
   opacity: 0;
 }
 
@@ -204,6 +245,38 @@
   }
 }
 
+// Il badge neutro ha il fondo del passaggio: sulla riga al passaggio si
+// staccherebbe solo il numero. Lì prende il fondo della superficie.
+.treeRow:hover:not(.treeRowSelected) .treeBadge {
+  background: var(--surface);
+}
+
+// Il kebab aperto resta visibile anche quando il puntatore è nel menu.
+.treeActions:has([data-state="open"]) {
+  opacity: 1;
+}
+
+@media (hover: hover) and (min-width: 768px) {
+  .treeTrailing {
+    display: grid;
+    justify-items: end;
+  }
+
+  .treeCount,
+  .treeActions {
+    grid-area: 1 / 1;
+  }
+
+  .treeRow:hover,
+  .treeRow:focus-within,
+  .treeRowSelected,
+  .treeTrailing:has([data-state="open"]) {
+    .treeCount {
+      opacity: 0;
+    }
+  }
+}
+
 // Su uno schermo touch (anche un tablet fra 768 e 1023) non c'è passaggio
 // del puntatore: maniglia e kebab restano a vista, come nelle card.
 @media (hover: none) {
@@ -211,11 +284,6 @@
   .treeActions {
     opacity: 1;
   }
-}
-
-// Il kebab aperto resta visibile anche quando il puntatore è nel menu.
-.treeActions:has([data-state="open"]) {
-  opacity: 1;
 }
 
 .srOnly {
