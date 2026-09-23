@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useState } from "react";
 import { Link } from "react-router-dom";
 import {
     Ban,
@@ -146,6 +146,7 @@ export default function OrderCard({
     const [isProcessing, setIsProcessing] = useState(false);
     const [itemsExpanded, setItemsExpanded] = useState(false);
     const [isReprinting, setIsReprinting] = useState(false);
+    const titleId = useId();
 
     async function handleReprint() {
         if (!onReprint) return;
@@ -199,9 +200,11 @@ export default function OrderCard({
     );
 
     return (
-        <div className={styles.card} data-status={order.status}>
+        // Una comanda è un article col nome del tavolo: la board la trova per ruolo.
+        <article className={styles.card} data-status={order.status} aria-labelledby={titleId}>
             <Card
                 title={tableLabel}
+                titleId={titleId}
                 subtitle={[tableZone, formatRelativeTime(order.submitted_at)].filter(Boolean).join(" · ")}
                 badge={attribution}
                 flush
@@ -377,6 +380,6 @@ export default function OrderCard({
                     </div>
                 )}
             </Card>
-        </div>
+        </article>
     );
 }
