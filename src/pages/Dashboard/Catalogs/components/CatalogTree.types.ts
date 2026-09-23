@@ -13,7 +13,7 @@ export type CatalogTreeFlatNode = {
     isExpanded: boolean;
 };
 
-/** Le parole del verticale (§22), già in minuscolo: «sezione», «sezioni», «prodotto», «prodotti». */
+/** Le parole del verticale (§22), già in minuscolo: «categoria», «categorie», «prodotto», «prodotti». */
 export type CatalogTreeLabels = {
     category: string;
     categoryPlural: string;

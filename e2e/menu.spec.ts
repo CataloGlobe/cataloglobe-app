@@ -114,7 +114,7 @@ test.describe("Menù — elenco", () => {
         }
         // Carta: 7 categorie, 22 collegamenti (le due varianti comprese).
         const carta = main(page).getByText("Carta e2e").locator("xpath=ancestor::*[contains(., 'Creato il') and contains(., 'prodotti')][1]");
-        await expect(carta).toContainText(/7 (categorie|sezioni)/);
+        await expect(carta).toContainText(/7 categorie/);
         await expect(carta).toContainText(/22\s*prodotti/);
     });
 
@@ -205,7 +205,7 @@ test.describe("Menù — elenco", () => {
         await bulk.click();
         const confirm = page.getByRole("alertdialog").or(page.getByRole("dialog")).last();
         await expect(confirm).toContainText("Eliminare 2 menù?");
-        await expect(confirm).toContainText(/(categorie|sezioni) e i collegamenti/);
+        await expect(confirm).toContainText(/categorie e i collegamenti/);
         await confirm.getByRole("button", { name: "Annulla" }).click();
         expect(stub.writes.filter(w => w.key === "catalogs.DELETE")).toHaveLength(0);
         await expect(checkboxOf(main(page).getByText("Carta e2e"))).toBeChecked();
@@ -261,8 +261,8 @@ test.describe("Menù — dettaglio", () => {
 
     test("l'albero dice i conteggi, le vuote e il tetto dei livelli", async ({ page }) => {
         await openCarta(page);
-        // Il numero è il totale con le sotto-sezioni, e il nome accessibile lo spiega.
-        await expect(node(page, "Vini")).toHaveAccessibleDescription("4 prodotti, 3 nelle sotto-sezioni");
+        // Il numero è il totale con le sotto-categorie, e il nome accessibile lo spiega.
+        await expect(node(page, "Vini")).toHaveAccessibleDescription("4 prodotti, 3 nelle sotto-categorie");
         await expect(node(page, "Dessert")).toHaveAccessibleDescription(/vuota/);
         await expect(node(page, "Bianchi").locator("xpath=ancestor::li[1]")).toContainText("2");
         // Il chevron dice se è aperto.
@@ -270,17 +270,17 @@ test.describe("Menù — dettaglio", () => {
         await main(page).getByRole("button", { name: "Espandi Bianchi" }).click();
         await expect(main(page).getByRole("button", { name: "Comprimi Bianchi" })).toHaveAttribute("aria-expanded", "true");
 
-        // Al terzo livello «Crea sotto-sezione» c'è, spenta, col perché.
+        // Al terzo livello «Crea sotto-categoria» c'è, spenta, col perché.
         await node(page, "Fruttati e aromatici").hover();
         await main(page).getByRole("button", { name: "Azioni Fruttati e aromatici" }).click();
-        const sub = page.getByRole("menuitem", { name: /Crea sotto-sezione/ });
+        const sub = page.getByRole("menuitem", { name: /Crea sotto-categoria/ });
         await expect(sub).toHaveAttribute("aria-disabled", "true");
         await expect(sub).toContainText("Massimo tre livelli.");
         await page.keyboard.press("Escape");
         // Al secondo livello si può.
         await node(page, "Bianchi").hover();
         await main(page).getByRole("button", { name: "Azioni Bianchi" }).click();
-        await expect(page.getByRole("menuitem", { name: /Crea sotto-sezione/ })).not.toHaveAttribute("aria-disabled", "true");
+        await expect(page.getByRole("menuitem", { name: /Crea sotto-categoria/ })).not.toHaveAttribute("aria-disabled", "true");
     });
 
     test("riordino da tastiera fra sorelle, in bozza, poi Salva", async ({ page }) => {
@@ -295,7 +295,7 @@ test.describe("Menù — dettaglio", () => {
         await page.keyboard.press("Space");
         await page.waitForTimeout(200);
         // Ora Vini viene prima di Pizze, e niente è ancora scritto.
-        const order = await main(page).getByRole("list", { name: "Sezioni" }).getByRole("button", { name: /^(Antipasti|Pizze|Vini|Dessert)$/ }).allTextContents();
+        const order = await main(page).getByRole("list", { name: "Categorie" }).getByRole("button", { name: /^(Antipasti|Pizze|Vini|Dessert)$/ }).allTextContents();
         expect(order).toEqual(["Antipasti", "Vini", "Pizze", "Dessert"]);
         expect(stub.writes.filter(w => w.key === "catalog_categories.PATCH")).toHaveLength(0);
 
@@ -371,7 +371,7 @@ test.describe("Menù — dettaglio", () => {
         await expect(page.getByText(/2 tolti da Pizze\. Si pubblicano con Salva\./)).toBeVisible();
         expect(stub.writes.filter(w => w.key === "catalog_category_products.DELETE")).toHaveLength(0);
 
-        // Una sezione vuota lo dice e porta ad aggiungere.
+        // Una categoria vuota lo dice e porta ad aggiungere.
         await selectCategory(page, "Dessert");
         await expect(main(page).getByText("Nessun prodotto in Dessert")).toBeVisible();
         await expect(main(page).getByText(/non compare ai clienti/)).toBeVisible();
@@ -443,7 +443,7 @@ test.describe("Menù — dettaglio", () => {
         await expect(dialog(page).getByRole("tab")).toHaveCount(0);
         // Prosecco sta in Vini, che contiene Bianchi: si vede, non si sceglie.
         const prosecco = dialog(page).getByText("Prosecco", { exact: true });
-        await expect(prosecco.locator("xpath=ancestor::*[.//*[@aria-label='Seleziona riga']][1]")).toContainText("Già nella sezione che la contiene");
+        await expect(prosecco.locator("xpath=ancestor::*[.//*[@aria-label='Seleziona riga']][1]")).toContainText("Già nella categoria che la contiene");
         await expect(checkboxOf(prosecco)).toBeDisabled();
         // Il kebab della riga apre solo il prodotto.
         await dialog(page).getByRole("button", { name: "Azioni Tiramisù" }).click();
@@ -467,7 +467,7 @@ test.describe("Menù — dettaglio", () => {
     test("crea una categoria principale: POST con livello e genitore", async ({ page }) => {
         stub.onWrite("catalog_categories.POST", ({ body }) => ({ id: "e2e0c000-0000-4000-a000-000000000999", created_at: new Date().toISOString(), ...(body as object[])[0] }));
         await openCarta(page);
-        await main(page).getByRole("button", { name: "Nuova sezione" }).first().click();
+        await main(page).getByRole("button", { name: "Nuova categoria" }).first().click();
         await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Contorni");
         await dialog(page).getByRole("button", { name: /^(Salva|Crea)$/ }).click();
         await expect.poll(() => write(stub, "catalog_categories.POST")).toBeTruthy();
@@ -481,10 +481,10 @@ test.describe("Menù — dettaglio", () => {
         await selectCategory(page, "Antipasti");
         await renameCategory(page, "Stuzzichini");
 
-        await expect(main(page).getByRole("button", { name: "Nuova sezione" })).toBeDisabled();
+        await expect(main(page).getByRole("button", { name: "Nuova categoria" })).toBeDisabled();
         await expect(main(page).getByText("Con modifiche da salvare si rinomina e si riordina soltanto.")).toBeVisible();
         await main(page).getByRole("button", { name: /^Azioni della/ }).click();
-        for (const item of [/^Sposta in/, /^Crea sotto-sezione/, /^Elimina/]) {
+        for (const item of [/^Sposta in/, /^Crea sotto-categoria/, /^Elimina/]) {
             const entry = page.getByRole("menuitem", { name: item });
             await expect(entry).toHaveAttribute("aria-disabled", "true");
             await expect(entry).toContainText("Salva o annulla le modifiche prima.");
@@ -513,7 +513,7 @@ test.describe("Menù — dettaglio", () => {
         await openCarta(page);
         await selectCategory(page, "Rossi");
         await categoryMenu(page, /^Sposta in/);
-        await dialog(page).getByRole("combobox", { name: "Dentro" }).selectOption({ label: "Nessuna (sezione principale)" });
+        await dialog(page).getByRole("combobox", { name: "Dentro" }).selectOption({ label: "Nessuna (categoria principale)" });
         await dialog(page).getByRole("button", { name: "Sposta" }).click();
         await expect.poll(() => write(stub, "catalog_categories.PATCH")).toBeTruthy();
         const call = write(stub, "catalog_categories.PATCH")!;
@@ -526,7 +526,7 @@ test.describe("Menù — dettaglio", () => {
         await openCarta(page);
         await selectCategory(page, "Antipasti");
         await page.getByRole("tab", { name: "Traduzioni" }).click();
-        await expect(main(page).getByText("Traduzioni del nome della sezione")).toBeVisible();
+        await expect(main(page).getByText("Traduzioni del nome della categoria")).toBeVisible();
 
         await main(page).getByRole("tabpanel").or(main(page)).getByRole("button", { name: "Modifica", exact: true }).first().click();
         await main(page).getByRole("textbox").filter({ hasText: "" }).last().fill("Stuzzichini");
@@ -535,7 +535,7 @@ test.describe("Menù — dettaglio", () => {
         expect(write(stub, "catalog_categories.PATCH")!.body).toEqual(expect.objectContaining({ name: "Stuzzichini" }));
         await expect(node(page, "Stuzzichini")).toBeVisible();
 
-        // Una bozza su un'altra sezione, poi «Annulla»: Stuzzichini resta.
+        // Una bozza su un'altra categoria, poi «Annulla»: Stuzzichini resta.
         await page.getByRole("tab", { name: "Prodotti" }).click();
         await selectCategory(page, "Pizze");
         await renameCategory(page, "Pizze e focacce");
@@ -551,7 +551,7 @@ test.describe("Menù — dettaglio", () => {
         await stub.revoked;
         await selectCategory(page, "Antipasti");
         await expect(main(page).getByText("Olive ascolane", { exact: true })).toBeVisible();
-        await expect(main(page).getByRole("button", { name: "Nuova sezione" })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: "Nuova categoria" })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Azioni della/ })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /Aggiungi prodott/ })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Riordina/ })).toHaveCount(0);
@@ -622,7 +622,7 @@ for (const viewport of [
             if (viewport.width < 768) {
                 // Due viste: la categoria prende il posto dell'albero, e si torna.
                 await expect(node(page, "Pizze")).toHaveCount(0);
-                await main(page).getByRole("button", { name: "Sezioni" }).click();
+                await main(page).getByRole("button", { name: "Categorie" }).click();
                 await expect(node(page, "Pizze")).toBeVisible();
                 await expect(main(page).getByText("Olive ascolane", { exact: true })).toHaveCount(0);
                 await expect(page).not.toHaveURL(/categoryId=/);

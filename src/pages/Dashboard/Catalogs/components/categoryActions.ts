@@ -6,7 +6,7 @@ export const MAX_CATEGORY_LEVEL = 3;
 
 type CategoryActionsArgs = {
     level: number;
-    /** «sezione», «categoria». */
+    /** «categoria», «sezione». */
     categoryLabel: string;
     /** Presente quando la bozza è aperta: i gesti che scrivono subito si spengono col perché. */
     structureLockReason?: string;
