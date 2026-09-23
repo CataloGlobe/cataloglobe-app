@@ -298,7 +298,7 @@ test.describe("Comande", () => {
         await expect(page.getByRole("main").getByText(/^\d+ element[oi]$/)).toBeVisible({ timeout: 15_000 });
         await giorno.fill(GIORNO_STORICO);
         const main = page.getByRole("main");
-        await expect(main.getByRole("button", { name: "Azioni", exact: true }).first()).toBeVisible({ timeout: 15_000 });
+        await expect(main.getByRole("button", { name: "Azioni per T1" }).first()).toBeVisible({ timeout: 15_000 });
 
         // 1280: tutte le colonne.
         for (const col of ["Stato", "Tavolo", "Operatore", "Orario", "Totale"]) {
@@ -311,7 +311,7 @@ test.describe("Comande", () => {
         await expect(main.getByText("Tavolo", { exact: true }).first()).toBeVisible();
         await expect(main.getByText("Totale", { exact: true }).first()).toBeVisible();
 
-        const azioni = main.getByRole("button", { name: "Azioni", exact: true }).first();
+        const azioni = main.getByRole("button", { name: "Azioni per T1" }).first();
         await expect(azioni).toBeVisible();
         const box = await azioni.boundingBox();
         expect(box && box.x + box.width).toBeLessThanOrEqual(375);

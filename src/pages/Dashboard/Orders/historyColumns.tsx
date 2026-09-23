@@ -177,6 +177,9 @@ export function makeHistoryColumns({
             align: "right" as const,
             cell: (_value, row) => (
                 <TableRowActions
+                    // Il tavolo nel nome: «Azioni» da solo si confonde con
+                    // l'overflow della banda («Altre azioni») e fra righe.
+                    ariaLabel={`Azioni per ${tables.find(t => t.id === row.table_id)?.label ?? "l'ordine"}`}
                     actions={[
                         {
                             label: "Vedi dettaglio",
