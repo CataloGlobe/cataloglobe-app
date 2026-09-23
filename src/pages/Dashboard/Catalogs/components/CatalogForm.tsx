@@ -13,6 +13,12 @@ type CatalogFormProps = {
     /** Passato dal chiamante: il form non legge il TenantContext, così resta montabile fuori da /business/:businessId/*. */
     tenantId: string;
     /**
+     * «Menù» o «Catalogo» (§22): per lo stesso motivo del `tenantId`, lo
+     * passa chi conosce il verticale. Default «Menù», il verticale di default.
+     */
+    catalogLabel?: string;
+    placeholder?: string;
+    /**
      * Riceve il catalogo salvato (creato o aggiornato): è l'unico punto in cui
      * il chiamante può conoscerne id e nome, che restano altrimenti nello stato
      * interno del form. Chi non ne ha bisogno può ignorare l'argomento.
@@ -26,25 +32,26 @@ export function CatalogForm({
     mode,
     entityData,
     tenantId,
+    catalogLabel = "Menù",
+    placeholder = "Es. Pranzo, Cena, Brunch",
     onSuccess,
     onSavingChange
 }: CatalogFormProps) {
     const { showToast } = useToast();
     const [name, setName] = useState("");
+    const [error, setError] = useState<string | undefined>();
 
     useEffect(() => {
-        if (mode === "edit" && entityData) {
-            setName(entityData.name);
-        } else {
-            setName("");
-        }
+        setName(mode === "edit" && entityData ? entityData.name : "");
+        setError(undefined);
     }, [mode, entityData]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!tenantId) return;
-        if (!name.trim()) {
-            showToast({ message: "Il nome è obbligatorio", type: "error" });
+        const trimmed = name.trim();
+        if (!trimmed) {
+            setError("Scrivi un nome.");
             return;
         }
 
@@ -52,11 +59,11 @@ export function CatalogForm({
         try {
             let saved: V2Catalog;
             if (mode === "edit" && entityData) {
-                saved = await updateCatalog(entityData.id, tenantId, { name });
-                showToast({ message: "Catalogo aggiornato con successo.", type: "success" });
+                saved = await updateCatalog(entityData.id, tenantId, { name: trimmed });
+                showToast({ message: `${catalogLabel} rinominato.`, type: "success" });
             } else {
-                saved = await createCatalog(tenantId, name);
-                showToast({ message: "Catalogo creato con successo.", type: "success" });
+                saved = await createCatalog(tenantId, trimmed);
+                showToast({ message: `${catalogLabel} creato.`, type: "success" });
             }
             onSuccess(saved);
         } catch (error) {
@@ -68,13 +75,17 @@ export function CatalogForm({
     };
 
     return (
-        <form id={formId} className={styles.form} onSubmit={handleSubmit}>
+        <form id={formId} className={styles.form} onSubmit={handleSubmit} noValidate>
             <TextInput
-                label="Nome del Catalogo"
+                label="Nome"
                 required
                 value={name}
-                onChange={e => setName(e.target.value)}
-                placeholder="Es: Menu Cena, Asporto, Cantina dei Vini..."
+                onChange={e => {
+                    setName(e.target.value);
+                    if (error) setError(undefined);
+                }}
+                error={error}
+                placeholder={placeholder}
             />
         </form>
     );

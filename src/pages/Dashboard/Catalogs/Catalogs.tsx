@@ -26,16 +26,18 @@ import {
     type V2Catalog,
     type CatalogStats
 } from "@/services/supabase/catalogs";
-import { CatalogCard } from "@/components/Catalogs/CatalogCard/CatalogCard";
+import { CardGrid, CardGridItem } from "@/components/ui/CardGrid/CardGrid";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
-import { CatalogDeleteDrawer } from "./CatalogDeleteDrawer";
+import { CatalogDeleteDialog } from "./CatalogDeleteDialog";
 import { CatalogForm } from "./components/CatalogForm";
 import { isPostgrestFKError } from "@/utils/supabaseErrors";
 import styles from "./Catalogs.module.scss";
 
 const FORM_ID = "catalog-form";
+const DATE_FORMAT = new Intl.DateTimeFormat("it-IT", { day: "2-digit", month: "2-digit", year: "numeric" });
 
 export default function Catalogs() {
     const currentTenantId = useTenantId();
@@ -46,6 +48,11 @@ export default function Catalogs() {
     const { permissions } = usePermissions();
     const canWriteCatalog = permissions != null ? canDoOnTenant(permissions, "catalogs.write") : false;
     const catalogLower = verticalConfig.catalogLabel.toLowerCase();
+    const catalogPluralLower = verticalConfig.catalogLabelPlural.toLowerCase();
+    const categoryLower = verticalConfig.categoryLabel.toLowerCase();
+    const categoryPluralLower = verticalConfig.categoryLabelPlural.toLowerCase();
+    const productLower = verticalConfig.productLabel.toLowerCase();
+    const productPluralLower = verticalConfig.productLabelPlural.toLowerCase();
 
     const [catalogs, setCatalogs] = useState<V2Catalog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -73,6 +80,12 @@ export default function Catalogs() {
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [catalogToDelete, setCatalogToDelete] = useState<V2Catalog | null>(null);
 
+    // Eliminazione multipla (#235): la selezione è controllata perché la
+    // `DataTable` la svuota quando chiede di eliminare; se l'utente annulla
+    // la conferma, la selezione torna com'era.
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [pendingBulkIds, setPendingBulkIds] = useState<string[] | null>(null);
+
     const loadData = useCallback(async () => {
         if (!currentTenantId) return;
         setIsLoading(true);
@@ -89,11 +102,11 @@ export default function Catalogs() {
             }
         } catch (error) {
             console.error("Errore caricamento cataloghi:", error);
-            showToast({ message: "Impossibile caricare i cataloghi.", type: "error" });
+            showToast({ message: `Impossibile caricare i ${catalogPluralLower}.`, type: "error" });
         } finally {
             setIsLoading(false);
         }
-    }, [currentTenantId, showToast]);
+    }, [currentTenantId, catalogPluralLower, showToast]);
 
     useEffect(() => {
         loadData();
@@ -234,7 +247,7 @@ export default function Catalogs() {
 
     usePageHeader({
         title: verticalConfig.catalogLabel,
-        subtitle: `Gestisci l'albero delle categorie e i gruppi del tuo ${catalogLower}.`,
+        subtitle: `Le ${categoryPluralLower} e i ${productPluralLower} di ogni ${catalogLower}: quello che i clienti vedono.`,
         actions: headerActions,
         compact: headerCompact,
     });
@@ -266,12 +279,13 @@ export default function Catalogs() {
         setCatalogToDelete(null);
     };
 
-    const handleBulkDelete = async (selectedIds: string[]) => {
-        if (!currentTenantId || selectedIds.length === 0) return;
+    const countLabel = (n: number) => `${n} ${n === 1 ? catalogLower : catalogPluralLower}`;
 
-        const results = await Promise.allSettled(
-            selectedIds.map(id => deleteCatalog(id, currentTenantId))
-        );
+    const handleBulkDeleteConfirmed = async (): Promise<false> => {
+        const ids = pendingBulkIds ?? [];
+        if (!currentTenantId || ids.length === 0) return false;
+
+        const results = await Promise.allSettled(ids.map(id => deleteCatalog(id, currentTenantId)));
         const ok = results.filter(r => r.status === "fulfilled").length;
         const blocked = results.filter(
             (r): r is PromiseRejectedResult =>
@@ -280,11 +294,11 @@ export default function Catalogs() {
         const otherErrors = results.length - ok - blocked;
 
         if (ok > 0) {
-            showToast({ message: `${ok} cataloghi eliminati.`, type: "success" });
+            showToast({ message: `${countLabel(ok)} ${ok === 1 ? "eliminato" : "eliminati"}.`, type: "success" });
         }
         if (blocked > 0) {
             showToast({
-                message: `${blocked} cataloghi non eliminati: in uso da regole di programmazione.`,
+                message: `${countLabel(blocked)} non ${blocked === 1 ? "eliminato" : "eliminati"}: in uso da regole di programmazione.`,
                 type: "error"
             });
         }
@@ -295,12 +309,21 @@ export default function Catalogs() {
                 }
             });
             showToast({
-                message: `${otherErrors} cataloghi non eliminati per errore.`,
+                message: `${countLabel(otherErrors)} non ${otherErrors === 1 ? "eliminato" : "eliminati"} per errore.`,
                 type: "error"
             });
         }
 
+        // La conferma si chiude perché non c'è più niente da confermare,
+        // non da `onClose`: quello ripristina la selezione (annulla).
+        setPendingBulkIds(null);
         await loadData();
+        return false;
+    };
+
+    const handleBulkDeleteCancel = () => {
+        if (pendingBulkIds) setSelectedIds(pendingBulkIds);
+        setPendingBulkIds(null);
     };
 
     const filteredCatalogs = useMemo(() => {
@@ -311,6 +334,50 @@ export default function Catalogs() {
     }, [catalogs, searchQuery]);
     const allCatalogIds = useMemo(() => catalogs.map(c => c.id), [catalogs]);
 
+    const formatDate = (iso: string) => {
+        const date = new Date(iso);
+        return Number.isNaN(date.getTime()) ? "—" : DATE_FORMAT.format(date);
+    };
+
+    /** «7 categorie · 22 prodotti»: gli stessi numeri nella card e nella lista. */
+    const categoriesText = (catalogId: string) => {
+        const stats = statsMap[catalogId];
+        if (statsLoading || !stats) return "—";
+        const n = stats.categoryCount;
+        return `${n} ${n === 1 ? categoryLower : categoryPluralLower}`;
+    };
+    const productsText = (catalogId: string) => {
+        const stats = statsMap[catalogId];
+        if (statsLoading || !stats) return "—";
+        const n = stats.productCount;
+        return `${n} ${n === 1 ? productLower : productPluralLower}`;
+    };
+
+    const rowActions = (catalog: V2Catalog) => (
+        <TableRowActions
+            ariaLabel={`Azioni ${catalog.name}`}
+            actions={[
+                {
+                    label: `Aggiungi ${productPluralLower} con AI`,
+                    icon: Sparkles,
+                    variant: "accent",
+                    onClick: () => handleAddWithAi(catalog)
+                },
+                {
+                    label: "Rinomina",
+                    onClick: () => handleOpenEdit(catalog),
+                    separator: true
+                },
+                {
+                    label: `Elimina ${catalogLower}`,
+                    onClick: () => handleOpenDelete(catalog),
+                    variant: "destructive",
+                    separator: true
+                }
+            ]}
+        />
+    );
+
     const columns: ColumnDefinition<V2Catalog>[] = [
         {
             id: "name",
@@ -318,13 +385,33 @@ export default function Catalogs() {
             width: "2fr",
             accessor: catalog => catalog.name,
             cell: (_value, catalog) => (
-                <div className={styles.colName}>
-                    <div className={styles.catalogNameRow}>
-                        <Text variant="body-sm" weight={600}>
-                            {catalog.name}
-                        </Text>
-                    </div>
-                </div>
+                <Text variant="body-sm" weight={600}>
+                    {catalog.name}
+                </Text>
+            )
+        },
+        {
+            id: "categories",
+            header: verticalConfig.categoryLabelPlural,
+            width: "1fr",
+            hideOnPhone: true,
+            accessor: catalog => statsMap[catalog.id]?.categoryCount ?? 0,
+            cell: (_value, catalog) => (
+                <Text variant="body-sm" colorVariant="muted">
+                    {categoriesText(catalog.id)}
+                </Text>
+            )
+        },
+        {
+            id: "products",
+            header: verticalConfig.productLabelPlural,
+            width: "1fr",
+            hideOnPhone: true,
+            accessor: catalog => statsMap[catalog.id]?.productCount ?? 0,
+            cell: (_value, catalog) => (
+                <Text variant="body-sm" colorVariant="muted">
+                    {productsText(catalog.id)}
+                </Text>
             )
         },
         {
@@ -332,138 +419,109 @@ export default function Catalogs() {
             header: "Creato il",
             width: "1fr",
             accessor: catalog => catalog.created_at,
-            cell: value => {
-                const dateValue = typeof value === "string" ? new Date(value) : null;
-                const formattedDate =
-                    dateValue && !Number.isNaN(dateValue.getTime())
-                        ? new Intl.DateTimeFormat("it-IT", {
-                              day: "2-digit",
-                              month: "2-digit",
-                              year: "numeric"
-                          }).format(dateValue)
-                        : "—";
-
-                return (
-                    <Text variant="body-sm" colorVariant="muted">
-                        {formattedDate}
-                    </Text>
-                );
-            }
-        },
-        ...(canWriteCatalog ? [{
-            id: "actions",
-            header: "",
-            width: "56px",
-            align: "right" as const,
-            cell: (_value: unknown, catalog: V2Catalog) => (
-                <TableRowActions
-                    actions={[
-                        {
-                            label: "Aggiungi prodotti con AI",
-                            icon: Sparkles,
-                            variant: "accent" as const,
-                            onClick: () => handleAddWithAi(catalog)
-                        },
-                        {
-                            label: "Modifica nome",
-                            onClick: () => handleOpenEdit(catalog),
-                            separator: true
-                        },
-                        {
-                            label: `Elimina ${catalogLower}`,
-                            onClick: () => handleOpenDelete(catalog),
-                            variant: "destructive" as const,
-                            separator: true
-                        }
-                    ]}
-                />
+            cell: (_value, catalog) => (
+                <Text variant="body-sm" colorVariant="muted">
+                    {formatDate(catalog.created_at)}
+                </Text>
             )
-        }] : [])
+        },
+        ...(canWriteCatalog
+            ? [
+                  {
+                      id: "actions",
+                      header: "",
+                      width: "56px",
+                      align: "right" as const,
+                      cell: (_value: unknown, catalog: V2Catalog) => rowActions(catalog)
+                  }
+              ]
+            : [])
     ];
 
-    const loadingState = (
-        <div className={styles.loadingState}>
-            <Text variant="body-sm" colorVariant="muted">
-                Caricamento in corso...
-            </Text>
-        </div>
-    );
-
     const hasSearchFilter = searchQuery.trim().length > 0;
+    const hints = verticalConfig.scheduleHints.slice(0, 3).map(h => h.toLowerCase()).join(", ");
 
-    const emptyState = (
-        <EmptyState
-            icon={<IconBook2 size={40} stroke={1.5} />}
-            title={
-                hasSearchFilter
-                    ? "Nessun risultato"
-                    : `Il ${catalogLower} è quello che i clienti vedono col QR`
-            }
-            description={
-                hasSearchFilter
-                    ? `Nessun ${catalogLower} corrisponde alla ricerca.`
-                    : "Puoi crearne più di uno — alla carta, colazioni, carta dei vini — e decidere con la programmazione quando mostrarli."
-            }
-            action={
-                !hasSearchFilter && canWriteCatalog ? (
-                    <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
-                        {`Crea il primo ${catalogLower}`}
-                    </Button>
-                ) : undefined
-            }
-        />
-    );
+    const renderContent = () => {
+        if (!isLoading && catalogs.length === 0) {
+            return canWriteCatalog ? (
+                <EmptyState
+                    icon={<IconBook2 />}
+                    title={`Il ${catalogLower} è quello che i clienti vedono col QR`}
+                    description={`Puoi crearne più di uno (${hints}) e decidere con la programmazione quando mostrarli.`}
+                    action={
+                        <Button variant="primary" onClick={handleOpenCreate} disabled={!canEdit}>
+                            {`Crea il primo ${catalogLower}`}
+                        </Button>
+                    }
+                />
+            ) : (
+                <EmptyState
+                    variant="inline"
+                    icon={<IconBook2 />}
+                    title={`Nessun ${catalogLower}`}
+                    description={`Qui compaiono i ${catalogPluralLower} dell'azienda, quando qualcuno li crea.`}
+                />
+            );
+        }
+
+        if (viewMode === "list") {
+            return (
+                <DataTable<V2Catalog>
+                    data={filteredCatalogs}
+                    allRowIds={allCatalogIds}
+                    columns={columns}
+                    isLoading={isLoading}
+                    isFiltered={hasSearchFilter}
+                    onClearFilters={() => setSearchQuery("")}
+                    selectable={canWriteCatalog}
+                    selectedRowIds={selectedIds}
+                    onSelectedRowsChange={setSelectedIds}
+                    onBulkDelete={canWriteCatalog ? ids => setPendingBulkIds(ids) : undefined}
+                    onRowClick={catalog =>
+                        navigate(`/business/${currentTenantId}/catalogs/${catalog.id}`)
+                    }
+                />
+            );
+        }
+
+        if (!isLoading && filteredCatalogs.length === 0) {
+            return <EmptyState variant="filtered" title="Nessun risultato" onClearFilters={() => setSearchQuery("")} />;
+        }
+
+        return (
+            <CardGrid loading={isLoading} skeletonCount={3} aria-label={verticalConfig.catalogLabelPlural}>
+                {filteredCatalogs.map(catalog => (
+                    <CardGridItem
+                        key={catalog.id}
+                        to={`/business/${currentTenantId}/catalogs/${catalog.id}`}
+                        title={catalog.name}
+                        subtitle={`${categoriesText(catalog.id)} · ${productsText(catalog.id)}`}
+                        footer={
+                            <Text variant="caption" colorVariant="muted">
+                                Creato il {formatDate(catalog.created_at)}
+                            </Text>
+                        }
+                        actions={canWriteCatalog ? rowActions(catalog) : undefined}
+                    />
+                ))}
+            </CardGrid>
+        );
+    };
 
     return (
         <PageGate readPermission="catalogs.read">
         {() => (
         <section className={styles.container}>
             <div className={styles.content} data-view-mode={viewMode}>
-                {isLoading ? (
-                    loadingState
-                ) : filteredCatalogs.length === 0 ? (
-                    emptyState
-                ) : viewMode === "grid" ? (
-                    <div className={styles.catalogsGrid}>
-                        {filteredCatalogs.map(catalog => (
-                            <CatalogCard
-                                key={catalog.id}
-                                catalog={catalog}
-                                stats={statsMap[catalog.id]}
-                                statsLoading={statsLoading}
-                                catalogLower={catalogLower}
-                                onEdit={handleOpenEdit}
-                                onDelete={handleOpenDelete}
-                                onAddWithAi={handleAddWithAi}
-                                onClick={c =>
-                                    navigate(`/business/${currentTenantId}/catalogs/${c.id}`)
-                                }
-                            />
-                        ))}
-                    </div>
-                ) : (
-                    <DataTable<V2Catalog>
-                        data={filteredCatalogs}
-                        allRowIds={allCatalogIds}
-                        columns={columns}
-                        selectable={canWriteCatalog}
-                        onBulkDelete={canWriteCatalog ? handleBulkDelete : undefined}
-                        onRowClick={catalog =>
-                            navigate(`/business/${currentTenantId}/catalogs/${catalog.id}`)
-                        }
-                    />
-                )}
+                {renderContent()}
             </div>
 
-            {/* Create/Edit Drawer */}
-            <SystemDrawer open={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} width={400}>
+            <SystemDrawer open={isDrawerOpen} onClose={() => setIsDrawerOpen(false)} size="sm">
                 <DrawerLayout
                     header={
-                        <div>
-                            <Text variant="title-sm" weight={600}>
-                                {editingCatalog ? `Modifica ${verticalConfig.catalogLabel}` : `Nuovo ${verticalConfig.catalogLabel}`}
-                            </Text>
-                        </div>
+                        <Text variant="title-sm" weight={600}>
+                            {editingCatalog ? `Rinomina ${catalogLower}` : `Nuovo ${catalogLower}`}
+                        </Text>
                     }
                     footer={
                         <>
@@ -480,7 +538,7 @@ export default function Catalogs() {
                                 form={FORM_ID}
                                 loading={isSaving}
                             >
-                                {editingCatalog ? "Salva Modifiche" : `Crea ${verticalConfig.catalogLabel}`}
+                                {editingCatalog ? "Salva" : "Crea"}
                             </Button>
                         </>
                     }
@@ -490,20 +548,28 @@ export default function Catalogs() {
                         mode={editingCatalog ? "edit" : "create"}
                         entityData={editingCatalog}
                         tenantId={currentTenantId ?? ""}
+                        catalogLabel={verticalConfig.catalogLabel}
+                        placeholder={`Es. ${verticalConfig.scheduleHints.slice(0, 3).join(", ")}`}
                         onSuccess={handleFormSuccess}
                         onSavingChange={setIsSaving}
                     />
                 </DrawerLayout>
             </SystemDrawer>
 
-            {/* Delete Drawer */}
-            <CatalogDeleteDrawer
+            <ConfirmDialog
+                isOpen={pendingBulkIds !== null}
+                onClose={handleBulkDeleteCancel}
+                onConfirm={handleBulkDeleteConfirmed}
+                title={`Eliminare ${countLabel(pendingBulkIds?.length ?? 0)}?`}
+                message={`Si eliminano anche le loro ${categoryPluralLower} e i collegamenti ai ${productPluralLower}, e non si torna indietro. I ${productPluralLower} restano. Un ${catalogLower} usato da una regola di programmazione non si elimina.`}
+                confirmLabel={`Elimina ${countLabel(pendingBulkIds?.length ?? 0)}`}
+            />
+
+            <CatalogDeleteDialog
                 isOpen={isDeleteOpen}
                 onClose={handleDeleteClose}
                 catalog={catalogToDelete}
                 tenantId={currentTenantId ?? ""}
-                businessId={currentTenantId ?? ""}
-                catalogLabel={verticalConfig.catalogLabel}
                 onSuccess={loadData}
             />
         </section>

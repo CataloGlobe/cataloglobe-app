@@ -135,10 +135,13 @@ export const SystemDrawer = ({
         };
     }, [open]);
 
-    // Handle ESC key
+    // Esc chiude solo il livello più in alto. Menu, select e dialog Radix
+    // aperti sopra il drawer ascoltano Esc sul document in cattura e, quando
+    // si chiudono, fanno `preventDefault`: qui l'evento arriva dopo, già
+    // consumato, e il drawer resta aperto.
     useEffect(() => {
         const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose();
+            if (e.key === "Escape" && !e.defaultPrevented) onClose();
         };
         if (open) {
             window.addEventListener("keydown", handleEsc);

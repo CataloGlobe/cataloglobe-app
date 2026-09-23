@@ -19,6 +19,9 @@ export const IconButton = forwardRef<HTMLButtonElement, IconButtonProps>(
                 size={size}
                 loading={loading}
                 className={`${styles.iconOnly} ${className ?? ""}`}
+                // Chi lo contiene può riconoscerlo (es. Card: un'azione solo
+                // icona non va a capo sotto il titolo).
+                data-icon-only=""
                 {...props}
             >
                 {icon}

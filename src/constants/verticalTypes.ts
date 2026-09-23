@@ -90,6 +90,8 @@ export interface VerticalConfig {
      */
     catalogLabelPlural: string;
     categoryLabel: string;
+    /** Plurale di `categoryLabel`, per la stessa ragione di `catalogLabelPlural` («Categoria» → «Categorie»). */
+    categoryLabelPlural: string;
     productLabel: string;
     productLabelPlural: string;
     /**
@@ -135,7 +137,8 @@ const FOOD_BEVERAGE_CONFIG: VerticalConfig = {
     label: "Food & Beverage",
     catalogLabel: "Menù",
     catalogLabelPlural: "Menù",
-    categoryLabel: "Portata",
+    categoryLabel: "Categoria",
+    categoryLabelPlural: "Categorie",
     productLabel: "Prodotto",
     productLabelPlural: "Prodotti",
     productSections: {
@@ -181,6 +184,7 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
         ...FOOD_BEVERAGE_CONFIG,
         label: "Bar",
         categoryLabel: "Sezione",
+        categoryLabelPlural: "Sezioni",
         scheduleHints: ["Aperitivo", "Happy hour", "Dopocena"]
     },
     retail: {
@@ -188,6 +192,7 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
         catalogLabel: "Catalogo",
         catalogLabelPlural: "Cataloghi",
         categoryLabel: "Categoria",
+        categoryLabelPlural: "Categorie",
         productLabel: "Prodotto",
         productLabelPlural: "Prodotti",
         productSections: {
@@ -222,6 +227,7 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
         catalogLabel: "Catalogo",
         catalogLabelPlural: "Cataloghi",
         categoryLabel: "Categoria",
+        categoryLabelPlural: "Categorie",
         productLabel: "Prodotto",
         productLabelPlural: "Prodotti",
         productSections: {
@@ -256,6 +262,7 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
         catalogLabel: "Catalogo",
         catalogLabelPlural: "Cataloghi",
         categoryLabel: "Categoria",
+        categoryLabelPlural: "Categorie",
         productLabel: "Prodotto",
         productLabelPlural: "Prodotti",
         productSections: {

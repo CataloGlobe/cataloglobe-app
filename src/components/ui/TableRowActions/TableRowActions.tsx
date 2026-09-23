@@ -11,6 +11,9 @@ export interface TableRowAction {
     variant?: "destructive" | "accent";
     separator?: boolean;
     hidden?: boolean;
+    /** Voce presente ma spenta: col perché in `description`, invece di sparire. */
+    disabled?: boolean;
+    description?: string;
 }
 
 interface TableRowActionsProps {
@@ -49,6 +52,8 @@ export function TableRowActions({ actions, ariaLabel = "Azioni" }: TableRowActio
                         icon={action.icon}
                         variant={action.variant === "destructive" ? "destructive" : action.variant === "accent" ? "accent" : "default"}
                         onSelect={action.onClick}
+                        disabled={action.disabled}
+                        description={action.description}
                     >
                         {action.label}
                     </Menu.Item>

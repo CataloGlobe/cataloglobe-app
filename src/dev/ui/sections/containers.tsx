@@ -3,10 +3,15 @@ import { useState } from "react";
 import { Inbox, Pencil, Plus, Trash2, Copy } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { Card } from "@/components/ui/Card/Card";
 import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { DataTableDragHandle } from "@/components/ui/DataTable/SortableDataTableRow";
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { DataTableDragHandle, SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -16,6 +21,7 @@ import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import { Avatar } from "@/components/ui/Avatar/Avatar";
 import { QrCode } from "@/components/ui/QrCode/QrCode";
 import { State, noop, type GallerySection } from "../gallery";
+import styles from "../DevUiPage.module.scss";
 
 type Row = { id: string; name: string; status: "success" | "neutral" | "warning"; price: number };
 
@@ -63,6 +69,7 @@ function SampleTable(props: Partial<React.ComponentProps<typeof DataTable<Row>>>
 }
 
 function CardSection() {
+    const [tab, setTab] = useState("products");
     return (
         <>
             <State label="con titolo" column>
@@ -108,6 +115,33 @@ function CardSection() {
                     <Text variant="body-sm">Eliminando la sede perdi tavoli, prenotazioni e QR collegati.</Text>
                 </Card>
             </State>
+            <State label="stretta (280) con un «+» solo icona: resta accanto al titolo, il nome è nel tooltip" column>
+                <div className={styles.narrowCard}>
+                    <Card
+                        title="Categorie"
+                        flush
+                        actions={
+                            <Tooltip content="Nuova categoria">
+                                <IconButton size="sm" icon={<Plus size={16} />} aria-label="Nuova categoria" onClick={noop} />
+                            </Tooltip>
+                        }
+                    >
+                        <Text variant="body-sm">Il body della card.</Text>
+                    </Card>
+                </div>
+            </State>
+            <State label="con tabs: Tabs line a tutta larghezza, a filo sotto la testata, baseline da bordo a bordo" column>
+                <Card title="Antipasti" badge={<Badge>4 prodotti</Badge>} tabs={
+                    <Tabs variant="line" value={tab} onChange={v => setTab(String(v))}>
+                        <Tabs.List>
+                            <Tabs.Tab value="products">Prodotti</Tabs.Tab>
+                            <Tabs.Tab value="translations">Traduzioni</Tabs.Tab>
+                        </Tabs.List>
+                    </Tabs>
+                }>
+                    <Text variant="body-sm">{tab === "products" ? "Il pannello dei prodotti." : "Il pannello delle traduzioni."}</Text>
+                </Card>
+            </State>
             <State label="flush + DataTable" column>
                 <Card title="Cataloghi" flush>
                     <SampleTable />
@@ -125,6 +159,52 @@ function CardSection() {
     );
 }
 
+/**
+ * Righe ordinabili: la maniglia è l'unico controllo (Spazio, frecce, Spazio
+ * da tastiera), la riga non è un bottone.
+ */
+function SortableSampleTable() {
+    const [rows, setRows] = useState(ROWS);
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+    const onDragEnd = ({ active, over }: DragEndEvent) => {
+        if (!over || active.id === over.id) return;
+        setRows(prev => arrayMove(prev, prev.findIndex(r => r.id === active.id), prev.findIndex(r => r.id === over.id)));
+    };
+    return (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={rows.map(r => r.id)} strategy={verticalListSortingStrategy}>
+                <SampleTable
+                    data={rows}
+                    columns={[
+                        COLUMNS[3],
+                        {
+                            id: "drag",
+                            header: "",
+                            width: "40px",
+                            align: "center",
+                            cell: (_v, row, _i, dragHandleProps?: unknown) => (
+                                <DataTableDragHandle
+                                    aria-label={`Riordina ${row.name}`}
+                                    {...(dragHandleProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+                                />
+                            )
+                        },
+                        ...COLUMNS.slice(0, 3)
+                    ]}
+                    rowWrapper={(row, rowData) => (
+                        <SortableDataTableRow key={rowData.id} id={rowData.id}>
+                            {row}
+                        </SortableDataTableRow>
+                    )}
+                />
+            </SortableContext>
+        </DndContext>
+    );
+}
+
 function DataTableSection() {
     // Parte vuota: con una riga preselezionata la BulkBar (fixed) resterebbe
     // in fondo alla galleria per sempre. Si seleziona dalla checkbox.
@@ -134,14 +214,13 @@ function DataTableSection() {
             <State label="3 righe, cella a due righe, azioni al hover/focus (ultima colonna)" column>
                 <SampleTable />
             </State>
-            <State label="colonna azioni dichiarata per prima: la tabella la sposta in coda · maniglia drag" column>
-                <SampleTable
-                    columns={[
-                        COLUMNS[3],
-                        { id: "drag", header: "", width: "40px", align: "center", cell: () => <DataTableDragHandle /> },
-                        ...COLUMNS.slice(0, 3)
-                    ]}
-                />
+            <State label="colonna azioni dichiarata per prima: la tabella la sposta in coda · righe ordinabili, la maniglia «Riordina …» è l'unico controllo" column>
+                <SortableSampleTable />
+            </State>
+            <State label="tabella stretta (420 px, come una card accanto all'albero a 768): il piè resta su una riga, «Per pagina» esce dalla vista e il select resta «Righe per pagina»" column>
+                <div className={styles.narrow}>
+                    <SampleTable pageSize={2} pageSizeOptions={[2, 25]} />
+                </div>
             </State>
             <State label="selectable (una selezionata)" column>
                 <SampleTable selectable selectedRowIds={selected} onSelectedRowsChange={setSelected} onBulkDelete={noop} />

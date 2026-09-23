@@ -29,6 +29,39 @@
   gap: var(--space-2);
 }
 
+// Un'azione sola e solo icona (il «+» di un elenco) sta sempre accanto al
+// titolo: andare a capo per un bottone di 32 px lascerebbe una riga vuota.
+// Il bottone può essere avvolto (il trigger di un Tooltip): conta che
+// `.actions` abbia un figlio solo, IconButton o suo contenitore. (Un `:has`
+// dentro un altro `:has` non è valido: due selettori semplici.)
+.header:has(> .actions > [data-icon-only]:only-child) .headerText,
+.header:has(> .actions > :only-child > [data-icon-only]:only-child) .headerText {
+  flex-basis: 0;
+}
+
+// Tab della card: banda a tutta larghezza a filo sotto la testata. La
+// testata perde il suo divisore; la baseline è il bordo della banda, e
+// l'indicatore della tab attiva ci si posa sopra. Il padding tiene
+// l'etichetta allineata al titolo (24 meno i 14 di padding della tab).
+.header:has(+ .tabs) {
+  border-bottom: none;
+  padding-bottom: var(--space-8);
+}
+
+.tabs {
+  display: flex;
+  padding: 0 var(--space-10);
+  border-bottom: 1px solid var(--border);
+}
+
+// Sotto 400 la tab stringe il padding a 8 (Tabs.module.scss): la banda
+// compensa, e l'etichetta resta sotto il titolo.
+@media (max-width: 399px) {
+  .tabs {
+    padding: 0 var(--space-16);
+  }
+}
+
 .titleRow {
   display: flex;
   align-items: center;

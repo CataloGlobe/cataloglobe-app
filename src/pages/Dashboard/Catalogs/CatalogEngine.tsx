@@ -1,7 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { type HTMLAttributes, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
+import { usePermissions } from "@/context/PermissionsContext";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { canDoOnTenant } from "@/lib/permissions";
 import { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -9,8 +12,9 @@ import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
+import { DataTableDragHandle, SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
 import { Select } from "@/components/ui/Select/Select";
@@ -26,10 +30,13 @@ import {
 import {
     SortableContext,
     verticalListSortingStrategy,
-    arrayMove
+    arrayMove,
+    sortableKeyboardCoordinates
 } from "@dnd-kit/sortable";
-import { IconGripVertical, IconPhoto, IconChevronDown, IconChevronRight, IconArrowLeft, IconSettings } from "@tabler/icons-react";
+import { IconChevronDown, IconChevronRight, IconArrowLeft, IconPlus } from "@tabler/icons-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import {
@@ -43,6 +50,7 @@ import {
     updateCategory,
     reparentCategory,
     updateDescendantLevels,
+    getCatalog,
     V2Catalog,
     V2CatalogCategory,
     V2CatalogCategoryProduct
@@ -50,13 +58,22 @@ import {
 import { listBaseProductsWithVariants, getProductListMetadata, V2Product } from "@/services/supabase/products";
 import { getDisplayPrice } from "@/utils/priceDisplay";
 import { hasConfiguredEffectivePrice } from "@/utils/productCompleteness";
-import { getProductGroups, ProductGroup } from "@/services/supabase/productGroups";
-import { listAttributeDefinitions } from "@/services/supabase/attributes";
-import { supabase } from "@/services/supabase/client";
-import { CatalogSplitLayout } from "./components/CatalogSplitLayout";
+import { getProductGroups, listProductGroupLinks, ProductGroup } from "@/services/supabase/productGroups";
+import { listAttributeDefinitions, listAttributeValuesForDefinitions } from "@/services/supabase/attributes";
 import { CatalogTree } from "./components/CatalogTree";
+import { categoryActions } from "./components/categoryActions";
 import { CatalogTreeNodeData } from "./components/CatalogTree.types";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { Card } from "@/components/ui/Card/Card";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
+import {
+    HeaderSaveAction,
+    DiscardChangesConfirmDialog
+} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
 import { SplitButton } from "@/components/ui/Button/SplitButton";
 import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab";
 import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
@@ -65,60 +82,6 @@ import styles from "./CatalogEngine.module.scss";
 type CreateIntent = "associate" | "configure";
 
 const LOCAL_LINK_PREFIX = "loc_";
-
-function validateProductAddition(
-    categoryId: string,
-    productId: string,
-    variantProductId: string | null,
-    categories: V2CatalogCategory[],
-    categoryProducts: V2CatalogCategoryProduct[]
-): string | null {
-    const parentMap = new Map<string, string | null>();
-    categories.forEach(cat => parentMap.set(cat.id, cat.parent_category_id));
-
-    const getAncestors = (catId: string): string[] => {
-        const ancestors: string[] = [];
-        let current = parentMap.get(catId);
-        while (current) {
-            ancestors.push(current);
-            current = parentMap.get(current);
-        }
-        return ancestors;
-    };
-
-    const getDescendants = (catId: string): string[] => {
-        const children = categories.filter(c => c.parent_category_id === catId).map(c => c.id);
-        let descendants = [...children];
-        for (const childId of children) {
-            descendants = [...descendants, ...getDescendants(childId)];
-        }
-        return descendants;
-    };
-
-    // Only consider links with the same variant_product_id — (P, null) and (P, V1) are distinct items
-    const existingAssignments = categoryProducts.filter(
-        cp => cp.product_id === productId && cp.variant_product_id === variantProductId
-    );
-    if (existingAssignments.length === 0) return null;
-
-    const targetAncestors = getAncestors(categoryId);
-    const targetDescendants = getDescendants(categoryId);
-
-    for (const assignment of existingAssignments) {
-        if (assignment.category_id === categoryId) {
-            return "Il prodotto è già presente in questa categoria.";
-        }
-        if (targetAncestors.includes(assignment.category_id)) {
-            const cat = categories.find(c => c.id === assignment.category_id);
-            return `Non puoi aggiungere questo prodotto qui, in quanto è già presente in una categoria genitore ("${cat?.name}").`;
-        }
-        if (targetDescendants.includes(assignment.category_id)) {
-            const cat = categories.find(c => c.id === assignment.category_id);
-            return `Non puoi aggiungere questo prodotto qui, in quanto è già presente in una sotto-categoria figlia ("${cat?.name}").`;
-        }
-    }
-    return null;
-}
 
 type ProductRow = {
     id: string;
@@ -133,12 +96,6 @@ type ProductRow = {
     isVariant: boolean;
     isGroupChild: boolean; // true when a variant row with a parent row above it in the same group
     hasVariants: boolean; // true for a parent row that has at least one variant link in this category
-};
-
-type ProductAttributeValueRow = {
-    product_id: string;
-    attribute_definition_id: string;
-    value_text: string | null;
 };
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -274,7 +231,16 @@ export default function CatalogEngine() {
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTenantId = useTenantId();
     const { showToast } = useToast();
-    const { catalogLabel } = useVerticalConfig();
+    const { catalogLabel, categoryLabel, categoryLabelPlural, productLabel, productLabelPlural } = useVerticalConfig();
+    const categoryLower = categoryLabel.toLowerCase();
+    // Sotto 768 il dettaglio è a due viste (passo 2 P8): l'albero, oppure la
+    // categoria scelta con il ritorno. La pagina scorre, quindi la tabella non
+    // ha un'altezza da misurare e va a pagine da 25 invece che «Auto».
+    const isPhone = useMediaQuery("(max-width: 767px)");
+    // Chi ha solo `catalogs.read` vede il menù com'è: nessuna azione che
+    // scrive (#224). Finché i permessi caricano, niente azioni.
+    const { permissions } = usePermissions();
+    const canWrite = permissions != null && canDoOnTenant(permissions, "catalogs.write");
 
     const selectedCategoryId = searchParams.get("categoryId");
 
@@ -295,18 +261,25 @@ export default function CatalogEngine() {
     >([]);
     const [isDirty, setIsDirty] = useState(false);
     const [isSavingChanges, setIsSavingChanges] = useState(false);
+    const [notFound, setNotFound] = useState(false);
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
     const [productSearch, setProductSearch] = useState("");
     const [rightPaneTab, setRightPaneTab] = useState<"products" | "translations">("products");
 
-    const [isCategoryDrawerOpen, setIsCategoryDrawerOpen] = useState(false);
+    // I gesti della categoria (passo 2 P5, §49.1/2): tre drawer `sm`, uno per
+    // gesto. «Nuova» e «Sposta» scrivono subito; «Rinomina» va in bozza.
+    const [categoryDrawer, setCategoryDrawer] = useState<"create" | "rename" | "move" | null>(null);
+    const isCategoryDrawerOpen = categoryDrawer !== null;
     const [editingCategory, setEditingCategory] = useState<V2CatalogCategory | null>(null);
     const [categoryName, setCategoryName] = useState("");
     const [categoryParentId, setCategoryParentId] = useState("");
 
     // Unified Add Product Drawer
     const [isUnifiedAddProductDrawerOpen, setIsUnifiedAddProductDrawerOpen] = useState(false);
-    const [addProductMode, setAddProductMode] = useState<"existing" | "new">("new");
+    // «Aggiungi prodotti» fa una cosa sola (§23.3/2): l'elenco da associare è
+    // il drawer; creare un prodotto nuovo è l'uscita in fondo, nello stesso drawer.
+    const [addProductMode, setAddProductMode] = useState<"existing" | "new">("existing");
     const [isSavingProduct, setIsSavingProduct] = useState(false);
     const [createIntent, setCreateIntent] = useState<CreateIntent>("associate");
     const [lastCreatedProduct, setLastCreatedProduct] = useState<V2Product | null>(null);
@@ -314,14 +287,8 @@ export default function CatalogEngine() {
     const productListRef = useRef<HTMLDivElement>(null);
 
     // Inline edit state (drawer "Aggiungi prodotto" — tab Esistente)
-    const [editingProduct, setEditingProduct] = useState<V2Product | null>(null);
-    const [isEditingReadOnly, setIsEditingReadOnly] = useState(false);
-    const [isSavingEditProduct, setIsSavingEditProduct] = useState(false);
 
     // Main-table edit/remove state
-    const [mainEditProduct, setMainEditProduct] = useState<V2Product | null>(null);
-    const [isSavingMainEdit, setIsSavingMainEdit] = useState(false);
-    const [productToRemoveFromCategory, setProductToRemoveFromCategory] = useState<ProductRow | null>(null);
 
     const [isSavingCategory, setIsSavingCategory] = useState(false);
     const [categoryToDelete, setCategoryToDelete] = useState<V2CatalogCategory | null>(null);
@@ -363,9 +330,7 @@ export default function CatalogEngine() {
 
     useBreadcrumbItems(breadcrumbItems);
 
-    usePageHeader({
-        title: catalog?.name || catalogLabel,
-    });
+    useUnsavedChangesGuard(isDirty);
 
     const categoriesById = useMemo(
         () => new Map(categories.map(category => [category.id, category])),
@@ -571,15 +536,9 @@ export default function CatalogEngine() {
             );
 
             if (targetDefIds.length > 0) {
-                const { data: valueRows, error: valueError } = await supabase
-                    .from("product_attribute_values")
-                    .select("product_id, attribute_definition_id, value_text")
-                    .eq("tenant_id", currentTenantId)
-                    .in("attribute_definition_id", targetDefIds);
+                const valueRows = await listAttributeValuesForDefinitions(currentTenantId, targetDefIds);
 
-                if (valueError) throw valueError;
-
-                for (const row of (valueRows ?? []) as ProductAttributeValueRow[]) {
+                for (const row of valueRows) {
                     if (skuDefId && row.attribute_definition_id === skuDefId) {
                         if (
                             typeof row.value_text === "string" &&
@@ -603,40 +562,32 @@ export default function CatalogEngine() {
         setIsLoading(true);
         try {
             const [
-                { data: catalogData, error: catalogError },
+                catalogData,
                 loadedCategories,
                 loadedLinks,
                 loadedProducts,
                 loadedGroups,
-                loadedGroupItems
+                groupItems
             ] = await Promise.all([
-                supabase
-                    .from("catalogs")
-                    .select("*")
-                    .eq("id", catalogId)
-                    .eq("tenant_id", currentTenantId)
-                    .single(),
+                getCatalog(catalogId, currentTenantId),
                 listCategories(currentTenantId, catalogId),
                 listCategoryProducts(currentTenantId, catalogId),
                 listBaseProductsWithVariants(currentTenantId),
                 getProductGroups(currentTenantId),
-                supabase
-                    .from("product_group_items")
-                    .select("product_id, group_id")
-                    .eq("tenant_id", currentTenantId)
+                // Come prima: senza gruppi il filtro «Gruppo» resta vuoto, la
+                // pagina si carica lo stesso.
+                listProductGroupLinks(currentTenantId).catch(error => {
+                    console.warn("Impossibile caricare i gruppi dei prodotti:", error);
+                    return [];
+                })
             ]);
-
-            if (catalogError) throw catalogError;
-
-            const groupItems =
-                (loadedGroupItems.data as { product_id: string; group_id: string }[]) || [];
             const nextGroupMap = new Map<string, string[]>();
             for (const item of groupItems) {
                 const existing = nextGroupMap.get(item.product_id) ?? [];
                 nextGroupMap.set(item.product_id, [...existing, item.group_id]);
             }
 
-            setCatalog(catalogData as V2Catalog);
+            setCatalog(catalogData);
             setCategories(loadedCategories);
             setOriginalCategories(loadedCategories);
             setCategoryProducts(loadedLinks);
@@ -673,6 +624,12 @@ export default function CatalogEngine() {
 
             await loadProductMetadata();
         } catch (error) {
+            // Un id che non c'è (o di un'altra azienda) è uno stato della
+            // pagina, non un errore da toast (#246): si resta e si dice.
+            if ((error as { code?: string } | null)?.code === "PGRST116") {
+                setNotFound(true);
+                return;
+            }
             console.error(error);
             showToast({ message: "Errore durante il caricamento del catalogo.", type: "error" });
             navigate(`/business/${currentTenantId}/catalogs`);
@@ -711,17 +668,20 @@ export default function CatalogEngine() {
         });
     }, [categoriesById, selectedCategoryId, tree]);
 
+    // Senza una categoria nell'URL (o con una che non c'è più) si apre la
+    // prima: «Seleziona una categoria» con sei categorie pronte era un clic
+    // in più per arrivare a qualunque cosa (#253).
+    // Sul telefono no: senza categoria la vista è l'albero, e aprire la prima
+    // lo salterebbe.
     useEffect(() => {
-        if (!selectedCategoryId) return;
-        if (categoriesById.has(selectedCategoryId)) return;
-
-        const fallbackRootId = tree[0]?.id ?? null;
+        if (isLoading) return;
+        if (selectedCategoryId && categoriesById.has(selectedCategoryId)) return;
+        const fallbackRootId = isPhone ? null : (tree[0]?.id ?? null);
+        if (fallbackRootId === selectedCategoryId) return;
         setSelectedCategoryInUrl(fallbackRootId, true);
-    }, [categoriesById, selectedCategoryId, setSelectedCategoryInUrl, tree]);
+    }, [categoriesById, isLoading, isPhone, selectedCategoryId, setSelectedCategoryInUrl, tree]);
 
     useEffect(() => {
-        setEditingProduct(null);
-        setIsEditingReadOnly(false);
         setAssignSelectedIds([]);
         setAssignInitialIds(new Set());
         setExpandedProductGroupIds(new Set());
@@ -742,16 +702,16 @@ export default function CatalogEngine() {
     }, [isUnifiedAddProductDrawerOpen]);
 
     const createParentOptions = useMemo(() => {
-        const options = [{ value: "", label: "Nessuna (categoria principale)" }];
+        const options = [{ value: "", label: `Nessuna (${categoryLower} principale)` }];
         for (const node of flattenTreeDFS(tree)) {
             if (node.level >= 3) continue;
             const prefix = "-- ".repeat(node.level - 1);
             options.push({ value: node.id, label: `${prefix}${node.name}` });
         }
         return options;
-    }, [tree]);
+    }, [tree, categoryLower]);
 
-    const editParentOptions = useMemo(() => {
+    const moveParentOptions = useMemo(() => {
         if (!editingCategory) return createParentOptions;
 
         const childrenMap = buildChildrenMap(categories);
@@ -759,7 +719,7 @@ export default function CatalogEngine() {
         const maxDepthBelow = getMaxDepthBelow(editingCategory.id, categories);
 
         const options: { value: string; label: string }[] = [
-            { value: "", label: "Nessuna (categoria principale)" }
+            { value: "", label: `Nessuna (${categoryLower} principale)` }
         ];
 
         for (const node of flattenTreeDFS(tree)) {
@@ -772,9 +732,9 @@ export default function CatalogEngine() {
         }
 
         return options;
-    }, [editingCategory, categories, tree, createParentOptions]);
+    }, [editingCategory, categories, tree, createParentOptions, categoryLower]);
 
-    const editParentDepthFiltered = useMemo((): boolean => {
+    const moveDepthFiltered = useMemo((): boolean => {
         if (!editingCategory) return false;
         const childrenMap = buildChildrenMap(categories);
         const descendantIds = new Set(collectDescendantIds(editingCategory.id, childrenMap));
@@ -789,128 +749,109 @@ export default function CatalogEngine() {
         );
     }, [editingCategory, categories, tree]);
 
+    // Un gesto che scrive subito non parte con la bozza aperta: il ricaricamento
+    // la scarterebbe. La voce è spenta e dice perché prima del clic (§49.1/2).
+    const structureLockReason = isDirty ? "Salva o annulla le modifiche prima." : undefined;
+
     const openCreateRootCategoryDrawer = useCallback(() => {
-        if (isDirty) {
-            showToast({
-                message: "Salva o annulla le modifiche prima di creare o eliminare categorie.",
-                type: "info"
-            });
-            return;
-        }
+        if (isDirty) return;
         setEditingCategory(null);
         setCategoryName("");
         setCategoryParentId("");
-        setIsCategoryDrawerOpen(true);
-    }, [isDirty, showToast]);
+        setCategoryDrawer("create");
+    }, [isDirty]);
 
     const openCreateSubCategoryDrawer = useCallback(
         (parentCategoryId: string) => {
-            if (isDirty) {
-                showToast({
-                    message: "Salva o annulla le modifiche prima di creare o eliminare categorie.",
-                    type: "info"
-                });
-                return;
-            }
-
+            if (isDirty) return;
             const parent = categoriesById.get(parentCategoryId);
-            if (!parent) return;
-
-            if (parent.level >= 3) {
-                showToast({
-                    message: "Non puoi creare categorie oltre il livello 3.",
-                    type: "error"
-                });
-                return;
-            }
-
+            if (!parent || parent.level >= 3) return;
             setEditingCategory(null);
             setCategoryName("");
             setCategoryParentId(parent.id);
             setExpandedCategoryIds(prev => new Set(prev).add(parent.id));
-            setIsCategoryDrawerOpen(true);
+            setCategoryDrawer("create");
         },
-        [categoriesById, isDirty, showToast]
+        [categoriesById, isDirty]
     );
 
-    const openEditCategoryDrawer = useCallback(
+    const openRenameCategoryDrawer = useCallback(
         (categoryId: string) => {
             const category = categoriesById.get(categoryId);
             if (!category) return;
             setEditingCategory(category);
             setCategoryName(category.name);
-            setCategoryParentId(category.parent_category_id ?? "");
-            setIsCategoryDrawerOpen(true);
+            setCategoryDrawer("rename");
         },
         [categoriesById]
     );
 
+    const openMoveCategoryDrawer = useCallback(
+        (categoryId: string) => {
+            if (isDirty) return;
+            const category = categoriesById.get(categoryId);
+            if (!category) return;
+            setEditingCategory(category);
+            setCategoryParentId(category.parent_category_id ?? "");
+            setCategoryDrawer("move");
+        },
+        [categoriesById, isDirty]
+    );
+
     const openDeleteCategoryDrawer = useCallback(
         (categoryId: string) => {
-            if (isDirty) {
-                showToast({
-                    message: "Salva o annulla le modifiche prima di creare o eliminare categorie.",
-                    type: "info"
-                });
-                return;
-            }
+            if (isDirty) return;
             const category = categoriesById.get(categoryId);
             if (!category) return;
             setCategoryToDelete(category);
         },
-        [categoriesById, isDirty, showToast]
+        [categoriesById, isDirty]
     );
+
+    const [categoryNameError, setCategoryNameError] = useState<string | undefined>();
 
     const handleSaveCategory = useCallback(
         async (event: React.FormEvent) => {
             event.preventDefault();
-            if (!currentTenantId || !catalogId) return;
+            if (!currentTenantId || !catalogId || !categoryDrawer) return;
 
-            if (!categoryName.trim()) {
-                showToast({ message: "Il nome della categoria è obbligatorio.", type: "error" });
+            if (categoryDrawer !== "move" && !categoryName.trim()) {
+                setCategoryNameError("Scrivi un nome.");
                 return;
             }
 
-            if (editingCategory) {
+            // Rinomina: in bozza, come il riordino. Si pubblica con Salva.
+            if (categoryDrawer === "rename" && editingCategory) {
+                setCategories(prev =>
+                    prev.map(cat =>
+                        cat.id === editingCategory.id ? { ...cat, name: categoryName.trim() } : cat
+                    )
+                );
+                setIsDirty(true);
+                setCategoryDrawer(null);
+                return;
+            }
+
+            if (isDirty) return;
+
+            // Sposta: subito, con i livelli dei discendenti.
+            if (categoryDrawer === "move" && editingCategory) {
                 const newParentId = categoryParentId || null;
-                const parentChanged = newParentId !== (editingCategory.parent_category_id ?? null);
-
-                if (!parentChanged) {
-                    // Only name changed — optimistic update
-                    setCategories(prev =>
-                        prev.map(cat =>
-                            cat.id === editingCategory.id ? { ...cat, name: categoryName.trim() } : cat
-                        )
-                    );
-                    setIsDirty(true);
-                    setIsCategoryDrawerOpen(false);
+                if (newParentId === (editingCategory.parent_category_id ?? null)) {
+                    setCategoryDrawer(null);
                     return;
                 }
-
-                // Parent changed — save immediately
-                if (isDirty) {
-                    showToast({
-                        message: "Salva o annulla le modifiche prima di spostare la categoria.",
-                        type: "info"
-                    });
-                    return;
-                }
-
                 setIsSavingCategory(true);
                 try {
                     const parentCategory = newParentId ? (categoriesById.get(newParentId) ?? null) : null;
                     const newLevel = parentCategory ? ((parentCategory.level + 1) as 1 | 2 | 3) : 1;
-
                     const newSiblings = categories.filter(
                         c => c.parent_category_id === newParentId && c.id !== editingCategory.id
                     );
                     const newSortOrder =
-                        newSiblings.length > 0
-                            ? Math.max(...newSiblings.map(c => c.sort_order)) + 10
-                            : 0;
+                        newSiblings.length > 0 ? Math.max(...newSiblings.map(c => c.sort_order)) + 10 : 0;
 
                     await updateCategory(editingCategory.id, currentTenantId, {
-                        name: categoryName.trim(),
                         parent_category_id: newParentId,
                         level: newLevel,
                         sort_order: newSortOrder
@@ -918,20 +859,11 @@ export default function CatalogEngine() {
 
                     const levelDiff = newLevel - editingCategory.level;
                     if (levelDiff !== 0) {
-                        const childrenMap = buildChildrenMap(categories);
-                        const descendantIds = collectDescendantIds(editingCategory.id, childrenMap);
-                        await Promise.all(
-                            descendantIds.map(descId => {
-                                const desc = categoriesById.get(descId);
-                                if (!desc) return Promise.resolve();
-                                const newDescLevel = (desc.level + levelDiff) as 1 | 2 | 3;
-                                return updateCategory(descId, currentTenantId, { level: newDescLevel });
-                            })
-                        );
+                        await updateDescendantLevels(editingCategory.id, currentTenantId, levelDiff, categories);
                     }
 
-                    showToast({ message: "Categoria spostata.", type: "success" });
-                    setIsCategoryDrawerOpen(false);
+                    showToast({ message: `${categoryLabel} spostata.`, type: "success" });
+                    setCategoryDrawer(null);
                     await loadData();
                 } catch (error: unknown) {
                     console.error(error);
@@ -945,32 +877,25 @@ export default function CatalogEngine() {
                 return;
             }
 
+            // Nuova: subito.
             setIsSavingCategory(true);
             try {
                 const parentId = categoryParentId || null;
                 const parentCategory = parentId ? (categoriesById.get(parentId) ?? null) : null;
-                if (parentCategory && parentCategory.level >= 3) {
-                    showToast({
-                        message: "La categoria padre selezionata è già al livello massimo.",
-                        type: "error"
-                    });
-                    return;
-                }
+                if (parentCategory && parentCategory.level >= 3) return;
 
                 const targetLevel = parentCategory ? ((parentCategory.level + 1) as 1 | 2 | 3) : 1;
-                const finalSortOrder = getNextSortOrder(parentId);
-
                 const createdCategory = await createCategory(
                     currentTenantId,
                     catalogId,
                     categoryName.trim(),
                     targetLevel,
                     parentId,
-                    finalSortOrder
+                    getNextSortOrder(parentId)
                 );
 
-                showToast({ message: "Categoria creata.", type: "success" });
-                setIsCategoryDrawerOpen(false);
+                showToast({ message: `${categoryLabel} creata.`, type: "success" });
+                setCategoryDrawer(null);
                 await loadData();
                 setSelectedCategoryInUrl(createdCategory.id);
             } catch (error: unknown) {
@@ -987,6 +912,8 @@ export default function CatalogEngine() {
             catalogId,
             categories,
             categoriesById,
+            categoryDrawer,
+            categoryLabel,
             categoryName,
             categoryParentId,
             currentTenantId,
@@ -998,6 +925,22 @@ export default function CatalogEngine() {
             showToast
         ]
     );
+
+    // L'impatto dell'eliminazione, detto prima di confermare (#263): la
+    // cascata porta via sotto-categorie e collegamenti, non i prodotti.
+    const deleteImpactText = useMemo(() => {
+        if (!categoryToDelete) return "";
+        const descendantIds = collectDescendantIds(categoryToDelete.id, buildChildrenMap(categories));
+        const branch = new Set([categoryToDelete.id, ...descendantIds]);
+        const links = categoryProducts.filter(link => branch.has(link.category_id)).length;
+        const parts: string[] = [];
+        if (descendantIds.length > 0) {
+            parts.push(`${descendantIds.length} ${descendantIds.length === 1 ? `sotto-${categoryLower}` : `sotto-${categoryLabelPlural.toLowerCase()}`}`);
+        }
+        if (links > 0) parts.push(`${links} ${links === 1 ? "collegamento" : "collegamenti"} ai prodotti`);
+        const what = parts.length > 0 ? `Si eliminano anche ${parts.join(" e ")}. ` : "";
+        return `${what}I prodotti restano. Non si torna indietro.`;
+    }, [categoryToDelete, categories, categoryProducts, categoryLower, categoryLabelPlural]);
 
     const handleDeleteCategory = useCallback(async () => {
         if (!currentTenantId || !categoryToDelete) return;
@@ -1210,53 +1153,7 @@ export default function CatalogEngine() {
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-        useSensor(KeyboardSensor)
-    );
-
-    const handleAssignExistingProduct = useCallback(
-        (productId: string) => {
-            if (!currentTenantId || !catalogId || !selectedCategoryId) return;
-
-            const validationError = validateProductAddition(
-                selectedCategoryId,
-                productId,
-                null,
-                categories,
-                categoryProducts
-            );
-            if (validationError) {
-                showToast({ message: validationError, type: "error" });
-                return;
-            }
-
-            const nextSortOrder =
-                selectedCategoryLinks.length > 0
-                    ? Math.max(...selectedCategoryLinks.map(link => link.sort_order)) + 10
-                    : 0;
-
-            const localLink: V2CatalogCategoryProduct = {
-                id: `${LOCAL_LINK_PREFIX}${selectedCategoryId}_${productId}`,
-                tenant_id: currentTenantId,
-                catalog_id: catalogId,
-                category_id: selectedCategoryId,
-                product_id: productId,
-                variant_product_id: null,
-                sort_order: nextSortOrder,
-                created_at: new Date().toISOString()
-            };
-
-            setCategoryProducts(prev => [...prev, localLink]);
-            setIsDirty(true);
-        },
-        [
-            catalogId,
-            categories,
-            categoryProducts,
-            currentTenantId,
-            selectedCategoryId,
-            selectedCategoryLinks,
-            showToast
-        ]
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
     const handleBulkAssignItems = useCallback(() => {
@@ -1300,10 +1197,11 @@ export default function CatalogEngine() {
         ]);
         setIsDirty(true);
 
+        // In bozza: il toast lo dice, invece di far credere che sia salvato.
         const msgs: string[] = [];
-        if (toAdd.length > 0) msgs.push(`${toAdd.length} ${toAdd.length === 1 ? "prodotto associato" : "prodotti associati"}`);
-        if (toRemove.length > 0) msgs.push(`${toRemove.length} ${toRemove.length === 1 ? "rimosso" : "rimossi"}`);
-        showToast({ message: msgs.join(", ") + ".", type: "success" });
+        if (toAdd.length > 0) msgs.push(`${toAdd.length} ${toAdd.length === 1 ? "aggiunto" : "aggiunti"}`);
+        if (toRemove.length > 0) msgs.push(`${toRemove.length} ${toRemove.length === 1 ? "tolto" : "tolti"}`);
+        showToast({ message: `${msgs.join(", ")}. Si pubblica con Salva.`, type: "success" });
 
         setAssignSelectedIds([]);
         setAssignInitialIds(new Set());
@@ -1313,37 +1211,19 @@ export default function CatalogEngine() {
         currentTenantId, selectedCategoryId, showToast
     ]);
 
-    const handleInlineEditSuccess = useCallback((updatedProduct?: V2Product) => {
-        if (updatedProduct) {
-            setAllProducts(prev =>
-                prev.map(p => p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p)
-            );
-        }
-        setEditingProduct(null);
-        setIsEditingReadOnly(false);
-    }, []);
-
-    const handleMainEditSuccess = useCallback((updatedProduct?: V2Product) => {
-        if (updatedProduct) {
-            setAllProducts(prev =>
-                prev.map(p => p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p)
-            );
-        }
-        setMainEditProduct(null);
-    }, []);
-
-    const handleRemoveFromCategory = useCallback(() => {
-        if (!productToRemoveFromCategory) return;
-        setCategoryProducts(prev =>
-            prev.filter(cp => cp.id !== productToRemoveFromCategory.linkId)
-        );
-        setIsDirty(true);
-        showToast({
-            message: `"${productToRemoveFromCategory.name}" rimosso dalla categoria.`,
-            type: "success"
-        });
-        setProductToRemoveFromCategory(null);
-    }, [productToRemoveFromCategory, showToast]);
+    // «Togli da qui» (§23.3): in bozza, quindi senza conferma — si ritira con
+    // «Annulla». Il prodotto resta nell'azienda e negli altri menù.
+    const handleRemoveFromCategory = useCallback(
+        (row: ProductRow) => {
+            setCategoryProducts(prev => prev.filter(cp => cp.id !== row.linkId));
+            setIsDirty(true);
+            showToast({
+                message: `«${row.name}» tolto da ${selectedCategory?.name ?? "qui"}. Si pubblica con Salva.`,
+                type: "success"
+            });
+        },
+        [selectedCategory, showToast]
+    );
 
     const handleProductCreated = useCallback(
         (createdProduct?: V2Product) => {
@@ -1395,7 +1275,7 @@ export default function CatalogEngine() {
         } else {
             setNewlyAddedProductId(product.id);
             showToast({
-                message: "Prodotto creato. Completa prezzi e configurazioni quando vuoi.",
+                message: `«${product.name}» creato fra i prodotti. Aggiunto qui: si pubblica con Salva.`,
                 type: "success",
                 actionLabel: "Configura ora",
                 onAction: () =>
@@ -1420,21 +1300,20 @@ export default function CatalogEngine() {
         return () => clearTimeout(timer);
     }, [newlyAddedProductId]);
 
-    // Scroll newly added product row into view
-    useEffect(() => {
-        if (!newlyAddedProductId) return;
-        requestAnimationFrame(() => {
-            const el = productListRef.current?.querySelector(`.${styles.rowNewlyAdded}`);
-            el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        });
-    }, [newlyAddedProductId]);
-
-    const handleBulkRemoveSelected = useCallback((selectedIds: string[]) => {
-        if (selectedIds.length === 0) return;
-        const idsSet = new Set(selectedIds);
-        setCategoryProducts(prev => prev.filter(link => !idsSet.has(link.id)));
-        setIsDirty(true);
-    }, []);
+    const handleBulkRemoveSelected = useCallback(
+        (selectedIds: string[]) => {
+            if (selectedIds.length === 0) return;
+            const idsSet = new Set(selectedIds);
+            setCategoryProducts(prev => prev.filter(link => !idsSet.has(link.id)));
+            setIsDirty(true);
+            const n = selectedIds.length;
+            showToast({
+                message: `${n} ${n === 1 ? "tolto" : "tolti"} da ${selectedCategory?.name ?? "qui"}. Si ${n === 1 ? "pubblica" : "pubblicano"} con Salva.`,
+                type: "success"
+            });
+        },
+        [selectedCategory, showToast]
+    );
 
     const handleCancelChanges = useCallback(() => {
         setCategories(originalCategories);
@@ -1525,110 +1404,153 @@ export default function CatalogEngine() {
         showToast
     ]);
 
+    // La bozza si salva dalla testata (#247), come la scheda prodotto: il
+    // salvataggio è della pagina, non di un pannello. Chi legge non ha niente
+    // da salvare, e la testata non porta azioni.
+    const headerActions = useMemo(
+        () =>
+            canWrite ? (
+                <HeaderSaveAction
+                    isDirty={isDirty}
+                    isSaving={isSavingChanges}
+                    onSave={saveCatalogChanges}
+                    onDiscard={handleCancelChanges}
+                />
+            ) : undefined,
+        [canWrite, isDirty, isSavingChanges, saveCatalogChanges, handleCancelChanges]
+    );
+    const headerCompact = useMemo(
+        () =>
+            canWrite
+                ? buildSaveActionCompactConfig({
+                      isDirty,
+                      isSaving: isSavingChanges,
+                      onSave: saveCatalogChanges,
+                      onRequestDiscard: () => setConfirmDiscardOpen(true)
+                  })
+                : undefined,
+        [canWrite, isDirty, isSavingChanges, saveCatalogChanges]
+    );
+
+    usePageHeader({
+        title: catalog?.name || catalogLabel,
+        actions: headerActions,
+        compact: headerCompact
+    });
+
+    const productLower = productLabel.toLowerCase();
+
+    const openProductPage = useCallback(
+        (productId: string) =>
+            window.open(`/business/${currentTenantId}/products/${productId}`, "_blank", "noopener,noreferrer"),
+        [currentTenantId]
+    );
+
+    const toggleVariants = useCallback((productId: string) => {
+        setExpandedProductGroupIds(prev => {
+            const next = new Set(prev);
+            if (next.has(productId)) next.delete(productId);
+            else next.add(productId);
+            return next;
+        });
+    }, []);
+
+    // La riga del prodotto (passo 2 P6): alta 56 come le righe di sistema, il
+    // prezzo in riga anche sul telefono. La foto era un segnaposto sempre
+    // uguale (#270): esce. Il prodotto si modifica nella sua pagina (§49.1/3).
+    // Il rientro del chevron serve solo se nella categoria c'è un prodotto con
+    // varianti: altrimenti sul telefono sono 20 px tolti al nome.
+    const hasVariantGroups = useMemo(() => productRows.some(row => row.hasVariants), [productRows]);
+
     const columns = useMemo<ColumnDefinition<ProductRow>[]>(
         () => [
-            {
-                id: "drag",
-                header: "",
-                width: "50px",
-                align: "center",
-                cell: (_value, _row, _rowIndex, dragHandleProps?: any) => (
-                    <span className={styles.dragCell} {...dragHandleProps}>
-                        <IconGripVertical size={16} />
-                    </span>
-                )
-            },
-            {
-                id: "photo",
-                header: "Foto",
-                width: "78px",
-                align: "center",
-                cell: () => (
-                    <span className={styles.productThumb}>
-                        <IconPhoto size={16} />
-                    </span>
-                )
-            },
+            ...(canWrite
+                ? [
+                      {
+                          id: "drag",
+                          header: "",
+                          width: "32px",
+                          align: "center",
+                          cell: (_value: unknown, row: ProductRow, _rowIndex: number, dragHandleProps?: unknown) => (
+                              <DataTableDragHandle
+                                  aria-label={`Riordina ${row.name}`}
+                                  {...(dragHandleProps as HTMLAttributes<HTMLButtonElement>)}
+                              />
+                          )
+                      } as ColumnDefinition<ProductRow>
+                  ]
+                : []),
             {
                 id: "name",
-                header: "Nome prodotto",
-                width: "2fr",
-                cell: (_value, row) => (
-                    <div
-                        className={styles.productNameCell}
-                        style={row.isGroupChild ? { paddingLeft: 20 } : undefined}
-                    >
-                        <div className={styles.productNameRow}>
-                            {!row.isVariant && row.hasVariants ? (
-                                <button
-                                    type="button"
-                                    className={styles.productExpandBtn}
-                                    onClick={e => {
-                                        e.stopPropagation();
-                                        setExpandedProductGroupIds(prev => {
-                                            const next = new Set(prev);
-                                            if (next.has(row.productId)) next.delete(row.productId);
-                                            else next.add(row.productId);
-                                            return next;
-                                        });
-                                    }}
-                                >
-                                    {expandedProductGroupIds.has(row.productId)
-                                        ? <IconChevronDown size={14} />
-                                        : <IconChevronRight size={14} />}
-                                </button>
-                            ) : (
-                                <span className={styles.productExpandSpacer} />
+                header: "Nome",
+                width: "minmax(0, 1fr)",
+                cell: (_value, row) => {
+                    const expanded = expandedProductGroupIds.has(row.productId);
+                    return (
+                        <div className={`${styles.productNameCell} ${row.isGroupChild ? styles.productVariant : ""}`}>
+                            <div className={styles.productNameRow}>
+                                {!row.isVariant && row.hasVariants ? (
+                                    <button
+                                        type="button"
+                                        className={styles.productExpandBtn}
+                                        aria-expanded={expanded}
+                                        aria-label={`${expanded ? "Nascondi" : "Mostra"} le varianti di ${row.name}`}
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            toggleVariants(row.productId);
+                                        }}
+                                    >
+                                        {expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                                    </button>
+                                ) : hasVariantGroups ? (
+                                    <span className={styles.productExpandSpacer} aria-hidden="true" />
+                                ) : null}
+                                <Text variant="body-sm" weight={600} className={styles.productNameMain}>
+                                    {row.name}
+                                </Text>
+                            </div>
+                            {(row.isVariant || !row.hasPrice || row.sku) && (
+                                <div className={`${styles.productMeta} ${hasVariantGroups ? styles.productMetaIndented : ""}`}>
+                                    {row.isVariant && <Badge variant="neutral">Variante</Badge>}
+                                    {!row.hasPrice && <StatusBadge variant="warning" label="Senza prezzo" />}
+                                    {row.sku && (
+                                        <Text variant="caption" colorVariant="muted">
+                                            {row.sku}
+                                        </Text>
+                                    )}
+                                </div>
                             )}
-                            <Text variant="body-sm" weight={600} className={styles.productNameMain}>
-                                {row.name}
-                            </Text>
-                            {row.isVariant && <Badge variant="secondary">Variante</Badge>}
-                            {!row.hasPrice && <Badge variant="warning">Senza prezzo</Badge>}
                         </div>
-                        {row.sku && (
-                            <Text variant="caption" className={styles.productSku}>
-                                {row.sku}
-                            </Text>
-                        )}
-                    </div>
-                )
+                    );
+                }
             },
             {
                 id: "price",
                 header: "Prezzo",
-                width: "0.9fr",
+                // Largo quanto il prezzo più lungo («da €12.50»), non una frazione.
+                width: "max-content",
+                align: "right",
                 accessor: row => row.id,
-                cell: (_value, row) => <Text variant="body-sm">{getDisplayPrice({ base_price: row.price, from_price: row.from_price }).label}</Text>
+                cell: (_value, row) => (
+                    <Text variant="body-sm" className={styles.price}>
+                        {getDisplayPrice({ base_price: row.price, from_price: row.from_price }).label}
+                    </Text>
+                )
             },
             {
                 id: "actions",
                 header: "",
-                width: "56px",
+                width: "44px",
                 align: "right",
                 cell: (_value, row) => (
                     <TableRowActions
+                        ariaLabel={`Azioni ${row.name}`}
                         actions={[
+                            { label: `Apri il ${productLower}`, onClick: () => openProductPage(row.productId) },
                             {
-                                label: "Modifica",
-                                onClick: () => {
-                                    const product =
-                                        allProducts.find(p => p.id === row.productId) ?? null;
-                                    setMainEditProduct(product);
-                                }
-                            },
-                            {
-                                label: "Apri in Piatti",
-                                onClick: () =>
-                                    window.open(
-                                        `/business/${currentTenantId}/products/${row.productId}`,
-                                        "_blank",
-                                        "noopener,noreferrer"
-                                    )
-                            },
-                            {
-                                label: "Rimuovi dalla categoria",
-                                onClick: () => setProductToRemoveFromCategory(row),
+                                label: "Togli da qui",
+                                hidden: !canWrite,
+                                onClick: () => handleRemoveFromCategory(row),
                                 variant: "destructive",
                                 separator: true
                             }
@@ -1637,7 +1559,7 @@ export default function CatalogEngine() {
                 )
             }
         ],
-        [allProducts, currentTenantId, expandedProductGroupIds]
+        [canWrite, expandedProductGroupIds, handleRemoveFromCategory, hasVariantGroups, openProductPage, productLower, toggleVariants]
     );
 
     const assignColumns = useMemo<ColumnDefinition<V2Product>[]>(() => {
@@ -1653,7 +1575,7 @@ export default function CatalogEngine() {
                         </Text>
                         {inheritedProductIds.has(row.id) && (
                             <Text variant="caption" colorVariant="muted">
-                                Ereditato dalla categoria padre
+                                {`Già nella ${categoryLower} che la contiene`}
                             </Text>
                         )}
                     </div>
@@ -1663,10 +1585,10 @@ export default function CatalogEngine() {
                 id: "price",
                 header: "Prezzo",
                 accessor: row => row.id,
-                width: "100px",
+                width: "max-content",
                 align: "right",
                 cell: (_value, row) => (
-                    <Text variant="body-sm" colorVariant="muted">
+                    <Text variant="body-sm" colorVariant="muted" className={styles.price}>
                         {getDisplayPrice({
                             base_price:
                                 (formatsCountByProductId[row.id] ?? 0) === 1
@@ -1685,44 +1607,20 @@ export default function CatalogEngine() {
                 header: "",
                 width: "56px",
                 align: "right",
-                cell: (_value, row) => {
-                    const isInherited = inheritedProductIds.has(row.id);
-                    return (
-                        <TableRowActions
-                            actions={[
-                                isInherited
-                                    ? {
-                                        label: "Visualizza dettaglio",
-                                        onClick: () => {
-                                            setEditingProduct(row);
-                                            setIsEditingReadOnly(true);
-                                        }
-                                    }
-                                    : {
-                                        label: "Modifica",
-                                        onClick: () => {
-                                            setEditingProduct(row);
-                                            setIsEditingReadOnly(false);
-                                        }
-                                    },
-                                {
-                                    label: "Apri in Piatti",
-                                    onClick: () =>
-                                        window.open(
-                                            `/business/${currentTenantId}/products/${row.id}`,
-                                            "_blank",
-                                            "noopener,noreferrer"
-                                        )
-                                }
-                            ]}
-                        />
-                    );
-                }
+                // Il prodotto si guarda e si modifica nella sua pagina (§49.1/3).
+                cell: (_value, row) => (
+                    <TableRowActions
+                        ariaLabel={`Azioni ${row.name}`}
+                        actions={[{ label: `Apri il ${productLower}`, onClick: () => openProductPage(row.id) }]}
+                    />
+                )
             }
         ];
     }, [
         inheritedProductIds,
-        currentTenantId,
+        categoryLower,
+        openProductPage,
+        productLower,
         formatPriceByProductId,
         formatsCountByProductId
     ]);
@@ -1732,72 +1630,73 @@ export default function CatalogEngine() {
         [assignSelectedIds, inheritedProductIds]
     );
 
+    // Il conteggio della testata conta quello che la tabella sotto elenca: i
+    // prodotti di questa categoria, una volta sola anche con le varianti
+    // (#267). Il nodo dell'albero resta il totale con le sotto-categorie.
+    const selectedProductCount = selectedCategoryProductIds.size;
+    const productCountText = `${selectedProductCount} ${
+        selectedProductCount === 1 ? productLabel.toLowerCase() : productLabelPlural.toLowerCase()
+    }`;
+
+    const openAddProductDrawer = () => {
+        setAddProductMode("existing");
+        setIsUnifiedAddProductDrawerOpen(true);
+    };
+
     const renderRightPane = () => {
         if (!selectedCategory) {
             return (
-                <div className={styles.productsEmptySelection}>
-                    <div className={styles.emptyCard}>
-                        <Text variant="title-md" weight={700}>
-                            Seleziona una categoria
-                        </Text>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Seleziona una categoria dall'albero per gestire i prodotti.
-                        </Text>
-                        <Button variant="primary" onClick={openCreateRootCategoryDrawer}>
-                            Crea nuova categoria
-                        </Button>
-                    </div>
-                </div>
+                <Card className={styles.categoryCard} bodyClassName={styles.categoryBody}>
+                    {canWrite ? (
+                        <EmptyState
+                            title={`Questo ${catalogLabel.toLowerCase()} non ha ancora ${categoryLabelPlural.toLowerCase()}`}
+                            description={`Le ${categoryLabelPlural.toLowerCase()} dividono il ${catalogLabel.toLowerCase()}: Antipasti, Pizze, Vini. I prodotti stanno dentro.`}
+                            action={
+                                <Button variant="primary" onClick={openCreateRootCategoryDrawer}>
+                                    {`Crea la prima ${categoryLower}`}
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <EmptyState variant="inline" title={`Nessuna ${categoryLower}`} />
+                    )}
+                </Card>
             );
         }
 
         return (
-            <div className={styles.productsPanel}>
-                <div className={styles.productsHeader}>
-                    <div className={styles.productsTitleRow}>
-                        <div className={styles.productsTitleBlock}>
-                            <div className={styles.productsTitleHeading}>
-                                <Text variant="title-lg" weight={700}>
-                                    {selectedCategory.name}
-                                </Text>
-                                <button
-                                    type="button"
-                                    className={styles.categorySettingsButton}
-                                    onClick={() => openEditCategoryDrawer(selectedCategory.id)}
-                                    aria-label="Modifica categoria"
-                                    title="Modifica categoria"
-                                >
-                                    <IconSettings size={18} stroke={1.8} />
-                                </button>
-                            </div>
-                            <Text variant="body-sm" colorVariant="muted">
-                                {selectedCategoryLinks.length} prodotti
-                            </Text>
-                        </div>
-                        <div style={{ display: "flex", gap: "8px" }}>
+            <Card
+                className={styles.categoryCard}
+                bodyClassName={styles.categoryBody}
+                title={selectedCategory.name}
+                badge={<Badge variant="neutral">{productCountText}</Badge>}
+                actions={
+                    canWrite ? (
+                        <>
                             {rightPaneTab === "products" && (
-                                <Button
-                                    variant="primary"
-                                    onClick={() => {
-                                        const saved = localStorage.getItem(
-                                            `cg_product_drawer_last_tab_${currentTenantId}`
-                                        );
-                                        setAddProductMode(
-                                            saved === "existing" || saved === "new"
-                                                ? saved
-                                                : "new"
-                                        );
-                                        setIsUnifiedAddProductDrawerOpen(true);
-                                    }}
-                                >
-                                    + Aggiungi prodotto
+                                <Button variant="primary" size="sm" onClick={openAddProductDrawer}>
+                                    Aggiungi prodotti
                                 </Button>
                             )}
-                        </div>
-                    </div>
-
-                    <div className={styles.categoryTabsBar}>
+                            <TableRowActions
+                                ariaLabel={`Azioni della ${categoryLower}`}
+                                actions={categoryActions({
+                                    level: selectedCategory.level,
+                                    categoryLabel: categoryLower,
+                                    structureLockReason,
+                                    onRename: () => openRenameCategoryDrawer(selectedCategory.id),
+                                    onMove: () => openMoveCategoryDrawer(selectedCategory.id),
+                                    onCreateSub: () => openCreateSubCategoryDrawer(selectedCategory.id),
+                                    onDelete: () => openDeleteCategoryDrawer(selectedCategory.id)
+                                })}
+                            />
+                        </>
+                    ) : undefined
+                }
+                tabs={
+                    canWrite ? (
                         <Tabs
+                            variant="line"
                             value={rightPaneTab}
                             onChange={v => setRightPaneTab(v as "products" | "translations")}
                         >
@@ -1806,59 +1705,65 @@ export default function CatalogEngine() {
                                 <Tabs.Tab value="translations">Traduzioni</Tabs.Tab>
                             </Tabs.List>
                         </Tabs>
-                    </div>
+                    ) : undefined
+                }
+            >
 
-                    {rightPaneTab === "products" && (
-                        <div className={styles.productsTools}>
-                            <div className={styles.quickSearchWrap}>
-                                <SearchInput
-                                    value={productSearch}
-                                    onChange={event => setProductSearch(event.target.value)}
-                                    onClear={() => setProductSearch("")}
-                                    placeholder="Cerca prodotto..."
-                                />
-                            </div>
-                        </div>
-                    )}
-                </div>
-
-                {rightPaneTab === "products" ? (
-                    <div ref={productListRef} className={styles.tableCard}>
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleReorderProducts}
-                        >
-                            <SortableContext
-                                items={visibleRows.map(r => r.id)}
-                                strategy={verticalListSortingStrategy}
+                {rightPaneTab === "products" || !canWrite ? (
+                    <>
+                        <SearchInput
+                            value={productSearch}
+                            onChange={event => setProductSearch(event.target.value)}
+                            onClear={() => setProductSearch("")}
+                            placeholder="Cerca per nome o codice…"
+                        />
+                        <div ref={productListRef} className={styles.tableCard}>
+                            <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={handleReorderProducts}
                             >
-                                <DataTable<ProductRow>
-                                    data={visibleRows}
-                                    columns={columns}
-                                    selectable
-                                    onBulkDelete={handleBulkRemoveSelected}
-                                    emptyState={{
-                                        title: productSearch.trim()
-                                            ? "Nessun prodotto corrisponde al filtro."
-                                            : "Nessun prodotto associato a questa categoria."
-                                    }}
-                                    highlightedRowIds={
-                                        newlyAddedProductId
-                                            ? visibleRows
-                                                .filter(r => r.productId === newlyAddedProductId)
-                                                .map(r => r.id)
-                                            : []
-                                    }
-                                    rowWrapper={(row, rowData) => (
-                                        <SortableDataTableRow key={rowData.id} id={rowData.id}>
-                                            {row}
-                                        </SortableDataTableRow>
-                                    )}
-                                />
-                            </SortableContext>
-                        </DndContext>
-                    </div>
+                                <SortableContext
+                                    items={visibleRows.map(r => r.id)}
+                                    strategy={verticalListSortingStrategy}
+                                >
+                                    <DataTable<ProductRow>
+                                        data={visibleRows}
+                                        columns={columns}
+                                        // Sul telefono niente selezione multipla: i 48 px della
+                                        // casella vanno al nome, e «Togli da qui» resta nella riga.
+                                        selectable={canWrite && !isPhone}
+                                        onBulkDelete={canWrite && !isPhone ? handleBulkRemoveSelected : undefined}
+                                        bulkActionLabel="Togli da qui"
+                                        pageSize={isPhone ? 25 : undefined}
+                                        isFiltered={productSearch.trim().length > 0}
+                                        onClearFilters={() => setProductSearch("")}
+                                        emptyState={{
+                                            title: `Nessun ${productLower} in ${selectedCategory.name}`,
+                                            description: `Una ${categoryLower} vuota non compare ai clienti. Resta qui finché la costruisci.`,
+                                            action: canWrite ? (
+                                                <Button variant="secondary" size="sm" onClick={openAddProductDrawer}>
+                                                    {`Aggiungi ${productLabelPlural.toLowerCase()}`}
+                                                </Button>
+                                            ) : undefined
+                                        }}
+                                        highlightedRowIds={
+                                            newlyAddedProductId
+                                                ? visibleRows
+                                                    .filter(r => r.productId === newlyAddedProductId)
+                                                    .map(r => r.id)
+                                                : []
+                                        }
+                                        rowWrapper={canWrite ? (row, rowData) => (
+                                            <SortableDataTableRow key={rowData.id} id={rowData.id}>
+                                                {row}
+                                            </SortableDataTableRow>
+                                        ) : undefined}
+                                    />
+                                </SortableContext>
+                            </DndContext>
+                        </div>
+                    </>
                 ) : (
                     <div className={styles.translationsWrap}>
                         <TranslationsTab
@@ -1868,107 +1773,167 @@ export default function CatalogEngine() {
                             tenantId={currentTenantId ?? ""}
                             sourceText={selectedCategory.name}
                             fieldKey="name"
-                            sectionLabel="Traduzioni nome categoria"
-                            sectionDescription="Modifica manualmente le traduzioni del nome categoria. Le modifiche manuali non vengono sovrascritte dalla traduzione automatica."
+                            sectionLabel={`Traduzioni del nome della ${categoryLower}`}
+                            sectionDescription={`Le traduzioni del nome di «${selectedCategory.name}» nelle lingue del ${catalogLabel.toLowerCase()}. Quelle scritte a mano non vengono sovrascritte dalla traduzione automatica.`}
                             primaryLabel="Nome"
-                            placeholderItalian="Nome categoria in italiano"
-                            onSourceUpdated={text =>
-                                setCategories(prev =>
-                                    prev.map(c =>
-                                        c.id === selectedCategory.id
-                                            ? { ...c, name: text }
-                                            : c
-                                    )
-                                )
-                            }
+                            placeholderItalian={`Nome della ${categoryLower} in italiano`}
+                            // Il testo italiano si salva subito dalla scheda (§25.1):
+                            // cambia sia la bozza sia il salvato, altrimenti «Annulla»
+                            // rimetterebbe a video il nome vecchio (#285).
+                            onSourceUpdated={text => {
+                                const rename = (list: V2CatalogCategory[]) =>
+                                    list.map(c => (c.id === selectedCategory.id ? { ...c, name: text } : c));
+                                setCategories(rename);
+                                setOriginalCategories(rename);
+                            }}
                         />
                     </div>
                 )}
-            </div>
+            </Card>
         );
     };
 
+    const treeLabels = {
+        category: categoryLower,
+        categoryPlural: categoryLabelPlural.toLowerCase(),
+        product: productLabel.toLowerCase(),
+        productPlural: productLabelPlural.toLowerCase()
+    };
+
+    // Il «+» della testata: il nome è nel tooltip e nell'etichetta accessibile.
+    // Spento con la bozza aperta, e il tooltip dice perché: un bottone spento
+    // non riceve il puntatore, quindi il trigger è lo span che lo avvolge.
+    const newRootCategoryLabel = `Nuova ${categoryLower}`;
+    const newRootCategoryButton = (
+        <Tooltip content={structureLockReason ?? newRootCategoryLabel}>
+            <span className={styles.tooltipTrigger}>
+                <IconButton
+                    size="sm"
+                    icon={<IconPlus size={16} />}
+                    aria-label={newRootCategoryLabel}
+                    disabled={Boolean(structureLockReason)}
+                    onClick={openCreateRootCategoryDrawer}
+                />
+            </span>
+        </Tooltip>
+    );
+
+    const treeCard = (
+        <Card
+            className={styles.treeCard}
+            bodyClassName={styles.treeBody}
+            flush
+            title={categoryLabelPlural}
+            // Con la bozza aperta l'albero lo dice: si rinomina e si riordina,
+            // il resto aspetta il salvataggio (§49.1/2).
+            subtitle={canWrite && structureLockReason ? "Con modifiche da salvare si rinomina e si riordina soltanto." : undefined}
+            actions={canWrite ? newRootCategoryButton : undefined}
+        >
+            <CatalogTree
+                nodes={tree}
+                selectedCategoryId={selectedCategoryId}
+                expandedCategoryIds={expandedCategoryIds}
+                onToggleExpand={toggleCategoryExpansion}
+                onSelectCategory={categoryId => setSelectedCategoryInUrl(categoryId)}
+                onCreateSubCategory={openCreateSubCategoryDrawer}
+                onRenameCategory={openRenameCategoryDrawer}
+                onMoveCategory={openMoveCategoryDrawer}
+                onDeleteCategory={openDeleteCategoryDrawer}
+                structureLockReason={structureLockReason}
+                onReorderSiblings={handleReorderSiblings}
+                onReparent={handleReparent}
+                readOnly={!canWrite}
+                labels={treeLabels}
+            />
+        </Card>
+    );
+
+    // Sotto 768: una vista alla volta. Con una categoria scelta, il ritorno
+    // all'albero sta sopra la sua card.
+    const phoneCategoryView = isPhone && selectedCategory !== null;
+    const backToTree = (
+        <Button
+            variant="ghost"
+            size="sm"
+            leftIcon={<IconArrowLeft size={14} />}
+            onClick={() => setSelectedCategoryInUrl(null)}
+            className={styles.backToTree}
+        >
+            {categoryLabelPlural}
+        </Button>
+    );
+
+    if (notFound) {
+        return (
+            <section className={styles.engine}>
+                <EmptyState
+                    title={`${catalogLabel} non trovato`}
+                    description="Forse è stato eliminato, o il link non è giusto."
+                    action={
+                        <Button variant="primary" onClick={() => navigate(`/business/${currentTenantId}/catalogs`)}>
+                            {`Torna a ${catalogLabel}`}
+                        </Button>
+                    }
+                />
+            </section>
+        );
+    }
+
     return (
-        <section className={styles.engineContainer}>
-            {isDirty && (
-                <div className={styles.saveBar}>
-                    <Text variant="body-sm" weight={600} className={styles.saveBarMessage}>
-                        Hai modifiche non salvate
-                    </Text>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleCancelChanges}
-                        disabled={isSavingChanges}
-                    >
-                        Annulla modifiche
-                    </Button>
-                    <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={saveCatalogChanges}
-                        loading={isSavingChanges}
-                    >
-                        Salva modifiche
-                    </Button>
+        <section className={styles.engine}>
+            {isLoading ? (
+                <div className={styles.layout} aria-busy="true">
+                    <Card className={styles.treeCard} bodyClassName={styles.treeBody} title={categoryLabelPlural}>
+                        {Array.from({ length: 6 }, (_, i) => (
+                            <Skeleton key={i} height={24} radius="var(--radius-inner)" />
+                        ))}
+                    </Card>
+                    <Card className={styles.categoryCard} bodyClassName={styles.categoryBody}>
+                        <DataTable<ProductRow> data={[]} columns={columns} isLoading />
+                    </Card>
+                </div>
+            ) : (
+                <div className={styles.layout}>
+                    {isPhone ? (
+                        phoneCategoryView ? (
+                            <div className={styles.phoneView}>
+                                {backToTree}
+                                {renderRightPane()}
+                            </div>
+                        ) : (
+                            treeCard
+                        )
+                    ) : (
+                        <>
+                            {treeCard}
+                            {renderRightPane()}
+                        </>
+                    )}
                 </div>
             )}
 
-            <div className={styles.engineBody}>
-                {isLoading ? (
-                    <div className={styles.loadingPanel}>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Caricamento catalogo in corso...
-                        </Text>
-                    </div>
-                ) : (
-                    <CatalogSplitLayout
-                        tree={
-                            <CatalogTree
-                                nodes={tree}
-                                selectedCategoryId={selectedCategoryId}
-                                expandedCategoryIds={expandedCategoryIds}
-                                onToggleExpand={toggleCategoryExpansion}
-                                onSelectCategory={categoryId =>
-                                    setSelectedCategoryInUrl(categoryId)
-                                }
-                                onCreateRootCategory={openCreateRootCategoryDrawer}
-                                onCreateSubCategory={openCreateSubCategoryDrawer}
-                                onEditCategory={openEditCategoryDrawer}
-                                onDeleteCategory={openDeleteCategoryDrawer}
-                                onReorderSiblings={handleReorderSiblings}
-                                onReparent={handleReparent}
-                                isReordering={false}
-                            />
-                        }
-                        content={renderRightPane()}
-                    />
-                )}
-            </div>
+            <DiscardChangesConfirmDialog
+                isOpen={confirmDiscardOpen}
+                onClose={() => setConfirmDiscardOpen(false)}
+                onDiscard={handleCancelChanges}
+            />
 
-            <SystemDrawer
-                open={isCategoryDrawerOpen}
-                onClose={() => setIsCategoryDrawerOpen(false)}
-                width={420}
-            >
+            <SystemDrawer open={isCategoryDrawerOpen} onClose={() => setCategoryDrawer(null)} size="sm">
                 <DrawerLayout
                     header={
-                        <div>
-                            <Text variant="title-sm" weight={700}>
-                                {editingCategory ? "Modifica categoria" : "Nuova categoria"}
-                            </Text>
-                            {!editingCategory && categoryParentId && (
-                                <Text variant="caption" colorVariant="muted">
-                                    Parent preimpostato dalla selezione nel tree.
-                                </Text>
-                            )}
-                        </div>
+                        <Text variant="title-sm" weight={700}>
+                            {categoryDrawer === "rename"
+                                ? `Rinomina «${editingCategory?.name ?? ""}»`
+                                : categoryDrawer === "move"
+                                    ? `Sposta «${editingCategory?.name ?? ""}»`
+                                    : `Nuova ${categoryLower}`}
+                        </Text>
                     }
                     footer={
                         <>
                             <Button
                                 variant="secondary"
-                                onClick={() => setIsCategoryDrawerOpen(false)}
+                                onClick={() => setCategoryDrawer(null)}
                                 disabled={isSavingCategory}
                             >
                                 Annulla
@@ -1979,7 +1944,7 @@ export default function CatalogEngine() {
                                 form="catalog-category-form"
                                 loading={isSavingCategory}
                             >
-                                Salva
+                                {categoryDrawer === "rename" ? "Applica" : categoryDrawer === "move" ? "Sposta" : "Crea"}
                             </Button>
                         </>
                     }
@@ -1988,251 +1953,153 @@ export default function CatalogEngine() {
                         id="catalog-category-form"
                         onSubmit={handleSaveCategory}
                         className={styles.form}
+                        noValidate
                     >
-                        <TextInput
-                            label="Nome"
-                            value={categoryName}
-                            onChange={event => setCategoryName(event.target.value)}
-                            placeholder="Es: Antipasti, Bevande..."
-                            required
-                        />
-
-                        <Select
-                            label={editingCategory ? "Sposta sotto" : "Inserisci sotto"}
-                            value={categoryParentId}
-                            onChange={event => setCategoryParentId(event.target.value)}
-                            options={editingCategory ? editParentOptions : createParentOptions}
-                        />
-                        <Text variant="caption" colorVariant="muted">
-                            {editingCategory
-                                ? "Sposta questa categoria all'interno di un'altra. Seleziona 'Nessuna' per renderla una categoria principale."
-                                : "Seleziona la categoria all'interno della quale inserire questa nuova categoria. Lascia vuoto per crearla come categoria principale."}
-                        </Text>
-                        {editingCategory && editParentDepthFiltered && (
+                        {categoryDrawer !== "move" && (
+                            <TextInput
+                                label="Nome"
+                                value={categoryName}
+                                onChange={event => {
+                                    setCategoryName(event.target.value);
+                                    setCategoryNameError(undefined);
+                                }}
+                                error={categoryNameError}
+                                placeholder="Es. Antipasti, Bevande"
+                                required
+                            />
+                        )}
+                        {categoryDrawer === "rename" && (
                             <Text variant="caption" colorVariant="muted">
-                                Alcune categorie non sono disponibili perché supererebbero il limite di 3 livelli di profondità.
+                                Il nuovo nome si pubblica con Salva, insieme alle altre modifiche.
+                            </Text>
+                        )}
+                        {categoryDrawer !== "rename" && (
+                            <Select
+                                label="Dentro"
+                                value={categoryParentId}
+                                onChange={event => setCategoryParentId(event.target.value)}
+                                options={categoryDrawer === "move" ? moveParentOptions : createParentOptions}
+                                helperText={`Le ${categoryLabelPlural.toLowerCase()} si annidano fino a tre livelli.`}
+                            />
+                        )}
+                        {categoryDrawer === "move" && moveDepthFiltered && (
+                            <Text variant="caption" colorVariant="muted">
+                                {`Alcune ${categoryLabelPlural.toLowerCase()} non sono fra le destinazioni: con le sue sotto-${categoryLabelPlural.toLowerCase()} si andrebbe oltre il terzo livello.`}
+                            </Text>
+                        )}
+                        {categoryDrawer === "move" && (
+                            <Text variant="caption" colorVariant="muted">
+                                Lo spostamento si salva subito.
                             </Text>
                         )}
                     </form>
                 </DrawerLayout>
             </SystemDrawer>
 
-            <SystemDrawer
-                open={Boolean(categoryToDelete)}
+            <ConfirmDialog
+                isOpen={Boolean(categoryToDelete)}
                 onClose={() => setCategoryToDelete(null)}
-                width={420}
-            >
-                <DrawerLayout
-                    header={
-                        <Text variant="title-sm" weight={700}>
-                            Elimina categoria
-                        </Text>
-                    }
-                    footer={
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setCategoryToDelete(null)}
-                                disabled={isDeletingCategory}
-                            >
-                                Annulla
-                            </Button>
-                            <Button
-                                variant="danger"
-                                onClick={handleDeleteCategory}
-                                loading={isDeletingCategory}
-                            >
-                                Elimina
-                            </Button>
-                        </>
-                    }
-                >
-                    <div className={styles.deleteWarning}>
-                        <Text variant="body-sm">
-                            Eliminando "<strong>{categoryToDelete?.name}</strong>" verranno rimosse
-                            anche le relative sotto-categorie e i collegamenti ai prodotti.
-                        </Text>
-                    </div>
-                </DrawerLayout>
-            </SystemDrawer>
+                onConfirm={handleDeleteCategory}
+                isLoading={isDeletingCategory}
+                title={`Eliminare «${categoryToDelete?.name ?? ""}»?`}
+                message={deleteImpactText}
+                confirmLabel="Elimina"
+            />
 
             <SystemDrawer
                 open={isUnifiedAddProductDrawerOpen}
                 onClose={() => {
                     setIsUnifiedAddProductDrawerOpen(false);
-                    setEditingProduct(null);
-                    setIsEditingReadOnly(false);
                     setAssignSelectedIds([]);
                     setAssignInitialIds(new Set());
                     setAssignGroupId(null);
                     setAssignProductSearch("");
                 }}
-                width={520}
+                size="md"
             >
                 <DrawerLayout
-                    headerFlush={!editingProduct}
                     header={
-                        editingProduct ? (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                <button
-                                    type="button"
-                                    className={styles.assignBackBtn}
-                                    onClick={() => {
-                                        setEditingProduct(null);
-                                        setIsEditingReadOnly(false);
-                                    }}
-                                >
-                                    <IconArrowLeft size={13} />
-                                    Aggiungi prodotto
-                                </button>
-                                <Text variant="title-sm" weight={700}>
-                                    {isEditingReadOnly ? "Dettaglio" : "Modifica"}: {editingProduct.name}
-                                </Text>
-                                <Text variant="caption" colorVariant="muted">
-                                    Categoria: {selectedCategory?.name ?? "—"}
-                                </Text>
-                            </div>
-                        ) : (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                                <div>
-                                    <Text variant="title-sm" weight={700}>
-                                        Aggiungi prodotto
-                                    </Text>
-                                    <Text variant="caption" colorVariant="muted">
-                                        Categoria: {selectedCategory?.name ?? "—"}
-                                    </Text>
-                                </div>
-                                <Tabs
-                                    value={addProductMode}
-                                    onChange={v => {
-                                        const tab = v as "existing" | "new";
-                                        setAddProductMode(tab);
-                                        localStorage.setItem(
-                                            `cg_product_drawer_last_tab_${currentTenantId}`,
-                                            tab
-                                        );
-                                    }}
-                                >
-                                    <Tabs.List>
-                                        <Tabs.Tab value="new">Nuovo</Tabs.Tab>
-                                        <Tabs.Tab value="existing">Esistente</Tabs.Tab>
-                                    </Tabs.List>
-                                </Tabs>
-                            </div>
-                        )
-                    }
-                    footer={
-                        editingProduct ? (
-                            <>
+                        <div className={styles.drawerHeading}>
+                            {addProductMode === "new" && (
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() =>
-                                        window.open(
-                                            `/business/${currentTenantId}/products/${editingProduct.id}`,
-                                            "_blank"
-                                        )
-                                    }
+                                    leftIcon={<IconArrowLeft size={14} />}
+                                    onClick={() => setAddProductMode("existing")}
                                 >
-                                    Apri in Piatti →
+                                    Torna all'elenco
                                 </Button>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => {
-                                        setEditingProduct(null);
-                                        setIsEditingReadOnly(false);
-                                    }}
-                                >
-                                    {isEditingReadOnly ? "Chiudi" : "Annulla"}
-                                </Button>
-                                {!isEditingReadOnly && (
-                                    <Button
-                                        variant="primary"
-                                        type="submit"
-                                        form="product-form-edit-inline"
-                                        loading={isSavingEditProduct}
-                                        disabled={isSavingEditProduct}
-                                    >
-                                        Salva modifiche
-                                    </Button>
-                                )}
-                            </>
-                        ) : (
-                            <>
-                                <Button
-                                    variant="secondary"
-                                    onClick={() => setIsUnifiedAddProductDrawerOpen(false)}
-                                >
-                                    Annulla
-                                </Button>
-                                {addProductMode === "existing" ? (
-                                    <Button
-                                        variant="primary"
-                                        onClick={handleBulkAssignItems}
-                                        disabled={!assignHasChanges}
-                                    >
-                                        Associa selezionati ({assignSelectedIds.length})
-                                    </Button>
-                                ) : (
-                                    <SplitButton
-                                        primaryLabel="Crea e associa"
-                                        loading={isSavingProduct}
-                                        onPrimaryClick={() => {
-                                            setCreateIntent("associate");
-                                            const form = document.getElementById(
-                                                "product-form-unified"
-                                            ) as HTMLFormElement | null;
-                                            form?.requestSubmit();
-                                        }}
-                                        options={[
-                                            {
-                                                label: "Crea e configura",
-                                                onClick: () => {
-                                                    setCreateIntent("configure");
-                                                    const form = document.getElementById(
-                                                        "product-form-unified"
-                                                    ) as HTMLFormElement | null;
-                                                    form?.requestSubmit();
-                                                }
-                                            }
-                                        ]}
-                                    />
-                                )}
-                            </>
-                        )
+                            )}
+                            <Text variant="title-sm" weight={700}>
+                                {addProductMode === "new"
+                                    ? `Nuovo ${productLower}`
+                                    : `Aggiungi ${productLabelPlural.toLowerCase()}`}
+                            </Text>
+                            <Text variant="caption" colorVariant="muted">
+                                {`In ${selectedCategory?.name ?? "—"}`}
+                            </Text>
+                        </div>
                     }
-                >
-                    {editingProduct ? (
-                        <ProductForm
-                            formId="product-form-edit-inline"
-                            mode="edit"
-                            productData={editingProduct}
-                            parentProduct={null}
-                            tenantId={currentTenantId ?? null}
-                            onSuccess={handleInlineEditSuccess}
-                            onSavingChange={setIsSavingEditProduct}
-                        />
-                    ) : addProductMode === "existing" ? (
-                        <div className={styles.form}>
-                            <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-                                <Select
-                                    label="Gruppo prodotto"
-                                    value={assignGroupId ?? ""}
-                                    onChange={event => setAssignGroupId(event.target.value || null)}
+                    footer={
+                        <>
+                            <Button variant="secondary" onClick={() => setIsUnifiedAddProductDrawerOpen(false)}>
+                                Annulla
+                            </Button>
+                            {addProductMode === "existing" ? (
+                                <Button
+                                    variant="primary"
+                                    onClick={handleBulkAssignItems}
+                                    disabled={!assignHasChanges}
+                                >
+                                    {`Aggiungi (${assignSelectedIds.filter(id => !assignInitialIds.has(id)).length})`}
+                                </Button>
+                            ) : (
+                                <SplitButton
+                                    primaryLabel="Crea e aggiungi"
+                                    loading={isSavingProduct}
+                                    onPrimaryClick={() => {
+                                        setCreateIntent("associate");
+                                        const form = document.getElementById(
+                                            "product-form-unified"
+                                        ) as HTMLFormElement | null;
+                                        form?.requestSubmit();
+                                    }}
                                     options={[
-                                        { value: "", label: "Tutti i gruppi" },
-                                        ...productGroups.map(g => ({ value: g.id, label: g.name }))
+                                        {
+                                            label: "Crea e configura",
+                                            onClick: () => {
+                                                setCreateIntent("configure");
+                                                const form = document.getElementById(
+                                                    "product-form-unified"
+                                                ) as HTMLFormElement | null;
+                                                form?.requestSubmit();
+                                            }
+                                        }
                                     ]}
                                 />
+                            )}
+                        </>
+                    }
+                >
+                    {addProductMode === "existing" ? (
+                        <div className={styles.form}>
+                            <Select
+                                label="Gruppo"
+                                value={assignGroupId ?? ""}
+                                onChange={event => setAssignGroupId(event.target.value || null)}
+                                options={[
+                                    { value: "", label: "Tutti i gruppi" },
+                                    ...productGroups.map(g => ({ value: g.id, label: g.name }))
+                                ]}
+                            />
 
-                                <SearchInput
-                                    value={assignProductSearch}
-                                    onChange={event => setAssignProductSearch(event.target.value)}
-                                    onClear={() => setAssignProductSearch("")}
-                                    placeholder="Cerca prodotto..."
-                                    allowClear
-                                />
-                            </div>
+                            <SearchInput
+                                value={assignProductSearch}
+                                onChange={event => setAssignProductSearch(event.target.value)}
+                                onClear={() => setAssignProductSearch("")}
+                                placeholder={`Cerca ${productLower}…`}
+                                allowClear
+                            />
 
                             <div className={styles.assignTableWrap}>
                                 <DataTable<V2Product>
@@ -2247,23 +2114,28 @@ export default function CatalogEngine() {
                                     }
                                     isRowSelectable={row => !inheritedProductIds.has(row.id)}
                                     allRowIds={allProducts.map(p => p.id)}
+                                    isFiltered={assignProductSearch.trim().length > 0 || assignGroupId !== null}
+                                    onClearFilters={() => {
+                                        setAssignProductSearch("");
+                                        setAssignGroupId(null);
+                                    }}
                                     emptyState={{
-                                        title: "Nessun prodotto disponibile da associare."
+                                        title: `Nessun ${productLower} da aggiungere.`
                                     }}
                                     pageSize={25}
                                     pageSizeOptions={[25, 50, 100, "all"]}
-                                    maxHeight="calc(100dvh - 320px)"
-                                    rowWrapper={(row, rowData) =>
-                                        inheritedProductIds.has(rowData.id) ? (
-                                            <div className={styles.assignRowInheritedWrapper}>
-                                                {row}
-                                            </div>
-                                        ) : (
-                                            row
-                                        )
-                                    }
+                                    maxHeight="calc(100dvh - 360px)"
                                     showSelectionBar={false}
                                 />
+                            </div>
+
+                            <div className={styles.createExit}>
+                                <Text variant="body-sm" colorVariant="muted">
+                                    {`Non c'è?`}
+                                </Text>
+                                <Button variant="ghost" size="sm" onClick={() => setAddProductMode("new")}>
+                                    {`Crea un ${productLower}`}
+                                </Button>
                             </div>
                         </div>
                     ) : (
@@ -2278,108 +2150,6 @@ export default function CatalogEngine() {
                             skipAutoNavigate
                         />
                     )}
-                </DrawerLayout>
-            </SystemDrawer>
-
-            {/* ── Modifica prodotto dalla tabella principale ─────────────── */}
-            <SystemDrawer
-                open={Boolean(mainEditProduct)}
-                onClose={() => setMainEditProduct(null)}
-                width={520}
-            >
-                <DrawerLayout
-                    header={
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                            <div>
-                                <Text variant="title-sm" weight={700}>
-                                    Modifica prodotto
-                                </Text>
-                                <Text variant="caption" colorVariant="muted">
-                                    {mainEditProduct?.name}
-                                </Text>
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                    window.open(
-                                        `/business/${currentTenantId}/products/${mainEditProduct?.id}`,
-                                        "_blank"
-                                    )
-                                }
-                            >
-                                Apri in Piatti →
-                            </Button>
-                        </div>
-                    }
-                    footer={
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setMainEditProduct(null)}
-                                disabled={isSavingMainEdit}
-                            >
-                                Annulla
-                            </Button>
-                            <Button
-                                variant="primary"
-                                type="submit"
-                                form="product-form-main-edit"
-                                loading={isSavingMainEdit}
-                                disabled={isSavingMainEdit}
-                            >
-                                Salva modifiche
-                            </Button>
-                        </>
-                    }
-                >
-                    {mainEditProduct && (
-                        <ProductForm
-                            formId="product-form-main-edit"
-                            mode="edit"
-                            productData={mainEditProduct}
-                            parentProduct={null}
-                            tenantId={currentTenantId ?? null}
-                            onSuccess={handleMainEditSuccess}
-                            onSavingChange={setIsSavingMainEdit}
-                        />
-                    )}
-                </DrawerLayout>
-            </SystemDrawer>
-
-            {/* ── Conferma rimozione prodotto dalla categoria ────────────── */}
-            <SystemDrawer
-                open={Boolean(productToRemoveFromCategory)}
-                onClose={() => setProductToRemoveFromCategory(null)}
-                width={420}
-            >
-                <DrawerLayout
-                    header={
-                        <Text variant="title-sm" weight={700}>
-                            Rimuovi dalla categoria
-                        </Text>
-                    }
-                    footer={
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setProductToRemoveFromCategory(null)}
-                            >
-                                Annulla
-                            </Button>
-                            <Button variant="danger" onClick={handleRemoveFromCategory}>
-                                Rimuovi
-                            </Button>
-                        </>
-                    }
-                >
-                    <div className={styles.deleteWarning}>
-                        <Text variant="body-sm">
-                            Vuoi rimuovere "<strong>{productToRemoveFromCategory?.name}</strong>" dalla
-                            categoria "<strong>{selectedCategory?.name}</strong>"?{" "}
-                            Il prodotto non verrà eliminato dal sistema.
-                        </Text>
-                    </div>
                 </DrawerLayout>
             </SystemDrawer>
         </section>
