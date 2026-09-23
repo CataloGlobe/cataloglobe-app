@@ -298,6 +298,8 @@ Usare sempre `_shared/stripe-helpers.ts`. Pattern: `scheduleStripeCancel()` soft
 
 Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verify_jwt: false` su tutte.
 
+Deploy sempre con --project-ref esplicito: la CLI Supabase locale è collegata alla produzione.
+
 **`scheduleResolver.ts` esiste in DUE posti**: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
 
 **`priceSummary.ts` idem duplicato FE↔Edge** (header `⚠️ SYNC`): `src/utils/priceSummary.ts` ↔ `supabase/functions/_shared/priceSummary.ts`. `resolvePriceSummary` calcola solo i *fatti* sul prezzo sintetico di un gruppo → `{kind: none|single|multi, min, max, count}`. La *presentazione* ("da X" / range) vive SOLO lato FE in `src/utils/formatPriceSummary.ts` (l'edge Deno usa solo i fatti grezzi). Separazione voluta: la regola di sintesi cambia senza toccare il formatting.
@@ -368,6 +370,7 @@ Customer stepper (`OrderStatusStepper.tsx`): 4 step (Inviato → In cucina → P
 - **Email**: solo via Edge Functions (Resend), mai dal frontend.
 - **Upload**: `src/services/supabase/upload.ts` + `src/utils/compressImage.ts`. Per upsert vedi `docs/patterns/storage-sql.md`.
 - **Stripe**: sottoscrizione tenant, seat management, webhook. Service: `src/services/supabase/billing.ts`.
+  - **Prova senza carta**: un promotion code con metadata `trial_no_card="true"` è solo una chiave (il coupon non viene applicato). In `stripe-checkout` concede i 30 giorni anche con codice, solo sulla prima subscription (altrimenti `promo_code_invalid`), con `payment_method_collection: if_required` e `trial_settings.end_behavior.missing_payment_method: cancel` → a fine prova senza carta `customer.subscription.deleted` → `canceled`. Stripe non conta gli utilizzi (`max_redemptions` inerte): controllo operativo, scadenza breve + disattivazione manuale. `hasPaymentMethod` dall'action `state` di `stripe-change-subscription` guida la CTA «Aggiungi carta» (portale).
 - **Google Places**: Edge Function `search-google-places` + `GooglePlacesSearch` component in `src/pages/Operativita/Attivita/tabs/contacts/`.
 - **Export Excel Analitiche**: `src/pages/Dashboard/Analytics/utils/exportXlsx.ts` costruisce il workbook via `xlsx-js-style` (fork di SheetJS con cell styling; `xlsx` resta come dep separata, NON rimossa). Engine "un foglio = più tabelle impilate": 4 fogli (Copertina · Engagement · Ordini · Prenotazioni), stile per-cella. Header letto a runtime da `--brand-primary` (`_theme.scss`) → **theme-aware**: violetto in light, blu in dark (scelta voluta — l'xlsx segue il tema attivo). Dati presi dallo state della pagina (no re-fetch). Valuta/percentuali/durate scritte come **numeri + numFmt** (mai stringhe pre-formattate come valore di cella).
 

@@ -480,6 +480,12 @@ export type SubscriptionState = {
      * esclusivo con `discount`. Popolato solo dall'action "state".
      */
     consumedDiscountThisPeriod?: ConsumedDiscountThisPeriod | null;
+    /**
+     * true se la subscription o il customer hanno un metodo di pagamento
+     * predefinito; false se nessuno dei due (prova senza carta); null se non
+     * determinabile (lettura customer fallita). Popolato solo dall'action "state".
+     */
+    hasPaymentMethod?: boolean | null;
 };
 
 /**

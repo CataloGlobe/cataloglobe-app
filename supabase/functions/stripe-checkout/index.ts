@@ -38,6 +38,9 @@ const MAX_SELF_SERVICE_SEATS = 5;
 // policy — "how long is the first subscription free" — not a per-plan price
 // attribute; every plan gets the same trial.
 const TRIAL_PERIOD_DAYS = 30;
+// Promotion code metadata key that unlocks the card-free trial. Codes are
+// handed out one by one by us; see the trial-no-card branch below.
+const TRIAL_NO_CARD_METADATA_KEY = "trial_no_card";
 // Billing intervals a customer can pick at checkout. Same domain as Stripe
 // `recurring.interval`; the Price for (plan, interval) comes from `plan_prices`.
 const ALLOWED_BILLING_INTERVALS = new Set<BillingInterval>(["month", "year"]);
@@ -297,6 +300,9 @@ serve(async req => {
 
         // --- Resolve promotion code (auto-detect: promo_ id vs human code) ---
         let resolvedPromotionId: string | null = null;
+        // Set when the resolved code carries `metadata.trial_no_card = "true"`:
+        // the code is only a key to the card-free trial, its coupon is never applied.
+        let isTrialNoCardCode = false;
         if (promotionCodeInput !== "") {
             try {
                 if (promotionCodeInput.startsWith("promo_")) {
@@ -305,6 +311,7 @@ serve(async req => {
                         return json(req, 400, { error: "promo_code_invalid" });
                     }
                     resolvedPromotionId = promo.id;
+                    isTrialNoCardCode = promo.metadata?.[TRIAL_NO_CARD_METADATA_KEY] === "true";
                 } else {
                     const list = await stripe.promotionCodes.list({
                         code: promotionCodeInput,
@@ -315,12 +322,23 @@ serve(async req => {
                         return json(req, 400, { error: "promo_code_invalid" });
                     }
                     resolvedPromotionId = list.data[0].id;
+                    isTrialNoCardCode = list.data[0].metadata?.[TRIAL_NO_CARD_METADATA_KEY] === "true";
                 }
             } catch (err) {
                 const message = err instanceof Error ? err.message : String(err);
                 console.warn(`stripe-checkout: promo code lookup failed: ${message}`);
                 return json(req, 400, { error: "promo_code_invalid" });
             }
+        }
+
+        // A card-free trial code is only good for a tenant's first subscription
+        // (one trial per tenant, see `isFirstSubscription` below). Rejected like
+        // an unknown code: no silent fallback to the card-required checkout.
+        if (isTrialNoCardCode && tenantData.stripe_subscription_id) {
+            console.warn(
+                `stripe-checkout: trial_no_card code ${resolvedPromotionId} refused for tenant ${tenantId} (not first subscription)`
+            );
+            return json(req, 400, { error: "promo_code_invalid" });
         }
 
         // --- Fiscal profile for Stripe pre-fill (service_role, explicit tenant guard) ---
@@ -511,7 +529,16 @@ serve(async req => {
         // silently becomes ~3 months total instead of the 4 we would be promising.
         // A `once` coupon is ambiguous for the same reason (which "first invoice"
         // counts). When a code was resolved, the coupon alone defines the offer.
-        const grantTrial = isFirstSubscription && !resolvedPromotionId;
+        //
+        // Exception: a `trial_no_card` code. Its coupon is never passed to the
+        // session (no `discounts` below), so no coupon window can run during the
+        // trial and the reason above does not apply — the code only unlocks the
+        // trial, and the trial is still first-subscription-only (checked above).
+        const grantTrial = isFirstSubscription && (!resolvedPromotionId || isTrialNoCardCode);
+
+        if (isTrialNoCardCode) {
+            subscriptionMetadata[TRIAL_NO_CARD_METADATA_KEY] = "true";
+        }
 
         const sessionParams: Stripe.Checkout.SessionCreateParams = {
             mode: "subscription",
@@ -534,14 +561,22 @@ serve(async req => {
             tax_id_collection: { enabled: false }
         };
 
-        if (resolvedPromotionId) {
+        if (isTrialNoCardCode) {
+            // Nothing is due today (30-day trial, no discount), so Checkout skips
+            // the card. Without a card at trial end Stripe cancels the
+            // subscription → customer.subscription.deleted → tenant `canceled`.
+            sessionParams.payment_method_collection = "if_required";
+            sessionParams.subscription_data!.trial_settings = {
+                end_behavior: { missing_payment_method: "cancel" }
+            };
+        } else if (resolvedPromotionId) {
             sessionParams.discounts = [{ promotion_code: resolvedPromotionId }];
         }
 
         const session = await stripe.checkout.sessions.create(sessionParams);
 
         console.log(
-            `stripe-checkout: Session ${session.id} created for tenant ${tenantId} (plan=${planCode}, interval=${billingInterval}, qty=${quantity}, promo=${resolvedPromotionId ?? "none"})`
+            `stripe-checkout: Session ${session.id} created for tenant ${tenantId} (plan=${planCode}, interval=${billingInterval}, qty=${quantity}, promo=${resolvedPromotionId ?? "none"}, trial_no_card=${isTrialNoCardCode})`
         );
 
         return json(req, 200, { checkout_url: session.url });
