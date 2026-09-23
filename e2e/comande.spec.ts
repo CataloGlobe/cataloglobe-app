@@ -250,6 +250,9 @@ test.describe("Comande", () => {
         const main = page.getByRole("main");
         const filtri = main.getByRole("radiogroup");
 
+        // Finché carica, la griglia è una lista «Tavoli» di scheletri (aria-busy):
+        // il filtro si clicca a dati arrivati, non a tempo.
+        await expect(main.getByRole("list", { name: "Tavoli" })).toHaveCount(0, { timeout: 15_000 });
         await filtri.getByRole("radio", { name: "Aperti", exact: true }).click();
         const tavolo = main.getByRole("button", { name: new RegExp(`^${TAVOLO}, Aperto`) });
         await expect(tavolo).toBeVisible();
