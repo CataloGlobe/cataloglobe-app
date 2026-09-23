@@ -11,6 +11,7 @@ import { Select } from "@/components/ui/Select/Select";
 import { DateInput } from "@/components/ui/Input/DateInput";
 import Text from "@/components/ui/Text/Text";
 import { IconButton } from "@/components/ui/Button/IconButton";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Button } from "@/components/ui/Button/Button";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
@@ -401,24 +402,16 @@ export default function Orders() {
                 >
                     Aggiorna
                 </Button>
-                <button
-                    type="button"
-                    className={styles.soundToggle}
-                    onClick={toggleSound}
-                    aria-pressed={soundEnabled}
-                    aria-label={
-                        soundEnabled
-                            ? "Disattiva suoni notifiche"
-                            : "Attiva suoni notifiche"
-                    }
-                    title={
-                        soundEnabled
-                            ? "Suoni notifiche attivi"
-                            : "Suoni notifiche disattivati"
-                    }
-                >
-                    {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-                </button>
+                <Tooltip content={soundEnabled ? "Suoni notifiche attivi" : "Suoni notifiche disattivati"}>
+                    <IconButton
+                        icon={soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                        variant="secondary"
+                        className={soundEnabled ? undefined : styles.soundOff}
+                        onClick={toggleSound}
+                        aria-pressed={soundEnabled}
+                        aria-label={soundEnabled ? "Disattiva suoni notifiche" : "Attiva suoni notifiche"}
+                    />
+                </Tooltip>
             </div>
         ),
         [canCreateOrder, canEdit, selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
