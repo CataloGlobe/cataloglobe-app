@@ -209,6 +209,8 @@
 
   // --- Misure fisse (--control-height è definito in cima al file) ---
   --row-height: 56px;
+  // ListRow dense: gli elenchi di servizio (agenda, sala), letti a colpo d'occhio.
+  --row-height-dense: 48px;
   --table-header-height: 44px;
   --drawer-sm: 420px;
   --drawer-md: 520px;

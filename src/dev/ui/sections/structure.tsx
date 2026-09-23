@@ -98,6 +98,13 @@ function ListRowSection() {
                     <ListRow title="Cheeseburger" subtitle="Cottura: al sangue · + bacon, + cheddar, + cipolla croccante, + salsa BBQ, + jalapeños, + uovo · Note: senza sale, allergia alla senape — da portare insieme agli antipasti" meta="2× · € 21,80" wrapSubtitle="full" metaInline />
                 </Card>
             </State>
+            <State label="dense (48): elenco di servizio — ora · nome · persone · stato" column>
+                <Card flush>
+                    <ListRow dense onClick={noop} leading={<Text variant="body-sm" weight={600}>20:30</Text>} title="Sara Conti" subtitle="2 persone" meta={<StatusBadge variant="success" label="Confermata" />} metaInline />
+                    <ListRow dense onClick={noop} leading={<Text variant="body-sm" weight={600}>21:15</Text>} title="Elena Riva" subtitle="5 persone · Compleanno, se possibile tavolo tranquillo" meta={<StatusBadge variant="warning" label="Da gestire" />} metaInline />
+                    <ListRow dense muted leading={<Text variant="body-sm" weight={600}>12:30</Text>} title="Anna Neri" subtitle="2 persone" meta={<StatusBadge variant="neutral" label="Servita" />} metaInline />
+                </Card>
+            </State>
             <State label="membro: avatar · nome · ruolo (Badge) · sedi (meta) · azioni" column>
                 <Card flush>
                     <ListRow

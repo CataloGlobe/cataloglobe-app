@@ -12,7 +12,9 @@ import styles from "./ListRow.module.scss";
  * subtitle (una riga con ellissi) · meta (Badge, StatusBadge, cifra) ·
  * trailing (chevron, Switch, Button ghost sm, TableRowActions).
  *
- * Altezza `row-height` (56, = riga di tabella), padding 0 16, gap 12,
+ * Altezza `row-height` (56, = riga di tabella), padding 0 16, gap 12;
+ * `dense` porta a `row-height-dense` (48) gli elenchi di servizio (agenda,
+ * sala), che sono lunghi e si leggono a colpo d'occhio.
  * divisore 1px fra righe adiacenti. Vive in `Card flush` o nudo in un drawer.
  * Ogni riga porta `data-list-row`: è il segnale con cui la Card capisce che il
  * suo body è una lista e annulla il proprio gap — il divisore separa le righe,
@@ -47,6 +49,8 @@ interface ListRowBaseProps {
     selected?: boolean;
     /** La voce a zero: testo e icona muti, niente hover; resta elencata. */
     muted?: boolean;
+    /** Riga a 48 invece che a 56: elenchi di servizio lunghi, non gestione. */
+    dense?: boolean;
     className?: string;
     "aria-label"?: string;
 }
@@ -77,6 +81,7 @@ export function ListRow({
     selected = false,
     muted = false,
     loading = false,
+    dense,
     className,
     "aria-label": ariaLabel
 }: ListRowProps) {
@@ -101,6 +106,7 @@ export function ListRow({
         selected ? styles.selected : "",
         muted ? styles.muted : "",
         metaInline ? styles.metaInline : "",
+        dense ? styles.dense : "",
         className ?? ""
     ]
         .join(" ")
