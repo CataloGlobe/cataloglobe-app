@@ -263,6 +263,8 @@ export default function Reservations() {
     // Dentro il contesto la sede è nel path; fuori, dal selettore navbar
     // («tutte le sedi» → "__all__" downstream).
     const scope: Scope = sedeScope.activityId ?? "__all__";
+    // La sede che le query chiedono al server (§48.1); `null` solo con «Tutte le sedi».
+    const scopeActivityId = sedeScope.activityId ?? null;
 
     // Channel filter (toolbar dropdown). Client-side, applied to the in-memory
     // dataset together with the scope filter. "all" = no narrowing.
@@ -452,8 +454,8 @@ export default function Reservations() {
         try {
             const ranges = loadRangesRef.current;
             const [windows, pending, acts, names] = await Promise.all([
-                Promise.all(ranges.map(range => listReservations(tenantId, range))),
-                listPendingReservations(tenantId),
+                Promise.all(ranges.map(range => listReservations(tenantId, range, scopeActivityId))),
+                listPendingReservations(tenantId, scopeActivityId),
                 getActivities(tenantId),
                 getTenantMemberNames(tenantId)
             ]);
@@ -495,7 +497,7 @@ export default function Reservations() {
             // cosa non va.
             setHasLoadedOnce(true);
         }
-    }, [tenantId, showToast]);
+    }, [tenantId, scopeActivityId, showToast]);
 
     // Ricarica quando cambia la finestra (settimana, giorno aperto in un
     // drawer), oltre che al primo giro. `loadRangesKey` e non `loadRanges`:
@@ -552,6 +554,7 @@ export default function Reservations() {
 
     useReservationsRealtime(
         tenantId,
+        scopeActivityId,
         !permissionsLoading && !!permissions && canRead,
         handleRealtimeEvents,
         loadData
