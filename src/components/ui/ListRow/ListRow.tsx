@@ -21,6 +21,9 @@ import styles from "./ListRow.module.scss";
  * lo spazio in mezzo no (prima ogni pagina se lo azzerava da sé).
  * Hover solo se cliccabile (`onClick` o `to`). Chi mette un controllo nel
  * trailing di una riga cliccabile ferma lui la propagazione del click.
+ * `muted` è solo l'aspetto: la voce a zero senza `onClick` resta ferma, la
+ * riga spenta ma consultabile (una richiesta scaduta, una prenotazione
+ * annullata) con `onClick` si apre come le altre.
  *
  * Non per colonne da ordinare/filtrare (→ DataTable), non per scelte a
  * immagine (→ CardGrid), non per un form (→ FormField).
@@ -47,7 +50,8 @@ interface ListRowBaseProps {
     to?: string;
     /** Selezionata: sfondo `brand-primary-soft`. */
     selected?: boolean;
-    /** La voce a zero: testo e icona muti, niente hover; resta elencata. */
+    /** Spenta: testo e icona muti. Solo aspetto — con `onClick`/`to` la riga
+     *  resta cliccabile (la scaduta si apre), senza è la voce a zero, ferma. */
     muted?: boolean;
     /** Riga a 48 invece che a 56: elenchi di servizio lunghi, non gestione. */
     dense?: boolean;
@@ -99,7 +103,7 @@ export function ListRow({
         );
     }
 
-    const interactive = !muted && (Boolean(onClick) || Boolean(to));
+    const interactive = Boolean(onClick) || Boolean(to);
     const classes = [
         styles.row,
         interactive ? styles.interactive : "",
@@ -141,7 +145,7 @@ export function ListRow({
         </>
     );
 
-    if (to && !muted) {
+    if (to) {
         return (
             <Link to={to} className={classes} data-list-row="" aria-current={selected || undefined} aria-label={ariaLabel}>
                 {content}

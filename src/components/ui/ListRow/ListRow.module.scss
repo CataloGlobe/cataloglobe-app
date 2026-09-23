@@ -2,7 +2,8 @@
 // Altezza row-height (56), padding 0 16, gap 12, divisore fra righe adiacenti.
 // `dense`: row-height-dense (48) e 4 sopra e sotto — per gli elenchi di
 // servizio, che si leggono a colpo d'occhio e sono lunghi (agenda, sala).
-// Hover solo se cliccabile; muted = la voce a zero, elencata ma spenta.
+// Hover solo se cliccabile; muted = spenta (solo aspetto: cliccabile se ha
+// onClick, come una richiesta scaduta che si apre ancora).
 // Sotto 768 il meta scende su una seconda riga sotto il titolo: a 375 non
 // c'è spazio per titolo + Badge + azioni sulla stessa riga.
 @use "@styles/mixins" as *;

@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- galleria dev: componenti di sezione + elenco nello stesso file, niente fast refresh da preservare */
 import { useState } from "react";
-import { ChevronRight, MapPin, Store, CheckCircle2, Circle, Pencil, Trash2, Palette } from "lucide-react";
+import { ChevronRight, MapPin, Store, CheckCircle2, Circle, Pencil, Trash2, Palette, CalendarClock } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
@@ -102,7 +102,7 @@ function ListRowSection() {
                 <Card flush>
                     <ListRow dense onClick={noop} leading={<Text variant="body-sm" weight={600}>20:30</Text>} title="Sara Conti" subtitle="2 persone" meta={<StatusBadge variant="success" label="Confermata" />} metaInline />
                     <ListRow dense onClick={noop} leading={<Text variant="body-sm" weight={600}>21:15</Text>} title="Elena Riva" subtitle="5 persone · Compleanno, se possibile tavolo tranquillo" meta={<StatusBadge variant="warning" label="Da gestire" />} metaInline />
-                    <ListRow dense muted leading={<Text variant="body-sm" weight={600}>12:30</Text>} title="Anna Neri" subtitle="2 persone" meta={<StatusBadge variant="neutral" label="Servita" />} metaInline />
+                    <ListRow dense muted onClick={noop} leading={<Text variant="body-sm" weight={600}>12:30</Text>} title="Anna Neri" subtitle="2 persone" meta={<StatusBadge variant="neutral" label="Annullata" />} metaInline />
                 </Card>
             </State>
             <State label="membro: avatar · nome · ruolo (Badge) · sedi (meta) · azioni" column>
@@ -174,9 +174,10 @@ function ListRowSection() {
                     <ListRow leading={<MapPin />} title="Vai alla galleria (link)" subtitle="react-router Link" to="/dev/ui" trailing={<ChevronRight />} />
                 </Card>
             </State>
-            <State label="muted (la voce a zero, resta elencata) · caricamento" column>
+            <State label="muted: la voce a zero (ferma) · la spenta che si apre (onClick) · caricamento" column>
                 <Card flush>
-                    <ListRow leading={<Store />} title="Prenotazioni" subtitle="0 questa settimana" meta={<Badge>0</Badge>} muted onClick={noop} />
+                    <ListRow leading={<Store />} title="Prenotazioni" subtitle="0 questa settimana" meta={<Badge>0</Badge>} muted />
+                    <ListRow leading={<CalendarClock />} title="Luca Verdi" subtitle="lun 21 set · 21:00 · richiesta scaduta" muted onClick={noop} />
                     <ListRow loading />
                     <ListRow loading />
                 </Card>
