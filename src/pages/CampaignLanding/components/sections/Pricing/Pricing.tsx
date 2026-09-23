@@ -85,7 +85,6 @@ function PlanCard({ plan, interval }: { plan: PlanKey; interval: BillingInterval
                                 </s>
                             )}
                             <span className={styles.period}>{PRICING.period[interval]}</span>
-                            <span className={styles.vat}>{PRICING.vat}</span>
                         </span>
                     </div>
                 </div>

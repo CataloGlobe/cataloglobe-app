@@ -309,8 +309,7 @@
 }
 
 .full,
-.period,
-.vat {
+.period {
     display: block;
     font-size: ld-fluid(13, 14);
 }
@@ -321,11 +320,6 @@
 }
 
 .period {
-    color: var(--ld-muted);
-}
-
-.vat {
-    font-size: ld-fluid(12, 12.5);
     color: var(--ld-muted);
 }
 

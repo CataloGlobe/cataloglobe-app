@@ -471,7 +471,6 @@ export const PRICING = {
     plansLabel: "Piano",
     yearlyNote: "Due mesi gratis: paghi dieci, usi dodici.",
     period: { month: "al mese, per locale", year: "all’anno, per locale" },
-    vat: "IVA inclusa",
     fullPriceLabel: "Prezzo pagando mese per mese",
     recommended: "Consigliato",
     trial: "Trenta giorni di prova, si annulla quando vuoi.",
@@ -485,7 +484,7 @@ export const PRICING = {
         { title: "Menù digitale con QR", desc: "Sempre aggiornato, nel tuo stile.", proOnly: false },
         { title: "Menù e promo programmati", desc: "Cambiano da soli, all’orario che scegli.", proOnly: false },
         { title: "Import del menù da foto o PDF", desc: "Carichi quello che usi già: controlli e pubblichi.", proOnly: false },
-        { title: "Traduzione automatica in 5 lingue", desc: "Descrizioni tradotte, nomi dei piatti in italiano.", proOnly: false },
+        { title: "Traduzione automatica in oltre 30 lingue", desc: "Descrizioni tradotte, nomi dei piatti in italiano.", proOnly: false },
         { title: "Recensioni dal menù", desc: "Ogni giudizio arriva prima a te, e chi è contento lo lascia anche su Google.", proOnly: false },
         { title: "Più locali, stili, storie e team", desc: "Ogni locale con la sua veste, e accessi diversi per il personale.", proOnly: false },
         { title: "Analitiche su visite e piatti", desc: "Sai quando arrivano i clienti e cosa guardano nel menù.", proOnly: false },
@@ -494,7 +493,7 @@ export const PRICING = {
         { title: "Analitiche su ordini e incassi", desc: "Sai cosa ordinano e quanto incassi, piatto per piatto.", proOnly: true }
     ],
     proExtra: "+ Stampa automatica delle comande in cucina con stampante dedicata (opzionale, a parte).",
-    footnote: "Prezzi per locale, IVA inclusa. Dal secondo locale, −10% su ognuno. Nessun vincolo: disdici quando vuoi."
+    footnote: "Prezzi per locale. Nessun costo aggiuntivo al pagamento. Dal secondo locale, −10% su ognuno. Nessun vincolo: disdici quando vuoi."
 };
 
 // ── 8 · Il rischio: una telefonata ──────────────────────────────────────────
