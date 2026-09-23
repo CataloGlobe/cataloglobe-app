@@ -217,6 +217,23 @@ test.describe("Prenotazioni", () => {
         await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/prenotazioni$|\/locations$/, { timeout: 15_000 });
     });
 
+    test("gli ingressi di una sede portano alle Prenotazioni di quella sede", async ({ page }) => {
+        await openPrenotazioni(page);
+        const sede = page.url().replace(/\?.*$/, "");
+        const base = sede.replace(/\/locations\/.*$/, "");
+
+        // «Ordini e prenotazioni» della scheda: il rimando resta nella sede.
+        await page.goto(sede.replace(/\/prenotazioni$/, "/ordini-prenotazioni"));
+        await main(page).getByRole("link", { name: "Prenotazioni", exact: true }).click();
+        await expect(page).toHaveURL(sede, { timeout: 15_000 });
+
+        // Il menu della sede in Panoramica.
+        await page.goto(`${base}/overview`);
+        await main(page).getByRole("button", { name: /^Azioni per .*Garbagnate/ }).click();
+        await page.getByRole("menuitem", { name: "Prenotazioni", exact: true }).click();
+        await expect(page).toHaveURL(sede, { timeout: 15_000 });
+    });
+
     test("una sede che non esiste lo dice, invece di mostrare liste vuote", async ({ page }) => {
         await openPrenotazioni(page);
         await page.goto(page.url().replace(/\/locations\/[0-9a-f-]+\//, "/locations/00000000-0000-4000-8000-00000000dead/"));
