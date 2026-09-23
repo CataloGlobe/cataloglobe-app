@@ -40,41 +40,7 @@
   height: var(--control-height, 38px);
 }
 
-/* ── Today bar ─────────────────────────────────────────── */
-
-.todayBar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
-  background: color-mix(
-    in srgb,
-    var(--color-accent, #2563eb) 6%,
-    var(--color-surface, #ffffff)
-  );
-  border: 1px solid
-    color-mix(
-      in srgb,
-      var(--color-accent, #2563eb) 18%,
-      var(--color-border, #e5e7eb)
-    );
-  border-radius: 10px;
-  font-size: 14px;
-}
-
-.todayBarIcon {
-  flex-shrink: 0;
-  color: var(--color-accent, #2563eb);
-  display: inline-flex;
-}
-
-.todayBarText {
-  color: var(--color-text-primary, #111827);
-
-  strong {
-    font-weight: 600;
-  }
-}
+/* Separatore «·» delle meta (Servizio). */
 
 .todayBarSeparator {
   color: var(--color-text-muted, #6b7280);

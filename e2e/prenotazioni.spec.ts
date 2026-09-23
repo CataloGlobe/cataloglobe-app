@@ -60,14 +60,30 @@ test.beforeEach(async ({ page }) => {
 });
 
 test.describe("Prenotazioni", () => {
-    test("si apre dal contesto della sede, con la coda da gestire", async ({ page }) => {
+    test("si apre sull'Agenda, con la coda da gestire in cima e lo stato di oggi", async ({ page }) => {
         await openPrenotazioni(page);
 
-        // Tre richieste in attesa a Garbagnate: quella di Varedo non si conta.
-        await expect(page.getByRole("tab", { name: /^Da gestire\s*3$/ })).toBeVisible();
-        await expect(page.getByRole("tab", { name: "Agenda", exact: true })).toBeVisible();
+        // Due schede (passo 2 P5): il contatore delle richieste sta sull'Agenda.
+        // Tre in attesa a Garbagnate: quella di Varedo non si conta.
+        await expect(page.getByRole("tab", { name: /^Agenda\s*3$/ })).toHaveAttribute("aria-selected", "true");
         await expect(page.getByRole("tab", { name: "Servizio", exact: true })).toBeVisible();
+        await expect(page.getByRole("tab", { name: /Da gestire/ })).toHaveCount(0);
         await expect(page.getByRole("button", { name: "Nuova prenotazione" }).first()).toBeVisible();
+
+        // La coda è una card in cima all'Agenda.
+        await expect(main(page).getByText("Da gestire", { exact: true })).toBeVisible();
+        // Lo stato di oggi: 4 prenotazioni accettate, ~15 coperti, 3 da gestire.
+        const oggi = main(page).getByRole("status", { name: /arrivo|prenotazione oggi/ });
+        await expect(oggi).toContainText("Oggi");
+        await expect(oggi).toContainText("da gestire");
+        await expect(oggi).toContainText("~15");
+    });
+
+    test("un vecchio link a «Da gestire» apre l'Agenda", async ({ page }) => {
+        await openPrenotazioni(page);
+        await page.goto(page.url().replace(/\?.*$/, "") + "?tab=inbox");
+        await expect(page.getByRole("tab", { name: /^Agenda/ })).toHaveAttribute("aria-selected", "true");
+        await expect(main(page).getByText("Giulia Bianchi").first()).toBeVisible({ timeout: 15_000 });
     });
 
     test("«Da gestire»: le richieste della sede, le scadute a parte, le azioni in riga", async ({ page }) => {
@@ -124,7 +140,7 @@ test.describe("Prenotazioni", () => {
 
     test("Agenda: i giorni con le righe e lo stato, poi la settimana", async ({ page }) => {
         await openPrenotazioni(page);
-        await selectTab(page, /^Agenda$/);
+        await selectTab(page, /^Agenda/);
         const m = main(page);
 
         await expect(m.getByText("Oggi", { exact: true }).first()).toBeVisible();
@@ -161,11 +177,16 @@ test.describe("Prenotazioni", () => {
         await expect(m.getByText(/^1 prenotazione/)).toBeVisible({ timeout: 10_000 });
         await expect(m.getByRole("button", { name: /Marco Rossi/ })).toBeVisible();
         await expect(m.getByText("Giulia Bianchi")).toHaveCount(0);
+
+        // Il clic su una scheda chiude la ricerca e apre la scheda (§48.2/3).
+        await page.getByRole("tab", { name: "Servizio", exact: true }).click();
+        await expect(m.getByText(/in sala adesso/i)).toBeVisible();
+        await expect(m.getByText(/^1 prenotazione/)).toHaveCount(0);
     });
 
     test("dettaglio: il piede cambia con lo stato", async ({ page }) => {
         await openPrenotazioni(page);
-        await selectTab(page, /^Agenda$/);
+        await selectTab(page, /^Agenda/);
 
         await main(page).getByText("Sara Conti").first().click();
         const drawer = page.getByRole("dialog");
@@ -200,7 +221,7 @@ test.describe("Prenotazioni", () => {
 
     test("il filtro canale restringe l'agenda", async ({ page }) => {
         await openPrenotazioni(page);
-        await selectTab(page, /^Agenda$/);
+        await selectTab(page, /^Agenda/);
         const m = main(page);
 
         await page.getByRole("combobox", { name: "Filtra per canale" }).selectOption({ label: "Solo a mano" });

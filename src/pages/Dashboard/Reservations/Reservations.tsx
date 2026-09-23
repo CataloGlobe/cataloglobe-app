@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Clock, Lock, Plus, Store } from "lucide-react";
+import { Lock, Plus, Store } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -9,6 +9,9 @@ import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnActivity, canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { Card } from "@/components/ui/Card/Card";
+import { StatusStrip } from "@/components/ui/StatusStrip/StatusStrip";
 import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
 import type { SelectOption } from "@/components/ui/Select/Select";
@@ -92,7 +95,9 @@ import { useReservationsRealtime } from "./hooks/useReservationsRealtime";
 import { useSeatingsRealtime } from "./hooks/useSeatingsRealtime";
 import styles from "./Reservations.module.scss";
 
-type TabKey = "inbox" | "agenda" | "service";
+// Due schede (§14, passo 2): «Da gestire» sta in cima all'Agenda, non è più
+// una scheda. `?tab=inbox` dei vecchi link apre l'Agenda.
+type TabKey = "agenda" | "service";
 
 const SEARCH_PLACEHOLDER = "Cerca per nome o telefono…";
 const SEARCH_DEBOUNCE_MS = 300;
@@ -246,8 +251,7 @@ export default function Reservations() {
     const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
     const initialTab: TabKey = useMemo(() => {
-        const t = searchParams.get("tab");
-        return t === "agenda" || t === "service" ? t : "inbox";
+        return searchParams.get("tab") === "service" ? "service" : "agenda";
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     const [tab, setTab] = useState<TabKey>(initialTab);
@@ -283,6 +287,14 @@ export default function Reservations() {
     const [searchPage, setSearchPage] = useState<ReservationSearchPage | null>(null);
     const [isSearching, setIsSearching] = useState(false);
     const isSearchActive = parseSearchQuery(searchInput) !== null;
+
+    // Il clic su una scheda durante la ricerca chiude la ricerca e apre la
+    // scheda (§48.2/3): senza, il clic cambiava scheda sotto i risultati e
+    // non si vedeva niente.
+    const handleTabSelect = useCallback((next: TabKey) => {
+        setSearchInput("");
+        handleTabChange(next);
+    }, [handleTabChange]);
 
     // ── La finestra di caricamento ────────────────────────────────────────
     // FASE 5.2a: la pagina chiede al server solo le date che mostra. Le tre
@@ -696,23 +708,25 @@ export default function Reservations() {
     const headerLeading = useMemo(() => (
         <Tabs<TabKey>
             value={tab}
-            onChange={handleTabChange}
+            onChange={handleTabSelect}
             variant="line"
         >
             <Tabs.List>
+                {/* Il contatore delle richieste da gestire sta sull'Agenda, che
+                    le mostra in cima: dal Servizio si vede che qualcuno aspetta. */}
                 <Tabs.Tab
-                    value="inbox"
+                    value="agenda"
                     badge={pendingInScope.length > 0 ? pendingInScope.length : undefined}
+                    badgeTone="brand"
                 >
-                    Da gestire
+                    Agenda
                 </Tabs.Tab>
-                <Tabs.Tab value="agenda">Agenda</Tabs.Tab>
                 {/* "Servizio", non "Sala": Sala è dove i tavoli si definiscono
                     (tab della sede). Qui si dice cosa sta succedendo. */}
                 <Tabs.Tab value="service">Servizio</Tabs.Tab>
             </Tabs.List>
         </Tabs>
-    ), [tab, handleTabChange, pendingInScope.length]);
+    ), [tab, handleTabSelect, pendingInScope.length]);
 
     // Plan gate (computed early; the actual lock screen render is below,
     // after all hooks, to respect the Rules of Hooks).
@@ -727,16 +741,15 @@ export default function Reservations() {
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
         sections: [
             {
-                value: "inbox",
+                value: "agenda",
                 label: pendingInScope.length > 0
-                    ? `Da gestire · ${pendingInScope.length}`
-                    : "Da gestire"
+                    ? `Agenda · ${pendingInScope.length}`
+                    : "Agenda"
             },
-            { value: "agenda", label: "Agenda" },
             { value: "service", label: "Servizio" }
         ],
         activeSection: tab,
-        onSectionChange: value => handleTabChange(value as TabKey),
+        onSectionChange: value => handleTabSelect(value as TabKey),
         search: { value: searchInput, onChange: setSearchInput, placeholder: SEARCH_PLACEHOLDER },
         filterControls: [
             {
@@ -751,7 +764,7 @@ export default function Reservations() {
         primaryAction: canCreate
             ? { label: "Nuova prenotazione", onClick: handleOpenCreate }
             : undefined
-    }), [tab, handleTabChange, pendingInScope.length, channelFilter, canCreate, handleOpenCreate, searchInput]);
+    }), [tab, handleTabSelect, pendingInScope.length, channelFilter, canCreate, handleOpenCreate, searchInput]);
 
     const headerConfig = useMemo(
         () => isLocked
@@ -1591,33 +1604,26 @@ export default function Reservations() {
     return (
         <>
             <div className={styles.page}>
-                {/* ── Today bar ────────────────────────────────────────── */}
-                {todayItems.length > 0 && (
-                    <div className={styles.todayBar}>
-                        <span className={styles.todayBarIcon}>
-                            <Clock size={16} strokeWidth={2} />
-                        </span>
-                        <span className={styles.todayBarText}>
-                            <strong>Oggi</strong>
-                            <span className={styles.todayBarSeparator}> · </span>
-                            {todayItems.length}{" "}
-                            {todayItems.length === 1 ? "prenotazione" : "prenotazioni"}
-                            {todayCovers > 0 && (
-                                <>
-                                    <span className={styles.todayBarSeparator}> · </span>
-                                    ~{todayCovers} coperti
-                                </>
-                            )}
-                            {nextToday && (
-                                <>
-                                    <span className={styles.todayBarSeparator}> · </span>
-                                    prossima ore{" "}
-                                    <strong>{nextToday.reservation_time.slice(0, 5)}</strong>
-                                </>
-                            )}
-                        </span>
-                    </div>
-                )}
+                {/* ── Oggi ─────────────────────────────────────────────────
+                    In testa alle due schede e sopra la ricerca. Sempre: con
+                    zero richieste è lei a dire che non c'è niente da gestire
+                    (la coda, vuota, non si mostra). */}
+                <StatusStrip
+                    tone="neutral"
+                    badge="Oggi"
+                    title={
+                        nextToday
+                            ? `Prossimo arrivo alle ${nextToday.reservation_time.slice(0, 5)}`
+                            : todayItems.length > 0
+                              ? "Nessun altro arrivo oggi"
+                              : "Nessuna prenotazione oggi"
+                    }
+                    figures={[
+                        { value: todayItems.length, label: todayItems.length === 1 ? "prenotazione" : "prenotazioni" },
+                        { value: `~${todayCovers}`, label: "coperti" },
+                        { value: pendingInScope.length, label: "da gestire" }
+                    ]}
+                />
 
                 {/* Niente stato vuoto di pagina: la memoria contiene solo la
                     finestra mostrata, e una settimana vuota non è «nessuna
@@ -1630,25 +1636,36 @@ export default function Reservations() {
                         isSearching={isSearching}
                         onOpenDetail={handleOpenDetail}
                     />
-                ) : tab === "inbox" ? (
-                    <ReservationsInbox
-                        pendingItems={pendingInScope}
-                        truncated={pendingTruncated}
-                        tableViews={tableViews}
-                        canManageActivity={canManageActivity}
-                        onOpenDetail={handleOpenDetail}
-                        onAction={handleAction}
-                    />
                 ) : tab === "agenda" ? (
-                    <ReservationsAgenda
-                        items={scopedReservations}
-                        weekOffset={weekOffset}
-                        onWeekOffsetChange={setWeekOffset}
-                        tableViews={tableViews}
-                        canManage={scope !== null && canManageActivity(scope)}
-                        onReassignDay={handleReassignDay}
-                        onOpenDetail={handleOpenDetail}
-                    />
+                    <>
+                        {/* §14: le richieste in cima all'agenda, indipendenti
+                            dalla settimana scelta. Senza richieste la card non c'è. */}
+                        {pendingInScope.length > 0 && (
+                            <Card
+                                title="Da gestire"
+                                badge={<Badge variant="brand">{pendingInScope.length}</Badge>}
+                                flush
+                            >
+                                <ReservationsInbox
+                                    pendingItems={pendingInScope}
+                                    truncated={pendingTruncated}
+                                    tableViews={tableViews}
+                                    canManageActivity={canManageActivity}
+                                    onOpenDetail={handleOpenDetail}
+                                    onAction={handleAction}
+                                />
+                            </Card>
+                        )}
+                        <ReservationsAgenda
+                            items={scopedReservations}
+                            weekOffset={weekOffset}
+                            onWeekOffsetChange={setWeekOffset}
+                            tableViews={tableViews}
+                            canManage={scope !== null && canManageActivity(scope)}
+                            onReassignDay={handleReassignDay}
+                            onOpenDetail={handleOpenDetail}
+                        />
+                    </>
                 ) : (
                     <ReservationsService
                         board={serviceBoard}
