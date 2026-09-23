@@ -38,9 +38,15 @@ const DATE_FMT = new Intl.DateTimeFormat("it-IT", {
     year: "numeric"
 });
 
-function formatFullDate(isoDate: string): string {
+const SHORT_DATE_FMT = new Intl.DateTimeFormat("it-IT", {
+    day: "numeric",
+    month: "short",
+    year: "numeric"
+});
+
+function parseIso(isoDate: string): Date {
     const [y, m, d] = isoDate.split("-").map(n => parseInt(n, 10));
-    return DATE_FMT.format(new Date(y, (m ?? 1) - 1, d ?? 1));
+    return new Date(y, (m ?? 1) - 1, d ?? 1);
 }
 
 export default function ReservationsSearchResults({
@@ -57,11 +63,14 @@ export default function ReservationsSearchResults({
             // Data e ora in una cella: a 375 restano quando, chi e stato.
             cell: (_v, r) => (
                 <div className={DATA_TABLE_CLASSES.cellTwoLine}>
-                    <span>{formatFullDate(r.reservation_date)}</span>
+                    <span>
+                        <span className={styles.searchDateLong}>{DATE_FMT.format(parseIso(r.reservation_date))}</span>
+                        <span className={styles.searchDateShort}>{SHORT_DATE_FMT.format(parseIso(r.reservation_date))}</span>
+                    </span>
                     <span>{r.reservation_time.slice(0, 5)}</span>
                 </div>
             ),
-            width: "minmax(120px, 1fr)"
+            width: "minmax(108px, 1fr)"
         },
         {
             id: "name",
@@ -71,7 +80,9 @@ export default function ReservationsSearchResults({
             // tastiera il nome (la riga di DataTable non prende il focus).
             cell: (_v, r) => (
                 <span className={styles.searchName}>
-                    <ChannelMark source={r.source} variant="plain" />
+                    <span className={styles.searchChannel}>
+                        <ChannelMark source={r.source} variant="plain" />
+                    </span>
                     <button
                         type="button"
                         className={styles.searchNameButton}
@@ -81,7 +92,8 @@ export default function ReservationsSearchResults({
                     </button>
                 </span>
             ),
-            width: "minmax(120px, 1.6fr)"
+            // Il nome si accorcia con l'ellissi: lo stato deve stare intero.
+            width: "minmax(96px, 1.6fr)"
         },
         {
             id: "party",
@@ -106,7 +118,7 @@ export default function ReservationsSearchResults({
                 const badge = statusMeta(r.status);
                 return <StatusBadge variant={badge.variant} label={badge.label} />;
             },
-            width: "minmax(100px, 0.8fr)"
+            width: "minmax(120px, 0.8fr)"
         }
     ];
 

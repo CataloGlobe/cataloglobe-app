@@ -1,3 +1,5 @@
+@use "@styles/mixins" as *;
+
 // Prenotazioni — solo layout. Tipografia da `Text`, colori e misure dai token
 // (passo 2, P14): i contenitori sono Card, ListRow, DataTable, InlineBanner.
 
@@ -166,11 +168,12 @@
   color: var(--text);
 }
 
-/* Oggi: pieno, come il giorno selezionato di un calendario. */
+/* Oggi: la superficie tenue del brand, come la voce attiva della sidebar —
+   non il testo invertito, che in scuro diventava un blocco bianco. */
 .weekColHeaderToday {
-  background: var(--text);
-  border-color: var(--text);
-  color: var(--surface);
+  background: var(--brand-primary-soft);
+  border-color: var(--brand-primary);
+  color: var(--on-brand-soft);
 }
 
 .weekColLabel {
@@ -642,6 +645,32 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-12);
+}
+
+// Il segno del canale accanto al nome.
+.searchChannel {
+  display: inline-flex;
+}
+
+// La data dei risultati: con il giorno della settimana da 768 in su, corta
+// («23 set 2026») sul telefono, dove la colonna è stretta e la troncava.
+.searchDateShort {
+  display: none;
+}
+
+@include phone {
+  .searchDateLong {
+    display: none;
+  }
+
+  // Sul telefono il segno del canale lascia il posto al nome.
+  .searchChannel {
+    display: none;
+  }
+
+  .searchDateShort {
+    display: inline;
+  }
 }
 
 // Segno del canale + nome: il nome è il bottone che apre la riga da tastiera.
