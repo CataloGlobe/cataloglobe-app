@@ -123,7 +123,6 @@
   gap: 8px;
 }
 
-
 /* ── Reservation row ───────────────────────────────────── */
 
 .row {
@@ -311,39 +310,6 @@
   flex-wrap: wrap;
 }
 
-.agendaDisclaimer {
-  margin: 0;
-  padding: 0 2px;
-  font-size: 12px;
-  color: var(--color-text-muted, #6b7280);
-  font-style: italic;
-}
-
-.dayGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.dayHeader {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
-  padding: 0 2px;
-}
-
-.dayHeaderTitle {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text-primary, #111827);
-}
-
-.dayHeaderMeta {
-  font-size: 12px;
-  color: var(--color-text-muted, #6b7280);
-}
-
 /* Timeline rows */
 
 .timeline {
@@ -436,165 +402,26 @@
   color: var(--color-text-secondary, #4b5563);
 }
 
-/* ── Week navigator: unified bordered block ──────────────
-   [Oggi] · hairline · ◀ · date · ▶
-   The Today segment appears only when weekOffset !== 0, and the divider
-   sits ONLY after the Today segment so arrows hug the date label. */
-
+/* Barra dell'Agenda: la settimana (‹ intervallo › [Oggi]) a destra, il
+   filtro delle annullate in coda. Bottoni e interruttore sono di sistema. */
 .weekNav {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-4);
   margin-left: auto;
-  height: 34px;
-  padding: 2px;
-  background: var(--color-surface, #ffffff);
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
-  overflow: hidden;
-}
-
-/* Today segment — first child when present, ghost button inside the block. */
-.weekNavToday {
-  display: inline-flex;
-  align-items: center;
-  height: 100%;
-  padding: 0 12px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-primary, #111827);
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s ease;
-
-  &:hover {
-    background: color-mix(
-      in srgb,
-      var(--color-text-muted, #6b7280) 8%,
-      var(--color-surface, #ffffff)
-    );
-  }
-}
-
-/* Hairline divider between Today segment and arrows. */
-.weekNavDivider {
-  flex-shrink: 0;
-  width: 1px;
-  align-self: stretch;
-  margin: 4px 4px;
-  background: var(--color-border, #e5e7eb);
-}
-
-/* Ghost arrow buttons (no individual borders, hover bg only). */
-.weekNavArrow {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 100%;
-  padding: 0;
-  background: transparent;
-  border: none;
-  border-radius: 6px;
-  color: var(--color-text-secondary, #4b5563);
-  cursor: pointer;
-  font-family: inherit;
-  transition: background 0.15s ease, color 0.15s ease;
-
-  &:hover {
-    background: color-mix(
-      in srgb,
-      var(--color-text-muted, #6b7280) 8%,
-      var(--color-surface, #ffffff)
-    );
-    color: var(--color-text-primary, #111827);
-  }
 }
 
 .weekNavLabel {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   min-width: 110px;
-  padding: 0 6px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-primary, #111827);
+  text-align: center;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
 
-/* ── Annullate toggle: compact inline role="switch" ──────── */
-
-.agendaTerminalSwitch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13px;
-  color: var(--color-text-secondary, #4b5563);
-  cursor: pointer;
-  user-select: none;
-}
-
-/* Hide the native checkbox; visuals live on the track + thumb spans. */
-.agendaTerminalSwitchInput {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-  width: 0;
-  height: 0;
-  margin: 0;
-}
-
-.agendaTerminalSwitchTrack {
-  position: relative;
-  display: inline-block;
-  width: 32px;
-  height: 18px;
-  border-radius: 999px;
-  background: color-mix(
-    in srgb,
-    var(--color-text-muted, #6b7280) 25%,
-    var(--color-surface, #ffffff)
-  );
-  border: 1px solid var(--color-border, #e5e7eb);
-  flex-shrink: 0;
-  transition: background 0.15s ease, border-color 0.15s ease;
-}
-
-.agendaTerminalSwitchThumb {
-  position: absolute;
-  top: 1px;
-  left: 1px;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  background: #ffffff;
-  box-shadow: 0 1px 2px
-    color-mix(in srgb, var(--color-text-muted, #6b7280) 30%, transparent);
-  transition: transform 0.18s ease;
-}
-
-.agendaTerminalSwitchInput:checked + .agendaTerminalSwitchTrack {
-  background: var(--brand-primary, #6366f1);
-  border-color: var(--brand-primary, #6366f1);
-
-  .agendaTerminalSwitchThumb {
-    transform: translateX(14px);
-  }
-}
-
-.agendaTerminalSwitchInput:focus-visible + .agendaTerminalSwitchTrack {
-  box-shadow: 0 0 0 3px
-    color-mix(in srgb, var(--brand-primary, #6366f1) 24%, transparent);
-}
-
-.agendaTerminalSwitchLabel {
-  font-size: 13px;
-  color: var(--color-text-secondary, #4b5563);
-  line-height: 1;
+// Lo Switch vive in un FormField (larghezza piena): qui resta in riga.
+.agendaHeader > .agendaTerminalFilter {
+  flex: 0 0 auto;
+  width: auto;
 }
 
 /* ── Week GRID (7 colonne Lun→Dom) ──────────────────────── */
@@ -622,21 +449,21 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
-  padding: 8px 6px;
-  border: 1px solid var(--color-border, #e5e7eb);
-  border-radius: 8px;
-  background: var(--color-surface, #ffffff);
+  padding: var(--space-8) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
 }
 
+/* Oggi: pieno, come il giorno selezionato di un calendario. */
 .weekColHeaderToday {
-  background: var(--color-text-primary, #111827);
-  border-color: var(--color-text-primary, #111827);
-  color: #ffffff;
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--surface);
 }
 
 .weekColLabel {
-  font-size: 10px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: inherit;
@@ -644,50 +471,35 @@
 }
 
 .weekColNum {
-  font-size: 17px;
-  font-weight: 600;
   color: inherit;
   font-variant-numeric: tabular-nums;
 }
 
-.weekColBody {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  min-height: 80px;
-  padding: 4px 0;
-}
-
 .weekColEmpty {
-  font-size: 14px;
-  color: color-mix(in srgb, var(--color-text-muted, #6b7280) 60%, transparent);
   text-align: center;
-  padding-top: 12px;
+  padding-top: var(--space-12);
 }
 
 .weekChip {
   display: flex;
   flex-direction: column;
   gap: 1px;
-  padding: 6px 8px;
-  border-radius: 8px;
+  padding: var(--space-4) var(--space-8);
+  border-radius: var(--radius-control);
   border: 1px solid transparent;
   cursor: pointer;
   font-family: inherit;
   text-align: left;
-  font-size: 12px;
-  line-height: 1.25;
   min-width: 0;
-  transition:
-    filter 0.15s ease,
-    transform 0.1s ease;
+  transition: filter var(--timing-motion-fast) var(--easing-state);
 
   &:hover {
     filter: brightness(0.97);
   }
 
-  &:active {
-    transform: scale(0.98);
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
   }
 
   /* I toni sono le varianti di StatusBadge (`statusMeta`), con i suoi token:
@@ -707,23 +519,39 @@
     color: var(--gray-800);
   }
 
-  /* Solo annullate e rifiutate: l'interruttore «Annullate» le mostra sbiadite. */
+  /* Solo annullate e rifiutate: il filtro «Annullate» le mostra sbiadite. */
   &[data-dimmed] {
     opacity: 0.6;
   }
 }
 
 .weekChipTime {
-  font-weight: 700;
-  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-4);
+  color: inherit;
   font-variant-numeric: tabular-nums;
 }
 
+/* Il conflitto di tavolo si vede anche sulla chip (§18.3), non solo nel title. */
+.weekChipConflict {
+  flex-shrink: 0;
+  color: var(--text-warning);
+}
+
 .weekChipName {
-  font-weight: 500;
+  color: inherit;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.weekColBody {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 80px;
+  padding: 4px 0;
 }
 
 /* ── Drawer body ───────────────────────────────────────── */
@@ -1130,13 +958,6 @@
   display: flex;
   justify-content: flex-end;
   gap: 8px;
-}
-
-/* Bottone "Riorganizza i tavoli" nell'intestazione del giorno: agisce sul
-   giorno che sta sotto, quindi vive lì e non nell'header di pagina. */
-.dayHeaderAction {
-  margin-left: auto;
-  align-self: center;
 }
 
 .drawerTableList {

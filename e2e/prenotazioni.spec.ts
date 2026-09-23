@@ -195,9 +195,18 @@ test.describe("Prenotazioni", () => {
         await expect(m.getByText(/^(Completata|In attesa)$/)).toHaveCount(0);
         await expect(m.getByText("Ospite di Varedo")).toHaveCount(0);
 
-        // Le annullate stanno dietro il loro filtro; accese, sono spente ma si aprono.
+        // Il giorno dice quante non hanno tavolo, e offre di riorganizzarle.
+        await expect(m.getByText(/\d+ senza tavolo/).first()).toBeVisible();
+        await expect(m.getByRole("button", { name: "Riorganizza i tavoli" }).first()).toBeVisible();
+
+        // Le annullate stanno dietro il loro filtro, che dice quante sono;
+        // accese, sono spente ma si aprono.
+        const filter = m.getByRole("switch", { name: /annullate/i });
+        await expect(filter).not.toBeChecked();
         await expect(m.getByText("Carla Fumagalli")).toHaveCount(0);
-        await m.getByText("Annullate", { exact: true }).click();
+        // L'input dello Switch sta sotto la sua etichetta: si preme l'etichetta.
+        await m.getByText("Annullate · 1").click();
+        await expect(filter).toBeChecked();
         await m.getByRole("button", { name: /Carla Fumagalli/ }).first().click();
         await expect(page.getByRole("dialog")).toContainText("Annullata");
         await page.getByRole("dialog").getByRole("button", { name: "Chiudi" }).first().click();
