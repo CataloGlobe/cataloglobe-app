@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { type HTMLAttributes, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
@@ -12,6 +12,7 @@ import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
@@ -31,7 +32,7 @@ import {
     verticalListSortingStrategy,
     arrayMove
 } from "@dnd-kit/sortable";
-import { IconGripVertical, IconPhoto, IconChevronDown, IconChevronRight, IconArrowLeft, IconPlus } from "@tabler/icons-react";
+import { IconGripVertical, IconChevronDown, IconChevronRight, IconArrowLeft, IconPlus } from "@tabler/icons-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -346,9 +347,6 @@ export default function CatalogEngine() {
     const [isSavingEditProduct, setIsSavingEditProduct] = useState(false);
 
     // Main-table edit/remove state
-    const [mainEditProduct, setMainEditProduct] = useState<V2Product | null>(null);
-    const [isSavingMainEdit, setIsSavingMainEdit] = useState(false);
-    const [productToRemoveFromCategory, setProductToRemoveFromCategory] = useState<ProductRow | null>(null);
 
     const [isSavingCategory, setIsSavingCategory] = useState(false);
     const [categoryToDelete, setCategoryToDelete] = useState<V2CatalogCategory | null>(null);
@@ -1340,27 +1338,19 @@ export default function CatalogEngine() {
         setIsEditingReadOnly(false);
     }, []);
 
-    const handleMainEditSuccess = useCallback((updatedProduct?: V2Product) => {
-        if (updatedProduct) {
-            setAllProducts(prev =>
-                prev.map(p => p.id === updatedProduct.id ? { ...p, ...updatedProduct } : p)
-            );
-        }
-        setMainEditProduct(null);
-    }, []);
-
-    const handleRemoveFromCategory = useCallback(() => {
-        if (!productToRemoveFromCategory) return;
-        setCategoryProducts(prev =>
-            prev.filter(cp => cp.id !== productToRemoveFromCategory.linkId)
-        );
-        setIsDirty(true);
-        showToast({
-            message: `"${productToRemoveFromCategory.name}" rimosso dalla categoria.`,
-            type: "success"
-        });
-        setProductToRemoveFromCategory(null);
-    }, [productToRemoveFromCategory, showToast]);
+    // «Togli da qui» (§23.3): in bozza, quindi senza conferma — si ritira con
+    // «Annulla». Il prodotto resta nell'azienda e negli altri menù.
+    const handleRemoveFromCategory = useCallback(
+        (row: ProductRow) => {
+            setCategoryProducts(prev => prev.filter(cp => cp.id !== row.linkId));
+            setIsDirty(true);
+            showToast({
+                message: `«${row.name}» tolto da ${selectedCategory?.name ?? "qui"}. Si pubblica con Salva.`,
+                type: "success"
+            });
+        },
+        [selectedCategory, showToast]
+    );
 
     const handleProductCreated = useCallback(
         (createdProduct?: V2Product) => {
@@ -1437,21 +1427,20 @@ export default function CatalogEngine() {
         return () => clearTimeout(timer);
     }, [newlyAddedProductId]);
 
-    // Scroll newly added product row into view
-    useEffect(() => {
-        if (!newlyAddedProductId) return;
-        requestAnimationFrame(() => {
-            const el = productListRef.current?.querySelector(`.${styles.rowNewlyAdded}`);
-            el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        });
-    }, [newlyAddedProductId]);
-
-    const handleBulkRemoveSelected = useCallback((selectedIds: string[]) => {
-        if (selectedIds.length === 0) return;
-        const idsSet = new Set(selectedIds);
-        setCategoryProducts(prev => prev.filter(link => !idsSet.has(link.id)));
-        setIsDirty(true);
-    }, []);
+    const handleBulkRemoveSelected = useCallback(
+        (selectedIds: string[]) => {
+            if (selectedIds.length === 0) return;
+            const idsSet = new Set(selectedIds);
+            setCategoryProducts(prev => prev.filter(link => !idsSet.has(link.id)));
+            setIsDirty(true);
+            const n = selectedIds.length;
+            showToast({
+                message: `${n} ${n === 1 ? "tolto" : "tolti"} da ${selectedCategory?.name ?? "qui"}. Si ${n === 1 ? "pubblica" : "pubblicano"} con Salva.`,
+                type: "success"
+            });
+        },
+        [selectedCategory, showToast]
+    );
 
     const handleCancelChanges = useCallback(() => {
         setCategories(originalCategories);
@@ -1576,114 +1565,118 @@ export default function CatalogEngine() {
         compact: headerCompact
     });
 
+    const productLower = productLabel.toLowerCase();
+
+    const openProductPage = useCallback(
+        (productId: string) =>
+            window.open(`/business/${currentTenantId}/products/${productId}`, "_blank", "noopener,noreferrer"),
+        [currentTenantId]
+    );
+
+    const toggleVariants = useCallback((productId: string) => {
+        setExpandedProductGroupIds(prev => {
+            const next = new Set(prev);
+            if (next.has(productId)) next.delete(productId);
+            else next.add(productId);
+            return next;
+        });
+    }, []);
+
+    // La riga del prodotto (passo 2 P6): alta 56 come le righe di sistema, il
+    // prezzo in riga anche sul telefono. La foto era un segnaposto sempre
+    // uguale (#270): esce. Il prodotto si modifica nella sua pagina (§49.1/3).
+    // Il rientro del chevron serve solo se nella categoria c'è un prodotto con
+    // varianti: altrimenti sul telefono sono 20 px tolti al nome.
+    const hasVariantGroups = useMemo(() => productRows.some(row => row.hasVariants), [productRows]);
+
     const columns = useMemo<ColumnDefinition<ProductRow>[]>(
         () => [
-            ...(canWrite ? [{
-                id: "drag",
-                header: "",
-                width: "50px",
-                align: "center",
-                cell: (_value: unknown, _row: ProductRow, _rowIndex: number, dragHandleProps?: any) => (
-                    <span className={styles.dragCell} {...dragHandleProps}>
-                        <IconGripVertical size={16} />
-                    </span>
-                )
-            } as ColumnDefinition<ProductRow>] : []),
-            {
-                id: "photo",
-                header: "Foto",
-                width: "78px",
-                align: "center",
-                // Un segnaposto (#270, esce a P6): sul telefono il nome viene prima.
-                hideOnPhone: true,
-                cell: () => (
-                    <span className={styles.productThumb}>
-                        <IconPhoto size={16} />
-                    </span>
-                )
-            },
+            ...(canWrite
+                ? [
+                      {
+                          id: "drag",
+                          header: "",
+                          width: "32px",
+                          align: "center",
+                          cell: (_value: unknown, _row: ProductRow, _rowIndex: number, dragHandleProps?: unknown) => (
+                              <span className={styles.dragCell} {...(dragHandleProps as HTMLAttributes<HTMLSpanElement>)}>
+                                  <IconGripVertical size={16} />
+                              </span>
+                          )
+                      } as ColumnDefinition<ProductRow>
+                  ]
+                : []),
             {
                 id: "name",
-                header: "Nome prodotto",
-                width: "2fr",
-                cell: (_value, row) => (
-                    <div
-                        className={styles.productNameCell}
-                        style={row.isGroupChild ? { paddingLeft: 20 } : undefined}
-                    >
-                        <div className={styles.productNameRow}>
-                            {!row.isVariant && row.hasVariants ? (
-                                <button
-                                    type="button"
-                                    className={styles.productExpandBtn}
-                                    onClick={e => {
-                                        e.stopPropagation();
-                                        setExpandedProductGroupIds(prev => {
-                                            const next = new Set(prev);
-                                            if (next.has(row.productId)) next.delete(row.productId);
-                                            else next.add(row.productId);
-                                            return next;
-                                        });
-                                    }}
-                                >
-                                    {expandedProductGroupIds.has(row.productId)
-                                        ? <IconChevronDown size={14} />
-                                        : <IconChevronRight size={14} />}
-                                </button>
-                            ) : (
-                                <span className={styles.productExpandSpacer} />
+                header: "Nome",
+                width: "minmax(0, 1fr)",
+                cell: (_value, row) => {
+                    const expanded = expandedProductGroupIds.has(row.productId);
+                    return (
+                        <div className={`${styles.productNameCell} ${row.isGroupChild ? styles.productVariant : ""}`}>
+                            <div className={styles.productNameRow}>
+                                {!row.isVariant && row.hasVariants ? (
+                                    <button
+                                        type="button"
+                                        className={styles.productExpandBtn}
+                                        aria-expanded={expanded}
+                                        aria-label={`${expanded ? "Nascondi" : "Mostra"} le varianti di ${row.name}`}
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            toggleVariants(row.productId);
+                                        }}
+                                    >
+                                        {expanded ? <IconChevronDown size={14} /> : <IconChevronRight size={14} />}
+                                    </button>
+                                ) : hasVariantGroups ? (
+                                    <span className={styles.productExpandSpacer} aria-hidden="true" />
+                                ) : null}
+                                <Text variant="body-sm" weight={600} className={styles.productNameMain}>
+                                    {row.name}
+                                </Text>
+                            </div>
+                            {(row.isVariant || !row.hasPrice || row.sku) && (
+                                <div className={`${styles.productMeta} ${hasVariantGroups ? styles.productMetaIndented : ""}`}>
+                                    {row.isVariant && <Badge variant="neutral">Variante</Badge>}
+                                    {!row.hasPrice && <StatusBadge variant="warning" label="Senza prezzo" />}
+                                    {row.sku && (
+                                        <Text variant="caption" colorVariant="muted">
+                                            {row.sku}
+                                        </Text>
+                                    )}
+                                </div>
                             )}
-                            <Text variant="body-sm" weight={600} className={styles.productNameMain}>
-                                {row.name}
-                            </Text>
-                            {row.isVariant && <Badge variant="secondary">Variante</Badge>}
-                            {!row.hasPrice && <Badge variant="warning">Senza prezzo</Badge>}
                         </div>
-                        {row.sku && (
-                            <Text variant="caption" className={styles.productSku}>
-                                {row.sku}
-                            </Text>
-                        )}
-                    </div>
-                )
+                    );
+                }
             },
             {
                 id: "price",
                 header: "Prezzo",
-                width: "0.9fr",
+                // Largo quanto il prezzo più lungo («da €12.50»), non una frazione.
+                width: "max-content",
+                align: "right",
                 accessor: row => row.id,
-                cell: (_value, row) => <Text variant="body-sm">{getDisplayPrice({ base_price: row.price, from_price: row.from_price }).label}</Text>
+                cell: (_value, row) => (
+                    <Text variant="body-sm" className={styles.price}>
+                        {getDisplayPrice({ base_price: row.price, from_price: row.from_price }).label}
+                    </Text>
+                )
             },
             {
                 id: "actions",
                 header: "",
-                width: "56px",
+                width: "44px",
                 align: "right",
                 cell: (_value, row) => (
                     <TableRowActions
+                        ariaLabel={`Azioni ${row.name}`}
                         actions={[
+                            { label: `Apri il ${productLower}`, onClick: () => openProductPage(row.productId) },
                             {
-                                label: "Modifica",
+                                label: "Togli da qui",
                                 hidden: !canWrite,
-                                onClick: () => {
-                                    const product =
-                                        allProducts.find(p => p.id === row.productId) ?? null;
-                                    setMainEditProduct(product);
-                                }
-                            },
-                            {
-                                label: "Apri in Piatti",
-                                onClick: () =>
-                                    window.open(
-                                        `/business/${currentTenantId}/products/${row.productId}`,
-                                        "_blank",
-                                        "noopener,noreferrer"
-                                    )
-                            },
-                            {
-                                label: "Rimuovi dalla categoria",
-                                hidden: !canWrite,
-                                onClick: () => setProductToRemoveFromCategory(row),
+                                onClick: () => handleRemoveFromCategory(row),
                                 variant: "destructive",
                                 separator: true
                             }
@@ -1692,7 +1685,7 @@ export default function CatalogEngine() {
                 )
             }
         ],
-        [allProducts, canWrite, currentTenantId, expandedProductGroupIds]
+        [canWrite, expandedProductGroupIds, handleRemoveFromCategory, hasVariantGroups, openProductPage, productLower, toggleVariants]
     );
 
     const assignColumns = useMemo<ColumnDefinition<V2Product>[]>(() => {
@@ -1761,13 +1754,8 @@ export default function CatalogEngine() {
                                         }
                                     },
                                 {
-                                    label: "Apri in Piatti",
-                                    onClick: () =>
-                                        window.open(
-                                            `/business/${currentTenantId}/products/${row.id}`,
-                                            "_blank",
-                                            "noopener,noreferrer"
-                                        )
+                                    label: `Apri il ${productLower}`,
+                                    onClick: () => openProductPage(row.id)
                                 }
                             ]}
                         />
@@ -1777,7 +1765,8 @@ export default function CatalogEngine() {
         ];
     }, [
         inheritedProductIds,
-        currentTenantId,
+        openProductPage,
+        productLower,
         formatPriceByProductId,
         formatsCountByProductId
     ]);
@@ -1870,7 +1859,7 @@ export default function CatalogEngine() {
                             value={productSearch}
                             onChange={event => setProductSearch(event.target.value)}
                             onClear={() => setProductSearch("")}
-                            placeholder="Cerca prodotto..."
+                            placeholder="Cerca per nome o codice…"
                         />
                         <div ref={productListRef} className={styles.tableCard}>
                             <DndContext
@@ -1887,11 +1876,18 @@ export default function CatalogEngine() {
                                         columns={columns}
                                         selectable={canWrite}
                                         onBulkDelete={canWrite ? handleBulkRemoveSelected : undefined}
+                                        bulkActionLabel="Togli da qui"
                                         pageSize={isStacked ? 25 : undefined}
+                                        isFiltered={productSearch.trim().length > 0}
+                                        onClearFilters={() => setProductSearch("")}
                                         emptyState={{
-                                            title: productSearch.trim()
-                                                ? "Nessun prodotto corrisponde al filtro."
-                                                : "Nessun prodotto associato a questa categoria."
+                                            title: `Nessun ${productLower} in ${selectedCategory.name}`,
+                                            description: `Una ${categoryLower} vuota non compare ai clienti. Resta qui finché la costruisci.`,
+                                            action: canWrite ? (
+                                                <Button variant="secondary" size="sm" onClick={openAddProductDrawer}>
+                                                    {`Aggiungi ${productLabelPlural.toLowerCase()}`}
+                                                </Button>
+                                            ) : undefined
                                         }}
                                         highlightedRowIds={
                                             newlyAddedProductId
@@ -2344,107 +2340,6 @@ export default function CatalogEngine() {
                 </DrawerLayout>
             </SystemDrawer>
 
-            {/* ── Modifica prodotto dalla tabella principale ─────────────── */}
-            <SystemDrawer
-                open={Boolean(mainEditProduct)}
-                onClose={() => setMainEditProduct(null)}
-                width={520}
-            >
-                <DrawerLayout
-                    header={
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-                            <div>
-                                <Text variant="title-sm" weight={700}>
-                                    Modifica prodotto
-                                </Text>
-                                <Text variant="caption" colorVariant="muted">
-                                    {mainEditProduct?.name}
-                                </Text>
-                            </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() =>
-                                    window.open(
-                                        `/business/${currentTenantId}/products/${mainEditProduct?.id}`,
-                                        "_blank"
-                                    )
-                                }
-                            >
-                                Apri in Piatti →
-                            </Button>
-                        </div>
-                    }
-                    footer={
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setMainEditProduct(null)}
-                                disabled={isSavingMainEdit}
-                            >
-                                Annulla
-                            </Button>
-                            <Button
-                                variant="primary"
-                                type="submit"
-                                form="product-form-main-edit"
-                                loading={isSavingMainEdit}
-                                disabled={isSavingMainEdit}
-                            >
-                                Salva modifiche
-                            </Button>
-                        </>
-                    }
-                >
-                    {mainEditProduct && (
-                        <ProductForm
-                            formId="product-form-main-edit"
-                            mode="edit"
-                            productData={mainEditProduct}
-                            parentProduct={null}
-                            tenantId={currentTenantId ?? null}
-                            onSuccess={handleMainEditSuccess}
-                            onSavingChange={setIsSavingMainEdit}
-                        />
-                    )}
-                </DrawerLayout>
-            </SystemDrawer>
-
-            {/* ── Conferma rimozione prodotto dalla categoria ────────────── */}
-            <SystemDrawer
-                open={Boolean(productToRemoveFromCategory)}
-                onClose={() => setProductToRemoveFromCategory(null)}
-                width={420}
-            >
-                <DrawerLayout
-                    header={
-                        <Text variant="title-sm" weight={700}>
-                            Rimuovi dalla categoria
-                        </Text>
-                    }
-                    footer={
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setProductToRemoveFromCategory(null)}
-                            >
-                                Annulla
-                            </Button>
-                            <Button variant="danger" onClick={handleRemoveFromCategory}>
-                                Rimuovi
-                            </Button>
-                        </>
-                    }
-                >
-                    <div className={styles.deleteWarning}>
-                        <Text variant="body-sm">
-                            Vuoi rimuovere "<strong>{productToRemoveFromCategory?.name}</strong>" dalla
-                            categoria "<strong>{selectedCategory?.name}</strong>"?{" "}
-                            Il prodotto non verrà eliminato dal sistema.
-                        </Text>
-                    </div>
-                </DrawerLayout>
-            </SystemDrawer>
         </section>
     );
 }

@@ -318,6 +318,32 @@ test.describe("Menù — dettaglio", () => {
         await expect(main(page).getByText("Bruschetta", { exact: true })).toHaveCount(0);
     });
 
+    test("varianti sotto il loro prodotto, vuoto con l'azione, togliere più prodotti", async ({ page }) => {
+        await openCarta(page);
+        await selectCategory(page, "Pizze");
+        await expect(main(page).getByText("Margherita baby")).toHaveCount(0);
+        const toggle = main(page).getByRole("button", { name: "Mostra le varianti di Margherita", exact: true });
+        await expect(toggle).toHaveAttribute("aria-expanded", "false");
+        await toggle.click();
+        await expect(main(page).getByText("Margherita baby")).toBeVisible();
+        await expect(main(page).getByText("Variante").first()).toBeVisible();
+        await expect(main(page).getByRole("button", { name: "Nascondi le varianti di Margherita", exact: true })).toHaveAttribute("aria-expanded", "true");
+
+        // Togliere più prodotti: in bozza, e un toast lo dice.
+        await checkboxOf(main(page).getByText("Diavola", { exact: true })).check();
+        await checkboxOf(main(page).getByText("Marinara", { exact: true })).check();
+        await page.getByRole("toolbar", { name: "Azioni sulla selezione" }).getByRole("button", { name: /Togli da qui/ }).click();
+        await expect(main(page).getByText("Diavola", { exact: true })).toHaveCount(0);
+        await expect(page.getByText(/2 tolti da Pizze\. Si pubblicano con Salva\./)).toBeVisible();
+        expect(stub.writes.filter(w => w.key === "catalog_category_products.DELETE")).toHaveLength(0);
+
+        // Una portata vuota lo dice e porta ad aggiungere.
+        await selectCategory(page, "Dessert");
+        await expect(main(page).getByText("Nessun prodotto in Dessert")).toBeVisible();
+        await expect(main(page).getByText(/non compare ai clienti/)).toBeVisible();
+        await expect(main(page).getByRole("button", { name: "Aggiungi prodotti" })).toHaveCount(2);
+    });
+
     test("bozza: rinomina, Annulla ripristina, Salva manda il PATCH del nome", async ({ page }) => {
         stub.onWrite("catalog_categories.PATCH", ({ body }) => ({ id: CAT.antipasti, catalog_id: MENU.carta, level: 1, parent_category_id: null, sort_order: 0, created_at: new Date().toISOString(), ...(body as object) }));
         await openCarta(page);

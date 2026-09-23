@@ -239,44 +239,81 @@
   min-height: 0;
 }
 
+
+
+
+
+
+// ── Riga del prodotto (passo 2 P6) ─────────────────────────────────────
 .productNameCell {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
+}
+
+// Una variante sotto il suo prodotto: rientrata di un chevron.
+.productVariant {
+  padding-left: var(--space-20);
 }
 
 .productNameRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-4);
   min-width: 0;
 }
 
 .productNameMain {
-  white-space: nowrap;
+  min-width: 0;
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
 }
 
-.productSku {
-  color: var(--color-gray-500, #64748b);
+// Segni e codice sotto il nome, allineati al testo e non al chevron.
+.productMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
 }
 
-.productThumb {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-sm, 8px);
-  border: 1px solid var(--color-gray-200, #e2e8f0);
-  background: #f8fafc;
-  color: var(--color-gray-400, #94a3b8);
+.productMetaIndented {
+  padding-left: var(--space-20);
+}
+
+.productExpandBtn,
+.productExpandSpacer {
+  flex: 0 0 auto;
+  width: var(--space-16);
+  height: var(--space-16);
+}
+
+.productExpandBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-inner);
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+  }
+}
+
+.price {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
 .dragCell {
-  color: var(--color-gray-400, #94a3b8);
+  color: var(--text-muted);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -348,22 +385,7 @@
   }
 }
 
-.productExpandBtn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px;
-  color: var(--color-gray-500);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
 
-.productExpandSpacer {
-  width: 18px;
-  flex-shrink: 0;
-}
 
 .assignNameCell {
   font-size: 14px;
@@ -447,7 +469,6 @@
   }
 }
 
-/* ── Newly-added product row: flash highlight then fade ──────────────────── */
 @keyframes rowFlash {
   0% {
     background-color: rgba(99, 102, 241, 0.12);
@@ -459,9 +480,6 @@
   }
 }
 
-.rowNewlyAdded {
-  animation: rowFlash 2s ease-out forwards;
-}
 
 /* ── "Crea e configura" + "Crea e associa" side-by-side ──────────────────── */
 .newProductActions {
