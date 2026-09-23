@@ -109,6 +109,9 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     // duplicate tenants. This ref blocks re-entry within the same tick.
     const inFlightRef = useRef(false);
     const [submitError, setSubmitError] = useState<string | null>(null);
+    // P.IVA rifiutata lato server nonostante il check FE: mostrata sul campo
+    // del passo Fatturazione, azzerata alla prima modifica del valore.
+    const [vatServerError, setVatServerError] = useState<string | null>(null);
     const [promoError, setPromoError] = useState<string | null>(null);
     const [showCloseConfirm, setShowCloseConfirm] = useState(false);
 
@@ -315,6 +318,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
     const canProceedFromStepBilling = useMemo(() => {
         if (!billingAddressComplete) return false;
         if (!billingLengthsOk) return false;
+        if (vatServerError) return false;
 
         const vatFilled = vatNumber.trim().length > 0;
         const cfFilled = fiscalCode.trim().length > 0;
@@ -346,7 +350,7 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             default:
                 return false;
         }
-    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, codiceDestinatario, pec, billingAddressComplete, billingLengthsOk]);
+    }, [entityType, vatNumber, fiscalCode, legalName, firstName, lastName, codiceDestinatario, pec, billingAddressComplete, billingLengthsOk, vatServerError]);
 
     const isDirty = resumeMode
         ? (
@@ -475,7 +479,12 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
 
                 // Persist billing only when it was missing and is now collected.
                 if (resumeNeedsBilling) {
-                    await updateTenantBillingDetails(tenantId, buildBillingPayload());
+                    try {
+                        await updateTenantBillingDetails(tenantId, buildBillingPayload());
+                    } catch (billingErr) {
+                        if (isVatRejection(billingErr)) throw namedError("invalid_vat_number");
+                        throw billingErr;
+                    }
                 }
             } else {
                 // Idempotency key: one per create-wizard session, generated lazily
@@ -488,6 +497,9 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                     localStorage.setItem(IDEM_KEY_STORAGE, idempotencyKey);
                 }
 
+                // TODO(debito): insert diretto da componente, viola il service
+                // layer (CLAUDE.md). Da spostare in createTenant() in
+                // src/services/supabase/tenants.ts, che traduca lì 23505/23514.
                 const { data: tenantRow, error: insertError } = await supabase
                     .from("tenants")
                     .insert({
@@ -517,6 +529,10 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
 
                         if (recoverError || !existing) throw insertError;
                         tenantId = existing.id as string;
+                    } else if (isVatRejection(insertError)) {
+                        // 23514 dal CHECK tenants_vat_number_valid: il check FE
+                        // è stato aggirato o diverge da is_valid_partita_iva.
+                        throw namedError("invalid_vat_number");
                     } else {
                         throw insertError;
                     }
@@ -591,6 +607,15 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
             if (code === "promo_code_invalid") {
                 setPromoError("Codice promozionale non valido. Verifica e riprova.");
                 setShowPromoInput(true);
+            } else if (code === "invalid_vat_number" && (!resumeMode || resumeNeedsBilling)) {
+                // Stesso esito dal CHECK, dalla RPC o dal gate di stripe-checkout:
+                // l'errore va sul campo, quindi si torna al passo Fatturazione.
+                // Solo se quel passo fa parte del flusso: in ripresa senza
+                // Fatturazione i dati non verrebbero salvati, resta il messaggio
+                // generico che rimanda alle impostazioni.
+                setVatServerError("Partita IVA non valida. Controlla le 11 cifre.");
+                setSubmitError(null);
+                setStep(3);
             } else if (code === "subscription_already_active" && tenantId !== null) {
                 // The guard found a live subscription our row does not know
                 // about (paid, tab closed, webhook lost). Adopt it and enter the
@@ -671,7 +696,11 @@ export function CreateBusinessWizard({ open, onClose, mode = "create", existingT
                         legalName={legalName}
                         onLegalNameChange={setLegalName}
                         vatNumber={vatNumber}
-                        onVatNumberChange={setVatNumber}
+                        onVatNumberChange={value => {
+                            setVatNumber(value);
+                            setVatServerError(null);
+                        }}
+                        vatServerError={vatServerError}
                         fiscalCode={fiscalCode}
                         onFiscalCodeChange={setFiscalCode}
                         firstName={firstName}
@@ -886,6 +915,25 @@ function tenantHasFiscalData(t: V2Tenant): boolean {
         default:
             return false;
     }
+}
+
+function namedError(code: string): Error {
+    const err = new Error(code);
+    err.name = code;
+    return err;
+}
+
+// P.IVA rifiutata dal DB: 23514 dal CHECK tenants_vat_number_valid (insert
+// diretto) o 22023 invalid_vat_number dalla RPC update_tenant_billing_details.
+// Match sul nome del vincolo: tenants ha altri CHECK che non riguardano la P.IVA.
+function isVatRejection(err: unknown): boolean {
+    if (typeof err !== "object" || err === null) return false;
+    const { code, message } = err as { code?: unknown; message?: unknown };
+    const msg = typeof message === "string" ? message : "";
+    return (
+        (code === "23514" && msg.includes("tenants_vat_number_valid")) ||
+        (code === "22023" && msg.includes("invalid_vat_number"))
+    );
 }
 
 function friendlyErrorMessage(code: string): string {

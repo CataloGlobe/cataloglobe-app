@@ -1,9 +1,11 @@
 // =============================================================================
 // ⚠️ SYNC — mirror di src/utils/fiscalValidators.ts (stessa logica, stesso
 // check digit). Il check-digit P.IVA esiste in 3 posti: questi due file .ts +
-// la RPC update_tenant_billing_details (migration 20260920120000_...validate_vat.sql).
+// la funzione SQL public.is_valid_partita_iva (migration
+// 20260923120000_is_valid_partita_iva.sql), usata dal CHECK
+// tenants_vat_number_valid e dalla RPC update_tenant_billing_details.
 // Cambiando l'algoritmo, aggiorna i due .ts nello stesso commit e aggiungi una
-// NUOVA migration per la RPC. Qui vive solo la validazione P.IVA (gate
+// NUOVA migration per la funzione SQL. Qui vive solo la validazione P.IVA (gate
 // server-side di stripe-checkout); il codice fiscale resta lato FE.
 //
 // fiscalValidators — format-only checks for Italian fiscal identifiers.
