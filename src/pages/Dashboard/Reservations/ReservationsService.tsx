@@ -230,9 +230,16 @@ export default function ReservationsService({
                         )}
                         {conflicts.length > 0 && (
                             // Ambra, non rosso: chiede un'azione adesso (§18.1).
-                            <Badge variant="warning">
-                                <TriangleAlert size={12} strokeWidth={2.25} aria-hidden /> {conflictText}
-                            </Badge>
+                            // Il badge dice dove («Conflitto · Tavolo 12»); chi
+                            // altro occupa il tavolo sta nel title e nel testo
+                            // per lo screen reader — per intero non ci sta.
+                            <span title={conflictText}>
+                                <Badge variant="warning">
+                                    <TriangleAlert size={12} strokeWidth={2.25} aria-hidden /> Conflitto ·{" "}
+                                    {formatTableLabels(conflicts.map(c => c.label))}
+                                </Badge>
+                                <span className={styles.srOnly}>{conflictText}</span>
+                            </span>
                         )}
                         {/* Per un walk-in i tavoli sono già il titolo. */}
                         {!isWalkin && (

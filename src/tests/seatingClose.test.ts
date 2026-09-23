@@ -63,7 +63,7 @@ describe("i testi della domanda — numeri dal dato, singolare e plurale", () =>
     });
 
     it("la riga nella lista è un frammento, senza punto", () => {
-        expect(formatPendingOrdersRow(1)).toBe("1 ordine ancora aperto");
-        expect(formatPendingOrdersRow(4)).toBe("4 ordini ancora aperti");
+        expect(formatPendingOrdersRow(1)).toBe("1 ordine aperto");
+        expect(formatPendingOrdersRow(4)).toBe("4 ordini aperti");
     });
 });
