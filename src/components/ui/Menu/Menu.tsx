@@ -1,5 +1,6 @@
 import React, { type ReactNode } from "react";
 import * as RadixDropdownMenu from "@radix-ui/react-dropdown-menu";
+import Text from "@/components/ui/Text/Text";
 import styles from "./Menu.module.scss";
 
 type MenuAlign = "start" | "end";
@@ -38,6 +39,12 @@ interface MenuItemProps {
     onSelect?: () => void;
     disabled?: boolean;
     /**
+     * Sotto-testo `caption` sotto l'etichetta (scheda «Menu», anatomia). Per
+     * una voce spenta è il perché: un tooltip non si legge sul telefono e non
+     * deve essere l'unico posto di un'informazione necessaria.
+     */
+    description?: string;
+    /**
      * Voce che porta altrove invece di eseguire qualcosa: rende un `<a>` vero,
      * così restano il middle-click, "apri in nuova scheda" e l'anteprima
      * dell'URL — un `window.open()` in `onSelect` li perderebbe tutti.
@@ -52,14 +59,22 @@ function MenuItem({
     variant = "default",
     onSelect,
     disabled,
+    description,
     href,
     target
 }: MenuItemProps) {
-    const className = `${styles.item}${variant === "destructive" ? ` ${styles.danger}` : variant === "accent" ? ` ${styles.accent}` : ""}`;
+    const className = `${styles.item}${variant === "destructive" ? ` ${styles.danger}` : variant === "accent" ? ` ${styles.accent}` : ""}${description ? ` ${styles.withDescription}` : ""}`;
     const content = (
         <>
             {Icon && <Icon size={16} />}
-            <span className={styles.itemLabel}>{children}</span>
+            <span className={styles.itemLabel}>
+                {children}
+                {description && (
+                    <Text as="span" variant="caption" colorVariant="muted" className={styles.itemDescription}>
+                        {description}
+                    </Text>
+                )}
+            </span>
         </>
     );
 
