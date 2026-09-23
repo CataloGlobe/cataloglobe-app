@@ -35,8 +35,6 @@ interface Props {
     onWeekOffsetChange: (next: number) => void;
     /** Tavoli assegnati per prenotazione (solo chi ne ha uno). Calcolato dal parent. */
     tableViews: ReadonlyMap<string, TableAssignmentView>;
-    /** Activity name to render in headers (also serves as gate: null = "All sites"). */
-    activityName: string | null;
     /** True se chi guarda ha `reservations.manage` sulla sede in scope. */
     canManage?: boolean;
     /**
@@ -151,7 +149,6 @@ export default function ReservationsAgenda({
     weekOffset,
     onWeekOffsetChange,
     tableViews,
-    activityName,
     canManage = false,
     onReassignDay,
     onOpenDetail
@@ -232,18 +229,6 @@ export default function ReservationsAgenda({
         () => Array.from({ length: 7 }, (_, i) => addDays(weekStart, i)),
         [weekStart]
     );
-
-    if (!activityName) {
-        return (
-            <div className={styles.emptyState}>
-                <EmptyState
-                    icon={<CalendarRange size={40} strokeWidth={1.5} />}
-                    title="Scegli una sede"
-                    description="L'agenda mostra timeline e coperti di una sede specifica. Seleziona una sede dalla tendina in alto."
-                />
-            </div>
-        );
-    }
 
     // ── Navigator + mode + terminal toggle ──────────────────────────────────
     const renderHeader = () => (

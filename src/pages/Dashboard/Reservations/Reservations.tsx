@@ -96,7 +96,6 @@ type TabKey = "inbox" | "agenda" | "service";
 
 const SEARCH_PLACEHOLDER = "Cerca per nome o telefono…";
 const SEARCH_DEBOUNCE_MS = 300;
-type Scope = string | "__all__";
 type ChannelFilter = "all" | "online" | "manual";
 
 const CHANNEL_OPTIONS: SelectOption[] = [
@@ -260,11 +259,11 @@ export default function Reservations() {
         }, { replace: true });
     }, [setSearchParams]);
 
-    // Dentro il contesto la sede è nel path; fuori, dal selettore navbar
-    // («tutte le sedi» → "__all__" downstream).
-    const scope: Scope = sedeScope.activityId ?? "__all__";
-    // La sede che le query chiedono al server (§48.1); `null` solo con «Tutte le sedi».
-    const scopeActivityId = sedeScope.activityId ?? null;
+    // La sede è nel path: la pagina esiste solo dentro il contesto di sede
+    // (`/reservations` reindirizza, §48.1). `null` solo nel frame prima che
+    // la rotta risolva.
+    const scope = sedeScope.activityId;
+    const scopeActivityId = scope;
 
     // Channel filter (toolbar dropdown). Client-side, applied to the in-memory
     // dataset together with the scope filter. "all" = no narrowing.
@@ -335,19 +334,11 @@ export default function Reservations() {
     );
 
     // ── Sites the caller can READ ─────────────────────────────────────
-    const readableActivityIds = useMemo(() => {
-        if (!permissions) return new Set<string>();
-        // Owner/admin = tenant-wide → all activities.
-        if (permissions.activityIds.length === 0 && canRead) {
-            return new Set(activities.map(a => a.id));
-        }
-        // Manager/staff/viewer: only the explicit set.
-        return new Set(permissions.activityIds);
-    }, [permissions, activities, canRead]);
-
-    const readableActivities = useMemo(
-        () => activities.filter(a => readableActivityIds.has(a.id)),
-        [activities, readableActivityIds]
+    // Una regola sola per «quali sedi posso leggere»: quella dello scope
+    // (owner/admin = tutte, gli altri le loro), non una copia locale.
+    const readableActivityIds = useMemo(
+        () => new Set(sedeScope.readableActivities.map(a => a.id)),
+        [sedeScope.readableActivities]
     );
 
     const activityNames = useMemo(() => {
@@ -355,8 +346,6 @@ export default function Reservations() {
         for (const a of activities) m.set(a.id, a.name);
         return m;
     }, [activities]);
-
-    const showSitePill = readableActivities.length > 1 && scope === "__all__";
 
     const canManageActivity = useCallback(
         (activityId: string) => {
@@ -585,7 +574,7 @@ export default function Reservations() {
         return effectiveReservations.filter(r => {
             // Always gate by read scope (defensive — RLS already filters).
             if (!readableActivityIds.has(r.activity_id)) return false;
-            if (scope !== "__all__" && r.activity_id !== scope) return false;
+            if (r.activity_id !== scope) return false;
             if (channelFilter !== "all" && r.source !== channelFilter) return false;
             return true;
         });
@@ -617,7 +606,7 @@ export default function Reservations() {
                     tenantId,
                     searchInput,
                     todayIsoDate(),
-                    scope === "__all__" ? null : scope
+                    scope
                 );
                 if (seq !== searchSeqRef.current) return;
                 setSearchPage(page);
@@ -884,7 +873,7 @@ export default function Reservations() {
     const tablesWantedFor: string | null =
         isDrawerOpen && selectedActivityId && selectedCanManage
             ? selectedActivityId
-            : tab === "service" && scope !== "__all__" && canManageSeatingsOn(scope)
+            : tab === "service" && scope !== null && canManageSeatingsOn(scope)
               ? scope
               : null;
 
@@ -1222,7 +1211,7 @@ export default function Reservations() {
 
     const handleReassignDay = useCallback(
         async (date: string): Promise<boolean> => {
-            if (scope === "__all__" || !tenantId) return false;
+            if (!scope || !tenantId) return false;
             try {
                 const summary = await reassignActivityTables(scope, date, tenantId);
                 await loadData();
@@ -1264,7 +1253,7 @@ export default function Reservations() {
     // `security_invoker` e a chi non può leggere risponde `[]`, non un errore
     // — senza il pre-check, "nessuno in sala" e "non puoi vederlo" sarebbero
     // la stessa risposta.
-    const serviceActivityId = scope === "__all__" ? null : scope;
+    const serviceActivityId = scope;
     const canReadService =
         serviceActivityId !== null && permissions !== null
             ? canDoOnActivity(permissions, "seatings.read", serviceActivityId)
@@ -1506,11 +1495,8 @@ export default function Reservations() {
     );
 
     const todayCovers = useMemo(
-        () =>
-            scope === "__all__"
-                ? null
-                : todayItems.reduce((s, r) => s + r.party_size, 0),
-        [todayItems, scope]
+        () => todayItems.reduce((s, r) => s + r.party_size, 0),
+        [todayItems]
     );
 
     // "Prossima" è un arrivo futuro: solo le `confirmed` con orario ≥ adesso.
@@ -1577,8 +1563,7 @@ export default function Reservations() {
     }
 
     // La sede del path non esiste, o non è leggibile: lo si dice, come la
-    // scheda della sede (`ActivityDetailPage`), invece di mostrare liste
-    // vuote e un «Scegli una sede» che nel contesto non ha tendina.
+    // scheda della sede (`ActivityDetailPage`), invece di mostrare liste vuote.
     // `activities.length > 0`: un caricamento fallito non è una sede sbagliata.
     if (
         sedeScope.fromRoute &&
@@ -1603,9 +1588,6 @@ export default function Reservations() {
         );
     }
 
-    const scopedActivityName =
-        scope === "__all__" ? null : activityNames.get(scope) ?? null;
-
     return (
         <>
             <div className={styles.page}>
@@ -1620,7 +1602,7 @@ export default function Reservations() {
                             <span className={styles.todayBarSeparator}> · </span>
                             {todayItems.length}{" "}
                             {todayItems.length === 1 ? "prenotazione" : "prenotazioni"}
-                            {todayCovers !== null && todayCovers > 0 && (
+                            {todayCovers > 0 && (
                                 <>
                                     <span className={styles.todayBarSeparator}> · </span>
                                     ~{todayCovers} coperti
@@ -1631,12 +1613,6 @@ export default function Reservations() {
                                     <span className={styles.todayBarSeparator}> · </span>
                                     prossima ore{" "}
                                     <strong>{nextToday.reservation_time.slice(0, 5)}</strong>
-                                    {scope === "__all__" && (
-                                        <span className={styles.todayBarHint}>
-                                            {" "}
-                                            ({activityNames.get(nextToday.activity_id) ?? "sede"})
-                                        </span>
-                                    )}
                                 </>
                             )}
                         </span>
@@ -1652,8 +1628,6 @@ export default function Reservations() {
                         items={searchRows}
                         truncated={searchPage?.truncated ?? false}
                         isSearching={isSearching}
-                        activityNames={activityNames}
-                        showSitePill={showSitePill}
                         onOpenDetail={handleOpenDetail}
                     />
                 ) : tab === "inbox" ? (
@@ -1661,8 +1635,6 @@ export default function Reservations() {
                         pendingItems={pendingInScope}
                         truncated={pendingTruncated}
                         tableViews={tableViews}
-                        activityNames={activityNames}
-                        showSitePill={showSitePill}
                         canManageActivity={canManageActivity}
                         onOpenDetail={handleOpenDetail}
                         onAction={handleAction}
@@ -1673,15 +1645,13 @@ export default function Reservations() {
                         weekOffset={weekOffset}
                         onWeekOffsetChange={setWeekOffset}
                         tableViews={tableViews}
-                        activityName={scopedActivityName}
-                        canManage={scope !== "__all__" && canManageActivity(scope)}
+                        canManage={scope !== null && canManageActivity(scope)}
                         onReassignDay={handleReassignDay}
                         onOpenDetail={handleOpenDetail}
                     />
                 ) : (
                     <ReservationsService
                         board={serviceBoard}
-                        activityName={scopedActivityName}
                         canRead={canReadService}
                         reservationsById={reservationsById}
                         tableViews={tableViews}

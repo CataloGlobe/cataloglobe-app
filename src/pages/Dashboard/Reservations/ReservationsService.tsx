@@ -6,7 +6,6 @@ import {
     Clock,
     History,
     Lock,
-    MapPin,
     Plus,
     ReceiptText,
     TriangleAlert,
@@ -69,11 +68,6 @@ interface Props {
     /** `null` = non ancora caricato per questa sede. */
     board: ServiceBoard | null;
     /**
-     * Nome della sede in scope. `null` = "Tutte le sedi": la vista di servizio
-     * si tiene aperta su UNA sala, e qui si chiede di sceglierla.
-     */
-    activityName: string | null;
-    /**
      * `seatings.read` sulla sede in scope. La view è `security_invoker` e a
      * chi non può leggere risponde con liste vuote, non con un errore: senza
      * questo gate "nessuno in sala" e "non puoi vederlo" sarebbero la stessa
@@ -107,7 +101,6 @@ function seatingTableLabels(s: SeatingWithState): string[] {
 
 export default function ReservationsService({
     board,
-    activityName,
     canRead,
     reservationsById,
     tableViews,
@@ -133,18 +126,6 @@ export default function ReservationsService({
         for (const s of board?.inRoom ?? []) m.set(s.id, seatingDisplayName(s));
         return m;
     }, [board]);
-
-    if (activityName === null) {
-        return (
-            <div className={styles.emptyState}>
-                <EmptyState
-                    icon={<MapPin size={40} strokeWidth={1.5} />}
-                    title="Scegli una sede"
-                    description="La vista di servizio segue una sala per volta. Seleziona la sede dalla barra in alto."
-                />
-            </div>
-        );
-    }
 
     if (!canRead) {
         return (

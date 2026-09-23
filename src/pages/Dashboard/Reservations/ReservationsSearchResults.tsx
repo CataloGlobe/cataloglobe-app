@@ -21,9 +21,6 @@ interface Props {
     truncated: boolean;
     /** Richiesta in corso: si tiene la lista precedente, si segnala. */
     isSearching: boolean;
-    /** Nome sede per la pill (scope «Tutte le sedi»). */
-    activityNames: Map<string, string>;
-    showSitePill: boolean;
     onOpenDetail: (r: V2Reservation) => void;
 }
 
@@ -47,8 +44,6 @@ export default function ReservationsSearchResults({
     items,
     truncated,
     isSearching,
-    activityNames,
-    showSitePill,
     onOpenDetail
 }: Props) {
     if (items.length === 0) {
@@ -81,7 +76,6 @@ export default function ReservationsSearchResults({
             <div className={styles.cards}>
                 {items.map(r => {
                     const badge = statusMeta(r.status);
-                    const siteName = activityNames.get(r.activity_id);
                     return (
                         <div
                             key={r.id}
@@ -113,11 +107,6 @@ export default function ReservationsSearchResults({
                                             {r.customer_phone}
                                         </span>
                                     </div>
-                                    {showSitePill && siteName && (
-                                        <div className={styles.rowMetaDim}>
-                                            <span className={styles.rowSitePill}>{siteName}</span>
-                                        </div>
-                                    )}
                                 </div>
                             </div>
                             <div className={styles.rowRight}>

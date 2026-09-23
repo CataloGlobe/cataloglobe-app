@@ -23,10 +23,6 @@ interface Props {
     truncated?: boolean;
     /** Tavoli assegnati per prenotazione: aiuta a decidere se confermare. */
     tableViews: ReadonlyMap<string, TableAssignmentView>;
-    /** Activity name lookup for site pill. */
-    activityNames: Map<string, string>;
-    /** When true the inbox shows the site pill on each row (scope = "All sites"). */
-    showSitePill: boolean;
     /** Per-row gate: action buttons only render if the caller has manage on that activity. */
     canManageActivity: (activityId: string) => boolean;
     /** Click row → open detail drawer. */
@@ -59,8 +55,6 @@ export default function ReservationsInbox({
     pendingItems,
     truncated = false,
     tableViews,
-    activityNames,
-    showSitePill,
     canManageActivity,
     onOpenDetail,
     onAction
@@ -107,7 +101,6 @@ export default function ReservationsInbox({
 
     const renderRow = (r: V2Reservation, isStale: boolean) => {
         const canManage = canManageActivity(r.activity_id);
-        const siteName = activityNames.get(r.activity_id);
         const tableView = tableViews.get(r.id);
         return (
             <div
@@ -143,11 +136,6 @@ export default function ReservationsInbox({
                                     className={styles.rowNoteIconInline}
                                 />
                                 <span className={styles.rowNoteText}>{r.notes}</span>
-                            </div>
-                        )}
-                        {showSitePill && siteName && (
-                            <div className={styles.rowMetaDim}>
-                                <span className={styles.rowSitePill}>{siteName}</span>
                             </div>
                         )}
                     </div>
