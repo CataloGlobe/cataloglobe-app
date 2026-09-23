@@ -1,0 +1,94 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.footer {
+    padding: 36px var(--ld-sec-x) 28px;
+    border-top: 1px solid var(--ld-line);
+    background: var(--ld-scuro);
+    font-family: var(--ld-font-sans);
+
+    @include desktop {
+        padding: 48px var(--ld-sec-x) 32px;
+    }
+}
+
+.top {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 28px;
+
+    @include desktop {
+        flex-direction: row;
+        gap: 48px;
+    }
+}
+
+.brand {
+    @include desktop {
+        flex-shrink: 0;
+        width: 280px;
+    }
+}
+
+.logo {
+    height: 22px;
+}
+
+.tagline {
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ld-muted);
+}
+
+.columns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 24px 32px;
+
+    @include desktop {
+        gap: 48px;
+    }
+}
+
+.column {
+    min-width: 128px;
+}
+
+.columnTitle {
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    color: var(--ld-muted);
+}
+
+.link {
+    display: block;
+    margin-top: 10px;
+    font-size: 14px;
+    color: var(--ld-dark-link);
+    text-decoration: none;
+
+    &:hover {
+        color: var(--ld-ink);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--ld-brand-hi);
+        outline-offset: 2px;
+        border-radius: 2px;
+    }
+}
+
+.legal {
+    margin-top: 28px;
+    padding-top: 18px;
+    border-top: 1px solid var(--ld-line);
+    font-size: 12.5px;
+    line-height: 1.6;
+    color: var(--ld-muted);
+
+    @include desktop {
+        margin-top: 36px;
+    }
+}

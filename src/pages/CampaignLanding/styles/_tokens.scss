@@ -62,11 +62,64 @@ $ld-fuori: #E3E3F0;
     --ld-illo-paper-title: #5B4527;
     --ld-illo-paper-text: #6B5433;
     --ld-illo-paper-shadow: 0 8px 20px rgba(26, 22, 19, 0.12);
+    // stati
+    --ld-off-ink: #9592A8;       // voce spenta, prezzo barrato
+    --ld-off-body: #A5A2B8;      // descrizione di una voce spenta
+    --ld-ok: #2F7D53;            // «Confermata», «Due mesi gratis»
+    --ld-ok-s: #E7F2EA;          // fondo verde tenue
+    --ld-ok-ink: #234D36;        // testo su fondo verde tenue
+    --ld-star: #D79A2B;          // stelle delle recensioni
+    --ld-terra-s: #FDF6EE;       // fondo «Dietro le quinte»
+    --ld-terra-s-line: #EADFD0;
+    --ld-azione-sent: #8E90E8;   // bottone dopo l'invio («Inviato»)
+    // piani: testata della card prezzi
+    --ld-plan-pro-a: #F1F0FD;
+    --ld-plan-pro-b: #E4E3FA;
+    --ld-plan-pro-c: #DEDDF8;
+    --ld-plan-base-a: #F8F8FC;
+    --ld-plan-base-b: #EFEFF8;
+    --ld-plan-base-c: #E9E9F4;
+    // illustrazione: la stampante delle comande in cucina
+    --ld-illo-printer-body: #23272B;
+    --ld-illo-printer-slot: #16191C;
+    --ld-illo-printer-label: #8B9198;
+    --ld-illo-printer-led-off: #4A4870;
+    --ld-illo-printer-led-on: #7BD88F;
+    --ld-illo-printer-paper: #FAFAFE;
+    --ld-illo-printer-ink: #2B2948;
+    --ld-illo-printer-rule: #B9B2A6;
+    --ld-illo-printer-meta: #6B6458;
+    // locali demo: ognuno con il suo stile, di proposito non indaco (consegna §5.5).
+    // Scelti con data-demo="molo|pausa|velvet".
+    --ld-demo-molo-bg: #16222A;
+    --ld-demo-molo-text: #E9EFEC;
+    --ld-demo-molo-muted: #93A9A4;
+    --ld-demo-molo-line: #27373F;
+    --ld-demo-molo-acc: #E9C46A;
+    --ld-demo-molo-c1: #2A4550;
+    --ld-demo-molo-c2: #16222A;
+    --ld-demo-pausa-bg: #FFFDF8;
+    --ld-demo-pausa-text: #241D16;
+    --ld-demo-pausa-muted: #867B6D;
+    --ld-demo-pausa-line: #EDE6DA;
+    --ld-demo-pausa-acc: #A8461F;
+    --ld-demo-pausa-c1: #E8D9C4;
+    --ld-demo-pausa-c2: #D8C3A5;
+    --ld-demo-velvet-bg: #18291F;
+    --ld-demo-velvet-text: #E6EFE7;
+    --ld-demo-velvet-muted: #93AA98;
+    --ld-demo-velvet-line: #2A3F31;
+    --ld-demo-velvet-acc: #9FD3A8;
+    --ld-demo-velvet-c1: #294634;
+    --ld-demo-velvet-c2: #18291F;
     // ombre — base indaco, NON la rgba(23,20,15) che il canvas ha ereditato dalla palette vecchia
     --ld-shadow-card: 0 18px 44px rgba(21, 20, 43, 0.10);
     --ld-shadow-bar: 0 10px 28px rgba(21, 20, 43, 0.10);
     --ld-shadow-cta: 0 10px 28px rgba(70, 72, 198, 0.42);
     --ld-shadow-thumb: 0 2px 8px rgba(21, 20, 43, 0.10);  // cursore dei selettori a segmenti
+    --ld-shadow-soft: 0 14px 34px rgba(21, 20, 43, 0.06); // pannelli grandi (schede, FAQ)
+    --ld-shadow-phone: 0 22px 50px rgba(21, 20, 43, 0.20);
+    --ld-shadow-form: 0 22px 50px rgba(0, 0, 0, 0.30);    // form bianco sul fondo notte
     // raggi
     --ld-r-frame: 22px;
     --ld-r-hero: 22px;

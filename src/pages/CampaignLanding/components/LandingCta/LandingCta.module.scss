@@ -50,6 +50,25 @@
     border-radius: var(--ld-r-pill);
 }
 
+.plan {
+    font-family: var(--ld-font-sans);
+    font-weight: 600;
+    font-size: ld-fluid(15, 16);
+    line-height: 1.2;
+    padding: 14px;
+    border-width: 1.5px;
+    border-radius: 12px;
+
+    @include desktop {
+        padding: 15px;
+    }
+
+    &.filled {
+        box-shadow: none;
+        border-color: var(--ld-azione);
+    }
+}
+
 .block {
     width: 100%;
     align-self: stretch; // anche dentro .wrap (flex a colonna)
@@ -84,6 +103,16 @@
     &:hover {
         border-color: var(--ld-azione);
         color: var(--ld-azione);
+    }
+}
+
+.ghost {
+    background: transparent;
+    color: var(--ld-azione);
+    border-color: var(--ld-azione);
+
+    &:hover {
+        background: var(--ld-brand-s);
     }
 }
 

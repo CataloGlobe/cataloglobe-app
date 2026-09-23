@@ -7,10 +7,16 @@ export const LANDING_CONTACT_FORM_ID = "landing-contact-form";
 
 type LandingCtaProps = {
     placement: CtaPlacement;
-    /** filled = azione piena (hero, barre); outline = bordo su chiaro; glass = su foto. */
-    look?: "filled" | "outline" | "glass";
-    /** lg = 17px, padding 17/28, raggio cta; md = 14px, padding 10/20, pill. */
-    size?: "md" | "lg";
+    /**
+     * filled = azione piena (hero, barre); outline = bordo neutro su chiaro;
+     * ghost = bordo e testo azione, fondo trasparente (card Base); glass = su foto.
+     */
+    look?: "filled" | "outline" | "ghost" | "glass";
+    /**
+     * lg = 17px, padding 17/28, raggio cta; md = 14px, padding 10/20, pill;
+     * plan = 15–16px, padding 14–15, raggio 12, senza ombra (card dei prezzi).
+     */
+    size?: "md" | "lg" | "plan";
     /** Larghezza piena (barra inferiore); "mobile" = piena solo sotto il breakpoint desktop (hero). */
     block?: boolean | "mobile";
     /** Stampa la nota sotto la CTA, se il placement ne ha una. */

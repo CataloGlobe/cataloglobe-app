@@ -1,0 +1,155 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.layout {
+    @include desktop {
+        display: flex;
+        align-items: center;
+        gap: 72px;
+        padding-block: 8px;
+    }
+}
+
+.text {
+    @include desktop {
+        flex: 1 1 0;
+        max-width: 500px;
+    }
+}
+
+.write {
+    margin-top: 14px;
+    font-family: var(--ld-font-sans);
+    font-size: 14px;
+    color: var(--ld-muted);
+
+    a {
+        color: var(--ld-body);
+    }
+}
+
+.signupCta {
+    margin-top: 26px;
+}
+
+.formCol {
+    margin-top: 24px;
+
+    @include desktop {
+        flex-shrink: 0;
+        width: 470px;
+        margin-top: 0;
+    }
+}
+
+// ── form (superficie chiara nella sezione scura) ──
+.form {
+    display: flex;
+    flex-direction: column;
+    gap: 13px;
+    padding: 26px;
+    border-radius: 20px;
+    background: var(--ld-paper-2);
+    box-shadow: var(--ld-shadow-form);
+    font-family: var(--ld-font-sans);
+    color: var(--ld-ink);
+}
+
+.field {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+// 16px: sotto, Safari iOS zooma sul campo al tocco.
+.input {
+    display: block;
+    width: 100%;
+    min-height: 48px;
+    margin-top: 6px;
+    padding: 12px 15px;
+    border-radius: 12px;
+    border: 1px solid var(--ld-line);
+    background: var(--ld-paper);
+    color: var(--ld-ink);
+    font-family: var(--ld-font-sans);
+    font-size: 16px;
+    font-weight: 400;
+
+    &:focus-visible {
+        outline: 2px solid var(--ld-azione);
+        outline-offset: 1px;
+        border-color: var(--ld-azione);
+    }
+}
+
+.fieldset {
+    margin: 2px 0 0;
+    padding: 0;
+    border: 0;
+}
+
+.legend {
+    padding: 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    margin-top: 9px;
+}
+
+.pill {
+    min-height: 40px;
+    padding: 9px 14px;
+    border-radius: var(--ld-r-pill);
+    border: 1px solid var(--ld-line);
+    background: var(--ld-paper);
+    color: var(--ld-ink);
+    font-family: var(--ld-font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    &:focus-visible {
+        outline: 2px solid var(--ld-brand);
+        outline-offset: 2px;
+    }
+}
+
+.pillOn {
+    border-color: var(--ld-azione);
+    background: var(--ld-brand-s);
+    color: var(--ld-azione);
+    font-weight: 600;
+}
+
+.consent {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    margin-top: 2px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--ld-body);
+
+    a {
+        color: var(--ld-azione);
+    }
+}
+
+.checkbox {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    margin: 1px 0 0;
+    accent-color: var(--ld-azione);
+}
+
+.submit {
+    display: flex;
+    margin-top: 4px;
+}

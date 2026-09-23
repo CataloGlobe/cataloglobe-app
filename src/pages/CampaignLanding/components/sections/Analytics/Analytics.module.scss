@@ -15,6 +15,7 @@
 .text {
     @include desktop {
         flex: 1 1 0;
+        min-width: 280px;
         max-width: 520px;
     }
 }
@@ -45,8 +46,9 @@
     font-family: var(--ld-font-sans);
 
     @include desktop {
-        flex-shrink: 0;
-        width: 520px;
+        // 520 a 1280 come nel canvas; fra 1024 e 1279 cede spazio al testo.
+        flex: 0 1 520px;
+        min-width: 0;
         padding: 22px;
     }
 }

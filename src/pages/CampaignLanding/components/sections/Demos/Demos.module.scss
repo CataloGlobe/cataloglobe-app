@@ -1,0 +1,286 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+@include ld-demo-scope;
+
+.honesty {
+    margin-top: 8px;
+    font-family: var(--ld-font-sans);
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ld-muted);
+}
+
+// Mobile: elenco, telefono, QR. Desktop: telefono a sinistra, elenco e QR a destra.
+.layout {
+    display: grid;
+    grid-template-areas:
+        "list"
+        "phone"
+        "qr";
+    row-gap: 20px;
+    margin-top: 20px;
+
+    @include desktop {
+        grid-template-areas:
+            "phone list"
+            "phone qr";
+        grid-template-columns: 320px minmax(0, 1fr);
+        grid-template-rows: auto 1fr;
+        column-gap: 56px;
+        row-gap: 12px;
+        align-items: start;
+        margin-top: 32px;
+    }
+}
+
+// ── elenco ──
+.list {
+    grid-area: list;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+
+    @include desktop {
+        gap: 12px;
+    }
+}
+
+.venue {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    padding: 13px 14px;
+    border-radius: 14px;
+    border: 1px solid var(--ld-line);
+    background: var(--ld-paper-2);
+    font-family: var(--ld-font-sans);
+    text-align: left;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    &:focus-visible {
+        outline: 2px solid var(--ld-brand);
+        outline-offset: 2px;
+    }
+}
+
+.venueOn {
+    border-color: var(--ld-azione);
+    box-shadow: 0 6px 18px rgba(70, 72, 198, 0.13);
+}
+
+.initial {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: linear-gradient(135deg, var(--demo-c1), var(--demo-c2));
+    color: var(--demo-text);
+    font-family: var(--ld-font-serif);
+    font-size: 19px;
+}
+
+.venueText {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.venueName {
+    display: block;
+    font-family: var(--ld-font-serif);
+    font-size: ld-fluid(16, 18);
+    color: var(--ld-ink);
+}
+
+.venueAddress {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    color: var(--ld-muted);
+}
+
+.open {
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ld-azione);
+}
+
+// ── telefono ──
+.phoneWrap {
+    grid-area: phone;
+}
+
+.phone {
+    width: 300px;
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 9px;
+    border-radius: 34px;
+    background: var(--ld-scuro);
+    box-shadow: var(--ld-shadow-phone);
+    font-family: var(--ld-font-sans);
+}
+
+.screen {
+    overflow: hidden;
+    padding-bottom: 14px;
+    border-radius: 26px;
+    background: var(--demo-bg);
+    color: var(--demo-text);
+}
+
+.cover {
+    position: relative;
+    height: 104px;
+    background: linear-gradient(150deg, var(--demo-c1), var(--demo-c2));
+}
+
+.coverText {
+    position: absolute;
+    left: 12px;
+    bottom: 10px;
+}
+
+.phoneName {
+    display: block;
+    font-family: var(--ld-font-sans);
+    font-size: 17px;
+    color: var(--demo-text);
+}
+
+.serif {
+    font-family: var(--ld-font-serif);
+}
+
+.phoneKind {
+    display: block;
+    margin-top: 1px;
+    font-size: 11px;
+    color: var(--demo-muted);
+}
+
+.cats {
+    display: flex;
+    gap: 6px;
+    padding: 12px 14px 10px;
+}
+
+.cat {
+    padding: 5px 11px;
+    border-radius: var(--ld-r-pill);
+    border: 1px solid var(--demo-line);
+    color: var(--demo-muted);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.catOn {
+    border-color: var(--demo-acc);
+    background: var(--demo-acc);
+    color: var(--demo-bg);
+}
+
+.featured {
+    margin: 0 14px;
+    padding: 11px 12px;
+    border-radius: 12px;
+    border: 1px solid var(--demo-line);
+    border-left: 3px solid var(--demo-acc);
+}
+
+.featuredLabel {
+    display: block;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--demo-acc);
+}
+
+.featuredRow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 5px;
+}
+
+.price {
+    flex-shrink: 0;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.dishes {
+    margin: 10px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dish {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 10px 14px;
+    font-size: 13px;
+
+    &:not(:last-child) {
+        border-bottom: 1px solid var(--demo-line);
+    }
+}
+
+// ── QR ──
+.qrCard {
+    grid-area: qr;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 14px;
+    border-radius: 14px;
+    border: 1px solid var(--ld-line);
+    background: var(--ld-paper-2);
+    font-family: var(--ld-font-sans);
+}
+
+.qr {
+    flex-shrink: 0;
+    width: 92px;
+    height: 92px;
+    padding: 8px;
+    border-radius: 10px;
+    border: 1px solid var(--ld-line);
+    background: var(--ld-paper-2);
+    color: var(--ld-ink);
+
+    @include desktop {
+        width: 104px;
+        height: 104px;
+    }
+}
+
+.qrSvg {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.qrName {
+    display: block;
+    font-family: var(--ld-font-serif);
+    font-size: ld-fluid(16, 17);
+    color: var(--ld-ink);
+}
+
+.qrCaption {
+    display: block;
+    margin-top: 3px;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ld-muted);
+}
