@@ -208,6 +208,23 @@ test.describe("Prenotazioni", () => {
         await expect(m.getByText("Sara Conti")).toHaveCount(0);
     });
 
+    test("/reservations porta dentro una sede, non resta una pagina d'azienda", async ({ page }) => {
+        await openPrenotazioni(page);
+        const sede = page.url();
+
+        await page.goto(sede.replace(/\/locations\/.*$/, "/reservations"));
+        // All'ultima sede usata o, se non si può decidere, in Sedi (§48.1).
+        await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/prenotazioni$|\/locations$/, { timeout: 15_000 });
+    });
+
+    test("una sede che non esiste lo dice, invece di mostrare liste vuote", async ({ page }) => {
+        await openPrenotazioni(page);
+        await page.goto(page.url().replace(/\/locations\/[0-9a-f-]+\//, "/locations/00000000-0000-4000-8000-00000000dead/"));
+
+        await expect(page.getByText("Sede non trovata")).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("button", { name: "Torna alle sedi" })).toBeVisible();
+    });
+
     for (const width of [1280, 768, 375]) {
         test(`a ${width} le tre viste non scorrono di lato`, async ({ page }) => {
             await openPrenotazioni(page);

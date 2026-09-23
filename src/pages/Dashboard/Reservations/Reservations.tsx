@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Clock, Lock, Plus } from "lucide-react";
+import { Clock, Lock, Plus, Store } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -1572,6 +1572,33 @@ export default function Reservations() {
                     <div className={styles.skeleton} />
                     <div className={styles.skeleton} />
                 </div>
+            </div>
+        );
+    }
+
+    // La sede del path non esiste, o non è leggibile: lo si dice, come la
+    // scheda della sede (`ActivityDetailPage`), invece di mostrare liste
+    // vuote e un «Scegli una sede» che nel contesto non ha tendina.
+    // `activities.length > 0`: un caricamento fallito non è una sede sbagliata.
+    if (
+        sedeScope.fromRoute &&
+        sedeScope.activityId &&
+        activities.length > 0 &&
+        !readableActivityIds.has(sedeScope.activityId)
+    ) {
+        return (
+            <div className={styles.lockedWrap}>
+                <EmptyState
+                    variant="page"
+                    icon={<Store />}
+                    title="Sede non trovata"
+                    description="La sede che stai cercando non esiste o è stata eliminata."
+                    action={
+                        <Button onClick={() => navigate(`/business/${businessId}/locations`)}>
+                            Torna alle sedi
+                        </Button>
+                    }
+                />
             </div>
         );
     }

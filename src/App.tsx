@@ -86,7 +86,7 @@ const ActivityAnagraficaRoute = lazy(() => import("./pages/Operativita/Attivita/
 const ActivityOrariRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrariRoute"));
 const ActivityOrdiniPrenotazioniRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityOrdiniPrenotazioniRoute"));
 const ActivitySectionRedirect = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySectionRedirect"));
-const OrdersRedirect = lazy(() => import("./pages/Dashboard/Orders/OrdersRedirect"));
+const SedeRedirect = lazy(() => import("./components/layout/SedeRedirect/SedeRedirect"));
 const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityPubblicazioneRoute"));
 const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySalaRoute"));
 const ActivityDisponibilitaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityDisponibilitaRoute"));
@@ -259,8 +259,8 @@ export default function App() {
 
                 {/* Le comande sono di una sede: il vecchio indirizzo d'azienda
                     porta dentro il contesto (§46.1). */}
-                <Route path="orders" element={<OrdersRedirect />} />
-                <Route path="reservations" element={<Reservations />} />
+                <Route path="orders" element={<SedeRedirect routeKey="orders" segment="comande" />} />
+                <Route path="reservations" element={<SedeRedirect routeKey="reservations" segment="prenotazioni" />} />
                 <Route path="guests" element={<Guests />} />
 
                 <Route path="scheduling" element={<Programming />} />
