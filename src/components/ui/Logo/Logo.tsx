@@ -18,7 +18,12 @@ import lockupVerticalMonoWhite from "@/assets/brand/cataloglobe_lockup_vertical_
 import styles from "./Logo.module.scss";
 
 export type LogoVariant = "icon" | "wordmark" | "lockup-horizontal" | "lockup-vertical";
-export type LogoColor = "flat" | "gradient" | "auto";
+/**
+ * `auto` segue il tema dell'app (mono scuro in chiaro, mono bianco in scuro).
+ * `mono-white` / `mono-dark` lo fissano: per un fondo che non cambia col tema,
+ * come l'hero scuro della landing.
+ */
+export type LogoColor = "flat" | "gradient" | "auto" | "mono-white" | "mono-dark";
 
 interface LogoProps {
     variant: LogoVariant;
@@ -54,9 +59,13 @@ export function Logo({ variant, color = "auto", size, className, alt = "CataloGl
             ? set.flat
             : color === "gradient"
               ? set.gradient
-              : theme === "dark"
+              : color === "mono-white"
                 ? set.monoWhite
-                : set.monoDark;
+                : color === "mono-dark"
+                  ? set.monoDark
+                  : theme === "dark"
+                    ? set.monoWhite
+                    : set.monoDark;
 
     return (
         <img
