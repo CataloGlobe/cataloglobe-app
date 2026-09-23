@@ -116,6 +116,12 @@
 // senza sforare nella colonna kebab.
 .stornoStripRow {
   padding: 2px 80px 2px 144px;
+
+  // Sotto 768 Stato esce dalla tabella (hideOnPhone): la striscia si allinea
+  // a Tavolo, che è la prima colonna, e lascia libera solo quella delle azioni.
+  @include phone {
+    padding: var(--space-2) 56px var(--space-2) var(--space-16);
+  }
 }
 
 // Card inset: rosa tenue, arrotondata, ~mezza altezza, con barretta
