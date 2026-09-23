@@ -154,6 +154,27 @@ test.describe("Prenotazioni", () => {
         await expect(page.getByText("Apertura annullata. Per riaprirla: Arrivato.")).toBeVisible();
     });
 
+    test("cablaggio: il tavolo scelto a mano spedisce set_reservation_tables, e prima lo dice", async ({ page }) => {
+        await openPrenotazioni(page);
+        const sara = stub.rows.find(r => r.customer_name === "Sara Conti")!;
+        stub.onWrite("set_reservation_tables", () => []);
+
+        await selectTab(page, /^Agenda/);
+        await main(page).getByText("Sara Conti").first().click();
+        const drawer = page.getByRole("dialog", { name: "Prenotazione" });
+        await drawer.getByRole("button", { name: "Scegli tavolo" }).click();
+
+        // §14: la riga che dice che la scelta a mano resta, prima di confermare.
+        await expect(drawer.getByText("Scelto a mano: resta questo anche se la prenotazione cambia.")).toBeVisible();
+        await drawer.getByRole("checkbox", { name: /^T1\b/ }).first().check();
+        await drawer.getByRole("button", { name: "Conferma", exact: true }).click();
+
+        await expect.poll(() => stub.writes.map(w => w.fn)).toEqual(["set_reservation_tables"]);
+        const body = stub.writes[0].body as { p_reservation_id: string; p_table_ids: string[] };
+        expect(body.p_reservation_id).toBe(sara.id);
+        expect(body.p_table_ids).toHaveLength(1);
+    });
+
     test("Agenda: i giorni con le righe e lo stato, poi la settimana", async ({ page }) => {
         await openPrenotazioni(page);
         await selectTab(page, /^Agenda/);

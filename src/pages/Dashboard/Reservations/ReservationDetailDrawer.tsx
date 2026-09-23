@@ -209,11 +209,15 @@ function isInThePast(reservation: V2Reservation, now: Date = new Date()): boolea
  * "Tavolo"/"Tavoli" in tutti i casi, perché a cambiare non è l'argomento ma da
  * dove viene la risposta.
  *
- * `plan_live` tace quando la scelta è dell'operatore: il sistema annuncia le
- * proprie proposte, non le decisioni altrui. `plan_past` parla sempre — un
+ * `plan_live` distingue chi ha scelto: la proposta del sistema si rifà se la
+ * prenotazione cambia, la scelta a mano no — e va detto (§14), perché è la
+ * differenza che l'operatore non vede. `plan_past` parla sempre — un
  * elenco di tavoli su una prenotazione annullata, senza una frase, si legge
  * come un fatto avvenuto.
  */
+/** La scelta a mano sul piano: il motore non la ricalcola più (`set_reservation_tables`, manual). */
+const MANUAL_PLAN_HINT = "Scelto a mano: resta questo anche se la prenotazione cambia.";
+
 function tableSectionHint(
     note: TableSectionNote | undefined,
     view: TableAssignmentView | null
@@ -221,9 +225,10 @@ function tableSectionHint(
     const many = (view?.rows.length ?? 0) > 1;
     switch (note) {
         case "plan_live":
-            return view?.proposed === true
+            if (!view || view.rows.length === 0) return null;
+            return view.proposed === true
                 ? "Proposto dal sistema. Se la prenotazione viene spostata o cambia il numero di persone, la proposta viene rifatta."
-                : null;
+                : MANUAL_PLAN_HINT;
         case "plan_past":
             return many ? "Erano i tavoli previsti." : "Era il tavolo previsto.";
         case "seated":
@@ -815,6 +820,11 @@ export default function ReservationDetailDrawer({
                                             occupiedBy={tableOccupancy}
                                             disabled={savingTables}
                                         />
+                                    )}
+                                    {/* Prima di confermare, non dopo: scegliere qui
+                                        toglie la prenotazione al motore (§14). */}
+                                    {tableSection?.target === "plan" && (
+                                        <p className={styles.drawerTableHint}>{MANUAL_PLAN_HINT}</p>
                                     )}
                                     <div className={styles.drawerTablePickerActions}>
                                         <Button
