@@ -16,6 +16,7 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import type { TableAssignmentView } from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
 import { formatTableLabels } from "@/components/ui/TableAssignmentBadge/formatTableLabels";
@@ -421,10 +422,13 @@ export default function ReservationDetailDrawer({
                 party_size: reservation.party_size
             }
         );
+        const [h, m] = reservation.reservation_time.split(":").map(n => parseInt(n, 10));
+        const endMin = (h ?? 0) * 60 + (m ?? 0) + durationMin;
         return {
             peak: result.peakWithCandidate,
             capacity: activityCapacity,
-            durationMin
+            from: reservation.reservation_time.slice(0, 5),
+            to: `${String(Math.floor(endMin / 60) % 24).padStart(2, "0")}:${String(endMin % 60).padStart(2, "0")}`
         };
     }, [reservation, allReservations, activityCapacity, durationMin]);
 
@@ -1069,49 +1073,38 @@ export default function ReservationDetailDrawer({
                         </div>
                     </section>
 
-                    {/* ── Capacity callout (solo pending) ────────────────
-                         Mostra il PICCO concorrente di coperti nella finestra
-                         [orario, orario+durata) calcolato dal motore di
-                         capacità condiviso. Quando la capienza è impostata,
-                         compara picco vs capienza con colore semaforo
-                         (verde <80%, ambra 80-100%, rosso >100%). Senza
-                         capienza, callout informativo "X coperti nella
-                         finestra di Y minuti". */}
+                    {/* ── Capienza (solo da gestire) ────────────────────
+                         Il PICCO di coperti nella finestra [ora, ora+durata)
+                         col motore di capacità condiviso — la finestra parte
+                         dall'arrivo, non è «±durata». Sopra l'80% della
+                         capienza è un avviso, sotto un'informazione; senza
+                         capienza dice il numero e che manca il tetto. */}
                     {reservation.status === "pending" && capacityCallout && (
-                        <div className={styles.drawerAggregate}>
-                            <Clock
-                                size={16}
-                                strokeWidth={2}
-                                aria-hidden
-                                className={styles.drawerAggregateIcon}
-                            />
-                            <div className={styles.drawerAggregateText}>
-                                {capacityCallout.capacity !== null ? (
-                                    <>
-                                        Picco previsto in finestra ±{capacityCallout.durationMin} min:{" "}
-                                        <strong
-                                            style={{
-                                                color:
-                                                    capacityCallout.peak > capacityCallout.capacity
-                                                        ? "#b91c1c"
-                                                        : capacityCallout.peak / capacityCallout.capacity >= 0.8
-                                                            ? "#b45309"
-                                                            : "#15803d"
-                                            }}
-                                        >
-                                            {capacityCallout.peak} / {capacityCallout.capacity}
-                                        </strong>{" "}
-                                        coperti.
-                                    </>
-                                ) : (
-                                    <>
-                                        Circa <strong>{capacityCallout.peak}</strong>{" "}
-                                        coperti nella finestra di {capacityCallout.durationMin}{" "}
-                                        min. Capienza non impostata.
-                                    </>
-                                )}
-                            </div>
-                        </div>
+                        <InlineBanner
+                            variant={
+                                capacityCallout.capacity !== null &&
+                                capacityCallout.peak / capacityCallout.capacity >= 0.8
+                                    ? "warning"
+                                    : "info"
+                            }
+                        >
+                            {capacityCallout.capacity !== null ? (
+                                <>
+                                    Con questa, dalle {capacityCallout.from} alle {capacityCallout.to} i
+                                    coperti arrivano a <strong>{capacityCallout.peak}</strong> su{" "}
+                                    {capacityCallout.capacity}
+                                    {capacityCallout.peak > capacityCallout.capacity
+                                        ? `: ${capacityCallout.peak - capacityCallout.capacity} oltre la capienza.`
+                                        : "."}
+                                </>
+                            ) : (
+                                <>
+                                    Con questa, dalle {capacityCallout.from} alle {capacityCallout.to} ci
+                                    sono circa <strong>{capacityCallout.peak}</strong> coperti. Capienza non
+                                    impostata.
+                                </>
+                            )}
+                        </InlineBanner>
                     )}
 
                     {/* ── Note ──────────────────────────────────────────── */}

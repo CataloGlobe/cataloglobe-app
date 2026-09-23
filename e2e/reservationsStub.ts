@@ -135,6 +135,9 @@ export async function stubReservations(page: Page): Promise<ReservationsStub> {
     const stub: ReservationsStub = { rows, seatingId, writes: [], onWrite: (fn, h) => handlers.set(fn, h) };
 
     await page.route("**/rest/v1/reservations?**", async (route: Route) => {
+        // L'inserimento a mano (`createReservation`) è un INSERT diretto:
+        // passa dal gestore `reservations.insert`, come le edge.
+        if (route.request().method() === "POST") return intercept(route, "reservations.insert");
         if (route.request().method() !== "GET") return route.fulfill({ status: 500, json: { message: "scrittura non prevista dall'e2e" } });
         const params = new URL(route.request().url()).searchParams;
         await route.fulfill({ json: rows.filter(r => matches(r, params)).map(toRow) });
@@ -198,16 +201,18 @@ export async function stubReservations(page: Page): Promise<ReservationsStub> {
         });
     });
 
-    const intercept = async (route: Route) => {
-        const fn = new URL(route.request().url()).pathname.split("/").pop() ?? "";
+    // `intercept` è usata anche dalla rotta di `reservations`, registrata
+    // prima: è una function declaration, quindi già definita lì.
+    async function intercept(route: Route, name?: string) {
+        const fn = name ?? new URL(route.request().url()).pathname.split("/").pop() ?? "";
         const body = route.request().postDataJSON() as unknown;
         stub.writes.push({ fn, body });
         const handler = handlers.get(fn);
         if (!handler) return route.fulfill({ status: 500, json: { error_code: "SERVER_ERROR", message: `${fn} non prevista dall'e2e` } });
-        await route.fulfill({ json: handler(body) });
-    };
+        await route.fulfill({ status: route.request().method() === "POST" && name ? 201 : 200, json: handler(body) });
+    }
     // Le edge che scrivono prenotazioni.
-    await page.route(/\/functions\/v1\/(respond-reservation|update-reservation)$/, intercept);
+    await page.route(/\/functions\/v1\/(respond-reservation|update-reservation)$/, route => intercept(route));
     // Le RPC: quelle di lettura (get_/is_/has_) passano, le altre sono gesti.
     await page.route("**/rest/v1/rpc/**", route => {
         const fn = new URL(route.request().url()).pathname.split("/").pop() ?? "";

@@ -2,6 +2,11 @@ import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { Select } from "@/components/ui/Select/Select";
+import { Textarea } from "@/components/ui/Textarea/Textarea";
+import { FormField } from "@/components/ui/FormField/FormField";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { Badge } from "@/components/ui/Badge/Badge";
+import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import {
     createReservation,
@@ -531,12 +536,8 @@ export function ReservationForm({
     return (
         <form id={formId} onSubmit={handleSubmit} noValidate className={styles.reservationForm}>
             {isEditing ? (
-                <div className={styles.reservationFormReadonlyField}>
-                    <span className={styles.reservationFormReadonlyLabel}>Sede</span>
-                    <span className={styles.reservationFormReadonlyValue}>
-                        {activityName ?? "—"}
-                    </span>
-                </div>
+                // La sede di una prenotazione non si sposta: si legge e basta.
+                <TextInput label="Sede" value={activityName ?? "—"} readOnly />
             ) : (
                 <Select
                     label="Sede"
@@ -562,50 +563,46 @@ export function ReservationForm({
                 />
             )}
 
-            <div className={styles.reservationFormField}>
-                <span className={styles.reservationFormLabel}>Data</span>
-                <AdminReservationDatePicker
-                    value={reservationDate}
-                    onChange={iso => {
-                        if (iso === reservationDate) return;
-                        setReservationDate(iso);
-                        // Reset time on date change for the same reason as
-                        // above — keeps the picker's value coherent with the
-                        // freshly-computed period grid.
-                        if (reservationTime) setReservationTime("");
-                    }}
-                    hours={hours}
-                    closures={closures}
-                    allowPast={isEditing}
-                    invalid={Boolean(dateError)}
-                    errorId={dateError ? `${formId}-date-error` : undefined}
-                />
-                {dateError && (
-                    <span id={`${formId}-date-error`} className={styles.fieldError}>
-                        {dateError}
-                    </span>
+            {/* Data e ora: i picker sono di dominio (orari, chiusure, fasce
+                della sede), la label, l'errore e l'aiuto sono del FormField. */}
+            <FormField label="Data" required error={dateError}>
+                {({ describedById }) => (
+                    <AdminReservationDatePicker
+                        value={reservationDate}
+                        onChange={iso => {
+                            if (iso === reservationDate) return;
+                            setReservationDate(iso);
+                            // Reset time on date change for the same reason as
+                            // above — keeps the picker's value coherent with the
+                            // freshly-computed period grid.
+                            if (reservationTime) setReservationTime("");
+                        }}
+                        hours={hours}
+                        closures={closures}
+                        allowPast={isEditing}
+                        invalid={Boolean(dateError)}
+                        errorId={describedById}
+                        ariaLabel="Data"
+                    />
                 )}
-            </div>
+            </FormField>
 
-            <div className={styles.reservationFormField}>
-                <span className={styles.reservationFormLabel}>Ora</span>
-                <AdminReservationTimePicker
-                    value={reservationTime}
-                    onChange={setReservationTime}
-                    date={reservationDate}
-                    hours={hours}
-                    closures={closures}
-                    loading={hoursLoading}
-                    error={hoursError}
-                    invalid={Boolean(timeError)}
-                    errorId={timeError ? `${formId}-time-error` : undefined}
-                />
-                {timeError && (
-                    <span id={`${formId}-time-error`} className={styles.fieldError}>
-                        {timeError}
-                    </span>
+            <FormField label="Ora" required error={timeError}>
+                {({ describedById }) => (
+                    <AdminReservationTimePicker
+                        value={reservationTime}
+                        onChange={setReservationTime}
+                        date={reservationDate}
+                        hours={hours}
+                        closures={closures}
+                        loading={hoursLoading}
+                        error={hoursError}
+                        invalid={Boolean(timeError)}
+                        errorId={describedById}
+                        ariaLabel="Ora"
+                    />
                 )}
-            </div>
+            </FormField>
 
             <NumberInput
                 label="Coperti"
@@ -639,7 +636,7 @@ export function ReservationForm({
                 onBlur={() => void handlePhoneBlur()}
                 placeholder="es. +39 333 1234567"
                 helperText={
-                    guestLookupLoading ? "Cerco il cliente in rubrica…" : undefined
+                    guestLookupLoading ? "Ricerca in rubrica…" : undefined
                 }
                 error={phoneError}
             />
@@ -648,29 +645,36 @@ export function ReservationForm({
                 che serve mentre si prende la prenotazione — quante volte è
                 venuto, se non si è presentato, cosa il locale ha annotato. */}
             {guestMatch && (
-                <div className={styles.guestMatchBanner}>
-                    <div className={styles.guestMatchTitle}>
-                        Già in rubrica: <strong>{guestMatch.display_name}</strong>
-                    </div>
-                    <div className={styles.guestMatchStats}>
-                        <span>{formatVisitCount(guestMatch.visible_visits, tenantWide)}</span>
-                        {guestMatch.visible_no_shows > 0 && (
-                            <span className={styles.guestSummaryAlert}>
-                                {formatAbsenceCount(guestMatch.visible_no_shows, tenantWide)}
-                            </span>
+                <InlineBanner variant="info">
+                    <div className={styles.guestMatch}>
+                        <Text as="p" variant="body-sm">
+                            Già in rubrica: <strong>{guestMatch.display_name}</strong>
+                        </Text>
+                        <Text as="p" variant="caption" colorVariant="muted">
+                            {formatVisitCount(guestMatch.visible_visits, tenantWide)}
+                            {guestMatch.visible_no_shows > 0 && (
+                                <>
+                                    {" · "}
+                                    <span className={styles.guestSummaryAlert}>
+                                        {formatAbsenceCount(guestMatch.visible_no_shows, tenantWide)}
+                                    </span>
+                                </>
+                            )}
+                        </Text>
+                        {guestNote && guestNote.tags.length > 0 && (
+                            <div className={styles.guestTags}>
+                                {guestNote.tags.map(t => (
+                                    <Badge key={t}>{t}</Badge>
+                                ))}
+                            </div>
+                        )}
+                        {guestNote?.notes && (
+                            <Text as="p" variant="caption">
+                                {guestNote.notes}
+                            </Text>
                         )}
                     </div>
-                    {guestNote && guestNote.tags.length > 0 && (
-                        <div className={styles.guestTags}>
-                            {guestNote.tags.map(t => (
-                                <span key={t} className={styles.guestTag}>{t}</span>
-                            ))}
-                        </div>
-                    )}
-                    {guestNote?.notes && (
-                        <div className={styles.guestInlineNotes}>{guestNote.notes}</div>
-                    )}
-                </div>
+                </InlineBanner>
             )}
 
             <TextInput
@@ -679,40 +683,27 @@ export function ReservationForm({
                 value={customerEmail}
                 onChange={e => setCustomerEmail(e.target.value)}
                 placeholder="es. mario.rossi@esempio.it"
-                helperText="Facoltativa. Se la inserisci, il cliente riceve il promemoria del giorno prima e un avviso se sposti o annulli la prenotazione."
+                helperText="Facoltativa. Se c'è, il cliente riceve il promemoria del giorno prima e un avviso se la prenotazione cambia o viene annullata."
                 error={emailError}
             />
 
-            <div className={styles.reservationFormField}>
-                <label htmlFor={`${formId}-notes`} className={styles.reservationFormLabel}>
-                    Note
-                    <span className={styles.reservationFormLabelOptional}>opzionale</span>
-                </label>
-                {/* Nessun esempio sanitario nel placeholder: se emerge
-                    un'allergia dev'essere iniziativa di chi prenota, non una
-                    categoria che chiediamo noi. */}
-                <textarea
-                    id={`${formId}-notes`}
-                    className={styles.reservationFormTextarea}
-                    value={notes}
-                    onChange={e => setNotes(e.target.value)}
-                    placeholder="es. occasione speciale, tavolo all'aperto…"
-                    maxLength={500}
-                    rows={3}
-                />
-            </div>
+            {/* Nessun esempio sanitario nel placeholder: se emerge
+                un'allergia dev'essere iniziativa di chi prenota, non una
+                categoria che chiediamo noi. */}
+            <Textarea
+                label="Note"
+                helperText="Facoltative."
+                value={notes}
+                onChange={e => setNotes(e.target.value)}
+                placeholder="es. occasione speciale, tavolo all'aperto…"
+                maxLength={500}
+                rows={3}
+            />
 
-            {overCapacityWarning && (
-                <p role="alert" className={styles.capacityWarning}>
-                    {overCapacityWarning}
-                </p>
-            )}
-
-            {pacingWarning && (
-                <p role="alert" className={styles.capacityWarning}>
-                    {pacingWarning}
-                </p>
-            )}
+            {/* Avvisi non bloccanti: `status`, non `alert` — informano mentre
+                si scrive, non interrompono a ogni cambio. */}
+            {overCapacityWarning && <InlineBanner variant="warning">{overCapacityWarning}</InlineBanner>}
+            {pacingWarning && <InlineBanner variant="warning">{pacingWarning}</InlineBanner>}
         </form>
     );
 }

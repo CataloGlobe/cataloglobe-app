@@ -314,6 +314,45 @@ test.describe("Prenotazioni", () => {
         expect(stub.writes).toHaveLength(0);
     });
 
+    test("cablaggio: «Crea prenotazione» inserisce nella sede, confermata e a mano", async ({ page }) => {
+        stub.onWrite("reservations.insert", body => ({ ...(body as object), id: "00000000-0000-4000-8000-0000000000ff" }));
+        await openPrenotazioni(page);
+        await page.getByRole("button", { name: "Nuova prenotazione" }).first().click();
+        const drawer = page.getByRole("dialog", { name: "Nuova prenotazione" });
+
+        // La sede non viene ancora dal path (bug a parte, #213): la si sceglie.
+        await drawer.getByLabel(/^Sede/).selectOption({ label: "McDonald's - Garbagnate" });
+        // Il giorno dopo oggi: la seconda cella della striscia dei giorni.
+        const days = drawer
+            .getByRole("listbox", { name: "Seleziona la data" })
+            .or(drawer.getByRole("radiogroup", { name: "Data" }));
+        await days.getByRole("option").or(days.getByRole("radio")).nth(1).click();
+        // Da tastiera la striscia si percorre con le frecce, e la freccia sceglie.
+        await page.keyboard.press("ArrowRight");
+        await expect(days.getByRole("radio").nth(2)).toHaveAttribute("aria-checked", "true");
+        await page.keyboard.press("ArrowLeft");
+        await expect(days.getByRole("radio").nth(1)).toHaveAttribute("aria-checked", "true");
+        // L'ora a mano, che non dipende dagli orari veri della sede.
+        await drawer.getByRole("button", { name: /Altro orario/ }).click();
+        await drawer.getByLabel(/orario libero/i).fill("20:00");
+        await drawer.getByLabel(/Coperti/).fill("4");
+        await drawer.getByLabel(/Nome cliente/).fill("Mario Rossi");
+        await drawer.getByLabel(/Telefono/).fill("+39 333 7654321");
+        await drawer.getByRole("button", { name: "Crea prenotazione" }).click();
+
+        await expect.poll(() => stub.writes.filter(w => w.fn === "reservations.insert").length).toBe(1);
+        const insert = stub.writes.find(w => w.fn === "reservations.insert")?.body as Record<string, unknown>;
+        expect(insert).toMatchObject({
+            activity_id: "1f62cac4-2ba9-436b-b075-057203658422",
+            reservation_time: "20:00:00",
+            party_size: 4,
+            customer_name: "Mario Rossi",
+            status: "confirmed",
+            source: "manual"
+        });
+        await expect(page.getByText("Prenotazione creata.")).toBeVisible();
+    });
+
     test("il filtro canale restringe l'agenda", async ({ page }) => {
         await openPrenotazioni(page);
         await selectTab(page, /^Agenda/);
