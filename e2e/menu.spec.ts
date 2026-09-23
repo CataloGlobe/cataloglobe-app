@@ -34,8 +34,9 @@ function checkboxOf(anchor: Locator): Locator {
         .getByRole("checkbox", { name: "Seleziona riga" });
 }
 
+/** L'ultimo dialogo aperto: drawer (`dialog`) o conferma (`alertdialog`). */
 function dialog(page: Page): Locator {
-    return page.getByRole("dialog").last();
+    return page.getByRole("dialog").or(page.getByRole("alertdialog")).last();
 }
 
 async function openList(page: Page): Promise<void> {
@@ -130,7 +131,12 @@ test.describe("Menù — elenco", () => {
         stub.onWrite("catalogs.POST", ({ body }) => ({ id: "e2e0c000-0000-4000-a000-000000000777", created_at: new Date().toISOString(), ...(body as object[])[0] }));
         await openList(page);
         await page.getByRole("button", { name: "Crea menù" }).click();
-        await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Cena");
+        // Senza nome l'errore sta sul campo, e non parte niente.
+        await dialog(page).getByRole("button", { name: /^Crea/ }).click();
+        await expect(dialog(page).getByText("Scrivi un nome.")).toBeVisible();
+        expect(write(stub, "catalogs.POST")).toBeUndefined();
+        // Il nome si salva senza gli spazi ai lati (#240).
+        await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("  Cena  ");
         await dialog(page).getByRole("button", { name: /^Crea/ }).click();
         await expect.poll(() => write(stub, "catalogs.POST")).toBeTruthy();
         expect(write(stub, "catalogs.POST")!.body).toEqual([expect.objectContaining({ name: "Cena" })]);
@@ -182,7 +188,7 @@ test.describe("Menù — elenco", () => {
         await bulk.click();
         const confirm = page.getByRole("alertdialog").or(page.getByRole("dialog")).last();
         await expect(confirm).toContainText("Eliminare 2 menù?");
-        await expect(confirm).toContainText(/categorie e i collegamenti/);
+        await expect(confirm).toContainText(/(categorie|portate) e i collegamenti/);
         await confirm.getByRole("button", { name: "Annulla" }).click();
         expect(stub.writes.filter(w => w.key === "catalogs.DELETE")).toHaveLength(0);
         await expect(checkboxOf(main(page).getByText("Carta e2e"))).toBeChecked();
