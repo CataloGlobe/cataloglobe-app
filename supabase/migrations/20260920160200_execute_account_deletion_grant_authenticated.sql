@@ -1,0 +1,20 @@
+-- execute_account_deletion_tenant_ops: ripristina EXECUTE per authenticated.
+--
+-- 20260429150000_revoke_security_definer_internal.sql l'aveva revocata
+-- insieme ad altre 15 funzioni SECURITY DEFINER interne. Le altre passano
+-- da supabaseAdmin (service_role) e restano revocate; questa è l'unica
+-- chiamata con il client utente: supabase/functions/delete-account/index.ts:155,
+-- supabaseUser = SUPABASE_ANON_KEY + JWT del chiamante → ruolo authenticated.
+-- Dal 20260429150000 la cancellazione account con tenant attivi falliva
+-- per permission denied, in staging e in produzione.
+--
+-- service_role NON è un'alternativa: la funzione fa il proprio guard su
+-- auth.uid() (caller = tenants.owner_user_id), e con la service key senza
+-- JWT utente auth.uid() è NULL → not_authenticated. Il grant ad
+-- authenticated è sicuro perché la funzione agisce solo sui tenant di cui
+-- il chiamante è owner.
+--
+-- transfer_ownership, chiamata dall'interno, NON ha bisogno del grant:
+-- nella SECURITY DEFINER (owner postgres) l'EXECUTE annidato si verifica
+-- contro postgres (vedi 20260920160100).
+GRANT EXECUTE ON FUNCTION public.execute_account_deletion_tenant_ops(jsonb) TO authenticated;

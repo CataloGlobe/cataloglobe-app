@@ -268,6 +268,7 @@ Service layer FE: `src/services/supabase/reservations.ts`, `reservationGuests.ts
 - **Sistema permessi multi-sede** (vedi `## Sistema permessi multi-sede` sopra): tabelle `tenant_memberships` (role NULL|'admin' post Fase 5.B.2), `tenant_membership_activities (tenant_membership_id, activity_id, tenant_id, role IN manager|staff|viewer)`, `permissions (id, scope)`, `role_permissions (role, permission_id)`. Helper SECURITY DEFINER: `has_permission`, `has_permission_any_activity`, `get_my_activity_ids`, `get_my_tenant_ids`.
 - Dati legali aziendali: `src/config/company.ts` ↔ `supabase/functions/_shared/company-config.ts` sono **duplicazione sincronizzata** (header `// ⚠️ SYNC`). Modifica entrambi nello stesso commit. Stesso pattern di `scheduleResolver.ts`.
 - **Migration con `CREATE FUNCTION` + REVOKE/GRANT**: `supabase db push` fallisce con `SQLSTATE 42601`. Workaround: applicare via Studio SQL Editor + registrare in `supabase_migrations.schema_migrations`, oppure splittare in 2 file consecutivi. Dettaglio: `docs/patterns/storage-sql.md`.
+- **`CREATE OR REPLACE` di una funzione esistente**: partire SEMPRE da `pg_get_functiondef` sul live, MAI da una migration precedente. Due incidenti: `20260413120000` perde l'audit `ownership_transferred`; `20260920140000` perde lo Step D e riapre un GRANT revocato da `20260429150000`.
 
 ---
 
