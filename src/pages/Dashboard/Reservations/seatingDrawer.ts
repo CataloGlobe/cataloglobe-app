@@ -125,27 +125,3 @@ export function formatOpenFor(openedAtIso: string, now: Date): string {
     const m = totalMin % 60;
     return m === 0 ? `da ${h} h` : `da ${h} h ${m} min`;
 }
-
-export interface WalkinRowParts {
-    /** I tavoli, o `null` se non ce ne sono. */
-    title: string | null;
-    /** "4 coperti", o `null` se non indicati. */
-    covers: string | null;
-    /** "da 45 min". Sempre presente: una tavolata aperta ha sempre un'età. */
-    openFor: string;
-}
-
-/**
- * Le tre parti della riga di un walk-in. Chi presenta decide come disporle;
- * qui si decide cosa dicono, e che cosa manca quando manca.
- */
-export function walkinRowParts(
-    seating: Pick<SeatingWithState, "tables" | "party_size" | "opened_at">,
-    now: Date
-): WalkinRowParts {
-    return {
-        title: walkinTitle(seating),
-        covers: formatCovers(seating.party_size),
-        openFor: formatOpenFor(seating.opened_at, now)
-    };
-}

@@ -18,6 +18,7 @@ import {
 } from "@/utils/activeCatalogStatus";
 import { buildPublicUrl } from "@/utils/publicUrl";
 import type { BusinessCardProps } from "@/types/Businesses";
+import { PendingReservationsLink } from "../PendingReservationsLink/PendingReservationsLink";
 import styles from "./BusinessCard.module.scss";
 
 /**
@@ -31,7 +32,8 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
     onDelete,
     activeCatalog,
     catalogsStatus = "loading",
-    onManageAvailability
+    onManageAvailability,
+    pendingReservations = 0
 }) => {
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
@@ -59,6 +61,11 @@ export const BusinessCard: React.FC<BusinessCardProps> = ({
 
     const footer = (
         <div className={styles.footer}>
+            {/* Fuori dal link della card (un link non ne contiene un altro):
+                porta alla coda di questa sede. */}
+            {pendingReservations > 0 && (
+                <PendingReservationsLink count={pendingReservations} to={`${detailPath}/prenotazioni`} />
+            )}
             <div className={styles.footerMain}>
                 <span className={styles.footerIcon} aria-hidden="true">
                     <Clock size={14} strokeWidth={2} />

@@ -1,7 +1,9 @@
 import { useMemo } from "react";
-import { CalendarCheck, MessageSquare } from "lucide-react";
-import { EmptyState } from "@components/ui/EmptyState/EmptyState";
+import { MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import Text from "@/components/ui/Text/Text";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { todayIsoDate } from "@/utils/dateLocal";
 import { PENDING_QUEUE_LIMIT } from "@/services/supabase/reservations";
 import {
@@ -23,10 +25,6 @@ interface Props {
     truncated?: boolean;
     /** Tavoli assegnati per prenotazione: aiuta a decidere se confermare. */
     tableViews: ReadonlyMap<string, TableAssignmentView>;
-    /** Activity name lookup for site pill. */
-    activityNames: Map<string, string>;
-    /** When true the inbox shows the site pill on each row (scope = "All sites"). */
-    showSitePill: boolean;
     /** Per-row gate: action buttons only render if the caller has manage on that activity. */
     canManageActivity: (activityId: string) => boolean;
     /** Click row → open detail drawer. */
@@ -59,8 +57,6 @@ export default function ReservationsInbox({
     pendingItems,
     truncated = false,
     tableViews,
-    activityNames,
-    showSitePill,
     canManageActivity,
     onOpenDetail,
     onAction
@@ -85,128 +81,84 @@ export default function ReservationsInbox({
         return { live: liveItems, stale: staleItems };
     }, [pendingItems, today]);
 
-    // Il tetto vale per l'intero tenant: anche con lo scope su una sede la
-    // coda potrebbe essere incompleta, e l'avviso resta.
+    // Il tetto vale per la coda della sede: l'avviso dice che non è tutta.
     const truncatedNotice = truncated ? (
-        <p className={styles.inboxTruncated} role="status">
-            {PENDING_TRUNCATED_TEXT}
-        </p>
+        <div className={styles.inboxNotice}>
+            <InlineBanner variant="warning">{PENDING_TRUNCATED_TEXT}</InlineBanner>
+        </div>
     ) : null;
 
-    if (pendingItems.length === 0) {
-        return (
-            <div className={styles.emptyState}>
-                <EmptyState
-                    icon={<CalendarCheck size={40} strokeWidth={1.5} />}
-                    title="Nessuna richiesta in attesa"
-                    description="Quando arriveranno nuove prenotazioni online, compariranno qui per essere confermate o rifiutate."
-                />
-            </div>
-        );
-    }
-
+    // Riga di sistema a 56 (la coda si legge una per una, non a colpo
+    // d'occhio). I due bottoni sono controlli del trailing: il clic si ferma
+    // lì, e ListRow ignora i tasti che non arrivano dalla riga stessa — Invio
+    // su «Conferma» conferma, non apre il dettaglio.
+    // Le scadute non sono `muted`: una riga muta non si apre, e il dettaglio
+    // di una richiesta scaduta serve. Le separa l'intestazione «Scadute».
     const renderRow = (r: V2Reservation, isStale: boolean) => {
         const canManage = canManageActivity(r.activity_id);
-        const siteName = activityNames.get(r.activity_id);
         const tableView = tableViews.get(r.id);
+        const when = `${formatRowDate(r.reservation_date)} · ${r.reservation_time.slice(0, 5)} · ${r.party_size} ${r.party_size === 1 ? "persona" : "persone"}`;
         return (
-            <div
+            <ListRow
                 key={r.id}
-                role="button"
-                tabIndex={0}
-                className={isStale ? styles.rowDimmed : styles.row}
                 onClick={() => onOpenDetail(r)}
-                onKeyDown={e => {
-                    if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        onOpenDetail(r);
-                    }
-                }}
-            >
-                <div className={styles.rowMain}>
-                    <ChannelMark source={r.source} />
-                    <div className={styles.rowContent}>
-                        <div className={styles.rowTopLine}>
-                            <span className={styles.rowName}>{r.customer_name}</span>
-                            <span className={styles.rowMeta}>
-                                {formatRowDate(r.reservation_date)} ·{" "}
-                                {r.reservation_time.slice(0, 5)} · {r.party_size}{" "}
-                                {r.party_size === 1 ? "persona" : "persone"}
-                            </span>
-                        </div>
+                muted={isStale}
+                leading={<ChannelMark source={r.source} />}
+                title={r.customer_name}
+                subtitle={
+                    <>
+                        {when}
                         {r.notes && (
-                            <div className={styles.rowNote}>
+                            <>
+                                <br />
                                 <MessageSquare
-                                    size={13}
+                                    size={12}
                                     strokeWidth={2}
                                     aria-hidden
                                     className={styles.rowNoteIconInline}
-                                />
-                                <span className={styles.rowNoteText}>{r.notes}</span>
-                            </div>
+                                />{" "}
+                                {r.notes}
+                            </>
                         )}
-                        {showSitePill && siteName && (
-                            <div className={styles.rowMetaDim}>
-                                <span className={styles.rowSitePill}>{siteName}</span>
-                            </div>
-                        )}
-                    </div>
-                </div>
-                <div className={styles.rowRight}>
-                    {tableView && <TableAssignmentBadge view={tableView} />}
-                    {canManage && (
-                        <div
-                            className={styles.rowActions}
-                            onClick={e => e.stopPropagation()}
-                        >
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => onAction(r, "decline")}
-                            >
+                    </>
+                }
+                wrapSubtitle={Boolean(r.notes)}
+                meta={tableView ? <TableAssignmentBadge view={tableView} /> : undefined}
+                trailing={
+                    canManage ? (
+                        <div className={styles.rowActions} onClick={e => e.stopPropagation()}>
+                            <Button variant="outline" size="sm" onClick={() => onAction(r, "decline")}>
                                 Rifiuta
                             </Button>
                             {!isStale && (
-                                <Button
-                                    variant="primary"
-                                    size="sm"
-                                    onClick={() => onAction(r, "confirm")}
-                                >
+                                <Button variant="primary" size="sm" onClick={() => onAction(r, "confirm")}>
                                     Conferma
                                 </Button>
                             )}
                         </div>
-                    )}
-                </div>
-            </div>
+                    ) : undefined
+                }
+            />
         );
     };
 
     return (
-        <div className={styles.inbox}>
+        <>
             {truncatedNotice}
-            {live.length > 0 && (
-                <section className={styles.inboxSection}>
-                    <div className={styles.cards}>
-                        {live.map(r => renderRow(r, false))}
-                    </div>
-                </section>
-            )}
-
+            {live.map(r => renderRow(r, false))}
             {stale.length > 0 && (
-                <section className={styles.inboxSection}>
-                    <div className={styles.inboxSectionHeader}>
-                        <h2 className={styles.inboxSectionTitle}>Scadute</h2>
-                        <span className={styles.inboxSectionCount}>{stale.length}</span>
+                <>
+                    <div className={styles.inboxStaleHeader}>
+                        <Text as="h3" variant="caption-xs" weight={600} className={styles.sectionLabel}>
+                            Scadute · {stale.length}
+                        </Text>
+                        <Text as="p" variant="caption" colorVariant="muted" className={styles.sectionHint}>
+                            Richieste per date già passate, mai gestite.
+                        </Text>
                     </div>
-                    <p className={styles.inboxSectionHint}>
-                        Richieste per date già passate, mai gestite.
-                    </p>
-                    <div className={styles.cards}>
-                        {stale.map(r => renderRow(r, true))}
-                    </div>
-                </section>
+                    {stale.map(r => renderRow(r, true))}
+                </>
             )}
-        </div>
+        </>
     );
 }

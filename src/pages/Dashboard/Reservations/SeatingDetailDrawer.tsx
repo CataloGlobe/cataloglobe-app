@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Armchair, Clock, Users } from "lucide-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
@@ -19,6 +19,7 @@ import {
 } from "./seatingDrawer";
 import { seatingCloseFlowFor, type SeatingCloseAction } from "./seatingClose";
 import { SeatingCloseQuestionBody, SeatingCloseQuestionFooter } from "./SeatingCloseQuestion";
+import { Badge } from "@/components/ui/Badge/Badge";
 import styles from "./Reservations.module.scss";
 
 // ── Il drawer della tavolata ──────────────────────────────────────────────
@@ -82,6 +83,7 @@ export default function SeatingDetailDrawer({
     onComplete,
     onUndo
 }: Props) {
+    const titleId = useId();
     // "da 45 min" resta vero anche senza eventi: un tick al minuto.
     const [now, setNow] = useState(() => new Date());
     useEffect(() => {
@@ -126,9 +128,11 @@ export default function SeatingDetailDrawer({
         // cos'è successo. Nessun auto-close: un drawer che si chiude da solo
         // sotto le mani è peggio.
         return (
-            <SystemDrawer open={open} onClose={onClose} width={520}>
+            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
                 <DrawerLayout
-                    header={<Text variant="title-sm" weight={600}>Tavolata</Text>}
+                    title="Tavolata"
+                    titleId={titleId}
+                    onClose={onClose}
                     footer={
                         <div className={styles.drawerFooter}>
                             <Button variant="secondary" onClick={onClose}>
@@ -139,7 +143,7 @@ export default function SeatingDetailDrawer({
                 >
                     <div className={styles.drawerBody}>
                         <Text variant="body" colorVariant="muted">
-                            Questa tavolata è stata annullata.
+                            Questa tavolata non è più in sala.
                         </Text>
                     </div>
                 </DrawerLayout>
@@ -212,9 +216,9 @@ export default function SeatingDetailDrawer({
     const footer = (
         <div className={styles.drawerFooter}>
             {!canManageSeatings ? (
-                <p className={styles.drawerFooterHint}>
+                <Text as="p" variant="caption-xs" colorVariant="muted" className={styles.drawerFooterHint}>
                     Non hai i permessi per gestire questa tavolata.
-                </p>
+                </Text>
             ) : isOpen ? (
                 <>
                     {/* "Annulla apertura" e "Servizio concluso" dicono cose opposte —
@@ -253,20 +257,14 @@ export default function SeatingDetailDrawer({
         </div>
     );
 
-    const header = (
-        <div className={styles.drawerHeaderTitle}>
-            <Text variant="title-sm" weight={600}>
-                Tavolata
-            </Text>
-            <span className={styles.serviceWalkinMark}>Senza prenotazione</span>
-        </div>
-    );
 
     if (asking && closeFlow.kind === "ask") {
         return (
-            <SystemDrawer open={open} onClose={onClose} width={520}>
+            <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
                 <DrawerLayout
-                    header={header}
+                    title="Tavolata"
+                    titleId={titleId}
+                    onClose={onClose}
                     footer={
                         <SeatingCloseQuestionFooter
                             flow={closeFlow}
@@ -283,12 +281,12 @@ export default function SeatingDetailDrawer({
     }
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={520}>
-            <DrawerLayout header={header} footer={footer}>
+        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
+            <DrawerLayout title="Tavolata" titleId={titleId} onClose={onClose} footer={footer}>
                 <div className={styles.drawerBody}>
                     {/* ── Hero: i tavoli sono il nome ───────────────── */}
                     <section className={styles.drawerHero}>
-                        <div className={styles.drawerHeroDate}>
+                        <Text as="div" variant="title-sm" weight={600} className={styles.drawerHeroDate}>
                             <Armchair
                                 size={18}
                                 strokeWidth={2}
@@ -298,8 +296,9 @@ export default function SeatingDetailDrawer({
                             <span className={styles.drawerHeroDateText}>
                                 {title ?? "Nessun tavolo"}
                             </span>
-                        </div>
-                        <div className={styles.drawerHeroMeta}>
+                            <Badge variant="neutral" role="presentation">Senza prenotazione</Badge>
+                        </Text>
+                        <Text as="div" variant="body-sm" colorVariant="muted" className={styles.drawerHeroMeta}>
                             <span className={styles.drawerHeroMetaItem}>
                                 <Users size={15} strokeWidth={2} aria-hidden />
                                 {covers ?? "coperti non indicati"}
@@ -328,15 +327,15 @@ export default function SeatingDetailDrawer({
                                         }).format(new Date(seating.closed_at))}`
                                       : "conclusa"}
                             </span>
-                        </div>
+                        </Text>
                     </section>
 
                     {/* ── Tavolo: il fatto, modificabile solo da aperta ── */}
                     <section className={styles.drawerSection}>
                         <div className={styles.drawerSectionHead}>
-                            <h3 className={styles.drawerSectionTitle}>
+                            <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>
                                 {seating.tables.length > 1 ? "Tavoli" : "Tavolo"}
-                            </h3>
+                            </Text>
                             {editable && onSetTables && !pickerOpen && (
                                 <div className={styles.drawerTableActions}>
                                     <Button variant="secondary" size="sm" onClick={openPicker}>
@@ -351,9 +350,9 @@ export default function SeatingDetailDrawer({
                         {pickerOpen ? (
                             <div className={styles.drawerTablePicker}>
                                 {tables === undefined ? (
-                                    <p className={styles.drawerTableHint}>
+                                    <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>
                                         Caricamento dei tavoli…
-                                    </p>
+                                    </Text>
                                 ) : (
                                     <TableMultiSelect
                                         tables={tables}
@@ -402,14 +401,14 @@ export default function SeatingDetailDrawer({
                                                 {formatTableLabels([t.label])}
                                             </span>
                                             {t.zone_name && (
-                                                <span className={styles.drawerTableZone}>
+                                                <Text as="span" variant="caption" colorVariant="muted" className={styles.drawerTableZone}>
                                                     {t.zone_name}
-                                                </span>
+                                                </Text>
                                             )}
                                             {t.deleted_at && (
-                                                <span className={styles.drawerTableRemoved}>
+                                                <Text as="span" variant="caption-xs" weight={500} colorVariant="warning">
                                                     rimosso dalla sala
-                                                </span>
+                                                </Text>
                                             )}
                                         </li>
                                     ))}
@@ -418,18 +417,18 @@ export default function SeatingDetailDrawer({
                                     senza bottone (chiusa) non spiega niente, e
                                     l'hero dice già che il servizio è concluso. */}
                                 {isOpen && (
-                                    <p className={styles.drawerTableHint}>Tavolo occupato adesso.</p>
+                                    <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>Tavolo occupato adesso.</Text>
                                 )}
                             </>
                         ) : (
-                            <p className={styles.drawerTableHint}>Nessun tavolo assegnato.</p>
+                            <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>Nessun tavolo assegnato.</Text>
                         )}
                     </section>
 
                     {/* ── Coperti: il fatto, modificabile solo da aperta ── */}
                     <section className={styles.drawerSection}>
                         <div className={styles.drawerSectionHead}>
-                            <h3 className={styles.drawerSectionTitle}>Coperti</h3>
+                            <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>Coperti</Text>
                             {editable && onSetPartySize && !coversOpen && (
                                 <div className={styles.drawerTableActions}>
                                     <Button variant="secondary" size="sm" onClick={openCovers}>
@@ -469,7 +468,7 @@ export default function SeatingDetailDrawer({
                                 </div>
                             </div>
                         ) : (
-                            <p className={styles.drawerTableHint}>{covers ?? "Non indicati"}</p>
+                            <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>{covers ?? "Non indicati"}</Text>
                         )}
                     </section>
                 </div>

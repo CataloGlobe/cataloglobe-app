@@ -1,8 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-    seatingActionsFor,
-    hasSeatingAction
-} from "@/pages/Dashboard/Reservations/seatingActions";
+import { seatingActionsFor } from "@/pages/Dashboard/Reservations/seatingActions";
 import { statusMeta } from "@/utils/reservationStatusMeta";
 import type { ReservationStatus } from "@/types/reservation";
 
@@ -39,7 +36,7 @@ describe("seatingActionsFor — quali gesti mostrare", () => {
     it("pending non ha 'arrivato'", () => {
         // Non si fa sedere qualcuno la cui richiesta il locale non ha ancora
         // accettato: l'host conferma prima, ed è un gesto che già esiste.
-        expect(hasSeatingAction({ status: "pending", canManageSeatings: true }, "arrive")).toBe(
+        expect(seatingActionsFor({ status: "pending", canManageSeatings: true }).includes("arrive")).toBe(
             false
         );
     });
@@ -68,7 +65,7 @@ describe("seatingActionsFor — quali gesti mostrare", () => {
     it("'annulla arrivo' esiste solo dove esiste un arrivo da annullare", () => {
         for (const status of ALL_STATUSES) {
             if (status === "seated") continue;
-            expect(hasSeatingAction({ status, canManageSeatings: true }, "undo_arrival")).toBe(
+            expect(seatingActionsFor({ status, canManageSeatings: true }).includes("undo_arrival")).toBe(
                 false
             );
         }

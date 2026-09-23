@@ -47,10 +47,3 @@ export function seatingActionsFor({
     if (status === "seated") return ["complete", "undo_arrival"];
     return [];
 }
-
-export function hasSeatingAction(
-    input: SeatingActionsInput,
-    key: SeatingActionKey
-): boolean {
-    return seatingActionsFor(input).includes(key);
-}

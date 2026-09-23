@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { Clock, Lock, Plus } from "lucide-react";
+import { Lock, Plus, Store } from "lucide-react";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
 import { usePermissions } from "@/context/PermissionsContext";
@@ -9,6 +9,10 @@ import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnActivity, canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { Card } from "@/components/ui/Card/Card";
+import { StatusStrip } from "@/components/ui/StatusStrip/StatusStrip";
 import { Button } from "@/components/ui/Button/Button";
 import { Select } from "@/components/ui/Select/Select";
 import type { SelectOption } from "@/components/ui/Select/Select";
@@ -92,11 +96,12 @@ import { useReservationsRealtime } from "./hooks/useReservationsRealtime";
 import { useSeatingsRealtime } from "./hooks/useSeatingsRealtime";
 import styles from "./Reservations.module.scss";
 
-type TabKey = "inbox" | "agenda" | "service";
+// Due schede (§14, passo 2): «Da gestire» sta in cima all'Agenda, non è più
+// una scheda. `?tab=inbox` dei vecchi link apre l'Agenda.
+type TabKey = "agenda" | "service";
 
 const SEARCH_PLACEHOLDER = "Cerca per nome o telefono…";
 const SEARCH_DEBOUNCE_MS = 300;
-type Scope = string | "__all__";
 type ChannelFilter = "all" | "online" | "manual";
 
 const CHANNEL_OPTIONS: SelectOption[] = [
@@ -184,7 +189,7 @@ export default function Reservations() {
     const navigate = useNavigate();
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { hasFeature } = usePlanFeatures();
-    const { permissions, loading: permissionsLoading } = usePermissions();
+    const { permissions, loading: permissionsLoading, refresh: refreshPermissions } = usePermissions();
     const sedeScope = useActivityScope();
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -247,8 +252,7 @@ export default function Reservations() {
     const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
     const initialTab: TabKey = useMemo(() => {
-        const t = searchParams.get("tab");
-        return t === "agenda" || t === "service" ? t : "inbox";
+        return searchParams.get("tab") === "service" ? "service" : "agenda";
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     const [tab, setTab] = useState<TabKey>(initialTab);
@@ -260,9 +264,11 @@ export default function Reservations() {
         }, { replace: true });
     }, [setSearchParams]);
 
-    // Dentro il contesto la sede è nel path; fuori, dal selettore navbar
-    // («tutte le sedi» → "__all__" downstream).
-    const scope: Scope = sedeScope.activityId ?? "__all__";
+    // La sede è nel path: la pagina esiste solo dentro il contesto di sede
+    // (`/reservations` reindirizza, §48.1). `null` solo nel frame prima che
+    // la rotta risolva.
+    const scope = sedeScope.activityId;
+    const scopeActivityId = scope;
 
     // Channel filter (toolbar dropdown). Client-side, applied to the in-memory
     // dataset together with the scope filter. "all" = no narrowing.
@@ -282,6 +288,14 @@ export default function Reservations() {
     const [searchPage, setSearchPage] = useState<ReservationSearchPage | null>(null);
     const [isSearching, setIsSearching] = useState(false);
     const isSearchActive = parseSearchQuery(searchInput) !== null;
+
+    // Il clic su una scheda durante la ricerca chiude la ricerca e apre la
+    // scheda (§48.2/3): senza, il clic cambiava scheda sotto i risultati e
+    // non si vedeva niente.
+    const handleTabSelect = useCallback((next: TabKey) => {
+        setSearchInput("");
+        handleTabChange(next);
+    }, [handleTabChange]);
 
     // ── La finestra di caricamento ────────────────────────────────────────
     // FASE 5.2a: la pagina chiede al server solo le date che mostra. Le tre
@@ -333,19 +347,11 @@ export default function Reservations() {
     );
 
     // ── Sites the caller can READ ─────────────────────────────────────
-    const readableActivityIds = useMemo(() => {
-        if (!permissions) return new Set<string>();
-        // Owner/admin = tenant-wide → all activities.
-        if (permissions.activityIds.length === 0 && canRead) {
-            return new Set(activities.map(a => a.id));
-        }
-        // Manager/staff/viewer: only the explicit set.
-        return new Set(permissions.activityIds);
-    }, [permissions, activities, canRead]);
-
-    const readableActivities = useMemo(
-        () => activities.filter(a => readableActivityIds.has(a.id)),
-        [activities, readableActivityIds]
+    // Una regola sola per «quali sedi posso leggere»: quella dello scope
+    // (owner/admin = tutte, gli altri le loro), non una copia locale.
+    const readableActivityIds = useMemo(
+        () => new Set(sedeScope.readableActivities.map(a => a.id)),
+        [sedeScope.readableActivities]
     );
 
     const activityNames = useMemo(() => {
@@ -353,8 +359,6 @@ export default function Reservations() {
         for (const a of activities) m.set(a.id, a.name);
         return m;
     }, [activities]);
-
-    const showSitePill = readableActivities.length > 1 && scope === "__all__";
 
     const canManageActivity = useCallback(
         (activityId: string) => {
@@ -452,8 +456,8 @@ export default function Reservations() {
         try {
             const ranges = loadRangesRef.current;
             const [windows, pending, acts, names] = await Promise.all([
-                Promise.all(ranges.map(range => listReservations(tenantId, range))),
-                listPendingReservations(tenantId),
+                Promise.all(ranges.map(range => listReservations(tenantId, range, scopeActivityId))),
+                listPendingReservations(tenantId, scopeActivityId),
                 getActivities(tenantId),
                 getTenantMemberNames(tenantId)
             ]);
@@ -495,7 +499,7 @@ export default function Reservations() {
             // cosa non va.
             setHasLoadedOnce(true);
         }
-    }, [tenantId, showToast]);
+    }, [tenantId, scopeActivityId, showToast]);
 
     // Ricarica quando cambia la finestra (settimana, giorno aperto in un
     // drawer), oltre che al primo giro. `loadRangesKey` e non `loadRanges`:
@@ -552,6 +556,7 @@ export default function Reservations() {
 
     useReservationsRealtime(
         tenantId,
+        scopeActivityId,
         !permissionsLoading && !!permissions && canRead,
         handleRealtimeEvents,
         loadData
@@ -582,7 +587,7 @@ export default function Reservations() {
         return effectiveReservations.filter(r => {
             // Always gate by read scope (defensive — RLS already filters).
             if (!readableActivityIds.has(r.activity_id)) return false;
-            if (scope !== "__all__" && r.activity_id !== scope) return false;
+            if (r.activity_id !== scope) return false;
             if (channelFilter !== "all" && r.source !== channelFilter) return false;
             return true;
         });
@@ -614,7 +619,7 @@ export default function Reservations() {
                     tenantId,
                     searchInput,
                     todayIsoDate(),
-                    scope === "__all__" ? null : scope
+                    scope
                 );
                 if (seq !== searchSeqRef.current) return;
                 setSearchPage(page);
@@ -704,23 +709,25 @@ export default function Reservations() {
     const headerLeading = useMemo(() => (
         <Tabs<TabKey>
             value={tab}
-            onChange={handleTabChange}
+            onChange={handleTabSelect}
             variant="line"
         >
             <Tabs.List>
+                {/* Il contatore delle richieste da gestire sta sull'Agenda, che
+                    le mostra in cima: dal Servizio si vede che qualcuno aspetta. */}
                 <Tabs.Tab
-                    value="inbox"
+                    value="agenda"
                     badge={pendingInScope.length > 0 ? pendingInScope.length : undefined}
+                    badgeTone="brand"
                 >
-                    Da gestire
+                    Agenda
                 </Tabs.Tab>
-                <Tabs.Tab value="agenda">Agenda</Tabs.Tab>
                 {/* "Servizio", non "Sala": Sala è dove i tavoli si definiscono
                     (tab della sede). Qui si dice cosa sta succedendo. */}
                 <Tabs.Tab value="service">Servizio</Tabs.Tab>
             </Tabs.List>
         </Tabs>
-    ), [tab, handleTabChange, pendingInScope.length]);
+    ), [tab, handleTabSelect, pendingInScope.length]);
 
     // Plan gate (computed early; the actual lock screen render is below,
     // after all hooks, to respect the Rules of Hooks).
@@ -735,16 +742,15 @@ export default function Reservations() {
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
         sections: [
             {
-                value: "inbox",
+                value: "agenda",
                 label: pendingInScope.length > 0
-                    ? `Da gestire · ${pendingInScope.length}`
-                    : "Da gestire"
+                    ? `Agenda · ${pendingInScope.length}`
+                    : "Agenda"
             },
-            { value: "agenda", label: "Agenda" },
             { value: "service", label: "Servizio" }
         ],
         activeSection: tab,
-        onSectionChange: value => handleTabChange(value as TabKey),
+        onSectionChange: value => handleTabSelect(value as TabKey),
         search: { value: searchInput, onChange: setSearchInput, placeholder: SEARCH_PLACEHOLDER },
         filterControls: [
             {
@@ -759,7 +765,7 @@ export default function Reservations() {
         primaryAction: canCreate
             ? { label: "Nuova prenotazione", onClick: handleOpenCreate }
             : undefined
-    }), [tab, handleTabChange, pendingInScope.length, channelFilter, canCreate, handleOpenCreate, searchInput]);
+    }), [tab, handleTabSelect, pendingInScope.length, channelFilter, canCreate, handleOpenCreate, searchInput]);
 
     const headerConfig = useMemo(
         () => isLocked
@@ -881,7 +887,7 @@ export default function Reservations() {
     const tablesWantedFor: string | null =
         isDrawerOpen && selectedActivityId && selectedCanManage
             ? selectedActivityId
-            : tab === "service" && scope !== "__all__" && canManageSeatingsOn(scope)
+            : tab === "service" && scope !== null && canManageSeatingsOn(scope)
               ? scope
               : null;
 
@@ -1206,7 +1212,8 @@ export default function Reservations() {
             }
             await undoSeating(seatingId, tenantId);
             await loadData();
-            showToast({ message: "Arrivo annullato.", type: "info" });
+            // §48.2/1: nessuna conferma, e il toast dice come si ripara.
+            showToast({ message: "Apertura annullata. Per riaprirla: Arrivato.", type: "info" });
             return true;
         } catch (err) {
             showToast({
@@ -1219,7 +1226,7 @@ export default function Reservations() {
 
     const handleReassignDay = useCallback(
         async (date: string): Promise<boolean> => {
-            if (scope === "__all__" || !tenantId) return false;
+            if (!scope || !tenantId) return false;
             try {
                 const summary = await reassignActivityTables(scope, date, tenantId);
                 await loadData();
@@ -1261,7 +1268,7 @@ export default function Reservations() {
     // `security_invoker` e a chi non può leggere risponde `[]`, non un errore
     // — senza il pre-check, "nessuno in sala" e "non puoi vederlo" sarebbero
     // la stessa risposta.
-    const serviceActivityId = scope === "__all__" ? null : scope;
+    const serviceActivityId = scope;
     const canReadService =
         serviceActivityId !== null && permissions !== null
             ? canDoOnActivity(permissions, "seatings.read", serviceActivityId)
@@ -1439,7 +1446,7 @@ export default function Reservations() {
         if (!tenantId || !selectedSeatingId) return false;
         return runSeatingGesture(
             () => undoSeating(selectedSeatingId, tenantId),
-            "Tavolata annullata.",
+            "Apertura annullata. Per riaprirla: Senza prenotazione.",
             "info"
         );
     }, [tenantId, selectedSeatingId, runSeatingGesture]);
@@ -1503,11 +1510,8 @@ export default function Reservations() {
     );
 
     const todayCovers = useMemo(
-        () =>
-            scope === "__all__"
-                ? null
-                : todayItems.reduce((s, r) => s + r.party_size, 0),
-        [todayItems, scope]
+        () => todayItems.reduce((s, r) => s + r.party_size, 0),
+        [todayItems]
     );
 
     // "Prossima" è un arrivo futuro: solo le `confirmed` con orario ≥ adesso.
@@ -1559,59 +1563,83 @@ export default function Reservations() {
         );
     }
 
-    // SOLO al primo caricamento: dopo, la pagina resta in piedi e si aggiorna
-    // sotto. Vedi la nota su `hasLoadedOnce`.
-    if (isLoading && !hasLoadedOnce) {
+    // Permessi non arrivati (errore del provider): senza questo ramo il
+    // caricamento non parte e lo scheletro resterebbe per sempre (#153).
+    if (!permissionsLoading && !permissions) {
         return (
-            <div className={styles.page}>
-                <div className={styles.cards}>
-                    <div className={styles.skeleton} />
-                    <div className={styles.skeleton} />
-                    <div className={styles.skeleton} />
-                </div>
+            <div className={styles.lockedWrap}>
+                <EmptyState
+                    variant="page"
+                    icon={<Lock />}
+                    title="Non riusciamo a leggere i tuoi permessi"
+                    description="Senza, non sappiamo quali prenotazioni puoi vedere. Riprova tra un momento."
+                    action={<Button onClick={() => void refreshPermissions()}>Riprova</Button>}
+                />
             </div>
         );
     }
 
-    const scopedActivityName =
-        scope === "__all__" ? null : activityNames.get(scope) ?? null;
+    // SOLO al primo caricamento: dopo, la pagina resta in piedi e si aggiorna
+    // sotto. Vedi la nota su `hasLoadedOnce`.
+    if (isLoading && !hasLoadedOnce) {
+        return (
+            <div className={styles.page} aria-busy="true">
+                <Skeleton height={76} radius="var(--radius-surface)" />
+                <Skeleton height={160} radius="var(--radius-surface)" />
+                <Skeleton height={160} radius="var(--radius-surface)" />
+            </div>
+        );
+    }
+
+    // La sede del path non esiste, o non è leggibile: lo si dice, come la
+    // scheda della sede (`ActivityDetailPage`), invece di mostrare liste vuote.
+    // `activities.length > 0`: un caricamento fallito non è una sede sbagliata.
+    if (
+        sedeScope.fromRoute &&
+        sedeScope.activityId &&
+        activities.length > 0 &&
+        !readableActivityIds.has(sedeScope.activityId)
+    ) {
+        return (
+            <div className={styles.lockedWrap}>
+                <EmptyState
+                    variant="page"
+                    icon={<Store />}
+                    title="Sede non trovata"
+                    description="La sede che stai cercando non esiste o è stata eliminata."
+                    action={
+                        <Button onClick={() => navigate(`/business/${businessId}/locations`)}>
+                            Torna alle sedi
+                        </Button>
+                    }
+                />
+            </div>
+        );
+    }
 
     return (
         <>
             <div className={styles.page}>
-                {/* ── Today bar ────────────────────────────────────────── */}
-                {todayItems.length > 0 && (
-                    <div className={styles.todayBar}>
-                        <span className={styles.todayBarIcon}>
-                            <Clock size={16} strokeWidth={2} />
-                        </span>
-                        <span className={styles.todayBarText}>
-                            <strong>Oggi</strong>
-                            <span className={styles.todayBarSeparator}> · </span>
-                            {todayItems.length}{" "}
-                            {todayItems.length === 1 ? "prenotazione" : "prenotazioni"}
-                            {todayCovers !== null && todayCovers > 0 && (
-                                <>
-                                    <span className={styles.todayBarSeparator}> · </span>
-                                    ~{todayCovers} coperti
-                                </>
-                            )}
-                            {nextToday && (
-                                <>
-                                    <span className={styles.todayBarSeparator}> · </span>
-                                    prossima ore{" "}
-                                    <strong>{nextToday.reservation_time.slice(0, 5)}</strong>
-                                    {scope === "__all__" && (
-                                        <span className={styles.todayBarHint}>
-                                            {" "}
-                                            ({activityNames.get(nextToday.activity_id) ?? "sede"})
-                                        </span>
-                                    )}
-                                </>
-                            )}
-                        </span>
-                    </div>
-                )}
+                {/* ── Oggi ─────────────────────────────────────────────────
+                    In testa alle due schede e sopra la ricerca. Sempre: con
+                    zero richieste è lei a dire che non c'è niente da gestire
+                    (la coda, vuota, non si mostra). */}
+                <StatusStrip
+                    tone="neutral"
+                    badge="Oggi"
+                    title={
+                        nextToday
+                            ? `Prossimo arrivo alle ${nextToday.reservation_time.slice(0, 5)}`
+                            : todayItems.length > 0
+                              ? "Nessun altro arrivo oggi"
+                              : "Nessuna prenotazione oggi"
+                    }
+                    figures={[
+                        { value: todayItems.length, label: todayItems.length === 1 ? "prenotazione" : "prenotazioni" },
+                        { value: `~${todayCovers}`, label: "coperti" },
+                        { value: pendingInScope.length, label: "da gestire" }
+                    ]}
+                />
 
                 {/* Niente stato vuoto di pagina: la memoria contiene solo la
                     finestra mostrata, e una settimana vuota non è «nessuna
@@ -1622,36 +1650,41 @@ export default function Reservations() {
                         items={searchRows}
                         truncated={searchPage?.truncated ?? false}
                         isSearching={isSearching}
-                        activityNames={activityNames}
-                        showSitePill={showSitePill}
                         onOpenDetail={handleOpenDetail}
-                    />
-                ) : tab === "inbox" ? (
-                    <ReservationsInbox
-                        pendingItems={pendingInScope}
-                        truncated={pendingTruncated}
-                        tableViews={tableViews}
-                        activityNames={activityNames}
-                        showSitePill={showSitePill}
-                        canManageActivity={canManageActivity}
-                        onOpenDetail={handleOpenDetail}
-                        onAction={handleAction}
                     />
                 ) : tab === "agenda" ? (
-                    <ReservationsAgenda
-                        items={scopedReservations}
-                        weekOffset={weekOffset}
-                        onWeekOffsetChange={setWeekOffset}
-                        tableViews={tableViews}
-                        activityName={scopedActivityName}
-                        canManage={scope !== "__all__" && canManageActivity(scope)}
-                        onReassignDay={handleReassignDay}
-                        onOpenDetail={handleOpenDetail}
-                    />
+                    <>
+                        {/* §14: le richieste in cima all'agenda, indipendenti
+                            dalla settimana scelta. Senza richieste la card non c'è. */}
+                        {pendingInScope.length > 0 && (
+                            <Card
+                                title="Da gestire"
+                                badge={<Badge variant="brand">{pendingInScope.length}</Badge>}
+                                flush
+                            >
+                                <ReservationsInbox
+                                    pendingItems={pendingInScope}
+                                    truncated={pendingTruncated}
+                                    tableViews={tableViews}
+                                    canManageActivity={canManageActivity}
+                                    onOpenDetail={handleOpenDetail}
+                                    onAction={handleAction}
+                                />
+                            </Card>
+                        )}
+                        <ReservationsAgenda
+                            items={scopedReservations}
+                            weekOffset={weekOffset}
+                            onWeekOffsetChange={setWeekOffset}
+                            tableViews={tableViews}
+                            canManage={scope !== null && canManageActivity(scope)}
+                            onReassignDay={handleReassignDay}
+                            onOpenDetail={handleOpenDetail}
+                        />
+                    </>
                 ) : (
                     <ReservationsService
                         board={serviceBoard}
-                        activityName={scopedActivityName}
                         canRead={canReadService}
                         reservationsById={reservationsById}
                         tableViews={tableViews}

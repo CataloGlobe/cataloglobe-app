@@ -644,12 +644,14 @@ export default function OverviewPage() {
             label: businessRouteLabel("orders"),
             separator: true,
             hidden: !canDoOnActivity(permissions, "orders.read", activityId),
-            onClick: () => navigate(`${b}/orders`)
+            // Le comande di QUESTA sede: `/orders` porterebbe all'ultima usata.
+            onClick: () => navigate(`${b}/locations/${activityId}/comande`)
         },
         {
             label: businessRouteLabel("reservations"),
             hidden: !canDoOnActivity(permissions, "reservations.read", activityId),
-            onClick: () => navigate(`${b}/reservations`)
+            // Le prenotazioni di QUESTA sede, non la pagina d'azienda (§48.1).
+            onClick: () => navigate(`${b}/locations/${activityId}/prenotazioni`)
         },
         {
             label: "Disponibilità",
@@ -770,7 +772,7 @@ export default function OverviewPage() {
                             {resolveButton(single.id)}
                         </div>
                         <div className={styles.singleActions}>
-                            <TableRowActions actions={operationalLinks(single.id)} />
+                            <TableRowActions actions={operationalLinks(single.id)} ariaLabel={`Azioni per ${single.name}`} />
                         </div>
                     </div>
                 </div>
@@ -798,7 +800,7 @@ export default function OverviewPage() {
                         trailing={
                             <>
                                 {resolveButton(location.id)}
-                                <TableRowActions actions={rowActions(location)} />
+                                <TableRowActions actions={rowActions(location)} ariaLabel={`Azioni per ${location.name}`} />
                             </>
                         }
                     />

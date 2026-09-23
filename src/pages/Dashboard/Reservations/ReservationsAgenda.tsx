@@ -1,12 +1,18 @@
 import { useMemo, useState } from "react";
-import { CalendarRange, ChevronLeft, ChevronRight, MessageSquare, RefreshCw } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, RefreshCw, TriangleAlert } from "lucide-react";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
 import { addDays, todayIsoDate } from "@/utils/dateLocal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { Button } from "@/components/ui/Button/Button";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { Switch } from "@/components/ui/Switch/Switch";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { OCCUPYING_STATUSES } from "@/utils/reservationTableConflicts";
-import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
+import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { Card } from "@/components/ui/Card/Card";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import Text from "@/components/ui/Text/Text";
+import { statusMeta } from "@/utils/reservationStatusMeta";
 import {
     TableAssignmentBadge,
     type TableAssignmentView
@@ -35,8 +41,6 @@ interface Props {
     onWeekOffsetChange: (next: number) => void;
     /** Tavoli assegnati per prenotazione (solo chi ne ha uno). Calcolato dal parent. */
     tableViews: ReadonlyMap<string, TableAssignmentView>;
-    /** Activity name to render in headers (also serves as gate: null = "All sites"). */
-    activityName: string | null;
     /** True se chi guarda ha `reservations.manage` sulla sede in scope. */
     canManage?: boolean;
     /**
@@ -113,33 +117,14 @@ function formatRangeLabel(start: Date, end: Date): string {
     return `${fmt.format(start)} – ${fmt.format(end)}`;
 }
 
-function statusBadgeFor(status: V2Reservation["status"]): {
-    variant: StatusBadgeVariant;
-    label: string;
-} {
-    switch (status) {
-        case "confirmed":
-            return { variant: "success", label: "Confermata" };
-        case "seated":
-            return { variant: "success", label: "Al tavolo" };
-        case "completed":
-            return { variant: "neutral", label: "Completata" };
-        case "pending":
-            return { variant: "warning", label: "In attesa" };
-        case "declined":
-            return { variant: "neutral", label: "Rifiutata" };
-        case "cancelled":
-            return { variant: "neutral", label: "Annullata" };
-        case "no_show":
-            return { variant: "neutral", label: "Non presentato" };
-    }
-}
-
-/** Status tone used by the Settimana grid chips. Mirrors StatusBadge palette. */
-function statusToneFor(status: V2Reservation["status"]): "confirmed" | "pending" | "terminal" {
-    if (status === "confirmed" || status === "seated") return "confirmed";
-    if (status === "pending") return "pending";
-    return "terminal";
+/**
+ * Il tono della chip della Settimana viene dal dizionario unico (§14, §18.5):
+ * la variante di `statusMeta`. Si sbiadiscono solo annullate e rifiutate —
+ * «Servita» e «Non presentato» sono com'è andata la serata, non righe da
+ * nascondere.
+ */
+function isDimmed(status: V2Reservation["status"]): boolean {
+    return status === "cancelled" || status === "declined";
 }
 
 const WEEKDAY_ABBR_IT = ["lun", "mar", "mer", "gio", "ven", "sab", "dom"];
@@ -151,7 +136,6 @@ export default function ReservationsAgenda({
     weekOffset,
     onWeekOffsetChange,
     tableViews,
-    activityName,
     canManage = false,
     onReassignDay,
     onOpenDetail
@@ -204,8 +188,6 @@ export default function ReservationsAgenda({
     const visibleItems = (list: V2Reservation[]) =>
         showTerminal ? list : list.filter(r => !TERMINAL.has(r.status));
 
-    const hasAnyTerminal = rangeItems.some(r => TERMINAL.has(r.status));
-
     // Quante prenotazioni del giorno la RPC rifarebbe (attive senza decisione
     // dell'operatore, comprese quelle ancora senza tavolo) e quante lascerebbe
     // stare (attive con assegnazione confermata). Stessi criteri della RPC,
@@ -233,19 +215,10 @@ export default function ReservationsAgenda({
         [weekStart]
     );
 
-    if (!activityName) {
-        return (
-            <div className={styles.emptyState}>
-                <EmptyState
-                    icon={<CalendarRange size={40} strokeWidth={1.5} />}
-                    title="Scegli una sede"
-                    description="L'agenda mostra timeline e coperti di una sede specifica. Seleziona una sede dalla tendina in alto."
-                />
-            </div>
-        );
-    }
-
-    // ── Navigator + mode + terminal toggle ──────────────────────────────────
+    // ── Navigator + mode + terminal filter ──────────────────────────────────
+    // Giorni/Settimana, la settimana con ‹ › (e «Oggi» quando si è altrove),
+    // e il filtro delle annullate: esplicito, col numero di quelle nascoste.
+    const terminalCount = rangeItems.filter(r => TERMINAL.has(r.status)).length;
     const renderHeader = () => (
         <div className={styles.agendaHeader}>
             <SegmentedControl<ViewMode>
@@ -257,116 +230,90 @@ export default function ReservationsAgenda({
                 ]}
             />
 
-            <div className={styles.weekNav} role="group" aria-label="Naviga settimana">
-                {weekOffset !== 0 && (
-                    <>
-                        <button
-                            type="button"
-                            className={styles.weekNavToday}
-                            aria-label="Torna a oggi"
-                            onClick={() => onWeekOffsetChange(0)}
-                        >
-                            Oggi
-                        </button>
-                        <span
-                            className={styles.weekNavDivider}
-                            aria-hidden="true"
-                        />
-                    </>
-                )}
-                <button
-                    type="button"
-                    className={styles.weekNavArrow}
-                    aria-label="Settimana precedente"
-                    onClick={() => onWeekOffsetChange(weekOffset - 1)}
-                >
-                    <ChevronLeft size={16} strokeWidth={2} />
-                </button>
-                <span className={styles.weekNavLabel} aria-live="polite">
-                    {rangeLabel}
-                </span>
-                <button
-                    type="button"
-                    className={styles.weekNavArrow}
-                    aria-label="Settimana successiva"
-                    onClick={() => onWeekOffsetChange(weekOffset + 1)}
-                >
-                    <ChevronRight size={16} strokeWidth={2} />
-                </button>
-            </div>
-
-            {hasAnyTerminal && (
-                <label
-                    className={styles.agendaTerminalSwitch}
-                    title="Mostra annullate e rifiutate"
-                >
-                    <input
-                        type="checkbox"
-                        role="switch"
-                        className={styles.agendaTerminalSwitchInput}
-                        checked={showTerminal}
-                        onChange={e => setShowTerminal(e.target.checked)}
-                        aria-label="Mostra annullate e rifiutate"
-                    />
-                    <span className={styles.agendaTerminalSwitchTrack} aria-hidden="true">
-                        <span className={styles.agendaTerminalSwitchThumb} />
-                    </span>
-                    <span className={styles.agendaTerminalSwitchLabel}>Annullate</span>
-                </label>
+            {terminalCount > 0 && (
+                <Switch
+                    size="sm"
+                    checked={showTerminal}
+                    onChange={setShowTerminal}
+                    ariaLabel="Mostra annullate e rifiutate"
+                    description={`Annullate · ${terminalCount}`}
+                    containerClassName={styles.agendaTerminalFilter}
+                />
             )}
+
+            <div className={styles.weekNav} role="group" aria-label="Naviga settimana">
+                <IconButton
+                    icon={<ChevronLeft size={16} strokeWidth={2} />}
+                    aria-label="Settimana precedente"
+                    size="sm"
+                    onClick={() => onWeekOffsetChange(weekOffset - 1)}
+                />
+                <Text as="span" variant="body-sm" weight={600} className={styles.weekNavLabel} aria-live="polite">
+                    {rangeLabel}
+                </Text>
+                <IconButton
+                    icon={<ChevronRight size={16} strokeWidth={2} />}
+                    aria-label="Settimana successiva"
+                    size="sm"
+                    onClick={() => onWeekOffsetChange(weekOffset + 1)}
+                />
+                {weekOffset !== 0 && (
+                    <Button variant="outline" size="sm" onClick={() => onWeekOffsetChange(0)}>
+                        Oggi
+                    </Button>
+                )}
+            </div>
         </div>
     );
 
+    const disclaimer = (
+        <Text as="p" variant="caption" colorVariant="muted">
+            Include le prenotazioni online e quelle inserite a mano. Le prenotazioni prese altrove e
+            non registrate qui non compaiono.
+        </Text>
+    );
+
     // ── Days view row ───────────────────────────────────────────────────────
+    // ListRow dense (48): l'agenda è un elenco lungo che si legge a colpo
+    // d'occhio. Annullate e rifiutate (con l'interruttore acceso) sono
+    // spente ma si aprono ancora: `muted` è solo l'aspetto.
     const renderTimelineRow = (r: V2Reservation) => {
-        const isTerminal = TERMINAL.has(r.status);
-        const badge = statusBadgeFor(r.status);
+        const badge = statusMeta(r.status);
         const tableView = tableViews.get(r.id);
+        const people = `${r.party_size} ${r.party_size === 1 ? "persona" : "persone"}`;
         return (
-            <button
+            <ListRow
                 key={r.id}
-                type="button"
-                className={isTerminal ? styles.timelineRowTerminal : styles.timelineRow}
+                dense
                 onClick={() => onOpenDetail(r)}
-            >
-                <span className={styles.timelineTime}>
-                    {r.reservation_time.slice(0, 5)}
-                </span>
-                <span className={styles.timelineMain}>
-                    <span className={styles.timelineTitleLine}>
-                        <ChannelMark source={r.source} variant="plain" />
-                        <span className={styles.timelineName}>
-                            {r.customer_name}
-                        </span>
-                        <span className={styles.timelineNameMeta}>
-                            · {r.party_size}{" "}
-                            {r.party_size === 1 ? "persona" : "persone"}
-                        </span>
-                    </span>
-                    {r.notes && (
-                        <div className={styles.rowNote}>
-                            <MessageSquare
-                                size={13}
-                                strokeWidth={2}
-                                aria-hidden
-                                className={styles.rowNoteIconInline}
-                            />
-                            <span className={styles.rowNoteText}>{r.notes}</span>
-                        </div>
-                    )}
-                </span>
-                <span className={styles.timelineMeta}>
-                    <GuestConfirmedMark guestConfirmedAt={r.guest_confirmed_at} />
-                    <StatusBadge variant={badge.variant} label={badge.label} />
-                    {/* Nessun tavolo = nessun badge: è uno stato normale. */}
-                    {tableView && (
-                        <TableAssignmentBadge
-                            view={tableView}
-                            className={styles.timelineTableBadge}
-                        />
-                    )}
-                </span>
-            </button>
+                muted={isDimmed(r.status)}
+                leading={
+                    <Text
+                        as="span"
+                        variant="title-sm"
+                        weight={600}
+                        colorVariant={isDimmed(r.status) ? "muted" : "default"}
+                        className={styles.timelineTime}
+                    >
+                        {r.reservation_time.slice(0, 5)}
+                    </Text>
+                }
+                title={
+                    <>
+                        <ChannelMark source={r.source} variant="plain" /> {r.customer_name}
+                    </>
+                }
+                subtitle={r.notes ? `${people} · ${r.notes}` : people}
+                meta={
+                    <>
+                        <GuestConfirmedMark guestConfirmedAt={r.guest_confirmed_at} />
+                        <StatusBadge variant={badge.variant} label={badge.label} />
+                        {/* Nessun tavolo = nessun badge: è uno stato normale. */}
+                        {tableView && <TableAssignmentBadge view={tableView} />}
+                    </>
+                }
+                metaInline
+            />
         );
     };
 
@@ -380,16 +327,15 @@ export default function ReservationsAgenda({
             return (
                 <div className={styles.agenda}>
                     {renderHeader()}
-                    <div className={styles.emptyState}>
+                    <Card>
                         <EmptyState
+                            variant="inline"
                             icon={<CalendarRange size={40} strokeWidth={1.5} />}
-                            title="Nessuna prenotazione in questo periodo"
-                            description="Naviga ad altre settimane con le frecce in alto, oppure torna a oggi."
+                            title="Nessuna prenotazione in questa settimana"
+                            description="Passa a un'altra settimana con le frecce, o torna a oggi."
                         />
-                    </div>
-                    <p className={styles.agendaDisclaimer}>
-                        Include prenotazioni ricevute online e inserite a mano dal team.
-                    </p>
+                    </Card>
+                    {disclaimer}
                 </div>
             );
         }
@@ -401,42 +347,44 @@ export default function ReservationsAgenda({
                     const list = byDate.get(date) ?? [];
                     const filtered = visibleItems(list);
                     const covers = coversFor(list);
+                    // Attive senza tavolo né proposta: il numero che fa premere «Riorganizza».
+                    const unassigned = list.filter(
+                        r => OCCUPYING_STATUSES.has(r.status) && !tableViews.has(r.id)
+                    ).length;
                     // Niente da rifare = niente bottone.
                     const showReassign =
                         canManage && onReassignDay !== undefined && reassignCounts(list).redo > 0;
+                    const summary = [
+                        `${filtered.length} ${filtered.length === 1 ? "prenotazione" : "prenotazioni"}`,
+                        covers > 0 ? `~${covers} coperti` : null,
+                        unassigned > 0 ? `${unassigned} senza tavolo` : null
+                    ]
+                        .filter(Boolean)
+                        .join(" · ");
                     return (
-                        <section key={date} className={styles.dayGroup}>
-                            <div className={styles.dayHeader}>
-                                <h3 className={styles.dayHeaderTitle}>
-                                    {formatDayHeader(date)}
-                                </h3>
-                                <span className={styles.dayHeaderMeta}>
-                                    {filtered.length}{" "}
-                                    {filtered.length === 1 ? "prenotazione" : "prenotazioni"}
-                                    {covers > 0 && ` · ~${covers} coperti`}
-                                </span>
-                                {showReassign && (
+                        <Card
+                            key={date}
+                            title={formatDayHeader(date)}
+                            subtitle={summary}
+                            actions={
+                                showReassign ? (
                                     <Button
                                         variant="ghost"
                                         size="sm"
-                                        className={styles.dayHeaderAction}
                                         leftIcon={<RefreshCw size={14} strokeWidth={2} />}
                                         onClick={() => setReassignDate(date)}
                                     >
                                         Riorganizza i tavoli
                                     </Button>
-                                )}
-                            </div>
-                            <div className={styles.timeline}>
-                                {filtered.map(renderTimelineRow)}
-                            </div>
-                        </section>
+                                ) : undefined
+                            }
+                            flush
+                        >
+                            {filtered.map(renderTimelineRow)}
+                        </Card>
                     );
                 })}
-                <p className={styles.agendaDisclaimer}>
-                    Include le prenotazioni online e quelle inserite a mano. Le prenotazioni
-                    prese altrove e non registrate qui non compaiono.
-                </p>
+                {disclaimer}
 
                 {/* Conferma sempre, anche per un giorno futuro: la RPC cancella e
                     rifà le proposte, e i numeri qui sotto dicono in anticipo cosa
@@ -475,14 +423,14 @@ export default function ReservationsAgenda({
 
     // ── Render: Week grid ───────────────────────────────────────────────────
     const renderWeekChip = (r: V2Reservation) => {
-        const tone = statusToneFor(r.status);
-        const badge = statusBadgeFor(r.status);
-        // La chip è già satura: il tavolo sta solo nel `title`, con il
-        // conflitto quando c'è.
+        const badge = statusMeta(r.status);
+        // La chip è già satura: il tavolo sta solo nel `title`. Il conflitto
+        // invece si vede (§18.3): un segno ambra accanto all'ora.
         const tableView = tableViews.get(r.id);
+        const conflict = tableView?.conflict ?? null;
         const tableTitle = tableView
-            ? tableView.conflict
-                ? ` · ${tableView.conflict.message}`
+            ? conflict
+                ? ` · ${conflict.message}`
                 : ` · ${formatTableLabels(tableView.labels)}${tableView.proposed ? " (proposto)" : ""}`
             : "";
         return (
@@ -490,17 +438,21 @@ export default function ReservationsAgenda({
                 key={r.id}
                 type="button"
                 className={styles.weekChip}
-                data-tone={tone}
+                data-tone={badge.variant}
+                data-dimmed={isDimmed(r.status) || undefined}
                 onClick={() => onOpenDetail(r)}
-                aria-label={`${r.customer_name} ${r.reservation_time.slice(0, 5)} · ${badge.label}`}
+                aria-label={`${r.customer_name} ${r.reservation_time.slice(0, 5)} · ${badge.label}${conflict ? ` · ${conflict.message}` : ""}`}
                 title={`${badge.label} — ${r.customer_name} · ${r.party_size}${tableTitle}`}
             >
-                <span className={styles.weekChipTime}>
+                <Text as="span" variant="caption-xs" weight={700} className={styles.weekChipTime}>
                     {r.reservation_time.slice(0, 5)}
-                </span>
-                <span className={styles.weekChipName}>
+                    {conflict && (
+                        <TriangleAlert size={12} strokeWidth={2.25} className={styles.weekChipConflict} aria-hidden />
+                    )}
+                </Text>
+                <Text as="span" variant="caption-xs" weight={500} className={styles.weekChipName}>
                     {r.customer_name} · {r.party_size}
-                </span>
+                </Text>
             </button>
         );
     };
@@ -525,16 +477,18 @@ export default function ReservationsAgenda({
                                             : styles.weekColHeader
                                     }
                                 >
-                                    <span className={styles.weekColLabel}>
+                                    <Text as="span" variant="caption-xs" className={styles.weekColLabel}>
                                         {WEEKDAY_ABBR_IT[idx]}
-                                    </span>
-                                    <span className={styles.weekColNum}>{d.getDate()}</span>
+                                    </Text>
+                                    <Text as="span" variant="title-sm" weight={600} className={styles.weekColNum}>
+                                        {d.getDate()}
+                                    </Text>
                                 </div>
                                 <div className={styles.weekColBody}>
                                     {filtered.length === 0 ? (
-                                        <span className={styles.weekColEmpty} aria-hidden>
+                                        <Text as="span" variant="body-sm" colorVariant="muted" className={styles.weekColEmpty} aria-hidden>
                                             —
-                                        </span>
+                                        </Text>
                                     ) : (
                                         filtered.map(renderWeekChip)
                                     )}
@@ -545,10 +499,7 @@ export default function ReservationsAgenda({
                 </div>
             </div>
 
-            <p className={styles.agendaDisclaimer}>
-                Include le prenotazioni online e quelle inserite a mano. Le prenotazioni
-                prese altrove e non registrate qui non compaiono.
-            </p>
+            {disclaimer}
         </div>
     );
 }

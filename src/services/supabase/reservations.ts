@@ -42,20 +42,24 @@ import type {
  * irraggiungibile invece che spostato. `from > to` → `[]` senza rete.
  *
  * RLS activity-scoped filtra automaticamente alle sedi su cui il caller
- * ha il permesso `reservations.read`.
+ * ha il permesso `reservations.read`. Con `activityId` la query è della sola
+ * sede (§48.1: la sede è l'indirizzo, non un filtro nel client); `null`
+ * resta per lo scope «Tutte le sedi», finché esiste.
  */
 export async function listReservations(
     tenantId: string,
-    range: ReservationDateRange
+    range: ReservationDateRange,
+    activityId: string | null = null
 ): Promise<V2Reservation[]> {
     if (range.from > range.to) return [];
 
-    const { data, error } = await supabase
+    const base = supabase
         .from("reservations")
         .select("*")
         .eq("tenant_id", tenantId)
         .gte("reservation_date", range.from)
-        .lte("reservation_date", range.to)
+        .lte("reservation_date", range.to);
+    const { data, error } = await (activityId ? base.eq("activity_id", activityId) : base)
         .order("reservation_date", { ascending: true })
         .order("reservation_time", { ascending: true });
 
@@ -83,11 +87,15 @@ export interface PendingReservationsPage {
  * Ordinate dalla più vecchia: una pending della settimana scorsa si risponde
  * prima di una per giugno. Si chiede una riga in più del tetto per sapere se
  * il tetto è stato toccato senza una seconda query di conteggio.
+ * `activityId`: la coda della sola sede (§48.1), come `listReservations`.
  */
 export async function listPendingReservations(
-    tenantId: string
+    tenantId: string,
+    activityId: string | null = null
 ): Promise<PendingReservationsPage> {
-    const { data, error } = await supabase
+    // Il tetto sta nella stessa istruzione del `from`: la guardia statica dei
+    // test (nessuna SELECT illimitata) legge il blocco fino al punto e virgola.
+    const base = supabase
         .from("reservations")
         .select("*")
         .eq("tenant_id", tenantId)
@@ -95,6 +103,7 @@ export async function listPendingReservations(
         .order("reservation_date", { ascending: true })
         .order("reservation_time", { ascending: true })
         .limit(PENDING_QUEUE_LIMIT + 1);
+    const { data, error } = await (activityId ? base.eq("activity_id", activityId) : base);
 
     if (error) throw error;
     const rows = (data ?? []) as V2Reservation[];
@@ -102,6 +111,36 @@ export async function listPendingReservations(
         rows: rows.slice(0, PENDING_QUEUE_LIMIT),
         truncated: rows.length > PENDING_QUEUE_LIMIT
     };
+}
+
+/** Tetto della conta (la guardia statica vuole ogni SELECT limitata). Oltre
+ *  500 richieste in attesa nell'azienda i numeri sarebbero per difetto: oggi
+ *  su staging sono 5 in tutto (§48.1). */
+export const PENDING_COUNT_LIMIT = 500;
+
+/**
+ * Quante richieste in attesa ha ogni sede dell'azienda (§48.1/3): il segnale
+ * «N da gestire» sulla card della sede in Sedi. Stessa definizione della coda
+ * — stato `pending`, qualunque data, scadute comprese. Solo le sedi con
+ * almeno una compaiono nella mappa; la RLS lascia fuori quelle che il
+ * chiamante non legge.
+ */
+export async function countPendingReservationsByActivity(
+    tenantId: string
+): Promise<Record<string, number>> {
+    const { data, error } = await supabase
+        .from("reservations")
+        .select("activity_id")
+        .eq("tenant_id", tenantId)
+        .eq("status", "pending")
+        .limit(PENDING_COUNT_LIMIT);
+
+    if (error) throw error;
+    const counts: Record<string, number> = {};
+    for (const row of (data ?? []) as { activity_id: string }[]) {
+        counts[row.activity_id] = (counts[row.activity_id] ?? 0) + 1;
+    }
+    return counts;
 }
 
 export interface ReservationSearchPage {

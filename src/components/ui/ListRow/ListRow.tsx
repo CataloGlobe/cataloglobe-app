@@ -12,13 +12,18 @@ import styles from "./ListRow.module.scss";
  * subtitle (una riga con ellissi) · meta (Badge, StatusBadge, cifra) ·
  * trailing (chevron, Switch, Button ghost sm, TableRowActions).
  *
- * Altezza `row-height` (56, = riga di tabella), padding 0 16, gap 12,
+ * Altezza `row-height` (56, = riga di tabella), padding 0 16, gap 12;
+ * `dense` porta a `row-height-dense` (48) gli elenchi di servizio (agenda,
+ * sala), che sono lunghi e si leggono a colpo d'occhio.
  * divisore 1px fra righe adiacenti. Vive in `Card flush` o nudo in un drawer.
  * Ogni riga porta `data-list-row`: è il segnale con cui la Card capisce che il
  * suo body è una lista e annulla il proprio gap — il divisore separa le righe,
  * lo spazio in mezzo no (prima ogni pagina se lo azzerava da sé).
  * Hover solo se cliccabile (`onClick` o `to`). Chi mette un controllo nel
  * trailing di una riga cliccabile ferma lui la propagazione del click.
+ * `muted` è solo l'aspetto: la voce a zero senza `onClick` resta ferma, la
+ * riga spenta ma consultabile (una richiesta scaduta, una prenotazione
+ * annullata) con `onClick` si apre come le altre.
  *
  * Non per colonne da ordinare/filtrare (→ DataTable), non per scelte a
  * immagine (→ CardGrid), non per un form (→ FormField).
@@ -45,8 +50,11 @@ interface ListRowBaseProps {
     to?: string;
     /** Selezionata: sfondo `brand-primary-soft`. */
     selected?: boolean;
-    /** La voce a zero: testo e icona muti, niente hover; resta elencata. */
+    /** Spenta: testo e icona muti. Solo aspetto — con `onClick`/`to` la riga
+     *  resta cliccabile (la scaduta si apre), senza è la voce a zero, ferma. */
     muted?: boolean;
+    /** Riga a 48 invece che a 56: elenchi di servizio lunghi, non gestione. */
+    dense?: boolean;
     className?: string;
     "aria-label"?: string;
 }
@@ -77,6 +85,7 @@ export function ListRow({
     selected = false,
     muted = false,
     loading = false,
+    dense,
     className,
     "aria-label": ariaLabel
 }: ListRowProps) {
@@ -94,13 +103,14 @@ export function ListRow({
         );
     }
 
-    const interactive = !muted && (Boolean(onClick) || Boolean(to));
+    const interactive = Boolean(onClick) || Boolean(to);
     const classes = [
         styles.row,
         interactive ? styles.interactive : "",
         selected ? styles.selected : "",
         muted ? styles.muted : "",
         metaInline ? styles.metaInline : "",
+        dense ? styles.dense : "",
         className ?? ""
     ]
         .join(" ")
@@ -135,7 +145,7 @@ export function ListRow({
         </>
     );
 
-    if (to && !muted) {
+    if (to) {
         return (
             <Link to={to} className={classes} data-list-row="" aria-current={selected || undefined} aria-label={ariaLabel}>
                 {content}

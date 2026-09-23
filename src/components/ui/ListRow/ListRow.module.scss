@@ -1,6 +1,9 @@
 // ListRow — una riga in una lista di cose (design system §5, scheda ListRow).
 // Altezza row-height (56), padding 0 16, gap 12, divisore fra righe adiacenti.
-// Hover solo se cliccabile; muted = la voce a zero, elencata ma spenta.
+// `dense`: row-height-dense (48) e 4 sopra e sotto — per gli elenchi di
+// servizio, che si leggono a colpo d'occhio e sono lunghi (agenda, sala).
+// Hover solo se cliccabile; muted = spenta (solo aspetto: cliccabile se ha
+// onClick, come una richiesta scaduta che si apre ancora).
 // Sotto 768 il meta scende su una seconda riga sotto il titolo: a 375 non
 // c'è spazio per titolo + Badge + azioni sulla stessa riga.
 @use "@styles/mixins" as *;
@@ -17,6 +20,17 @@
 
   & + & {
     border-top: 1px solid var(--border);
+  }
+}
+
+.dense {
+  min-height: var(--row-height-dense);
+
+  // Titolo 21 + sottotitolo 18 + 4 sopra e sotto = 47: il gap di 2 fra i due
+  // porterebbe la riga a 49 (misurato in galleria).
+  .body {
+    gap: 0;
+    padding: var(--space-4) 0;
   }
 }
 
