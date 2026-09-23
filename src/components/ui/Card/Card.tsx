@@ -21,6 +21,11 @@ export interface CardProps {
      * l'header (e il suo divisore) non viene renderizzato.
      */
     title?: string;
+    /**
+     * `id` sul titolo, per chi dà un nome al contenitore della card
+     * (`aria-labelledby`): la card resta una `section` senza nome.
+     */
+    titleId?: string;
     /** Badge/conteggio inline subito dopo il titolo (es. numero varianti). */
     badge?: ReactNode;
     /** Una riga muta che previene errori (es. "Visibili nella pagina pubblica"). */
@@ -49,6 +54,7 @@ function warnDeprecated(key: string, detail: string) {
 
 export function Card({
     title,
+    titleId,
     badge,
     subtitle,
     actions,
@@ -76,7 +82,7 @@ export function Card({
                         {(title || badge) && (
                             <span className={styles.titleRow}>
                                 {title && (
-                                    <Text as="span" variant="title-sm" weight={600} className={styles.title}>
+                                    <Text as="span" id={titleId} variant="title-sm" weight={600} className={styles.title}>
                                         {title}
                                     </Text>
                                 )}
