@@ -27,7 +27,8 @@ import {
   workspaceRoleIsAdmin as isAdmin,
 } from "@/utils/workspaceRole";
 import { usePermissions } from "@/context/PermissionsContext";
-import { canDoOnTenant } from "@/lib/permissions";
+import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
+import { countPendingReservationsByActivity } from "@/services/supabase/reservations";
 import { PageGate } from "@/components/PageGate/PageGate";
 
 import { BusinessList } from "@/components/Businesses/BusinessList/BusinessList";
@@ -171,6 +172,30 @@ export default function Businesses() {
   useEffect(() => {
     refreshBusinesses();
   }, [refreshBusinesses]);
+
+  // «N da gestire» sulla card della sede (§48.1/3). Un di più: se la conta
+  // fallisce la pagina resta com'è, senza segnale. Senza permesso di lettura
+  // delle prenotazioni in nessuna sede la domanda non parte.
+  const [pendingReservationsMap, setPendingReservationsMap] = useState<Record<string, number>>({});
+  const canReadReservations = permissions ? canDoOnAnyActivity(permissions, "reservations.read") : false;
+  useEffect(() => {
+    if (!tenantId || !canReadReservations) {
+      setPendingReservationsMap({});
+      return;
+    }
+    let alive = true;
+    countPendingReservationsByActivity(tenantId)
+      .then((map) => {
+        if (alive) setPendingReservationsMap(map);
+      })
+      .catch((error) => {
+        console.error("[Businesses] pending reservations count failed:", error);
+        if (alive) setPendingReservationsMap({});
+      });
+    return () => {
+      alive = false;
+    };
+  }, [tenantId, canReadReservations]);
 
   useEffect(() => {
     if (!selectedTenant?.plan || !tenantId) return;
@@ -588,6 +613,7 @@ export default function Businesses() {
                   navigate(`/business/${businessId}/locations/${id}/disponibilita`)
                 }
                 onCreateClick={canCreate ? handleAddActivity : undefined}
+                pendingReservationsMap={pendingReservationsMap}
               />
 
             </>

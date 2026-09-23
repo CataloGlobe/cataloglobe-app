@@ -113,6 +113,36 @@ export async function listPendingReservations(
     };
 }
 
+/** Tetto della conta (la guardia statica vuole ogni SELECT limitata). Oltre
+ *  500 richieste in attesa nell'azienda i numeri sarebbero per difetto: oggi
+ *  su staging sono 5 in tutto (§48.1). */
+export const PENDING_COUNT_LIMIT = 500;
+
+/**
+ * Quante richieste in attesa ha ogni sede dell'azienda (§48.1/3): il segnale
+ * «N da gestire» sulla card della sede in Sedi. Stessa definizione della coda
+ * — stato `pending`, qualunque data, scadute comprese. Solo le sedi con
+ * almeno una compaiono nella mappa; la RLS lascia fuori quelle che il
+ * chiamante non legge.
+ */
+export async function countPendingReservationsByActivity(
+    tenantId: string
+): Promise<Record<string, number>> {
+    const { data, error } = await supabase
+        .from("reservations")
+        .select("activity_id")
+        .eq("tenant_id", tenantId)
+        .eq("status", "pending")
+        .limit(PENDING_COUNT_LIMIT);
+
+    if (error) throw error;
+    const counts: Record<string, number> = {};
+    for (const row of (data ?? []) as { activity_id: string }[]) {
+        counts[row.activity_id] = (counts[row.activity_id] ?? 0) + 1;
+    }
+    return counts;
+}
+
 export interface ReservationSearchPage {
     rows: V2Reservation[];
     /** True se esistono altri risultati oltre `SEARCH_RESULTS_LIMIT`. */

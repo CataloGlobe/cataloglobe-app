@@ -2,6 +2,7 @@ import React, { useMemo } from "react";
 import Text from "@components/ui/Text/Text";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { LocationsGrid } from "../LocationsGrid/LocationsGrid";
+import { PendingReservationsLink } from "../PendingReservationsLink/PendingReservationsLink";
 import type { BusinessListProps, BusinessWithCapabilities } from "@/types/Businesses";
 import styles from "./BusinessList.module.scss";
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
@@ -32,7 +33,8 @@ export const BusinessList: React.FC<BusinessListProps> = ({
     onCreateClick,
     hasActiveFilter = false,
     onClearFilters,
-    isLoading = false
+    isLoading = false,
+    pendingReservationsMap
 }) => {
     const navigate = useNavigate();
     const { businessId } = useParams<{ businessId: string }>();
@@ -44,12 +46,24 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 id: "name",
                 header: "Sede",
                 width: "2fr",
-                cell: (_, business) => (
-                    <div className={DATA_TABLE_CLASSES.cellTwoLine}>
-                        <span>{business.name}</span>
-                        <span>{business.slug}</span>
-                    </div>
-                )
+                cell: (_, business) => {
+                    const pending = pendingReservationsMap?.[business.id] ?? 0;
+                    return (
+                        <div className={styles.nameCell}>
+                            <div className={DATA_TABLE_CLASSES.cellTwoLine}>
+                                <span>{business.name}</span>
+                                <span>{business.slug}</span>
+                            </div>
+                            {/* Un link nella cella: la riga non lo intercetta. */}
+                            {pending > 0 && (
+                                <PendingReservationsLink
+                                    count={pending}
+                                    to={`/business/${businessId}/locations/${business.id}/prenotazioni`}
+                                />
+                            )}
+                        </div>
+                    );
+                }
             },
             {
                 id: "address",
@@ -202,7 +216,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
                 }
             }
         ],
-        [activeCatalogsMap, catalogsStatus, onManageAvailability, onEdit, onDelete, navigate, businessId, showToast]
+        [activeCatalogsMap, catalogsStatus, onManageAvailability, onEdit, onDelete, navigate, businessId, showToast, pendingReservationsMap]
     );
 
     if (!isLoading && businesses.length === 0) {
@@ -257,6 +271,7 @@ export const BusinessList: React.FC<BusinessListProps> = ({
             activeCatalogsMap={activeCatalogsMap}
             catalogsStatus={catalogsStatus}
             onManageAvailability={onManageAvailability}
+            pendingReservationsMap={pendingReservationsMap}
         />
     );
 };
