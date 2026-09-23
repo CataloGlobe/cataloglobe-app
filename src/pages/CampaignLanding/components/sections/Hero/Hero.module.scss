@@ -1,0 +1,177 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// Tinte del gradiente segnaposto (consegna §5.7): gli hex sono token
+// --ld-hero-*; le trasparenze restano qui perché descrivono l'overlay sulla
+// "foto", non la palette.
+$amber-hi: rgba(196, 142, 86, 0.55);
+$amber-lo: rgba(120, 84, 60, 0.18);
+
+.hero {
+    padding: 10px 10px 40px;
+    background: var(--ld-paper);
+
+    @include desktop {
+        padding: 14px 14px 0;
+    }
+}
+
+.panel {
+    position: relative;
+    isolation: isolate;
+    border-radius: var(--ld-r-hero);
+    padding: 74px 20px 60px;
+    background-color: var(--ld-hero-base);
+    background-image:
+        radial-gradient(120% 90% at 78% 18%, $amber-hi 0%, $amber-lo 42%, transparent 70%),
+        linear-gradient(118deg, var(--ld-hero-a) 0%, var(--ld-hero-b) 46%, var(--ld-hero-c) 100%);
+
+    // Velo scuro sopra il fondo: leggibilità del testo bianco.
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 0;
+        border-radius: inherit;
+        background: linear-gradient(
+            180deg,
+            rgba(18, 16, 32, 0.72) 0%,
+            rgba(18, 16, 32, 0.6) 45%,
+            rgba(18, 16, 32, 0.88) 100%
+        );
+    }
+
+    @include desktop {
+        display: flex;
+        align-items: center;
+        gap: 56px;
+        padding: 104px 56px 88px;
+
+        &::before {
+            background: linear-gradient(
+                95deg,
+                rgba(18, 16, 32, 0.9) 0%,
+                rgba(18, 16, 32, 0.78) 38%,
+                rgba(18, 16, 32, 0.28) 72%,
+                rgba(18, 16, 32, 0.1) 100%
+            );
+        }
+    }
+}
+
+// Testo bianco sulla "foto": il tono scuro dà la parola evidenziata, qui
+// si schiariscono corpo e secondario. Selettore rinforzato per battere la
+// regola [data-tone="dark"] della radice.
+.hero .panel[data-tone="dark"] {
+    --ld-ink: var(--ld-on-azione);
+    --ld-body: rgba(255, 255, 255, 0.8);
+    --ld-muted: rgba(255, 255, 255, 0.58);
+}
+
+.topbar {
+    position: absolute;
+    z-index: 6;
+    top: 18px;
+    left: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+
+    @include desktop {
+        top: 24px;
+        left: 34px;
+        right: 34px;
+    }
+}
+
+.brand {
+    height: 22px;
+    filter: drop-shadow(0 2px 12px rgba(0, 0, 0, 0.35));
+
+    @include desktop {
+        height: 26px;
+    }
+}
+
+// «Accedi»: link semplice, non una LandingCta (non cambia con la variante).
+.login {
+    padding: 9px 16px;
+    border-radius: var(--ld-r-pill);
+    background: rgba(255, 255, 255, 0.13);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    color: var(--ld-on-azione);
+    font-family: var(--ld-font-sans);
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+
+    &:focus-visible {
+        outline: 2px solid var(--ld-on-azione);
+        outline-offset: 3px;
+    }
+
+    @include desktop {
+        padding: 10px 20px;
+        font-size: 15px;
+    }
+}
+
+.copy {
+    position: relative;
+    z-index: 2;
+
+    @include desktop {
+        flex: 1 1 0;
+        max-width: 540px;
+    }
+}
+
+.eyebrow {
+    @include ld-eyebrow;
+    color: rgba(255, 255, 255, 0.62);
+}
+
+.title {
+    @include ld-display;
+    margin-top: 14px;
+    color: var(--ld-ink);
+}
+
+.lede {
+    @include ld-lede;
+    margin-top: 16px;
+    color: var(--ld-body);
+}
+
+.cta {
+    margin-top: 26px;
+}
+
+// ── carta menù: dentro il pannello da desktop, sotto su mobile ──
+.menuDesktop {
+    display: none;
+
+    @include desktop {
+        position: relative;
+        z-index: 2;
+        display: block;
+        flex-shrink: 0;
+        // 420 a 1280 come nel canvas; si stringe fra 1024 e 1279 per lasciare
+        // al titolo la larghezza di «vendere per te.» su una riga.
+        width: clamp(340px, 33vw, 420px);
+    }
+}
+
+.menuMobile {
+    position: relative;
+    z-index: 3;
+    margin-top: -10px;
+    padding-inline: 10px;
+
+    @include desktop {
+        display: none;
+    }
+}

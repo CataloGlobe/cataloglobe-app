@@ -29,6 +29,7 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 // Public pages — eager (entry point visitatori anonimi, evita round-trip extra del lazy chunk)
 import TableEntryPage from "./pages/TableEntryPage/TableEntryPage";
 import Home from "./pages/Home/Home";
+import LandingFallback from "@pages/CampaignLanding/LandingFallback";
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
 import PrivacyPolicyPage from "./pages/Legal/PrivacyPolicyPage";
@@ -326,8 +327,23 @@ export default function App() {
             <Route path="/status" element={<StatusPage />} />
 
             {/* Landing di campagna — route di sviluppo, prima del catch-all /:slug */}
-            <Route path="/landing-dev" element={<CampaignLandingPage variante="form" />} />
-            <Route path="/landing-dev/b" element={<CampaignLandingPage variante="signup" />} />
+            {/* Suspense proprio: il fallback globale parla di «dashboard» */}
+            <Route
+                path="/landing-dev"
+                element={
+                    <Suspense fallback={<LandingFallback />}>
+                        <CampaignLandingPage variante="form" />
+                    </Suspense>
+                }
+            />
+            <Route
+                path="/landing-dev/b"
+                element={
+                    <Suspense fallback={<LandingFallback />}>
+                        <CampaignLandingPage variante="signup" />
+                    </Suspense>
+                }
+            />
 
             {/* Admin (cross-tenant) — gate via platform_admins / is_platform_admin() */}
             <Route

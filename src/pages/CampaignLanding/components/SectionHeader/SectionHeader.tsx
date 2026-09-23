@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import type { HighlightedTitle } from "@pages/CampaignLanding/content/landing";
 import styles from "./SectionHeader.module.scss";
 
 /** Larghezze del blocco titolo usate nel canvas. Classi, non stile inline. */
@@ -45,5 +46,35 @@ export default function SectionHeader({
 
 /** Parola evidenziata nel titolo: colore e tratto seguono il tono della sezione. */
 export function Highlight({ children }: { children: ReactNode }) {
-    return <span className={styles.highlight}>{children}</span>;
+    return (
+        <span className={styles.highlight}>
+            {children}
+            <svg
+                className={styles.stroke}
+                viewBox="0 0 200 10"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+                focusable="false"
+            >
+                <path d="M2 7 C 42 2, 78 9, 118 5 S 178 2, 198 6" />
+            </svg>
+        </span>
+    );
+}
+
+/**
+ * Titolo da `content/landing.ts` con la parola evidenziata in mezzo. La parola
+ * evidenziata va a capo come un blocco unico, insieme alla punteggiatura che
+ * la segue: il tratto sotto non si spezza e il punto non resta da solo.
+ */
+export function HighlightedText({ title }: { title: HighlightedTitle }) {
+    return (
+        <>
+            {title.before}
+            <span className={styles.keep}>
+                <Highlight>{title.highlight}</Highlight>
+                {title.after}
+            </span>
+        </>
+    );
 }

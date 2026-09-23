@@ -17,6 +17,11 @@
     [data-tone="dark"] {
         @include ld-tokens-dark;
     }
+
+    // Dopo il tono scuro: una superficie chiara annidata in una scura vince.
+    [data-tone="light"] {
+        @include ld-tokens-light;
+    }
 }
 
 // Neutralizza la tipografia globale dell'app (_typography.scss: `p` grigio con

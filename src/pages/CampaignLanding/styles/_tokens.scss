@@ -13,12 +13,8 @@
     --ld-paper-2: #FFFFFF;    // bianco pieno (sezioni alternate, card)
     --ld-fuori: #E3E3F0;      // piano esterno su cui appoggia la cornice
     --ld-scuro: #15142B;      // notte indaco: hero, form, footer
-    // testo
-    --ld-ink: #15141F;
-    --ld-body: #3C3A4C;
-    --ld-muted: #63607A;
-    // bordi
-    --ld-line: #E0E0EE;
+    // testo e bordi del tono chiaro (ridefiniti per scope dal tono scuro)
+    @include ld-tokens-light;
     --ld-line-2: #EDEDF6;
     // brand
     --ld-azione: #4648C6;        // bottoni, link
@@ -37,13 +33,27 @@
     --ld-dark-muted: #7F7C99;
     --ld-dark-line: #2E2C50;
     --ld-dark-link: #CBC8DE;
-    // parola evidenziata: letta da SectionHeader, ridefinita dal tono scuro
-    --ld-hl-ink: var(--ld-azione);
-    --ld-hl-line: var(--ld-underline-light);
+    // dettagli di sezione
+    --ld-cross: #B7B4C8;         // ✕ del pannello «Oggi, su carta o su PDF»: più tenue del testo
+    --ld-bar-empty: #F1F0FB;     // barra del giorno vuoto nei grafici (bordo: --ld-brand-s-line)
+    // hero: gradiente segnaposto del canvas, provvisorio. In Passata 2 lo
+    // sostituiscono i tre fondi per fascia sulla notte indaco (consegna §5.7).
+    --ld-hero-base: #2E2636;
+    --ld-hero-a: #241F31;
+    --ld-hero-b: #3C3040;
+    --ld-hero-c: #221D2E;
+    // illustrazione: il foglio di menù cartaceo dell'import. Caldo voluto: è la
+    // carta vera che il ristoratore fotografa, non la palette della pagina.
+    --ld-illo-paper-bg: #F3E9D4;
+    --ld-illo-paper-line: #E0D2B4;
+    --ld-illo-paper-title: #5B4527;
+    --ld-illo-paper-text: #6B5433;
+    --ld-illo-paper-shadow: 0 8px 20px rgba(26, 22, 19, 0.12);
     // ombre — base indaco, NON la rgba(23,20,15) che il canvas ha ereditato dalla palette vecchia
     --ld-shadow-card: 0 18px 44px rgba(21, 20, 43, 0.10);
     --ld-shadow-bar: 0 10px 28px rgba(21, 20, 43, 0.10);
     --ld-shadow-cta: 0 10px 28px rgba(70, 72, 198, 0.42);
+    --ld-shadow-thumb: 0 2px 8px rgba(21, 20, 43, 0.10);  // cursore dei selettori a segmenti
     // raggi
     --ld-r-frame: 22px;
     --ld-r-hero: 22px;
@@ -67,6 +77,18 @@
         --ld-sec-y: 72px;
         --ld-sec-x: 64px;
     }
+}
+
+// Tono chiaro: il default della pagina, e il ripristino per una superficie
+// chiara dentro una sezione scura (la carta menù dentro l'hero).
+@mixin ld-tokens-light {
+    --ld-ink: #15141F;
+    --ld-body: #3C3A4C;
+    --ld-muted: #63607A;
+    --ld-line: #E0E0EE;
+    // parola evidenziata: letta da SectionHeader
+    --ld-hl-ink: var(--ld-azione);
+    --ld-hl-line: var(--ld-underline-light);
 }
 
 @mixin ld-tokens-dark {

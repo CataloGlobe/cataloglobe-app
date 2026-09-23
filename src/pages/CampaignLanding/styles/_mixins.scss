@@ -11,6 +11,16 @@ $ld-bp-desktop: 1024px;
     }
 }
 
+// Sotto i 390 del canvas (telefoni da 360) i titoli scalano con la
+// larghezza: la parola evidenziata non va a capo e deve starci su una riga.
+$ld-canvas-mobile: 390px;
+
+@mixin below-canvas {
+    @media (max-width: $ld-canvas-mobile - 1px) {
+        @content;
+    }
+}
+
 // Interpolazione lineare fra le due larghezze del canvas (390 e 1280).
 // Valori in px senza unità: ld-fluid(40, 64) → clamp(40px, …, 64px).
 @function ld-fluid($min, $max, $vmin: 390, $vmax: 1280) {
@@ -29,6 +39,10 @@ $ld-bp-desktop: 1024px;
     font-weight: 400;
     font-size: ld-fluid(40, 64);
     line-height: 1.08;
+
+    @include below-canvas {
+        font-size: 10.1vw;
+    }
 }
 
 @mixin ld-h2 {
@@ -36,6 +50,10 @@ $ld-bp-desktop: 1024px;
     font-weight: 400;
     font-size: ld-fluid(30, 40);
     line-height: 1.12;
+
+    @include below-canvas {
+        font-size: 7.6vw;
+    }
 }
 
 @mixin ld-lede {

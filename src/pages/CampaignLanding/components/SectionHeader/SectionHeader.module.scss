@@ -43,11 +43,28 @@
     text-wrap: pretty;
 }
 
+.keep {
+    white-space: nowrap;
+}
+
 .highlight {
+    position: relative;
+    display: inline-block;
+    white-space: nowrap;
     color: var(--ld-hl-ink);
-    text-decoration-line: underline;
-    text-decoration-color: var(--ld-hl-line);
-    text-decoration-thickness: 0.08em;
-    text-underline-offset: 0.14em;
-    text-decoration-skip-ink: none;
+}
+
+// Tratto a mano sotto la parola (path del canvas), non text-decoration:
+// il tratto ondeggia e sta leggermente sotto la linea di base.
+.stroke {
+    position: absolute;
+    left: 0;
+    bottom: -0.12em;
+    width: 100%;
+    height: 0.17em;
+    overflow: visible;
+    fill: none;
+    stroke: var(--ld-hl-line);
+    stroke-width: 4;
+    stroke-linecap: round;
 }

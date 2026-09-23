@@ -1,0 +1,199 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.menu {
+    font-family: var(--ld-font-sans);
+}
+
+// ── carta ──
+.card {
+    overflow: hidden;
+    border-radius: var(--ld-r-panel);
+    background: var(--ld-paper-2);
+    border: 1px solid var(--ld-line);
+    box-shadow: var(--ld-shadow-card);
+}
+
+.bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 11px 16px;
+    background: var(--ld-line-2);
+    border-bottom: 1px solid var(--ld-line);
+
+    @include desktop {
+        padding-inline: 18px;
+    }
+}
+
+.dot {
+    flex-shrink: 0;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--ld-line);
+}
+
+.url {
+    margin-left: 6px;
+    font-size: 12px;
+    letter-spacing: 0.01em;
+    color: var(--ld-muted);
+}
+
+.body {
+    padding: 16px 16px 14px;
+
+    @include desktop {
+        padding: 18px 18px 16px;
+    }
+}
+
+.head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.title {
+    font-family: var(--ld-font-serif);
+    font-size: ld-fluid(21, 22);
+    font-weight: 400;
+    color: var(--ld-ink);
+}
+
+.live {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 11px;
+    border-radius: var(--ld-r-pill);
+    background: var(--ld-brand-s);
+    color: var(--ld-azione);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+// Fermo: il battito arriva in Passata 2.
+.liveDot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--ld-azione);
+}
+
+.dishes {
+    margin: 12px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.dish {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--ld-line-2);
+    font-size: ld-fluid(15, 16);
+    color: var(--ld-ink);
+
+    &:last-child {
+        border-bottom: 0;
+    }
+}
+
+.dishName,
+.dishPrice {
+    flex-shrink: 0;
+}
+
+.dishPrice {
+    font-weight: 600;
+}
+
+.leader {
+    flex-grow: 1;
+    border-bottom: 1px dotted var(--ld-line);
+    transform: translateY(-4px);
+}
+
+// ── selettore delle fasce ──
+.fasce {
+    position: relative;
+    display: flex;
+    margin-top: 12px;
+    padding: 5px;
+    border-radius: 16px;
+    background: var(--ld-line-2);
+    border: 1px solid var(--ld-line);
+}
+
+.cursor {
+    position: absolute;
+    top: 5px;
+    bottom: 5px;
+    left: 5px;
+    width: calc((100% - 10px) / 3);
+    border-radius: 11px;
+    background: var(--ld-paper-2);
+    border: 1px solid var(--ld-line);
+    box-shadow: var(--ld-shadow-thumb);
+}
+
+.at0 { transform: translateX(0); }
+.at1 { transform: translateX(100%); }
+.at2 { transform: translateX(200%); }
+
+.fascia {
+    position: relative;
+    z-index: 1;
+    flex: 1 1 0;
+    padding: 9px 4px;
+    border: 0;
+    background: none;
+    cursor: pointer;
+    font: inherit;
+    text-align: center;
+    color: var(--ld-muted);
+    -webkit-tap-highlight-color: transparent;
+
+    &:focus-visible {
+        outline: 2px solid var(--ld-brand);
+        outline-offset: 2px;
+        border-radius: 11px;
+    }
+}
+
+.fasciaOn {
+    color: var(--ld-ink);
+}
+
+.fasciaLabel {
+    display: block;
+    font-size: ld-fluid(14, 15);
+    font-weight: 600;
+}
+
+.fasciaHours {
+    display: block;
+    margin-top: 2px;
+    font-size: 11px;
+    font-weight: 500;
+    opacity: 0.75;
+}
+
+.fasciaOn .fasciaHours {
+    color: var(--ld-azione);
+    opacity: 1;
+}
+
+// Didascalia: eredita il tono del contenitore (chiaro sotto l'hero su
+// mobile, scuro dentro l'hero su desktop).
+.caption {
+    margin: 14px 0 0;
+    font-size: ld-fluid(15, 16);
+    line-height: 1.5;
+    color: var(--ld-body);
+}

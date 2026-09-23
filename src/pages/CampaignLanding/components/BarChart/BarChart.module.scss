@@ -1,0 +1,74 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 7px;
+    height: 116px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    @include desktop {
+        height: 128px;
+    }
+}
+
+.col {
+    display: flex;
+    flex: 1 1 0;
+    flex-direction: column;
+    justify-content: flex-end;
+    align-items: stretch;
+    height: 100%;
+}
+
+// La barra occupa l'altezza della colonna meno l'etichetta: il valore è in
+// percentuale di quella parte, non dell'intera colonna.
+.track {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    justify-content: flex-end;
+}
+
+.bar {
+    border-radius: 7px 7px 3px 3px;
+    background: var(--ld-brand-2);
+}
+
+.empty {
+    box-sizing: border-box;
+    background: var(--ld-bar-empty);
+    border: 1px solid var(--ld-brand-s-line);
+}
+
+.highlight {
+    background: var(--ld-azione);
+}
+
+// Altezza per valore: classi generate, non stile inline.
+@for $i from 0 through 100 {
+    .h#{$i} {
+        height: $i * 1%;
+    }
+}
+
+.day {
+    margin-top: 7px;
+    font-family: var(--ld-font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    line-height: 1.2;
+    text-align: center;
+    color: var(--ld-muted);
+}
+
+// Il giorno di cui parla il grafico
+.dayStrong {
+    font-weight: 700;
+}
+
+.dayInk {
+    color: var(--ld-ink);
+}

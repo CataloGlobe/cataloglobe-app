@@ -1,0 +1,13 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.panels {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    margin-top: 28px;
+
+    @include desktop {
+        flex-direction: row;
+        gap: 24px;
+    }
+}

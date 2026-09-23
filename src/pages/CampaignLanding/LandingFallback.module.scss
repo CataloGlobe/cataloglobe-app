@@ -1,0 +1,30 @@
+@use "@pages/CampaignLanding/styles/tokens" as *;
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// Stessa cornice di Frame, senza font né contenuto: è nel bundle principale,
+// quindi porta solo i token (niente @font-face).
+.fallback {
+    @include ld-tokens;
+
+    min-height: 100vh;
+    min-height: 100dvh;
+    box-sizing: border-box;
+    padding: 10px;
+    background: var(--ld-fuori);
+
+    @include desktop {
+        padding: 16px;
+    }
+}
+
+.page {
+    max-width: var(--ld-page-max);
+    min-height: calc(100dvh - 20px);
+    margin-inline: auto;
+    border-radius: var(--ld-r-frame);
+    background: var(--ld-paper);
+
+    @include desktop {
+        min-height: calc(100dvh - 32px);
+    }
+}

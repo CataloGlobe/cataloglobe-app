@@ -1,0 +1,130 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.split {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+
+    @include desktop {
+        flex-direction: row;
+        align-items: center;
+        gap: 64px;
+    }
+}
+
+.text {
+    @include desktop {
+        flex: 1 1 0;
+        max-width: 520px;
+    }
+}
+
+.more {
+    margin-top: 12px;
+    font-family: var(--ld-font-sans);
+    font-size: ld-fluid(16, 17);
+    line-height: 1.55;
+    color: var(--ld-muted);
+
+    strong {
+        font-weight: 700;
+    }
+
+    @include desktop {
+        margin-top: 16px;
+    }
+}
+
+.panel {
+    margin: 0;
+    padding: 18px;
+    list-style: none;
+    border-radius: var(--ld-r-panel);
+    background: var(--ld-paper);
+    border: 1px solid var(--ld-line);
+    font-family: var(--ld-font-sans);
+
+    @include desktop {
+        flex-shrink: 0;
+        width: 520px;
+        padding: 22px;
+    }
+}
+
+.step + .step {
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--ld-line);
+}
+
+.stepHead {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.stepNum {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--ld-azione);
+    color: var(--ld-on-azione);
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.stepLabel {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--ld-ink);
+}
+
+.caption {
+    @include ld-small;
+    margin-top: 12px;
+    color: var(--ld-body);
+}
+
+.sample {
+    margin-top: 12px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--ld-muted);
+}
+
+// ── «In evidenza» ──
+.featured {
+    padding: 13px 14px;
+    border-radius: 12px;
+    background: var(--ld-brand-s);
+}
+
+.featuredBadge {
+    display: block;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--ld-azione);
+}
+
+.featuredTitle {
+    display: block;
+    margin-top: 6px;
+    font-size: ld-fluid(14, 15);
+    font-weight: 600;
+    color: var(--ld-ink);
+}
+
+.featuredBody {
+    display: block;
+    margin-top: 3px;
+    font-size: 12.5px;
+    line-height: 1.45;
+    color: var(--ld-body);
+}

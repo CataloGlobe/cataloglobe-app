@@ -3,8 +3,8 @@
 .wrap {
     display: inline-flex;
     flex-direction: column;
-    align-items: center;
-    gap: 10px;
+    align-items: flex-start;
+    gap: 12px;
 }
 
 .wrapBlock {
@@ -55,6 +55,16 @@
     align-self: stretch; // anche dentro .wrap (flex a colonna)
 }
 
+.blockMobile {
+    width: 100%;
+    align-self: stretch;
+
+    @include desktop {
+        width: auto;
+        align-self: flex-start;
+    }
+}
+
 // ── look ──
 .filled {
     background: var(--ld-azione);
@@ -94,5 +104,4 @@
     @include ld-small;
     margin: 0;
     color: var(--ld-muted);
-    text-align: center;
 }

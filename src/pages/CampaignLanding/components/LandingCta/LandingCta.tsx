@@ -11,8 +11,8 @@ type LandingCtaProps = {
     look?: "filled" | "outline" | "glass";
     /** lg = 17px, padding 17/28, raggio cta; md = 14px, padding 10/20, pill. */
     size?: "md" | "lg";
-    /** Larghezza piena (hero mobile, barra inferiore). */
-    block?: boolean;
+    /** Larghezza piena (barra inferiore); "mobile" = piena solo sotto il breakpoint desktop (hero). */
+    block?: boolean | "mobile";
     /** Stampa la nota sotto la CTA, se il placement ne ha una. */
     showNote?: boolean;
 };
@@ -33,7 +33,8 @@ export default function LandingCta({
     const variante = useLandingVariant();
     const entry = CTA[variante][placement];
 
-    const className = [styles.cta, styles[size], styles[look], block ? styles.block : null]
+    const blockClass = block === "mobile" ? styles.blockMobile : block ? styles.block : null;
+    const className = [styles.cta, styles[size], styles[look], blockClass]
         .filter(Boolean)
         .join(" ");
 
@@ -62,7 +63,7 @@ export default function LandingCta({
     }
 
     return (
-        <div className={block ? `${styles.wrap} ${styles.wrapBlock}` : styles.wrap}>
+        <div className={[styles.wrap, blockClass ? styles.wrapBlock : null].filter(Boolean).join(" ")}>
             {control}
             <p className={styles.note}>{entry.note}</p>
         </div>

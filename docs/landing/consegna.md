@@ -198,8 +198,11 @@ cambia contenuto.
 
 Niente split casuale lato client: nelle webview sfarfalla e sporca l'attribuzione.
 
-`/b` collide con la route pubblica `/:slug`: **prima** che vada in staging serve una
-migration che riservi lo slug `b` in `is_reserved_slug()` (oggi non lo è).
+`/b` **non** collide con la route pubblica `/:slug`, quindi **nessuna migration**: uno slug
+di sede ha almeno 3 caratteri (vincolo `activities_slug_length`), e il rewrite di
+`vercel.json` (`[a-z0-9][a-z0-9-]*[a-z0-9]`, almeno 2 caratteri) non manda `/b` all'SSR.
+`/b` riceve gli stessi header di sicurezza di `/` (`X-Frame-Options: DENY`). Verificato il
+23/09 su staging.
 
 **La variante `signup` non si accende** finché il flusso OTP non è verificato dentro una
 webview in-app: l'utente deve uscire per leggere il codice e tornare indietro, ed è
@@ -224,14 +227,21 @@ Zero contenuto visivo. Route di sviluppo `/landing-dev` (+ `/b`); `Home` resta s
 > sulla radice di `Frame` (classe con hash: per i selettori usare `[data-landing]`).
 > `Highlight` per la parola evidenziata; reset `:where()` contro `_typography.scss`.
 
-**Passata 1 — la pagina intera, statica.** **Primo compito, prima di tutto il resto**: riservare
-lo slug `b` in tre posti — migration su `is_reserved_slug()` (letta prima dal DB live con
-`pg_get_functiondef`), `RESERVED_SEGMENTS` in `api/ssr-render/index.ts`, esclusione nel rewrite
-di `vercel.json`. Senza, `/b` risponde 404 HTTP dall'SSR e la revisione degli annunci Meta lo
-rifiuta. Tutte le sezioni, markup e stili definitivi,
-**senza animazioni**: i componenti animati nel loro stato di riposo (vetrina ferma su
-«Pranzo», card import al passo 3, barre già cresciute, primo pannello aperto). Alla fine
-c'è una pagina vera da aprire su un iPhone. Qui lo swap `/` + `/b` e la rimozione di `Home`.
+**Passata 1 — la pagina intera, statica.** Prompt: `docs/landing/passata-1.md`. Nessuna
+migration per lo slug `b` (vedi §5.8). Tutte le sezioni, markup e stili definitivi,
+**senza animazioni e senza backend**, su `/landing-dev` e `/landing-dev/b`: i componenti
+animati nel loro stato di riposo (vetrina ferma su «Pranzo», card import al passo 3, barre
+già cresciute, primo pannello aperto). Il form della sezione 10 è solo interfaccia. Alla
+fine c'è una pagina vera da aprire su un iPhone.
+
+**Backend dei contatti — passata a sé**, con un prompt a parte e `/security-review`: nuova
+edge function e tabella `leads` con RLS, rate limit come `join-waitlist`, mail di notifica
+al team (qualcuno deve richiamare entro 24 ore), passo 2 del form (`Form-2`). Non si
+riusa `join-waitlist`: promette una lista d'attesa via email, non una telefonata.
+
+**Swap — commit a parte, dopo la Passata 1**: `/` e `/b` sulla nuova landing, rimozione di
+`/landing-dev`, `Home.tsx` e `src/pages/Landing/`. Solo dopo che Lorenzo ha approvato i
+testi e la prova su iPhone.
 
 È questa la passata che conta, perché risponde all'unica domanda che il canvas non poteva
 rispondere: **come si sente la pagina dentro una webview su un telefono vero.** Se lì si
