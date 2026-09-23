@@ -1,6 +1,8 @@
 @use "@pages/CampaignLanding/styles/tokens" as *;
 @use "@pages/CampaignLanding/styles/mixins" as *;
 
+@include ld-page-backdrop(".fallback");
+
 // Stessa cornice di Frame, senza font né contenuto: è nel bundle principale,
 // quindi porta solo i token (niente @font-face).
 .fallback {

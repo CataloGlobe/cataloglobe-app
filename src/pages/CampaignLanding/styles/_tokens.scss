@@ -7,11 +7,24 @@
 // le sezioni scure li ridefiniscono per scope (data-tone) e in Passata 2 i
 // layer dell'hero li leggono a runtime.
 
+// Il piano esterno serve anche fuori da .landing (html/body, per l'overscroll
+// di iOS e il fallback di caricamento): variabile SCSS unica, token dalla stessa.
+$ld-fuori: #E3E3F0;
+
+// html e body prendono il piano esterno quando la pagina monta `$root`:
+// l'overscroll (rimbalzo iOS, bordo sopra/sotto) non mostra il fondo dell'app.
+@mixin ld-page-backdrop($root) {
+    :global(html):has(#{$root}),
+    :global(body):has(#{$root}) {
+        background: $ld-fuori;
+    }
+}
+
 @mixin ld-tokens {
     // fondi
     --ld-paper: #F2F2FA;      // fondo pagina
     --ld-paper-2: #FFFFFF;    // bianco pieno (sezioni alternate, card)
-    --ld-fuori: #E3E3F0;      // piano esterno su cui appoggia la cornice
+    --ld-fuori: #{$ld-fuori}; // piano esterno su cui appoggia la cornice
     --ld-scuro: #15142B;      // notte indaco: hero, form, footer
     // testo e bordi del tono chiaro (ridefiniti per scope dal tono scuro)
     @include ld-tokens-light;

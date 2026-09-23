@@ -39,6 +39,7 @@ $ld-canvas-mobile: 390px;
     font-weight: 400;
     font-size: ld-fluid(40, 64);
     line-height: 1.08;
+    text-wrap: balance;
 
     @include below-canvas {
         font-size: 10.1vw;
@@ -50,6 +51,7 @@ $ld-canvas-mobile: 390px;
     font-weight: 400;
     font-size: ld-fluid(30, 40);
     line-height: 1.12;
+    text-wrap: balance;
 
     @include below-canvas {
         font-size: 7.6vw;

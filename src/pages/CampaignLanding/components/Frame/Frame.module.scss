@@ -34,6 +34,8 @@
     color: inherit;
 }
 
+@include ld-page-backdrop(".landing");
+
 // Ancore (#contatto, #funzioni…) con scorrimento morbido. Sta sull'elemento
 // che scorre davvero, il documento: su `.landing` (non scroll container) non
 // avrebbe effetto. `:has` limita la regola alle pagine che montano la landing.
