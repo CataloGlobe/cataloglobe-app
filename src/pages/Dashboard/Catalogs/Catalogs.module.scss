@@ -13,7 +13,7 @@
 // navbar→banda→contenuto deriva da un'unica sorgente (`MainLayout .content`,
 // padding 24px). Coerente con Products e le altre pagine post-rollout.
 .content {
-  background-color: var(--color-gray-50);
+  background-color: var(--bg);
 
   // Catena flex vincolata (template Prodotti): propaga l'altezza bounded di
   // `MainLayout .content` fino al `.autoSizeProbe` del DataTable. SOLO in
@@ -45,5 +45,5 @@
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-4);
+  gap: var(--space-16);
 }

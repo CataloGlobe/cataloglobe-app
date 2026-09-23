@@ -42,7 +42,6 @@ type CatalogTreeProps = {
         targetId: string,
         position: DropPosition
     ) => Promise<void>;
-    isReordering?: boolean;
     /** Sola lettura (`catalogs.write` assente): niente «+», kebab né trascinamento. */
     readOnly?: boolean;
     labels: CatalogTreeLabels;
@@ -124,7 +123,6 @@ export function CatalogTree({
     onDeleteCategory,
     onReorderSiblings,
     onReparent,
-    isReordering = false,
     readOnly = false,
     labels,
     structureLockReason
@@ -346,7 +344,7 @@ export function CatalogTree({
                                 onMoveCategory={onMoveCategory}
                                 structureLockReason={structureLockReason}
                                 onDeleteCategory={onDeleteCategory}
-                                disabled={readOnly || isReordering}
+                                disabled={readOnly}
                                 readOnly={readOnly}
                                 isDescendantOfDragging={draggingDescendantIds.has(flatNode.node.id)}
                                 dropPosition={nodeDropPos}

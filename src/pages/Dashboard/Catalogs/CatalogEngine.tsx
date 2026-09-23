@@ -47,6 +47,7 @@ import {
     updateCategory,
     reparentCategory,
     updateDescendantLevels,
+    getCatalog,
     V2Catalog,
     V2CatalogCategory,
     V2CatalogCategoryProduct
@@ -54,9 +55,8 @@ import {
 import { listBaseProductsWithVariants, getProductListMetadata, V2Product } from "@/services/supabase/products";
 import { getDisplayPrice } from "@/utils/priceDisplay";
 import { hasConfiguredEffectivePrice } from "@/utils/productCompleteness";
-import { getProductGroups, ProductGroup } from "@/services/supabase/productGroups";
-import { listAttributeDefinitions } from "@/services/supabase/attributes";
-import { supabase } from "@/services/supabase/client";
+import { getProductGroups, listProductGroupLinks, ProductGroup } from "@/services/supabase/productGroups";
+import { listAttributeDefinitions, listAttributeValuesForDefinitions } from "@/services/supabase/attributes";
 import { CatalogTree } from "./components/CatalogTree";
 import { categoryActions } from "./components/categoryActions";
 import { CatalogTreeNodeData } from "./components/CatalogTree.types";
@@ -80,60 +80,6 @@ type CreateIntent = "associate" | "configure";
 
 const LOCAL_LINK_PREFIX = "loc_";
 
-function validateProductAddition(
-    categoryId: string,
-    productId: string,
-    variantProductId: string | null,
-    categories: V2CatalogCategory[],
-    categoryProducts: V2CatalogCategoryProduct[]
-): string | null {
-    const parentMap = new Map<string, string | null>();
-    categories.forEach(cat => parentMap.set(cat.id, cat.parent_category_id));
-
-    const getAncestors = (catId: string): string[] => {
-        const ancestors: string[] = [];
-        let current = parentMap.get(catId);
-        while (current) {
-            ancestors.push(current);
-            current = parentMap.get(current);
-        }
-        return ancestors;
-    };
-
-    const getDescendants = (catId: string): string[] => {
-        const children = categories.filter(c => c.parent_category_id === catId).map(c => c.id);
-        let descendants = [...children];
-        for (const childId of children) {
-            descendants = [...descendants, ...getDescendants(childId)];
-        }
-        return descendants;
-    };
-
-    // Only consider links with the same variant_product_id — (P, null) and (P, V1) are distinct items
-    const existingAssignments = categoryProducts.filter(
-        cp => cp.product_id === productId && cp.variant_product_id === variantProductId
-    );
-    if (existingAssignments.length === 0) return null;
-
-    const targetAncestors = getAncestors(categoryId);
-    const targetDescendants = getDescendants(categoryId);
-
-    for (const assignment of existingAssignments) {
-        if (assignment.category_id === categoryId) {
-            return "Il prodotto è già presente in questa categoria.";
-        }
-        if (targetAncestors.includes(assignment.category_id)) {
-            const cat = categories.find(c => c.id === assignment.category_id);
-            return `Non puoi aggiungere questo prodotto qui, in quanto è già presente in una categoria genitore ("${cat?.name}").`;
-        }
-        if (targetDescendants.includes(assignment.category_id)) {
-            const cat = categories.find(c => c.id === assignment.category_id);
-            return `Non puoi aggiungere questo prodotto qui, in quanto è già presente in una sotto-categoria figlia ("${cat?.name}").`;
-        }
-    }
-    return null;
-}
-
 type ProductRow = {
     id: string;
     linkId: string;
@@ -147,12 +93,6 @@ type ProductRow = {
     isVariant: boolean;
     isGroupChild: boolean; // true when a variant row with a parent row above it in the same group
     hasVariants: boolean; // true for a parent row that has at least one variant link in this category
-};
-
-type ProductAttributeValueRow = {
-    product_id: string;
-    attribute_definition_id: string;
-    value_text: string | null;
 };
 
 function getErrorMessage(error: unknown, fallback: string): string {
@@ -593,15 +533,9 @@ export default function CatalogEngine() {
             );
 
             if (targetDefIds.length > 0) {
-                const { data: valueRows, error: valueError } = await supabase
-                    .from("product_attribute_values")
-                    .select("product_id, attribute_definition_id, value_text")
-                    .eq("tenant_id", currentTenantId)
-                    .in("attribute_definition_id", targetDefIds);
+                const valueRows = await listAttributeValuesForDefinitions(currentTenantId, targetDefIds);
 
-                if (valueError) throw valueError;
-
-                for (const row of (valueRows ?? []) as ProductAttributeValueRow[]) {
+                for (const row of valueRows) {
                     if (skuDefId && row.attribute_definition_id === skuDefId) {
                         if (
                             typeof row.value_text === "string" &&
@@ -625,40 +559,32 @@ export default function CatalogEngine() {
         setIsLoading(true);
         try {
             const [
-                { data: catalogData, error: catalogError },
+                catalogData,
                 loadedCategories,
                 loadedLinks,
                 loadedProducts,
                 loadedGroups,
-                loadedGroupItems
+                groupItems
             ] = await Promise.all([
-                supabase
-                    .from("catalogs")
-                    .select("*")
-                    .eq("id", catalogId)
-                    .eq("tenant_id", currentTenantId)
-                    .single(),
+                getCatalog(catalogId, currentTenantId),
                 listCategories(currentTenantId, catalogId),
                 listCategoryProducts(currentTenantId, catalogId),
                 listBaseProductsWithVariants(currentTenantId),
                 getProductGroups(currentTenantId),
-                supabase
-                    .from("product_group_items")
-                    .select("product_id, group_id")
-                    .eq("tenant_id", currentTenantId)
+                // Come prima: senza gruppi il filtro «Gruppo» resta vuoto, la
+                // pagina si carica lo stesso.
+                listProductGroupLinks(currentTenantId).catch(error => {
+                    console.warn("Impossibile caricare i gruppi dei prodotti:", error);
+                    return [];
+                })
             ]);
-
-            if (catalogError) throw catalogError;
-
-            const groupItems =
-                (loadedGroupItems.data as { product_id: string; group_id: string }[]) || [];
             const nextGroupMap = new Map<string, string[]>();
             for (const item of groupItems) {
                 const existing = nextGroupMap.get(item.product_id) ?? [];
                 nextGroupMap.set(item.product_id, [...existing, item.group_id]);
             }
 
-            setCatalog(catalogData as V2Catalog);
+            setCatalog(catalogData);
             setCategories(loadedCategories);
             setOriginalCategories(loadedCategories);
             setCategoryProducts(loadedLinks);
@@ -1225,52 +1151,6 @@ export default function CatalogEngine() {
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
         useSensor(KeyboardSensor)
-    );
-
-    const handleAssignExistingProduct = useCallback(
-        (productId: string) => {
-            if (!currentTenantId || !catalogId || !selectedCategoryId) return;
-
-            const validationError = validateProductAddition(
-                selectedCategoryId,
-                productId,
-                null,
-                categories,
-                categoryProducts
-            );
-            if (validationError) {
-                showToast({ message: validationError, type: "error" });
-                return;
-            }
-
-            const nextSortOrder =
-                selectedCategoryLinks.length > 0
-                    ? Math.max(...selectedCategoryLinks.map(link => link.sort_order)) + 10
-                    : 0;
-
-            const localLink: V2CatalogCategoryProduct = {
-                id: `${LOCAL_LINK_PREFIX}${selectedCategoryId}_${productId}`,
-                tenant_id: currentTenantId,
-                catalog_id: catalogId,
-                category_id: selectedCategoryId,
-                product_id: productId,
-                variant_product_id: null,
-                sort_order: nextSortOrder,
-                created_at: new Date().toISOString()
-            };
-
-            setCategoryProducts(prev => [...prev, localLink]);
-            setIsDirty(true);
-        },
-        [
-            catalogId,
-            categories,
-            categoryProducts,
-            currentTenantId,
-            selectedCategoryId,
-            selectedCategoryLinks,
-            showToast
-        ]
     );
 
     const handleBulkAssignItems = useCallback(() => {
@@ -1936,7 +1816,6 @@ export default function CatalogEngine() {
                 structureLockReason={structureLockReason}
                 onReorderSiblings={handleReorderSiblings}
                 onReparent={handleReparent}
-                isReordering={false}
                 readOnly={!canWrite}
                 labels={treeLabels}
             />

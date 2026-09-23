@@ -353,3 +353,19 @@ export async function removeProductAttributeValue(
         }
     }
 }
+
+/** I valori di alcuni attributi su tutti i prodotti dell'azienda (es. il codice `sku` nelle righe del menù). */
+export async function listAttributeValuesForDefinitions(
+    tenantId: string,
+    definitionIds: string[]
+): Promise<{ product_id: string; attribute_definition_id: string; value_text: string | null }[]> {
+    if (definitionIds.length === 0) return [];
+    const { data, error } = await supabase
+        .from("product_attribute_values")
+        .select("product_id, attribute_definition_id, value_text")
+        .eq("tenant_id", tenantId)
+        .in("attribute_definition_id", definitionIds);
+
+    if (error) throw error;
+    return data ?? [];
+}
