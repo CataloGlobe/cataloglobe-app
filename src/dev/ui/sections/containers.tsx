@@ -18,6 +18,7 @@ import Breadcrumb from "@/components/ui/Breadcrumb/Breadcrumb";
 import { Avatar } from "@/components/ui/Avatar/Avatar";
 import { QrCode } from "@/components/ui/QrCode/QrCode";
 import { State, noop, type GallerySection } from "../gallery";
+import styles from "../DevUiPage.module.scss";
 
 type Row = { id: string; name: string; status: "success" | "neutral" | "warning"; price: number };
 
@@ -184,6 +185,11 @@ function DataTableSection() {
             </State>
             <State label="colonna azioni dichiarata per prima: la tabella la sposta in coda · righe ordinabili, la maniglia «Riordina …» è l'unico controllo" column>
                 <SortableSampleTable />
+            </State>
+            <State label="tabella stretta (420 px, come una card accanto all'albero a 768): il piè resta su una riga, «Per pagina» esce dalla vista e il select resta «Righe per pagina»" column>
+                <div className={styles.narrow}>
+                    <SampleTable pageSize={2} pageSizeOptions={[2, 25]} />
+                </div>
             </State>
             <State label="selectable (una selezionata)" column>
                 <SampleTable selectable selectedRowIds={selected} onSelectedRowsChange={setSelected} onBulkDelete={noop} />

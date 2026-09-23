@@ -631,5 +631,29 @@ for (const viewport of [
                 await expect(node(page, "Pizze")).toBeVisible();
             }
         });
+
+        test("il piè della tabella resta su una riga", async ({ page }) => {
+            await openList(page);
+            await page.setViewportSize(viewport);
+            await main(page).getByText("Carta e2e").click();
+            await expect(node(page, "Pizze")).toBeVisible({ timeout: 15_000 });
+            await selectCategory(page, "Pizze");
+            const pageSize = main(page).getByRole("combobox", { name: "Righe per pagina" });
+            await expect(pageSize).toBeVisible();
+            // Contatore, selettore ed eventuali frecce sulla stessa riga, e
+            // nessuna etichetta spezzata su più righe.
+            const middle = async (l: import("@playwright/test").Locator) => {
+                const b = (await l.boundingBox())!;
+                return b.y + b.height / 2;
+            };
+            const y = await middle(pageSize);
+            const count = main(page).getByText(/^(\d+ elementi|\d+–\d+ di \d+)$/);
+            expect(Math.abs((await middle(count)) - y)).toBeLessThan(4);
+            expect((await count.boundingBox())!.height).toBeLessThan(28);
+            const next = main(page).getByRole("button", { name: "Pagina successiva" });
+            if (await next.count()) expect(Math.abs((await middle(next)) - y)).toBeLessThan(4);
+            const label = main(page).getByText("Per pagina", { exact: true });
+            if (await label.isVisible()) expect((await label.boundingBox())!.height).toBeLessThan(28);
+        });
     });
 }
