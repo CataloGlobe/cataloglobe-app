@@ -128,7 +128,7 @@ function DrawerSection() {
     const open = size !== null || legacy !== null;
     return (
         <>
-            <State label="size sm 420 / md 520 / lg 720 · header canonico (title + onClose), footer con safe-area">
+            <State label="size sm 420 / md 520 / lg 720 · header canonico (title + onClose), footer con safe-area · Esc chiude il livello più in alto (prima il menu, poi il drawer)">
                 {(["sm", "md", "lg"] as const).map(s => (
                     <Button key={s} variant="secondary" onClick={() => setSize(s)}>
                         Apri {s}
@@ -168,6 +168,18 @@ function DrawerSection() {
                     <div className={styles.stack}>
                         <TextInput label="Nome" placeholder="Trattoria del Porto" />
                         <TextInput label="Città" placeholder="Milano" helperText="Compare nella pagina pubblica." />
+                        {/* Esc a menu aperto chiude il menu, non il drawer; il secondo Esc chiude il drawer. */}
+                        <Menu
+                            trigger={
+                                <Button variant="secondary" size="sm" onClick={noop}>
+                                    Menu dentro il drawer
+                                </Button>
+                            }
+                            align="start"
+                        >
+                            <Menu.Item onSelect={noop}>Voce uno</Menu.Item>
+                            <Menu.Item onSelect={noop}>Voce due</Menu.Item>
+                        </Menu>
                     </div>
                 </DrawerLayout>
             </SystemDrawer>

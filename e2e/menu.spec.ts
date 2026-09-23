@@ -418,20 +418,22 @@ test.describe("Menù — dettaglio", () => {
         await expect(prosecco.locator("xpath=ancestor::*[.//*[@aria-label='Seleziona riga']][1]")).toContainText("Già nella portata che la contiene");
         await expect(checkboxOf(prosecco)).toBeDisabled();
         // Il kebab della riga apre solo il prodotto.
-        const heading = (await dialog(page).getByText("In Bianchi").boundingBox())!;
         await dialog(page).getByRole("button", { name: "Azioni Tiramisù" }).click();
         await expect(page.getByRole("menuitem")).toHaveCount(1);
         await expect(page.getByRole("menuitem", { name: "Apri il prodotto" })).toBeVisible();
-        // Si chiude il menu con un clic fuori: Esc chiuderebbe anche il drawer
-        // (a menu aperto il resto è aria-hidden, quindi il clic è per coordinate).
-        await page.mouse.click(heading.x + 4, heading.y + heading.height / 2);
+        // Esc chiude il livello più in alto: il menu, non il drawer sotto.
+        await page.keyboard.press("Escape");
         await expect(page.getByRole("menu")).toHaveCount(0);
+        await expect(dialog(page)).toContainText("Aggiungi prodotti");
 
         await dialog(page).getByRole("button", { name: "Crea un prodotto" }).click();
         await expect(dialog(page)).toContainText("Nuovo prodotto");
         await expect(dialog(page).getByRole("button", { name: "Crea e aggiungi" })).toBeVisible();
         await dialog(page).getByRole("button", { name: "Torna all'elenco" }).click();
         await expect(dialog(page).getByText("Tiramisù", { exact: true })).toBeVisible();
+        // Senza niente sopra, Esc chiude il drawer.
+        await page.keyboard.press("Escape");
+        await expect(dialog(page)).toHaveCount(0);
     });
 
     test("crea una categoria principale: POST con livello e genitore", async ({ page }) => {
