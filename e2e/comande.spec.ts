@@ -50,20 +50,19 @@ async function openComande(page: Page): Promise<void> {
 }
 
 /**
- * Il menu ⋯ della card della fixture. Il nome porta il tavolo («Altre azioni per
- * T TEST»): senza, a 375 collideva con l'overflow della banda compatta. Mirato
- * alla fixture e non contato: la sede può avere altre comande attive.
+ * La card della fixture: un `article` col nome del tavolo. Mirata e non
+ * contata: la sede può avere altre comande attive.
  */
-function fixtureMenu(page: Page) {
-    return page.getByRole("main").getByRole("button", { name: `Altre azioni per ${TAVOLO}`, exact: true });
+function fixtureCard(page: Page) {
+    return page.getByRole("main").getByRole("article", { name: TAVOLO, exact: true });
 }
 
 /**
- * La card della fixture. La `Card` è una `section` senza nome (nessun ruolo da
- * interrogare): si risale dal suo menu, che il ruolo lo ha.
+ * Il menu ⋯ della card della fixture. Il nome porta il tavolo («Altre azioni per
+ * T TEST»): senza, a 375 collideva con l'overflow della banda compatta.
  */
-function fixtureCard(page: Page) {
-    return fixtureMenu(page).locator("xpath=ancestor::section[1]");
+function fixtureMenu(page: Page) {
+    return fixtureCard(page).getByRole("button", { name: `Altre azioni per ${TAVOLO}`, exact: true });
 }
 
 async function openCardMenu(page: Page): Promise<void> {
