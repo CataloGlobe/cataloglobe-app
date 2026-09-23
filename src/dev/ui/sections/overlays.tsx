@@ -231,7 +231,7 @@ function MenuSection() {
                         Duplica (piano Pro)
                     </Menu.Item>
                     <Menu.Item onSelect={noop} disabled description="Massimo tre livelli.">
-                        Crea sotto-portata
+                        Crea sotto-sezione
                     </Menu.Item>
                     <Menu.Separator />
                     <Menu.Item icon={Trash2} variant="destructive" onSelect={noop}>

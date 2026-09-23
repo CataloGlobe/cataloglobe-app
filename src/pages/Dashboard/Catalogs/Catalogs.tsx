@@ -339,7 +339,7 @@ export default function Catalogs() {
         return Number.isNaN(date.getTime()) ? "—" : DATE_FORMAT.format(date);
     };
 
-    /** «7 portate · 22 prodotti»: gli stessi numeri nella card e nella lista. */
+    /** «7 sezioni · 22 prodotti»: gli stessi numeri nella card e nella lista. */
     const categoriesText = (catalogId: string) => {
         const stats = statsMap[catalogId];
         if (statsLoading || !stats) return "—";

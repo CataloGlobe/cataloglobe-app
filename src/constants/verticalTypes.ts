@@ -90,7 +90,7 @@ export interface VerticalConfig {
      */
     catalogLabelPlural: string;
     categoryLabel: string;
-    /** Plurale di `categoryLabel`, per la stessa ragione di `catalogLabelPlural` («Portata» → «Portate»). */
+    /** Plurale di `categoryLabel`, per la stessa ragione di `catalogLabelPlural` («Sezione» → «Sezioni»). */
     categoryLabelPlural: string;
     productLabel: string;
     productLabelPlural: string;
@@ -137,8 +137,8 @@ const FOOD_BEVERAGE_CONFIG: VerticalConfig = {
     label: "Food & Beverage",
     catalogLabel: "Menù",
     catalogLabelPlural: "Menù",
-    categoryLabel: "Portata",
-    categoryLabelPlural: "Portate",
+    categoryLabel: "Sezione",
+    categoryLabelPlural: "Sezioni",
     productLabel: "Prodotto",
     productLabelPlural: "Prodotti",
     productSections: {
@@ -183,8 +183,6 @@ export const VERTICAL_CONFIG: Record<VerticalType, VerticalConfig> = {
     bar: {
         ...FOOD_BEVERAGE_CONFIG,
         label: "Bar",
-        categoryLabel: "Sezione",
-        categoryLabelPlural: "Sezioni",
         scheduleHints: ["Aperitivo", "Happy hour", "Dopocena"]
     },
     retail: {
