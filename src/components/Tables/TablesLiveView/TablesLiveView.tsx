@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Eye, Grid2X2, LogOut, Wrench } from "lucide-react";
 
 import Text from "@/components/ui/Text/Text";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { Button } from "@/components/ui/Button/Button";
 import { CardGrid, CardGridItem } from "@/components/ui/CardGrid";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
@@ -65,18 +66,24 @@ const STATUS_VARIANTS: Record<TableStatus, StatusBadgeVariant> = {
     maintenance: "warning"
 };
 
-/** «1 nuova · 2 in lavorazione · 1 pronta»: gli ordini attivi del tavolo. */
-function formatActiveOrders(orders: V2TableWithState["active_orders"]): string {
+/** Le comande in Nuove: aspettano qualcuno, quindi stanno sulla tessera come Badge. */
+function countSubmitted(orders: V2TableWithState["active_orders"]): number {
+    return (orders ?? []).filter(o => o.status === "submitted").length;
+}
+
+/**
+ * Il resto degli ordini attivi, per il footer: «2 in lavorazione · 1 pronta».
+ * Le nuove non ci sono (sono il Badge). Nessun ordine attivo → «Nessun ordine».
+ */
+function formatActiveOrders(orders: V2TableWithState["active_orders"]): string | null {
     const list = orders ?? [];
-    const count = (status: string) => list.filter(o => o.status === status).length;
+    if (list.length === 0) return "Nessun ordine";
+    const acknowledged = list.filter(o => o.status === "acknowledged").length;
+    const ready = list.filter(o => o.status === "ready").length;
     const parts: string[] = [];
-    const submitted = count("submitted");
-    const acknowledged = count("acknowledged");
-    const ready = count("ready");
-    if (submitted > 0) parts.push(`${submitted} ${submitted === 1 ? "nuova" : "nuove"}`);
     if (acknowledged > 0) parts.push(`${acknowledged} in lavorazione`);
     if (ready > 0) parts.push(`${ready} ${ready === 1 ? "pronta" : "pronte"}`);
-    return parts.length > 0 ? parts.join(" · ") : "Nessun ordine";
+    return parts.length > 0 ? parts.join(" · ") : null;
 }
 
 const STATUS_LABELS: Record<TableStatus, string> = {
@@ -393,6 +400,8 @@ export function TablesLiveView({
                                 {group.tables.map(t => {
                                     const status = deriveTableStatus(t) as TableStatus;
                                     const statusLabel = STATUS_LABELS[status];
+                                    const submitted = countSubmitted(t.active_orders);
+                                    const activeOrdersText = formatActiveOrders(t.active_orders);
 
                                     const cardActions: TableRowAction[] = [
                                         {
@@ -434,6 +443,11 @@ export function TablesLiveView({
                                             badge={
                                                 <span className={styles.badges}>
                                                     <StatusBadge variant={STATUS_VARIANTS[status]} label={statusLabel} />
+                                                    {submitted > 0 && (
+                                                        <Badge variant="brand">
+                                                            {submitted} {submitted === 1 ? "nuova" : "nuove"}
+                                                        </Badge>
+                                                    )}
                                                     {t.bill_requested_count > 0 && (
                                                         <StatusBadge variant="warning" label="Conto richiesto" />
                                                     )}
@@ -447,7 +461,7 @@ export function TablesLiveView({
                                                 status === "occupied" ? (
                                                     <span className={styles.footer}>
                                                         <Text as="span" variant="body-sm" colorVariant="muted">
-                                                            {formatActiveOrders(t.active_orders)}
+                                                            {activeOrdersText}
                                                         </Text>
                                                         <Text as="span" variant="body-sm" weight={600}>
                                                             {formatEur(t.current_total)}

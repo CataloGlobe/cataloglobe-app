@@ -249,7 +249,10 @@ test.describe("Comande", () => {
         await filtri.getByRole("radio", { name: "Aperti", exact: true }).click();
         const tavolo = main.getByRole("button", { name: new RegExp(`^${TAVOLO}, Aperto`) });
         await expect(tavolo).toBeVisible();
-        await expect(main.getByRole("listitem").filter({ hasText: TAVOLO })).toContainText("5,80 €");
+        const tessera = main.getByRole("listitem").filter({ hasText: TAVOLO });
+        await expect(tessera).toContainText("5,80 €");
+        // La comanda in Nuove è un Badge sulla tessera, non testo nel footer.
+        await expect(tessera.getByRole("status").filter({ hasText: /^1 nuova$/ })).toBeVisible();
 
         await filtri.getByRole("radio", { name: "Liberi", exact: true }).click();
         await expect(tavolo).toBeHidden();
