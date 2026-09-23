@@ -10,9 +10,8 @@ import {
     type ClientRect
 } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy, arrayMove } from "@dnd-kit/sortable";
-import { IconFolder, IconPlus } from "@tabler/icons-react";
+import { IconFolder } from "@tabler/icons-react";
 import Text from "@/components/ui/Text/Text";
-import { Button } from "@/components/ui/Button/Button";
 import styles from "../CatalogEngine.module.scss";
 import { CatalogTreeNode } from "./CatalogTreeNode";
 import { CatalogTreeFlatNode, CatalogTreeNodeData } from "./CatalogTree.types";
@@ -25,7 +24,6 @@ type CatalogTreeProps = {
     expandedCategoryIds: Set<string>;
     onToggleExpand: (categoryId: string) => void;
     onSelectCategory: (categoryId: string) => void;
-    onCreateRootCategory: () => void;
     onCreateSubCategory: (categoryId: string) => void;
     onEditCategory: (categoryId: string) => void;
     onDeleteCategory: (categoryId: string) => void;
@@ -108,7 +106,6 @@ export function CatalogTree({
     expandedCategoryIds,
     onToggleExpand,
     onSelectCategory,
-    onCreateRootCategory,
     onCreateSubCategory,
     onEditCategory,
     onDeleteCategory,
@@ -179,22 +176,6 @@ export function CatalogTree({
 
     return (
         <div className={styles.catalogTree}>
-            <div className={styles.treeHeader}>
-                <Text variant="caption" weight={700} className={styles.treeHeading}>
-                    Albero categorie
-                </Text>
-                {!readOnly && (
-                    <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={onCreateRootCategory}
-                        aria-label="Crea categoria principale"
-                    >
-                        <IconPlus size={14} />
-                    </Button>
-                )}
-            </div>
-
             {visibleNodes.length === 0 ? (
                 <div className={styles.treeEmptyState}>
                     <IconFolder size={36} stroke={1.25} />

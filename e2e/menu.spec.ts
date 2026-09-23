@@ -61,6 +61,12 @@ async function selectCategory(page: Page, name: string): Promise<void> {
     await expect(main(page).getByRole("heading", { name, exact: true }).or(main(page).getByText(name, { exact: true }).nth(1))).toBeVisible();
 }
 
+/** Apre «Modifica» della categoria scelta dal kebab nella sua testata. */
+async function editCategory(page: Page): Promise<void> {
+    await main(page).getByRole("button", { name: /^Azioni della/ }).click();
+    await page.getByRole("menuitem", { name: "Modifica", exact: true }).click();
+}
+
 function write(stub: MenuStub, key: string): WriteCall | undefined {
     return stub.writes.find(w => w.key === key);
 }
@@ -262,7 +268,7 @@ test.describe("Menù — dettaglio", () => {
         await selectCategory(page, "Antipasti");
 
         const rename = async (name: string) => {
-            await main(page).getByRole("button", { name: "Modifica categoria" }).click();
+            await editCategory(page);
             await dialog(page).getByRole("textbox", { name: /Nome/ }).fill(name);
             await dialog(page).getByRole("button", { name: /^(Salva|Applica)$/ }).click();
             await expect(node(page, name)).toBeVisible();
@@ -334,7 +340,7 @@ test.describe("Menù — dettaglio", () => {
     test("con la bozza aperta non si crea una categoria", async ({ page }) => {
         await openCarta(page);
         await selectCategory(page, "Antipasti");
-        await main(page).getByRole("button", { name: "Modifica categoria" }).click();
+        await editCategory(page);
         await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Stuzzichini");
         await dialog(page).getByRole("button", { name: /^(Salva|Applica)$/ }).click();
         await expect(node(page, "Stuzzichini")).toBeVisible();
@@ -361,7 +367,7 @@ test.describe("Menù — dettaglio", () => {
         stub.onWrite("catalog_categories.PATCH", ({ body }) => ({ id: CAT.rossi, catalog_id: MENU.carta, name: "Rossi", created_at: new Date().toISOString(), ...(body as object) }));
         await openCarta(page);
         await selectCategory(page, "Rossi");
-        await main(page).getByRole("button", { name: "Modifica categoria" }).click();
+        await editCategory(page);
         await dialog(page).getByRole("combobox", { name: /Sposta/ }).selectOption({ label: "Nessuna (categoria principale)" });
         await dialog(page).getByRole("button", { name: /^(Salva|Sposta)$/ }).click();
         await expect.poll(() => write(stub, "catalog_categories.PATCH")).toBeTruthy();
@@ -383,7 +389,7 @@ test.describe("Menù — dettaglio", () => {
         await selectCategory(page, "Antipasti");
         await expect(main(page).getByText("Olive ascolane", { exact: true })).toBeVisible();
         await expect(main(page).getByRole("button", { name: /^(Crea categoria principale|Nuova (categoria|portata))$/ })).toHaveCount(0);
-        await expect(main(page).getByRole("button", { name: "Modifica categoria" })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /^Azioni della/ })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /Aggiungi prodott/ })).toHaveCount(0);
         await expect(main(page).getByRole("button", { name: /^Riordina/ })).toHaveCount(0);
         await expect(page.getByRole("checkbox", { name: "Seleziona riga" })).toHaveCount(0);
@@ -394,14 +400,42 @@ test.describe("Menù — dettaglio", () => {
         await expect(page.getByRole("menuitem", { name: /^Apri/ })).toBeVisible();
     });
 
+    test("si apre sulla prima categoria, col conteggio nella testata", async ({ page }) => {
+        await openCarta(page);
+        await expect(page).toHaveURL(new RegExp(`categoryId=${CAT.antipasti}`));
+        await expect(main(page).getByText("4 prodotti", { exact: true })).toBeVisible();
+        // Le varianti non contano due volte: Pizze ha 12 prodotti su 14 righe.
+        await selectCategory(page, "Pizze");
+        await expect(main(page).getByText("12 prodotti", { exact: true })).toBeVisible();
+        await selectCategory(page, "Vini");
+        await expect(main(page).getByText("1 prodotto", { exact: true })).toBeVisible();
+        // A bozza pulita la testata dice «Salvato».
+        await expect(page.getByRole("status").filter({ hasText: "Salvato" }).first()).toBeVisible();
+    });
+
+    test("uscire con la bozza aperta chiede cosa fare", async ({ page }) => {
+        await openCarta(page);
+        await editCategory(page);
+        await dialog(page).getByRole("textbox", { name: /Nome/ }).fill("Stuzzichini");
+        await dialog(page).getByRole("button", { name: /^(Salva|Applica)$/ }).click();
+        await expect(node(page, "Stuzzichini")).toBeVisible();
+
+        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
+        const guard = page.getByRole("alertdialog").filter({ hasText: "Modifiche non salvate" });
+        await expect(guard).toBeVisible();
+        await guard.getByRole("button", { name: "Resta" }).click();
+        await expect(page).toHaveURL(new RegExp(`/catalogs/${MENU.carta}`));
+        await expect(node(page, "Stuzzichini")).toBeVisible();
+    });
+
     test("un menù inesistente non resta una pagina rotta", async ({ page }) => {
         await openList(page);
         const url = page.url().replace(/\/catalogs$/, `/catalogs/${MISSING_MENU}`);
         await page.goto(url);
-        // Oggi rimbalza all'elenco; dopo P3 è uno stato «non trovato» con il ritorno.
-        await expect(
-            main(page).getByText("Carta e2e").or(main(page).getByText(/non trovato/))
-        ).toBeVisible({ timeout: 15_000 });
+        // Uno stato della pagina con il ritorno, non un rimbalzo con un toast (#246).
+        await expect(main(page).getByText("Menù non trovato")).toBeVisible({ timeout: 15_000 });
+        await main(page).getByRole("button", { name: "Torna a Menù" }).click();
+        await expect(page).toHaveURL(/\/catalogs$/);
     });
 });
 

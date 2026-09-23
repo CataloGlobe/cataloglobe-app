@@ -1,82 +1,43 @@
-.engineContainer {
+// Il dettaglio sono due card affiancate: le portate e la portata scelta
+// (passo 2 P3). La catena flex resta vincolata fino alla DataTable, così la
+// paginazione automatica misura lo spazio vero e l'albero scorre da sé.
+.engine {
   height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
-.engineBody {
+.layout {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: hidden;
-}
-
-.saveBar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2, 8px);
-  padding: 10px 16px;
-  background: #fffbeb;
-  border: 1px solid #fcd34d;
-  border-radius: var(--radius-md, 12px);
-  margin-bottom: var(--spacing-3, 12px);
-}
-
-.saveBarMessage {
-  flex: 1;
-  color: #92400e;
-}
-
-.catalogLayout {
-  height: 100%;
-  min-height: 0;
   display: grid;
-  grid-template-columns: 280px minmax(0, 1fr);
-  border: 1px solid var(--color-gray-200, #e2e8f0);
-  border-radius: var(--radius-lg, 16px);
+  // 300 e non 280: sotto, la testata della card manda il «+» a capo.
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: var(--space-24);
+}
+
+.treeCard,
+.categoryCard {
+  min-height: 0;
   overflow: hidden;
-  background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
 }
 
-.catalogTreePane {
-  min-width: 280px;
-  background: linear-gradient(180deg, #f9fbff 0%, #f5f8fc 100%);
-  border-right: 1px solid var(--color-gray-200, #e2e8f0);
-  overflow-y: auto;
+.treeBody {
+  flex: 1 1 auto;
   min-height: 0;
+  overflow-y: auto;
 }
 
-.catalogContentPane {
-  overflow-y: auto;
+.categoryBody {
+  flex: 1 1 auto;
   min-height: 0;
-  background: #f8fafc;
 }
 
 .catalogTree {
   display: flex;
   flex-direction: column;
   min-height: 100%;
-}
-
-.treeHeader {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--spacing-4, 16px) var(--spacing-4, 16px) var(--spacing-3, 12px);
-  border-bottom: 1px solid var(--color-gray-200, #e2e8f0);
-  background: rgba(249, 251, 255, 0.94);
-  backdrop-filter: blur(3px);
-}
-
-.treeHeading {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-gray-500, #64748b);
 }
 
 .treeList {
@@ -464,15 +425,6 @@
   }
 }
 
-.productsPanel {
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-4, 16px);
-  padding: var(--spacing-6, 24px);
-}
-
 // Wraps DndContext → DataTable in the split-pane right column.
 // Constrained flex column so DataTable's probe measures real space
 // and caps to the pane instead of scrolling the whole page.
@@ -483,90 +435,11 @@
   min-height: 0;
 }
 
-.productsHeader {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-2, 8px);
-}
-
-// Hairline di appoggio sotto il gruppo Tabs (Prodotti/Traduzioni): l'indicatore
-// del componente (bottom:-1px) si sovrappone al bordo → chiusura visiva a filo,
-// come nel PageHeaderSlot. Scoped a questa card, non al componente Tabs.
-.categoryTabsBar {
-  border-bottom: 1px solid var(--color-gray-200, #e2e8f0);
-
-  // Il tab-button (Tabs variant default) ha 14px di padding-sx interno, che
-  // indenta il testo "Prodotti" rispetto a search bar / header tabella sotto.
-  // Tiro solo il gruppo tab (figlio = Tabs.root) di -14px per allinearlo a filo
-  // bordo sinistro; la hairline resta full-width perché il margin è sul figlio,
-  // non sul wrapper. Area cliccabile del button invariata (solo shift visivo).
-  > :first-child {
-    margin-left: -14px;
-  }
-}
-
-.productsTitleRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-3, 12px);
-}
-
-.productsTitleBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.productsTitleHeading {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2, 8px);
-  min-width: 0;
-}
-
-.categorySettingsButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-sm, 8px);
-  background: transparent;
-  color: var(--color-gray-500, #64748b);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-
-  &:hover {
-    background: var(--color-gray-100, #f1f5f9);
-    color: var(--text, #0f172a);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--brand-primary, #2563eb);
-    outline-offset: 2px;
-  }
-}
-
 .translationsWrap {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
-}
-
-.productsTools {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--spacing-3, 12px);
-  flex-wrap: wrap;
-}
-
-.quickSearchWrap {
-  width: 100%;
 }
 
 .productNameCell {
@@ -615,31 +488,6 @@
   &:active {
     cursor: grabbing;
   }
-}
-
-.productsEmptySelection {
-  min-height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: var(--spacing-8, 32px);
-}
-
-.emptyCard {
-  max-width: 420px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-3, 12px);
-}
-
-.loadingPanel {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--color-gray-500, #64748b);
 }
 
 .form {
@@ -825,24 +673,28 @@
   gap: var(--spacing-2, 8px);
 }
 
+// Sotto 1024 le card si impilano e la pagina scorre: vincolare anche la
+// seconda all'altezza della finestra lasciava alla tabella qualche decina di
+// pixel sotto la testata della card. La striscia dell'albero resta da 280
+// finché il passo P8 non la rifà in due viste.
 @media (max-width: 1023px) {
-  .catalogLayout {
+  .engine,
+  .layout {
+    flex: none;
+    height: auto;
+  }
+
+  .layout {
     grid-template-columns: 1fr;
-    grid-template-rows: 280px minmax(0, 1fr);
+    grid-template-rows: 280px auto;
   }
 
-  .catalogTreePane {
-    min-width: 0;
-    border-right: none;
-    border-bottom: 1px solid var(--color-gray-200, #e2e8f0);
+  .categoryCard {
+    overflow: visible;
   }
 
-  .quickSearchWrap {
-    min-width: 0;
-    width: 100%;
-  }
-
-  .productsPanel {
-    padding: var(--spacing-4, 16px);
+  .categoryBody,
+  .tableCard {
+    flex: none;
   }
 }

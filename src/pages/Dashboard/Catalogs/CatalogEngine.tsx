@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
 import { usePermissions } from "@/context/PermissionsContext";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { canDoOnTenant } from "@/lib/permissions";
 import { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
 import { useTenantId } from "@/context/useTenantId";
@@ -30,7 +31,7 @@ import {
     verticalListSortingStrategy,
     arrayMove
 } from "@dnd-kit/sortable";
-import { IconGripVertical, IconPhoto, IconChevronDown, IconChevronRight, IconArrowLeft, IconSettings } from "@tabler/icons-react";
+import { IconGripVertical, IconPhoto, IconChevronDown, IconChevronRight, IconArrowLeft, IconPlus } from "@tabler/icons-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -55,10 +56,19 @@ import { hasConfiguredEffectivePrice } from "@/utils/productCompleteness";
 import { getProductGroups, ProductGroup } from "@/services/supabase/productGroups";
 import { listAttributeDefinitions } from "@/services/supabase/attributes";
 import { supabase } from "@/services/supabase/client";
-import { CatalogSplitLayout } from "./components/CatalogSplitLayout";
 import { CatalogTree } from "./components/CatalogTree";
 import { CatalogTreeNodeData } from "./components/CatalogTree.types";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { Card } from "@/components/ui/Card/Card";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
+import {
+    HeaderSaveAction,
+    DiscardChangesConfirmDialog
+} from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
+import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
 import { SplitButton } from "@/components/ui/Button/SplitButton";
 import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab";
 import { ProductForm } from "@/pages/Dashboard/Products/components/ProductForm";
@@ -276,7 +286,11 @@ export default function CatalogEngine() {
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTenantId = useTenantId();
     const { showToast } = useToast();
-    const { catalogLabel } = useVerticalConfig();
+    const { catalogLabel, categoryLabel, categoryLabelPlural, productLabel, productLabelPlural } = useVerticalConfig();
+    const categoryLower = categoryLabel.toLowerCase();
+    // Sotto 1024 le due card si impilano e la pagina scorre: la tabella non ha
+    // un'altezza da misurare, e la pagina è di 25 righe invece che «Auto».
+    const isStacked = useMediaQuery("(max-width: 1023px)");
     // Chi ha solo `catalogs.read` vede il menù com'è: nessuna azione che
     // scrive (#224). Finché i permessi caricano, niente azioni.
     const { permissions } = usePermissions();
@@ -301,6 +315,8 @@ export default function CatalogEngine() {
     >([]);
     const [isDirty, setIsDirty] = useState(false);
     const [isSavingChanges, setIsSavingChanges] = useState(false);
+    const [notFound, setNotFound] = useState(false);
+    const [confirmDiscardOpen, setConfirmDiscardOpen] = useState(false);
 
     const [productSearch, setProductSearch] = useState("");
     const [rightPaneTab, setRightPaneTab] = useState<"products" | "translations">("products");
@@ -369,9 +385,7 @@ export default function CatalogEngine() {
 
     useBreadcrumbItems(breadcrumbItems);
 
-    usePageHeader({
-        title: catalog?.name || catalogLabel,
-    });
+    useUnsavedChangesGuard(isDirty);
 
     const categoriesById = useMemo(
         () => new Map(categories.map(category => [category.id, category])),
@@ -679,6 +693,12 @@ export default function CatalogEngine() {
 
             await loadProductMetadata();
         } catch (error) {
+            // Un id che non c'è (o di un'altra azienda) è uno stato della
+            // pagina, non un errore da toast (#246): si resta e si dice.
+            if ((error as { code?: string } | null)?.code === "PGRST116") {
+                setNotFound(true);
+                return;
+            }
             console.error(error);
             showToast({ message: "Errore durante il caricamento del catalogo.", type: "error" });
             navigate(`/business/${currentTenantId}/catalogs`);
@@ -717,13 +737,16 @@ export default function CatalogEngine() {
         });
     }, [categoriesById, selectedCategoryId, tree]);
 
+    // Senza una categoria nell'URL (o con una che non c'è più) si apre la
+    // prima: «Seleziona una categoria» con sei categorie pronte era un clic
+    // in più per arrivare a qualunque cosa (#253).
     useEffect(() => {
-        if (!selectedCategoryId) return;
-        if (categoriesById.has(selectedCategoryId)) return;
-
+        if (isLoading) return;
+        if (selectedCategoryId && categoriesById.has(selectedCategoryId)) return;
         const fallbackRootId = tree[0]?.id ?? null;
+        if (fallbackRootId === selectedCategoryId) return;
         setSelectedCategoryInUrl(fallbackRootId, true);
-    }, [categoriesById, selectedCategoryId, setSelectedCategoryInUrl, tree]);
+    }, [categoriesById, isLoading, selectedCategoryId, setSelectedCategoryInUrl, tree]);
 
     useEffect(() => {
         setEditingProduct(null);
@@ -1531,6 +1554,40 @@ export default function CatalogEngine() {
         showToast
     ]);
 
+    // La bozza si salva dalla testata (#247), come la scheda prodotto: il
+    // salvataggio è della pagina, non di un pannello. Chi legge non ha niente
+    // da salvare, e la testata non porta azioni.
+    const headerActions = useMemo(
+        () =>
+            canWrite ? (
+                <HeaderSaveAction
+                    isDirty={isDirty}
+                    isSaving={isSavingChanges}
+                    onSave={saveCatalogChanges}
+                    onDiscard={handleCancelChanges}
+                />
+            ) : undefined,
+        [canWrite, isDirty, isSavingChanges, saveCatalogChanges, handleCancelChanges]
+    );
+    const headerCompact = useMemo(
+        () =>
+            canWrite
+                ? buildSaveActionCompactConfig({
+                      isDirty,
+                      isSaving: isSavingChanges,
+                      onSave: saveCatalogChanges,
+                      onRequestDiscard: () => setConfirmDiscardOpen(true)
+                  })
+                : undefined,
+        [canWrite, isDirty, isSavingChanges, saveCatalogChanges]
+    );
+
+    usePageHeader({
+        title: catalog?.name || catalogLabel,
+        actions: headerActions,
+        compact: headerCompact
+    });
+
     const columns = useMemo<ColumnDefinition<ProductRow>[]>(
         () => [
             ...(canWrite ? [{
@@ -1549,6 +1606,8 @@ export default function CatalogEngine() {
                 header: "Foto",
                 width: "78px",
                 align: "center",
+                // Un segnaposto (#270, esce a P6): sul telefono il nome viene prima.
+                hideOnPhone: true,
                 cell: () => (
                     <span className={styles.productThumb}>
                         <IconPhoto size={16} />
@@ -1740,137 +1799,134 @@ export default function CatalogEngine() {
         [assignSelectedIds, inheritedProductIds]
     );
 
+    // Il conteggio della testata conta quello che la tabella sotto elenca: i
+    // prodotti di questa categoria, una volta sola anche con le varianti
+    // (#267). Il nodo dell'albero resta il totale con le sotto-categorie.
+    const selectedProductCount = selectedCategoryProductIds.size;
+    const productCountText = `${selectedProductCount} ${
+        selectedProductCount === 1 ? productLabel.toLowerCase() : productLabelPlural.toLowerCase()
+    }`;
+
+    const openAddProductDrawer = () => {
+        const saved = localStorage.getItem(`cg_product_drawer_last_tab_${currentTenantId}`);
+        setAddProductMode(saved === "existing" || saved === "new" ? saved : "new");
+        setIsUnifiedAddProductDrawerOpen(true);
+    };
+
     const renderRightPane = () => {
         if (!selectedCategory) {
             return (
-                <div className={styles.productsEmptySelection}>
-                    <div className={styles.emptyCard}>
-                        <Text variant="title-md" weight={700}>
-                            Seleziona una categoria
-                        </Text>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Seleziona una categoria dall'albero per gestire i prodotti.
-                        </Text>
-                        {canWrite && (
-                            <Button variant="primary" onClick={openCreateRootCategoryDrawer}>
-                                Crea nuova categoria
-                            </Button>
-                        )}
-                    </div>
-                </div>
+                <Card className={styles.categoryCard} bodyClassName={styles.categoryBody}>
+                    {canWrite ? (
+                        <EmptyState
+                            title={`Nessuna ${categoryLower}`}
+                            description={`Le ${categoryLabelPlural.toLowerCase()} dividono il ${catalogLabel.toLowerCase()}: Antipasti, Pizze, Vini. I prodotti stanno dentro.`}
+                            action={
+                                <Button variant="primary" onClick={openCreateRootCategoryDrawer}>
+                                    {`Crea la prima ${categoryLower}`}
+                                </Button>
+                            }
+                        />
+                    ) : (
+                        <EmptyState variant="inline" title={`Nessuna ${categoryLower}`} />
+                    )}
+                </Card>
             );
         }
 
         return (
-            <div className={styles.productsPanel}>
-                <div className={styles.productsHeader}>
-                    <div className={styles.productsTitleRow}>
-                        <div className={styles.productsTitleBlock}>
-                            <div className={styles.productsTitleHeading}>
-                                <Text variant="title-lg" weight={700}>
-                                    {selectedCategory.name}
-                                </Text>
-                                {canWrite && (
-                                    <button
-                                        type="button"
-                                        className={styles.categorySettingsButton}
-                                        onClick={() => openEditCategoryDrawer(selectedCategory.id)}
-                                        aria-label="Modifica categoria"
-                                        title="Modifica categoria"
-                                    >
-                                        <IconSettings size={18} stroke={1.8} />
-                                    </button>
-                                )}
-                            </div>
-                            <Text variant="body-sm" colorVariant="muted">
-                                {selectedCategoryLinks.length} prodotti
-                            </Text>
-                        </div>
-                        <div style={{ display: "flex", gap: "8px" }}>
-                            {canWrite && rightPaneTab === "products" && (
-                                <Button
-                                    variant="primary"
-                                    onClick={() => {
-                                        const saved = localStorage.getItem(
-                                            `cg_product_drawer_last_tab_${currentTenantId}`
-                                        );
-                                        setAddProductMode(
-                                            saved === "existing" || saved === "new"
-                                                ? saved
-                                                : "new"
-                                        );
-                                        setIsUnifiedAddProductDrawerOpen(true);
-                                    }}
-                                >
-                                    + Aggiungi prodotto
+            <Card
+                className={styles.categoryCard}
+                bodyClassName={styles.categoryBody}
+                title={selectedCategory.name}
+                badge={<Badge variant="neutral">{productCountText}</Badge>}
+                actions={
+                    canWrite ? (
+                        <>
+                            {rightPaneTab === "products" && (
+                                <Button variant="primary" size="sm" onClick={openAddProductDrawer}>
+                                    Aggiungi prodotti
                                 </Button>
                             )}
-                        </div>
-                    </div>
-
-                    <div className={styles.categoryTabsBar}>
-                        <Tabs
-                            value={rightPaneTab}
-                            onChange={v => setRightPaneTab(v as "products" | "translations")}
-                        >
-                            <Tabs.List>
-                                <Tabs.Tab value="products">Prodotti</Tabs.Tab>
-                                {canWrite && <Tabs.Tab value="translations">Traduzioni</Tabs.Tab>}
-                            </Tabs.List>
-                        </Tabs>
-                    </div>
-
-                    {rightPaneTab === "products" && (
-                        <div className={styles.productsTools}>
-                            <div className={styles.quickSearchWrap}>
-                                <SearchInput
-                                    value={productSearch}
-                                    onChange={event => setProductSearch(event.target.value)}
-                                    onClear={() => setProductSearch("")}
-                                    placeholder="Cerca prodotto..."
-                                />
-                            </div>
-                        </div>
-                    )}
-                </div>
+                            <TableRowActions
+                                ariaLabel={`Azioni della ${categoryLower}`}
+                                actions={[
+                                    { label: "Modifica", onClick: () => openEditCategoryDrawer(selectedCategory.id) },
+                                    {
+                                        label: `Crea sotto-${categoryLower}`,
+                                        onClick: () => openCreateSubCategoryDrawer(selectedCategory.id),
+                                        hidden: selectedCategory.level >= 3
+                                    },
+                                    {
+                                        label: "Elimina",
+                                        onClick: () => openDeleteCategoryDrawer(selectedCategory.id),
+                                        variant: "destructive",
+                                        separator: true
+                                    }
+                                ]}
+                            />
+                        </>
+                    ) : undefined
+                }
+            >
+                {canWrite && (
+                    <Tabs
+                        value={rightPaneTab}
+                        onChange={v => setRightPaneTab(v as "products" | "translations")}
+                    >
+                        <Tabs.List>
+                            <Tabs.Tab value="products">Prodotti</Tabs.Tab>
+                            <Tabs.Tab value="translations">Traduzioni</Tabs.Tab>
+                        </Tabs.List>
+                    </Tabs>
+                )}
 
                 {rightPaneTab === "products" || !canWrite ? (
-                    <div ref={productListRef} className={styles.tableCard}>
-                        <DndContext
-                            sensors={sensors}
-                            collisionDetection={closestCenter}
-                            onDragEnd={handleReorderProducts}
-                        >
-                            <SortableContext
-                                items={visibleRows.map(r => r.id)}
-                                strategy={verticalListSortingStrategy}
+                    <>
+                        <SearchInput
+                            value={productSearch}
+                            onChange={event => setProductSearch(event.target.value)}
+                            onClear={() => setProductSearch("")}
+                            placeholder="Cerca prodotto..."
+                        />
+                        <div ref={productListRef} className={styles.tableCard}>
+                            <DndContext
+                                sensors={sensors}
+                                collisionDetection={closestCenter}
+                                onDragEnd={handleReorderProducts}
                             >
-                                <DataTable<ProductRow>
-                                    data={visibleRows}
-                                    columns={columns}
-                                    selectable={canWrite}
-                                    onBulkDelete={canWrite ? handleBulkRemoveSelected : undefined}
-                                    emptyState={{
-                                        title: productSearch.trim()
-                                            ? "Nessun prodotto corrisponde al filtro."
-                                            : "Nessun prodotto associato a questa categoria."
-                                    }}
-                                    highlightedRowIds={
-                                        newlyAddedProductId
-                                            ? visibleRows
-                                                .filter(r => r.productId === newlyAddedProductId)
-                                                .map(r => r.id)
-                                            : []
-                                    }
-                                    rowWrapper={canWrite ? (row, rowData) => (
-                                        <SortableDataTableRow key={rowData.id} id={rowData.id}>
-                                            {row}
-                                        </SortableDataTableRow>
-                                    ) : undefined}
-                                />
-                            </SortableContext>
-                        </DndContext>
-                    </div>
+                                <SortableContext
+                                    items={visibleRows.map(r => r.id)}
+                                    strategy={verticalListSortingStrategy}
+                                >
+                                    <DataTable<ProductRow>
+                                        data={visibleRows}
+                                        columns={columns}
+                                        selectable={canWrite}
+                                        onBulkDelete={canWrite ? handleBulkRemoveSelected : undefined}
+                                        pageSize={isStacked ? 25 : undefined}
+                                        emptyState={{
+                                            title: productSearch.trim()
+                                                ? "Nessun prodotto corrisponde al filtro."
+                                                : "Nessun prodotto associato a questa categoria."
+                                        }}
+                                        highlightedRowIds={
+                                            newlyAddedProductId
+                                                ? visibleRows
+                                                    .filter(r => r.productId === newlyAddedProductId)
+                                                    .map(r => r.id)
+                                                : []
+                                        }
+                                        rowWrapper={canWrite ? (row, rowData) => (
+                                            <SortableDataTableRow key={rowData.id} id={rowData.id}>
+                                                {row}
+                                            </SortableDataTableRow>
+                                        ) : undefined}
+                                    />
+                                </SortableContext>
+                            </DndContext>
+                        </div>
+                    </>
                 ) : (
                     <div className={styles.translationsWrap}>
                         <TranslationsTab
@@ -1896,68 +1952,86 @@ export default function CatalogEngine() {
                         />
                     </div>
                 )}
-            </div>
+            </Card>
         );
     };
 
+    const treeCard = (
+        <Card
+            className={styles.treeCard}
+            bodyClassName={styles.treeBody}
+            flush
+            title={categoryLabelPlural}
+            actions={
+                canWrite ? (
+                    <IconButton
+                        icon={<IconPlus size={16} />}
+                        aria-label={`Nuova ${categoryLower}`}
+                        variant="ghost"
+                        size="sm"
+                        onClick={openCreateRootCategoryDrawer}
+                    />
+                ) : undefined
+            }
+        >
+            <CatalogTree
+                nodes={tree}
+                selectedCategoryId={selectedCategoryId}
+                expandedCategoryIds={expandedCategoryIds}
+                onToggleExpand={toggleCategoryExpansion}
+                onSelectCategory={categoryId => setSelectedCategoryInUrl(categoryId)}
+                onCreateSubCategory={openCreateSubCategoryDrawer}
+                onEditCategory={openEditCategoryDrawer}
+                onDeleteCategory={openDeleteCategoryDrawer}
+                onReorderSiblings={handleReorderSiblings}
+                onReparent={handleReparent}
+                isReordering={false}
+                readOnly={!canWrite}
+            />
+        </Card>
+    );
+
+    if (notFound) {
+        return (
+            <section className={styles.engine}>
+                <EmptyState
+                    title={`${catalogLabel} non trovato`}
+                    description="Forse è stato eliminato, o il link non è giusto."
+                    action={
+                        <Button variant="primary" onClick={() => navigate(`/business/${currentTenantId}/catalogs`)}>
+                            {`Torna a ${catalogLabel}`}
+                        </Button>
+                    }
+                />
+            </section>
+        );
+    }
+
     return (
-        <section className={styles.engineContainer}>
-            {isDirty && (
-                <div className={styles.saveBar}>
-                    <Text variant="body-sm" weight={600} className={styles.saveBarMessage}>
-                        Hai modifiche non salvate
-                    </Text>
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={handleCancelChanges}
-                        disabled={isSavingChanges}
-                    >
-                        Annulla modifiche
-                    </Button>
-                    <Button
-                        variant="primary"
-                        size="sm"
-                        onClick={saveCatalogChanges}
-                        loading={isSavingChanges}
-                    >
-                        Salva modifiche
-                    </Button>
+        <section className={styles.engine}>
+            {isLoading ? (
+                <div className={styles.layout} aria-busy="true">
+                    <Card className={styles.treeCard} bodyClassName={styles.treeBody} title={categoryLabelPlural}>
+                        {Array.from({ length: 6 }, (_, i) => (
+                            <Skeleton key={i} height={24} radius="var(--radius-inner)" />
+                        ))}
+                    </Card>
+                    <Card className={styles.categoryCard} bodyClassName={styles.categoryBody}>
+                        <DataTable<ProductRow> data={[]} columns={columns} isLoading />
+                    </Card>
+                </div>
+            ) : (
+                <div className={styles.layout}>
+                    {treeCard}
+                    {renderRightPane()}
                 </div>
             )}
 
-            <div className={styles.engineBody}>
-                {isLoading ? (
-                    <div className={styles.loadingPanel}>
-                        <Text variant="body-sm" colorVariant="muted">
-                            Caricamento catalogo in corso...
-                        </Text>
-                    </div>
-                ) : (
-                    <CatalogSplitLayout
-                        tree={
-                            <CatalogTree
-                                nodes={tree}
-                                selectedCategoryId={selectedCategoryId}
-                                expandedCategoryIds={expandedCategoryIds}
-                                onToggleExpand={toggleCategoryExpansion}
-                                onSelectCategory={categoryId =>
-                                    setSelectedCategoryInUrl(categoryId)
-                                }
-                                onCreateRootCategory={openCreateRootCategoryDrawer}
-                                onCreateSubCategory={openCreateSubCategoryDrawer}
-                                onEditCategory={openEditCategoryDrawer}
-                                onDeleteCategory={openDeleteCategoryDrawer}
-                                onReorderSiblings={handleReorderSiblings}
-                                onReparent={handleReparent}
-                                isReordering={false}
-                                readOnly={!canWrite}
-                            />
-                        }
-                        content={renderRightPane()}
-                    />
-                )}
-            </div>
+            <DiscardChangesConfirmDialog
+                isOpen={confirmDiscardOpen}
+                onClose={() => setConfirmDiscardOpen(false)}
+                onDiscard={handleCancelChanges}
+            />
 
             <SystemDrawer
                 open={isCategoryDrawerOpen}
