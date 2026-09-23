@@ -644,7 +644,8 @@ export default function OverviewPage() {
             label: businessRouteLabel("orders"),
             separator: true,
             hidden: !canDoOnActivity(permissions, "orders.read", activityId),
-            onClick: () => navigate(`${b}/orders`)
+            // Le comande di QUESTA sede: `/orders` porterebbe all'ultima usata.
+            onClick: () => navigate(`${b}/locations/${activityId}/comande`)
         },
         {
             label: businessRouteLabel("reservations"),
