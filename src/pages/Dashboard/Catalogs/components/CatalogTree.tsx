@@ -39,6 +39,8 @@ type CatalogTreeProps = {
         position: DropPosition
     ) => Promise<void>;
     isReordering?: boolean;
+    /** Sola lettura (`catalogs.write` assente): niente «+», kebab né trascinamento. */
+    readOnly?: boolean;
 };
 
 const ROOT_PARENT_KEY = "__root__";
@@ -112,7 +114,8 @@ export function CatalogTree({
     onDeleteCategory,
     onReorderSiblings,
     onReparent,
-    isReordering = false
+    isReordering = false,
+    readOnly = false
 }: CatalogTreeProps) {
     const [activeId, setActiveId] = useState<string | null>(null);
     const [overId, setOverId] = useState<string | null>(null);
@@ -180,14 +183,16 @@ export function CatalogTree({
                 <Text variant="caption" weight={700} className={styles.treeHeading}>
                     Albero categorie
                 </Text>
-                <Button
-                    variant="primary"
-                    size="sm"
-                    onClick={onCreateRootCategory}
-                    aria-label="Crea categoria principale"
-                >
-                    <IconPlus size={14} />
-                </Button>
+                {!readOnly && (
+                    <Button
+                        variant="primary"
+                        size="sm"
+                        onClick={onCreateRootCategory}
+                        aria-label="Crea categoria principale"
+                    >
+                        <IconPlus size={14} />
+                    </Button>
+                )}
             </div>
 
             {visibleNodes.length === 0 ? (
@@ -196,9 +201,11 @@ export function CatalogTree({
                     <Text variant="body-sm" weight={600}>
                         Nessuna categoria
                     </Text>
-                    <Text variant="caption" colorVariant="muted">
-                        Crea una categoria root per iniziare.
-                    </Text>
+                    {!readOnly && (
+                        <Text variant="caption" colorVariant="muted">
+                            Crea una categoria root per iniziare.
+                        </Text>
+                    )}
                 </div>
             ) : (
                 <DndContext
@@ -332,7 +339,8 @@ export function CatalogTree({
                                                     onCreateSubCategory={onCreateSubCategory}
                                                     onEditCategory={onEditCategory}
                                                     onDeleteCategory={onDeleteCategory}
-                                                    disabled={isReordering || activeId !== null}
+                                                    disabled={readOnly || isReordering || activeId !== null}
+                                                    readOnly={readOnly}
                                                     isDescendantOfDragging={draggingDescendantIds.has(
                                                         flatNode.node.id
                                                     )}
@@ -352,6 +360,7 @@ export function CatalogTree({
                                 onEditCategory,
                                 onDeleteCategory,
                                 isReordering,
+                                readOnly,
                                 activeId,
                                 overId,
                                 dropPosition,

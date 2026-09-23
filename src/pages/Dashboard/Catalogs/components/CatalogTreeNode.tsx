@@ -15,6 +15,7 @@ type CatalogTreeNodeProps = {
     onEditCategory: (categoryId: string) => void;
     onDeleteCategory: (categoryId: string) => void;
     disabled?: boolean;
+    readOnly?: boolean;
     isDescendantOfDragging?: boolean;
     dropPosition?: "before" | "inside" | "after" | null;
     isValidInsideTarget?: boolean;
@@ -29,6 +30,7 @@ export function CatalogTreeNode({
     onEditCategory,
     onDeleteCategory,
     disabled = false,
+    readOnly = false,
     isDescendantOfDragging = false,
     dropPosition = null,
     isValidInsideTarget = false
@@ -72,16 +74,18 @@ export function CatalogTreeNode({
                     "--tree-depth": depth
                 } as React.CSSProperties}
             >
-                <button
-                    type="button"
-                    className={styles.treeDragHandle}
-                    aria-label="Riordina categoria"
-                    disabled={disabled}
-                    {...attributes}
-                    {...listeners}
-                >
-                    <IconGripVertical size={14} />
-                </button>
+                {!readOnly && (
+                    <button
+                        type="button"
+                        className={styles.treeDragHandle}
+                        aria-label="Riordina categoria"
+                        disabled={disabled}
+                        {...attributes}
+                        {...listeners}
+                    >
+                        <IconGripVertical size={14} />
+                    </button>
+                )}
 
                 {hasChildren ? (
                     <button
@@ -118,7 +122,7 @@ export function CatalogTreeNode({
             <div className={styles.treeNodeMeta}>
                 <span className={styles.treeNodeCount}>{node.totalProductCount}</span>
 
-                <div className={styles.treeNodeActions}>
+                {!readOnly && <div className={styles.treeNodeActions}>
                     <TableRowActions
                         actions={[
                             { label: "Modifica", onClick: () => onEditCategory(node.id) },
@@ -136,7 +140,7 @@ export function CatalogTreeNode({
                             }
                         ]}
                     />
-                </div>
+                </div>}
             </div>
         </div>
     );

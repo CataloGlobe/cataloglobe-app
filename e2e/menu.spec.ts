@@ -170,16 +170,40 @@ test.describe("Menù — elenco", () => {
         expect(write(stub, "catalogs.DELETE")!.params.get("id")).toBe(`eq.${MENU.vuoto}`);
     });
 
-    test("eliminazione multipla: oggi parte senza conferma", async ({ page }) => {
+    test("eliminazione multipla: chiede conferma col conteggio, poi due DELETE", async ({ page }) => {
         stub.onWrite("catalogs.DELETE", () => null);
         await openList(page);
         await page.getByRole("radio", { name: "Vista lista" }).click();
         await checkboxOf(main(page).getByText("Carta e2e")).check();
         await checkboxOf(main(page).getByText("Vuoto e2e")).check();
-        await page.getByRole("toolbar", { name: "Azioni sulla selezione" }).getByRole("button", { name: /Elimina/ }).click();
+        const bulk = page.getByRole("toolbar", { name: "Azioni sulla selezione" }).getByRole("button", { name: /Elimina/ });
+
+        // Annullare non scrive e rimette la selezione com'era.
+        await bulk.click();
+        const confirm = page.getByRole("alertdialog").or(page.getByRole("dialog")).last();
+        await expect(confirm).toContainText("Eliminare 2 menù?");
+        await expect(confirm).toContainText(/categorie e i collegamenti/);
+        await confirm.getByRole("button", { name: "Annulla" }).click();
+        expect(stub.writes.filter(w => w.key === "catalogs.DELETE")).toHaveLength(0);
+        await expect(checkboxOf(main(page).getByText("Carta e2e"))).toBeChecked();
+        await expect(checkboxOf(main(page).getByText("Vuoto e2e"))).toBeChecked();
+
+        await bulk.click();
+        await confirm.getByRole("button", { name: "Elimina 2 menù" }).click();
         await expect.poll(() => stub.writes.filter(w => w.key === "catalogs.DELETE").length).toBe(2);
         const ids = stub.writes.filter(w => w.key === "catalogs.DELETE").map(w => w.params.get("id"));
         expect(ids.sort()).toEqual([`eq.${MENU.carta}`, `eq.${MENU.vuoto}`].sort());
+        await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    });
+
+    test("in sola lettura: niente azioni che scrivono", async ({ page }) => {
+        await stub.revoke("catalogs.write");
+        await openList(page);
+        await expect(page.getByRole("button", { name: "Crea menù" })).toHaveCount(0);
+        await expect(page.getByRole("button", { name: "Importa con AI" })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
+        await page.getByRole("radio", { name: "Vista lista" }).click();
+        await expect(page.getByRole("checkbox", { name: "Seleziona riga" })).toHaveCount(0);
     });
 
     test("«Importa con AI» apre il suo drawer, senza analizzare", async ({ page }) => {
@@ -345,6 +369,23 @@ test.describe("Menù — dettaglio", () => {
         await selectCategory(page, "Antipasti");
         await page.getByRole("tab", { name: "Traduzioni" }).click();
         await expect(main(page).getByText(/Traduzioni nome categoria/)).toBeVisible();
+    });
+
+    test("in sola lettura il dettaglio si guarda e basta", async ({ page }) => {
+        await stub.revoke("catalogs.write");
+        await openCarta(page);
+        await selectCategory(page, "Antipasti");
+        await expect(main(page).getByText("Olive ascolane", { exact: true })).toBeVisible();
+        await expect(main(page).getByRole("button", { name: /^(Crea categoria principale|Nuova (categoria|portata))$/ })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: "Modifica categoria" })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /Aggiungi prodott/ })).toHaveCount(0);
+        await expect(main(page).getByRole("button", { name: /^Riordina/ })).toHaveCount(0);
+        await expect(page.getByRole("checkbox", { name: "Seleziona riga" })).toHaveCount(0);
+        await expect(page.getByRole("tab", { name: "Traduzioni" })).toHaveCount(0);
+        // Resta solo l'apertura del prodotto.
+        await actionsOf(main(page).getByText("Olive ascolane", { exact: true })).click();
+        await expect(page.getByRole("menuitem")).toHaveCount(1);
+        await expect(page.getByRole("menuitem", { name: /^Apri/ })).toBeVisible();
     });
 
     test("un menù inesistente non resta una pagina rotta", async ({ page }) => {

@@ -2,6 +2,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useBreadcrumbItems } from "@/context/useBreadcrumbItems";
 import { usePageHeader } from "@/context/usePageHeader";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnTenant } from "@/lib/permissions";
 import { type BreadcrumbItem } from "@/components/ui/Breadcrumb/Breadcrumb";
 import { useTenantId } from "@/context/useTenantId";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -275,6 +277,10 @@ export default function CatalogEngine() {
     const currentTenantId = useTenantId();
     const { showToast } = useToast();
     const { catalogLabel } = useVerticalConfig();
+    // Chi ha solo `catalogs.read` vede il menù com'è: nessuna azione che
+    // scrive (#224). Finché i permessi caricano, niente azioni.
+    const { permissions } = usePermissions();
+    const canWrite = permissions != null && canDoOnTenant(permissions, "catalogs.write");
 
     const selectedCategoryId = searchParams.get("categoryId");
 
@@ -1527,17 +1533,17 @@ export default function CatalogEngine() {
 
     const columns = useMemo<ColumnDefinition<ProductRow>[]>(
         () => [
-            {
+            ...(canWrite ? [{
                 id: "drag",
                 header: "",
                 width: "50px",
                 align: "center",
-                cell: (_value, _row, _rowIndex, dragHandleProps?: any) => (
+                cell: (_value: unknown, _row: ProductRow, _rowIndex: number, dragHandleProps?: any) => (
                     <span className={styles.dragCell} {...dragHandleProps}>
                         <IconGripVertical size={16} />
                     </span>
                 )
-            },
+            } as ColumnDefinition<ProductRow>] : []),
             {
                 id: "photo",
                 header: "Foto",
@@ -1611,6 +1617,7 @@ export default function CatalogEngine() {
                         actions={[
                             {
                                 label: "Modifica",
+                                hidden: !canWrite,
                                 onClick: () => {
                                     const product =
                                         allProducts.find(p => p.id === row.productId) ?? null;
@@ -1628,6 +1635,7 @@ export default function CatalogEngine() {
                             },
                             {
                                 label: "Rimuovi dalla categoria",
+                                hidden: !canWrite,
                                 onClick: () => setProductToRemoveFromCategory(row),
                                 variant: "destructive",
                                 separator: true
@@ -1637,7 +1645,7 @@ export default function CatalogEngine() {
                 )
             }
         ],
-        [allProducts, currentTenantId, expandedProductGroupIds]
+        [allProducts, canWrite, currentTenantId, expandedProductGroupIds]
     );
 
     const assignColumns = useMemo<ColumnDefinition<V2Product>[]>(() => {
@@ -1743,9 +1751,11 @@ export default function CatalogEngine() {
                         <Text variant="body-sm" colorVariant="muted">
                             Seleziona una categoria dall'albero per gestire i prodotti.
                         </Text>
-                        <Button variant="primary" onClick={openCreateRootCategoryDrawer}>
-                            Crea nuova categoria
-                        </Button>
+                        {canWrite && (
+                            <Button variant="primary" onClick={openCreateRootCategoryDrawer}>
+                                Crea nuova categoria
+                            </Button>
+                        )}
                     </div>
                 </div>
             );
@@ -1760,22 +1770,24 @@ export default function CatalogEngine() {
                                 <Text variant="title-lg" weight={700}>
                                     {selectedCategory.name}
                                 </Text>
-                                <button
-                                    type="button"
-                                    className={styles.categorySettingsButton}
-                                    onClick={() => openEditCategoryDrawer(selectedCategory.id)}
-                                    aria-label="Modifica categoria"
-                                    title="Modifica categoria"
-                                >
-                                    <IconSettings size={18} stroke={1.8} />
-                                </button>
+                                {canWrite && (
+                                    <button
+                                        type="button"
+                                        className={styles.categorySettingsButton}
+                                        onClick={() => openEditCategoryDrawer(selectedCategory.id)}
+                                        aria-label="Modifica categoria"
+                                        title="Modifica categoria"
+                                    >
+                                        <IconSettings size={18} stroke={1.8} />
+                                    </button>
+                                )}
                             </div>
                             <Text variant="body-sm" colorVariant="muted">
                                 {selectedCategoryLinks.length} prodotti
                             </Text>
                         </div>
                         <div style={{ display: "flex", gap: "8px" }}>
-                            {rightPaneTab === "products" && (
+                            {canWrite && rightPaneTab === "products" && (
                                 <Button
                                     variant="primary"
                                     onClick={() => {
@@ -1803,7 +1815,7 @@ export default function CatalogEngine() {
                         >
                             <Tabs.List>
                                 <Tabs.Tab value="products">Prodotti</Tabs.Tab>
-                                <Tabs.Tab value="translations">Traduzioni</Tabs.Tab>
+                                {canWrite && <Tabs.Tab value="translations">Traduzioni</Tabs.Tab>}
                             </Tabs.List>
                         </Tabs>
                     </div>
@@ -1822,7 +1834,7 @@ export default function CatalogEngine() {
                     )}
                 </div>
 
-                {rightPaneTab === "products" ? (
+                {rightPaneTab === "products" || !canWrite ? (
                     <div ref={productListRef} className={styles.tableCard}>
                         <DndContext
                             sensors={sensors}
@@ -1836,8 +1848,8 @@ export default function CatalogEngine() {
                                 <DataTable<ProductRow>
                                     data={visibleRows}
                                     columns={columns}
-                                    selectable
-                                    onBulkDelete={handleBulkRemoveSelected}
+                                    selectable={canWrite}
+                                    onBulkDelete={canWrite ? handleBulkRemoveSelected : undefined}
                                     emptyState={{
                                         title: productSearch.trim()
                                             ? "Nessun prodotto corrisponde al filtro."
@@ -1850,11 +1862,11 @@ export default function CatalogEngine() {
                                                 .map(r => r.id)
                                             : []
                                     }
-                                    rowWrapper={(row, rowData) => (
+                                    rowWrapper={canWrite ? (row, rowData) => (
                                         <SortableDataTableRow key={rowData.id} id={rowData.id}>
                                             {row}
                                         </SortableDataTableRow>
-                                    )}
+                                    ) : undefined}
                                 />
                             </SortableContext>
                         </DndContext>
@@ -1939,6 +1951,7 @@ export default function CatalogEngine() {
                                 onReorderSiblings={handleReorderSiblings}
                                 onReparent={handleReparent}
                                 isReordering={false}
+                                readOnly={!canWrite}
                             />
                         }
                         content={renderRightPane()}

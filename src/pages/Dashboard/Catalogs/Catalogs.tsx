@@ -28,6 +28,7 @@ import {
 } from "@/services/supabase/catalogs";
 import { CatalogCard } from "@/components/Catalogs/CatalogCard/CatalogCard";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { CatalogDeleteDrawer } from "./CatalogDeleteDrawer";
@@ -46,6 +47,7 @@ export default function Catalogs() {
     const { permissions } = usePermissions();
     const canWriteCatalog = permissions != null ? canDoOnTenant(permissions, "catalogs.write") : false;
     const catalogLower = verticalConfig.catalogLabel.toLowerCase();
+    const catalogPluralLower = verticalConfig.catalogLabelPlural.toLowerCase();
 
     const [catalogs, setCatalogs] = useState<V2Catalog[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -72,6 +74,12 @@ export default function Catalogs() {
     // Delete confirmation state
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [catalogToDelete, setCatalogToDelete] = useState<V2Catalog | null>(null);
+
+    // Eliminazione multipla (#235): la selezione è controllata perché la
+    // `DataTable` la svuota quando chiede di eliminare; se l'utente annulla
+    // la conferma, la selezione torna com'era.
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
+    const [pendingBulkIds, setPendingBulkIds] = useState<string[] | null>(null);
 
     const loadData = useCallback(async () => {
         if (!currentTenantId) return;
@@ -266,12 +274,13 @@ export default function Catalogs() {
         setCatalogToDelete(null);
     };
 
-    const handleBulkDelete = async (selectedIds: string[]) => {
-        if (!currentTenantId || selectedIds.length === 0) return;
+    const countLabel = (n: number) => `${n} ${n === 1 ? catalogLower : catalogPluralLower}`;
 
-        const results = await Promise.allSettled(
-            selectedIds.map(id => deleteCatalog(id, currentTenantId))
-        );
+    const handleBulkDeleteConfirmed = async (): Promise<false> => {
+        const ids = pendingBulkIds ?? [];
+        if (!currentTenantId || ids.length === 0) return false;
+
+        const results = await Promise.allSettled(ids.map(id => deleteCatalog(id, currentTenantId)));
         const ok = results.filter(r => r.status === "fulfilled").length;
         const blocked = results.filter(
             (r): r is PromiseRejectedResult =>
@@ -280,11 +289,11 @@ export default function Catalogs() {
         const otherErrors = results.length - ok - blocked;
 
         if (ok > 0) {
-            showToast({ message: `${ok} cataloghi eliminati.`, type: "success" });
+            showToast({ message: `${countLabel(ok)} ${ok === 1 ? "eliminato" : "eliminati"}.`, type: "success" });
         }
         if (blocked > 0) {
             showToast({
-                message: `${blocked} cataloghi non eliminati: in uso da regole di programmazione.`,
+                message: `${countLabel(blocked)} non ${blocked === 1 ? "eliminato" : "eliminati"}: in uso da regole di programmazione.`,
                 type: "error"
             });
         }
@@ -295,12 +304,21 @@ export default function Catalogs() {
                 }
             });
             showToast({
-                message: `${otherErrors} cataloghi non eliminati per errore.`,
+                message: `${countLabel(otherErrors)} non ${otherErrors === 1 ? "eliminato" : "eliminati"} per errore.`,
                 type: "error"
             });
         }
 
+        // La conferma si chiude perché non c'è più niente da confermare,
+        // non da `onClose`: quello ripristina la selezione (annulla).
+        setPendingBulkIds(null);
         await loadData();
+        return false;
+    };
+
+    const handleBulkDeleteCancel = () => {
+        if (pendingBulkIds) setSelectedIds(pendingBulkIds);
+        setPendingBulkIds(null);
     };
 
     const filteredCatalogs = useMemo(() => {
@@ -432,9 +450,9 @@ export default function Catalogs() {
                                 stats={statsMap[catalog.id]}
                                 statsLoading={statsLoading}
                                 catalogLower={catalogLower}
-                                onEdit={handleOpenEdit}
-                                onDelete={handleOpenDelete}
-                                onAddWithAi={handleAddWithAi}
+                                onEdit={canWriteCatalog ? handleOpenEdit : undefined}
+                                onDelete={canWriteCatalog ? handleOpenDelete : undefined}
+                                onAddWithAi={canWriteCatalog ? handleAddWithAi : undefined}
                                 onClick={c =>
                                     navigate(`/business/${currentTenantId}/catalogs/${c.id}`)
                                 }
@@ -447,7 +465,9 @@ export default function Catalogs() {
                         allRowIds={allCatalogIds}
                         columns={columns}
                         selectable={canWriteCatalog}
-                        onBulkDelete={canWriteCatalog ? handleBulkDelete : undefined}
+                        selectedRowIds={selectedIds}
+                        onSelectedRowsChange={setSelectedIds}
+                        onBulkDelete={canWriteCatalog ? ids => setPendingBulkIds(ids) : undefined}
                         onRowClick={catalog =>
                             navigate(`/business/${currentTenantId}/catalogs/${catalog.id}`)
                         }
@@ -495,6 +515,15 @@ export default function Catalogs() {
                     />
                 </DrawerLayout>
             </SystemDrawer>
+
+            <ConfirmDialog
+                isOpen={pendingBulkIds !== null}
+                onClose={handleBulkDeleteCancel}
+                onConfirm={handleBulkDeleteConfirmed}
+                title={`Eliminare ${countLabel(pendingBulkIds?.length ?? 0)}?`}
+                message={`Si eliminano anche le loro categorie e i collegamenti ai prodotti, e non si torna indietro. I prodotti restano. Un ${catalogLower} usato da una regola di programmazione non si elimina.`}
+                confirmLabel={`Elimina ${countLabel(pendingBulkIds?.length ?? 0)}`}
+            />
 
             {/* Delete Drawer */}
             <CatalogDeleteDrawer

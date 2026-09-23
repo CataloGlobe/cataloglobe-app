@@ -10,8 +10,9 @@ interface CatalogCardProps {
     stats?: CatalogStats;
     statsLoading?: boolean;
     catalogLower?: string;
-    onEdit: (catalog: V2Catalog) => void;
-    onDelete: (catalog: V2Catalog) => void;
+    /** Le azioni che scrivono: assenti per chi non ha `catalogs.write`, e senza azioni il kebab non c'è. */
+    onEdit?: (catalog: V2Catalog) => void;
+    onDelete?: (catalog: V2Catalog) => void;
     onClick: (catalog: V2Catalog) => void;
     /** Scorciatoia "Aggiungi prodotti con AI" (2C-5). Assente → voce non mostrata. */
     onAddWithAi?: (catalog: V2Catalog) => void;
@@ -84,7 +85,7 @@ export const CatalogCard: React.FC<CatalogCardProps> = ({
                     <Text as="h3" variant="title-sm" weight={700} className={styles.name}>
                         {catalog.name}
                     </Text>
-                    <DropdownMenu.Root>
+                    {(onEdit || onDelete || onAddWithAi) && <DropdownMenu.Root>
                         <DropdownMenu.Trigger asChild>
                             <button
                                 className={styles.menuTrigger}
@@ -115,28 +116,34 @@ export const CatalogCard: React.FC<CatalogCardProps> = ({
                                         <DropdownMenu.Separator className={styles.menuSeparator} />
                                     </>
                                 )}
-                                <DropdownMenu.Item
-                                    className={styles.menuItem}
-                                    onClick={e => {
-                                        e.stopPropagation();
-                                        onEdit(catalog);
-                                    }}
-                                >
-                                    Modifica nome
-                                </DropdownMenu.Item>
-                                <DropdownMenu.Separator className={styles.menuSeparator} />
-                                <DropdownMenu.Item
-                                    className={`${styles.menuItem} ${styles.menuDanger}`}
-                                    onClick={e => {
-                                        e.stopPropagation();
-                                        onDelete(catalog);
-                                    }}
-                                >
-                                    {`Elimina ${catalogLower}`}
-                                </DropdownMenu.Item>
+                                {onEdit && (
+                                    <DropdownMenu.Item
+                                        className={styles.menuItem}
+                                        onClick={e => {
+                                            e.stopPropagation();
+                                            onEdit(catalog);
+                                        }}
+                                    >
+                                        Modifica nome
+                                    </DropdownMenu.Item>
+                                )}
+                                {onDelete && (
+                                    <>
+                                        <DropdownMenu.Separator className={styles.menuSeparator} />
+                                        <DropdownMenu.Item
+                                            className={`${styles.menuItem} ${styles.menuDanger}`}
+                                            onClick={e => {
+                                                e.stopPropagation();
+                                                onDelete(catalog);
+                                            }}
+                                        >
+                                            {`Elimina ${catalogLower}`}
+                                        </DropdownMenu.Item>
+                                    </>
+                                )}
                             </DropdownMenu.Content>
                         </DropdownMenu.Portal>
-                    </DropdownMenu.Root>
+                    </DropdownMenu.Root>}
                 </div>
 
                 <div className={styles.meta}>
