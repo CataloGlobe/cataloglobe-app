@@ -46,21 +46,28 @@ async function openComande(page: Page): Promise<void> {
     await expect(page).toHaveURL(/\/locations\/[0-9a-f-]+\/comande$/, { timeout: 15_000 });
     // La board è pronta quando la card della fixture c'è (il nome del tavolo
     // compare anche come `option` del filtro, nascosta: non basta a dirlo).
-    await expect(cardMenus(page)).toHaveCount(1, { timeout: 15_000 });
+    await expect(fixtureMenu(page)).toBeVisible({ timeout: 15_000 });
 }
 
 /**
- * Il menu ⋯ delle card della board. Il nome porta il tavolo («Altre azioni per
- * T TEST»): senza, a 375 collideva con l'overflow della banda compatta.
+ * Il menu ⋯ della card della fixture. Il nome porta il tavolo («Altre azioni per
+ * T TEST»): senza, a 375 collideva con l'overflow della banda compatta. Mirato
+ * alla fixture e non contato: la sede può avere altre comande attive.
  */
-function cardMenus(page: Page) {
-    return page.getByRole("main").getByRole("button", { name: /^Altre azioni per / });
+function fixtureMenu(page: Page) {
+    return page.getByRole("main").getByRole("button", { name: `Altre azioni per ${TAVOLO}`, exact: true });
 }
 
-/** Il menu ⋯ della card della fixture: è l'unica comanda attiva della sede. */
+/**
+ * La card della fixture. La `Card` è una `section` senza nome (nessun ruolo da
+ * interrogare): si risale dal suo menu, che il ruolo lo ha.
+ */
+function fixtureCard(page: Page) {
+    return fixtureMenu(page).locator("xpath=ancestor::section[1]");
+}
+
 async function openCardMenu(page: Page): Promise<void> {
-    await expect(cardMenus(page)).toHaveCount(1);
-    await page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` }).click();
+    await fixtureMenu(page).click();
 }
 
 async function selectMainTab(page: Page, name: "Comande" | "Tavoli" | "Storico"): Promise<void> {
@@ -83,15 +90,14 @@ test.describe("Comande", () => {
         await expect(page.getByText("Nessuna nuova comanda")).toHaveCount(0);
 
         // La card della fixture: tavolo, articoli, totale, azione della colonna.
-        const main = page.getByRole("main");
-        // `visible`: il nome del tavolo è anche un'`option` (nascosta) del filtro.
-        await expect(main.getByText(TAVOLO, { exact: true }).filter({ visible: true })).toBeVisible();
+        const card = fixtureCard(page);
+        await expect(card.getByText(TAVOLO, { exact: true })).toBeVisible();
         for (const articolo of ARTICOLI) {
-            await expect(main.getByText(articolo, { exact: true })).toBeVisible();
+            await expect(card.getByText(articolo, { exact: true })).toBeVisible();
         }
-        await expect(main.getByText("Totale", { exact: true })).toBeVisible();
-        await expect(main.getByText("5,80 €", { exact: true })).toBeVisible();
-        await expect(main.getByRole("button", { name: "Conferma", exact: true })).toBeVisible();
+        await expect(card.getByText("Totale", { exact: true })).toBeVisible();
+        await expect(card.getByText("5,80 €", { exact: true })).toBeVisible();
+        await expect(card.getByRole("button", { name: "Conferma", exact: true })).toBeVisible();
 
         await expect(page.getByRole("button", { name: "Crea ordine" })).toBeVisible();
         await expect(page.getByRole("button", { name: "Aggiorna" })).toBeVisible();
@@ -138,14 +144,14 @@ test.describe("Comande", () => {
 
         // Esce dalla board, e il toast offre l'undo.
         await expect(page.getByText(`Ordine ${TAVOLO} cancellato`)).toBeVisible({ timeout: 15_000 });
-        await expect(page.getByText("Nessuna nuova comanda")).toBeVisible();
+        await expect(fixtureMenu(page)).toHaveCount(0);
 
         await page.getByRole("button", { name: "Annulla", exact: true }).click();
         await expect(page.getByText(`Ordine ${TAVOLO} ripristinato`)).toBeVisible({ timeout: 15_000 });
 
         // Torna in Nuove, dove era.
         await expect(page.getByText("Nessuna nuova comanda")).toHaveCount(0);
-        await expect(cardMenus(page)).toHaveCount(1);
+        await expect(fixtureMenu(page)).toBeVisible();
     });
 
     test("«Crea ordine» apre il drawer a taglia lg, senza inviare niente", async ({ page }) => {
@@ -170,20 +176,19 @@ test.describe("Comande", () => {
         const filtro = page.getByRole("main").getByRole("combobox", { name: "Filtra per tavolo" });
         await expect(filtro).toBeVisible();
 
-        // Un tavolo diverso da quello della fixture: la board si svuota.
+        // Un tavolo diverso da quello della fixture: la sua card sparisce.
         const altri = (await filtro.getByRole("option").allInnerTexts()).filter(
             t => t !== "Tutti i tavoli" && t !== TAVOLO
         );
         test.skip(altri.length === 0, "serve un secondo tavolo");
         await filtro.selectOption({ label: altri[0] });
-        await expect(page.getByText("Nessuna nuova comanda")).toBeVisible();
-        await expect(cardMenus(page)).toHaveCount(0);
+        await expect(fixtureMenu(page)).toHaveCount(0);
 
         await filtro.selectOption({ label: TAVOLO });
         await expect(page.getByText("Nessuna nuova comanda")).toHaveCount(0);
 
         await filtro.selectOption({ label: "Tutti i tavoli" });
-        await expect(cardMenus(page)).toHaveCount(1);
+        await expect(fixtureMenu(page)).toBeVisible();
     });
 
     test("la tab Tavoli mostra i tavoli e apre il dettaglio del tavolo", async ({ page }) => {
@@ -348,25 +353,26 @@ test.describe("Comande", () => {
             const stati = page.getByRole("tablist", { name: "Stato delle comande" });
             await expect(stati).toBeVisible();
             // Contatori nelle etichette, dopo il filtro, dentro il nome del tab
-            // («Nuove 1»). La fixture è in Nuove.
-            const tab = (nome: string, n: number) =>
+            // («Nuove 1»). La fixture è in Nuove: almeno una, non esattamente una.
+            const tab = (nome: string, n: number | string) =>
                 stati.getByRole("tab", { name: new RegExp(`^${nome}\\s*${n}$`) });
-            await expect(tab("Nuove", 1)).toHaveAttribute("aria-selected", "true");
+            const nuove = "[1-9]\\d*";
+            await expect(tab("Nuove", nuove)).toHaveAttribute("aria-selected", "true");
             await expect(tab("In lavorazione", 0)).toBeVisible();
             await expect(tab("Pronte", 0)).toBeVisible();
             // Il contatore non è più una regione live.
             await expect(stati.getByRole("status")).toHaveCount(0);
 
             // Si vede una lista sola.
-            await expect(page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` })).toBeVisible();
+            await expect(fixtureMenu(page)).toBeVisible();
             await expect(page.getByText("Nessuna comanda pronta")).toBeHidden();
 
             await tab("Pronte", 0).click();
             await expect(page.getByText("Nessuna comanda pronta")).toBeVisible();
-            await expect(page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` })).toBeHidden();
+            await expect(fixtureMenu(page)).toBeHidden();
 
-            await tab("Nuove", 1).click();
-            await expect(page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` })).toBeVisible();
+            await tab("Nuove", nuove).click();
+            await expect(fixtureMenu(page)).toBeVisible();
         });
     }
 
@@ -379,7 +385,7 @@ test.describe("Comande", () => {
             for (const colonna of COLONNE) {
                 await expect(page.getByRole("main").getByText(colonna, { exact: true }).first()).toBeAttached();
             }
-            await expect(page.getByRole("button", { name: `Altre azioni per ${TAVOLO}` })).toBeVisible();
+            await expect(fixtureMenu(page)).toBeVisible();
             const overflow = await page.evaluate(
                 () => document.documentElement.scrollWidth - document.documentElement.clientWidth
             );
