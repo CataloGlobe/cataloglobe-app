@@ -47,6 +47,17 @@
   margin: 0 2px;
 }
 
+/* Coda «Da gestire» dentro la sua Card flush: l'avviso di tetto e
+   l'intestazione delle scadute hanno il margine delle righe. */
+.inboxNotice {
+  padding: var(--space-12) var(--space-16) 0;
+}
+
+.inboxStaleHeader {
+  padding: var(--space-12) var(--space-16) var(--space-4);
+  border-top: 1px solid var(--border);
+}
+
 /* ── Empty state wrap ──────────────────────────────────── */
 
 .emptyState {

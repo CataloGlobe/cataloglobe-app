@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { CalendarRange, ChevronLeft, ChevronRight, MessageSquare, RefreshCw } from "lucide-react";
+import { CalendarRange, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
 import { addDays, todayIsoDate } from "@/utils/dateLocal";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -7,6 +7,9 @@ import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { OCCUPYING_STATUSES } from "@/utils/reservationTableConflicts";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
+import { Card } from "@/components/ui/Card/Card";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import Text from "@/components/ui/Text/Text";
 import { statusMeta } from "@/utils/reservationStatusMeta";
 import {
     TableAssignmentBadge,
@@ -285,55 +288,39 @@ export default function ReservationsAgenda({
     );
 
     // ── Days view row ───────────────────────────────────────────────────────
+    // ListRow dense (48): l'agenda è un elenco lungo che si legge a colpo
+    // d'occhio. Annullate e rifiutate (con l'interruttore acceso) restano
+    // righe apribili: `muted` le renderebbe inerti.
     const renderTimelineRow = (r: V2Reservation) => {
-        const isTerminal = TERMINAL.has(r.status);
         const badge = statusMeta(r.status);
         const tableView = tableViews.get(r.id);
+        const people = `${r.party_size} ${r.party_size === 1 ? "persona" : "persone"}`;
         return (
-            <button
+            <ListRow
                 key={r.id}
-                type="button"
-                className={isTerminal ? styles.timelineRowTerminal : styles.timelineRow}
+                dense
                 onClick={() => onOpenDetail(r)}
-            >
-                <span className={styles.timelineTime}>
-                    {r.reservation_time.slice(0, 5)}
-                </span>
-                <span className={styles.timelineMain}>
-                    <span className={styles.timelineTitleLine}>
-                        <ChannelMark source={r.source} variant="plain" />
-                        <span className={styles.timelineName}>
-                            {r.customer_name}
-                        </span>
-                        <span className={styles.timelineNameMeta}>
-                            · {r.party_size}{" "}
-                            {r.party_size === 1 ? "persona" : "persone"}
-                        </span>
-                    </span>
-                    {r.notes && (
-                        <div className={styles.rowNote}>
-                            <MessageSquare
-                                size={13}
-                                strokeWidth={2}
-                                aria-hidden
-                                className={styles.rowNoteIconInline}
-                            />
-                            <span className={styles.rowNoteText}>{r.notes}</span>
-                        </div>
-                    )}
-                </span>
-                <span className={styles.timelineMeta}>
-                    <GuestConfirmedMark guestConfirmedAt={r.guest_confirmed_at} />
-                    <StatusBadge variant={badge.variant} label={badge.label} />
-                    {/* Nessun tavolo = nessun badge: è uno stato normale. */}
-                    {tableView && (
-                        <TableAssignmentBadge
-                            view={tableView}
-                            className={styles.timelineTableBadge}
-                        />
-                    )}
-                </span>
-            </button>
+                leading={
+                    <Text as="span" variant="body-sm" weight={700} className={styles.timelineTime}>
+                        {r.reservation_time.slice(0, 5)}
+                    </Text>
+                }
+                title={
+                    <>
+                        <ChannelMark source={r.source} variant="plain" /> {r.customer_name}
+                    </>
+                }
+                subtitle={r.notes ? `${people} · ${r.notes}` : people}
+                meta={
+                    <>
+                        <GuestConfirmedMark guestConfirmedAt={r.guest_confirmed_at} />
+                        <StatusBadge variant={badge.variant} label={badge.label} />
+                        {/* Nessun tavolo = nessun badge: è uno stato normale. */}
+                        {tableView && <TableAssignmentBadge view={tableView} />}
+                    </>
+                }
+                metaInline
+            />
         );
     };
 
@@ -394,9 +381,7 @@ export default function ReservationsAgenda({
                                     </Button>
                                 )}
                             </div>
-                            <div className={styles.timeline}>
-                                {filtered.map(renderTimelineRow)}
-                            </div>
+                            <Card flush>{filtered.map(renderTimelineRow)}</Card>
                         </section>
                     );
                 })}

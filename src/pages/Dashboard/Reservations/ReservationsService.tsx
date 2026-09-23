@@ -1,17 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
 import {
     Armchair,
-    ChevronDown,
-    ChevronRight,
-    Clock,
     History,
     Lock,
     Plus,
     ReceiptText,
-    TriangleAlert,
-    Users
+    TriangleAlert
 } from "lucide-react";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { Card } from "@/components/ui/Card/Card";
+import { CollapsibleSection } from "@/components/ui/CollapsibleSection/CollapsibleSection";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
+import Text from "@/components/ui/Text/Text";
 import {
     TableAssignmentBadge,
     type TableAssignmentView
@@ -118,7 +120,6 @@ export default function ReservationsService({
 
     // Le concluse stanno in coda e chiuse: servono a "a che ora si è liberato
     // il 4", non a stare in mezzo.
-    const [closedOpen, setClosedOpen] = useState(false);
 
     // seating_id → nome, per dire CHI c'è dall'altra parte di un conflitto.
     const nameBySeatingId = useMemo(() => {
@@ -160,6 +161,10 @@ export default function ReservationsService({
         else onOpenSeating(s);
     };
 
+    // ListRow dense (48): la sala si legge a colpo d'occhio. Niente bottoni
+    // dentro la riga (un bottone in un role=button non si raggiunge bene): il
+    // nome di ogni prenotazione di una tavolata condivisa si apre dal menu
+    // del trailing.
     const renderSeatingRow = (s: SeatingWithState, done: boolean) => {
         const labels = seatingTableLabels(s);
         const conflicts = done ? [] : (board.conflicts.get(s.id) ?? []);
@@ -168,161 +173,88 @@ export default function ReservationsService({
         const covers = formatCovers(s.party_size);
         const stale = !done && isFromPreviousService(s, now);
         const pending = done ? 0 : s.pending_orders_count;
+        const when = done
+            ? s.closed_at
+                ? `liberato alle ${formatClock(s.closed_at)}`
+                : "concluso"
+            : formatOpenFor(s.opened_at, now);
+        const removedText =
+            removed.length > 0
+                ? `${formatTableLabels(removed.map(t => t.label))} ${removed.length === 1 ? "rimosso" : "rimossi"} dalla sala`
+                : null;
+        const conflictText = conflicts
+            .map(c => {
+                const others = c.other_seating_ids
+                    .map(id => nameBySeatingId.get(id) ?? "un'altra tavolata")
+                    .join(", ");
+                // Il fatto, non la coincidenza. Frammento: niente punto finale.
+                return `${formatTableLabels([c.label])} occupato anche da ${others}`;
+            })
+            .join(" · ");
+        const openable = s.reservations
+            .map(r => reservationsById.get(r.reservation_id))
+            .filter((r): r is V2Reservation => r !== undefined);
         return (
-            <div
+            <ListRow
                 key={s.id}
-                role="button"
-                tabIndex={0}
-                className={done ? styles.rowDimmed : styles.row}
+                dense
                 onClick={() => openRow(s)}
-                onKeyDown={e => {
-                    if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        openRow(s);
-                    }
-                }}
-            >
-                <div className={styles.rowMain}>
-                    <div className={styles.rowContent}>
-                        <div className={styles.rowTopLine}>
-                            {isWalkin ? (
-                                // I tavoli sono il nome. Senza tavoli la riga
-                                // vive di coperti e durata: è una tavolata di
-                                // cui davvero si sa poco, e va bene che si veda.
-                                <>
-                                    {walkinTitle(s) !== null && (
-                                        <span className={styles.rowName}>{walkinTitle(s)}</span>
-                                    )}
-                                    <span className={styles.serviceWalkinMark}>
-                                        Senza prenotazione
-                                    </span>
-                                </>
-                            ) : (
-                                s.reservations.map((r, i) => {
-                                    const full = reservationsById.get(r.reservation_id);
-                                    return (
-                                        <span key={r.reservation_id} className={styles.rowName}>
-                                            {i > 0 && (
-                                                <span className={styles.serviceNameSep} aria-hidden>
-                                                    ·{" "}
-                                                </span>
-                                            )}
-                                            {full ? (
-                                                <button
-                                                    type="button"
-                                                    className={styles.serviceNameButton}
-                                                    onClick={e => {
-                                                        e.stopPropagation();
-                                                        onOpenDetail(full);
-                                                    }}
-                                                >
-                                                    {r.customer_name}
-                                                </button>
-                                            ) : (
-                                                r.customer_name
-                                            )}
-                                        </span>
-                                    );
-                                })
-                            )}
-                            <span className={styles.rowMeta}>
-                                {covers !== null && (
-                                    <>
-                                        <Users size={13} strokeWidth={2} aria-hidden /> {covers}
-                                        <span className={styles.todayBarSeparator}> · </span>
-                                    </>
-                                )}
-                                <Clock size={13} strokeWidth={2} aria-hidden />{" "}
-                                {done
-                                    ? s.closed_at
-                                        ? `liberato alle ${formatClock(s.closed_at)}`
-                                        : "concluso"
-                                    : formatOpenFor(s.opened_at, now)}
-                            </span>
-                        </div>
-                        {removed.length > 0 && (
-                            <div className={styles.rowMetaDim}>
-                                {formatTableLabels(removed.map(t => t.label))}{" "}
-                                {removed.length === 1 ? "rimosso" : "rimossi"} dalla sala
-                            </div>
-                        )}
+                title={
+                    isWalkin ? (
+                        // I tavoli sono il nome (§18.1); senza tavoli la riga
+                        // vive di coperti e durata.
+                        <>
+                            {walkinTitle(s) ?? "Tavolata"}{" "}
+                            <span className={styles.serviceWalkinMark}>Senza prenotazione</span>
+                        </>
+                    ) : (
+                        s.reservations.map(r => r.customer_name).join(" · ")
+                    )
+                }
+                subtitle={[covers, when, removedText].filter(Boolean).join(" · ")}
+                meta={
+                    <>
                         {stale && (
-                            // Di un servizio precedente: il cron la chiuderà
-                            // alla prossima passata. Stessa forma del
-                            // conflitto (una riga, non una banda), colore
-                            // diverso: informa, non chiede un'azione. Da
-                            // quanto lo dice la meta.
-                            <div className={styles.serviceStale} role="status">
-                                <History
-                                    size={15}
-                                    strokeWidth={2}
-                                    aria-hidden
-                                    className={styles.serviceStaleIcon}
-                                />
-                                <span>{PREVIOUS_SERVICE_LABEL}</span>
-                            </div>
+                            // Di un servizio precedente: la chiude il cron.
+                            // Grigio: informa, non chiede un'azione.
+                            <Badge variant="neutral">
+                                <History size={12} strokeWidth={2} aria-hidden /> {PREVIOUS_SERVICE_LABEL}
+                            </Badge>
                         )}
                         {pending > 0 && (
-                            // Ordini ancora aperti (3.2): la gente sta
-                            // mangiando, non è un'urgenza — grigio come la
-                            // riga qui sopra. Conta soprattutto sulle
-                            // tavolate che lo spazzino ha saltato: nessuno
-                            // le chiuderà al posto dell'host.
-                            <div className={styles.servicePending} role="status">
-                                <ReceiptText
-                                    size={15}
-                                    strokeWidth={2}
-                                    aria-hidden
-                                    className={styles.servicePendingIcon}
-                                />
-                                <span>{formatPendingOrdersRow(pending)}</span>
-                            </div>
+                            <Badge variant="neutral">
+                                <ReceiptText size={12} strokeWidth={2} aria-hidden /> {formatPendingOrdersRow(pending)}
+                            </Badge>
                         )}
                         {conflicts.length > 0 && (
-                            <div className={styles.serviceConflict} role="status">
-                                <TriangleAlert
-                                    size={15}
-                                    strokeWidth={2.25}
-                                    aria-hidden
-                                    className={styles.serviceConflictIcon}
-                                />
-                                <span>
-                                    {conflicts
-                                        .map(c => {
-                                            const others = c.other_seating_ids
-                                                .map(
-                                                    id =>
-                                                        nameBySeatingId.get(id) ??
-                                                        "un'altra tavolata"
-                                                )
-                                                .join(", ");
-                                            // Il fatto, non la coincidenza. Frammento:
-                                            // niente punto finale.
-                                            return `${formatTableLabels([c.label])} occupato anche da ${others}`;
-                                        })
-                                        .join(" · ")}
-                                </span>
-                            </div>
+                            // Ambra, non rosso: chiede un'azione adesso (§18.1).
+                            <Badge variant="warning">
+                                <TriangleAlert size={12} strokeWidth={2.25} aria-hidden /> {conflictText}
+                            </Badge>
                         )}
-                    </div>
-                </div>
-                {/* Per un walk-in i tavoli sono già il titolo: la colonna
-                    destra non li ripete. */}
-                {!isWalkin && (
-                    <div className={styles.rowRight}>
-                        <span
-                            className={
-                                conflicts.length > 0
-                                    ? styles.serviceTablesConflict
-                                    : styles.serviceTables
-                            }
-                        >
-                            <Armchair size={13} strokeWidth={2} aria-hidden />
-                            {labels.length > 0 ? formatTableLabels(labels) : "Nessun tavolo"}
-                        </span>
-                    </div>
-                )}
-            </div>
+                        {/* Per un walk-in i tavoli sono già il titolo. */}
+                        {!isWalkin && (
+                            <Badge variant={conflicts.length > 0 ? "warning" : "outline"}>
+                                <Armchair size={12} strokeWidth={2} aria-hidden />{" "}
+                                {labels.length > 0 ? formatTableLabels(labels) : "Nessun tavolo"}
+                            </Badge>
+                        )}
+                    </>
+                }
+                trailing={
+                    openable.length > 1 ? (
+                        <div onClick={e => e.stopPropagation()}>
+                            <TableRowActions
+                                ariaLabel={`Prenotazioni della tavolata ${s.reservations.map(r => r.customer_name).join(", ")}`}
+                                actions={openable.map(r => ({
+                                    label: `Apri ${r.customer_name}`,
+                                    onClick: () => onOpenDetail(r)
+                                }))}
+                            />
+                        </div>
+                    ) : undefined
+                }
+            />
         );
     };
 
@@ -358,9 +290,7 @@ export default function ReservationsService({
                         Nessuna tavolata aperta. Quando qualcuno si siede, compare qui.
                     </p>
                 ) : (
-                    <div className={styles.cards}>
-                        {board.inRoom.map(s => renderSeatingRow(s, false))}
-                    </div>
+                    <Card flush>{board.inRoom.map(s => renderSeatingRow(s, false))}</Card>
                 )}
             </section>
 
@@ -371,76 +301,51 @@ export default function ReservationsService({
                         <h2 className={styles.inboxSectionTitle}>In arrivo</h2>
                         <span className={styles.inboxSectionCount}>{board.arriving.length}</span>
                     </div>
-                    <div className={styles.cards}>
+                    <Card flush>
                         {board.arriving.map(({ reservation: r, late }) => {
                             const tableView = tableViews.get(r.id);
                             return (
-                                <div key={r.id} className={styles.serviceRow}>
-                                    <div className={styles.rowMain}>
-                                        <span
-                                            className={
-                                                late ? styles.serviceTimeLate : styles.serviceTime
-                                            }
+                                <ListRow
+                                    key={r.id}
+                                    dense
+                                    onClick={() => onOpenDetail(r)}
+                                    leading={
+                                        <Text
+                                            as="span"
+                                            variant="body-sm"
+                                            weight={700}
+                                            colorVariant={late ? "warning" : undefined}
+                                            className={styles.timelineTime}
                                         >
                                             {r.reservation_time.slice(0, 5)}
-                                        </span>
-                                        <div className={styles.rowContent}>
-                                            <div className={styles.rowTopLine}>
-                                                <span className={styles.rowName}>
-                                                    <button
-                                                        type="button"
-                                                        className={styles.serviceNameButton}
-                                                        onClick={() => onOpenDetail(r)}
-                                                    >
-                                                        {r.customer_name}
-                                                    </button>
-                                                </span>
-                                                <span className={styles.rowMeta}>
-                                                    {r.party_size}{" "}
-                                                    {r.party_size === 1 ? "persona" : "persone"}
-                                                </span>
-                                                {late && (
-                                                    // L'unica riga colorata del
-                                                    // gruppo: segnala l'eccezione.
-                                                    <span className={styles.serviceLateMark}>
-                                                        In ritardo
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div className={styles.rowRight}>
-                                        {tableView && <TableAssignmentBadge view={tableView} />}
-                                    </div>
-                                </div>
+                                        </Text>
+                                    }
+                                    title={r.customer_name}
+                                    subtitle={`${r.party_size} ${r.party_size === 1 ? "persona" : "persone"}`}
+                                    meta={
+                                        <>
+                                            {/* L'unica riga colorata del gruppo:
+                                                segnala l'eccezione. */}
+                                            {late && <Badge variant="warning">In ritardo</Badge>}
+                                            {tableView && <TableAssignmentBadge view={tableView} />}
+                                        </>
+                                    }
+                                    metaInline
+                                />
                             );
                         })}
-                    </div>
+                    </Card>
                 </section>
             )}
 
-            {/* ── Concluse ────────────────────────────────────────── */}
+            {/* ── Concluse ────────────────────────────────────────
+                Chiusa di default: è il servizio passato. Solo le chiuse
+                dall'operatore; quelle del cron no (§18.1). */}
             {board.closed.length > 0 && (
                 <section className={styles.inboxSection}>
-                    <button
-                        type="button"
-                        className={styles.serviceClosedToggle}
-                        aria-expanded={closedOpen}
-                        onClick={() => setClosedOpen(v => !v)}
-                    >
-                        {closedOpen ? (
-                            <ChevronDown size={16} strokeWidth={2} aria-hidden />
-                        ) : (
-                            <ChevronRight size={16} strokeWidth={2} aria-hidden />
-                        )}
-                        <h2 className={styles.inboxSectionTitle}>Concluse</h2>
-                        <span className={styles.inboxSectionCount}>{board.closed.length}</span>
-                    </button>
-                    {closedOpen && (
-                        <div className={styles.cards}>
-                            {board.closed.map(s => renderSeatingRow(s, true))}
-                        </div>
-                    )}
+                    <CollapsibleSection label={`Concluse · ${board.closed.length}`}>
+                        <Card flush>{board.closed.map(s => renderSeatingRow(s, true))}</Card>
+                    </CollapsibleSection>
                 </section>
             )}
         </div>
