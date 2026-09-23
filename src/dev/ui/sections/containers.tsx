@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/Button/Button";
 import { Card } from "@/components/ui/Card/Card";
 import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { DataTableDragHandle } from "@/components/ui/DataTable/SortableDataTableRow";
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, arrayMove, sortableKeyboardCoordinates, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { DataTableDragHandle, SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
@@ -125,6 +127,52 @@ function CardSection() {
     );
 }
 
+/**
+ * Righe ordinabili: la maniglia è l'unico controllo (Spazio, frecce, Spazio
+ * da tastiera), la riga non è un bottone.
+ */
+function SortableSampleTable() {
+    const [rows, setRows] = useState(ROWS);
+    const sensors = useSensors(
+        useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+    );
+    const onDragEnd = ({ active, over }: DragEndEvent) => {
+        if (!over || active.id === over.id) return;
+        setRows(prev => arrayMove(prev, prev.findIndex(r => r.id === active.id), prev.findIndex(r => r.id === over.id)));
+    };
+    return (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={rows.map(r => r.id)} strategy={verticalListSortingStrategy}>
+                <SampleTable
+                    data={rows}
+                    columns={[
+                        COLUMNS[3],
+                        {
+                            id: "drag",
+                            header: "",
+                            width: "40px",
+                            align: "center",
+                            cell: (_v, row, _i, dragHandleProps?: unknown) => (
+                                <DataTableDragHandle
+                                    aria-label={`Riordina ${row.name}`}
+                                    {...(dragHandleProps as React.ButtonHTMLAttributes<HTMLButtonElement>)}
+                                />
+                            )
+                        },
+                        ...COLUMNS.slice(0, 3)
+                    ]}
+                    rowWrapper={(row, rowData) => (
+                        <SortableDataTableRow key={rowData.id} id={rowData.id}>
+                            {row}
+                        </SortableDataTableRow>
+                    )}
+                />
+            </SortableContext>
+        </DndContext>
+    );
+}
+
 function DataTableSection() {
     // Parte vuota: con una riga preselezionata la BulkBar (fixed) resterebbe
     // in fondo alla galleria per sempre. Si seleziona dalla checkbox.
@@ -134,14 +182,8 @@ function DataTableSection() {
             <State label="3 righe, cella a due righe, azioni al hover/focus (ultima colonna)" column>
                 <SampleTable />
             </State>
-            <State label="colonna azioni dichiarata per prima: la tabella la sposta in coda · maniglia drag" column>
-                <SampleTable
-                    columns={[
-                        COLUMNS[3],
-                        { id: "drag", header: "", width: "40px", align: "center", cell: () => <DataTableDragHandle /> },
-                        ...COLUMNS.slice(0, 3)
-                    ]}
-                />
+            <State label="colonna azioni dichiarata per prima: la tabella la sposta in coda · righe ordinabili, la maniglia «Riordina …» è l'unico controllo" column>
+                <SortableSampleTable />
             </State>
             <State label="selectable (una selezionata)" column>
                 <SampleTable selectable selectedRowIds={selected} onSelectedRowsChange={setSelected} onBulkDelete={noop} />

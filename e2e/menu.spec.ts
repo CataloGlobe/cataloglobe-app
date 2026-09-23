@@ -324,6 +324,34 @@ test.describe("Menù — dettaglio", () => {
         await expect(main(page).getByText("Bruschetta", { exact: true })).toHaveCount(0);
     });
 
+    test("riordino dei prodotti: la maniglia è l'unico controllo, da tastiera, in bozza", async ({ page }) => {
+        stub.onWrite("catalog_category_products.PATCH", ({ params, body }) => ({ id: params.get("id")!.slice(3), created_at: new Date().toISOString(), ...(body as object) }));
+        await openCarta(page);
+        await selectCategory(page, "Antipasti");
+        const handles = main(page).getByRole("button", { name: /^Riordina (Bruschetta|Tagliere|Olive ascolane|Frittatine)$/ });
+        await expect(handles).toHaveCount(4);
+        // Ogni elemento trascinabile è una maniglia con il suo nome: la riga
+        // intera non è un bottone.
+        const sortables = main(page).locator('[aria-roledescription="sortable"]');
+        for (const el of await sortables.all()) {
+            await expect(el).toHaveAttribute("aria-label", /^Riordina /);
+        }
+
+        await main(page).getByRole("button", { name: "Riordina Tagliere" }).focus();
+        await page.keyboard.press("Space");
+        await page.waitForTimeout(200);
+        await page.keyboard.press("ArrowUp");
+        await page.waitForTimeout(300);
+        await page.keyboard.press("Space");
+        await page.waitForTimeout(200);
+        const order = await Promise.all((await handles.all()).map(h => h.getAttribute("aria-label")));
+        expect(order).toEqual(["Riordina Tagliere", "Riordina Bruschetta", "Riordina Olive ascolane", "Riordina Frittatine"]);
+        expect(stub.writes.filter(w => w.key === "catalog_category_products.PATCH")).toHaveLength(0);
+
+        await saveDraft(page);
+        await expect.poll(() => stub.writes.filter(w => w.key === "catalog_category_products.PATCH").length).toBeGreaterThan(0);
+    });
+
     test("varianti sotto il loro prodotto, vuoto con l'azione, togliere più prodotti", async ({ page }) => {
         await openCarta(page);
         await selectCategory(page, "Pizze");

@@ -355,18 +355,6 @@
   margin-left: calc(-1 * var(--space-8));
 }
 
-.dragCell {
-  color: var(--text-muted);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-
-  &:active {
-    cursor: grabbing;
-  }
-}
-
 .form {
   display: flex;
   flex-direction: column;

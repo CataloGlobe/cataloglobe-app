@@ -14,7 +14,7 @@ import Text from "@/components/ui/Text/Text";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
-import { SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
+import { DataTableDragHandle, SortableDataTableRow } from "@/components/ui/DataTable/SortableDataTableRow";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { SearchInput } from "@/components/ui/Input/SearchInput";
 import { Select } from "@/components/ui/Select/Select";
@@ -30,9 +30,10 @@ import {
 import {
     SortableContext,
     verticalListSortingStrategy,
-    arrayMove
+    arrayMove,
+    sortableKeyboardCoordinates
 } from "@dnd-kit/sortable";
-import { IconGripVertical, IconChevronDown, IconChevronRight, IconArrowLeft, IconPlus } from "@tabler/icons-react";
+import { IconChevronDown, IconChevronRight, IconArrowLeft, IconPlus } from "@tabler/icons-react";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { TextInput } from "@/components/ui/Input/TextInput";
@@ -1150,7 +1151,7 @@ export default function CatalogEngine() {
 
     const sensors = useSensors(
         useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-        useSensor(KeyboardSensor)
+        useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
     );
 
     const handleBulkAssignItems = useCallback(() => {
@@ -1468,10 +1469,11 @@ export default function CatalogEngine() {
                           header: "",
                           width: "32px",
                           align: "center",
-                          cell: (_value: unknown, _row: ProductRow, _rowIndex: number, dragHandleProps?: unknown) => (
-                              <span className={styles.dragCell} {...(dragHandleProps as HTMLAttributes<HTMLSpanElement>)}>
-                                  <IconGripVertical size={16} />
-                              </span>
+                          cell: (_value: unknown, row: ProductRow, _rowIndex: number, dragHandleProps?: unknown) => (
+                              <DataTableDragHandle
+                                  aria-label={`Riordina ${row.name}`}
+                                  {...(dragHandleProps as HTMLAttributes<HTMLButtonElement>)}
+                              />
                           )
                       } as ColumnDefinition<ProductRow>
                   ]
