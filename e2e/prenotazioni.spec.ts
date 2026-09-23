@@ -102,6 +102,11 @@ test.describe("Prenotazioni", () => {
         const luca = m.getByRole("button", { name: /Luca Verdi/ }).first();
         await expect(luca.getByRole("button", { name: "Rifiuta", exact: true })).toBeVisible();
         await expect(luca.getByRole("button", { name: "Conferma", exact: true })).toHaveCount(0);
+        // Spenta, ma si apre ancora: il dettaglio dice cosa ne è stato.
+        await luca.click();
+        await expect(page.getByRole("dialog")).toContainText("Luca Verdi");
+        await page.getByRole("dialog").getByRole("button", { name: "Chiudi" }).first().click();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
 
         await expect(giulia.getByRole("button", { name: "Conferma", exact: true })).toBeVisible();
         await expect(giulia.getByRole("button", { name: "Rifiuta", exact: true })).toBeVisible();
@@ -189,6 +194,13 @@ test.describe("Prenotazioni", () => {
         await expect(m.getByText("Servita", { exact: true }).first()).toBeVisible();
         await expect(m.getByText(/^(Completata|In attesa)$/)).toHaveCount(0);
         await expect(m.getByText("Ospite di Varedo")).toHaveCount(0);
+
+        // Le annullate stanno dietro il loro filtro; accese, sono spente ma si aprono.
+        await expect(m.getByText("Carla Fumagalli")).toHaveCount(0);
+        await m.getByText("Annullate", { exact: true }).click();
+        await m.getByRole("button", { name: /Carla Fumagalli/ }).first().click();
+        await expect(page.getByRole("dialog")).toContainText("Annullata");
+        await page.getByRole("dialog").getByRole("button", { name: "Chiudi" }).first().click();
 
         await m.getByRole("radio", { name: "Settimana" }).click();
         await expect(m.getByRole("button", { name: /^Sara Conti 20:30/ })).toBeVisible();

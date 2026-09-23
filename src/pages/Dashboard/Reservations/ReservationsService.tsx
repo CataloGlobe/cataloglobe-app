@@ -199,6 +199,7 @@ export default function ReservationsService({
                 key={s.id}
                 dense
                 onClick={() => openRow(s)}
+                muted={done}
                 title={
                     isWalkin ? (
                         // I tavoli sono il nome (§18.1); senza tavoli la riga

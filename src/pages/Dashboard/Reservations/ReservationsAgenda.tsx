@@ -289,8 +289,8 @@ export default function ReservationsAgenda({
 
     // ── Days view row ───────────────────────────────────────────────────────
     // ListRow dense (48): l'agenda è un elenco lungo che si legge a colpo
-    // d'occhio. Annullate e rifiutate (con l'interruttore acceso) restano
-    // righe apribili: `muted` le renderebbe inerti.
+    // d'occhio. Annullate e rifiutate (con l'interruttore acceso) sono
+    // spente ma si aprono ancora: `muted` è solo l'aspetto.
     const renderTimelineRow = (r: V2Reservation) => {
         const badge = statusMeta(r.status);
         const tableView = tableViews.get(r.id);
@@ -300,8 +300,15 @@ export default function ReservationsAgenda({
                 key={r.id}
                 dense
                 onClick={() => onOpenDetail(r)}
+                muted={isDimmed(r.status)}
                 leading={
-                    <Text as="span" variant="body-sm" weight={700} className={styles.timelineTime}>
+                    <Text
+                        as="span"
+                        variant="body-sm"
+                        weight={700}
+                        colorVariant={isDimmed(r.status) ? "muted" : "default"}
+                        className={styles.timelineTime}
+                    >
                         {r.reservation_time.slice(0, 5)}
                     </Text>
                 }

@@ -47,7 +47,7 @@ function id(): string {
     return `00000000-0000-4000-8000-${String(counter).padStart(12, "0")}`;
 }
 
-/** Otto righe a Garbagnate (3 da gestire, di cui una scaduta; 5 di oggi o dopo) e una a Varedo. */
+/** Nove righe a Garbagnate (3 da gestire, di cui una scaduta; 6 di oggi o dopo, una annullata) e una a Varedo. */
 export function makeReservations(): StubReservation[] {
     const r = (o: Partial<StubReservation> & Pick<StubReservation, "reservation_date" | "reservation_time" | "customer_name" | "status">): StubReservation => ({
         id: id(),
@@ -66,6 +66,7 @@ export function makeReservations(): StubReservation[] {
         r({ reservation_date: isoDay(0), reservation_time: "13:00:00", customer_name: "Paolo Gallo", party_size: 6, status: "seated" }),
         r({ reservation_date: isoDay(0), reservation_time: "20:30:00", customer_name: "Sara Conti", status: "confirmed" }),
         r({ reservation_date: isoDay(0), reservation_time: "21:15:00", customer_name: "Elena Riva", party_size: 5, status: "confirmed", source: "manual" }),
+        r({ reservation_date: isoDay(0), reservation_time: "20:00:00", customer_name: "Carla Fumagalli", status: "cancelled" }),
         r({ reservation_date: isoDay(0), reservation_time: "20:45:00", customer_name: "Ospite di Varedo", status: "pending", activity_id: VAREDO_ID })
     ];
 }

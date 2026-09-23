@@ -101,6 +101,7 @@ export default function ReservationsInbox({
             <ListRow
                 key={r.id}
                 onClick={() => onOpenDetail(r)}
+                muted={isStale}
                 leading={<ChannelMark source={r.source} />}
                 title={r.customer_name}
                 subtitle={
