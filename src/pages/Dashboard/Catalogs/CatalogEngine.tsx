@@ -1886,19 +1886,19 @@ export default function CatalogEngine() {
                             tenantId={currentTenantId ?? ""}
                             sourceText={selectedCategory.name}
                             fieldKey="name"
-                            sectionLabel="Traduzioni nome categoria"
-                            sectionDescription="Modifica manualmente le traduzioni del nome categoria. Le modifiche manuali non vengono sovrascritte dalla traduzione automatica."
+                            sectionLabel={`Traduzioni del nome della ${categoryLower}`}
+                            sectionDescription={`Le traduzioni del nome di «${selectedCategory.name}» nelle lingue del ${catalogLabel.toLowerCase()}. Quelle scritte a mano non vengono sovrascritte dalla traduzione automatica.`}
                             primaryLabel="Nome"
-                            placeholderItalian="Nome categoria in italiano"
-                            onSourceUpdated={text =>
-                                setCategories(prev =>
-                                    prev.map(c =>
-                                        c.id === selectedCategory.id
-                                            ? { ...c, name: text }
-                                            : c
-                                    )
-                                )
-                            }
+                            placeholderItalian={`Nome della ${categoryLower} in italiano`}
+                            // Il testo italiano si salva subito dalla scheda (§25.1):
+                            // cambia sia la bozza sia il salvato, altrimenti «Annulla»
+                            // rimetterebbe a video il nome vecchio (#285).
+                            onSourceUpdated={text => {
+                                const rename = (list: V2CatalogCategory[]) =>
+                                    list.map(c => (c.id === selectedCategory.id ? { ...c, name: text } : c));
+                                setCategories(rename);
+                                setOriginalCategories(rename);
+                            }}
                         />
                     </div>
                 )}

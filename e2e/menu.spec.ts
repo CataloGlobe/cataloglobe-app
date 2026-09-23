@@ -488,11 +488,28 @@ test.describe("Menù — dettaglio", () => {
         expect(call.body).toEqual(expect.objectContaining({ parent_category_id: null, level: 1 }));
     });
 
-    test("la scheda Traduzioni c'è", async ({ page }) => {
+    test("Traduzioni: il nome italiano si salva subito, e «Annulla» della bozza non lo riporta indietro", async ({ page }) => {
+        stub.onWrite("catalog_categories.PATCH", ({ params, body }) => ({ id: params.get("id")!.slice(3), catalog_id: MENU.carta, level: 1, parent_category_id: null, sort_order: 0, created_at: new Date().toISOString(), ...(body as object) }));
         await openCarta(page);
         await selectCategory(page, "Antipasti");
         await page.getByRole("tab", { name: "Traduzioni" }).click();
-        await expect(main(page).getByText(/Traduzioni nome categoria/)).toBeVisible();
+        await expect(main(page).getByText("Traduzioni del nome della portata")).toBeVisible();
+
+        await main(page).getByRole("tabpanel").or(main(page)).getByRole("button", { name: "Modifica", exact: true }).first().click();
+        await main(page).getByRole("textbox").filter({ hasText: "" }).last().fill("Stuzzichini");
+        await main(page).getByRole("button", { name: "Salva", exact: true }).last().click();
+        await expect.poll(() => write(stub, "catalog_categories.PATCH")).toBeTruthy();
+        expect(write(stub, "catalog_categories.PATCH")!.body).toEqual(expect.objectContaining({ name: "Stuzzichini" }));
+        await expect(node(page, "Stuzzichini")).toBeVisible();
+
+        // Una bozza su un'altra portata, poi «Annulla»: Stuzzichini resta.
+        await page.getByRole("tab", { name: "Prodotti" }).click();
+        await selectCategory(page, "Pizze");
+        await renameCategory(page, "Pizze e focacce");
+        await page.getByRole("button", { name: "Annulla", exact: true }).first().click();
+        await page.getByRole("alertdialog").getByRole("button", { name: "Scarta" }).click();
+        await expect(node(page, "Pizze")).toBeVisible();
+        await expect(node(page, "Stuzzichini")).toBeVisible();
     });
 
     test("in sola lettura il dettaglio si guarda e basta", async ({ page }) => {
