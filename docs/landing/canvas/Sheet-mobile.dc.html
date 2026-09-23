@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Menù di esempio — sheet interno</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;font-family:'Instrument Sans', sans-serif;background:#E3E3F0}
+a{color:#4648C6}a:hover{color:#33359E}
+summary::-webkit-details-marker{display:none}
+details[open] .piu{display:none!important}
+details:not([open]) .meno{display:none!important}
+@keyframes entra0{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes entra1{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes entra2{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes battito{0%,100%{opacity:1}50%{opacity:0.35}}
+@keyframes cresci{from{transform:scaleY(0.04)}to{transform:scaleY(1)}}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #E3E3F0; padding: 10px;">
+<div style="min-height: 100%; box-sizing: border-box; border-radius: 22px; overflow: hidden; background: #F2F2FA; color: #15141F; display: flex; flex-direction: column;">
+  <div style="position: relative; flex-grow: 1; overflow: hidden;">
+    <div style="position: absolute; inset: 0; overflow: hidden;">
+      <div style="position: absolute; inset: 0; background: #F2F2FA; border-radius: 16px; overflow: hidden; transform: scale(0.955); transform-origin: 50% 0%; padding: 22px 20px; box-sizing: border-box;">
+        <p style="margin: 0; font-family: 'Young Serif', serif; font-size: 26px; line-height: 1.14; color: #15141F;">Guarda cosa può diventare il tuo locale.</p>
+        <p style="margin: 10px 0 0; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Tre locali di esempio, tre stili diversi.</p>
+        <div style="margin-top: 16px; height: 58px; border-radius: 14px; background: #FFFFFF; border: 1px solid #4648C6;"></div>
+        <div style="margin-top: 10px; height: 58px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E0E0EE;"></div>
+      </div>
+      <div style="position: absolute; inset: 0; background: rgba(13,12,28,0.52);"></div>
+    </div>
+    <div style="position: absolute; left: 8px; right: 8px; bottom: 9px; top: 64px; border-radius: 22px; overflow: hidden; background: #FFFFFF; box-shadow: 0 -8px 40px rgba(10,9,24,0.42); display: flex; flex-direction: column;">
+      <div style="flex-shrink: 0; background: #FFFFFF; border-bottom: 1px solid #E0E0EE;">
+        <div style="display: flex; justify-content: center; padding: 8px 0 2px;"><span style="width: 38px; height: 5px; border-radius: 999px; background: #D3D1E2;"></span></div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 4px 12px 12px 18px;">
+          <span style="flex-grow: 1; min-width: 0;"><span style="display: block; font-size: 15px; font-weight: 600; color: #15141F; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Il Molo 34</span><span style="display: block; font-size: 11px; color: #63607A;">menù di esempio · cataloglobe.com/il-molo-34</span></span>
+          <button type="button" aria-label="Chiudi" style="width: 32px; height: 32px; flex-shrink: 0; border-radius: 50%; border: 0; background: #F2F2FA; display: inline-flex; align-items: center; justify-content: center; cursor: pointer;"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#15141F" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></button>
+        </div>
+      </div>
+      <div style="flex-grow: 1; overflow: hidden; background: #16222A;">
+        <div style="position: relative; height: 150px; background: linear-gradient(150deg, #2A4550, #16222A);"><div style="position: absolute; left: 16px; bottom: 14px;"><span style="display: block; font-family: 'Young Serif', serif; font-size: 22px; color: #E9EFEC;">Il Molo 34</span><span style="display: block; margin-top: 2px; font-size: 12px; color: #93A9A4;">Pesce, carta della sera</span></div></div>
+        <div style="display: flex; gap: 7px; padding: 14px 16px 12px; overflow: hidden;"><span style="flex-shrink: 0; padding: 7px 13px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #E9C46A; color: #16222A;">Crudi</span><span style="flex-shrink: 0; padding: 7px 13px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #93A9A4; border: 1px solid #27373F;">Primi</span><span style="flex-shrink: 0; padding: 7px 13px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #93A9A4; border: 1px solid #27373F;">Secondi</span><span style="flex-shrink: 0; padding: 7px 13px; border-radius: 999px; font-size: 12px; font-weight: 600; color: #93A9A4; border: 1px solid #27373F;">Dolci</span></div>
+        <div style="margin: 0 16px; padding: 12px 13px; border-radius: 12px; border: 1px solid #27373F; border-left: 3px solid #E9C46A;"><span style="display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #E9C46A;">In evidenza adesso</span><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 5px;"><span style="font-family: 'Young Serif', serif; font-size: 16px; color: #E9EFEC;">Degustazione di pesce</span><span style="font-size: 14px; font-weight: 600; color: #E9EFEC;">38 €</span></div></div>
+        <div style="margin-top: 12px;"><div style="padding: 14px 16px; border-bottom: 1px solid #27373F;"><div style="display: flex; align-items: baseline; gap: 12px;"><span style="flex-grow: 1; font-family: 'Young Serif', serif; font-size: 16px; color: #E9EFEC;">Carpaccio di branzino</span><span style="font-size: 15px; font-weight: 600; color: #E9EFEC;">16 €</span></div><p style="margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: #93A9A4;">Marinato agli agrumi, finocchietto selvatico e olio extravergine</p></div><div style="padding: 14px 16px; border-bottom: 1px solid #27373F;"><div style="display: flex; align-items: baseline; gap: 12px;"><span style="flex-grow: 1; font-family: 'Young Serif', serif; font-size: 16px; color: #E9EFEC;">Crudo di gambero rosso</span><span style="font-size: 15px; font-weight: 600; color: #E9EFEC;">19 €</span></div><p style="margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: #93A9A4;">Gambero di Mazara, burrata e scorza di limone</p></div><div style="padding: 14px 16px; border-bottom: 1px solid #27373F;"><div style="display: flex; align-items: baseline; gap: 12px;"><span style="flex-grow: 1; font-family: 'Young Serif', serif; font-size: 16px; color: #E9EFEC;">Risotto ai frutti di mare</span><span style="font-size: 15px; font-weight: 600; color: #E9EFEC;">20 €</span></div><p style="margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: #93A9A4;">Carnaroli, vongole, cozze e prezzemolo</p></div><div style="padding: 14px 16px; border-bottom: 1px solid #27373F;"><div style="display: flex; align-items: baseline; gap: 12px;"><span style="flex-grow: 1; font-family: 'Young Serif', serif; font-size: 16px; color: #E9EFEC;">Branzino al sale</span><span style="font-size: 15px; font-weight: 600; color: #E9EFEC;">22 €</span></div><p style="margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: #93A9A4;">Pescato del giorno in crosta, contorno di stagione</p></div><div style="padding: 14px 16px; border-bottom: 1px solid #27373F;"><div style="display: flex; align-items: baseline; gap: 12px;"><span style="flex-grow: 1; font-family: 'Young Serif', serif; font-size: 16px; color: #E9EFEC;">Tagliata di tonno</span><span style="font-size: 15px; font-weight: 600; color: #E9EFEC;">24 €</span></div><p style="margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: #93A9A4;">Sesamo, rucola e riduzione di soia</p></div></div>
+      </div>
+      <div style="flex-shrink: 0; padding: 12px 14px 16px; background: #FFFFFF; border-top: 1px solid #E0E0EE;">
+        <a href="#contatto" style="display: block; padding: 15px; background: #4648C6; color: #FFFFFF; border-radius: 13px; font-size: 16px; font-weight: 600; text-align: center; text-decoration: none;">Parliamone</a>
+        <p style="margin: 7px 0 0; font-size: 12px; text-align: center; color: #63607A;">Il tuo può essere così. Ci vuole una telefonata.</p>
+      </div>
+    </div>
+  </div>
+</div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+
+</script>
+</body>
+</html>

@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Landing — mobile, parte 2</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;font-family:'Instrument Sans', sans-serif;background:#E3E3F0}
+a{color:#4648C6}a:hover{color:#33359E}
+summary::-webkit-details-marker{display:none}
+details[open] .piu{display:none!important}
+details:not([open]) .meno{display:none!important}
+@keyframes entra0{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes entra1{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes entra2{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}
+@keyframes battito{0%,100%{opacity:1}50%{opacity:0.35}}
+@keyframes cresci{from{transform:scaleY(0.04)}to{transform:scaleY(1)}}
+</style>
+</helmet>
+<div style="width: 390px; height: 6570px; box-sizing: border-box; background: #E3E3F0; padding: 10px;">
+<div style="min-height: 100%; box-sizing: border-box; border-radius: 22px; overflow: hidden; background: #F2F2FA; color: #15141F; display: flex; flex-direction: column;">
+  <section id="funzioni" style="padding: 44px 20px; background: #F2F2FA;">
+    <h2 style="margin: 0; font-family: 'Young Serif', serif; font-size: 30px; line-height: 1.12; font-weight: 400; color: #15141F;">E dentro c’è tutto il resto.</h2>
+    <p style="margin: 14px 0 0; font-size: 16px; line-height: 1.55; color: #63607A;">Tocca una voce: te la faccio vedere.</p>
+    <div style="margin-top: 20px; background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 18px; overflow: hidden; box-shadow: 0 14px 34px rgba(21,20,43,0.06);">
+      <div style="padding: 15px; border-bottom: 1px solid #E0E0EE;">
+        <p style="margin: 0 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #63607A;">Il tuo locale</p>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{gruppoA}}" as="s" hint-placeholder-count="5">
+            <button type="button" onClick="{{s.pick}}" style="{{s.style}}">{{s.label}}</button>
+          </sc-for>
+        </div>
+        <p style="margin: 16px 0 8px; font-size: 11px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: #63607A;">Il tuo menù</p>
+        <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px;">
+          <sc-for list="{{gruppoB}}" as="s" hint-placeholder-count="4">
+            <button type="button" onClick="{{s.pick}}" style="{{s.style}}">{{s.label}}</button>
+          </sc-for>
+        </div>
+      </div>
+      <div style="padding: 18px; min-height: 780px; display: flex; flex-direction: column; justify-content: center; {{animPan}}">
+          <sc-if value="{{s0}}" hint-placeholder-val="{{true}}">
+            <div><p style="margin: 0 0 14px; font-family: 'Young Serif', serif; font-size: 18px; font-weight: 400; line-height: 1.25; color: #15141F;">Il tavolo 7 ha fame, e tu sei in cucina.</p><div><div style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 16px; padding: 15px;"><span style="display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #63607A;">Lo vede il cliente</span><span style="display: block; margin-top: 10px; font-family: 'Young Serif', serif; font-size: 17px; color: #15141F;">Tavolo 7</span><div style="margin-top: 8px;"><div style="display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-bottom: 1px solid #EDEDF6;"><span style="font-size: 14px; color: #15141F;">Tagliere del Molo</span><span style="font-size: 14px; font-weight: 600; color: #63607A;">× 1</span></div><div style="display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-bottom: 1px solid #EDEDF6;"><span style="font-size: 14px; color: #15141F;">Spritz della casa</span><span style="font-size: 14px; font-weight: 600; color: #63607A;">× 2</span></div><div style="display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; border-bottom: 1px solid #EDEDF6;"><span style="font-size: 14px; color: #15141F;">Tiramisù</span><span style="font-size: 14px; font-weight: 600; color: #63607A;">× 1</span></div></div><div style="display: flex; justify-content: space-between; align-items: baseline; padding-top: 9px;"><span style="font-size: 14px; color: #63607A;">Totale</span><span style="font-size: 16px; font-weight: 700; color: #15141F;">27 €</span></div><button type="button" style="{{bottone}}">{{etichetta}}</button></div><div style="position: relative; height: 34px; margin: 4px 0;"><span style="position: absolute; left: 50%; top: 0; width: 1px; height: 100%; margin-left: -0.5px; background: #E0E0EE;"></span><span style="{{puntoGiu}}"></span></div><div><p style="margin: 0 0 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #4648C6;">Lo vedi tu </p><div style="display: flex; flex-direction: column; align-items: center;"><div style="width: 230px; background: #23272B; border-radius: 12px 12px 6px 6px; padding: 9px 12px; display: flex; align-items: center; justify-content: space-between;"><span style="font-family: Instrument Sans, sans-serif; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; color: #8B9198;">CUCINA</span><span style="{{spia}}"></span></div><div style="width: 230px; height: 7px; background: #16191C; border-radius: 0 0 4px 4px;"></div><div style="position: relative; width: 100%; height: 186px; overflow: hidden; margin-top: -2px;"><div style="position: absolute; left: 0; right: 0; top: 0; {{cartaOrd.trasforma}}"><div style="width: 196px; margin: 0 auto; background: #FAFAFE; box-shadow: 0 10px 24px rgba(23,20,15,0.16); padding: 14px 16px 6px;"><div style="font-family: 'Courier New', ui-monospace, monospace; font-size: 11px; letter-spacing: 0.14em; text-align: center; color: #2B2948;">IL MOLO 34</div><div style="border-top: 1px dashed #B9B2A6; margin: 7px 0;"></div><div style="display: flex; justify-content: space-between; font-family: 'Courier New', ui-monospace, monospace; font-size: 11px; color: #2B2948;"><span>TAVOLO 7</span><span>20:41</span></div><div style="border-top: 1px dashed #B9B2A6; margin: 7px 0;"></div><div style="display: flex; gap: 10px; font-family: 'Courier New', ui-monospace, monospace; font-size: 11px; line-height: 1.7; color: #2B2948;"><span style="width: 14px; flex-shrink: 0;">1</span><span>TAGLIERE DEL MOLO</span></div><div style="display: flex; gap: 10px; font-family: 'Courier New', ui-monospace, monospace; font-size: 11px; line-height: 1.7; color: #2B2948;"><span style="width: 14px; flex-shrink: 0;">2</span><span>SPRITZ DELLA CASA</span></div><div style="display: flex; gap: 10px; font-family: 'Courier New', ui-monospace, monospace; font-size: 11px; line-height: 1.7; color: #2B2948;"><span style="width: 14px; flex-shrink: 0;">1</span><span>TIRAMISU</span></div><div style="border-top: 1px dashed #B9B2A6; margin: 7px 0;"></div><div style="font-family: 'Courier New', ui-monospace, monospace; font-size: 10px; letter-spacing: 0.1em; color: #6B6458;">COMANDA #128</div></div><div style="width: 196px; margin: 0 auto; height: 10px; background-image: repeating-linear-gradient(135deg, #FAFAFE 0 6px, transparent 6px 12px), repeating-linear-gradient(45deg, #FAFAFE 0 6px, transparent 6px 12px); background-color: transparent;"></div></div></div></div></div></div><p style="margin: 14px 0 0; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Il cliente ordina dal QR sul tavolo. La comanda esce stampata in cucina: nessuno deve passare a prenderla.</p></div>
+          </sc-if>
+          <sc-if value="{{s1}}" hint-placeholder-val="{{true}}">
+            <div><p style="margin: 0 0 14px; font-family: 'Young Serif', serif; font-size: 18px; font-weight: 400; line-height: 1.25; color: #15141F;">Vogliono un tavolo per giovedì, e tu sei in sala.</p><div><div style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 16px; padding: 15px;"><span style="display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #63607A;">Lo vede il cliente</span><span style="display: block; margin-top: 10px; font-family: 'Young Serif', serif; font-size: 17px; color: #15141F;">Prenota un tavolo</span><div style="margin-top: 12px; display: flex; align-items: center; gap: 7px;"><span style="font-size: 13px; color: #63607A; margin-right: 2px;">In quanti</span><span style="display: inline-block; min-width: 34px; text-align: center; padding: 6px 10px; border-radius: 999px; border: 1px solid #E0E0EE; background: transparent; color: #15141F; font-size: 13px; font-weight: 500;">2</span><span style="display: inline-block; min-width: 34px; text-align: center; padding: 6px 10px; border-radius: 999px; border: 1px solid #4648C6; background: #4648C6; color: #FFFFFF; font-size: 13px; font-weight: 600;">4</span><span style="display: inline-block; min-width: 34px; text-align: center; padding: 6px 10px; border-radius: 999px; border: 1px solid #E0E0EE; background: transparent; color: #15141F; font-size: 13px; font-weight: 500;">6</span></div><div style="margin-top: 12px; display: flex; gap: 8px;"><span style="flex-grow: 1; padding: 10px 12px; border: 1px solid #E0E0EE; border-radius: 10px; font-size: 14px; color: #15141F;">Ven 12 set</span><span style="flex-grow: 1; padding: 10px 12px; border: 1px solid #E0E0EE; border-radius: 10px; font-size: 14px; color: #15141F;">20:30</span></div><div style="margin-top: 8px; padding: 10px 12px; border: 1px solid #E0E0EE; border-radius: 10px; font-size: 14px; color: #15141F;">Marco Rossi</div><button type="button" style="{{bottoneP}}">{{etichettaP}}</button></div><div style="position: relative; height: 34px; margin: 4px 0;"><span style="position: absolute; left: 50%; top: 0; width: 1px; height: 100%; margin-left: -0.5px; background: #E0E0EE;"></span><span style="{{puntoGiuP}}"></span></div><div style=""><p style="margin: 0 0 8px; font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #4648C6;">Lo vedi tu</p><div style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 16px; padding: 13px;"><span style="display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #63607A;">Agenda di venerdì</span><div style="margin-top: 8px;"><div style="display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-bottom: 1px solid #EDEDF6;"><span style="font-size: 13px; font-weight: 600; color: #15141F;">19:45</span><span style="flex-grow: 1; font-size: 13px; color: #15141F;">Bianchi</span><span style="font-size: 12px; color: #63607A;">2 coperti</span><span style="font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #2F7D53;">Confermata</span></div><div style="display: flex; align-items: center; gap: 8px; padding: 9px 10px; border-bottom: 1px solid #EDEDF6;"><span style="font-size: 13px; font-weight: 600; color: #15141F;">20:15</span><span style="flex-grow: 1; font-size: 13px; color: #15141F;">Ferri</span><span style="font-size: 12px; color: #63607A;">6 coperti</span><span style="font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #2F7D53;">Confermata</span></div><div style="{{rigaNuova}}"><div style="display: flex; align-items: center; gap: 8px; padding: 9px 10px; margin-top: 4px; border-radius: 10px; background: #E6E5FC; border: {{bordoNuovo}};"><span style="font-size: 13px; font-weight: 600; color: #15141F;">20:30</span><span style="flex-grow: 1; font-size: 13px; color: #15141F;">Rossi</span><span style="font-size: 12px; color: #63607A;">4 coperti</span><span style="font-size: 9px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #4648C6;">Nuova</span></div></div></div></div><div style="margin-top: 10px; background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 16px; padding: 13px;"><span style="display: block; font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #63607A;">I tuoi clienti</span><div style="margin-top: 8px;"><div style="{{clienteNuovo}}"><div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-radius: 10px; background: #E7F2EA;"><span style="font-size: 13px; color: #15141F;">Marco Rossi</span><span style="font-size: 12px; color: #2F7D53; font-weight: 600;">1ª volta</span></div></div><div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; border-bottom: 1px solid #EDEDF6;"><span style="font-size: 13px; color: #15141F;">Chiara Bianchi</span><span style="font-size: 12px; color: #63607A; font-weight: 400;">5ª volta</span></div><div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; "><span style="font-size: 13px; color: #15141F;">Luca Ferri</span><span style="font-size: 12px; color: #63607A; font-weight: 400;">2ª volta</span></div></div></div></div></div><p style="margin: 14px 0 0; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Prenota online e finisce nella tua agenda. E i clienti che prenotano <b>restano tuoi</b>: nome, telefono e quante volte sono venuti stanno nel tuo pannello, non su un portale.</p></div>
+          </sc-if>
+          <sc-if value="{{s2}}" hint-placeholder-val="{{true}}">
+            <div><p style="margin: 0 0 14px; font-family: 'Young Serif', serif; font-size: 18px; font-weight: 400; line-height: 1.25; color: #15141F;">Hanno pagato il conto e stanno per uscire.</p><div style="display: flex; gap: 10px;"><div style="flex-grow: 1; flex-basis: 0; background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 14px;"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #63607A;">Lo vede il cliente</span><span style="display: block; margin-top: 9px; font-size: 13px; color: #3C3A4C;">Com’è andata stasera?</span><div style="margin-top: 8px; display: flex;"><svg width="16" height="16" viewBox="0 0 24 24" fill="#D79A2B" aria-hidden="true" style="margin-right: 2px;"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="#D79A2B" aria-hidden="true" style="margin-right: 2px;"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="#D79A2B" aria-hidden="true" style="margin-right: 2px;"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="#D79A2B" aria-hidden="true" style="margin-right: 2px;"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="#D79A2B" aria-hidden="true" style="margin-right: 2px;"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"></path></svg></div><div style="margin-top: 10px; padding: 9px 10px; border: 1px solid #E0E0EE; border-radius: 9px; font-size: 12px; line-height: 1.4; color: #63607A;">Il branzino al sale era perfetto…</div><div style="margin-top: 9px; padding: 8px; border-radius: 9px; background: #4648C6; color: #FFFFFF; font-size: 12px; font-weight: 600; text-align: center;">Invia</div></div><div style="flex-grow: 1; flex-basis: 0; background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 14px;"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #4648C6;">Lo vedi tu</span><div style="margin-top: 9px; display: flex; align-items: center; gap: 6px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="#D79A2B" aria-hidden="true" style="margin-right: 2px;"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="#D79A2B" aria-hidden="true" style="margin-right: 2px;"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="#D79A2B" aria-hidden="true" style="margin-right: 2px;"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="#D79A2B" aria-hidden="true" style="margin-right: 2px;"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"></path></svg><svg width="16" height="16" viewBox="0 0 24 24" fill="#D79A2B" aria-hidden="true" style="margin-right: 2px;"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17.3 5.9 20.6l1.4-6.8L2.2 9.1l6.9-.8z"></path></svg><span style="font-size: 11px; color: #63607A;">ieri, 22:14</span></div><p style="margin: 8px 0 0; font-size: 12px; line-height: 1.5; color: #15141F;">« Il branzino al sale era perfetto e il servizio velocissimo. Torneremo. »</p><p style="margin: 6px 0 0; font-size: 11px; color: #63607A;">Giulia · dal menù al tavolo</p><div style="margin-top: 10px; padding: 9px 10px; border-radius: 9px; background: #E7F2EA; font-size: 11px; line-height: 1.4; color: #234D36;">Contenta: chiedile di lasciarla anche su Google.</div></div></div><p style="margin: 14px 0 0; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Il giudizio lo leggi tu per primo, mentre il cliente è ancora seduto. Poi decidi tu se invitarlo a scriverla su Google.</p></div>
+          </sc-if>
+          <sc-if value="{{s3}}" hint-placeholder-val="{{true}}">
+            <div><p style="margin: 0 0 14px; font-family: 'Young Serif', serif; font-size: 18px; font-weight: 400; line-height: 1.25; color: #15141F;">Hai tre locali, e in uno ci sono tre menù.</p><div style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 16px;"><div><div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #EDEDF6;"><span style="width: 74px; flex-shrink: 0; font-family: 'Young Serif', serif; font-size: 15px; color: #15141F;">Duomo</span><span style="flex-grow: 1; font-size: 13px; color: #3C3A4C;">Carta</span><span style="font-size: 11px; color: #63607A;">12–22</span></div><div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid #EDEDF6;"><span style="width: 74px; flex-shrink: 0; font-family: 'Young Serif', serif; font-size: 15px; color: #15141F;">Navigli</span><span style="flex-grow: 1; font-size: 13px; color: #3C3A4C;">Aperitivo</span><span style="font-size: 11px; color: #63607A;">18–23</span></div><div style="display: flex; align-items: center; gap: 10px; padding: 10px 0; "><span style="width: 74px; flex-shrink: 0; font-family: 'Young Serif', serif; font-size: 15px; color: #15141F;">Stazione</span><span style="flex-grow: 1; font-size: 13px; color: #3C3A4C;">Veloce</span><span style="font-size: 11px; color: #63607A;">7–21</span></div></div></div><div style="margin-top: 10px; padding: 11px 12px; border-radius: 12px; background: #E6E5FC;"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #4648C6;">Dentro il Duomo, adesso</span><div style="margin-top: 7px; display: flex; flex-wrap: wrap; gap: 6px;"><span style="font-size: 12px; font-weight: 500; color: #15141F; background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 999px; padding: 5px 10px;">Carta</span><span style="font-size: 12px; font-weight: 500; color: #15141F; background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 999px; padding: 5px 10px;">Menù bar</span><span style="font-size: 12px; font-weight: 500; color: #15141F; background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 999px; padding: 5px 10px;">Lista vini</span></div></div><p style="margin: 14px 0 0; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Ogni locale con il suo menù e il suo stile. E dentro un locale solo puoi tenere la carta, il menù del bar e la lista dei vini, ognuno con le sue ore.</p></div>
+          </sc-if>
+          <sc-if value="{{s4}}" hint-placeholder-val="{{true}}">
+            <div><p style="margin: 0 0 14px; font-family: 'Young Serif', serif; font-size: 18px; font-weight: 400; line-height: 1.25; color: #15141F;">Arriva una persona nuova in sala.</p><div style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 16px;"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #63607A;">Chi può fare cosa</span><div style="margin-top: 6px;"><div style="padding: 10px 0; border-bottom: 1px solid #EDEDF6;"><div style="display: flex; align-items: center; gap: 8px;"><span style="flex-grow: 1; font-size: 14px; color: #15141F;">Giulia</span><span style="font-size: 11px; font-weight: 600; color: #4648C6; background: #E6E5FC; border-radius: 999px; padding: 4px 9px;">Sala</span><span style="font-size: 11px; color: #63607A;">Navigli</span></div><span style="display: block; margin-top: 4px; font-size: 11px; color: #63607A;">Comande e tavoli. Non vede i prezzi né le altre sedi.</span></div><div style="padding: 10px 0; border-bottom: 1px solid #EDEDF6;"><div style="display: flex; align-items: center; gap: 8px;"><span style="flex-grow: 1; font-size: 14px; color: #15141F;">Marco</span><span style="font-size: 11px; font-weight: 600; color: #4648C6; background: #E6E5FC; border-radius: 999px; padding: 4px 9px;">Cucina</span><span style="font-size: 11px; color: #63607A;">Duomo</span></div><span style="display: block; margin-top: 4px; font-size: 11px; color: #63607A;">Comande e disponibilità dei piatti.</span></div><div style="padding: 10px 0; "><div style="display: flex; align-items: center; gap: 8px;"><span style="flex-grow: 1; font-size: 14px; color: #15141F;">Alessandro</span><span style="font-size: 11px; font-weight: 600; color: #4648C6; background: #E6E5FC; border-radius: 999px; padding: 4px 9px;">Titolare</span><span style="font-size: 11px; color: #63607A;">tutto</span></div><span style="display: block; margin-top: 4px; font-size: 11px; color: #63607A;">Tutto, comprese fatture e team.</span></div></div></div><p style="margin: 14px 0 0; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Dai accesso al personale locale per locale, senza dare le chiavi di tutto.</p></div>
+          </sc-if>
+          <sc-if value="{{s5}}" hint-placeholder-val="{{true}}">
+            <div><p style="margin: 0 0 14px; font-family: 'Young Serif', serif; font-size: 18px; font-weight: 400; line-height: 1.25; color: #15141F;">Alle 13:30 finisce il branzino.</p><div style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 16px;"><div style="display: flex; align-items: center; justify-content: space-between; gap: 10px;"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #63607A;">La regola</span><span style="display: inline-flex; align-items: center; gap: 5px; padding: 4px 9px; border-radius: 999px; background: #E6E5FC; color: #4648C6; font-size: 11px; font-weight: 600;"><span style="width: 5px; height: 5px; border-radius: 50%; background: #4648C6;"></span>In corso ora</span></div><div style="margin-top: 8px;"><div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #EDEDF6;"><span style="width: 62px; flex-shrink: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #63607A;">Cosa</span><span style="flex-grow: 1; font-size: 14px; color: #15141F; font-weight: 600;">Menù Aperitivo</span></div><div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #EDEDF6;"><span style="width: 62px; flex-shrink: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #63607A;">Dove</span><span style="flex-grow: 1; font-size: 14px; color: #15141F; ">Il Molo 34 · Navigli</span></div><div style="display: flex; align-items: center; gap: 10px; padding: 8px 0; "><span style="width: 62px; flex-shrink: 0; font-size: 11px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: #63607A;">Quando</span><span style="flex-grow: 1; font-size: 14px; color: #15141F; ">18:00–20:00, tutti i giorni</span></div></div></div><div style="margin-top: 10px; background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 14px;"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #63607A;">Dal telefono, mentre sei in sala</span><div style="margin-top: 9px; display: flex; align-items: center; gap: 10px;"><span style="flex-grow: 1; font-size: 14px; color: #63607A; text-decoration: line-through;">Branzino al sale</span><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #A8461F;">Esaurito</span><span style="width: 34px; height: 20px; flex-shrink: 0; border-radius: 999px; background: #A8461F; position: relative;"><span style="position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: #FFFFFF;"></span></span></div><p style="margin: 9px 0 0; font-size: 12px; line-height: 1.45; color: #63607A;">Sparito dal menù di tutti i tavoli, in questo istante.</p></div><p style="margin: 14px 0 0; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Decidi una volta cosa si vede e quando: per locale, per giorno, per fascia. E quando un piatto finisce lo segni dal telefono, senza chiamare nessuno.</p></div>
+          </sc-if>
+          <sc-if value="{{s6}}" hint-placeholder-val="{{true}}">
+            <div><p style="margin: 0 0 14px; font-family: 'Young Serif', serif; font-size: 18px; font-weight: 400; line-height: 1.25; color: #15141F;">Si siede un tavolo di turisti tedeschi.</p><div style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 16px;"><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px;"><span style="font-family: 'Young Serif', serif; font-size: 18px; color: #15141F;">Trofie al pesto</span><span style="font-size: 14px; font-weight: 600; color: #15141F;">€12</span></div><div style="margin-top: 8px;"><div style="display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid #EDEDF6;"><span style="flex-shrink: 0; min-width: 30px; text-align: center; padding: 3px 7px; border-radius: 6px; background: #EDEDF6; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: #63607A;">IT</span><span style="flex-grow: 1; font-size: 13px; line-height: 1.45; color: #3C3A4C;">Pasta fresca con pesto di basilico e pinoli</span></div><div style="display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-bottom: 1px solid #EDEDF6;"><span style="flex-shrink: 0; min-width: 30px; text-align: center; padding: 3px 7px; border-radius: 6px; background: #EDEDF6; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: #63607A;">EN</span><span style="flex-grow: 1; font-size: 13px; line-height: 1.45; color: #3C3A4C;">Fresh pasta with basil and pine nut pesto</span></div><div style="display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; "><span style="flex-shrink: 0; min-width: 30px; text-align: center; padding: 3px 7px; border-radius: 6px; background: #EDEDF6; font-size: 10px; font-weight: 700; letter-spacing: 0.06em; color: #63607A;">DE</span><span style="flex-grow: 1; font-size: 13px; line-height: 1.45; color: #3C3A4C;">Frische Pasta mit Basilikum-Pinienkern-Pesto</span></div></div></div><p style="margin: 10px 0 0; font-size: 12px; color: #63607A;">Italiano, inglese, francese, tedesco, spagnolo.</p><p style="margin: 14px 0 0; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Il cliente apre il menù nella sua lingua. Il nome del piatto resta in italiano: è quello che è venuto a cercare.</p></div>
+          </sc-if>
+          <sc-if value="{{s7}}" hint-placeholder-val="{{true}}">
+            <div><p style="margin: 0 0 14px; font-family: 'Young Serif', serif; font-size: 18px; font-weight: 400; line-height: 1.25; color: #15141F;">Di sera il locale diventa un’altra cosa.</p><div style="display: flex; gap: 10px;"><div style="flex-grow: 1; flex-basis: 0; background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 13px;"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #63607A;">Carta</span><div style="margin-top: 7px; padding-bottom: 6px; border-bottom: 2px solid #A8461F;"><span style="font-family: 'Young Serif', serif; font-size: 15px; color: #15141F;">Il Molo 34</span></div><div style="margin-top: 4px;"><div style="display: flex; align-items: baseline; gap: 6px; padding: 7px 0; border-bottom: 1px solid #E0E0EE;"><span style="flex-grow: 1; font-size: 12px; color: #15141F;">Branzino al sale</span><span style="font-size: 12px; font-weight: 600; color: #15141F;">€22</span></div><div style="display: flex; align-items: baseline; gap: 6px; padding: 7px 0; border-bottom: 1px solid #E0E0EE;"><span style="flex-grow: 1; font-size: 12px; color: #15141F;">Tagliata di manzo</span><span style="font-size: 12px; font-weight: 600; color: #15141F;">€24</span></div><div style="display: flex; align-items: baseline; gap: 6px; padding: 7px 0; border-bottom: 1px solid #E0E0EE;"><span style="flex-grow: 1; font-size: 12px; color: #15141F;">Tiramisù</span><span style="font-size: 12px; font-weight: 600; color: #15141F;">€6</span></div></div><p style="margin: 8px 0 0; font-size: 10px; color: #63607A;">Cena · 20:00–23:00</p></div><div style="flex-grow: 1; flex-basis: 0; background: #16222A; border: 1px solid #27373F; border-radius: 14px; padding: 13px;"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #9BB0AB;">Sera</span><div style="margin-top: 7px; padding-bottom: 6px; border-bottom: 2px solid #E9C46A;"><span style="font-family: 'Instrument Sans', sans-serif; font-size: 15px; color: #E9EFEC;">Il Molo 34</span></div><div style="margin-top: 4px;"><div style="display: flex; align-items: baseline; gap: 6px; padding: 7px 0; border-bottom: 1px solid #27373F;"><span style="flex-grow: 1; font-size: 12px; color: #E9EFEC;">Branzino al sale</span><span style="font-size: 12px; font-weight: 600; color: #E9EFEC;">€22</span></div><div style="display: flex; align-items: baseline; gap: 6px; padding: 7px 0; border-bottom: 1px solid #27373F;"><span style="flex-grow: 1; font-size: 12px; color: #E9EFEC;">Tagliata di manzo</span><span style="font-size: 12px; font-weight: 600; color: #E9EFEC;">€24</span></div><div style="display: flex; align-items: baseline; gap: 6px; padding: 7px 0; border-bottom: 1px solid #27373F;"><span style="flex-grow: 1; font-size: 12px; color: #E9EFEC;">Tiramisù</span><span style="font-size: 12px; font-weight: 600; color: #E9EFEC;">€6</span></div></div><p style="margin: 8px 0 0; font-size: 10px; color: #9BB0AB;">Cena · 20:00–23:00</p></div></div><p style="margin: 14px 0 0; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Colori, caratteri e forme li scegli tu, e li cambi quando vuoi. Piatti e prezzi non si toccano: cambia solo la veste.</p></div>
+          </sc-if>
+          <sc-if value="{{s8}}" hint-placeholder-val="{{true}}">
+            <div><p style="margin: 0 0 14px; font-family: 'Young Serif', serif; font-size: 18px; font-weight: 400; line-height: 1.25; color: #15141F;">Ti chiedono da dove arriva quel pesto.</p><div style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 14px;"><span style="display: block; font-family: 'Young Serif', serif; font-size: 17px; color: #15141F;">Trofie al pesto</span><span style="display: block; margin-top: 3px; font-size: 13px; color: #3C3A4C;">Pasta fresca con pesto di basilico</span><div style="margin-top: 11px; padding: 11px 12px; border-radius: 10px; border: 1px solid #EADFD0; background: #FDF6EE;"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #A8461F;">Dietro le quinte</span><span style="display: block; margin-top: 5px; font-size: 13px; color: #15141F;">Il basilico di Prà, e perché lo prendiamo lì</span><span style="display: block; margin-top: 3px; font-size: 11px; color: #63607A;">leggi ›</span></div></div><div style="margin-top: 10px; background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 14px;"><span style="font-size: 10px; font-weight: 700; letter-spacing: 0.07em; text-transform: uppercase; color: #63607A;">Nel menù, sopra le portate</span><span style="display: block; margin-top: 6px; font-family: 'Young Serif', serif; font-size: 16px; color: #15141F;">La nostra storia</span><span style="display: block; margin-top: 3px; font-size: 12px; line-height: 1.45; color: #3C3A4C;">Dal 1978 sul porto, tre generazioni. Foto, testi e video.</span></div><p style="margin: 14px 0 0; font-size: 14px; line-height: 1.5; color: #3C3A4C;">La storia del locale e quella dei piatti, agganciate al prodotto che il cliente sta guardando proprio adesso.</p></div>
+          </sc-if>
+      </div>
+    </div>
+  </section>
+
+  <section style="padding: 40px 20px; background: #F2F2FA;">
+    <h2 style="margin: 0; font-family: 'Young Serif', serif; font-size: 28px; line-height: 1.12; font-weight: 400; color: #15141F;">Guarda cosa può diventare il tuo locale.</h2>
+    <p style="margin: 14px 0 0; font-size: 16px; line-height: 1.55; color: #3C3A4C;">Tre locali di esempio, tre stili diversi. Scegline uno: qui sotto vedi la sua pagina, quella vera.</p>
+    <p style="margin: 8px 0 0; font-size: 13px; line-height: 1.55; color: #63607A;">Li abbiamo costruiti noi: servono a farti vedere lo strumento, non a farti credere che siano clienti.</p>
+    <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+      <sc-for list="{{locali}}" as="l" hint-placeholder-count="3">
+        <button type="button" onClick="{{l.pick}}" style="{{l.style}}">
+          <span style="display: flex; align-items: center; gap: 12px;">
+            <span style="{{l.styleIni}}">{{l.ini}}</span>
+            <span style="flex-grow: 1;">
+              <span style="display: block; font-family: 'Young Serif', serif; font-size: 16px; color: #15141F;">{{l.nome}}</span>
+              <span style="display: block; margin-top: 2px; font-size: 12px; color: #63607A;">{{l.indir}}</span>
+            </span>
+            <sc-if value="{{l.scelto}}" hint-placeholder-val="{{true}}">
+              <span style="flex-shrink: 0; font-size: 13px; font-weight: 600; color: #4648C6;">Apri il menù →</span>
+            </sc-if>
+          </span>
+        </button>
+      </sc-for>
+    </div>
+    <div style="margin-top: 20px;">
+<div style="width: 300px; margin: 0 auto; border-radius: 34px; padding: 9px; background: #15142B; box-shadow: 0 22px 50px rgba(23,20,15,0.20);"><div style="border-radius: 26px; overflow: hidden; {{tel.schermo}}"><div style="{{tel.anim}}"><div style="position: relative; {{tel.cover}}"><div style="position: absolute; left: 12px; bottom: 10px;"><span style="display: block; {{tel.titolo}}">{{tel.nome}}</span><span style="display: block; margin-top: 1px; font-size: 11px; color: {{tel.tenue}};">{{tel.tipo}}</span></div></div><div style="display: flex; gap: 6px; padding: 12px 14px 10px;"><sc-for list="{{tel.cat}}" as="c" hint-placeholder-count="3"><span style="{{c.style}}">{{c.label}}</span></sc-for></div><div style="{{tel.evidCard}}"><span style="display: block; font-size: 9px; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; color: {{tel.acc}};">In evidenza adesso</span><div style="display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-top: 5px;"><span style="{{tel.titolo}}">{{tel.evid}}</span><span style="font-size: 13px; font-weight: 600;">{{tel.evidP}}</span></div></div><div style="margin-top: 10px;"><sc-for list="{{tel.righe}}" as="r" hint-placeholder-count="3"><div style="{{r.style}}"><span style="font-size: 13px;">{{r.nome}}</span><span style="font-size: 13px; font-weight: 600;">{{r.prezzo}}</span></div></sc-for></div><div style="height: 14px;"></div></div></div></div>
+    </div>
+    <div style="margin-top: 16px;">
+      <div style="display: flex; align-items: center; gap: 14px; padding: 14px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E0E0EE;">
+        <div style="width: 92px; height: 92px; flex-shrink: 0; padding: 8px; box-sizing: border-box; border-radius: 10px; background: #FFFFFF; border: 1px solid #E0E0EE;"><sc-if value="{{q0}}" hint-placeholder-val="{{true}}"><svg viewBox="0 0 29 29" preserveAspectRatio="xMidYMid meet" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="display: block;" class="segno"><path class="qrline" stroke="#1a1613" d="M0 0.5h7m3 0h1m1 0h1m1 0h1m2 0h3m2 0h7m-29 1h1m5 0h1m3 0h3m3 0h3m1 0h1m1 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m3 0h3m1 0h2m1 0h1m1 0h2m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m2 0h3m1 0h1m8 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m4 0h2m4 0h2m3 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m1 0h2m2 0h1m2 0h1m1 0h3m2 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-19 1h1m1 0h2m1 0h5m-20 1h1m2 0h1m1 0h2m1 0h5m1 0h1m1 0h1m4 0h1m1 0h1m-22 1h1m1 0h1m4 0h2m1 0h2m1 0h1m4 0h3m2 0h1m2 0h1m-29 1h2m3 0h3m1 0h1m1 0h4m3 0h10m-27 1h2m1 0h2m1 0h1m1 0h1m1 0h3m1 0h2m1 0h1m2 0h1m4 0h2m-28 1h1m3 0h1m1 0h1m2 0h1m1 0h1m2 0h1m2 0h1m1 0h4m2 0h1m1 0h2m-29 1h5m2 0h2m1 0h2m1 0h2m1 0h1m2 0h1m1 0h1m-21 1h2m2 0h2m2 0h1m3 0h2m2 0h1m2 0h2m1 0h6m-29 1h2m5 0h2m8 0h1m1 0h2m1 0h1m2 0h1m1 0h1m-28 1h3m1 0h4m1 0h5m2 0h6m1 0h1m3 0h1m-27 1h4m4 0h2m1 0h3m2 0h1m3 0h3m1 0h1m2 0h1m-29 1h1m5 0h2m1 0h1m2 0h1m1 0h1m5 0h5m2 0h2m-25 1h2m1 0h2m1 0h3m1 0h2m1 0h3m3 0h1m3 0h2m-29 1h1m1 0h2m1 0h3m3 0h2m2 0h2m3 0h5m1 0h1m-19 1h3m1 0h1m1 0h1m4 0h2m3 0h1m1 0h3m-29 1h7m2 0h4m3 0h1m3 0h1m1 0h1m1 0h1m2 0h1m-28 1h1m5 0h1m1 0h1m5 0h1m1 0h1m1 0h1m1 0h1m3 0h5m-29 1h1m1 0h3m1 0h1m2 0h1m2 0h1m2 0h3m2 0h5m3 0h1m-29 1h1m1 0h3m1 0h1m1 0h4m1 0h1m5 0h2m1 0h6m-28 1h1m1 0h3m1 0h1m2 0h2m1 0h3m1 0h1m2 0h2m3 0h3m1 0h1m-29 1h1m5 0h1m2 0h1m2 0h9m1 0h1m1 0h1m2 0h1m-28 1h7m1 0h1m1 0h1m1 0h1m1 0h2m1 0h1m2 0h1m3 0h2m1 0h1"/></svg>
+</sc-if><sc-if value="{{q1}}" hint-placeholder-val="{{true}}"><svg viewBox="0 0 29 29" preserveAspectRatio="xMidYMid meet" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="display: block;" class="segno"><path class="qrline" stroke="#1a1613" d="M0 0.5h7m2 0h4m1 0h2m6 0h7m-29 1h1m5 0h1m2 0h4m3 0h1m2 0h1m2 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m1 0h3m2 0h2m2 0h1m2 0h1m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m2 0h1m1 0h1m1 0h4m1 0h3m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h4m1 0h2m1 0h1m1 0h1m3 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m1 0h1m2 0h1m2 0h1m1 0h1m1 0h2m2 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-20 1h1m1 0h4m1 0h2m-17 1h1m2 0h1m1 0h1m1 0h1m5 0h1m1 0h2m1 0h3m1 0h2m1 0h1m-24 1h1m1 0h1m1 0h1m3 0h1m2 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-29 1h3m1 0h1m1 0h1m2 0h2m2 0h2m2 0h1m2 0h2m2 0h1m1 0h1m1 0h1m-29 1h3m2 0h1m1 0h1m2 0h1m3 0h1m1 0h3m2 0h1m2 0h2m1 0h2m-28 1h1m1 0h6m2 0h1m4 0h2m1 0h2m2 0h1m1 0h1m2 0h1m-29 1h1m1 0h1m2 0h1m1 0h1m1 0h1m1 0h1m1 0h1m4 0h1m3 0h1m1 0h1m1 0h1m1 0h1m-24 1h2m2 0h1m1 0h2m4 0h1m2 0h1m3 0h1m3 0h1m-28 1h1m1 0h1m4 0h4m3 0h1m1 0h3m2 0h2m1 0h1m-26 1h1m1 0h1m1 0h1m1 0h1m2 0h1m1 0h1m1 0h2m2 0h1m1 0h2m6 0h2m-29 1h2m3 0h1m1 0h1m1 0h1m3 0h2m2 0h1m4 0h3m1 0h1m1 0h1m-26 1h1m1 0h2m3 0h1m1 0h1m1 0h2m1 0h2m5 0h2m2 0h1m-27 1h2m1 0h1m1 0h1m1 0h2m1 0h1m1 0h4m2 0h1m2 0h1m3 0h2m-29 1h4m1 0h2m1 0h3m1 0h1m1 0h1m2 0h1m2 0h6m-18 1h1m2 0h1m1 0h4m1 0h3m3 0h1m1 0h1m1 0h1m-29 1h7m4 0h1m1 0h1m1 0h1m1 0h4m1 0h1m1 0h1m3 0h1m-29 1h1m5 0h1m2 0h2m6 0h4m3 0h2m1 0h2m-29 1h1m1 0h3m1 0h1m1 0h1m1 0h1m2 0h2m2 0h1m1 0h6m2 0h2m-29 1h1m1 0h3m1 0h1m3 0h1m4 0h3m5 0h1m4 0h1m-29 1h1m1 0h3m1 0h1m3 0h1m4 0h1m2 0h4m4 0h3m-29 1h1m5 0h1m1 0h2m1 0h3m2 0h3m1 0h1m2 0h1m1 0h1m1 0h2m-29 1h7m4 0h4m2 0h1m2 0h3m1 0h2m1 0h1"/></svg>
+</sc-if><sc-if value="{{q2}}" hint-placeholder-val="{{true}}"><svg viewBox="0 0 29 29" preserveAspectRatio="xMidYMid meet" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" style="display: block;" class="segno"><path class="qrline" stroke="#1a1613" d="M0 0.5h7m1 0h1m2 0h1m1 0h1m2 0h5m1 0h7m-29 1h1m5 0h1m1 0h4m1 0h1m2 0h3m3 0h1m5 0h1m-29 1h1m1 0h3m1 0h1m2 0h1m1 0h3m4 0h1m1 0h1m1 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m1 0h1m2 0h1m3 0h1m1 0h3m2 0h1m1 0h3m1 0h1m-29 1h1m1 0h3m1 0h1m2 0h1m2 0h1m1 0h3m2 0h1m2 0h1m1 0h3m1 0h1m-29 1h1m5 0h1m3 0h2m1 0h1m2 0h5m1 0h1m5 0h1m-29 1h7m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h1m1 0h7m-21 1h1m1 0h1m3 0h1m1 0h5m-21 1h1m1 0h2m1 0h3m1 0h1m1 0h3m2 0h4m2 0h1m2 0h1m1 0h2m-29 1h2m1 0h3m2 0h1m1 0h1m2 0h1m2 0h1m2 0h6m3 0h1m-28 1h1m2 0h3m3 0h1m1 0h2m4 0h1m1 0h3m3 0h2m-28 1h3m1 0h1m6 0h2m2 0h2m3 0h1m1 0h1m5 0h1m-28 1h1m1 0h2m1 0h5m1 0h1m1 0h4m1 0h1m5 0h2m-27 1h2m1 0h1m6 0h1m1 0h1m1 0h4m1 0h2m1 0h1m3 0h3m-27 1h1m3 0h1m2 0h2m2 0h1m4 0h4m4 0h3m-28 1h1m3 0h1m4 0h3m1 0h2m4 0h1m1 0h3m2 0h1m-28 1h1m1 0h5m2 0h2m1 0h1m1 0h1m3 0h1m1 0h2m2 0h2m1 0h1m-26 1h4m1 0h3m2 0h1m1 0h2m1 0h1m2 0h1m2 0h1m1 0h3m-28 1h1m1 0h7m2 0h6m6 0h2m1 0h1m-25 1h2m9 0h5m1 0h5m2 0h1m-26 1h1m1 0h2m1 0h1m1 0h1m1 0h2m1 0h2m1 0h11m-19 1h1m3 0h1m3 0h1m3 0h1m3 0h5m-29 1h7m1 0h3m1 0h1m1 0h1m1 0h1m1 0h3m1 0h1m1 0h2m1 0h1m-28 1h1m5 0h1m1 0h4m1 0h2m5 0h1m3 0h2m1 0h2m-29 1h1m1 0h3m1 0h1m2 0h2m1 0h1m4 0h1m2 0h5m1 0h1m-27 1h1m1 0h3m1 0h1m1 0h4m3 0h1m1 0h1m1 0h1m1 0h1m1 0h3m2 0h1m-29 1h1m1 0h3m1 0h1m1 0h3m2 0h1m2 0h1m1 0h1m1 0h1m2 0h1m2 0h1m1 0h1m-29 1h1m5 0h1m2 0h1m5 0h2m3 0h1m1 0h2m1 0h1m1 0h1m-28 1h7m1 0h3m2 0h1m2 0h1m1 0h3m2 0h1m3 0h1"/></svg>
+</sc-if></div>
+        <div><span style="display: block; font-family: 'Young Serif', serif; font-size: 16px; color: #15141F;">{{tel.nome}}</span>
+        <span style="display: block; margin-top: 3px; font-size: 13px; line-height: 1.45; color: #63607A;">Inquadralo col telefono: è lo stesso QR che metti sul tavolo.</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="prezzi" style="padding: 44px 20px; background: #FFFFFF;">
+    <h2 style="margin: 0; font-family: 'Young Serif', serif; font-size: 30px; line-height: 1.12; font-weight: 400; color: #15141F;">Un prezzo per locale. Scritto.</h2>
+    <p style="margin: 14px 0 0; font-size: 16px; line-height: 1.55; color: #63607A;">Le voci sono le stesse: nel Base tre sono spente e si accendono con il Pro.</p>
+    <div style="margin-top: 20px;"></div>
+    <div style="display: flex; gap: 6px; margin: 0 auto; background: #EDEDF6; border-radius: 999px; padding: 4px;">
+      <sc-for list="{{cicli}}" as="c" hint-placeholder-count="2"><button type="button" onClick="{{c.pick}}" style="{{c.style}}">{{c.label}}</button></sc-for>
+    </div>
+    <sc-if value="{{annuale}}" hint-placeholder-val="{{true}}"><p style="margin: 10px 0 0; font-size: 13px; font-weight: 600; text-align: center; color: #2F7D53;">Due mesi gratis: paghi dieci, usi dodici.</p></sc-if>
+    <div style="height: 8px;"></div>
+    <div style="display: flex; gap: 6px; margin: 0 auto; background: #EDEDF6; border-radius: 999px; padding: 4px;">
+      <sc-for list="{{piani}}" as="c" hint-placeholder-count="2"><button type="button" onClick="{{c.pick}}" style="{{c.style}}">{{c.label}}</button></sc-for>
+    </div>
+    <div style="margin-top: 16px; background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 18px; padding: 22px;">
+        <sc-if value="{{proScelto}}" hint-placeholder-val="{{true}}">
+        <div style="position: relative; overflow: hidden; background: linear-gradient(148deg, #F1F0FD 0%, #E4E3FA 58%, #DEDDF8 100%); border: 1px solid #D6D4F2; border-radius: 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.92), 0 2px 10px rgba(21,20,43,0.05);">
+    <span style="position: absolute; inset: 0; pointer-events: none; background: radial-gradient(130% 100% at 86% -18%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.35) 34%, rgba(255,255,255,0) 62%);"></span>    <span style="position: absolute; left: -26%; top: -70%; width: 62%; height: 240%; pointer-events: none; transform: rotate(19deg); background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.80) 48%, rgba(255,255,255,0) 100%);"></span>    <span style="position: absolute; inset: 0; pointer-events: none; background: radial-gradient(95% 92% at 10% 122%, rgba(99,102,241,0.46) 0%, rgba(99,102,241,0.16) 44%, rgba(99,102,241,0) 72%);"></span>
+          <div style="position: relative; z-index: 1; padding: 15px 16px;">
+            <div style="display: flex; align-items: center; gap: 9px;"><span style="width: 9px; height: 9px; border-radius: 3px; background: #4648C6; box-shadow: 0 0 0 3px rgba(99,102,241,0.14);"></span><span style="font-size: 11px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; color: #4648C6;">{{piano.nome}}</span></div>
+            <div style="display: flex; align-items: flex-end; gap: 12px; margin-top: 12px;">
+              <span style="font-family: 'Young Serif', serif; font-size: 40px; font-weight: 400; line-height: 1; color: #15141F;">{{piano.prezzo}}</span>
+              <span style="padding-bottom: 3px;"><sc-if value="{{piano.mostraPieno}}" hint-placeholder-val="{{true}}"><span style="display: block; font-size: 13px; font-weight: 500; color: #9592A8; text-decoration: line-through;">{{piano.pieno}}</span></sc-if><span style="display: block; font-size: 13px; color: #63607A;">{{periodo}}</span><span style="display: block; font-size: 12px; color: #63607A;">IVA inclusa</span></span>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+        <sc-if value="{{baseScelto}}" hint-placeholder-val="{{false}}">
+        <div style="position: relative; overflow: hidden; background: linear-gradient(148deg, #F8F8FC 0%, #EFEFF8 58%, #E9E9F4 100%); border: 1px solid #E3E3EE; border-radius: 16px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.92), 0 2px 10px rgba(21,20,43,0.05);">
+    <span style="position: absolute; inset: 0; pointer-events: none; background: radial-gradient(130% 100% at 86% -18%, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.35) 34%, rgba(255,255,255,0) 62%);"></span>    <span style="position: absolute; left: -26%; top: -70%; width: 62%; height: 240%; pointer-events: none; transform: rotate(19deg); background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.80) 48%, rgba(255,255,255,0) 100%);"></span>
+          <div style="position: relative; z-index: 1; padding: 15px 16px;">
+            <div style="display: flex; align-items: center; gap: 9px;"><span style="width: 9px; height: 9px; border-radius: 3px; background: #9592A8; box-shadow: 0 0 0 3px rgba(99,102,241,0.14);"></span><span style="font-size: 11px; font-weight: 700; letter-spacing: 0.11em; text-transform: uppercase; color: #63607A;">{{piano.nome}}</span></div>
+            <div style="display: flex; align-items: flex-end; gap: 12px; margin-top: 12px;">
+              <span style="font-family: 'Young Serif', serif; font-size: 40px; font-weight: 400; line-height: 1; color: #15141F;">{{piano.prezzo}}</span>
+              <span style="padding-bottom: 3px;"><sc-if value="{{piano.mostraPieno}}" hint-placeholder-val="{{true}}"><span style="display: block; font-size: 13px; font-weight: 500; color: #9592A8; text-decoration: line-through;">{{piano.pieno}}</span></sc-if><span style="display: block; font-size: 13px; color: #63607A;">{{periodo}}</span><span style="display: block; font-size: 12px; color: #63607A;">IVA inclusa</span></span>
+            </div>
+          </div>
+        </div>
+        </sc-if>
+        <p style="margin: 14px 0 0; font-family: 'Young Serif', serif; font-size: 19px; font-weight: 400; line-height: 1.25; color: #15141F;">{{piano.claim}}</p>
+        <a href="#contatto" style="display: block; margin-top: 20px; padding: 14px; background: {{piano.ctaBg}}; border: 1.5px solid #4648C6; border-radius: 12px; color: {{piano.ctaCol}}; font-size: 15px; font-weight: 600; text-align: center; text-decoration: none;">Parliamone</a>
+        <p style="margin: 8px 0 0; font-size: 12px; text-align: center; color: #63607A;">Trenta giorni di prova, si annulla quando vuoi.</p>
+        <div style="height: 1px; margin: 22px 0 0; background: #E0E0EE;"></div>
+        <p style="margin: 20px 0 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #63607A;">Include</p>
+        <ul style="margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 10px;">
+          <sc-for list="{{piano.voci}}" as="v" hint-placeholder-count="10">
+            <li style="display: flex; gap: 10px; align-items: flex-start;">
+              <sc-if value="{{v.lieve}}" hint-placeholder-val="{{true}}"><span style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; border-radius: 50%; background: #E6E5FC; border: 1px solid #DCDAF6; box-sizing: border-box; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#4648C6" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span></sc-if>
+              <sc-if value="{{v.forte}}" hint-placeholder-val="{{false}}"><span style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; border-radius: 50%; background: #4648C6; border: 1px solid #4648C6; box-sizing: border-box; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg></span></sc-if>
+              <sc-if value="{{v.off}}" hint-placeholder-val="{{false}}"><span style="width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; border-radius: 50%; background: #EDEDF6; border: 1px solid #E0E0EE; box-sizing: border-box; display: flex; align-items: center; justify-content: center;"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#AFACC2" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"></path></svg></span></sc-if>
+              <span><span style="display: block; font-size: 14px; font-weight: 600; line-height: 1.3; color: {{v.colore}};">{{v.testo}}</span>
+              <span style="display: block; margin-top: 2px; font-size: 12.5px; line-height: 1.4; color: {{v.colD}};">{{v.desc}}</span></span>
+            </li>
+          </sc-for>
+        </ul>
+        <sc-if value="{{proScelto}}" hint-placeholder-val="{{true}}">
+        <div style="margin-top: 16px; padding: 12px 13px; border-radius: 12px; background: #E6E5FC;"><span style="font-size: 12.5px; line-height: 1.45; color: #15141F;">+ Stampa automatica delle comande in cucina con stampante dedicata (opzionale, a parte).</span></div>
+        </sc-if>
+    </div>
+    <p style="margin: 16px 0 0; font-size: 12px; color: #63607A;">Prezzi per locale, IVA inclusa. Dal secondo locale, −10% su ognuno. Nessun vincolo: disdici quando vuoi.</p>
+  </section>
+
+  <section style="padding: 44px 20px; background: #FFFFFF;">
+    <h2 style="margin: 0; font-family: 'Young Serif', serif; font-size: 28px; line-height: 1.12; font-weight: 400; color: #15141F;">Cosa ti costa provarlo: una telefonata.</h2>
+    <div style="position: relative; margin-top: 24px;"><div style="position: absolute; left: 13px; top: 18px; bottom: 40px; width: 1px; background: #E0E0EE;"></div>
+      <div style="display: flex; gap: 14px; align-items: flex-start; padding-bottom: 22px;"><span style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: #4648C6; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; position: relative; z-index: 1;">1</span><div style="padding-top: 2px;"><span style="display: block; font-family: 'Young Serif', serif; font-size: 19px; font-weight: 400; line-height: 1.25; color: #15141F;">Ti richiamiamo noi</span><span style="display: block; margin-top: 5px; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Entro 24 ore. Ci servono solo il tuo nome, quello del locale e un recapito: niente carta, niente modulo lungo.</span></div></div>
+      <div style="display: flex; gap: 14px; align-items: flex-start; padding-bottom: 22px;"><span style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: #4648C6; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; position: relative; z-index: 1;">2</span><div style="padding-top: 2px;"><span style="display: block; font-family: 'Young Serif', serif; font-size: 19px; font-weight: 400; line-height: 1.25; color: #15141F;">Il menù lo mettiamo online insieme</span><span style="display: block; margin-top: 5px; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Il tempo di una chiamata, non di un corso. Se hai sottomano una foto del cartaceo, quando riattacchi è già pubblicato, col tuo QR.</span></div></div>
+      <div style="display: flex; gap: 14px; align-items: flex-start; padding-bottom: 22px;"><span style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: #4648C6; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; position: relative; z-index: 1;">3</span><div style="padding-top: 2px;"><span style="display: block; font-family: 'Young Serif', serif; font-size: 19px; font-weight: 400; line-height: 1.25; color: #15141F;">Un mese nel tuo locale vero</span><span style="display: block; margin-top: 5px; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Con i tuoi piatti, i tuoi orari, i tuoi clienti. Non una demo: il menù che usi in sala.</span></div></div>
+      <div style="display: flex; gap: 14px; align-items: flex-start; padding-bottom: 22px;"><span style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; background: #4648C6; color: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; position: relative; z-index: 1;">4</span><div style="padding-top: 2px;"><span style="display: block; font-family: 'Young Serif', serif; font-size: 19px; font-weight: 400; line-height: 1.25; color: #15141F;">Poi decidi tu</span><span style="display: block; margin-top: 5px; font-size: 14px; line-height: 1.5; color: #3C3A4C;">Se continui, bene. Se smetti, smetti: nessun vincolo, nessuna penale, e non ti rincorriamo.</span></div></div>
+    </div>
+    <p style="margin: 4px 0 0; font-size: 14px; line-height: 1.55; color: #63607A;">Per tutto il tempo rispondiamo noi: in italiano, al telefono e via email. Non un centralino.</p>
+  </section>
+
+  <section id="faq" style="padding: 44px 20px; background: #FFFFFF;">
+    <h2 style="margin: 0; font-family: 'Young Serif', serif; font-size: 28px; line-height: 1.12; font-weight: 400; color: #15141F;">Domande, in breve.</h2>
+    <div style="max-width: none; margin: 20px 0 0; background: #F2F2FA; border: 1px solid #E0E0EE; border-radius: 18px; padding: 14px; display: flex; flex-direction: column; gap: 9px; box-shadow: 0 14px 34px rgba(21,20,43,0.05);">
+      <details open style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 15px 16px;">
+        <summary style="list-style: none; cursor: pointer; display: flex; align-items: center; gap: 14px;"><span style="flex-grow: 1; font-size: 15px; font-weight: 600; line-height: 1.35; color: #15141F;">Devo ribattere tutto il menù?</span><span class="piu" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; border: 1px solid #E0E0EE; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 500; line-height: 1; color: #4648C6;">+</span><span class="meno" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; border: 1px solid #E0E0EE; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 500; line-height: 1; color: #4648C6;">−</span></summary>
+        <p style="margin: 10px 0 0; padding-right: 42px; font-size: 14px; line-height: 1.55; color: #3C3A4C;">No. Carichi la foto o il PDF di quello che usi già: piatti, prezzi e categorie vengono creati per te. Tu controlli e pubblichi.</p>
+      </details>
+      <details style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 15px 16px;">
+        <summary style="list-style: none; cursor: pointer; display: flex; align-items: center; gap: 14px;"><span style="flex-grow: 1; font-size: 15px; font-weight: 600; line-height: 1.35; color: #15141F;">Serve installare qualcosa?</span><span class="piu" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; border: 1px solid #E0E0EE; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 500; line-height: 1; color: #4648C6;">+</span><span class="meno" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; border: 1px solid #E0E0EE; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 500; line-height: 1; color: #4648C6;">−</span></summary>
+        <p style="margin: 10px 0 0; padding-right: 42px; font-size: 14px; line-height: 1.55; color: #3C3A4C;">Niente. Il menù è una pagina web: il cliente inquadra il QR e si apre. A te basta il telefono che hai in tasca.</p>
+      </details>
+      <details style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 15px 16px;">
+        <summary style="list-style: none; cursor: pointer; display: flex; align-items: center; gap: 14px;"><span style="flex-grow: 1; font-size: 15px; font-weight: 600; line-height: 1.35; color: #15141F;">E i QR che ho già stampato?</span><span class="piu" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; border: 1px solid #E0E0EE; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 500; line-height: 1; color: #4648C6;">+</span><span class="meno" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; border: 1px solid #E0E0EE; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 500; line-height: 1; color: #4648C6;">−</span></summary>
+        <p style="margin: 10px 0 0; padding-right: 42px; font-size: 14px; line-height: 1.55; color: #3C3A4C;">Restano validi. Il menù dietro al codice cambia, il codice no: i tavoli e i segnaposti non si toccano.</p>
+      </details>
+      <details style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 15px 16px;">
+        <summary style="list-style: none; cursor: pointer; display: flex; align-items: center; gap: 14px;"><span style="flex-grow: 1; font-size: 15px; font-weight: 600; line-height: 1.35; color: #15141F;">Funziona con un solo locale?</span><span class="piu" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; border: 1px solid #E0E0EE; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 500; line-height: 1; color: #4648C6;">+</span><span class="meno" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; border: 1px solid #E0E0EE; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 500; line-height: 1; color: #4648C6;">−</span></summary>
+        <p style="margin: 10px 0 0; padding-right: 42px; font-size: 14px; line-height: 1.55; color: #3C3A4C;">Sì, tutto funziona anche con un locale solo. Il prezzo è per locale e cala del 10% dal secondo in poi.</p>
+      </details>
+      <details style="background: #FFFFFF; border: 1px solid #E0E0EE; border-radius: 14px; padding: 15px 16px;">
+        <summary style="list-style: none; cursor: pointer; display: flex; align-items: center; gap: 14px;"><span style="flex-grow: 1; font-size: 15px; font-weight: 600; line-height: 1.35; color: #15141F;">Posso passare dal Base al Pro dopo?</span><span class="piu" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; border: 1px solid #E0E0EE; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 500; line-height: 1; color: #4648C6;">+</span><span class="meno" style="width: 28px; height: 28px; flex-shrink: 0; border-radius: 50%; border: 1px solid #E0E0EE; background: #FFFFFF; display: inline-flex; align-items: center; justify-content: center; font-size: 16px; font-weight: 500; line-height: 1; color: #4648C6;">−</span></summary>
+        <p style="margin: 10px 0 0; padding-right: 42px; font-size: 14px; line-height: 1.55; color: #3C3A4C;">Quando vuoi, e anche tornare indietro. Ordini al tavolo e prenotazioni si accendono e si spengono dal pannello.</p>
+      </details>
+      <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 10px; padding: 15px 16px; border-radius: 14px; background: #E6E5FC; border: 1px solid #DBDAF4;">
+        <span style="flex-grow: 1; font-size: 14px; line-height: 1.5; color: #15141F;">Hai un’altra domanda? Scrivici, rispondiamo noi.</span>
+        <a href="mailto:info@cataloglobe.com" style="flex-shrink: 0; padding: 9px 16px; border-radius: 999px; background: #FFFFFF; border: 1px solid #CFCDF0; color: #4648C6; font-size: 13px; font-weight: 600; text-decoration: none; white-space: nowrap;">info@cataloglobe.com</a>
+      </div>
+    </div>
+  </section>
+
+  <section id="contatto" style="padding: 44px 20px; background: #15142B;">
+      <h2 style="margin: 0; font-family: 'Young Serif', serif; font-size: 30px; line-height: 1.12; font-weight: 400; color: #F2F2FA;">Il tuo menù, sempre al passo. <span style="position: relative; display: inline-block; color: #A9AAF2;">Partiamo?<svg viewBox="0 0 200 10" preserveAspectRatio="none" aria-hidden="true" style="position: absolute; left: 0; bottom: -0.12em; width: 100%; height: 0.17em; overflow: visible;"><path d="M2 7 C 42 2, 78 9, 118 5 S 178 2, 198 6" stroke="#6E70D8" stroke-width="4" fill="none" stroke-linecap="round"></path></svg></span></h2>
+      <p style="margin: 18px 0 0; font-size: 17px; line-height: 1.55; color: #BDBAD2;">Lasciaci un contatto: ti chiamiamo entro 24 ore. Se hai sottomano una foto del menù, usciamo dalla telefonata con il tuo menù già online.</p>
+      <p style="margin: 14px 0 0; font-size: 14px; color: #7F7C99;">Se preferisci scrivere: <a href="mailto:info@cataloglobe.com" style="color: #BDBAD2;">info@cataloglobe.com</a></p>
+      <div style="margin-top: 24px;"></div>
+      <form style="background: #FFFFFF; border-radius: 20px; padding: 26px; display: flex; flex-direction: column; gap: 13px; box-shadow: 0 22px 50px rgba(0,0,0,0.30);">
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #15141F;">Nome
+          <input type="text" name="nome" autocomplete="given-name" style="display: block; width: 100%; box-sizing: border-box; margin-top: 6px; min-height: 48px; padding: 12px 15px; border: 1px solid #E0E0EE; border-radius: 12px; background: #F2F2FA; font-family: 'Instrument Sans', sans-serif; font-size: 16px; color: #15141F;">
+        </label>
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #15141F;">Nome del locale
+          <input type="text" name="locale" autocomplete="organization" style="display: block; width: 100%; box-sizing: border-box; margin-top: 6px; min-height: 48px; padding: 12px 15px; border: 1px solid #E0E0EE; border-radius: 12px; background: #F2F2FA; font-family: 'Instrument Sans', sans-serif; font-size: 16px; color: #15141F;">
+        </label>
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #15141F;">Telefono
+          <input type="tel" name="telefono" autocomplete="tel" style="display: block; width: 100%; box-sizing: border-box; margin-top: 6px; min-height: 48px; padding: 12px 15px; border: 1px solid #E0E0EE; border-radius: 12px; background: #F2F2FA; font-family: 'Instrument Sans', sans-serif; font-size: 16px; color: #15141F;">
+        </label>
+        <label style="display: block; font-size: 13px; font-weight: 600; color: #15141F;">Email
+          <input type="email" name="email" autocomplete="email" style="display: block; width: 100%; box-sizing: border-box; margin-top: 6px; min-height: 48px; padding: 12px 15px; border: 1px solid #E0E0EE; border-radius: 12px; background: #F2F2FA; font-family: 'Instrument Sans', sans-serif; font-size: 16px; color: #15141F;">
+        </label>
+        <fieldset style="margin: 2px 0 0; padding: 0; border: 0;">
+          <legend style="padding: 0; font-size: 13px; font-weight: 600; color: #15141F;">Cosa ti interessa di più?</legend>
+          <div style="display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px;"><button type="button" style="min-height: 40px; padding: 9px 14px; border: 1px solid #E0E0EE; border-radius: 999px; background: #F2F2FA; font-family: 'Instrument Sans', sans-serif; font-size: 13px; font-weight: 500; color: #15141F; cursor: pointer;">Il menù</button><button type="button" style="min-height: 40px; padding: 9px 14px; border: 1px solid #E0E0EE; border-radius: 999px; background: #F2F2FA; font-family: 'Instrument Sans', sans-serif; font-size: 13px; font-weight: 500; color: #15141F; cursor: pointer;">Le prenotazioni</button><button type="button" style="min-height: 40px; padding: 9px 14px; border: 1px solid #E0E0EE; border-radius: 999px; background: #F2F2FA; font-family: 'Instrument Sans', sans-serif; font-size: 13px; font-weight: 500; color: #15141F; cursor: pointer;">Gli ordini al tavolo</button></div>
+        </fieldset>
+        <label style="display: flex; gap: 10px; align-items: flex-start; margin-top: 2px; font-size: 12.5px; line-height: 1.45; color: #3C3A4C; font-weight: 400;">
+          <input type="checkbox" name="privacy" style="width: 20px; height: 20px; flex-shrink: 0; margin: 1px 0 0; accent-color: #4648C6;">
+          <span>Ho letto l’<a href="/legal/privacy">informativa privacy</a> e acconsento al trattamento dei dati per essere ricontattato.</span>
+        </label>
+        <button type="submit" style="margin-top: 4px; min-height: 54px; padding: 16px; border: 0; border-radius: 14px; background: #4648C6; color: #FFFFFF; font-family: 'Instrument Sans', sans-serif; font-size: 17px; font-weight: 600; cursor: pointer;">Parliamone</button>
+      </form>
+  </section>
+
+  <footer style="padding: 36px 20px 28px; background: #15142B; border-top: 1px solid #2E2C50;">
+    <div style="display: flex; flex-direction: column; gap: 28px; align-items: flex-start;">
+      <div style=""><span style="display: block; font-family: 'Young Serif', serif; font-size: 22px; font-weight: 400; color: #F2F2FA;">cataloglobe</span><span style="display: block; margin-top: 8px; font-size: 14px; line-height: 1.5; color: #7F7C99;">Menù digitali che si aggiornano da soli, per ristoranti, bar e locali.</span></div>
+      <div style="display: flex; flex-wrap: wrap; gap: 24px 32px;">
+      <div style="min-width: 128px;"><p style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: #7F7C99;">Prodotto</p><a href="#funzioni" style="display: block; margin-top: 10px; font-size: 14px; color: #CBC8DE; text-decoration: none;">Funzionalità</a><a href="#prezzi" style="display: block; margin-top: 10px; font-size: 14px; color: #CBC8DE; text-decoration: none;">Prezzi</a><a href="#faq" style="display: block; margin-top: 10px; font-size: 14px; color: #CBC8DE; text-decoration: none;">Domande</a></div>
+      <div style="min-width: 128px;"><p style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: #7F7C99;">Legale</p><a href="/legal/privacy" style="display: block; margin-top: 10px; font-size: 14px; color: #CBC8DE; text-decoration: none;">Privacy</a><a href="/legal/termini" style="display: block; margin-top: 10px; font-size: 14px; color: #CBC8DE; text-decoration: none;">Termini di servizio</a></div>
+      <div style="min-width: 128px;"><p style="margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: #7F7C99;">Contatti</p><a href="mailto:info@cataloglobe.com" style="display: block; margin-top: 10px; font-size: 14px; color: #CBC8DE; text-decoration: none;">Scrivici</a><a href="tel:+39" style="display: block; margin-top: 10px; font-size: 14px; color: #CBC8DE; text-decoration: none;">Telefono</a></div>
+      </div>
+    </div>
+    <p style="margin: 28px 0 0; padding-top: 18px; border-top: 1px solid #2E2C50; font-size: 12.5px; line-height: 1.6; color: #6F6C89;">CataloGlobe di [RAGIONE SOCIALE] · Cinisello Balsamo (MI) · P.IVA [P.IVA]</p>
+  </footer>
+</div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":6570}}'>
+    const VOCI = [['Men\xf9 digitale con QR', 'Sempre aggiornato, nel tuo stile.', false], ['Men\xf9 e promo programmati', 'Cambiano da soli, all\u2019orario che scegli.', false], ['Import del men\xf9 da foto o PDF', 'Carichi quello che usi gi\xe0: controlli e pubblichi.', false], ['Traduzione automatica in 5 lingue', 'Descrizioni tradotte, nomi dei piatti in italiano.', false], ['Recensioni dal men\xf9', 'Ogni giudizio arriva prima a te, e chi \xe8 contento lo lascia anche su Google.', false], ['Pi\xf9 locali, stili, storie e team', 'Ogni locale con la sua veste, e accessi diversi per il personale.', false], ['Analitiche su visite e piatti', 'Sai quando arrivano i clienti e cosa guardano nel men\xf9.', false], ['Ordini al tavolo con QR', 'Le comande arrivano subito sul tuo pannello.', true], ['Prenotazioni in un\u2019unica agenda', 'Quelle dei clienti e quelle che inserisci tu, nello stesso posto.', true], ['Analitiche su ordini e incassi', 'Sai cosa ordinano e quanto incassi, piatto per piatto.', true]];
+    const PIANI = {
+      base: { nome: 'Base', claim: 'Il men\u00f9 che lavora per te', mese: '39 \u20ac', anno: '390 \u20ac', pieno: '468 \u20ac' },
+      pro:  { nome: 'Pro',  claim: 'I clienti ordinano e prenotano da soli', mese: '59 \u20ac', anno: '590 \u20ac', pieno: '708 \u20ac' },
+    };
+    const LOCALI = [{ nome: 'Il Molo 34', indir: 'Via del Porto 34, Portofino (GE)', tipo: 'Pesce, carta della sera', slug: 'il-molo-34', bg: '#16222A', testo: '#E9EFEC', tenue: '#93A9A4', linea: '#27373F', acc: '#E9C46A', serif: true, c1: '#2A4550', c2: '#16222A', ini: 'M', cat: ['Crudi', 'Primi', 'Secondi'], evid: 'Degustazione di pesce', evidP: '38 \u20ac', righe: [['Carpaccio di branzino', '16 \u20ac'], ['Risotto ai frutti di mare', '20 \u20ac'], ['Tagliata di tonno', '24 \u20ac']] }, { nome: 'La Pausa', indir: 'Corso Italia 12, Milano (MI)', tipo: 'Bar, tutto il giorno', slug: 'la-pausa', bg: '#FFFDF8', testo: '#241D16', tenue: '#867B6D', linea: '#EDE6DA', acc: '#A8461F', serif: false, c1: '#E8D9C4', c2: '#D8C3A5', ini: 'P', cat: ['Colazione', 'Pranzo', 'Aperitivo'], evid: 'Tagliere e calice', evidP: '14 \u20ac', righe: [['Focaccia al formaggio', '9 \u20ac'], ['Insalatona del giorno', '11 \u20ac'], ['Spritz della casa', '8 \u20ac']] }, { nome: 'Velvet Garden', indir: 'Via Savona 18, Milano (MI)', tipo: 'Cucina vegetale', slug: 'velvet-garden', bg: '#18291F', testo: '#E6EFE7', tenue: '#93AA98', linea: '#2A3F31', acc: '#9FD3A8', serif: true, c1: '#294634', c2: '#18291F', ini: 'V', cat: ['Orto', 'Fermentati', 'Dolci'], evid: 'Men\xf9 dell\u2019orto', evidP: '32 \u20ac', righe: [['Barbabietola e nocciole', '14 \u20ac'], ['Risotto alle erbe', '18 \u20ac'], ['Tortino al cacao', '7 \u20ac']] }];
+class Component extends DCLogic {
+  componentDidMount() {
+    this.timersOrd = [];
+    this.giroOrdini();
+    this.loopOrd = setInterval(() => this.giroOrdini(), 8000);
+    this.tp = [];
+    this.giroPren();
+    this.loopP = setInterval(() => this.giroPren(), 8000);
+  }
+  componentWillUnmount() {
+    if (this.loopOrd) clearInterval(this.loopOrd);
+    (this.timersOrd || []).forEach(clearTimeout);
+    if (this.loopP) clearInterval(this.loopP);
+    (this.tp || []).forEach(clearTimeout);
+  }
+  giroOrdini() {
+    (this.timersOrd || []).forEach(clearTimeout);
+    this.timersOrd = [];
+    this.setState({ ordine: 0 });
+    this.timersOrd.push(setTimeout(() => this.setState({ ordine: 1 }), 1000));
+    this.timersOrd.push(setTimeout(() => this.setState({ ordine: 2 }), 1400));
+    this.timersOrd.push(setTimeout(() => this.setState({ ordine: 3 }), 2000));
+  }
+  giroPren() {
+    (this.tp || []).forEach(clearTimeout);
+    this.tp = [];
+    this.setState({ pren: 0 });
+    this.tp.push(setTimeout(() => this.setState({ pren: 1 }), 1000));
+    this.tp.push(setTimeout(() => this.setState({ pren: 2 }), 1400));
+    this.tp.push(setTimeout(() => this.setState({ pren: 3 }), 2000));
+    this.tp.push(setTimeout(() => this.setState({ pren: 4 }), 2900));
+  }
+  renderVals() {
+      const annuale = !!(this.state && this.state.annuale);
+      const scelto = (this.state && this.state.piano) || 'pro';
+      const sceltoPro = scelto === 'pro';
+
+      const acceso = 'flex-grow: 1; flex-basis: 0; min-height: 42px; padding: 0 14px; border: 0; border-radius: 999px; background: #FFFFFF; box-shadow: 0 1px 3px rgba(26,22,19,0.16); color: #4648C6; font-family: Instrument Sans, sans-serif; font-size: 13px; font-weight: 600; white-space: nowrap; cursor: pointer;';
+      const spento  = 'flex-grow: 1; flex-basis: 0; min-height: 42px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: #63607A; font-family: Instrument Sans, sans-serif; font-size: 13px; font-weight: 500; white-space: nowrap; cursor: pointer;';
+
+      const cicli = [
+        { label: 'Mensile', style: annuale ? spento : acceso, pick: () => this.setState({ annuale: false }) },
+        { label: 'Annuale \u00b7 2 mesi gratis', style: annuale ? acceso : spento, pick: () => this.setState({ annuale: true }) },
+      ];
+      const piani = ['base', 'pro'].map((k) => ({ label: PIANI[k].nome, style: k === scelto ? acceso : spento, pick: () => this.setState({ piano: k }) }));
+
+      const periodo = annuale ? 'all\u2019anno, per locale' : 'al mese, per locale';
+      const basePrezzo = annuale ? PIANI.base.anno : PIANI.base.mese;
+      const proPrezzo  = annuale ? PIANI.pro.anno  : PIANI.pro.mese;
+      const basePieno = PIANI.base.pieno, proPieno = PIANI.pro.pieno;
+
+      const pp = PIANI[scelto];
+      const piano = {
+        nome: pp.nome, claim: pp.claim,
+        prezzo: annuale ? pp.anno : pp.mese, pieno: pp.pieno, mostraPieno: annuale,
+        ctaBg: sceltoPro ? '#4648C6' : 'transparent', ctaCol: sceltoPro ? '#FFFFFF' : '#4648C6',
+        bgTesta: sceltoPro ? '#E6E5FC' : '#F2F2FA', bordoTesta: sceltoPro ? '#DBDAF4' : '#E0E0EE',
+        punto: sceltoPro ? '#4648C6' : '#9592A8', colNome: sceltoPro ? '#4648C6' : '#63607A',
+        voci: VOCI.map((v) => { const soloPro = v[2]; const on = !soloPro || sceltoPro;
+          return { testo: v[0], desc: v[1], lieve: on && !soloPro, forte: on && soloPro, off: !on,
+                   colore: on ? '#15141F' : '#9592A8', colD: on ? '#3C3A4C' : '#A5A2B8' }; }),
+      };
+      const proScelto = sceltoPro, baseScelto = !sceltoPro;
+      const li = (this.state && typeof this.state.locale === 'number') ? this.state.locale : 0;
+      const lo = LOCALI[li];
+
+      const cardOn  = 'display: block; width: 100%; box-sizing: border-box; text-align: left; cursor: pointer; padding: 13px 14px; border-radius: 14px; background: #FFFFFF; border: 1px solid #4648C6; box-shadow: 0 6px 18px rgba(70,72,198,0.13); font-family: Instrument Sans, sans-serif;';
+      const cardOff = 'display: block; width: 100%; box-sizing: border-box; text-align: left; cursor: pointer; padding: 13px 14px; border-radius: 14px; background: #FFFFFF; border: 1px solid #E0E0EE; font-family: Instrument Sans, sans-serif;';
+
+      const locali = LOCALI.map((l, i) => ({
+        nome: l.nome, indir: l.indir, tipo: l.tipo, ini: l.ini, scelto: i === li,
+        href: 'https://cataloglobe.com/' + l.slug,
+        style: i === li ? cardOn : cardOff,
+        styleIni: 'width: 44px; height: 44px; flex-shrink: 0; border-radius: 10px; display: flex; align-items: center; '
+          + 'justify-content: center; font-family: Young Serif, serif; font-size: 19px; color: ' + l.testo
+          + '; background: linear-gradient(135deg, ' + l.c1 + ', ' + l.c2 + ');',
+        pick: () => this.setState({ locale: i }),
+      }));
+
+      const fam = lo.serif ? 'Young Serif, serif' : 'Instrument Sans, sans-serif';
+      const tel = {
+        nome: lo.nome, tipo: lo.tipo, evid: lo.evid, evidP: lo.evidP, acc: lo.acc, tenue: lo.tenue,
+        anim: 'animation: entra' + (li % 3) + ' 480ms cubic-bezier(0.22, 1, 0.36, 1) both;',
+        schermo: 'background: ' + lo.bg + '; color: ' + lo.testo + ';',
+        cover: 'height: 104px; background: linear-gradient(150deg, ' + lo.c1 + ', ' + lo.c2 + ');',
+        titolo: 'font-family: ' + fam + '; font-size: 17px; color: ' + lo.testo + ';',
+        evidCard: 'margin: 0 14px; padding: 11px 12px; border-radius: 12px; border: 1px solid ' + lo.linea + '; border-left: 3px solid ' + lo.acc + ';',
+        cat: lo.cat.map((c, i) => ({ label: c, style: 'padding: 5px 11px; border-radius: 999px; font-size: 11px; font-weight: 600; '
+          + (i === 0 ? ('background: ' + lo.acc + '; color: ' + lo.bg + ';') : ('color: ' + lo.tenue + '; border: 1px solid ' + lo.linea + ';')) })),
+        righe: lo.righe.map((r, i) => ({ nome: r[0], prezzo: r[1],
+          style: 'display: flex; align-items: baseline; justify-content: space-between; gap: 10px; padding: 10px 14px;'
+            + (i === lo.righe.length - 1 ? '' : ' border-bottom: 1px solid ' + lo.linea + ';') })),
+      };
+      const q0 = li === 0, q1 = li === 1, q2 = li === 2;
+      const NOMI = ['Ordini al tavolo', 'Prenotazioni', 'Recensioni', 'Locali e men\xf9', 'Team', 'Orari e disponibilit\xe0', 'Lingue', 'Stili', 'Storie'];
+      const k = (this.state && typeof this.state.scheda === 'number') ? this.state.scheda : 0;
+
+      const voceBase = 'display: block; width: 100%; box-sizing: border-box; min-height: 42px; padding: 9px 12px; border-radius: 10px; '
+        + 'font-family: Instrument Sans, sans-serif; font-size: 13.5px; line-height: 1.3; text-align: left; cursor: pointer;';
+      const voceOn = voceBase + ' border: 1px solid #4648C6; background: #4648C6; color: #FFFFFF; font-weight: 600;'
+        + ' box-shadow: 0 4px 12px rgba(70,72,198,0.22);';
+      const voceOff = voceBase + ' border: 1px solid #E0E0EE; background: #F2F2FA; color: #15141F; font-weight: 500;';
+
+      const mk = (i, largo) => ({
+        label: NOMI[i],
+        style: (i === k ? voceOn : voceOff) + (largo ? ' grid-column: span 2;' : ''),
+        pick: () => { this.setState({ scheda: i }); if (i === 0) this.giroOrdini(); if (i === 1) this.giroPren(); },
+      });
+      const gruppoA = [0, 1, 2, 3, 4].map((i) => mk(i, i === 4));
+      const gruppoB = [5, 6, 7, 8].map((i) => mk(i, false));
+      const animPan = 'animation: entra' + (k % 3) + ' 340ms cubic-bezier(0.22, 1, 0.36, 1) both;';
+      const s0 = k === 0, s1 = k === 1, s2 = k === 2, s3 = k === 3, s4 = k === 4, s5 = k === 5, s6 = k === 6, s7 = k === 7, s8 = k === 8;
+      const EASE_O = 'cubic-bezier(0.22, 1, 0.36, 1)';
+      const fo = (this.state && this.state.ordine) || 0;
+      const inviatoO = fo >= 1;
+      const bottone = 'width: 100%; min-height: 42px; margin-top: 12px; border: 0; border-radius: 10px; background: '
+        + (inviatoO ? '#8E90E8' : '#4648C6') + '; color: #FFFFFF; font-family: Instrument Sans, sans-serif; font-size: 14px; '
+        + 'font-weight: 600; transition: background 240ms linear, transform 180ms ' + EASE_O + '; transform: scale('
+        + (fo === 1 ? '0.97' : '1') + ');';
+      const etichetta = inviatoO ? 'Inviato' : "Invia l'ordine";
+      const puntoO = (dir) => {
+        const avanti = fo >= 2;
+        const asse = dir === 'giu' ? 'top' : 'left';
+        return 'position: absolute; ' + (dir === 'giu' ? 'left: 50%; margin-left: -5px; top: ' : 'top: 50%; margin-top: -5px; left: ')
+          + (avanti ? '100%' : '0%') + '; width: 10px; height: 10px; margin-' + (dir === 'giu' ? 'top' : 'left') + ': -5px; '
+          + 'border-radius: 999px; background: #4648C6; opacity: ' + (fo === 1 || fo === 2 ? '1' : '0') + '; '
+          + 'transition: ' + asse + ' 520ms ' + EASE_O + ', opacity 200ms linear;';
+      };
+      const puntoGiu = puntoO('giu');
+      const puntoDx = puntoO('dx');
+      const cartaOrd = { trasforma: 'transform: translateY(' + (fo >= 2 ? '0' : '-104%') + '); transition: transform 1000ms ' + EASE_O + ';' };
+      const spia = 'width: 7px; height: 7px; border-radius: 999px; background: ' + (fo >= 2 ? '#7BD88F' : '#4A4870')
+        + '; transition: background 300ms linear;';
+      const EASE_P = 'cubic-bezier(0.22, 1, 0.36, 1)';
+      const fp = (this.state && this.state.pren) || 0;
+      const inviataP = fp >= 1;
+      const bottoneP = 'width: 100%; min-height: 42px; margin-top: 12px; border: 0; border-radius: 10px; background: '
+        + (inviataP ? '#8E90E8' : 'AZIONEC') + '; color: #FFFFFF; font-family: Instrument Sans, sans-serif; font-size: 14px; '
+        + 'font-weight: 600; transition: background 240ms linear, transform 180ms ' + EASE_P + '; transform: scale('
+        + (fp === 1 ? '0.97' : '1') + ');';
+      const etichettaP = inviataP ? 'Inviata' : 'Prenota';
+      const puntoPP = (dir) => {
+        const avanti = fp >= 2;
+        const asse = dir === 'giu' ? 'top' : 'left';
+        return 'position: absolute; ' + (dir === 'giu' ? 'left: 50%; margin-left: -5px; top: ' : 'top: 50%; margin-top: -5px; left: ')
+          + (avanti ? '100%' : '0%') + '; width: 10px; height: 10px; margin-' + (dir === 'giu' ? 'top' : 'left') + ': -5px; '
+          + 'border-radius: 999px; background: AZIONEC; opacity: ' + (fp === 1 || fp === 2 ? '1' : '0') + '; '
+          + 'transition: ' + asse + ' 520ms ' + EASE_P + ', opacity 200ms linear;';
+      };
+      const entraP = (attivo) => 'opacity: ' + (attivo ? '1' : '0') + '; transform: translateY(' + (attivo ? '0' : '-8px')
+        + '); transition: opacity 280ms linear, transform 340ms ' + EASE_P + ';';
+      const rigaNuova = entraP(fp >= 3);
+      const clienteNuovo = entraP(fp >= 4);
+      const bordoNuovo = fp >= 3 ? '1px solid AZIONEC' : '1px solid transparent';
+        return { gruppoA: gruppoA, gruppoB: gruppoB, animPan: animPan, s0: s0, s1: s1, s2: s2, s3: s3, s4: s4, s5: s5, s6: s6, s7: s7, s8: s8, bottone: bottone, etichetta: etichetta, puntoGiu: puntoGiu, puntoDx: puntoDx, cartaOrd: cartaOrd, spia: spia, bottoneP: bottoneP, etichettaP: etichettaP, puntoGiuP: puntoPP('giu'), puntoDxP: puntoPP('dx'), rigaNuova: rigaNuova, clienteNuovo: clienteNuovo, bordoNuovo: bordoNuovo, locali: locali, tel: tel, q0: q0, q1: q1, q2: q2, cicli: cicli, piani: piani, piano: piano, basePrezzo: basePrezzo, proPrezzo: proPrezzo, basePieno: basePieno, proPieno: proPieno, periodo: periodo, annuale: annuale, proScelto: proScelto, baseScelto: baseScelto };
+  }
+}
+
+</script>
+</body>
+</html>

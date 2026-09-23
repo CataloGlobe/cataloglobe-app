@@ -38,7 +38,7 @@
     --ld-dark-line: #2E2C50;
     --ld-dark-link: #CBC8DE;
     // parola evidenziata: letta da SectionHeader, ridefinita dal tono scuro
-    --ld-hl-ink: inherit;
+    --ld-hl-ink: var(--ld-azione);
     --ld-hl-line: var(--ld-underline-light);
     // ombre — base indaco, NON la rgba(23,20,15) che il canvas ha ereditato dalla palette vecchia
     --ld-shadow-card: 0 18px 44px rgba(21, 20, 43, 0.10);

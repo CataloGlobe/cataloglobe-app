@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Form — conferma</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Young+Serif&family=Instrument+Sans:wght@400;500;600;700&display=swap">
+<style>
+body{margin:0;font-family:'Instrument Sans', sans-serif;background:#FBF9F5}
+a{color:#4648C6}a:hover{color:#33359E}
+summary::-webkit-details-marker{display:none}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #EEEDFB; color: #1A1613; display: flex; flex-direction: column;">
+  <div style="padding: 34px 20px;">
+    <span style="width: 52px; height: 52px; border-radius: 999px; background: #4648C6; display: flex; align-items: center; justify-content: center;">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"></path></svg>
+    </span>
+    <h2 style="margin: 18px 0 0; font-family: 'Young Serif', serif; font-size: 30px; line-height: 1.12; font-weight: 400; color: #1A1613;">Fatto, Marco.</h2>
+    <p style="margin: 14px 0 0; font-size: 17px; line-height: 1.55; color: #3E3830;">Ti chiamiamo entro 24 ore al 333 000 0000. Tieni pronta una foto del menù: usciamo dalla telefonata con il tuo menù già online.</p>
+
+    <div style="margin-top: 26px; background: #FFFFFF; border: 1px solid #E7E2D9; border-radius: 18px; padding: 20px;">
+      <p style="margin: 0; font-family: 'Young Serif', serif; font-size: 19px; font-weight: 400;">Due domande, se hai trenta secondi.</p>
+      <p style="margin: 6px 0 0; font-size: 13px; line-height: 1.55; color: #6A6158;">Servono a noi per prepararci alla chiamata. Puoi anche saltarle.</p>
+    <label style="display: block; font-size: 14px; font-weight: 600;">In che città sei?
+      <input type="text" name="citta" autocomplete="address-level2" placeholder="Milano" style="display: block; width: 100%; box-sizing: border-box; margin-top: 6px; min-height: 50px; padding: 13px 15px; border: 1px solid #E7E2D9; border-radius: 12px; background: #FFFFFF; font-family: 'Instrument Sans', sans-serif; font-size: 16px; color: #6A6158;">
+    </label>
+      <fieldset style="margin: 16px 0 0; padding: 0; border: 0;">
+        <legend style="padding: 0; font-size: 14px; font-weight: 600;">Come ci hai scoperto?</legend>
+        <div style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px;"><button type="button" style="min-height: 44px; padding: 10px 16px; border: 1px solid #E7E2D9; border-radius: 999px; background: #FFFFFF; font-family: 'Instrument Sans', sans-serif; font-size: 14px; font-weight: 500; color: #1A1613;">Instagram</button><button type="button" style="min-height: 44px; padding: 10px 16px; border: 1px solid #E7E2D9; border-radius: 999px; background: #FFFFFF; font-family: 'Instrument Sans', sans-serif; font-size: 14px; font-weight: 500; color: #1A1613;">Facebook</button><button type="button" style="min-height: 44px; padding: 10px 16px; border: 1px solid #E7E2D9; border-radius: 999px; background: #FFFFFF; font-family: 'Instrument Sans', sans-serif; font-size: 14px; font-weight: 500; color: #1A1613;">Passaparola</button><button type="button" style="min-height: 44px; padding: 10px 16px; border: 1px solid #E7E2D9; border-radius: 999px; background: #FFFFFF; font-family: 'Instrument Sans', sans-serif; font-size: 14px; font-weight: 500; color: #1A1613;">Altro</button></div>
+      </fieldset>
+      <button type="submit" style="width: 100%; margin-top: 20px; min-height: 52px; padding: 15px; border: 0; border-radius: 12px; background: #4648C6; color: #FFFFFF; font-family: 'Instrument Sans', sans-serif; font-size: 16px; font-weight: 600;">Invia</button>
+    </div>
+    <a href="Main.dc.html" style="display: block; margin-top: 18px; font-size: 15px; font-weight: 600; text-align: center; text-decoration: none;">Torna al sito</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+
+</script>
+</body>
+</html>
