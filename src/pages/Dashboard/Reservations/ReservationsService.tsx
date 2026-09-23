@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@components/ui/EmptyState/EmptyState";
 import { Badge } from "@/components/ui/Badge/Badge";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { Card } from "@/components/ui/Card/Card";
 import { CollapsibleSection } from "@/components/ui/CollapsibleSection/CollapsibleSection";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
@@ -142,9 +143,9 @@ export default function ReservationsService({
 
     if (board === null) {
         return (
-            <div className={styles.cards}>
-                <div className={styles.skeleton} />
-                <div className={styles.skeleton} />
+            <div className={styles.serviceBoard} aria-busy="true">
+                <Skeleton height={160} radius="var(--radius-surface)" />
+                <Skeleton height={120} radius="var(--radius-surface)" />
             </div>
         );
     }
@@ -206,7 +207,7 @@ export default function ReservationsService({
                         // vive di coperti e durata.
                         <>
                             {walkinTitle(s) ?? "Tavolata"}{" "}
-                            <span className={styles.serviceWalkinMark}>Senza prenotazione</span>
+                            <Badge variant="neutral" role="presentation">Senza prenotazione</Badge>
                         </>
                     ) : (
                         s.reservations.map(r => r.customer_name).join(" · ")
@@ -260,94 +261,78 @@ export default function ReservationsService({
     };
 
     return (
-        <div className={styles.inbox}>
+        <div className={styles.serviceBoard}>
             {/* ── In sala adesso ──────────────────────────────────── */}
-            <section className={styles.inboxSection}>
-                <div className={styles.inboxSectionHeader}>
-                    <h2 className={styles.inboxSectionTitle}>In sala adesso</h2>
-                    {board.inRoom.length > 0 && (
-                        <span className={styles.inboxSectionCount}>{board.inRoom.length}</span>
-                    )}
-                    {/* Qui e non nel PageHeader: lì vive "+ Nuova
-                        prenotazione", condivisa con Inbox e Agenda, ed è
-                        un'altra cosa. "Senza prenotazione" dice l'unica cosa
-                        che lo distingue, ed è la parola che un host userebbe. */}
-                    {onOpenWalkin && (
-                        <Button
-                            variant="secondary"
-                            size="sm"
-                            className={styles.serviceSectionAction}
-                            leftIcon={<Plus size={14} />}
-                            onClick={onOpenWalkin}
-                        >
+            {/* «Senza prenotazione» qui e non nel PageHeader: lì vive «+ Nuova
+                prenotazione», condivisa con l'Agenda, ed è un'altra cosa. */}
+            <Card
+                title="In sala adesso"
+                badge={board.inRoom.length > 0 ? <Badge>{board.inRoom.length}</Badge> : undefined}
+                actions={
+                    onOpenWalkin ? (
+                        <Button variant="secondary" size="sm" leftIcon={<Plus size={14} />} onClick={onOpenWalkin}>
                             Senza prenotazione
                         </Button>
-                    )}
-                </div>
+                    ) : undefined
+                }
+                flush={board.inRoom.length > 0}
+            >
                 {board.inRoom.length === 0 ? (
                     // "Nessuna tavolata aperta", NON "nessun dato": chi arriva
                     // qui ha passato il gate, quindi la sala è davvero vuota.
-                    <p className={styles.inboxSectionHint}>
+                    <Text as="p" variant="body-sm" colorVariant="muted">
                         Nessuna tavolata aperta. Quando qualcuno si siede, compare qui.
-                    </p>
+                    </Text>
                 ) : (
-                    <Card flush>{board.inRoom.map(s => renderSeatingRow(s, false))}</Card>
+                    board.inRoom.map(s => renderSeatingRow(s, false))
                 )}
-            </section>
+            </Card>
 
             {/* ── In arrivo ───────────────────────────────────────── */}
             {board.arriving.length > 0 && (
-                <section className={styles.inboxSection}>
-                    <div className={styles.inboxSectionHeader}>
-                        <h2 className={styles.inboxSectionTitle}>In arrivo</h2>
-                        <span className={styles.inboxSectionCount}>{board.arriving.length}</span>
-                    </div>
-                    <Card flush>
-                        {board.arriving.map(({ reservation: r, late }) => {
-                            const tableView = tableViews.get(r.id);
-                            return (
-                                <ListRow
-                                    key={r.id}
-                                    dense
-                                    onClick={() => onOpenDetail(r)}
-                                    leading={
-                                        <Text
-                                            as="span"
-                                            variant="body-sm"
-                                            weight={700}
-                                            colorVariant={late ? "warning" : undefined}
-                                            className={styles.timelineTime}
-                                        >
-                                            {r.reservation_time.slice(0, 5)}
-                                        </Text>
-                                    }
-                                    title={r.customer_name}
-                                    subtitle={`${r.party_size} ${r.party_size === 1 ? "persona" : "persone"}`}
-                                    meta={
-                                        <>
-                                            {/* L'unica riga colorata del gruppo:
-                                                segnala l'eccezione. */}
-                                            {late && <Badge variant="warning">In ritardo</Badge>}
-                                            {tableView && <TableAssignmentBadge view={tableView} />}
-                                        </>
-                                    }
-                                    metaInline
-                                />
-                            );
-                        })}
-                    </Card>
-                </section>
+                <Card title="In arrivo" badge={<Badge>{board.arriving.length}</Badge>} flush>
+                    {board.arriving.map(({ reservation: r, late }) => {
+                        const tableView = tableViews.get(r.id);
+                        return (
+                            <ListRow
+                                key={r.id}
+                                dense
+                                onClick={() => onOpenDetail(r)}
+                                leading={
+                                    <Text
+                                        as="span"
+                                        variant="title-sm"
+                                        weight={600}
+                                        colorVariant={late ? "warning" : undefined}
+                                        className={styles.timelineTime}
+                                    >
+                                        {r.reservation_time.slice(0, 5)}
+                                    </Text>
+                                }
+                                title={r.customer_name}
+                                subtitle={`${r.party_size} ${r.party_size === 1 ? "persona" : "persone"}`}
+                                meta={
+                                    <>
+                                        {/* L'unica riga colorata del gruppo:
+                                            segnala l'eccezione. */}
+                                        {late && <Badge variant="warning">In ritardo</Badge>}
+                                        {tableView && <TableAssignmentBadge view={tableView} />}
+                                    </>
+                                }
+                                metaInline
+                            />
+                        );
+                    })}
+                </Card>
             )}
 
             {/* ── Concluse ────────────────────────────────────────
                 Chiusa di default: è il servizio passato. Solo le chiuse
                 dall'operatore; quelle del cron no (§18.1). */}
             {board.closed.length > 0 && (
-                <section className={styles.inboxSection}>
-                    <CollapsibleSection label={`Concluse · ${board.closed.length}`}>
-                        <Card flush>{board.closed.map(s => renderSeatingRow(s, true))}</Card>
-                    </CollapsibleSection>
-                </section>
+                <CollapsibleSection label={`Concluse · ${board.closed.length}`}>
+                    <Card flush>{board.closed.map(s => renderSeatingRow(s, true))}</Card>
+                </CollapsibleSection>
             )}
         </div>
     );

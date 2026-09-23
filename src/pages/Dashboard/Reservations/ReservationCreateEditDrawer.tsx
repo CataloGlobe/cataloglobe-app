@@ -11,7 +11,7 @@ import type { V2Activity } from "@/types/activity";
 
 const FORM_ID = "reservation-form";
 
-export interface ManageableActivityCapacity
+interface ManageableActivityCapacity
     extends Pick<
         V2Activity,
         | "id"

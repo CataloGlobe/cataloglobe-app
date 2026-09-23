@@ -9,6 +9,7 @@ import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { canDoOnActivity, canDoOnAnyActivity, isTenantWide } from "@/lib/permissions";
 import { usePlanFeatures } from "@/lib/planFeatures";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Card } from "@/components/ui/Card/Card";
 import { StatusStrip } from "@/components/ui/StatusStrip/StatusStrip";
@@ -188,7 +189,7 @@ export default function Reservations() {
     const navigate = useNavigate();
     const { businessId = "" } = useParams<{ businessId: string }>();
     const { hasFeature } = usePlanFeatures();
-    const { permissions, loading: permissionsLoading } = usePermissions();
+    const { permissions, loading: permissionsLoading, refresh: refreshPermissions } = usePermissions();
     const sedeScope = useActivityScope();
     const [searchParams, setSearchParams] = useSearchParams();
 
@@ -1562,16 +1563,30 @@ export default function Reservations() {
         );
     }
 
+    // Permessi non arrivati (errore del provider): senza questo ramo il
+    // caricamento non parte e lo scheletro resterebbe per sempre (#153).
+    if (!permissionsLoading && !permissions) {
+        return (
+            <div className={styles.lockedWrap}>
+                <EmptyState
+                    variant="page"
+                    icon={<Lock />}
+                    title="Non riusciamo a leggere i tuoi permessi"
+                    description="Senza, non sappiamo quali prenotazioni puoi vedere. Riprova tra un momento."
+                    action={<Button onClick={() => void refreshPermissions()}>Riprova</Button>}
+                />
+            </div>
+        );
+    }
+
     // SOLO al primo caricamento: dopo, la pagina resta in piedi e si aggiorna
     // sotto. Vedi la nota su `hasLoadedOnce`.
     if (isLoading && !hasLoadedOnce) {
         return (
-            <div className={styles.page}>
-                <div className={styles.cards}>
-                    <div className={styles.skeleton} />
-                    <div className={styles.skeleton} />
-                    <div className={styles.skeleton} />
-                </div>
+            <div className={styles.page} aria-busy="true">
+                <Skeleton height={76} radius="var(--radius-surface)" />
+                <Skeleton height={160} radius="var(--radius-surface)" />
+                <Skeleton height={160} radius="var(--radius-surface)" />
             </div>
         );
     }

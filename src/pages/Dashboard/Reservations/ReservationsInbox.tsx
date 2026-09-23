@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import Text from "@/components/ui/Text/Text";
 import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { todayIsoDate } from "@/utils/dateLocal";
 import { PENDING_QUEUE_LIMIT } from "@/services/supabase/reservations";
@@ -148,13 +149,12 @@ export default function ReservationsInbox({
             {stale.length > 0 && (
                 <>
                     <div className={styles.inboxStaleHeader}>
-                        <div className={styles.inboxSectionHeader}>
-                            <h3 className={styles.inboxSectionTitle}>Scadute</h3>
-                            <span className={styles.inboxSectionCount}>{stale.length}</span>
-                        </div>
-                        <p className={styles.inboxSectionHint}>
+                        <Text as="h3" variant="caption-xs" weight={600} className={styles.sectionLabel}>
+                            Scadute · {stale.length}
+                        </Text>
+                        <Text as="p" variant="caption" colorVariant="muted" className={styles.sectionHint}>
                             Richieste per date già passate, mai gestite.
-                        </p>
+                        </Text>
                     </div>
                     {stale.map(r => renderRow(r, true))}
                 </>

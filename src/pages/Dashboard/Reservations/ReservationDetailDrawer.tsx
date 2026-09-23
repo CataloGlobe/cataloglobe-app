@@ -8,7 +8,6 @@ import {
     MapPin,
     PencilLine,
     Phone,
-    TriangleAlert,
     User,
     Users
 } from "lucide-react";
@@ -16,6 +15,7 @@ import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
+import { Badge } from "@/components/ui/Badge/Badge";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import type { TableAssignmentView } from "@/components/ui/TableAssignmentBadge/TableAssignmentBadge";
@@ -517,9 +517,9 @@ export default function ReservationDetailDrawer({
                 // non si può fare, non quale permesso manca. Il nome del
                 // permesso vive nella schermata Team, dove serve a chi lo
                 // assegna.
-                <p className={styles.drawerFooterHint}>
+                <Text as="p" variant="caption-xs" colorVariant="muted" className={styles.drawerFooterHint}>
                     Non hai i permessi per gestire questa prenotazione.
-                </p>
+                </Text>
             ) : reservation.status === "pending" ? (
                 <>
                     {canEdit && (
@@ -595,24 +595,24 @@ export default function ReservationDetailDrawer({
                         serve a chi lo assegna. Qui, in sala, citarlo chiede a
                         chi lavora di tradurre. */}
                     {!showUndoArrival && !showComplete && (
-                        <p className={styles.drawerFooterHint}>
+                        <Text as="p" variant="caption-xs" colorVariant="muted" className={styles.drawerFooterHint}>
                             Non hai i permessi per gestire il servizio su questa sede.
-                        </p>
+                        </Text>
                     )}
                 </>
             ) : reservation.status === "no_show" ? (
                 <>
-                    <p className={styles.drawerFooterHint}>
+                    <Text as="p" variant="caption-xs" colorVariant="muted" className={styles.drawerFooterHint}>
                         Il cliente non si è presentato.
-                    </p>
+                    </Text>
                     <Button variant="primary" onClick={() => handleAction("undo_no_show")}>
                         Annulla non presentato
                     </Button>
                 </>
             ) : (
-                <p className={styles.drawerFooterHint}>
+                <Text as="p" variant="caption-xs" colorVariant="muted" className={styles.drawerFooterHint}>
                     Questa prenotazione è in stato terminale. Nessuna azione disponibile.
-                </p>
+                </Text>
             )}
         </div>
     );
@@ -646,7 +646,7 @@ export default function ReservationDetailDrawer({
                 <div className={styles.drawerBody}>
                     {/* ── Hero: data eroe + meta + sede ─────────────────── */}
                     <section className={styles.drawerHero}>
-                        <div className={styles.drawerHeroDate}>
+                        <Text as="div" variant="title-sm" weight={600} className={styles.drawerHeroDate}>
                             <CalendarDays
                                 size={18}
                                 strokeWidth={2}
@@ -659,7 +659,7 @@ export default function ReservationDetailDrawer({
                             {/* Lo stato stava nell'intestazione: quella
                                 canonica di DrawerLayout ha solo titolo e chiudi. */}
                             <StatusBadge variant={st.variant} label={st.label} />
-                        </div>
+                        </Text>
 
                         {/* Conferma del cliente, per esteso con data e ora.
                             Compare solo se ha risposto: chi tace non produce
@@ -686,7 +686,7 @@ export default function ReservationDetailDrawer({
                             />
                         </div>
 
-                        <div className={styles.drawerHeroMeta}>
+                        <Text as="div" variant="body-sm" colorVariant="muted" className={styles.drawerHeroMeta}>
                             <span className={styles.drawerHeroMetaItem}>
                                 <Clock size={15} strokeWidth={2} aria-hidden />
                                 {formatTimeIt(reservation.reservation_time)}
@@ -698,7 +698,7 @@ export default function ReservationDetailDrawer({
                                 {reservation.party_size === 1 ? "persona" : "persone"}
                             </span>
                             <span className={styles.drawerHeroMetaDot} aria-hidden>·</span>
-                            <span className={styles.drawerHeroChannel}>
+                            <Text as="span" variant="caption-xs" weight={500} colorVariant="muted" className={styles.drawerHeroChannel}>
                                 {reservation.source === "manual" ? (
                                     <>
                                         <PencilLine size={13} strokeWidth={2} aria-hidden />
@@ -710,7 +710,7 @@ export default function ReservationDetailDrawer({
                                         Online
                                     </>
                                 )}
-                            </span>
+                            </Text>
                             {/* Puntino e "Creata da" in UN blocco che non si
                                 spezza: la riga va a capo, e lasciare il
                                 separatore in coda alla riga sopra con il
@@ -737,12 +737,12 @@ export default function ReservationDetailDrawer({
                                         </span>
                                     </span>
                                 )}
-                        </div>
+                        </Text>
 
-                        <div className={styles.drawerHeroVenue}>
+                        <Text as="div" variant="caption" colorVariant="muted" className={styles.drawerHeroVenue}>
                             <MapPin size={13} strokeWidth={2} aria-hidden />
                             {activityName ?? "—"}
-                        </div>
+                        </Text>
                     </section>
 
                     {/* ── Tavolo ────────────────────────────────────────
@@ -758,28 +758,20 @@ export default function ReservationDetailDrawer({
                          è l'unica riga colorata della sezione. I gesti sono RPC
                          immediate: il drawer resta aperto e mostra il risultato.
 
-                         Tre cose che questa sezione NON fa, per scelta e non
-                         per dimenticanza:
-                         1. I coperti reali della tavolata (`seatings.party_size`)
-                            non si modificano: manca la RPC, e quel gesto
-                            appartiene alla vista di servizio — è all'ingresso
-                            che l'host scopre che sono in cinque invece di
-                            quattro. Arriva nella 2.5.
-                         2. Il rilevamento conflitti continua a lavorare solo su
-                            `reservation_tables`, quindi sul fatto non compare:
-                            estenderlo alle tavolate aperte richiede i dati
-                            dell'intera giornata, che è ciò che la vista di
-                            servizio caricherà. Farlo a metà qui darebbe
-                            avvisi incompleti, che sono peggio di nessun avviso.
-                         3. La vista di servizio non esiste ancora. */}
+                         Una cosa che questa sezione NON fa, per scelta: il
+                         rilevamento conflitti lavora solo su
+                         `reservation_tables`, quindi sul fatto non compare:
+                         estenderlo alle tavolate aperte richiede i dati
+                         dell'intera giornata. Farlo a metà qui darebbe avvisi
+                         incompleti, che sono peggio di nessun avviso. */}
                     {(hasTables || canEditTables) && (
                         <section className={styles.drawerSection}>
                             <div className={styles.drawerSectionHead}>
-                                <h3 className={styles.drawerSectionTitle}>
+                                <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>
                                     {hasTables && activeTableView.rows.length > 1
                                         ? "Tavoli"
                                         : "Tavolo"}
-                                </h3>
+                                </Text>
                                 {canEditTables && !pickerOpen && (
                                     <div className={styles.drawerTableActions}>
                                         {/* "Restituisci al sistema" riguarda la
@@ -815,7 +807,7 @@ export default function ReservationDetailDrawer({
                             {pickerOpen ? (
                                 <div className={styles.drawerTablePicker}>
                                     {tables === undefined ? (
-                                        <p className={styles.drawerTableHint}>Carico i tavoli…</p>
+                                        <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>Carico i tavoli…</Text>
                                     ) : (
                                         <TableMultiSelect
                                             tables={tables}
@@ -828,7 +820,7 @@ export default function ReservationDetailDrawer({
                                     {/* Prima di confermare, non dopo: scegliere qui
                                         toglie la prenotazione al motore (§14). */}
                                     {tableSection?.target === "plan" && (
-                                        <p className={styles.drawerTableHint}>{MANUAL_PLAN_HINT}</p>
+                                        <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>{MANUAL_PLAN_HINT}</Text>
                                     )}
                                     <div className={styles.drawerTablePickerActions}>
                                         <Button
@@ -870,35 +862,29 @@ export default function ReservationDetailDrawer({
                                                     {formatTableLabels([row.label])}
                                                 </span>
                                                 {row.zone_name && (
-                                                    <span className={styles.drawerTableZone}>
+                                                    <Text as="span" variant="caption" colorVariant="muted" className={styles.drawerTableZone}>
                                                         {row.zone_name}
-                                                    </span>
+                                                    </Text>
                                                 )}
                                                 {row.deleted && (
-                                                    <span className={styles.drawerTableRemoved}>
+                                                    <Text as="span" variant="caption-xs" weight={500} colorVariant="warning">
                                                         rimosso dalla sala
-                                                    </span>
+                                                    </Text>
                                                 )}
                                             </li>
                                         ))}
                                     </ul>
                                     {tableHint !== null && (
-                                        <p className={styles.drawerTableHint}>{tableHint}</p>
+                                        <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>{tableHint}</Text>
                                     )}
                                     {activeTableView.conflict && (
-                                        <div className={styles.drawerTableConflict} role="status">
-                                            <TriangleAlert
-                                                size={15}
-                                                strokeWidth={2.25}
-                                                aria-hidden
-                                                className={styles.drawerTableConflictIcon}
-                                            />
-                                            <span>{activeTableView.conflict.message}.</span>
-                                        </div>
+                                        <InlineBanner variant="warning">
+                                            {activeTableView.conflict.message}.
+                                        </InlineBanner>
                                     )}
                                 </>
                             ) : (
-                                <p className={styles.drawerTableHint}>{tableEmptyHint}</p>
+                                <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>{tableEmptyHint}</Text>
                             )}
                         </section>
                     )}
@@ -914,7 +900,7 @@ export default function ReservationDetailDrawer({
                     {tableSection?.note === "seated" && (
                         <section className={styles.drawerSection}>
                             <div className={styles.drawerSectionHead}>
-                                <h3 className={styles.drawerSectionTitle}>Coperti</h3>
+                                <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>Coperti</Text>
                                 {tableSection.target === "seating" &&
                                     onSetSeatingPartySize &&
                                     !coversOpen && (
@@ -964,27 +950,27 @@ export default function ReservationDetailDrawer({
                                     </div>
                                 </div>
                             ) : (
-                                <p className={styles.drawerTableHint}>
+                                <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>
                                     {seatingPartySize === undefined || seatingPartySize === null
                                         ? `Al tavolo: non indicati · prenotati ${reservation.party_size}`
                                         : seatingPartySize === reservation.party_size
                                           ? `Al tavolo: ${seatingPartySize}, come prenotato`
                                           : `Al tavolo: ${seatingPartySize} · prenotati ${reservation.party_size}`}
-                                </p>
+                                </Text>
                             )}
                         </section>
                     )}
 
                     {/* ── Cliente ───────────────────────────────────────── */}
                     <section className={styles.drawerSection}>
-                        <h3 className={styles.drawerSectionTitle}>Cliente</h3>
+                        <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>Cliente</Text>
                         <div className={styles.drawerCustomer}>
-                            <div className={styles.drawerCustomerName}>
+                            <Text as="div" variant="body" weight={600}>
                                 {reservation.customer_name}
-                            </div>
+                            </Text>
                             <ul className={styles.drawerCustomerList}>
                                 {reservation.customer_email?.trim() && (
-                                    <li className={styles.drawerCustomerItem}>
+                                    <Text as="li" variant="body-sm" colorVariant="muted" className={styles.drawerCustomerItem}>
                                         <Mail
                                             size={14}
                                             strokeWidth={2}
@@ -997,9 +983,9 @@ export default function ReservationDetailDrawer({
                                         >
                                             {reservation.customer_email}
                                         </a>
-                                    </li>
+                                    </Text>
                                 )}
-                                <li className={styles.drawerCustomerItem}>
+                                <Text as="li" variant="body-sm" colorVariant="muted" className={styles.drawerCustomerItem}>
                                     <Phone
                                         size={14}
                                         strokeWidth={2}
@@ -1012,7 +998,7 @@ export default function ReservationDetailDrawer({
                                     >
                                         {reservation.customer_phone}
                                     </a>
-                                </li>
+                                </Text>
                             </ul>
 
                             {/* ── Chi è questa persona ───────────────────
@@ -1028,7 +1014,7 @@ export default function ReservationDetailDrawer({
                                  totale del cliente quando ne ha 5 altrove. */}
                             {guestSummary && (
                                 <div className={styles.guestInlineCard}>
-                                    <div className={styles.guestInlineStats}>
+                                    <Text as="div" variant="caption" className={styles.guestInlineStats}>
                                         <span className={styles.guestInlineVisits}>
                                             {formatVisitCount(guestSummary.visible_visits, tenantWide)}
                                         </span>
@@ -1043,30 +1029,31 @@ export default function ReservationDetailDrawer({
                                                 </span>
                                             </>
                                         )}
-                                    </div>
+                                    </Text>
 
                                     {guestNote && guestNote.tags.length > 0 && (
                                         <div className={styles.guestTags}>
                                             {guestNote.tags.map(t => (
-                                                <span key={t} className={styles.guestTag}>{t}</span>
+                                                <Badge key={t} role="presentation">{t}</Badge>
                                             ))}
                                         </div>
                                     )}
 
                                     {guestNote?.notes && (
-                                        <div className={styles.guestInlineNotes}>
+                                        <Text as="div" variant="caption" className={styles.guestInlineNotes}>
                                             {guestNote.notes}
-                                        </div>
+                                        </Text>
                                     )}
 
                                     {onOpenGuest && (
-                                        <button
-                                            type="button"
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
                                             className={styles.guestInlineLink}
                                             onClick={onOpenGuest}
                                         >
                                             Apri scheda cliente
-                                        </button>
+                                        </Button>
                                     )}
                                 </div>
                             )}
@@ -1110,8 +1097,8 @@ export default function ReservationDetailDrawer({
                     {/* ── Note ──────────────────────────────────────────── */}
                     {reservation.notes && (
                         <section className={styles.drawerSection}>
-                            <h3 className={styles.drawerSectionTitle}>Note</h3>
-                            <div className={styles.drawerNotes}>{reservation.notes}</div>
+                            <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>Note</Text>
+                            <Text as="div" variant="body-sm" className={styles.drawerNotes}>{reservation.notes}</Text>
                         </section>
                     )}
                 </div>

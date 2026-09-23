@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { TableMultiSelect } from "@/components/ui/TableMultiSelect/TableMultiSelect";
 import type { V2Table } from "@/types/orders";
+import Text from "@/components/ui/Text/Text";
 import styles from "./Reservations.module.scss";
 
 // ── Arriva gente senza prenotazione ───────────────────────────────────────
@@ -103,9 +104,9 @@ export default function WalkinCreateDrawer({
             >
                 <form id={FORM_ID} onSubmit={handleSubmit} className={styles.drawerBody}>
                     <section className={styles.drawerSection}>
-                        <h3 className={styles.drawerSectionTitle}>Tavolo</h3>
+                        <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>Tavolo</Text>
                         {tables === undefined ? (
-                            <p className={styles.drawerTableHint}>Caricamento dei tavoli…</p>
+                            <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>Caricamento dei tavoli…</Text>
                         ) : (
                             <TableMultiSelect
                                 tables={tables}
@@ -115,13 +116,13 @@ export default function WalkinCreateDrawer({
                                 disabled={saving}
                             />
                         )}
-                        <p className={styles.drawerTableHint}>
+                        <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>
                             Facoltativo: si può assegnare anche dopo.
-                        </p>
+                        </Text>
                     </section>
 
                     <section className={styles.drawerSection}>
-                        <h3 className={styles.drawerSectionTitle}>Coperti</h3>
+                        <Text as="h3" variant="caption-xs" weight={600} colorVariant="muted" className={styles.drawerSectionTitle}>Coperti</Text>
                         <NumberInput
                             label="Quanti sono"
                             min={1}
@@ -131,9 +132,9 @@ export default function WalkinCreateDrawer({
                             error={error ?? undefined}
                             disabled={saving}
                         />
-                        <p className={styles.drawerTableHint}>
+                        <Text as="p" variant="caption" colorVariant="muted" className={styles.drawerTableHint}>
                             Facoltativo: si correggono dopo, dalla tavolata.
-                        </p>
+                        </Text>
                     </section>
                 </form>
             </DrawerLayout>

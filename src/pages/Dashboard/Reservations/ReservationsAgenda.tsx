@@ -290,8 +290,8 @@ export default function ReservationsAgenda({
                 leading={
                     <Text
                         as="span"
-                        variant="body-sm"
-                        weight={700}
+                        variant="title-sm"
+                        weight={600}
                         colorVariant={isDimmed(r.status) ? "muted" : "default"}
                         className={styles.timelineTime}
                     >
