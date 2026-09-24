@@ -107,6 +107,9 @@ serve(async (req: Request) => {
     // The action ("lock" vs "transfer") is captured here so Step 2a can
     // discriminate behaviour: lock → schedule cancel at period end,
     // transfer → leave the subscription alone (it follows the tenant).
+    // Scoped to tenants owned by the caller: the RPC returns success without
+    // validating the payload when the caller owns no active tenant, so an
+    // unscoped read would let any account cancel another tenant's subscription.
     // -------------------------------------------------------------------------
     const actionMap = new Map<string, TenantAction["action"]>(
         payload.actions.map((a: TenantAction) => [a.tenant_id, a.action])
@@ -124,6 +127,7 @@ serve(async (req: Request) => {
                 .from("tenants")
                 .select("id, stripe_subscription_id")
                 .in("id", tenantIds)
+                .eq("owner_user_id", userId)
                 .not("stripe_subscription_id", "is", null);
 
             stripeSubsToProcess = (tenantsStripe ?? [])
