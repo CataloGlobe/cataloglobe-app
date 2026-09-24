@@ -1,5 +1,3 @@
-@use "@styles/variables" as *;
-
 /* ─── Wrapper ────────────────────────────────────────────────── */
 
 .calendarWrapper {
@@ -392,11 +390,6 @@
 
   .subHeaderLabel {
     font-size: 8px;
-  }
-
-  .tab {
-    padding: 0.45rem 0.6rem;
-    font-size: 0.75rem;
   }
 
   .calendarNav {
