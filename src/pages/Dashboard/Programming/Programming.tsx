@@ -456,8 +456,7 @@ export default function Programming() {
                 endAt: rule.end_at,
                 isConfigDraft: isLayoutRuleDraft(rule),
                 isZeroReach: Boolean(insight?.zeroReachReason),
-                isActiveNow: insight?.isActiveNow ?? false,
-                isOverridden: insight?.isOverridden ?? false
+                isActiveNow: insight?.isActiveNow ?? false
             });
 
             if (status === "draft") {

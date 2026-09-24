@@ -155,13 +155,17 @@ test.describe("Programmazione — elenco", () => {
     test("le regole stanno nei cinque gruppi di stato, con «Tutte»", async ({ page }) => {
         await openList(page);
         const adesso = group(page, GROUP.adesso);
-        for (const key of ["carta", "pranzo", "spritz", "stagionali", "promoPorto"] as const) {
+        // «Adesso» è la finestra, non la vittoria (§34.4): anche la regola in
+        // finestra che perde, con «Sovrascritta da …».
+        for (const key of ["carta", "pranzo", "spritz", "stagionali", "promoPorto", "promoCosta"] as const) {
             await expect(adesso).toContainText(RULE_NAME[key]);
         }
+        await expect(rowOf(adesso.getByText(RULE_NAME.promoCosta, { exact: true }))).toContainText(/Sovrascritta da/);
         const programmate = group(page, GROUP.programmate);
-        for (const key of ["aperitivo", "promoCosta", "natale"] as const) {
+        for (const key of ["aperitivo", "natale"] as const) {
             await expect(programmate).toContainText(RULE_NAME[key]);
         }
+        await expect(programmate).not.toContainText(RULE_NAME.promoCosta);
         const bozze = group(page, GROUP.bozze);
         await expect(bozze).toContainText(RULE_NAME.bozza);
         await expect(bozze).toContainText(RULE_NAME.gruppoVuoto);
