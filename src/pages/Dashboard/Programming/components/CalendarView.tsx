@@ -31,6 +31,9 @@ const TYPE_COLOR: Record<RuleType, string> = {
 
 const TYPE_ORDER: RuleType[] = ["layout", "featured", "price", "visibility"];
 
+/** I giorni in testata, sempre a tre lettere (colonna 0 = lunedì). */
+const DAY_SHORT = ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"];
+
 
 /* ─── Types ──────────────────────────────────────────────────── */
 
@@ -409,7 +412,7 @@ export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarVie
                                 className={`${styles.dayHeader} ${isToday ? styles.dayHeaderToday : ""}`}
                             >
                                 <span className={styles.dayName}>
-                                    {date.toLocaleDateString("it-IT", { weekday: "short" })}
+                                    {DAY_SHORT[i]}
                                 </span>
                                 <span
                                     className={`${styles.dayNumber} ${isToday ? styles.dayNumberToday : ""}`}

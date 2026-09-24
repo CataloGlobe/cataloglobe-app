@@ -613,7 +613,7 @@ export function AssociatedContentSection({
                 {sortedSelectedProductIds.length === 0 ? (
                     <div className={styles.hintCard}>
                         <Text variant="body-sm" colorVariant="muted">
-                            Nessun prodotto: aggiungine per dire cosa cambia.
+                            Nessun prodotto ancora: aggiungine uno per dire cosa cambia.
                         </Text>
                     </div>
                 ) : (
