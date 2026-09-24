@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/Switch/Switch";
 import { TimeInput } from "@/components/ui/Input/TimeInput";
 import Text from "@/components/ui/Text/Text";
 import { LayoutTimeMode } from "@/services/supabase/layoutScheduling";
+import type { RuleFormErrors, RuleFormField } from "@/utils/ruleDetailForm";
 import styles from "../ProgrammingRuleDetail.module.scss";
 
 const DAY_OPTIONS = [
@@ -35,6 +36,10 @@ interface SchedulingSectionProps {
             timeTo: string;
         }>
     ) => void;
+    /** Errori di `validateRuleForm`: sui campi, e «Quando» vuoto sulla card. */
+    errors?: RuleFormErrors;
+    /** Il campo lasciato: da lì in poi il suo errore si vede. */
+    onFieldBlur?: (field: RuleFormField) => void;
 }
 
 export function SchedulingSection({
@@ -44,49 +49,15 @@ export function SchedulingSection({
     daysOfWeek,
     timeFrom,
     timeTo,
-    onFormChange
+    onFormChange,
+    errors = {},
+    onFieldBlur
 }: SchedulingSectionProps) {
-    const [startAtError, setStartAtError] = useState("");
-    const [endAtError, setEndAtError] = useState("");
-    const [timeFromTouched, setTimeFromTouched] = useState(false);
-    const [timeToTouched, setTimeToTouched] = useState(false);
 
     // Progressive toggle states — initialized from existing prop values
     const [hasPeriod, setHasPeriod] = useState(!!(startAt || endAt));
     const [hasTime, setHasTime] = useState(!!(timeFrom || timeTo));
     const [hasDays, setHasDays] = useState(daysOfWeek.length > 0);
-
-    const today = new Date().toISOString().split("T")[0];
-    const timeOrderError =
-        timeFromTouched && timeToTouched && timeFrom && timeTo && timeTo <= timeFrom
-            ? "L'ora di fine viene prima dell'inizio."
-            : null;
-
-    const validateEndAt = (end: string, start: string) => {
-        if (!end) { setEndAtError(""); return; }
-        if (end < today) { setEndAtError("La data di fine è già passata."); return; }
-        if (start && end < start) { setEndAtError("La fine viene prima dell'inizio."); return; }
-        setEndAtError("");
-    };
-
-    const handleStartAtBlur = () => {
-        if (!startAt && hasPeriod) {
-            setStartAtError("Manca la data di inizio.");
-        } else if (startAt && startAt < today) {
-            setStartAtError("La data di inizio è già passata.");
-        } else {
-            setStartAtError("");
-        }
-        if (endAt) validateEndAt(endAt, startAt);
-    };
-
-    const handleEndAtBlur = () => {
-        if (!endAt && hasPeriod) {
-            setEndAtError("Manca la data di fine.");
-        } else {
-            validateEndAt(endAt, startAt);
-        }
-    };
 
     const handleToggleAlways = (checked: boolean) => {
         onFormChange({
@@ -97,20 +68,12 @@ export function SchedulingSection({
 
     const handleTogglePeriod = (checked: boolean) => {
         setHasPeriod(checked);
-        if (!checked) {
-            setStartAtError("");
-            setEndAtError("");
-            onFormChange({ startAt: "", endAt: "" });
-        }
+        if (!checked) onFormChange({ startAt: "", endAt: "" });
     };
 
     const handleToggleTime = (checked: boolean) => {
         setHasTime(checked);
-        if (!checked) {
-            setTimeFromTouched(false);
-            setTimeToTouched(false);
-            onFormChange({ timeFrom: "", timeTo: "" });
-        }
+        if (!checked) onFormChange({ timeFrom: "", timeTo: "" });
     };
 
     const handleToggleDays = (checked: boolean) => {
@@ -132,6 +95,12 @@ export function SchedulingSection({
                 </div>
             </div>
 
+            {errors.when && (
+                <Text id="rule-field-when" tabIndex={-1} variant="caption" colorVariant="error">
+                    {errors.when}
+                </Text>
+            )}
+
             {!alwaysActive && (
                 <div className={styles.schedulingGrid}>
                     {/* Step 1 — Periodo */}
@@ -143,37 +112,27 @@ export function SchedulingSection({
                         {hasPeriod && (
                             <>
                                 <div className={styles.sectionGrid}>
-                                    <div>
-                                        <DateInput
-                                            label="Data di inizio *"
-                                            value={startAt}
-                                            onChange={event => {
-                                                const newStart = event.target.value;
-                                                if (endAt && newStart && endAt < newStart) {
-                                                    onFormChange({ startAt: newStart, endAt: "" });
-                                                    setEndAtError("");
-                                                } else {
-                                                    onFormChange({ startAt: newStart });
-                                                }
-                                            }}
-                                            onBlur={handleStartAtBlur}
-                                        />
-                                        {startAtError && (
-                                            <Text variant="caption" colorVariant="error">{startAtError}</Text>
-                                        )}
-                                    </div>
-                                    <div>
-                                        <DateInput
-                                            label="Data di fine *"
-                                            value={endAt}
-                                            min={startAt || undefined}
-                                            onChange={event => onFormChange({ endAt: event.target.value })}
-                                            onBlur={handleEndAtBlur}
-                                        />
-                                        {endAtError && (
-                                            <Text variant="caption" colorVariant="error">{endAtError}</Text>
-                                        )}
-                                    </div>
+                                    <DateInput
+                                        id="rule-field-startAt"
+                                        label="Data di inizio *"
+                                        value={startAt}
+                                        onChange={event => {
+                                            // Un inizio dopo la fine la azzera: la fine si risceglie.
+                                            const next = event.target.value;
+                                            onFormChange(endAt && next && endAt < next ? { startAt: next, endAt: "" } : { startAt: next });
+                                        }}
+                                        onBlur={() => onFieldBlur?.("startAt")}
+                                        error={errors.startAt}
+                                    />
+                                    <DateInput
+                                        id="rule-field-endAt"
+                                        label="Data di fine *"
+                                        value={endAt}
+                                        min={startAt || undefined}
+                                        onChange={event => onFormChange({ endAt: event.target.value })}
+                                        onBlur={() => onFieldBlur?.("endAt")}
+                                        error={errors.endAt}
+                                    />
                                 </div>
                                 <Text variant="caption" colorVariant="muted">
                                     La regola si attiva e disattiva automaticamente nelle date indicate.
@@ -194,23 +153,22 @@ export function SchedulingSection({
                             <>
                                 <div className={styles.sectionGrid}>
                                     <TimeInput
+                                        id="rule-field-timeFrom"
                                         label="Ora di inizio"
                                         value={timeFrom}
                                         onChange={event => onFormChange({ timeFrom: event.target.value })}
-                                        onBlur={() => setTimeFromTouched(true)}
+                                        onBlur={() => onFieldBlur?.("timeFrom")}
+                                        error={errors.timeFrom}
                                     />
                                     <TimeInput
+                                        id="rule-field-timeTo"
                                         label="Ora di fine"
                                         value={timeTo}
                                         onChange={event => onFormChange({ timeTo: event.target.value })}
-                                        onBlur={() => setTimeToTouched(true)}
+                                        onBlur={() => onFieldBlur?.("timeTo")}
+                                        error={errors.timeTo}
                                     />
                                 </div>
-                                {timeOrderError && (
-                                    <Text variant="caption" colorVariant="error">
-                                        {timeOrderError}
-                                    </Text>
-                                )}
                             </>
                         )}
                     </div>

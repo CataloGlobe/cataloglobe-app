@@ -111,7 +111,17 @@ export default function RuleDetailPage() {
     const save = async () => {
         if (!form) return;
         const type = form.ruleType;
-        if (await detail.save()) setLeaveTo(listUrl(type));
+        const result = await detail.save();
+        if (result.saved) {
+            setLeaveTo(listUrl(type));
+            return;
+        }
+        // Fermata dalla validazione: il focus va al primo campo sbagliato.
+        if (result.invalid) {
+            const target = document.getElementById(`rule-field-${result.invalid}`);
+            target?.scrollIntoView({ block: "center" });
+            target?.focus({ preventScroll: true });
+        }
     };
 
     const duplicate = async () => {
@@ -298,8 +308,12 @@ export default function RuleDetailPage() {
             );
         }
         return (
+            // `noValidate`: le regole sono `validateRuleForm`, coi messaggi sui
+            // campi. Senza, Invio fermerebbe il form sul fumetto del browser
+            // («Value must be…», in inglese) per il `min` della data di fine.
             <form
                 id={FORM_ID}
+                noValidate
                 className={styles.formLayout}
                 onSubmit={event => {
                     event.preventDefault();
@@ -315,6 +329,8 @@ export default function RuleDetailPage() {
                         tenantActivities={options.activities}
                         tenantGroups={options.groups}
                         onFormChange={detail.updateForm}
+                        nameError={detail.errors.name}
+                        onNameBlur={() => detail.touch("name")}
                     />
                     {form.ruleType === "featured" ? (
                         <FeaturedContentSection
@@ -336,6 +352,7 @@ export default function RuleDetailPage() {
                             tenantProductGroups={options.productGroups}
                             tenantProductGroupItems={options.productGroupItems}
                             onFormChange={detail.updateForm}
+                            pricesError={detail.errors.prices}
                         />
                     )}
                 </div>
@@ -348,6 +365,8 @@ export default function RuleDetailPage() {
                         timeFrom={form.timeFrom}
                         timeTo={form.timeTo}
                         onFormChange={detail.updateForm}
+                        errors={detail.errors}
+                        onFieldBlur={detail.touch}
                     />
                 </div>
             </form>

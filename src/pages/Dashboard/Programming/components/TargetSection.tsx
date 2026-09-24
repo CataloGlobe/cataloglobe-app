@@ -22,6 +22,9 @@ interface TargetSectionProps {
             groupIds: string[];
         }>
     ) => void;
+    /** Errore del nome (`validateRuleForm`), sotto il campo. */
+    nameError?: string;
+    onNameBlur?: () => void;
 }
 
 // ─── MultiSelectChip ───────────────────────────────────────────────────────────
@@ -159,7 +162,9 @@ export function TargetSection({
     groupIds,
     tenantActivities,
     tenantGroups,
-    onFormChange
+    onFormChange,
+    nameError,
+    onNameBlur
 }: TargetSectionProps) {
     const handleModeChange = (newMode: TargetMode) => {
         if (newMode === "all") {
@@ -227,9 +232,12 @@ export function TargetSection({
             </Text>
 
             <TextInput
+                id="rule-field-name"
                 label="Nome"
                 value={name}
                 onChange={event => onFormChange({ name: event.target.value })}
+                onBlur={onNameBlur}
+                error={nameError}
                 required
             />
 

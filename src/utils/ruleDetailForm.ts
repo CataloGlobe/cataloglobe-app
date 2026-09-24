@@ -218,12 +218,9 @@ export function validateRuleForm(
     return errors;
 }
 
-/** Il primo errore nell'ordine dei campi, o null. */
-export function firstRuleFormError(errors: RuleFormErrors): string | null {
-    for (const field of RULE_FORM_FIELDS) {
-        if (errors[field]) return errors[field]!;
-    }
-    return null;
+/** Il primo campo con un errore, nell'ordine dei campi, o null. */
+export function firstRuleFormError(errors: RuleFormErrors): RuleFormField | null {
+    return RULE_FORM_FIELDS.find(field => errors[field]) ?? null;
 }
 
 /** Cosa manca perché la regola sia completa: con qualcosa qui si salva spenta, come bozza. */

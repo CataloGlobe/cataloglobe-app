@@ -145,7 +145,8 @@ describe("validateRuleForm", () => {
 
     it("il primo errore segue l'ordine dei campi di oggi", () => {
         const errors = validate(makeForm({ name: "", startAt: "2026-10-10", endAt: "2026-10-01" }));
-        expect(firstRuleFormError(errors)).toBe("Scrivi un nome.");
+        expect(firstRuleFormError(errors)).toBe("name");
+        expect(firstRuleFormError({ endAt: "x", timeTo: "y" })).toBe("timeTo");
         expect(firstRuleFormError({})).toBeNull();
     });
 });

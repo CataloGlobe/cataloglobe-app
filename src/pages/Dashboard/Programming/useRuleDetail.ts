@@ -21,7 +21,9 @@ import {
     missingDraftFields,
     todayLocal,
     validateRuleForm,
-    type RuleDetailForm
+    type RuleDetailForm,
+    type RuleFormErrors,
+    type RuleFormField
 } from "@/utils/ruleDetailForm";
 
 export type RuleDetailStatus = "loading" | "ready" | "notFound" | "error";
@@ -81,6 +83,25 @@ export function useRuleDetail({
 
     const isDirty = Boolean(form && savedSnapshot && JSON.stringify(form) !== savedSnapshot);
 
+    /* Gli errori si calcolano sempre sul form di adesso, così seguono le
+       correzioni; si mostrano per i campi lasciati (blur) e, dopo un
+       salvataggio fermato, per tutti. */
+    const [touched, setTouched] = useState<Set<RuleFormField>>(() => new Set());
+    const [showAllErrors, setShowAllErrors] = useState(false);
+    const allErrors = useMemo<RuleFormErrors>(
+        () => (form ? validateRuleForm(form, { today: todayLocal(), products: options.products }) : {}),
+        [form, options.products]
+    );
+    const errors = useMemo<RuleFormErrors>(() => {
+        if (showAllErrors) return allErrors;
+        const visible: RuleFormErrors = {};
+        for (const field of touched) if (allErrors[field]) visible[field] = allErrors[field];
+        return visible;
+    }, [allErrors, showAllErrors, touched]);
+    const touch = useCallback((field: RuleFormField) => {
+        setTouched(prev => (prev.has(field) ? prev : new Set(prev).add(field)));
+    }, []);
+
     const load = useCallback(async () => {
         // Gate prima della fetch: senza lettura non si chiede niente.
         if (!ruleId || !tenantId || !canRead) return;
@@ -121,6 +142,8 @@ export function useRuleDetail({
             });
             setForm(nextForm);
             setSavedSnapshot(snapshot);
+            setTouched(new Set());
+            setShowAllErrors(false);
             setStatus("ready");
         } catch (error) {
             console.error("Errore caricamento dettaglio regola:", error);
@@ -154,6 +177,8 @@ export function useRuleDetail({
 
     const discard = useCallback(() => {
         if (savedSnapshot) setForm(JSON.parse(savedSnapshot) as RuleDetailForm);
+        setTouched(new Set());
+        setShowAllErrors(false);
     }, [savedSnapshot]);
 
     const nameOf = () => form?.name || "la regola";
@@ -211,16 +236,18 @@ export function useRuleDetail({
         }
     };
 
-    /** True se salvata. Un errore di validazione non scrive niente. */
-    const save = async (): Promise<boolean> => {
-        if (!form || !rule) return false;
+    /**
+     * `saved` se è salvata. Con un errore di validazione non si scrive niente:
+     * gli errori vanno sui campi (niente toast) e `invalid` dice il primo,
+     * dove la pagina porta il focus.
+     */
+    const save = async (): Promise<{ saved: true } | { saved: false; invalid?: RuleFormField }> => {
+        if (!form || !rule) return { saved: false };
 
-        const firstError = firstRuleFormError(
-            validateRuleForm(form, { today: todayLocal(), products: options.products })
-        );
-        if (firstError) {
-            showToast({ type: "error", message: firstError, duration: 3000 });
-            return false;
+        const invalid = firstRuleFormError(allErrors);
+        if (invalid) {
+            setShowAllErrors(true);
+            return { saved: false, invalid };
         }
 
         const missing = missingDraftFields(form, catalogLabel);
@@ -337,7 +364,7 @@ export function useRuleDetail({
             }
             // Salvata: la bozza è lo stato nuovo, l'uscita non deve chiedere.
             setSavedSnapshot(JSON.stringify(form));
-            return true;
+            return { saved: true };
         } catch (error) {
             console.error("Errore salvataggio regola:", error);
             const code = (error as { code?: string })?.code;
@@ -349,7 +376,7 @@ export function useRuleDetail({
                         : "Non siamo riusciti a salvare la regola.",
                 duration: 3000
             });
-            return false;
+            return { saved: false };
         } finally {
             setIsSaving(false);
         }
@@ -360,6 +387,8 @@ export function useRuleDetail({
         rule,
         form,
         isDirty,
+        errors,
+        touch,
         options: tenantOptions,
         reload: load,
         updateForm,

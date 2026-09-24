@@ -721,17 +721,66 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(page).toHaveURL(/\/scheduling\?type=layout/);
     });
 
-    test("una fine prima dell'inizio non si salva", async ({ page }) => {
-        await openRule(page, "aperitivo");
+    /** L'errore sta sul campo, una volta sola nella pagina: niente toast. */
+    async function fieldError(page: Page, field: Locator, message: string): Promise<void> {
+        await expect(field).toHaveAttribute("aria-invalid", "true");
+        await expect(main(page).getByText(message)).toBeVisible();
+        await expect(page.getByText(message)).toHaveCount(1);
+    }
+
+    async function periodOn(page: Page): Promise<void> {
         const periodSwitch = main(page)
-            .getByRole("switch", { name: /periodo/i })
-            .or(main(page).getByText(/^(Vale solo in un periodo specifico\?|In un periodo)$/).locator("xpath=ancestor::*[.//*[@role='switch']][1]").getByRole("switch"))
+            .getByText(/^In un periodo$/)
+            .locator("xpath=ancestor::*[.//*[@role='switch']][1]")
+            .getByRole("switch")
             .first();
         await press(periodSwitch);
+    }
+
+    test("una fine prima dell'inizio non si salva: l'errore è sul campo, in italiano", async ({ page }) => {
+        await openRule(page, "aperitivo");
+        await periodOn(page);
         await main(page).getByLabel(/Data (di )?inizio/).fill("2026-10-10");
-        await main(page).getByLabel(/Data (di )?fine/).fill("2026-10-01");
-        await page.getByRole("button", { name: /^Salva( regola)?$/ }).first().click();
-        await expect(page.getByText(/(fine non può essere precedente|fine deve essere successiva|fine viene prima)/).first()).toBeVisible();
+        const end = main(page).getByLabel(/Data (di )?fine/);
+        await end.fill("2026-10-01");
+        // Il form non passa dalla validazione del browser (il suo fumetto per
+        // il `min` della fine è in inglese): i messaggi sono i nostri.
+        expect(await main(page).locator("form").first().evaluate(f => (f as HTMLFormElement).noValidate)).toBe(true);
+        await page.getByRole("button", { name: "Salva", exact: true }).first().click();
+        await fieldError(page, end, "La fine viene prima dell'inizio.");
+        expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
+        // L'errore segue il campo: corretta la data, sparisce.
+        await end.fill("2026-10-20");
+        await expect(end).not.toHaveAttribute("aria-invalid", "true");
+        await expect(main(page).getByText("La fine viene prima dell'inizio.")).toHaveCount(0);
+    });
+
+    test("il nome vuoto non si salva: «Scrivi un nome.» sul campo", async ({ page }) => {
+        await openRule(page, "aperitivo");
+        const name = main(page).getByRole("textbox", { name: /Nome/ });
+        await name.fill("");
+        await page.getByRole("button", { name: "Salva", exact: true }).first().click();
+        await fieldError(page, name, "Scrivi un nome.");
+        await expect(name).toBeFocused();
+        expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
+    });
+
+    test("un'ora sola: «Manca l'ora di fine.» sul campo; una finestra vuota lo dice su «Quando»", async ({ page }) => {
+        await openRule(page, "aperitivo");
+        const to = main(page).getByLabel(/Ora di fine/);
+        await to.fill("");
+        await page.getByRole("button", { name: "Salva", exact: true }).first().click();
+        await fieldError(page, to, "Manca l'ora di fine.");
+
+        const hoursSwitch = main(page)
+            .getByText(/^In certe ore$/)
+            .locator("xpath=ancestor::*[.//*[@role='switch']][1]")
+            .getByRole("switch")
+            .first();
+        await press(hoursSwitch);
+        const when = "Scegli un periodo, delle ore o dei giorni, oppure accendi «Sempre attiva».";
+        await expect(main(page).getByText(when)).toBeVisible();
+        await expect(page.getByText(when)).toHaveCount(1);
         expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
     });
 });

@@ -278,6 +278,8 @@ interface AssociatedContentSectionProps {
             visibilityProductModes: Record<string, VisibilityMode>;
         }>
     ) => void;
+    /** Prezzi: l'errore di `validateRuleForm`, sotto il titolo. */
+    pricesError?: string;
 }
 
 // ─── AssociatedContentSection ───────────────────────────────────────────────
@@ -294,7 +296,8 @@ export function AssociatedContentSection({
     tenantProducts,
     tenantProductGroups = [],
     tenantProductGroupItems = [],
-    onFormChange
+    onFormChange,
+    pricesError
 }: AssociatedContentSectionProps) {
     const [isProductsDrawerOpen, setIsProductsDrawerOpen] = useState(false);
     const { catalogLabel } = useVerticalConfig();
@@ -708,6 +711,11 @@ export function AssociatedContentSection({
             <Text as="h3" variant="title-sm">
                 Prodotti
             </Text>
+            {pricesError && (
+                <Text id="rule-field-prices" tabIndex={-1} variant="caption" colorVariant="error">
+                    {pricesError}
+                </Text>
+            )}
 
             <div className={styles.inlineBlock}>
                 <Text variant="caption" colorVariant="muted">
