@@ -596,10 +596,96 @@ test.describe("Programmazione — dettaglio", () => {
         stub = await stubProgrammazione(page);
     });
 
-    test("una regola che non esiste lo dice", async ({ page }) => {
+    test("una regola che non esiste lo dice, e riporta a Programmazione", async ({ page }) => {
         await openList(page);
         await page.goto(page.url().replace(/scheduling.*$/, `scheduling/${MISSING_RULE}`));
-        await expect(page.getByText("Regola non trovata").first()).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByRole("heading", { name: "Regola non trovata" })).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText("Forse è stata eliminata.")).toBeVisible();
+        await main(page).getByRole("button", { name: "Torna a Programmazione" }).click();
+        await expect(page).toHaveURL(/\/scheduling(\?|$)/);
+    });
+
+    test("se la regola non si carica lo dice, e «Riprova» la ricarica", async ({ page }) => {
+        let fail = true;
+        await openList(page);
+        // Il dettaglio legge le regole dell'azienda (`time_mode` nel select), come l'elenco.
+        await page.route(/\/rest\/v1\/schedules\?/, route =>
+            fail && route.request().method() === "GET" && (new URL(route.request().url()).searchParams.get("select") ?? "").includes("time_mode")
+                ? route.fulfill({ status: 500, json: { code: "E2E", message: "rotto" } })
+                : route.fallback()
+        );
+        await page.goto(page.url().replace(/scheduling.*$/, `scheduling/${RULE.pranzo}`));
+        const banner = main(page).getByRole("alert").filter({ hasText: "Non riusciamo a caricare la regola." });
+        await expect(banner).toBeVisible({ timeout: 15_000 });
+        fail = false;
+        await banner.getByRole("button", { name: "Riprova" }).click();
+        await expect(main(page).getByRole("textbox", { name: /Nome/ })).toHaveValue(RULE_NAME.pranzo, { timeout: 15_000 });
+    });
+
+    test("le due rotte sono lo stesso dettaglio: tipo nel titolo, «Salva» e «Annulla» solo con modifiche", async ({ page }) => {
+        for (const key of ["pranzo", "promoPorto"] as const) {
+            await openRule(page, key);
+            await expect(page.getByText(key === "pranzo" ? "Menù e stile" : "In evidenza", { exact: true }).first()).toBeVisible();
+            await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
+            await expect(page.getByRole("status").filter({ hasText: "Salvato" }).first()).toBeVisible();
+            await main(page).getByRole("textbox", { name: /Nome/ }).fill(`${RULE_NAME[key]} bis`);
+            await expect(page.getByRole("button", { name: "Salva", exact: true }).first()).toBeVisible();
+            await page.getByRole("button", { name: "Annulla", exact: true }).first().click();
+            await dialog(page).getByRole("button", { name: "Scarta" }).click();
+            await expect(main(page).getByRole("textbox", { name: /Nome/ })).toHaveValue(RULE_NAME[key]);
+        }
+    });
+
+    test("una regola in evidenza aperta dalla rotta generica va sulla sua", async ({ page }) => {
+        await openList(page);
+        await page.goto(page.url().replace(/scheduling.*$/, `scheduling/${RULE.promoPorto}`));
+        await expect(page).toHaveURL(new RegExp(`/scheduling/featured/${RULE.promoPorto}`), { timeout: 15_000 });
+        await expect(main(page).getByText("Serata jazz e2e")).toBeVisible();
+    });
+
+    test("uscire con modifiche non salvate chiede: «Resta» resta, «Esci senza salvare» esce", async ({ page }) => {
+        await openRule(page, "aperitivo");
+        await main(page).getByRole("textbox", { name: /Nome/ }).fill("Aperitivo lungo e2e");
+        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
+        const guard = dialog(page);
+        await expect(guard.getByText(/modifiche non salvate/i).first()).toBeVisible();
+        await guard.getByRole("button", { name: "Resta" }).click();
+        await expect(page).toHaveURL(new RegExp(`/scheduling/${RULE.aperitivo}`));
+        await expect(main(page).getByRole("textbox", { name: /Nome/ })).toHaveValue("Aperitivo lungo e2e");
+        await page.getByRole("navigation", { name: "Menu principale" }).getByRole("link", { name: "Prodotti" }).click();
+        await dialog(page).getByRole("button", { name: "Esci senza salvare" }).click();
+        await expect(page).toHaveURL(/\/products/);
+    });
+
+    test("con modifiche «Duplica» è spenta e dice perché; la bozza non si accende e dice perché", async ({ page }) => {
+        await openRule(page, "aperitivo");
+        await main(page).getByRole("textbox", { name: /Nome/ }).fill("Aperitivo lungo e2e");
+        await page.getByRole("button", { name: /Altre azioni sulla regola/ }).first().click();
+        const duplica = page.getByRole("menuitem", { name: /Duplica/ });
+        await expect(duplica).toBeDisabled();
+        await expect(duplica).toContainText("Salva o annulla le modifiche per duplicarla.");
+        await page.keyboard.press("Escape");
+
+        await openRule(page, "bozza");
+        const toggle = page.getByRole("switch", { name: new RegExp(`Attiva o disattiva ${RULE_NAME.bozza}`) }).first();
+        await expect(toggle).toBeDisabled();
+        await expect(page.getByLabel("Completa la regola per attivarla.").first()).toBeVisible();
+        expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
+    });
+
+    test("cablaggio: salvare una regola in evidenza (schedules.PATCH + contenuti riscritti)", async ({ page }) => {
+        stub.onWrite("schedules.PATCH", () => null);
+        stub.onWrite("schedule_featured_contents.DELETE", () => null);
+        stub.onWrite("schedule_featured_contents.POST", () => null);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+        await openRule(page, "promoPorto");
+        await main(page).getByRole("textbox", { name: /Nome/ }).fill("Promo Porto lunga e2e");
+        await page.getByRole("button", { name: "Salva", exact: true }).first().click();
+        await expect
+            .poll(() => writesOf(stub, "schedules.PATCH").some(w => (w.body as Record<string, unknown>).name === "Promo Porto lunga e2e"))
+            .toBe(true);
+        await expect.poll(() => writesOf(stub, "schedule_featured_contents.POST").length).toBe(1);
+        await expect(page).toHaveURL(/\/scheduling\?type=featured/);
     });
 
     test("il dettaglio mostra dove, cosa e quando per ogni tipo", async ({ page }) => {

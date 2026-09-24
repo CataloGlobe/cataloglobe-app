@@ -292,7 +292,7 @@ export async function updateFeaturedRule(input: {
     // Inline columns (target_type/target_id/apply_to_all) written above are
     // the shim for Edge/resolver. schedule_targets — the actual multi-target
     // set — is written separately by the caller (update_schedule_targets
-    // RPC, FeaturedRuleDetail.tsx), not here: this function doesn't know the
+    // RPC, useRuleDetail.ts), not here: this function doesn't know the
     // full target list, only the legacy single target it just derived.
 
     // Delete + re-insert featured contents

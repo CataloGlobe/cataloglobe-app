@@ -69,8 +69,7 @@ const BusinessSettingsPage = lazy(() => import("./pages/Business/BusinessSetting
 const SettingsLanguages = lazy(() => import("./pages/Business/SettingsLanguages"));
 const BusinessTeamPage = lazy(() => import("./pages/Business/TeamPage"));
 const Programming = lazy(() => import("./pages/Dashboard/Programming/Programming"));
-const ProgrammingRuleDetail = lazy(() => import("./pages/Dashboard/Programming/ProgrammingRuleDetail"));
-const FeaturedRuleDetail = lazy(() => import("./pages/Dashboard/Programming/FeaturedRuleDetail"));
+const RuleDetailPage = lazy(() => import("./pages/Dashboard/Programming/RuleDetailPage"));
 const Products = lazy(() => import("./pages/Dashboard/Products/Products"));
 const ProductPage = lazy(() => import("./pages/Dashboard/Products/ProductPage"));
 const Highlights = lazy(() => import("./pages/Dashboard/Highlights/Highlights"));
@@ -264,8 +263,8 @@ export default function App() {
                 <Route path="guests" element={<Guests />} />
 
                 <Route path="scheduling" element={<Programming />} />
-                <Route path="scheduling/:ruleId" element={<ProgrammingRuleDetail />} />
-                <Route path="scheduling/featured/:ruleId" element={<FeaturedRuleDetail />} />
+                <Route path="scheduling/:ruleId" element={<RuleDetailPage />} />
+                <Route path="scheduling/featured/:ruleId" element={<RuleDetailPage />} />
 
                 <Route path="catalogs" element={<Catalogs />} />
                 <Route path="catalogs/:id" element={<CatalogEngine />} />

@@ -48,6 +48,13 @@
   min-width: 0;
 }
 
+/* Caricamento: la sagoma dei campi dentro le card. */
+.skeletonFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+}
+
 .formLayout {
   display: grid;
   grid-template-columns: 1.6fr 1fr;
@@ -753,7 +760,9 @@
   }
 }
 
-@media (max-width: 900px) {
+/* Due colonne da 1024 in su (583 + 365 a 1280), sotto una: Dove si
+   applica, Cosa fa, Quando (passo 2). */
+@media (max-width: 1023px) {
   .layout {
     flex-direction: column;
   }
