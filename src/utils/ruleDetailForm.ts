@@ -7,6 +7,7 @@ import type {
 } from "@/services/supabase/layoutScheduling";
 import { ruleTypeLabel } from "@/pages/Dashboard/Programming/ruleTypeLabel";
 import { parseDecimalPrice } from "@/utils/priceParser";
+import { isStartDateInPast } from "@/utils/ruleStartDate";
 
 /**
  * Il form del dettaglio regola, uno per i quattro tipi (P8, §50.1 d): prima
@@ -182,10 +183,10 @@ function hasInvalidPrice(form: RuleDetailForm, products: Array<Pick<LayoutRuleOp
 }
 
 /**
- * Cosa impedisce di salvare, campo per campo. Riproduce le validazioni di
- * oggi, compreso l'inizio già passato di una regola salvata prima (lo
- * corregge la PR #140 con `isStartDateInPast`, che non è ancora nel lotto).
- * I campi mancanti non sono errori: la regola si salva come bozza
+ * Cosa impedisce di salvare, campo per campo. L'inizio nel passato è un
+ * errore solo se la data è scelta adesso: una regola già partita, con la
+ * data salvata (`savedStartAt`), resta salvabile (`isStartDateInPast`, PR
+ * #140). I campi mancanti non sono errori: la regola si salva come bozza
  * (`missingDraftFields`).
  */
 export function validateRuleForm(
@@ -193,8 +194,15 @@ export function validateRuleForm(
     {
         today,
         products,
-        labels = DEFAULT_PRODUCT_LABELS
-    }: { today: string; products: Array<Pick<LayoutRuleOption, "id" | "format_values">>; labels?: ProductLabels }
+        labels = DEFAULT_PRODUCT_LABELS,
+        savedStartAt = ""
+    }: {
+        today: string;
+        products: Array<Pick<LayoutRuleOption, "id" | "format_values">>;
+        labels?: ProductLabels;
+        /** La data di inizio salvata ("" per una regola mai salvata con un inizio). */
+        savedStartAt?: string;
+    }
 ): RuleFormErrors {
     const errors: RuleFormErrors = {};
     const set = (field: RuleFormField, message: string) => {
@@ -215,7 +223,7 @@ export function validateRuleForm(
         if (hasPeriod && !form.endAt) set("endAt", "Manca la data di fine.");
     }
 
-    if (form.startAt && form.startAt < today) set("startAt", "La data di inizio è già passata.");
+    if (isStartDateInPast(form.startAt, savedStartAt, today)) set("startAt", "La data di inizio è già passata.");
     if (form.endAt) {
         if (form.endAt < today) set("endAt", "La data di fine è già passata.");
         else if (form.startAt && form.endAt < form.startAt) set("endAt", "La fine viene prima dell'inizio.");

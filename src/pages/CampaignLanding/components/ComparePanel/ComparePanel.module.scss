@@ -1,0 +1,58 @@
+.panel {
+    flex: 1 1 0;
+    padding: 20px;
+    border-radius: var(--ld-r-panel);
+    background: var(--ld-paper-2);
+    border: 1px solid var(--ld-line);
+}
+
+.brand {
+    background: var(--ld-brand-s);
+    border-color: var(--ld-brand-s-line);
+}
+
+.label {
+    margin: 0;
+    font-family: var(--ld-font-sans);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ld-muted);
+}
+
+.list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.item {
+    display: flex;
+    gap: 9px;
+    align-items: flex-start;
+    margin-top: 11px;
+    font-family: var(--ld-font-sans);
+    font-size: 14px;
+    line-height: 1.45;
+    color: var(--ld-muted);
+}
+
+.brand .item {
+    color: var(--ld-ink);
+}
+
+.icon {
+    flex-shrink: 0;
+    margin-top: 3px;
+    fill: none;
+    stroke: var(--ld-cross);
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.brand .icon {
+    stroke: var(--ld-azione);
+    stroke-width: 2.4;
+}

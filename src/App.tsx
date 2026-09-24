@@ -29,6 +29,7 @@ import ResetPassword from "./pages/Auth/ResetPassword";
 // Public pages — eager (entry point visitatori anonimi, evita round-trip extra del lazy chunk)
 import TableEntryPage from "./pages/TableEntryPage/TableEntryPage";
 import Home from "./pages/Home/Home";
+import LandingFallback from "@pages/CampaignLanding/LandingFallback";
 import NotFound from "./pages/NotFound/NotFound";
 import InvitePage from "./pages/Invite/InvitePage";
 import PrivacyPolicyPage from "./pages/Legal/PrivacyPolicyPage";
@@ -90,6 +91,10 @@ const ActivityPubblicazioneRoute = lazy(() => import("./pages/Operativita/Attivi
 const ActivitySalaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivitySalaRoute"));
 const ActivityDisponibilitaRoute = lazy(() => import("./pages/Operativita/Attivita/routes/ActivityDisponibilitaRoute"));
 const SubscriptionPage = lazy(() => import("./pages/Business/SubscriptionPage"));
+
+// Landing di campagna (in costruzione): route di sviluppo /landing-dev, attiva
+// anche in produzione. Lo swap su / e /b arriva quando la pagina è completa.
+const CampaignLandingPage = lazy(() => import("@pages/CampaignLanding"));
 
 // Galleria dei componenti — solo sviluppo. Il ternario su import.meta.env.DEV
 // è statico al build: in produzione l'import() sparisce e il chunk non esiste.
@@ -319,6 +324,25 @@ export default function App() {
 
             {/* Status page pubblica — DEVE stare prima del catch-all /:slug */}
             <Route path="/status" element={<StatusPage />} />
+
+            {/* Landing di campagna — route di sviluppo, prima del catch-all /:slug */}
+            {/* Suspense proprio: il fallback globale parla di «dashboard» */}
+            <Route
+                path="/landing-dev"
+                element={
+                    <Suspense fallback={<LandingFallback />}>
+                        <CampaignLandingPage variante="form" />
+                    </Suspense>
+                }
+            />
+            <Route
+                path="/landing-dev/b"
+                element={
+                    <Suspense fallback={<LandingFallback />}>
+                        <CampaignLandingPage variante="signup" />
+                    </Suspense>
+                }
+            />
 
             {/* Admin (cross-tenant) — gate via platform_admins / is_platform_admin() */}
             <Route

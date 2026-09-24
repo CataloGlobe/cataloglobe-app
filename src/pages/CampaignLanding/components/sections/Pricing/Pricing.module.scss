@@ -1,0 +1,485 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.srOnly {
+    @include ld-sr-only;
+}
+
+.header {
+    margin-bottom: 20px;
+
+    @include desktop {
+        margin-bottom: 26px;
+        text-align: center;
+
+        > * {
+            margin-inline: auto;
+        }
+    }
+}
+
+// ── selettori ──
+.segmented {
+    display: flex;
+    gap: 6px;
+    padding: 4px;
+    border-radius: var(--ld-r-pill);
+    background: var(--ld-line-2);
+}
+
+.intervals {
+    @include desktop {
+        width: 430px;
+        margin-inline: auto;
+    }
+}
+
+.plans {
+    margin-top: 8px;
+
+    @include desktop {
+        display: none;
+    }
+}
+
+.segment {
+    flex: 1 1 0;
+    min-height: 42px;
+    padding: 0 14px;
+    border: 0;
+    border-radius: var(--ld-r-pill);
+    background: transparent;
+    color: var(--ld-muted);
+    font-family: var(--ld-font-sans);
+    font-size: 13px;
+    font-weight: 500;
+    white-space: nowrap;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+
+    &:focus-visible {
+        outline: 2px solid var(--ld-brand);
+        outline-offset: 2px;
+    }
+}
+
+.segmentOn {
+    background: var(--ld-paper-2);
+    box-shadow: var(--ld-shadow-thumb);
+    color: var(--ld-azione);
+    font-weight: 600;
+}
+
+.yearlyNote {
+    margin-top: 10px;
+    font-family: var(--ld-font-sans);
+    font-size: ld-fluid(13, 14);
+    font-weight: 600;
+    text-align: center;
+    color: var(--ld-ok);
+
+    @include desktop {
+        margin-top: 12px;
+    }
+}
+
+// ── piani ──
+.grid {
+    margin-top: 16px;
+
+    @include desktop {
+        position: relative;
+        display: flex;
+        align-items: flex-start;
+        gap: 24px;
+        max-width: 940px;
+        margin: 26px auto 0;
+
+        // Alone indaco dietro al Pro.
+        &::before {
+            content: "";
+            position: absolute;
+            z-index: 0;
+            left: 44%;
+            right: -12%;
+            top: -6%;
+            bottom: 8%;
+            pointer-events: none;
+            background: radial-gradient(
+                60% 50% at 50% 42%,
+                rgba(99, 102, 241, 0.2) 0%,
+                rgba(99, 102, 241, 0.07) 45%,
+                transparent 74%
+            );
+        }
+    }
+}
+
+.col {
+    @include desktop {
+        position: relative;
+        z-index: 1;
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}
+
+.hiddenMobile {
+    display: none;
+
+    @include desktop {
+        display: block;
+    }
+}
+
+// Base: spazio della fascia «Consigliato», così le due card partono allineate.
+.colBase {
+    @include desktop {
+        padding-top: 40px;
+
+        .card {
+            margin: 0 2px 10px;
+            box-shadow: 0 16px 38px rgba(21, 20, 43, 0.06);
+        }
+    }
+}
+
+// Pro: cornice indaco solo da desktop; su mobile è una card come l'altra.
+.colPro {
+    @include desktop {
+        border-radius: 22px;
+        border: 2px solid var(--ld-azione);
+        background: var(--ld-brand-s);
+        box-shadow:
+            0 24px 54px rgba(70, 72, 198, 0.22),
+            0 0 0 7px rgba(99, 102, 241, 0.06);
+
+        .card {
+            margin: 0 8px 8px;
+            border: 0;
+        }
+    }
+}
+
+.recommended {
+    display: none;
+
+    @include desktop {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+        font-family: var(--ld-font-sans);
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--ld-azione);
+    }
+}
+
+.card {
+    padding: 22px;
+    border-radius: var(--ld-r-panel);
+    border: 1px solid var(--ld-line);
+    background: var(--ld-paper-2);
+    font-family: var(--ld-font-sans);
+
+    @include desktop {
+        padding: 26px;
+        border-radius: 16px;
+    }
+}
+
+// ── testata con il prezzo ──
+.head {
+    position: relative;
+    overflow: hidden;
+    border-radius: 16px;
+    border: 1px solid;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.92),
+        0 2px 10px rgba(21, 20, 43, 0.05);
+}
+
+.headPro {
+    border-color: var(--ld-brand-s-line);
+    background: linear-gradient(148deg, var(--ld-plan-pro-a) 0%, var(--ld-plan-pro-b) 58%, var(--ld-plan-pro-c) 100%);
+}
+
+.headBase {
+    border-color: var(--ld-line);
+    background: linear-gradient(148deg, var(--ld-plan-base-a) 0%, var(--ld-plan-base-b) 58%, var(--ld-plan-base-c) 100%);
+}
+
+// Riflessi: luce in alto a destra e una striscia diagonale, come su vetro.
+.sheen,
+.streak,
+.glowIn {
+    position: absolute;
+    pointer-events: none;
+}
+
+.sheen {
+    inset: 0;
+    background: radial-gradient(
+        130% 100% at 86% -18%,
+        rgba(255, 255, 255, 0.95) 0%,
+        rgba(255, 255, 255, 0.35) 34%,
+        transparent 62%
+    );
+}
+
+.streak {
+    left: -26%;
+    top: -70%;
+    width: 62%;
+    height: 240%;
+    transform: rotate(19deg);
+    background: linear-gradient(90deg, transparent 0%, rgba(255, 255, 255, 0.8) 48%, transparent 100%);
+}
+
+.glowIn {
+    inset: 0;
+    background: radial-gradient(
+        95% 92% at 10% 122%,
+        rgba(99, 102, 241, 0.46) 0%,
+        rgba(99, 102, 241, 0.16) 44%,
+        transparent 72%
+    );
+}
+
+.headBody {
+    position: relative;
+    z-index: 1;
+    padding: 15px 16px;
+
+    @include desktop {
+        padding: 17px 18px;
+    }
+}
+
+.planName {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.11em;
+    text-transform: uppercase;
+    color: var(--ld-muted);
+
+    .headPro & {
+        color: var(--ld-azione);
+    }
+}
+
+.dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 3px;
+    background: var(--ld-off-ink);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.14);
+
+    .headPro & {
+        background: var(--ld-azione);
+    }
+}
+
+.priceRow {
+    display: flex;
+    align-items: flex-end;
+    gap: 12px;
+    margin-top: 12px;
+
+    @include desktop {
+        margin-top: 14px;
+    }
+}
+
+.price {
+    font-family: var(--ld-font-serif);
+    font-size: ld-fluid(40, 46);
+    font-weight: 400;
+    line-height: 1;
+    color: var(--ld-ink);
+}
+
+.priceMeta {
+    padding-bottom: 3px;
+}
+
+.full,
+.period {
+    display: block;
+    font-size: ld-fluid(13, 14);
+}
+
+.full {
+    font-weight: 500;
+    color: var(--ld-off-ink);
+}
+
+.period {
+    color: var(--ld-muted);
+}
+
+.claim {
+    margin-top: 14px;
+    font-family: var(--ld-font-serif);
+    font-size: ld-fluid(19, 21);
+    font-weight: 400;
+    line-height: 1.25;
+    color: var(--ld-ink);
+
+    @include desktop {
+        margin-top: 16px;
+    }
+}
+
+.cta {
+    margin-top: 20px;
+}
+
+.trial {
+    margin-top: 8px;
+    font-size: 12px;
+    text-align: center;
+    color: var(--ld-muted);
+}
+
+.divider {
+    height: 1px;
+    margin-top: 22px;
+    background: var(--ld-line);
+}
+
+.includes {
+    margin: 20px 0 10px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--ld-muted);
+}
+
+// ── voci ──
+.items {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    @include desktop {
+        gap: 11px;
+    }
+}
+
+.item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.icon {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 20px;
+    height: 20px;
+    margin-top: 1px;
+    border-radius: 50%;
+    border: 1px solid;
+
+    svg {
+        width: 11px;
+        height: 11px;
+        fill: none;
+        stroke-width: 3;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+    }
+
+    @include desktop {
+        width: 21px;
+        height: 21px;
+
+        svg {
+            width: 12px;
+            height: 12px;
+        }
+    }
+}
+
+// Inclusa in entrambi i piani.
+.iconSoft {
+    border-color: var(--ld-brand-s-line);
+    background: var(--ld-brand-s);
+    stroke: var(--ld-azione);
+}
+
+// Inclusa grazie al Pro.
+.iconStrong {
+    border-color: var(--ld-azione);
+    background: var(--ld-azione);
+    stroke: var(--ld-on-azione);
+}
+
+// Spenta nel Base.
+.iconOff {
+    border-color: var(--ld-line);
+    background: var(--ld-line-2);
+    stroke: var(--ld-cross);
+}
+
+.itemTitle {
+    display: block;
+    font-size: ld-fluid(14, 15);
+    font-weight: 600;
+    line-height: 1.3;
+    color: var(--ld-ink);
+}
+
+.itemDesc {
+    display: block;
+    margin-top: 2px;
+    font-size: 12.5px;
+    line-height: 1.4;
+    color: var(--ld-body);
+}
+
+.itemOff {
+    .itemTitle {
+        color: var(--ld-off-ink);
+    }
+
+    .itemDesc {
+        color: var(--ld-off-body);
+    }
+}
+
+.extra {
+    margin-top: 16px;
+    padding: 12px 13px;
+    border-radius: 12px;
+    background: var(--ld-brand-s);
+    font-size: ld-fluid(12.5, 13);
+    line-height: 1.45;
+    color: var(--ld-ink);
+}
+
+.footnote {
+    margin-top: 16px;
+    font-family: var(--ld-font-sans);
+    font-size: ld-fluid(12, 13);
+    color: var(--ld-muted);
+
+    @include desktop {
+        max-width: 940px;
+        margin: 20px auto 0;
+        text-align: center;
+    }
+}

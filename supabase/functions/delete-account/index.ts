@@ -97,8 +97,9 @@ serve(async (req: Request) => {
     // -------------------------------------------------------------------------
     // Step 1b — Pre-fetch Stripe subscription IDs for affected tenants
     //
-    // Must happen BEFORE the RPC: transfer_ownership() resets Stripe fields
-    // on transferred tenants, so the subscription_id would be lost after.
+    // Done BEFORE the RPC so the snapshot matches the tenants the actions
+    // refer to. transfer_ownership() only changes ownership: it never touches
+    // billing columns, so stripe_subscription_id survives a transfer.
     // The action ("lock" vs "transfer") is captured here so Step 2a can
     // discriminate behaviour: lock → schedule cancel at period end,
     // transfer → leave the subscription alone (it follows the tenant).

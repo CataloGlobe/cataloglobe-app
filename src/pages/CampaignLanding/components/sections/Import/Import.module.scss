@@ -1,0 +1,244 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+.split {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+
+    @include desktop {
+        flex-direction: row;
+        align-items: center;
+        gap: 64px;
+    }
+}
+
+.text {
+    @include desktop {
+        flex: 1 1 0;
+        min-width: 280px;
+        max-width: 520px;
+    }
+}
+
+.card {
+    width: 100%;
+    max-width: 520px;
+    margin-inline: auto;
+    overflow: hidden;
+    border-radius: var(--ld-r-panel);
+    background: var(--ld-paper-2);
+    border: 1px solid var(--ld-line);
+    box-shadow: var(--ld-shadow-card);
+    font-family: var(--ld-font-sans);
+
+    @include desktop {
+        // 520 a 1280 come nel canvas; fra 1024 e 1279 cede spazio al testo.
+        flex: 0 1 520px;
+        min-width: 0;
+        margin-inline: 0;
+    }
+}
+
+.cardHead {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 15px 18px;
+    border-bottom: 1px solid var(--ld-line);
+}
+
+.sparkle {
+    flex-shrink: 0;
+    width: 18px;
+    height: 18px;
+    fill: none;
+    stroke: var(--ld-azione);
+    stroke-width: 1.9;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.cardTitle {
+    font-size: ld-fluid(15, 16);
+    font-weight: 600;
+    color: var(--ld-azione);
+}
+
+.cardBody {
+    padding: 16px 18px 18px;
+}
+
+// ── passi ──
+.steps {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+
+    @include desktop {
+        gap: 10px;
+    }
+}
+
+.step {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--ld-azione);
+
+    // Filo fra un passo e il successivo (tutti percorsi a riposo).
+    & + & {
+        flex: 1 1 auto;
+
+        &::before {
+            content: "";
+            flex-grow: 1;
+            min-width: 8px;
+            height: 1px;
+            margin-right: 1px;
+            background: var(--ld-azione);
+
+            @include desktop {
+                min-width: 18px;
+                margin-right: 3px;
+            }
+        }
+    }
+
+    @include desktop {
+        gap: 7px;
+        font-size: 13px;
+    }
+}
+
+.pin {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    border: 1.6px solid var(--ld-azione);
+
+    @include desktop {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+.pinNow {
+    background: var(--ld-azione);
+}
+
+.pinDot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ld-on-azione);
+
+    @include desktop {
+        width: 6px;
+        height: 6px;
+    }
+}
+
+.pinCheck {
+    width: 11px;
+    height: 11px;
+    fill: none;
+    stroke: var(--ld-azione);
+    stroke-width: 2.4;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+
+    @include desktop {
+        width: 15px;
+        height: 15px;
+    }
+}
+
+// ── risultato ──
+.result {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 262px;
+    margin-top: 16px;
+
+    @include desktop {
+        min-height: 268px;
+    }
+}
+
+.rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--ld-line-2);
+    font-size: ld-fluid(14, 15);
+    color: var(--ld-ink);
+}
+
+.tick {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    width: 19px;
+    height: 19px;
+    border-radius: 5px;
+    background: var(--ld-azione);
+}
+
+.tickIcon {
+    width: 12px;
+    height: 12px;
+    fill: none;
+    stroke: var(--ld-on-azione);
+    stroke-width: 3.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.rowName {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.rowCat {
+    flex-shrink: 0;
+    padding: 3px 9px;
+    border-radius: var(--ld-r-pill);
+    background: var(--ld-line-2);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--ld-muted);
+}
+
+.rowPrice {
+    flex-shrink: 0;
+    min-width: 40px;
+    font-weight: 600;
+    text-align: right;
+}
+
+.footer {
+    margin-top: 14px;
+    font-size: 12px;
+    text-align: center;
+    color: var(--ld-muted);
+}

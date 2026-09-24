@@ -1,0 +1,939 @@
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+@include ld-demo-scope;
+
+$mono: "Courier New", ui-monospace, monospace;
+
+// ── scheletro ──
+.scene {
+    margin-bottom: 14px;
+    font-family: var(--ld-font-serif);
+    font-size: ld-fluid(18, 21);
+    font-weight: 400;
+    line-height: 1.25;
+    color: var(--ld-ink);
+}
+
+.caption {
+    margin-top: 14px;
+    font-family: var(--ld-font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--ld-body);
+
+    strong {
+        font-weight: 700;
+    }
+}
+
+.card {
+    display: block;
+    border-radius: 16px;
+    border: 1px solid var(--ld-line);
+    background: var(--ld-paper-2);
+    font-family: var(--ld-font-sans);
+    color: var(--ld-ink);
+}
+
+.cardPad {
+    padding: 16px;
+    border-radius: 14px;
+}
+
+.cardSmall {
+    padding: 14px;
+    border-radius: 14px;
+}
+
+.cardTight {
+    padding: 13px;
+}
+
+.stacked {
+    margin-top: 10px;
+}
+
+.kicker {
+    @include ld-kicker;
+    display: block;
+    color: var(--ld-muted);
+}
+
+.kickerAzione {
+    @include ld-kicker;
+    display: block;
+    color: var(--ld-azione);
+}
+
+.kickerTerra {
+    @include ld-kicker;
+    display: block;
+    color: var(--ld-terra);
+}
+
+.kickerYou {
+    @include ld-kicker;
+    margin-bottom: 8px;
+    letter-spacing: 0.08em;
+    color: var(--ld-azione);
+}
+
+.kickerYouInline {
+    @include ld-kicker;
+    color: var(--ld-azione);
+}
+
+.cardTitle {
+    display: block;
+    margin-top: 10px;
+    font-family: var(--ld-font-serif);
+    font-size: 17px;
+    color: var(--ld-ink);
+}
+
+.list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+// Bottone già premuto: resta fermo su «Inviato» (riposo).
+.sent {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 42px;
+    margin-top: 12px;
+    border-radius: 10px;
+    background: var(--ld-azione-sent);
+    color: var(--ld-on-azione);
+    font-size: 14px;
+    font-weight: 600;
+}
+
+// ── flusso cliente → tu (ordini, prenotazioni) ──
+.flow {
+    @include desktop {
+        display: flex;
+        align-items: center;
+    }
+}
+
+.flowCard {
+    padding: 15px;
+
+    @include desktop {
+        flex-shrink: 0;
+        width: 268px;
+    }
+}
+
+.flowYou {
+    @include desktop {
+        flex-grow: 1;
+        min-width: 0;
+    }
+}
+
+.connector {
+    position: relative;
+    display: block;
+    height: 34px;
+    margin: 4px 0;
+
+    &::before {
+        content: "";
+        position: absolute;
+        left: 50%;
+        top: 0;
+        width: 1px;
+        height: 100%;
+        background: var(--ld-line);
+    }
+
+    @include desktop {
+        flex-shrink: 0;
+        width: 64px;
+        height: 12px;
+        margin: 0;
+
+        &::before {
+            left: 0;
+            top: 50%;
+            width: 100%;
+            height: 1px;
+        }
+    }
+}
+
+// ── ordini ──
+.lineRow {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--ld-line-2);
+    font-size: 14px;
+
+    &:first-child {
+        margin-top: 8px;
+    }
+}
+
+.qty {
+    font-weight: 600;
+    color: var(--ld-muted);
+}
+
+.total {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding-top: 9px;
+}
+
+.totalLabel {
+    font-size: 14px;
+    color: var(--ld-muted);
+}
+
+.totalValue {
+    font-size: 16px;
+    font-weight: 700;
+}
+
+.printer {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.printerHead {
+    max-width: 100%; // fra 1024 e 1279 la colonna può essere più stretta della stampante
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 230px;
+    padding: 9px 12px;
+    border-radius: 12px 12px 6px 6px;
+    background: var(--ld-illo-printer-body);
+
+    @include desktop {
+        width: 246px;
+    }
+}
+
+.printerLabel {
+    font-family: var(--ld-font-sans);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.14em;
+    color: var(--ld-illo-printer-label);
+}
+
+// Riposo: comanda già uscita, spia accesa.
+.led {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--ld-illo-printer-led-on);
+}
+
+.printerSlot {
+    max-width: 100%; // fra 1024 e 1279 la colonna può essere più stretta della stampante
+    width: 230px;
+    height: 7px;
+    border-radius: 0 0 4px 4px;
+    background: var(--ld-illo-printer-slot);
+
+    @include desktop {
+        width: 246px;
+    }
+}
+
+.paperWindow {
+    position: relative;
+    width: 100%;
+    height: 186px;
+    margin-top: -2px;
+    overflow: hidden;
+
+    @include desktop {
+        height: 200px;
+    }
+}
+
+.ticket {
+    max-width: 100%; // fra 1024 e 1279 la colonna può essere più stretta della stampante
+    width: 196px;
+    margin: 0 auto;
+    padding: 14px 16px 6px;
+    background: var(--ld-illo-printer-paper);
+    box-shadow: 0 10px 24px rgba(21, 20, 43, 0.16);
+    font-family: $mono;
+    font-size: 11px;
+    color: var(--ld-illo-printer-ink);
+
+    @include desktop {
+        width: 212px;
+        font-size: 12px;
+    }
+}
+
+.ticketVenue {
+    letter-spacing: 0.14em;
+    text-align: center;
+}
+
+.ticketRule {
+    margin: 7px 0;
+    border-top: 1px dashed var(--ld-illo-printer-rule);
+}
+
+.ticketMeta {
+    display: flex;
+    justify-content: space-between;
+}
+
+.ticketLine {
+    display: flex;
+    gap: 10px;
+    line-height: 1.7;
+}
+
+.ticketQty {
+    flex-shrink: 0;
+    width: 14px;
+}
+
+.ticketNumber {
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    color: var(--ld-illo-printer-meta);
+
+    @include desktop {
+        font-size: 11px;
+    }
+}
+
+// Bordo strappato in fondo allo scontrino.
+.ticketEdge {
+    max-width: 100%; // fra 1024 e 1279 la colonna può essere più stretta della stampante
+    width: 196px;
+    height: 10px;
+    margin: 0 auto;
+    background-image:
+        repeating-linear-gradient(135deg, var(--ld-illo-printer-paper) 0 6px, transparent 6px 12px),
+        repeating-linear-gradient(45deg, var(--ld-illo-printer-paper) 0 6px, transparent 6px 12px);
+
+    @include desktop {
+        width: 212px;
+    }
+}
+
+// ── prenotazioni ──
+.party {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-top: 12px;
+}
+
+.partyLabel {
+    margin-right: 2px;
+    font-size: 13px;
+    color: var(--ld-muted);
+}
+
+.partyChip {
+    display: inline-block;
+    min-width: 34px;
+    padding: 6px 10px;
+    border-radius: var(--ld-r-pill);
+    border: 1px solid var(--ld-line);
+    font-size: 13px;
+    font-weight: 500;
+    text-align: center;
+}
+
+.partyChipOn {
+    border-color: var(--ld-azione);
+    background: var(--ld-azione);
+    color: var(--ld-on-azione);
+    font-weight: 600;
+}
+
+.fieldRow {
+    display: flex;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.fakeField {
+    flex-grow: 1;
+    padding: 10px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--ld-line);
+    font-size: 14px;
+}
+
+.fakeFieldFull {
+    display: block;
+    margin-top: 8px;
+}
+
+.agenda {
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.agendaRow {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 10px;
+    border-bottom: 1px solid var(--ld-line-2);
+    font-size: ld-fluid(13, 14);
+}
+
+.agendaRowNew {
+    margin-top: 4px;
+    border-radius: 10px;
+    border: 1px solid var(--ld-azione);
+    background: var(--ld-brand-s);
+}
+
+.agendaTime {
+    font-weight: 600;
+}
+
+.agendaName {
+    flex-grow: 1;
+    min-width: 0;
+}
+
+.agendaCovers {
+    font-size: ld-fluid(12, 13);
+    color: var(--ld-muted);
+}
+
+.agendaStatus {
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ld-ok);
+}
+
+.agendaStatusNew {
+    color: var(--ld-azione);
+}
+
+.guests {
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.guestRow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 10px;
+    font-size: ld-fluid(13, 14);
+
+    &:not(:last-child):not(.guestRowNew) {
+        border-bottom: 1px solid var(--ld-line-2);
+    }
+}
+
+.guestRowNew {
+    border-radius: 10px;
+    background: var(--ld-ok-s);
+
+    .guestVisits {
+        font-weight: 600;
+        color: var(--ld-ok);
+    }
+}
+
+.guestVisits {
+    font-size: ld-fluid(12, 13);
+    color: var(--ld-muted);
+}
+
+// ── recensioni ──
+.pair {
+    display: flex;
+    gap: 10px;
+
+    > * {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+}
+
+.question {
+    display: block;
+    margin-top: 9px;
+    font-size: 13px;
+    color: var(--ld-body);
+}
+
+.stars {
+    display: flex;
+    gap: 2px;
+    margin-top: 8px;
+}
+
+.star {
+    width: 16px;
+    height: 16px;
+    fill: var(--ld-star);
+}
+
+.draft {
+    display: block;
+    margin-top: 10px;
+    padding: 9px 10px;
+    border-radius: 9px;
+    border: 1px solid var(--ld-line);
+    font-size: 12px;
+    line-height: 1.4;
+    color: var(--ld-muted);
+}
+
+.send {
+    display: block;
+    margin-top: 9px;
+    padding: 8px;
+    border-radius: 9px;
+    background: var(--ld-azione);
+    color: var(--ld-on-azione);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.reviewHead {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: 9px;
+
+    .stars {
+        margin-top: 0;
+    }
+}
+
+.when {
+    font-size: 11px;
+    color: var(--ld-muted);
+}
+
+.quote {
+    margin-top: 8px;
+    font-size: 12px;
+    line-height: 1.5;
+    color: var(--ld-ink);
+}
+
+.author {
+    margin-top: 6px;
+    font-size: 11px;
+    color: var(--ld-muted);
+}
+
+.hint {
+    display: block;
+    margin-top: 10px;
+    padding: 9px 10px;
+    border-radius: 9px;
+    background: var(--ld-ok-s);
+    font-size: 11px;
+    line-height: 1.4;
+    color: var(--ld-ok-ink);
+}
+
+// ── locali e menù ──
+.venueRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 0;
+
+    &:not(:last-child) {
+        border-bottom: 1px solid var(--ld-line-2);
+    }
+}
+
+.venueName {
+    flex-shrink: 0;
+    width: 74px;
+    font-family: var(--ld-font-serif);
+    font-size: 15px;
+}
+
+.venueMenu {
+    flex-grow: 1;
+    font-size: 13px;
+    color: var(--ld-body);
+}
+
+.venueHours {
+    font-size: 11px;
+    color: var(--ld-muted);
+}
+
+.inside {
+    margin-top: 10px;
+    padding: 11px 12px;
+    border-radius: 12px;
+    background: var(--ld-brand-s);
+    font-family: var(--ld-font-sans);
+}
+
+.chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 7px;
+}
+
+.chip {
+    padding: 5px 10px;
+    border-radius: var(--ld-r-pill);
+    border: 1px solid var(--ld-line);
+    background: var(--ld-paper-2);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--ld-ink);
+}
+
+// ── team ──
+.people {
+    margin: 6px 0 0;
+    padding: 0;
+    list-style: none;
+}
+
+.person {
+    padding: 10px 0;
+
+    &:not(:last-child) {
+        border-bottom: 1px solid var(--ld-line-2);
+    }
+}
+
+.personHead {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.personName {
+    flex-grow: 1;
+    font-size: 14px;
+}
+
+.role {
+    padding: 4px 9px;
+    border-radius: var(--ld-r-pill);
+    background: var(--ld-brand-s);
+    color: var(--ld-azione);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.personWhere,
+.personCan {
+    font-size: 11px;
+    color: var(--ld-muted);
+}
+
+.personCan {
+    display: block;
+    margin-top: 4px;
+}
+
+// ── orari e disponibilità ──
+.ruleHead {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.live {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 9px;
+    border-radius: var(--ld-r-pill);
+    background: var(--ld-brand-s);
+    color: var(--ld-azione);
+    font-size: 11px;
+    font-weight: 600;
+}
+
+.liveDot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--ld-azione);
+}
+
+.rule {
+    margin: 8px 0 0;
+}
+
+.ruleRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+
+    &:not(:last-child) {
+        border-bottom: 1px solid var(--ld-line-2);
+    }
+}
+
+.ruleKey {
+    flex-shrink: 0;
+    width: 62px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--ld-muted);
+}
+
+.ruleValue {
+    flex-grow: 1;
+    margin: 0;
+    font-size: 14px;
+}
+
+.ruleValueStrong {
+    font-weight: 600;
+}
+
+.soldOutRow {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 9px;
+}
+
+.soldOutDish {
+    flex-grow: 1;
+    font-size: 14px;
+    color: var(--ld-muted);
+}
+
+.soldOut {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ld-terra);
+}
+
+// Interruttore acceso su «Esaurito».
+.toggle {
+    position: relative;
+    flex-shrink: 0;
+    width: 34px;
+    height: 20px;
+    border-radius: var(--ld-r-pill);
+    background: var(--ld-terra);
+
+    &::after {
+        content: "";
+        position: absolute;
+        top: 2px;
+        right: 2px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: var(--ld-paper-2);
+    }
+}
+
+.soldOutNote {
+    margin-top: 9px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ld-muted);
+}
+
+// ── lingue ──
+.dishHead {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 8px;
+}
+
+.dishName {
+    font-family: var(--ld-font-serif);
+    font-size: 18px;
+}
+
+.dishPrice {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.translation {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 9px 0;
+
+    &:not(:last-child) {
+        border-bottom: 1px solid var(--ld-line-2);
+    }
+}
+
+.lang {
+    flex-shrink: 0;
+    min-width: 30px;
+    padding: 3px 7px;
+    border-radius: 6px;
+    background: var(--ld-line-2);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-align: center;
+    color: var(--ld-muted);
+}
+
+.translationText {
+    flex-grow: 1;
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--ld-body);
+}
+
+.available {
+    margin-top: 10px;
+    font-family: var(--ld-font-sans);
+    font-size: 12px;
+    color: var(--ld-muted);
+}
+
+// ── stili ──
+.styleCard {
+    padding: 13px;
+    border-radius: 14px;
+}
+
+.styleName {
+    margin-top: 7px;
+    padding-bottom: 6px;
+    border-bottom: 2px solid var(--ld-terra);
+    font-family: var(--ld-font-serif);
+    font-size: 15px;
+}
+
+.styleRow {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    padding: 7px 0;
+    border-bottom: 1px solid var(--ld-line);
+    font-size: 12px;
+
+    &:first-child {
+        margin-top: 4px;
+    }
+}
+
+.styleDish {
+    flex-grow: 1;
+}
+
+.stylePrice {
+    font-weight: 600;
+}
+
+.styleSlot {
+    margin-top: 8px;
+    font-size: 10px;
+    color: var(--ld-muted);
+}
+
+// La stessa carta nella veste «Sera»: la palette del Molo 34 (data-demo="molo").
+.styleCardNight {
+    border-color: var(--demo-line);
+    background: var(--demo-bg);
+    color: var(--demo-text);
+
+    .kicker,
+    .styleSlot {
+        color: var(--demo-muted);
+    }
+
+    .styleName {
+        border-bottom-color: var(--demo-acc);
+        font-family: var(--ld-font-sans);
+    }
+
+    .styleRow {
+        border-bottom-color: var(--demo-line);
+    }
+}
+
+// ── storie ──
+.storyDish {
+    display: block;
+    font-family: var(--ld-font-serif);
+    font-size: 17px;
+}
+
+.storyDesc {
+    display: block;
+    margin-top: 3px;
+    font-size: 13px;
+    color: var(--ld-body);
+}
+
+.behind {
+    margin-top: 11px;
+    padding: 11px 12px;
+    border-radius: 10px;
+    border: 1px solid var(--ld-terra-s-line);
+    background: var(--ld-terra-s);
+}
+
+.behindTitle {
+    display: block;
+    margin-top: 5px;
+    font-size: 13px;
+}
+
+.behindRead {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    color: var(--ld-muted);
+}
+
+.storyTitle {
+    display: block;
+    margin-top: 6px;
+    font-family: var(--ld-font-serif);
+    font-size: 16px;
+}
+
+.storyBody {
+    display: block;
+    margin-top: 3px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--ld-body);
+}

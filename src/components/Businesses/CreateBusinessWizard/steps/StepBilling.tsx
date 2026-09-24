@@ -15,6 +15,8 @@ interface StepBillingProps {
     onLegalNameChange: (value: string) => void;
     vatNumber: string;
     onVatNumberChange: (value: string) => void;
+    /** P.IVA rifiutata dal server (CHECK tenants_vat_number_valid / RPC). */
+    vatServerError?: string | null;
     fiscalCode: string;
     onFiscalCodeChange: (value: string) => void;
     firstName: string;
@@ -51,6 +53,7 @@ export function StepBilling({
     legalName,
     onLegalNameChange,
     vatNumber,
+    vatServerError,
     onVatNumberChange,
     fiscalCode,
     onFiscalCodeChange,
@@ -186,7 +189,7 @@ export function StepBilling({
                         placeholder="11 cifre"
                         disabled={disabled}
                         required={!isAssociazione}
-                        error={vatError}
+                        error={vatError ?? vatServerError ?? undefined}
                         inputMode="numeric"
                     />
                 )}

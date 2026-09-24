@@ -266,6 +266,7 @@ Service layer FE: `src/services/supabase/reservations.ts`, `reservationGuests.ts
 - **Sistema permessi multi-sede** (vedi `## Sistema permessi multi-sede` sopra): tabelle `tenant_memberships` (role NULL|'admin' post Fase 5.B.2), `tenant_membership_activities (tenant_membership_id, activity_id, tenant_id, role IN manager|staff|viewer)`, `permissions (id, scope)`, `role_permissions (role, permission_id)`. Helper SECURITY DEFINER: `has_permission`, `has_permission_any_activity`, `get_my_activity_ids`, `get_my_tenant_ids`.
 - Dati legali aziendali: `src/config/company.ts` ↔ `supabase/functions/_shared/company-config.ts` sono **duplicazione sincronizzata** (header `// ⚠️ SYNC`). Modifica entrambi nello stesso commit. Stesso pattern di `scheduleResolver.ts`.
 - **Migration con `CREATE FUNCTION` + REVOKE/GRANT**: `supabase db push` fallisce con `SQLSTATE 42601`. Workaround: applicare via Studio SQL Editor + registrare in `supabase_migrations.schema_migrations`, oppure splittare in 2 file consecutivi. Dettaglio: `docs/patterns/storage-sql.md`.
+- **`CREATE OR REPLACE` di una funzione esistente**: partire SEMPRE da `pg_get_functiondef` sul live, MAI da una migration precedente. Due incidenti: `20260413120000` perde l'audit `ownership_transferred`; `20260920140000` perde lo Step D e riapre un GRANT revocato da `20260429150000`.
 
 ---
 
@@ -295,6 +296,8 @@ Usare sempre `_shared/stripe-helpers.ts`. Pattern: `scheduleStripeCancel()` soft
 
 Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verify_jwt: false` su tutte.
 
+Deploy sempre con --project-ref esplicito: la CLI Supabase locale è collegata alla produzione.
+
 **`scheduleResolver.ts` esiste in DUE posti**: `src/services/supabase/` e `supabase/functions/_shared/`. Sincronizzarli ENTRAMBI ad ogni modifica.
 
 **`priceSummary.ts` idem duplicato FE↔Edge** (header `⚠️ SYNC`): `src/utils/priceSummary.ts` ↔ `supabase/functions/_shared/priceSummary.ts`. `resolvePriceSummary` calcola solo i *fatti* sul prezzo sintetico di un gruppo → `{kind: none|single|multi, min, max, count}`. La *presentazione* ("da X" / range) vive SOLO lato FE in `src/utils/formatPriceSummary.ts` (l'edge Deno usa solo i fatti grezzi). Separazione voluta: la regola di sintesi cambia senza toccare il formatting.
@@ -308,12 +311,12 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
   - `failed` — "Completa l'attivazione" (retry) / [Ricarica]. Tiene il param.
   - `mismatch` (codici `*_mismatch`) — "Non riusciamo a collegare questo pagamento", schermata separata SENZA retry, mostra riferimento sessione da citare. Il loader DEVE chiudersi sempre (fix hang: status terminale incondizionato, deps `[sessionId, tenantId, retryKey]`).
 
-- **Gate fiscale a tre livelli** (P.IVA valida + recapito e-fattura obbligatorio con P.IVA):
+- **Gate fiscale a quattro livelli** (P.IVA valida + recapito e-fattura obbligatorio con P.IVA):
   1. **FE** — wizard (`StepBilling`/`CreateBusinessWizard`) + `BusinessSettingsPage`: "Continua"/"Salva" bloccati.
   2. **Edge** — `stripe-checkout` legge il profilo fiscale dal DB (`fiscalRow`, non dal request body) e rifiuta prima di creare il customer: `400 invalid_vat_number`, `400 missing_einvoice_recipient`, `503 fiscal_profile_unavailable`. Ownership check (`owner_user_id !== userId` → 403) prima del gate. È l'ultimo cancello sui soldi.
-  3. **RPC** — `update_tenant_billing_details` (mig 20260920120000) valida la P.IVA lato server (`RAISE invalid_vat_number` ERRCODE 22023): chiude anche la chiamata diretta alla RPC.
-  Check-digit P.IVA duplicato in 3 punti (⚠️ SYNC): `src/utils/fiscalValidators.ts`, `supabase/functions/_shared/fiscalValidators.ts`, e la RPC in migration.
-  **Gap noto**: la creazione tenant (`CreateBusinessWizard.tsx`) scrive i dati fiscali con un insert client-side diretto in `tenants`, NON via RPC → nessuna validazione server-side della P.IVA sul path di creazione. Il gate sopra copre i soldi (checkout), non i dati in DB al momento del create. Vedi `memory/project_tenant_create_fiscal_no_server_validation.md`.
+  3. **RPC** — `update_tenant_billing_details` (mig 20260920120000; dal 20260923120300 via `is_valid_partita_iva`) valida la P.IVA lato server (`RAISE invalid_vat_number` ERRCODE 22023): chiude anche la chiamata diretta alla RPC.
+  4. **Tabella** — `CHECK tenants_vat_number_valid` su `public.tenants` (mig 20260923120200) via `public.is_valid_partita_iva(text)` (IMMUTABLE, NULL/vuota → true): copre ogni percorso di scrittura, incluso l'insert client-side del wizard. Creato `NOT VALID`; `VALIDATE CONSTRAINT` eseguibile quando tutte le righe passano. Il 23514 (match sul nome del vincolo) e il 22023 della RPC sono mappati dal wizard sul campo P.IVA del passo Fatturazione (`isVatRejection`).
+  Check-digit P.IVA duplicato in 3 punti (⚠️ SYNC): `src/utils/fiscalValidators.ts`, `supabase/functions/_shared/fiscalValidators.ts`, e la funzione SQL `public.is_valid_partita_iva` (mig 20260923120000), usata dal CHECK e dalla RPC.
 
 - **Trigger protezione colonne abbonamento** (`trg_protect_tenant_subscription_columns`, BEFORE INSERT/UPDATE ON tenants, mig 150200/150300). Le colonne abbonamento sono verità di Stripe. Esenti: `service_role`, `postgres`, `supabase_admin`. Tre fasce:
   1. **Sempre protette**: `subscription_status`, `stripe_customer_id`, `stripe_subscription_id`, `subscription_status_event_at`, `trial_until`, `current_period_start/end`, `plan_monthly_value_cents` (in INSERT devono restare al default). Chiude il PATCH diretto `subscription_status='active'`.
@@ -365,6 +368,7 @@ Customer stepper (`OrderStatusStepper.tsx`): 4 step (Inviato → In cucina → P
 - **Email**: solo via Edge Functions (Resend), mai dal frontend.
 - **Upload**: `src/services/supabase/upload.ts` + `src/utils/compressImage.ts`. Per upsert vedi `docs/patterns/storage-sql.md`.
 - **Stripe**: sottoscrizione tenant, seat management, webhook. Service: `src/services/supabase/billing.ts`.
+  - **Prova senza carta**: un promotion code con metadata `trial_no_card="true"` è solo una chiave (il coupon non viene applicato). In `stripe-checkout` concede i 30 giorni anche con codice, solo sulla prima subscription (altrimenti `promo_code_invalid`), con `payment_method_collection: if_required` e `trial_settings.end_behavior.missing_payment_method: cancel` → a fine prova senza carta `customer.subscription.deleted` → `canceled`. Stripe non conta gli utilizzi (`max_redemptions` inerte): controllo operativo, scadenza breve + disattivazione manuale. `hasPaymentMethod` dall'action `state` di `stripe-change-subscription` guida la CTA «Aggiungi carta» (portale).
 - **Google Places**: Edge Function `search-google-places` + `GooglePlacesSearch` component in `src/pages/Operativita/Attivita/tabs/contacts/`.
 - **Export Excel Analitiche**: `src/pages/Dashboard/Analytics/utils/exportXlsx.ts` costruisce il workbook via `xlsx-js-style` (fork di SheetJS con cell styling; `xlsx` resta come dep separata, NON rimossa). Engine "un foglio = più tabelle impilate": 4 fogli (Copertina · Engagement · Ordini · Prenotazioni), stile per-cella. Header letto a runtime da `--brand-primary` (`_theme.scss`) → **theme-aware**: violetto in light, blu in dark (scelta voluta — l'xlsx segue il tema attivo). Dati presi dallo state della pagina (no re-fetch). Valuta/percentuali/durate scritte come **numeri + numFmt** (mai stringhe pre-formattate come valore di cella).
 
@@ -393,7 +397,7 @@ Customer stepper (`OrderStatusStepper.tsx`): 4 step (Inviato → In cucina → P
 Tech-debt e refactor differiti. Non bloccanti per il task corrente; da valutare durante refactor mirati o cicli di consolidamento.
 
  **`leave_tenant` RPC rewrite** — vecchia firma `(p_tenant_id)`, no manager scope, no allineamento a `remove_tenant_member` v2. Low priority.
-- **Creazione tenant scrive i dati fiscali client-side senza validazione server**: il wizard fa `supabase.from("tenants").insert({...buildBillingPayload()})` (`CreateBusinessWizard.tsx`), NON via `update_tenant_billing_details`. La P.IVA è validata solo dal FE (aggirabile via REST): il gate al checkout copre i soldi, non i dati in DB. Da chiudere post-rilascio (validazione P.IVA anche sul create). Vedi `memory/project_tenant_create_fiscal_no_server_validation.md`.
+- **`createTenant()` nel service layer** — `CreateBusinessWizard.tsx` fa ancora `supabase.from("tenants").insert(...)` dal componente (viola il service layer). La P.IVA ora è validata dal CHECK `tenants_vat_number_valid`; resta da spostare l'insert in `src/services/supabase/tenants.ts` con la traduzione di 23505/23514.
 - **Realtime sync su `tenant_memberships`** — cambio ruolo runtime richiede refresh manuale (`usePermissions().refresh()`). Eventuale switch a Supabase Realtime channel per propagation automatica.
 - **Sidebar loading-optimistic** — oggi `permissions===null` mostra tutte le voci (transitorio). Visivo flash su utenti scoped. Alternativa: skeleton durante load.
 - **Permission `translations.read` dedicato** — mancante. Sidebar voce "Lingue" usa `catalogs.read` proxy. Creare permission dedicato se gating più fine.

@@ -92,9 +92,18 @@ export function useRuleDetail({
        salvataggio fermato, per tutti. */
     const [touched, setTouched] = useState<Set<RuleFormField>>(() => new Set());
     const [showAllErrors, setShowAllErrors] = useState(false);
+    // L'inizio salvato può restare nel passato (regola già partita, PR #140):
+    // l'errore vale solo per una data scelta adesso.
+    const savedStartAt = useMemo(
+        () => (savedSnapshot ? (JSON.parse(savedSnapshot) as RuleDetailForm).startAt : ""),
+        [savedSnapshot]
+    );
     const allErrors = useMemo<RuleFormErrors>(
-        () => (form ? validateRuleForm(form, { today: todayLocal(), products: options.products, labels }) : {}),
-        [form, options.products, labels]
+        () =>
+            form
+                ? validateRuleForm(form, { today: todayLocal(), products: options.products, labels, savedStartAt })
+                : {},
+        [form, options.products, labels, savedStartAt]
     );
     const errors = useMemo<RuleFormErrors>(() => {
         if (showAllErrors) return allErrors;

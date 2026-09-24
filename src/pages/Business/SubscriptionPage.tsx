@@ -23,6 +23,7 @@ import {
 import type {
     ConsumedDiscountThisPeriod,
     IntervalBlockReason,
+    PortalFlow,
     SubscriptionChangePreview,
     SubscriptionDiscount,
     SubscriptionState,
@@ -583,12 +584,13 @@ export default function SubscriptionPage() {
         }
     };
 
-    const handlePortal = async () => {
+    const handlePortal = async (flow?: PortalFlow) => {
         setPortalLoading(true);
         try {
             const url = await createPortalSession(
                 selectedTenant.id,
-                `${window.location.origin}/business/${selectedTenant.id}/subscription`
+                `${window.location.origin}/business/${selectedTenant.id}/subscription`,
+                flow
             );
             window.location.href = url;
         } catch {
@@ -795,7 +797,7 @@ export default function SubscriptionPage() {
         setCancelLoading(true);
         try {
             const next = await cancelSubscription(selectedTenant.id);
-            setSubState(next);
+            setSubState(prev => ({ hasPaymentMethod: prev?.hasPaymentMethod, ...next }));
             setScheduledChange(null);
             setIsCancelOpen(false);
             showToast({
@@ -821,7 +823,7 @@ export default function SubscriptionPage() {
         setReactivateLoading(true);
         try {
             const next = await reactivateSubscription(selectedTenant.id);
-            setSubState(next);
+            setSubState(prev => ({ hasPaymentMethod: prev?.hasPaymentMethod, ...next }));
             showToast({ message: "Disdetta annullata: l'abbonamento continuerà.", type: "success" });
         } catch (err) {
             const name = err instanceof Error ? err.name : "";
@@ -841,7 +843,7 @@ export default function SubscriptionPage() {
         setCancelScheduleLoading(true);
         try {
             const next = await cancelScheduledChange(selectedTenant.id);
-            setSubState(next);
+            setSubState(prev => ({ hasPaymentMethod: prev?.hasPaymentMethod, ...next }));
             // Azzera anche l'ottimistico locale: il banner sparisce subito anche
             // se la riconciliazione di subState dovesse arrivare con lag.
             setScheduledChange(null);
@@ -1108,11 +1110,11 @@ export default function SubscriptionPage() {
             {label}
         </Button>
     );
-    const portalAction = (label: string) => (
+    const portalAction = (label: string, flow?: PortalFlow) => (
         <Button
             variant="primary"
             size="sm"
-            onClick={handlePortal}
+            onClick={() => void handlePortal(flow)}
             loading={portalLoading}
             leftIcon={<ExternalLink size={14} />}
         >
@@ -1144,7 +1146,9 @@ export default function SubscriptionPage() {
             return {
                 tone: "danger",
                 badge: STATUS_BADGE.canceled,
-                description: `L'abbonamento è terminato il ${formatDate(periodEndDate)}. Menù e pagine pubbliche sono offline.`,
+                description: periodEndDate
+                    ? `L'abbonamento è terminato il ${formatDate(periodEndDate)}. Menù e pagine pubbliche sono offline.`
+                    : "L'abbonamento è terminato. Menù e pagine pubbliche sono offline.",
                 action: canManageBilling && canStartCheckout ? checkoutAction("Riattiva abbonamento") : null
             };
         }
@@ -1188,6 +1192,16 @@ export default function SubscriptionPage() {
         }
         if (status === "trialing") {
             const end = `${formatDate(selectedTenant.trial_until)}${trialDays}`;
+            // Card-free trial (trial_no_card code): only an explicit `false`
+            // counts — `null`/missing means "could not tell", keep the normal copy.
+            if (hasSubscriptionRecord && subState?.hasPaymentMethod === false) {
+                return {
+                    tone: "warning",
+                    badge: STATUS_BADGE.trialing,
+                    description: `La prova finisce il ${end}. Senza una carta, quel giorno l'azienda si ferma.`,
+                    action: canManageBilling ? portalAction("Aggiungi carta", "payment_method_update") : null
+                };
+            }
             return hasSubscriptionRecord
                 ? {
                       tone: "info",

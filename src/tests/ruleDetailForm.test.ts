@@ -106,10 +106,14 @@ describe("validateRuleForm", () => {
         });
     });
 
-    it("oggi: anche l'inizio passato di una regola già salvata blocca (lo corregge la PR #140, isStartDateInPast)", () => {
-        expect(validate(makeForm({ startAt: "2026-09-01", endAt: "2026-12-31" })).startAt).toBe(
-            "La data di inizio è già passata."
-        );
+    it("una regola già partita si salva: l'inizio salvato può restare nel passato (PR #140)", () => {
+        const started = makeForm({ startAt: "2026-09-01", endAt: "2026-12-31" });
+        const opts = { today: TODAY, products: NO_PRODUCTS, savedStartAt: "2026-09-01" };
+        expect(validateRuleForm(started, opts).startAt).toBeUndefined();
+        // Spostata a un altro giorno passato, torna un errore.
+        expect(validateRuleForm({ ...started, startAt: "2026-08-15" }, opts).startAt).toBe("La data di inizio è già passata.");
+        // Senza inizio salvato (regola nuova), un inizio passato blocca.
+        expect(validate(started).startAt).toBe("La data di inizio è già passata.");
     });
 
     it("la fine non viene prima dell'inizio, né per le date né per le ore", () => {

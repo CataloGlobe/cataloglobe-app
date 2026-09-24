@@ -1,0 +1,69 @@
+@use "@pages/CampaignLanding/styles/fonts";
+@use "@pages/CampaignLanding/styles/tokens" as *;
+@use "@pages/CampaignLanding/styles/mixins" as *;
+
+// Radice della landing: token, font, piano esterno.
+.landing {
+    @include ld-tokens;
+
+    min-height: 100vh;
+    min-height: 100dvh;
+    background: var(--ld-fuori);
+    color: var(--ld-body);
+    font-family: var(--ld-font-sans);
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+
+    [data-tone="dark"] {
+        @include ld-tokens-dark;
+    }
+
+    // Dopo il tono scuro: una superficie chiara annidata in una scura vince.
+    [data-tone="light"] {
+        @include ld-tokens-light;
+    }
+}
+
+// Neutralizza la tipografia globale dell'app (_typography.scss: `p` grigio con
+// margine, heading con colore proprio) dentro la landing. `:where()` tiene la
+// specificità a quella del selettore globale (0,0,1): vince per ordine di
+// caricamento (chunk lazy dopo il CSS globale) e perde contro qualsiasi classe
+// di modulo, che resta libera di impostare colore e margini.
+:where(.landing) :is(p, h1, h2, h3, h4, h5, h6) {
+    margin: 0;
+    color: inherit;
+}
+
+@include ld-page-backdrop(".landing");
+
+// Ancore (#contatto, #funzioni…) con scorrimento morbido. Sta sull'elemento
+// che scorre davvero, il documento: su `.landing` (non scroll container) non
+// avrebbe effetto. `:has` limita la regola alle pagine che montano la landing.
+@media (prefers-reduced-motion: no-preference) {
+    :global(html):has(.landing) {
+        scroll-behavior: smooth;
+    }
+}
+
+// Scale dello sheet (Passata 2) andrà qui, NON su .landing: le barre fisse
+// sono sorelle di .frame e non devono scalare con la pagina.
+.frame {
+    padding: 10px;
+    background: var(--ld-fuori);
+
+    @include desktop {
+        padding: 16px;
+    }
+}
+
+.page {
+    max-width: var(--ld-page-max);
+    margin-inline: auto;
+    background: var(--ld-paper);
+    border-radius: var(--ld-r-frame);
+    // clip, non hidden: hidden creerebbe uno scroll container e gli sticky
+    // figli si aggancerebbero a .page invece che alla finestra.
+    overflow: clip;
+    // Spazio per la barra inferiore mobile (Passata 2), da subito.
+    padding-bottom: calc(var(--ld-bottom-bar) + env(safe-area-inset-bottom));
+}
