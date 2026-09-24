@@ -12,6 +12,7 @@ import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { measureTextWidth } from "@/utils/measureText";
 import { withPluralArticle } from "@/utils/ruleDetailForm";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
@@ -46,6 +47,18 @@ const VISIBILITY_MODE_OPTIONS: { value: VisibilityMode; label: string; icon: Rea
     { value: "hide", label: "Nascosto", icon: <IconEyeOff size={14} /> },
     { value: "disable", label: "Non disponibile", icon: <IconClockExclamation size={14} /> }
 ];
+
+/**
+ * «Comportamento» larga quanto il SegmentedControl sm che contiene (P7):
+ * track 2+2 e gap 2, ogni segmento 12 + icona 16 + gap 6 + etichetta a 13 px
+ * + 12; più il padding della cella (24 + 24) e il bordo. A 180 px fissi le
+ * due voci si tagliavano (apertura 5 del lotto 6).
+ */
+function behaviorColumnWidth(): string {
+    const control = 6 + VISIBILITY_MODE_OPTIONS.reduce((sum, o) => sum + 46 + measureTextWidth(o.label, { size: 13, weight: 500 }), 0);
+    const header = measureTextWidth("COMPORTAMENTO", { size: 12, weight: 600, letterSpacing: 12 * 0.04 });
+    return `${Math.ceil(Math.max(control, header) + 48 + 2)}px`;
+}
 
 interface ProductOverride {
     overridePrice: string;
@@ -238,26 +251,15 @@ export function AssociatedContentSection({
                 {
                     id: "product",
                     header: productLabel,
+                    // Rimuovi sulla riga del nome: accanto al controllo, a 375
+                    // «Non disponibile» usciva tagliato (P7).
                     cell: (_, row) => (
                         <div className={styles.visibilityRowStacked}>
-                            <Text variant="body-sm" weight={row.isVariant ? 400 : 600}>
-                                {row.isVariant && <span className={styles.variantArrow}>↳ </span>}
-                                {row.label}
-                            </Text>
                             <div className={styles.visibilityRowStackedControls}>
-                                <SegmentedControl<VisibilityMode>
-                                    value={row.mode}
-                                    size="sm"
-                                    options={VISIBILITY_MODE_OPTIONS}
-                                    onChange={next => {
-                                        onFormChange({
-                                            visibilityProductModes: {
-                                                ...visibilityProductModes,
-                                                [row.id]: next
-                                            }
-                                        });
-                                    }}
-                                />
+                                <Text variant="body-sm" weight={row.isVariant ? 400 : 600}>
+                                    {row.isVariant && <span className={styles.variantArrow}>↳ </span>}
+                                    {row.label}
+                                </Text>
                                 <IconButton
                                     icon={<IconTrash size={16} />}
                                     aria-label={`Rimuovi ${product}`}
@@ -266,6 +268,19 @@ export function AssociatedContentSection({
                                     onClick={() => removeSelectedProduct(row.id)}
                                 />
                             </div>
+                            <SegmentedControl<VisibilityMode>
+                                value={row.mode}
+                                size="sm"
+                                options={VISIBILITY_MODE_OPTIONS}
+                                onChange={next => {
+                                    onFormChange({
+                                        visibilityProductModes: {
+                                            ...visibilityProductModes,
+                                            [row.id]: next
+                                        }
+                                    });
+                                }}
+                            />
                         </div>
                     )
                 }
@@ -285,7 +300,7 @@ export function AssociatedContentSection({
             {
                 id: "behavior",
                 header: "Comportamento",
-                width: "180px",
+                width: behaviorColumnWidth(),
                 align: "right",
                 cell: (_, row) => (
                     <SegmentedControl<VisibilityMode>
@@ -642,6 +657,8 @@ export function AssociatedContentSection({
                     <DataTable<VisibilityProductRow>
                         data={visibilityTableRows}
                         columns={visibilityTableColumns}
+                        maxHeight="none"
+                        showFooter={false}
                         pageSize={9999}
                         pageSizeOptions={["all"]}
                     />

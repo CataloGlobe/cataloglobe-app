@@ -763,6 +763,23 @@ test.describe("Programmazione — dettaglio", () => {
         expect(rows.some(r => r.override_price === 3.5)).toBe(true);
     });
 
+    test("disponibilità: «Comportamento» è larga quanto il controllo, a 1280, 768 e 375", async ({ page }) => {
+        await openRule(page, "stagionali");
+        for (const width of [1280, 768, 375]) {
+            await page.setViewportSize({ width, height: 900 });
+            const control = main(page).getByRole("radiogroup").filter({ has: page.getByRole("radio", { name: /Non disponibile/ }) }).first();
+            await expect(control).toBeVisible();
+            // Prima, a 180 px, «Non disponibile» usciva dalla cella tagliato.
+            const fits = await control.evaluate(el => {
+                const cell = el.closest("[role='cell'], td") ?? el.parentElement!;
+                const box = el.getBoundingClientRect();
+                const cellBox = cell.getBoundingClientRect();
+                return el.scrollWidth <= el.clientWidth + 1 && box.right <= cellBox.right + 1 && box.left >= cellBox.left - 1;
+            });
+            expect(fits, `a ${width}`).toBe(true);
+        }
+    });
+
     test("in evidenza: i contenuti si aggiungono da una Select di sistema, per posizione", async ({ page }) => {
         await openRule(page, "promoPorto");
         const before = main(page).getByRole("combobox", { name: "Aggiungi un contenuto sopra il menù" });
