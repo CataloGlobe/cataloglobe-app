@@ -145,6 +145,13 @@
     }
 }
 
+// Seconda riga che va a capo invece di troncarsi (DATA_TABLE_CLASSES.cellTwoLineWrap).
+.cellTwoLineWrap > :nth-child(2) {
+    white-space: normal;
+    overflow: visible;
+    overflow-wrap: anywhere;
+}
+
 // Colonna azioni (TableRowActions): ultima, a destra; le azioni compaiono
 // al hover e al focus della riga (sempre visibili su touch, dove il hover
 // non esiste). Padding ridotto: contiene un icon-button, non testo.

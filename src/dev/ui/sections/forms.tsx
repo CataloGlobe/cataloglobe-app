@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { RadioGroup } from "@/components/ui/RadioGroup/RadioGroup";
 import { RoleSelector } from "@/components/ui/RoleSelector/RoleSelector";
+import { ActivityMultiSelect } from "@/components/ui/ActivityMultiSelect/ActivityMultiSelect";
 import { ImageUploadField } from "@/components/ui/ImageUploadField/ImageUploadField";
 import type { UserRole } from "@/lib/permissions";
 import { State, noop, type GallerySection } from "../gallery";
@@ -211,6 +212,30 @@ function RadioGroupSection() {
     );
 }
 
+const GALLERY_SEDI = [
+    "Garbagnate", "Comasina", "Città Studi", "Varedo", "Baranzate", "Navigli",
+    "Isola", "Porta Romana", "Bicocca", "Lambrate", "Brera", "Tortona"
+].map((name, i) => ({ id: `sede-${i}`, name }));
+
+function ActivityMultiSelectSection() {
+    const [many, setMany] = useState<string[]>(["sede-1"]);
+    const [few, setFew] = useState<string[]>([]);
+    return (
+        <>
+            <State label="12 sedi: sopra le 8 compare la ricerca (nome, senza accenti)" column>
+                <div className={styles.narrow}>
+                    <ActivityMultiSelect tenantId="" callerScopedActivityIds={[]} callerIsTenantWide activities={GALLERY_SEDI} value={many} onChange={setMany} />
+                </div>
+            </State>
+            <State label="3 sedi: niente ricerca" column>
+                <div className={styles.narrow}>
+                    <ActivityMultiSelect tenantId="" callerScopedActivityIds={[]} callerIsTenantWide activities={GALLERY_SEDI.slice(0, 3)} value={few} onChange={setFew} required={false} />
+                </div>
+            </State>
+        </>
+    );
+}
+
 const ROLES: UserRole[] = ["owner", "admin", "manager", "staff", "viewer"];
 
 function RoleSelectorSection() {
@@ -287,5 +312,6 @@ export const formsSections: GallerySection[] = [
     { id: "switch", title: "Switch", sheet: "Switch", Component: SwitchSection },
     { id: "radiogroup", title: "RadioGroup", sheet: "RadioGroup", Component: RadioGroupSection },
     { id: "roleselector", title: "RoleSelector", Component: RoleSelectorSection },
+    { id: "activitymultiselect", title: "ActivityMultiSelect", Component: ActivityMultiSelectSection },
     { id: "imageuploadfield", title: "ImageUploadField", sheet: "ImageUploadField", Component: ImageUploadFieldSection }
 ];

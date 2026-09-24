@@ -17,16 +17,8 @@ export type CalendarRuleTypeFilter = RuleType | "all";
 /* ─── Constants ──────────────────────────────────────────────── */
 
 const TOTAL_MINUTES = 24 * 60;
-const GRID_HEIGHT = 600; // px
-const EVEN_HOURS = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24];
 
-const TYPE_SHORT: Record<RuleType, string> = {
-    layout: "M",
-    featured: "E",
-    price: "P",
-    visibility: "D"
-};
-
+/** Ordine delle schede a parità d'orario: quello in cui i tipi si sommano. */
 const TYPE_ORDER: RuleType[] = ["layout", "featured", "price", "visibility"];
 
 /** I giorni in testata, sempre a tre lettere (colonna 0 = lunedì). */
@@ -57,10 +49,6 @@ function fmtTime(mins: number): string {
     const h = String(Math.floor(mins / 60)).padStart(2, "0");
     const m = String(mins % 60).padStart(2, "0");
     return `${h}:${m}`;
-}
-
-function timeToPercent(mins: number): number {
-    return (mins / TOTAL_MINUTES) * 100;
 }
 
 function getRuleName(rule: LayoutRule, catalogLabel: string): string {
@@ -162,132 +150,49 @@ function buildBlocks(rules: LayoutRule[], weekDates: Date[]): TimeBlock[] {
     return out;
 }
 
-/* ─── Specificity-first resolution (aligned with scheduleResolver.ts) ── */
-
-function getRuleSpecificity(rule: LayoutRule): 0 | 1 | 2 {
-    if (rule.activityIds.length > 0) return 2;
-    if (rule.groupIds.length > 0) return 1;
-    return 0;
+/**
+ * Le schede di un giorno: prima quelle di tutto il giorno, poi per ora di
+ * inizio; a parità, nell'ordine dei tipi.
+ */
+function compareCards(a: TimeBlock, b: TimeBlock): number {
+    const allDayA = a.from === 0 && a.to === TOTAL_MINUTES;
+    const allDayB = b.from === 0 && b.to === TOTAL_MINUTES;
+    if (allDayA !== allDayB) return allDayA ? -1 : 1;
+    if (a.from !== b.from) return a.from - b.from;
+    const typeDelta = TYPE_ORDER.indexOf(a.rule.rule_type) - TYPE_ORDER.indexOf(b.rule.rule_type);
+    if (typeDelta !== 0) return typeDelta;
+    return (a.rule.name ?? "").localeCompare(b.rule.name ?? "", "it");
 }
 
-function getTemporalScore(rule: LayoutRule): number {
-    let score = 0;
-    if (rule.start_at || rule.end_at) score += 4;
-    if (rule.time_from && rule.time_to) score += 2;
-    if (rule.days_of_week && rule.days_of_week.length > 0) score += 1;
-    return score;
-}
+/* ─── Scheda ─────────────────────────────────────────────────── */
 
-function compareBlocks(a: TimeBlock, b: TimeBlock): number {
-    const specA = getRuleSpecificity(a.rule);
-    const specB = getRuleSpecificity(b.rule);
-    if (specA !== specB) return specB - specA;
-
-    const tA = getTemporalScore(a.rule);
-    const tB = getTemporalScore(b.rule);
-    if (tA !== tB) return tB - tA;
-
-    if (a.rule.priority !== b.rule.priority) return a.rule.priority - b.rule.priority;
-
-    const createdDelta =
-        new Date(a.rule.created_at).getTime() - new Date(b.rule.created_at).getTime();
-    if (createdDelta !== 0) return createdDelta;
-
-    return a.rule.id.localeCompare(b.rule.id);
-}
-
-function resolveTimeSegments(blocks: TimeBlock[]): TimeBlock[] {
-    const groups = new Map<string, TimeBlock[]>();
-    for (const b of blocks) {
-        const key = `${b.day}-${b.rule.rule_type}`;
-        const arr = groups.get(key);
-        if (arr) arr.push(b);
-        else groups.set(key, [b]);
-    }
-
-    const resolved: TimeBlock[] = [];
-
-    for (const [, groupBlocks] of groups) {
-        const sorted = [...groupBlocks].sort(compareBlocks);
-
-        // Minute-level timeline: highest-priority rule claims first
-        const timeline = new Array<string | null>(TOTAL_MINUTES).fill(null);
-        for (const b of sorted) {
-            for (let m = b.from; m < b.to; m++) {
-                if (timeline[m] === null) timeline[m] = b.rule.id;
-            }
-        }
-
-        // Compact consecutive same-rule minutes into segments
-        const ruleMap = new Map<string, LayoutRule>();
-        for (const b of groupBlocks) ruleMap.set(b.rule.id, b.rule);
-
-        const day = groupBlocks[0].day;
-        let segStart = 0;
-        let currentId: string | null = timeline[0];
-
-        for (let m = 1; m <= TOTAL_MINUTES; m++) {
-            const id = m < TOTAL_MINUTES ? timeline[m] : null;
-            if (id !== currentId) {
-                if (currentId !== null) {
-                    resolved.push({ rule: ruleMap.get(currentId)!, day, from: segStart, to: m });
-                }
-                segStart = m;
-                currentId = id;
-            }
-        }
-    }
-
-    return resolved;
-}
-
-/* ─── Shared block renderer ──────────────────────────────────── */
-
-function renderBlock(
+function renderCard(
     b: TimeBlock,
     i: number,
-    vertical: boolean,
     catalogLabel: string,
     onRuleClick?: (rule: LayoutRule) => void
 ) {
     const name = getRuleName(b.rule, catalogLabel);
-    const isAllDay = b.from === 0 && b.to === TOTAL_MINUTES;
-    const top = timeToPercent(b.from);
-    const height = timeToPercent(b.to) - timeToPercent(b.from);
+    const when = b.from === 0 && b.to === TOTAL_MINUTES ? "tutto il giorno" : `${fmtTime(b.from)}–${fmtTime(b.to)}`;
 
     return (
         <Tooltip
-            key={`${b.rule.id}-${b.day}-${b.rule.rule_type}-${i}`}
-            content={
-                <div className={styles.tipContent}>
-                    <span className={styles.tipName}>{name}</span>
-                    <span className={styles.tipMeta}>
-                        {ruleTypeLabel(b.rule.rule_type, catalogLabel)}
-                        {" · "}
-                        {isAllDay
-                            ? "Tutto il giorno"
-                            : `${fmtTime(b.from)}–${fmtTime(b.to)}`}
-                    </span>
-                </div>
-            }
+            key={`${b.rule.id}-${b.day}-${b.from}-${i}`}
+            content={`${name} · ${ruleTypeLabel(b.rule.rule_type, catalogLabel)}`}
             side="top"
         >
             <button
                 type="button"
                 data-type={b.rule.rule_type}
-                className={`${styles.ruleBlock} ${vertical ? styles.ruleBlockVertical : ""}`}
-                // Posizione nella giornata: calcolata, non un colore né una misura di tema.
-                style={{ top: `${top}%`, height: `${Math.max(height, 0.7)}%` }}
+                className={styles.card}
                 onClick={() => onRuleClick?.(b.rule)}
             >
-                <span className={vertical ? styles.blockLabelVertical : styles.blockLabel}>
+                <Text as="span" variant="body-sm" weight={500} className={styles.cardName}>
                     {name}
-                </span>
-                {!vertical && height >= 8 && !isAllDay && (
-                    <span className={styles.blockTime}>
-                        {fmtTime(b.from)}–{fmtTime(b.to)}
-                    </span>
-                )}
+                </Text>
+                <Text as="span" variant="caption" colorVariant="muted">
+                    {when}
+                </Text>
             </button>
         </Tooltip>
     );
@@ -308,9 +213,14 @@ function todayColumn(): number {
 }
 
 /**
- * La Settimana: sopra 768 sette colonne; sotto, un giorno alla volta (le
- * quattro sottocolonne di «Tutte» non si leggono a 44 px), con i sette giorni
- * come scelta e le frecce che spostano di un giorno.
+ * La Settimana come il mockup (`programmazione-settimana.png`): per ogni
+ * giorno una pila di schede, una per regola accesa, col bordo del colore del
+ * tipo, nome e orario. Niente asse delle ore. Sopra 768 sette colonne; sotto,
+ * un giorno alla volta, con i sette giorni come scelta e le frecce che
+ * spostano di un giorno.
+ *
+ * Ogni scheda è la finestra della regola, non il pezzo che vince: la
+ * competizione vive per sede, e qui le sedi sono tutte insieme (mucchio 2/3).
  */
 export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarViewProps) {
     const [weekOffset, setWeekOffset] = useState(0);
@@ -337,12 +247,14 @@ export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarVie
         () => rules.filter(r => r.enabled && isRuleRelevantForWeek(r, weekStart, weekEnd)),
         [rules, weekStart, weekEnd]
     );
-    const allBlocks = useMemo(() => buildBlocks(relevantRules, weekDates), [relevantRules, weekDates]);
-    // Resolved segments (minute-level, specificity-first)
-    const resolvedBlocks = useMemo(() => resolveTimeSegments(allBlocks), [allBlocks]);
+    const cardsByDay = useMemo(() => {
+        const byDay: TimeBlock[][] = Array.from({ length: 7 }, () => []);
+        for (const block of buildBlocks(relevantRules, weekDates)) {
+            if (activeType === "all" || block.rule.rule_type === activeType) byDay[block.day].push(block);
+        }
+        return byDay.map(cards => cards.sort(compareCards));
+    }, [relevantRules, weekDates, activeType]);
 
-    const nowMins = today.getHours() * 60 + today.getMinutes();
-    const isAll = activeType === "all";
     const visibleDays = isPhone ? [dayIdx] : [0, 1, 2, 3, 4, 5, 6];
     const isCurrent = weekOffset === 0 && (!isPhone || dayIdx === todayColumn());
 
@@ -413,100 +325,27 @@ export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarVie
                 <EmptyState variant="inline" title="Nessuna regola attiva questa settimana" />
             )}
 
-            <div className={`${styles.calendarGrid} ${isPhone ? styles.singleDay : ""}`}>
-                {!isPhone && (
-                    <div className={styles.gridHeader}>
-                        <div className={styles.timeCorner} />
-                        {weekDates.map((date, i) => {
-                            const isToday = isSameDay(date, today);
-                            return (
-                                <div
-                                    key={i}
-                                    className={`${styles.dayHeader} ${isToday ? styles.dayHeaderToday : ""}`}
-                                >
-                                    <span className={styles.dayName}>{DAY_SHORT[i]}</span>
-                                    <span className={`${styles.dayNumber} ${isToday ? styles.dayNumberToday : ""}`}>
-                                        {date.getDate()}
-                                    </span>
+            <div className={`${styles.week} ${isPhone ? styles.singleDay : ""}`}>
+                {visibleDays.map(col => {
+                    const isToday = isSameDay(weekDates[col], today);
+                    return (
+                        <div key={col} className={`${styles.day} ${isToday ? styles.dayToday : ""}`}>
+                            {!isPhone && (
+                                <div className={styles.dayHeader}>
+                                    <Text as="span" variant="caption" weight={500} colorVariant={isToday ? undefined : "muted"} className={isToday ? styles.todayText : undefined}>
+                                        {DAY_SHORT[col]}
+                                    </Text>
+                                    <Text as="span" variant="body-sm" weight={600} className={isToday ? styles.todayNumber : undefined}>
+                                        {weekDates[col].getDate()}
+                                    </Text>
                                 </div>
-                            );
-                        })}
-                    </div>
-                )}
-
-                {isAll && (
-                    <div className={styles.subHeader}>
-                        <div className={styles.timeCorner} />
-                        {visibleDays.map(i => (
-                            <div key={i} className={styles.subHeaderCell}>
-                                {TYPE_ORDER.map(type => (
-                                    <span key={type} className={styles.subHeaderLabel} data-type={type}>
-                                        {TYPE_SHORT[type]}
-                                    </span>
-                                ))}
+                            )}
+                            <div className={styles.cards}>
+                                {cardsByDay[col].map((b, i) => renderCard(b, i, catalogLabel, onRuleClick))}
                             </div>
-                        ))}
-                    </div>
-                )}
-
-                <div className={styles.gridBody}>
-                    <div className={styles.timeCol} style={{ height: GRID_HEIGHT }}>
-                        {EVEN_HOURS.map(h => (
-                            <div key={h} className={styles.timeLabel} style={{ top: `${timeToPercent(h * 60)}%` }}>
-                                {String(h).padStart(2, "0")}:00
-                            </div>
-                        ))}
-                    </div>
-
-                    {visibleDays.map(col => {
-                        const isToday = isSameDay(weekDates[col], today);
-                        const nowLine = isToday && (
-                            <div className={styles.nowLine} style={{ top: `${timeToPercent(nowMins)}%` }}>
-                                <div className={styles.nowDot} />
-                            </div>
-                        );
-
-                        if (isAll) {
-                            return (
-                                <div
-                                    key={col}
-                                    className={`${styles.dayColumnAll} ${isToday ? styles.dayColumnToday : ""}`}
-                                    style={{ height: GRID_HEIGHT }}
-                                >
-                                    <div className={styles.hourLinesOverlay}>
-                                        {EVEN_HOURS.map(h => (
-                                            <div key={h} className={styles.hourLine} style={{ top: `${timeToPercent(h * 60)}%` }} />
-                                        ))}
-                                        {nowLine}
-                                    </div>
-                                    {TYPE_ORDER.map(type => (
-                                        <div key={type} className={styles.subColumn}>
-                                            {resolvedBlocks
-                                                .filter(b => b.day === col && b.rule.rule_type === type)
-                                                .map((b, i) => renderBlock(b, i, true, catalogLabel, onRuleClick))}
-                                        </div>
-                                    ))}
-                                </div>
-                            );
-                        }
-
-                        return (
-                            <div
-                                key={col}
-                                className={`${styles.dayColumn} ${isToday ? styles.dayColumnToday : ""}`}
-                                style={{ height: GRID_HEIGHT }}
-                            >
-                                {EVEN_HOURS.map(h => (
-                                    <div key={h} className={styles.hourLine} style={{ top: `${timeToPercent(h * 60)}%` }} />
-                                ))}
-                                {nowLine}
-                                {resolvedBlocks
-                                    .filter(b => b.day === col && b.rule.rule_type === activeType)
-                                    .map((b, i) => renderBlock(b, i, false, catalogLabel, onRuleClick))}
-                            </div>
-                        );
-                    })}
-                </div>
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );

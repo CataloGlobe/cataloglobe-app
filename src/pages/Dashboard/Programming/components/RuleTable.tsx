@@ -10,7 +10,7 @@ import { Tooltip } from "@components/ui/Tooltip/Tooltip";
 import Text from "@components/ui/Text/Text";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
-import { buildRuleSummary } from "@utils/ruleHelpers";
+import { buildRuleSummary, describeRuleAction } from "@utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@utils/scheduleDraft";
 import { getToggleGuardResult } from "@utils/ruleToggleGuards";
 import type { LayoutRule, LayoutRuleOption } from "@services/supabase/layoutScheduling";
@@ -38,6 +38,8 @@ export interface RuleTableProps {
     showTypeBadge: boolean;
     activityById: Map<string, Pick<LayoutRuleOption, "name">>;
     activityGroups: Array<Pick<LayoutRuleOption, "id" | "name">>;
+    /** Per il sottotitolo delle regole menù: «mostra {menù} · {quando}». */
+    catalogById?: Map<string, Pick<LayoutRuleOption, "name">>;
     /** Indirizzo del dettaglio (in evidenza ha la sua rotta). */
     ruleHref: (rule: { id: string; rule_type: LayoutRule["rule_type"] }) => string;
     onOpen: (rule: LayoutRule) => void;
@@ -69,6 +71,7 @@ export function RuleTable({
     showTypeBadge,
     activityById,
     activityGroups,
+    catalogById,
     ruleHref,
     onOpen,
     updatingIds,
@@ -107,10 +110,15 @@ export function RuleTable({
                             : "idle";
                     const target = describeTarget(rule, activityById, activityGroups);
                     const summary = buildRuleSummary(rule);
+                    // Cosa fa, prima di quando (mockup): «mostra Carta · Lun–Ven».
+                    const action = describeRuleAction(
+                        rule,
+                        rule.layout?.catalog_id ? catalogById?.get(rule.layout.catalog_id)?.name : undefined
+                    );
                     const excluded = !insight?.isOverridden ? insight?.excludedActivityNames : undefined;
 
                     return (
-                        <div className={DATA_TABLE_CLASSES.cellTwoLine}>
+                        <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${isPhone ? DATA_TABLE_CLASSES.cellTwoLineWrap : ""}`}>
                             <span className={styles.nameLine}>
                                 <span className={styles.dot} data-state={state} aria-hidden="true" />
                                 <Link to={ruleHref(rule)} className={styles.name}>
@@ -122,6 +130,7 @@ export function RuleTable({
                             <span>
                                 {[
                                     showTypeBadge && isCompact ? ruleTypeLabel(rule.rule_type, catalogLabel) : null,
+                                    action,
                                     summary,
                                     isPhone ? target.label : null
                                 ]
@@ -242,7 +251,7 @@ export function RuleTable({
         }
 
         return cols;
-    }, [activityById, activityGroups, canWrite, catalogLabel, insights, isCompact, isPhone, onDelete, onDuplicate, onToggleEnabled, ruleHref, showTypeBadge, updatingIds, whereWidth]);
+    }, [activityById, activityGroups, canWrite, catalogById, catalogLabel, insights, isCompact, isPhone, onDelete, onDuplicate, onToggleEnabled, ruleHref, showTypeBadge, updatingIds, whereWidth]);
 
     const ids = useMemo(() => rules.map(r => r.id), [rules]);
 

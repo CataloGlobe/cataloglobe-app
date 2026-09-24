@@ -33,6 +33,7 @@ import { TargetSection } from "./components/TargetSection";
 import { AssociatedContentSection } from "./components/AssociatedContentSection";
 import { FeaturedContentSection } from "./components/FeaturedContentSection";
 import { SchedulingSection } from "./components/SchedulingSection";
+import { HowItWorksButton, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import styles from "./ProgrammingRuleDetail.module.scss";
 
 const FORM_ID = "rule-detail-form";
@@ -68,6 +69,8 @@ export default function RuleDetailPage() {
 
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [isDiscardOpen, setIsDiscardOpen] = useState(false);
+    const [isHelpOpen, setIsHelpOpen] = useState(false);
+    const helpTriggerRef = useRef<HTMLButtonElement | null>(null);
     // Dove andare quando la bozza è pulita (salvata o eliminata).
     const [leaveTo, setLeaveTo] = useState<string | null>(null);
 
@@ -145,61 +148,68 @@ export default function RuleDetailPage() {
     act.current = { save, duplicate, toggle: detail.toggleEnabled, discard: detail.discard };
     const { isSaving, isDuplicating } = detail;
 
+    const helpType = form?.ruleType;
     const headerActions = useMemo(() =>
-        form && canWrite ? (
+        form && helpType ? (
             <div className={styles.topActions}>
-                <span className={styles.enabledToggle}>
-                    {toggleReason ? (
-                        // Uno switch spento non riceve il puntatore: il
-                        // contenitore focusabile porta il motivo.
-                        <Tooltip content={toggleReason} side="bottom">
-                            <span tabIndex={0} aria-label={toggleReason}>
-                                <Switch ariaLabel={`Attiva o disattiva ${form.name}`} checked={form.enabled} onChange={() => {}} disabled />
-                            </span>
-                        </Tooltip>
-                    ) : (
-                        <Switch
-                            ariaLabel={`Attiva o disattiva ${form.name}`}
-                            checked={form.enabled}
-                            onChange={checked => void act.current.toggle(checked)}
-                            disabled={toggleDisabled}
-                        />
-                    )}
-                    <Text variant="body-sm" colorVariant="muted" as="span">
-                        {form.enabled ? "Attiva" : "Spenta"}
-                    </Text>
-                </span>
-                <Menu
-                    align="end"
-                    trigger={
-                        <Button variant="secondary" aria-label="Altre azioni sulla regola" disabled={!canEdit || isDuplicating}>
-                            <MoreHorizontal size={16} />
-                        </Button>
-                    }
-                >
-                    <Menu.Item
-                        icon={Copy}
-                        onSelect={() => void act.current.duplicate()}
-                        disabled={isDirty}
-                        description={isDirty ? DUPLICATE_BLOCKED : undefined}
-                    >
-                        Duplica
-                    </Menu.Item>
-                    <Menu.Item icon={Trash2} variant="destructive" onSelect={() => setIsDeleteOpen(true)}>
-                        Elimina
-                    </Menu.Item>
-                </Menu>
-                {canEdit && (
-                    <HeaderSaveAction
-                        isDirty={isDirty}
-                        isSaving={isSaving}
-                        onSave={() => void act.current.save()}
-                        onDiscard={() => act.current.discard()}
-                    />
+                {/* La guida del tipo, anche a chi legge soltanto (P4). */}
+                <HowItWorksButton ref={helpTriggerRef} ruleType={helpType} onClick={() => setIsHelpOpen(true)} />
+                {canWrite && (
+                    <>
+                        <span className={styles.enabledToggle}>
+                            {toggleReason ? (
+                                // Uno switch spento non riceve il puntatore: il
+                                // contenitore focusabile porta il motivo.
+                                <Tooltip content={toggleReason} side="bottom">
+                                    <span tabIndex={0} aria-label={toggleReason}>
+                                        <Switch ariaLabel={`Attiva o disattiva ${form.name}`} checked={form.enabled} onChange={() => {}} disabled />
+                                    </span>
+                                </Tooltip>
+                            ) : (
+                                <Switch
+                                    ariaLabel={`Attiva o disattiva ${form.name}`}
+                                    checked={form.enabled}
+                                    onChange={checked => void act.current.toggle(checked)}
+                                    disabled={toggleDisabled}
+                                />
+                            )}
+                            <Text variant="body-sm" colorVariant="muted" as="span">
+                                {form.enabled ? "Attiva" : "Spenta"}
+                            </Text>
+                        </span>
+                        <Menu
+                            align="end"
+                            trigger={
+                                <Button variant="secondary" aria-label="Altre azioni sulla regola" disabled={!canEdit || isDuplicating}>
+                                    <MoreHorizontal size={16} />
+                                </Button>
+                            }
+                        >
+                            <Menu.Item
+                                icon={Copy}
+                                onSelect={() => void act.current.duplicate()}
+                                disabled={isDirty}
+                                description={isDirty ? DUPLICATE_BLOCKED : undefined}
+                            >
+                                Duplica
+                            </Menu.Item>
+                            <Menu.Item icon={Trash2} variant="destructive" onSelect={() => setIsDeleteOpen(true)}>
+                                Elimina
+                            </Menu.Item>
+                        </Menu>
+                        {canEdit && (
+                            <HeaderSaveAction
+                                isDirty={isDirty}
+                                isSaving={isSaving}
+                                onSave={() => void act.current.save()}
+                                onDiscard={() => act.current.discard()}
+                            />
+                        )}
+                    </>
                 )}
             </div>
         ) : undefined,
-        [form, canWrite, canEdit, isDirty, isSaving, isDuplicating, toggleReason, toggleDisabled]
+        [form, helpType, canWrite, canEdit, isDirty, isSaving, isDuplicating, toggleReason, toggleDisabled]
     );
 
     // Compatto: lo switch resta a vista (è lo stato della regola), Duplica ed
@@ -229,6 +239,7 @@ export default function RuleDetailPage() {
                           disabled: toggleDisabled
                       },
                       secondaryActions: [
+                          { label: "Come funziona", onClick: () => setIsHelpOpen(true) },
                           ...(saveConfig.secondaryActions ?? []),
                           { label: "Duplica", onClick: () => void act.current.duplicate(), disabled: !canEdit || isDirty || isDuplicating },
                           { label: "Elimina", onClick: () => setIsDeleteOpen(true), variant: "destructive", separatorBefore: true, disabled: !canEdit }
@@ -380,6 +391,14 @@ export default function RuleDetailPage() {
             {() => (
                 <section className={styles.page}>
                     {body()}
+                    {form && (
+                        <RuleTypeHelpModal
+                            isOpen={isHelpOpen}
+                            ruleType={form.ruleType}
+                            onClose={() => setIsHelpOpen(false)}
+                            triggerRef={helpTriggerRef}
+                        />
+                    )}
                     <ConfirmDialog
                         isOpen={isDeleteOpen}
                         onClose={() => setIsDeleteOpen(false)}
