@@ -750,7 +750,6 @@ export default function Programming() {
             <SegmentedControl<"list" | "calendar">
                 value={viewMode}
                 onChange={setViewMode}
-                size="sm"
                 options={[
                     { value: "list", label: "Elenco", icon: <List size={16} /> },
                     { value: "calendar", label: "Settimana", icon: <CalendarDays size={16} /> }
