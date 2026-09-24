@@ -279,9 +279,6 @@ export function StyleDeleteDrawer({
                                                         rule.groupIds.length === 0,
                                                     isZeroReach,
                                                     isActiveNow: isRuleCurrentlyActive(rule, now),
-                                                    // Nessuna competizione fra regole in questo
-                                                    // drawer (vedi commento sopra sullo state).
-                                                    isOverridden: false,
                                                     now
                                                 });
                                                 return (

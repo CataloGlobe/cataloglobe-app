@@ -4,52 +4,6 @@
    `--hover-bg` fa 4,0:1. */
 
 /* ----------------------------------------------------
-   LINK "COME FUNZIONA"
----------------------------------------------------- */
-.link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-
-  padding: 0;
-  border: 0;
-  background: none;
-
-  font-family: inherit;
-  font-size: 0.8125rem;
-  font-weight: 500;
-  line-height: 1.4;
-  color: var(--brand-primary);
-
-  cursor: pointer;
-  text-decoration: underline;
-  text-decoration-color: transparent;
-  text-underline-offset: 2px;
-  transition: text-decoration-color 0.15s ease, color 0.15s ease;
-
-  &:hover {
-    color: var(--brand-primary-hover);
-    text-decoration-color: currentColor;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--brand-primary);
-    outline-offset: 3px;
-    border-radius: 8px;
-  }
-
-  svg {
-    flex-shrink: 0;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .link {
-    transition: none;
-  }
-}
-
-/* ----------------------------------------------------
    HEADER
 ---------------------------------------------------- */
 .closeButton {

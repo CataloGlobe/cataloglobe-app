@@ -92,7 +92,7 @@ export function buildRuleSummary(rule: RuleSummaryParams): string {
 
     if (segments.length === 0) return "Sempre attiva"; // Fallback to always active if window is empty? Or "Nessuna restrizione"?
 
-    return segments.join(" • ");
+    return segments.join(" · ");
 }
 
 export function isRuleCurrentlyActive(rule: RuleSummaryParams, now: Date): boolean {
@@ -126,4 +126,36 @@ export function isRuleCurrentlyActive(rule: RuleSummaryParams, now: Date): boole
     }
 
     return true;
+}
+
+/**
+ * Cosa fa la regola, col verbo del mockup: «mostra Carta», «cambia 2 prezzi»,
+ * «nasconde 2 · non disponibile 1», «mostra 3 contenuti». Null se non c'è
+ * ancora niente da dire (una bozza senza menù, senza prodotti o contenuti).
+ */
+export function describeRuleAction(
+    rule: Pick<LayoutRule, "rule_type" | "layout" | "price_overrides" | "visibility_overrides" | "featured_contents">,
+    catalogName?: string
+): string | null {
+    const count = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+    switch (rule.rule_type) {
+        case "layout":
+            return catalogName ? `mostra ${catalogName}` : null;
+        case "price": {
+            const n = rule.price_overrides?.length ?? 0;
+            return n > 0 ? `cambia ${count(n, "prezzo", "prezzi")}` : null;
+        }
+        case "visibility": {
+            const hidden = (rule.visibility_overrides ?? []).filter(o => o.mode === "hide").length;
+            const unavailable = (rule.visibility_overrides ?? []).filter(o => o.mode === "disable").length;
+            const parts = [hidden > 0 ? `nasconde ${hidden}` : null, unavailable > 0 ? `non disponibile ${unavailable}` : null];
+            return parts.filter(Boolean).join(" · ") || null;
+        }
+        case "featured": {
+            const n = rule.featured_contents?.length ?? 0;
+            return n > 0 ? `mostra ${count(n, "contenuto", "contenuti")}` : null;
+        }
+        default:
+            return null;
+    }
 }
