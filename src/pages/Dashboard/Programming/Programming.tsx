@@ -5,7 +5,11 @@ import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { Tabs } from "@/components/ui/Tabs/Tabs";
+import { Card } from "@/components/ui/Card/Card";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -41,7 +45,7 @@ import {
     type RuleType
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
-import { RuleRow, type RuleInsight } from "./components/RuleRow";
+import { RuleTable, type RuleInsight } from "./components/RuleTable";
 import { HowItWorksLink, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import { CalendarView } from "./components/CalendarView";
 import {
@@ -175,83 +179,6 @@ function formatMinutesToHourLabel(totalMinutes: number): string {
     return `${h}:${m}`;
 }
 
-/* ─── RuleBlock ──────────────────────────────────────────────── */
-
-interface RuleBlockProps {
-    title: string;
-    count: number;
-    subtitle?: string;
-    collapsible?: boolean;
-    open?: boolean;
-    onToggle?: (open: boolean) => void;
-    children: React.ReactNode;
-}
-
-function RuleBlock({
-    title,
-    count,
-    subtitle,
-    collapsible = false,
-    open: controlledOpen,
-    onToggle,
-    children
-}: RuleBlockProps) {
-    const isOpen = collapsible ? (controlledOpen ?? true) : true;
-
-    const header = (
-        <div
-            className={styles.ruleBlockHeader}
-            role={collapsible ? "button" : undefined}
-            tabIndex={collapsible ? 0 : undefined}
-            onClick={collapsible ? () => onToggle?.(!isOpen) : undefined}
-            onKeyDown={collapsible ? e => { if (e.key === "Enter") onToggle?.(!isOpen); } : undefined}
-        >
-            <div className={styles.ruleBlockHeaderLeft}>
-                <div className={styles.ruleBlockHeaderText}>
-                    <div className={styles.ruleBlockTitleRow}>
-                        <Text variant="body-sm" weight={700}>{title}</Text>
-                        <span className={styles.ruleBlockCount}>{count}</span>
-                    </div>
-                    {subtitle && (
-                        <Text variant="caption" colorVariant="muted">{subtitle}</Text>
-                    )}
-                </div>
-            </div>
-            {collapsible && (
-                <span className={styles.ruleBlockChevron}>
-                    <ChevronDown size={14} style={isOpen ? undefined : { transform: "rotate(-90deg)" }} />
-                </span>
-            )}
-        </div>
-    );
-
-    /* Etichette colonna: stessa grid delle righe dati via `--rule-row-grid`,
-       ereditata da `.ruleBlock`. Le celle vuote (pallino stato, checkbox)
-       servono solo a far cadere "Regola" e "Target" sulla loro colonna;
-       toggle e menu azioni non hanno etichetta e restano fuori. */
-    const columnLabels = (
-        <div className={styles.ruleColumnHeader} aria-hidden="true">
-            <span />
-            <span />
-            <span>Regola</span>
-            <span>Dove si applica</span>
-        </div>
-    );
-
-    return (
-        <div className={styles.ruleBlock}>
-            {header}
-            {isOpen && (
-                <>
-                    {columnLabels}
-                    {children}
-                </>
-            )}
-        </div>
-    );
-}
-
-
 export default function Programming() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -260,6 +187,14 @@ export default function Programming() {
     const { catalogLabel } = useVerticalConfig();
     const typeOptions = useMemo(() => ruleTypeOptions(catalogLabel), [catalogLabel]);
     const emptyCopy = useMemo(() => emptyStateCopy(catalogLabel.toLowerCase()), [catalogLabel]);
+    const isPhone = useMediaQuery("(max-width: 767px)");
+    const ruleHref = useCallback(
+        (rule: { id: string; rule_type: RuleType }) =>
+            rule.rule_type === "featured"
+                ? `/business/${currentTenantId}/scheduling/featured/${rule.id}`
+                : `/business/${currentTenantId}/scheduling/${rule.id}`,
+        [currentTenantId]
+    );
     const sedeScope = useSedeScope();
     const { permissions } = usePermissions();
     // `canEdit` usa la stessa allowlist (trialing|active|past_due) di
@@ -276,6 +211,7 @@ export default function Programming() {
     const [activityIdsByGroupId, setActivityIdsByGroupId] = useState<Record<string, string[]>>({});
 
     const [isLoading, setIsLoading] = useState(true);
+    const [loadFailed, setLoadFailed] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [isSimulatorDrawerOpen, setIsSimulatorDrawerOpen] = useState(false);
     // Spiegazione "Come funziona": puramente on-demand, nessuno stato persistito.
@@ -357,6 +293,7 @@ export default function Programming() {
         if (!currentTenantId || !canRead) return;
         try {
             setIsLoading(true);
+            setLoadFailed(false);
             const [rulesData, optionsData] = await Promise.all([
                 listLayoutRules(currentTenantId),
                 listLayoutRuleOptions(currentTenantId)
@@ -372,15 +309,11 @@ export default function Programming() {
             );
         } catch (error) {
             console.error("Errore caricamento Programmazione:", error);
-            showToast({
-                type: "error",
-                message: "Non riusciamo a caricare le regole.",
-                duration: 3000
-            });
+            setLoadFailed(true);
         } finally {
             setIsLoading(false);
         }
-    }, [currentTenantId, canRead, showToast]);
+    }, [currentTenantId, canRead]);
 
     useEffect(() => {
         void loadInitialData();
@@ -393,15 +326,12 @@ export default function Programming() {
         }
     }, [activities, simActivityId]);
 
-    const filteredRules = useMemo(() => {
+    // Sede e ricerca: i conteggi del filtro per tipo si leggono da qui.
+    const searchedRules = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
+        let result = rules;
 
-        // 1. Filter by rule type (tab)
-        let result = ruleTypeFilter === "all"
-            ? rules
-            : rules.filter(rule => rule.rule_type === ruleTypeFilter);
-
-        // 2. Filter by selected activity
+        // 1. Filter by selected activity
         if (filterActivityId) {
             result = result.filter(rule => {
                 if (rule.applyToAll) return true;
@@ -412,7 +342,7 @@ export default function Programming() {
             });
         }
 
-        // 3. Filter by search term
+        // 2. Filter by search term
         if (!query) return result;
 
         return result.filter(rule => {
@@ -441,16 +371,19 @@ export default function Programming() {
                 .toLowerCase()
                 .includes(query);
         });
-    }, [activityById, activityIdsByGroupId, catalogById, catalogLabel, filterActivityId, ruleTypeFilter, rules, searchTerm, styleById]);
+    }, [activityById, activityIdsByGroupId, catalogById, catalogLabel, filterActivityId, rules, searchTerm, styleById]);
 
-    const handleSelectionChange = useCallback((id: string, checked: boolean) => {
-        setSelectedRuleIds(prev => {
-            const next = new Set(prev);
-            if (checked) next.add(id);
-            else next.delete(id);
-            return next;
-        });
-    }, []);
+    const filteredRules = useMemo(
+        () => (ruleTypeFilter === "all" ? searchedRules : searchedRules.filter(rule => rule.rule_type === ruleTypeFilter)),
+        [ruleTypeFilter, searchedRules]
+    );
+
+    const typeCounts = useMemo(() => {
+        const counts: Record<RuleTypeFilter, number> = { layout: 0, featured: 0, price: 0, visibility: 0, all: searchedRules.length };
+        for (const rule of searchedRules) counts[rule.rule_type] += 1;
+        return counts;
+    }, [searchedRules]);
+
 
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -507,6 +440,7 @@ export default function Programming() {
         const ruleWinsNow = new Set<string>();
         const ruleParticipatesNow = new Set<string>();
         const ruleOverriddenByName = new Map<string, string>();
+        const ruleOverriddenById = new Map<string, string>();
         // Per regole con target ampio (tutte/gruppo): sedi dove perdono vs regola più specifica
         const ruleExcludedActivityIds = new Map<string, Set<string>>();
 
@@ -536,6 +470,7 @@ export default function Programming() {
                 for (const candidate of candidates.slice(1)) {
                     if (!ruleOverriddenByName.has(candidate.rule.id)) {
                         ruleOverriddenByName.set(candidate.rule.id, getRuleDisplayName(winnerEntry.rule, catalogLabel));
+                        ruleOverriddenById.set(candidate.rule.id, winnerEntry.rule.id);
                     }
 
                     // Traccia la sede esclusa per regole con target ampio
@@ -568,6 +503,7 @@ export default function Programming() {
                           groupName: id => groupNameById.get(id) ?? id
                       }),
                 overriddenByName: ruleOverriddenByName.get(rule.id),
+                overriddenById: ruleOverriddenById.get(rule.id),
                 excludedActivityNames
             });
         }
@@ -1075,33 +1011,11 @@ export default function Programming() {
         </div>
     ), [viewMode, searchTerm, headerSplitActions, isCreating]);
 
-    const headerLeading = useMemo(() => (
-        <Tabs<RuleTypeFilter>
-            value={ruleTypeFilter}
-            onChange={handleRuleTypeFilterChange}
-            variant="line"
-        >
-            <Tabs.List>
-                {typeOptions.map(option => (
-                    <Tabs.Tab key={option.value} value={option.value}>
-                        {option.label}
-                    </Tabs.Tab>
-                ))}
-            </Tabs.List>
-        </Tabs>
-    ), [ruleTypeFilter, handleRuleTypeFilterChange, typeOptions]);
-
-    // Stessa toolbar dichiarata a dati, per lo stato compatto: le 5 tab
-    // diventano un picker, "Simula regole" scende nel kebab, il toggle
-    // lista/calendario resta un'icona a vista (azione frequente) e "Nuova
-    // regola" resta il bottone pieno.
+    // Stessa toolbar dichiarata a dati, per lo stato compatto: "Simula
+    // regole" scende nel kebab, il toggle lista/calendario resta un'icona a
+    // vista e "Nuova regola" resta il bottone pieno. Il filtro per tipo sta
+    // sopra l'elenco, non in testata (passo 2).
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        sections: typeOptions.map(option => ({
-            value: option.value,
-            label: option.label
-        })),
-        activeSection: ruleTypeFilter,
-        onSectionChange: value => handleRuleTypeFilterChange(value as RuleTypeFilter),
         // La ricerca filtra la lista: nella vista calendario non ha bersaglio.
         search: viewMode === "list"
             ? {
@@ -1128,261 +1042,207 @@ export default function Programming() {
         secondaryActions: headerSplitActions.slice(0, -1),
         primaryAction: headerSplitActions[headerSplitActions.length - 1],
         loading: isCreating
-    }), [ruleTypeFilter, handleRuleTypeFilterChange, typeOptions, viewMode, searchTerm, headerSplitActions, isCreating]);
+    }), [viewMode, searchTerm, headerSplitActions, isCreating]);
 
     usePageHeader({
-        leading: headerLeading,
         actions: headerActions,
         compact: headerCompact,
     });
+
+    const statusGroups: Array<{
+        key: string;
+        title: string;
+        subtitle?: string;
+        rules: LayoutRule[];
+        open: boolean;
+        setOpen?: (open: boolean) => void;
+    }> = [
+        { key: "active", title: "Adesso", rules: activeRules, open: true },
+        { key: "scheduled", title: "Programmate", rules: scheduledRules, open: true },
+        { key: "drafts", title: "Bozze", subtitle: "Incomplete, o senza una sede raggiunta", rules: draftRules, open: showDrafts, setOpen: setShowDrafts },
+        { key: "disabled", title: "Disabilitate", rules: disabledRules, open: showDisabled, setOpen: setShowDisabled },
+        { key: "expired", title: "Scadute", rules: expiredRules, open: showExpired, setOpen: setShowExpired }
+    ];
+
+    const tableProps = {
+        insights: ruleInsightsById,
+        showTypeBadge: ruleTypeFilter === "all",
+        activityById,
+        activityGroups,
+        ruleHref,
+        onOpen: (rule: LayoutRule) => navigate(ruleHref(rule)),
+        updatingIds: updatingRules,
+        onToggleEnabled: canWrite ? handleToggleEnabled : undefined,
+        onDuplicate: canWrite ? handleDuplicate : undefined,
+        onDelete: canWrite
+            ? (id: string) => {
+                  setRuleToDelete(id);
+                  setIsDeleteModalOpen(true);
+              }
+            : undefined,
+        selectedIds: canWrite ? Array.from(selectedRuleIds) : undefined,
+        onSelectedIdsChange: canWrite ? (ids: string[]) => setSelectedRuleIds(new Set(ids)) : undefined
+    };
 
     return (
         <PageGate readPermission="scheduling.read" activityId={filterActivityId}>
             {() => (
         <section className={styles.programming}>
-            {viewMode === "list" ? (
-                <div className={styles.tableCard}>
-                    {/* Sottotitolo della tab: ha senso sopra una lista popolata,
-                        non sopra un empty state (che porta già il proprio testo). */}
-                    {(isLoading || filteredRules.length > 0) && (
-                        <div className={styles.tabDescription}>
-                            <Text variant="body-sm" colorVariant="muted">
-                                {typeOptions.find(o => o.value === ruleTypeFilter)?.description}
-                            </Text>
-                            <HowItWorksLink
-                                ref={helpTriggerRef}
-                                ruleType={ruleTypeFilter}
-                                onClick={openHelpModal}
-                            />
-                        </div>
-                    )}
+            <div className={styles.listHead}>
+                {isPhone ? (
+                    <Select
+                        label="Tipo di regola"
+                        value={ruleTypeFilter}
+                        onChange={event => handleRuleTypeFilterChange(event.target.value as RuleTypeFilter)}
+                        options={typeOptions.map(option => ({
+                            value: option.value,
+                            label: `${option.label} (${typeCounts[option.value]})`
+                        }))}
+                    />
+                ) : (
+                    <ChipGroupSingle<RuleTypeFilter>
+                        ariaLabel="Tipo di regola"
+                        value={ruleTypeFilter}
+                        onChange={handleRuleTypeFilterChange}
+                        options={typeOptions.map(option => ({
+                            value: option.value,
+                            label: `${option.label} ${typeCounts[option.value]}`
+                        }))}
+                        layout="auto"
+                        shape="pill"
+                    />
+                )}
+                {/* La frase del tipo ha senso sopra un elenco, non sopra un
+                    vuoto (che porta già il proprio testo). */}
+                {(isLoading || filteredRules.length > 0) && (
+                    <div className={styles.tabDescription}>
+                        <Text variant="body-sm" colorVariant="muted">
+                            {typeOptions.find(o => o.value === ruleTypeFilter)?.description}
+                        </Text>
+                        <HowItWorksLink
+                            ref={helpTriggerRef}
+                            ruleType={ruleTypeFilter}
+                            onClick={openHelpModal}
+                        />
+                    </div>
+                )}
+            </div>
 
-                        {isLoading ? (
-                            <div className={styles.emptyState}>
-                                <Text colorVariant="muted">Caricamento regole...</Text>
-                            </div>
-                        ) : filteredRules.length === 0 ? (
-                            (searchTerm || filterActivityId) ? (
-                                <EmptyState
-                                    icon={<Calendar size={40} strokeWidth={1.5} />}
-                                    title="Nessun risultato"
-                                    description={
-                                        filterActivityId && searchTerm
-                                            ? "Nessuna regola corrisponde alla ricerca per questa sede."
-                                            : filterActivityId
-                                            ? "Nessuna regola per questa sede."
-                                            : "Nessuna regola corrisponde alla ricerca."
-                                    }
-                                    action={
-                                        <HowItWorksLink
-                                            ref={helpTriggerRef}
-                                            ruleType={ruleTypeFilter}
-                                            onClick={openHelpModal}
-                                        />
-                                    }
-                                />
-                            ) : (
-                                <EmptyState
-                                    icon={<Calendar size={40} strokeWidth={1.5} />}
-                                    title={emptyCopy[ruleTypeFilter].title}
-                                    description={emptyCopy[ruleTypeFilter].description}
-                                    action={
-                                        /* Ordine di lettura: cos'è questa cosa (titolo +
-                                           descrizione) → come funziona → creane una. */
-                                        <div className={styles.emptyStateActions}>
-                                            <HowItWorksLink
-                                                ref={helpTriggerRef}
-                                                ruleType={ruleTypeFilter}
-                                                onClick={openHelpModal}
-                                            />
-                                            {canWrite && (
-                                                ruleTypeFilter === "all" ? (
-                                                    <div className={styles.newRuleDropdown}>
-                                                        <Menu
-                                                            trigger={
-                                                                <Button
-                                                                    variant="primary"
-                                                                    disabled={!currentTenantId || isCreating || !canEdit}
-                                                                    loading={isCreating}
-                                                                >
-                                                                    {isCreating ? "Creazione..." : "Crea la prima regola"}
-                                                                </Button>
-                                                            }
-                                                            align="start"
-                                                        >
-                                                            <Menu.Item onSelect={() => void handleCreateRule("layout")}>
-                                                                Layout
-                                                            </Menu.Item>
-                                                            <Menu.Item onSelect={() => void handleCreateRule("featured")}>
-                                                                In evidenza
-                                                            </Menu.Item>
-                                                            <Menu.Item onSelect={() => void handleCreateRule("price")}>
-                                                                Prezzi
-                                                            </Menu.Item>
-                                                            <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
-                                                                Disponibilità
-                                                            </Menu.Item>
-                                                        </Menu>
-                                                    </div>
-                                                ) : (
+            {viewMode === "list" ? (
+                loadFailed ? (
+                    <InlineBanner
+                        variant="error"
+                        action={
+                            <Button variant="secondary" size="sm" onClick={() => void loadInitialData()}>
+                                Riprova
+                            </Button>
+                        }
+                    >
+                        Non riusciamo a caricare le regole.
+                    </InlineBanner>
+                ) : isLoading ? (
+                    <Card>
+                        <RuleTable {...tableProps} rules={[]} isLoading />
+                    </Card>
+                ) : filteredRules.length === 0 ? (
+                    (searchTerm || filterActivityId) ? (
+                        <EmptyState
+                            variant="filtered"
+                            title="Nessuna regola trovata"
+                            description={
+                                filterActivityId && !searchTerm
+                                    ? "Nessuna regola per questa sede."
+                                    : "Nessuna regola corrisponde alla ricerca."
+                            }
+                            onClearFilters={searchTerm ? () => setSearchTerm("") : undefined}
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={<Calendar size={40} strokeWidth={1.5} />}
+                            title={emptyCopy[ruleTypeFilter].title}
+                            description={emptyCopy[ruleTypeFilter].description}
+                            action={
+                                /* Ordine di lettura: cos'è questa cosa (titolo +
+                                   descrizione) → come funziona → creane una. */
+                                <div className={styles.emptyStateActions}>
+                                    <HowItWorksLink
+                                        ref={helpTriggerRef}
+                                        ruleType={ruleTypeFilter}
+                                        onClick={openHelpModal}
+                                    />
+                                    {canWrite && (
+                                        ruleTypeFilter === "all" ? (
+                                            <Menu
+                                                trigger={
                                                     <Button
                                                         variant="primary"
-                                                        onClick={() => void handleCreateRule()}
-                                                        disabled={isCreating || !canEdit}
+                                                        disabled={!currentTenantId || isCreating || !canEdit}
                                                         loading={isCreating}
                                                     >
-                                                        Crea la prima regola
+                                                        {isCreating ? "Creazione..." : "Crea la prima regola"}
                                                     </Button>
-                                                )
-                                            )}
-                                        </div>
+                                                }
+                                                align="start"
+                                            >
+                                                {typeOptions
+                                                    .filter(option => option.value !== "all")
+                                                    .map(option => (
+                                                        <Menu.Item
+                                                            key={option.value}
+                                                            onSelect={() => void handleCreateRule(option.value as RuleType)}
+                                                        >
+                                                            {option.label}
+                                                        </Menu.Item>
+                                                    ))}
+                                            </Menu>
+                                        ) : (
+                                            <Button
+                                                variant="primary"
+                                                onClick={() => void handleCreateRule()}
+                                                disabled={isCreating || !canEdit}
+                                                loading={isCreating}
+                                            >
+                                                Crea la prima regola
+                                            </Button>
+                                        )
+                                    )}
+                                </div>
+                            }
+                        />
+                    )
+                ) : (
+                    <div className={styles.groupedList}>
+                        {statusGroups
+                            .filter(group => group.rules.length > 0)
+                            .map(group => (
+                                <Card
+                                    key={group.key}
+                                    title={group.title}
+                                    badge={<Badge variant="neutral">{group.rules.length}</Badge>}
+                                    subtitle={group.subtitle}
+                                    actions={
+                                        group.setOpen ? (
+                                            <IconButton
+                                                icon={<ChevronDown size={16} className={group.open ? styles.chevronOpen : styles.chevronClosed} />}
+                                                variant="ghost"
+                                                size="sm"
+                                                aria-expanded={group.open}
+                                                aria-label={`${group.open ? "Nascondi" : "Mostra"} ${group.title}`}
+                                                onClick={() => group.setOpen?.(!group.open)}
+                                            />
+                                        ) : undefined
                                     }
-                                />
-                            )
-                        ) : (
-                            <div className={styles.groupedList}>
-                                {activeRules.length > 0 && (
-                                    <RuleBlock title="In esecuzione" count={activeRules.length}>
-                                        {activeRules.map(rule => (
-                                            <RuleRow
-                                                key={rule.id}
-                                                rule={rule}
-                                                isSelected={selectedRuleIds.has(rule.id)}
-                                                insight={ruleInsightsById.get(rule.id)}
-                                                isUpdating={updatingRules.has(rule.id)}
-                                                showTypeBadge={ruleTypeFilter === "all"}
-                                                activityById={activityById}
-                                                activityGroups={activityGroups}
-                                                onSelect={canWrite ? handleSelectionChange : undefined}
-                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
-                                                onDuplicate={canWrite ? handleDuplicate : undefined}
-                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
-                                            />
-                                        ))}
-                                    </RuleBlock>
-                                )}
-
-                                {scheduledRules.length > 0 && (
-                                    <RuleBlock title="Programmate" count={scheduledRules.length}>
-                                        {scheduledRules.map(rule => (
-                                            <RuleRow
-                                                key={rule.id}
-                                                rule={rule}
-                                                isSelected={selectedRuleIds.has(rule.id)}
-                                                insight={ruleInsightsById.get(rule.id)}
-                                                isUpdating={updatingRules.has(rule.id)}
-                                                showTypeBadge={ruleTypeFilter === "all"}
-                                                activityById={activityById}
-                                                activityGroups={activityGroups}
-                                                onSelect={canWrite ? handleSelectionChange : undefined}
-                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
-                                                onDuplicate={canWrite ? handleDuplicate : undefined}
-                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
-                                            />
-                                        ))}
-                                    </RuleBlock>
-                                )}
-
-                                {draftRules.length > 0 && (
-                                    <RuleBlock
-                                        title="Bozze"
-                                        count={draftRules.length}
-                                        subtitle="Regole incomplete o senza sedi raggiungibili"
-                                        collapsible
-                                        open={showDrafts}
-                                        onToggle={setShowDrafts}
-                                    >
-                                        {draftRules.map(rule => (
-                                            <RuleRow
-                                                key={rule.id}
-                                                rule={rule}
-                                                isSelected={selectedRuleIds.has(rule.id)}
-                                                insight={ruleInsightsById.get(rule.id)}
-                                                isUpdating={updatingRules.has(rule.id)}
-                                                showTypeBadge={ruleTypeFilter === "all"}
-                                                activityById={activityById}
-                                                activityGroups={activityGroups}
-                                                onSelect={canWrite ? handleSelectionChange : undefined}
-                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
-                                                onDuplicate={canWrite ? handleDuplicate : undefined}
-                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
-                                            />
-                                        ))}
-                                    </RuleBlock>
-                                )}
-
-                                {disabledRules.length > 0 && (
-                                    <RuleBlock
-                                        title="Disabilitate"
-                                        count={disabledRules.length}
-                                        collapsible
-                                        open={showDisabled}
-                                        onToggle={setShowDisabled}
-                                    >
-                                        {disabledRules.map(rule => (
-                                            <RuleRow
-                                                key={rule.id}
-                                                rule={rule}
-                                                isSelected={selectedRuleIds.has(rule.id)}
-                                                insight={ruleInsightsById.get(rule.id)}
-                                                isUpdating={updatingRules.has(rule.id)}
-                                                showTypeBadge={ruleTypeFilter === "all"}
-                                                activityById={activityById}
-                                                activityGroups={activityGroups}
-                                                onSelect={canWrite ? handleSelectionChange : undefined}
-                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
-                                                onDuplicate={canWrite ? handleDuplicate : undefined}
-                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
-                                            />
-                                        ))}
-                                    </RuleBlock>
-                                )}
-
-                                {expiredRules.length > 0 && (
-                                    <RuleBlock
-                                        title="Scadute"
-                                        count={expiredRules.length}
-                                        collapsible
-                                        open={showExpired}
-                                        onToggle={setShowExpired}
-                                    >
-                                        {expiredRules.map(rule => (
-                                            <RuleRow
-                                                key={rule.id}
-                                                rule={rule}
-                                                isSelected={selectedRuleIds.has(rule.id)}
-                                                insight={ruleInsightsById.get(rule.id)}
-                                                isUpdating={updatingRules.has(rule.id)}
-                                                showTypeBadge={ruleTypeFilter === "all"}
-                                                activityById={activityById}
-                                                activityGroups={activityGroups}
-                                                onSelect={canWrite ? handleSelectionChange : undefined}
-                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
-                                                onDuplicate={canWrite ? handleDuplicate : undefined}
-                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
-                                            />
-                                        ))}
-                                    </RuleBlock>
-                                )}
-                            </div>
-                        )}
+                                >
+                                    {group.open && <RuleTable {...tableProps} rules={group.rules} />}
+                                </Card>
+                            ))}
                     </div>
+                )
             ) : (
                 <CalendarView
                     rules={rules}
                     ruleTypeFilter={ruleTypeFilter}
-                    onRuleClick={rule =>
-                        navigate(
-                            rule.rule_type === "featured"
-                                ? `/business/${currentTenantId}/scheduling/featured/${rule.id}`
-                                : `/business/${currentTenantId}/scheduling/${rule.id}`
-                        )
-                    }
+                    onRuleClick={rule => navigate(ruleHref(rule))}
                 />
             )}
 

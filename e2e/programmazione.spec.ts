@@ -34,6 +34,11 @@ function rowOf(anchor: Locator): Locator {
     return anchor.locator("xpath=ancestor::*[.//button[starts-with(@aria-label,'Azioni')] or .//*[@role='switch']][1]");
 }
 
+/** La casella di selezione della riga (oggi «Seleziona riga» di DataTable). */
+function checkboxOf(anchor: Locator): Locator {
+    return rowOf(anchor).getByRole("checkbox").first();
+}
+
 function actionsOf(anchor: Locator): Locator {
     return rowOf(anchor).getByRole("button", { name: /^Azioni/ }).first();
 }
@@ -215,19 +220,57 @@ test.describe("Programmazione — elenco", () => {
         expect(call.body).toEqual({ enabled: false });
     });
 
-    test("una bozza non si accende e non scrive niente", async ({ page }) => {
+    test("una bozza non si accende: lo switch è spento e dice perché", async ({ page }) => {
         await openList(page);
         const toggle = page.getByRole("switch", { name: new RegExp(RULE_NAME.bozza) });
-        if (await toggle.isEnabled()) await press(toggle);
-        await expect(page.getByText(/Completa (i campi obbligatori|la regola)/).first()).toBeVisible();
+        await expect(toggle).toBeDisabled();
+        await page.getByLabel("Completa la regola per attivarla.").first().hover();
+        await expect(page.getByRole("tooltip").getByText("Completa la regola per attivarla.")).toBeVisible();
         expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
     });
 
+    test("il filtro per tipo dice quante regole ci sono", async ({ page }) => {
+        await openList(page);
+        const filter = main(page).getByRole("radiogroup", { name: "Tipo di regola" });
+        await expect(filter.getByRole("radio", { name: /^Tutte 12$/ })).toBeVisible();
+        await expect(filter.getByRole("radio", { name: /^Menù e stile 6$/ })).toBeVisible();
+        await expect(filter.getByRole("radio", { name: /^Prezzi 2$/ })).toBeVisible();
+        await searchFor(page, "Porto");
+        await expect(filter.getByRole("radio", { name: /^Tutte 2$/ })).toBeVisible();
+    });
+
+    test("«Sovrascritta da» porta alla regola che vince", async ({ page }) => {
+        await openList(page);
+        await rowOf(rule(page, "promoCosta")).getByRole("link", { name: RULE_NAME.promoPorto }).click();
+        await expect(page).toHaveURL(new RegExp(`/scheduling/featured/${RULE.promoPorto}`));
+    });
+
+    test("se il caricamento fallisce lo dice, e «Riprova» ricarica", async ({ page }) => {
+        let failing = true;
+        await page.route(/\/rest\/v1\/schedules(\?|$)/, route =>
+            failing && route.request().method() === "GET"
+                ? route.fulfill({ status: 500, json: { code: "E2E", message: "giù" } })
+                : route.fallback()
+        );
+        await openBusinessPage(page, "scheduling", "Programmazione");
+        await expect(main(page).getByText("Non riusciamo a caricare le regole.")).toBeVisible({ timeout: 15_000 });
+        failing = false;
+        await main(page).getByRole("button", { name: "Riprova" }).click();
+        await expect(rule(page, "carta")).toBeVisible();
+    });
+
+    test("ricerca senza risultati: «Azzera filtri» rimette le regole", async ({ page }) => {
+        await openList(page);
+        await searchFor(page, "nessunaregolacosì");
+        await expect(main(page).getByText(/Nessun(a regola trovata| risultato)/)).toBeVisible();
+        await main(page).getByRole("button", { name: /Azzera/ }).click();
+        await expect(rule(page, "carta")).toBeVisible();
+    });
+
     test("cablaggio: elimina una regola dopo la conferma (schedules.DELETE)", async ({ page }) => {
-        // Bug di oggi, trovato scrivendo questo test: il clic su «Elimina» del
-        // menù ⋯ risale fino alla riga (portale React) e apre il dettaglio; la
-        // conferma si smonta con l'elenco. Lo chiude P4 (riga di sistema).
-        test.fail(true, "il clic sulla voce del menù ⋯ apre anche il dettaglio (censimento #323)");
+        // Fino a P3 il clic su «Elimina» del menù ⋯ risaliva alla riga e apriva
+        // il dettaglio (mucchio 2/10): la riga di DataTable ignora i clic dei
+        // controlli, e la pagina resta sull'elenco.
         stub.onWrite("schedules.DELETE", () => null);
         await openList(page);
         await actionsOf(rule(page, "aperitivo")).click();
@@ -244,8 +287,8 @@ test.describe("Programmazione — elenco", () => {
     test("cablaggio: eliminazione multipla (schedules.DELETE per ogni regola)", async ({ page }) => {
         stub.onWrite("schedules.DELETE", () => null);
         await openList(page);
-        await page.getByRole("checkbox", { name: new RegExp(RULE_NAME.aperitivo) }).check();
-        await page.getByRole("checkbox", { name: new RegExp(RULE_NAME.natale) }).check();
+        await checkboxOf(rule(page, "aperitivo")).check();
+        await checkboxOf(rule(page, "natale")).check();
         await page.getByRole("toolbar", { name: "Azioni sulla selezione" }).getByRole("button", { name: /Elimina/ }).click();
         // P1: prima si conferma, e la conferma dice quali.
         const confirm = page.getByRole("alertdialog");
@@ -265,12 +308,12 @@ test.describe("Programmazione — elenco", () => {
             call.params.get("id") === `eq.${RULE.natale}` ? new StubError(500) : null
         );
         await openList(page);
-        await page.getByRole("checkbox", { name: new RegExp(RULE_NAME.aperitivo) }).check();
-        await page.getByRole("checkbox", { name: new RegExp(RULE_NAME.natale) }).check();
+        await checkboxOf(rule(page, "aperitivo")).check();
+        await checkboxOf(rule(page, "natale")).check();
         await page.getByRole("toolbar", { name: "Azioni sulla selezione" }).getByRole("button", { name: /Elimina/ }).click();
         await page.getByRole("alertdialog").getByRole("button", { name: "Elimina 2 regole" }).click();
         await expect(page.getByText(`1 regola non eliminata: ${RULE_NAME.natale}.`)).toBeVisible();
-        await expect(page.getByRole("checkbox", { name: new RegExp(RULE_NAME.natale) })).toBeChecked();
+        await expect(checkboxOf(rule(page, "natale"))).toBeChecked();
     });
 
     test("cablaggio: «Nuova regola» crea la bozza e apre il dettaglio", async ({ page }) => {
@@ -308,7 +351,7 @@ test.describe("Programmazione — elenco", () => {
         await expect(rule(page, "carta")).toBeVisible();
         await expect(page.getByRole("button", { name: /^Nuova regola/ })).toHaveCount(0);
         await expect(page.getByRole("switch")).toHaveCount(0);
-        await expect(page.getByRole("checkbox", { name: new RegExp(RULE_NAME.carta) })).toHaveCount(0);
+        await expect(checkboxOf(rule(page, "carta"))).toHaveCount(0);
     });
 });
 
