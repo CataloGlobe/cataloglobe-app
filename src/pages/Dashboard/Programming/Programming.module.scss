@@ -32,7 +32,23 @@
 .groupedList {
   display: flex;
   flex-direction: column;
-  gap: var(--space-16);
+  gap: var(--space-24);
+}
+
+// Sezione per stato (F3): titolo, contatore, frase e chevron in riga, la
+// tabella sotto.
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+}
+
+.groupHead {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-8);
+  min-height: 32px;
 }
 
 // Filtro per tipo e frase del tipo, sopra l'elenco (passo 2).

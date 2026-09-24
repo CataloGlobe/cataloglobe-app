@@ -3,7 +3,6 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { Card } from "@/components/ui/Card/Card";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
@@ -887,9 +886,7 @@ export default function Programming() {
                         Non riusciamo a caricare le regole.
                     </InlineBanner>
                 ) : isLoading ? (
-                    <Card>
-                        <RuleTable {...tableProps} rules={[]} isLoading />
-                    </Card>
+                    <RuleTable {...tableProps} rules={[]} isLoading />
                 ) : filteredRules.length === 0 ? (
                     (searchTerm || filterActivityId) ? (
                         <EmptyState
@@ -961,13 +958,21 @@ export default function Programming() {
                         {statusGroups
                             .filter(group => group.rules.length > 0)
                             .map(group => (
-                                <Card
-                                    key={group.key}
-                                    title={group.title}
-                                    badge={<Badge variant="neutral">{group.rules.length}</Badge>}
-                                    subtitle={group.subtitle}
-                                    actions={
-                                        group.setOpen ? (
+                                // Una sezione per stato: titolo + contatore, la
+                                // DataTable sotto con la sua cornice. Niente Card
+                                // intorno: due cornici una dentro l'altra (F3).
+                                <section key={group.key} className={styles.group} aria-labelledby={`rule-group-${group.key}`}>
+                                    <div className={styles.groupHead}>
+                                        <Text as="h2" variant="title-sm" id={`rule-group-${group.key}`}>
+                                            {group.title}
+                                        </Text>
+                                        <Badge variant="neutral">{group.rules.length}</Badge>
+                                        {group.subtitle && (
+                                            <Text as="span" variant="body-sm" colorVariant="muted">
+                                                {group.subtitle}
+                                            </Text>
+                                        )}
+                                        {group.setOpen && (
                                             <IconButton
                                                 icon={<ChevronDown size={16} className={group.open ? styles.chevronOpen : styles.chevronClosed} />}
                                                 variant="ghost"
@@ -976,11 +981,10 @@ export default function Programming() {
                                                 aria-label={`${group.open ? "Nascondi" : "Mostra"} ${group.title}`}
                                                 onClick={() => group.setOpen?.(!group.open)}
                                             />
-                                        ) : undefined
-                                    }
-                                >
+                                        )}
+                                    </div>
                                     {group.open && <RuleTable {...tableProps} rules={group.rules} />}
-                                </Card>
+                                </section>
                             ))}
                     </div>
                 )
