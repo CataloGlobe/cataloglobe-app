@@ -3,6 +3,8 @@ import Text from "@components/ui/Text/Text";
 import { Tooltip } from "@components/ui/Tooltip/Tooltip";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { LayoutRule, RuleType } from "@services/supabase/layoutScheduling";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { ruleTypeLabel } from "../ruleTypeLabel";
 import styles from "./CalendarView.module.scss";
 
 export type CalendarRuleTypeFilter = RuleType | "all";
@@ -13,15 +15,8 @@ const TOTAL_MINUTES = 24 * 60;
 const GRID_HEIGHT = 600; // px
 const EVEN_HOURS = [0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22, 24];
 
-const TYPE_LABEL: Record<RuleType, string> = {
-    layout: "Layout",
-    featured: "In evidenza",
-    price: "Prezzi",
-    visibility: "Disponibilità"
-};
-
 const TYPE_SHORT: Record<RuleType, string> = {
-    layout: "L",
+    layout: "M",
     featured: "E",
     price: "P",
     visibility: "D"
@@ -67,8 +62,8 @@ function timeToPercent(mins: number): number {
     return (mins / TOTAL_MINUTES) * 100;
 }
 
-function getRuleName(rule: LayoutRule): string {
-    return (rule.name ?? `${TYPE_LABEL[rule.rule_type]} · ${rule.id.slice(0, 6)}`).trim();
+function getRuleName(rule: LayoutRule, catalogLabel: string): string {
+    return (rule.name ?? `${ruleTypeLabel(rule.rule_type, catalogLabel)} · ${rule.id.slice(0, 6)}`).trim();
 }
 
 function getMonday(weekOffset: number): Date {
@@ -253,9 +248,10 @@ function renderBlock(
     i: number,
     color: string,
     vertical: boolean,
+    catalogLabel: string,
     onRuleClick?: (rule: LayoutRule) => void
 ) {
-    const name = getRuleName(b.rule);
+    const name = getRuleName(b.rule, catalogLabel);
     const isAllDay = b.from === 0 && b.to === TOTAL_MINUTES;
     const top = timeToPercent(b.from);
     const height = timeToPercent(b.to) - timeToPercent(b.from);
@@ -267,7 +263,7 @@ function renderBlock(
                 <div className={styles.tipContent}>
                     <span className={styles.tipName}>{name}</span>
                     <span className={styles.tipMeta}>
-                        {TYPE_LABEL[b.rule.rule_type]}
+                        {ruleTypeLabel(b.rule.rule_type, catalogLabel)}
                         {" · "}
                         {isAllDay
                             ? "Tutto il giorno"
@@ -310,6 +306,7 @@ export interface CalendarViewProps {
 
 export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarViewProps) {
     const [weekOffset, setWeekOffset] = useState(0);
+    const { catalogLabel } = useVerticalConfig();
     const activeType = ruleTypeFilter;
 
     // Week dates
@@ -395,7 +392,7 @@ export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarVie
 
             {relevantRules.length === 0 && (
                 <Text variant="caption" colorVariant="muted">
-                    Nessuna regola attiva in questa settimana.
+                    Nessuna regola attiva questa settimana
                 </Text>
             )}
 
@@ -506,6 +503,7 @@ export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarVie
                                                         i,
                                                         TYPE_COLOR[type],
                                                         true,
+                                                        catalogLabel,
                                                         onRuleClick
                                                     )
                                                 )}
@@ -551,6 +549,7 @@ export function CalendarView({ rules, ruleTypeFilter, onRuleClick }: CalendarVie
                                         i,
                                         TYPE_COLOR[activeType as RuleType],
                                         false,
+                                        catalogLabel,
                                         onRuleClick
                                     )
                                 )}

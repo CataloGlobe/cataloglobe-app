@@ -59,21 +59,21 @@ export function SchedulingSection({
     const today = new Date().toISOString().split("T")[0];
     const timeOrderError =
         timeFromTouched && timeToTouched && timeFrom && timeTo && timeTo <= timeFrom
-            ? "L'orario di fine deve essere successivo all'orario di inizio"
+            ? "L'ora di fine viene prima dell'inizio."
             : null;
 
     const validateEndAt = (end: string, start: string) => {
         if (!end) { setEndAtError(""); return; }
-        if (end < today) { setEndAtError("La data di fine non può essere nel passato"); return; }
-        if (start && end < start) { setEndAtError("La data di fine deve essere successiva alla data di inizio"); return; }
+        if (end < today) { setEndAtError("La data di fine è già passata."); return; }
+        if (start && end < start) { setEndAtError("La fine viene prima dell'inizio."); return; }
         setEndAtError("");
     };
 
     const handleStartAtBlur = () => {
         if (!startAt && hasPeriod) {
-            setStartAtError("Inserisci la data di inizio");
+            setStartAtError("Manca la data di inizio.");
         } else if (startAt && startAt < today) {
-            setStartAtError("La data di inizio non può essere nel passato");
+            setStartAtError("La data di inizio è già passata.");
         } else {
             setStartAtError("");
         }
@@ -82,7 +82,7 @@ export function SchedulingSection({
 
     const handleEndAtBlur = () => {
         if (!endAt && hasPeriod) {
-            setEndAtError("Inserisci la data di fine");
+            setEndAtError("Manca la data di fine.");
         } else {
             validateEndAt(endAt, startAt);
         }
@@ -124,7 +124,7 @@ export function SchedulingSection({
         <section className={styles.sectionCard}>
             <div className={styles.sectionHeader}>
                 <Text as="h3" variant="title-sm">
-                    Programmazione
+                    Quando
                 </Text>
                 <div className={styles.switchRow}>
                     <Text variant="body-sm">Sempre attiva</Text>
@@ -138,14 +138,14 @@ export function SchedulingSection({
                     <div className={styles.inlineBlock}>
                         <div className={styles.switchRow}>
                             <Switch checked={hasPeriod} onChange={handleTogglePeriod} />
-                            <Text variant="body-sm">Vale solo in un periodo specifico?</Text>
+                            <Text variant="body-sm">In un periodo</Text>
                         </div>
                         {hasPeriod && (
                             <>
                                 <div className={styles.sectionGrid}>
                                     <div>
                                         <DateInput
-                                            label="Data inizio *"
+                                            label="Data di inizio *"
                                             value={startAt}
                                             onChange={event => {
                                                 const newStart = event.target.value;
@@ -164,7 +164,7 @@ export function SchedulingSection({
                                     </div>
                                     <div>
                                         <DateInput
-                                            label="Data fine *"
+                                            label="Data di fine *"
                                             value={endAt}
                                             min={startAt || undefined}
                                             onChange={event => onFormChange({ endAt: event.target.value })}
@@ -188,19 +188,19 @@ export function SchedulingSection({
                     <div className={styles.inlineBlock}>
                         <div className={styles.switchRow}>
                             <Switch checked={hasTime} onChange={handleToggleTime} />
-                            <Text variant="body-sm">Vale solo in certi orari?</Text>
+                            <Text variant="body-sm">In certe ore</Text>
                         </div>
                         {hasTime && (
                             <>
                                 <div className={styles.sectionGrid}>
                                     <TimeInput
-                                        label="Orario inizio"
+                                        label="Ora di inizio"
                                         value={timeFrom}
                                         onChange={event => onFormChange({ timeFrom: event.target.value })}
                                         onBlur={() => setTimeFromTouched(true)}
                                     />
                                     <TimeInput
-                                        label="Orario fine"
+                                        label="Ora di fine"
                                         value={timeTo}
                                         onChange={event => onFormChange({ timeTo: event.target.value })}
                                         onBlur={() => setTimeToTouched(true)}
@@ -225,7 +225,7 @@ export function SchedulingSection({
                                 onChange={handleToggleDays}
                             />
                             <Text variant="body-sm">
-                                Vale solo in certi giorni della settimana?
+                                In certi giorni
                             </Text>
                         </div>
                         {hasDays && (

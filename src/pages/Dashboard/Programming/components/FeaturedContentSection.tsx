@@ -16,6 +16,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import type { LayoutRuleOption } from "@/services/supabase/layoutScheduling";
 import type { FeaturedContentItem } from "./AssociatedContentSection";
 import styles from "../ProgrammingRuleDetail.module.scss";
@@ -99,7 +100,7 @@ function FeaturedContentPicker({ available, allEmpty, onSelect }: FeaturedConten
     };
 
     const isEmpty = allEmpty
-        ? "Nessun contenuto in evidenza disponibile — creane uno dalla sezione Highlights"
+        ? "Non ci sono contenuti pubblicati."
         : available.length === 0
           ? "Tutti i contenuti sono già stati aggiunti"
           : null;
@@ -111,7 +112,7 @@ function FeaturedContentPicker({ available, allEmpty, onSelect }: FeaturedConten
                 className={styles.featuredPickerTrigger}
                 onClick={() => setIsOpen(v => !v)}
             >
-                + Aggiungi contenuto
+                Aggiungi contenuto
             </button>
 
             {isOpen && (
@@ -234,6 +235,8 @@ export function FeaturedContentSection({
     tenantFeaturedContents,
     onFormChange
 }: FeaturedContentSectionProps) {
+    const { catalogLabel } = useVerticalConfig();
+    const menu = catalogLabel.toLowerCase();
     const featuredNameById = useMemo(
         () => new Map(tenantFeaturedContents.map(fc => [fc.id, fc.name])),
         [tenantFeaturedContents]
@@ -301,12 +304,12 @@ export function FeaturedContentSection({
     return (
         <section className={styles.sectionCard}>
             <Text as="h3" variant="title-sm">
-                Contenuti in evidenza
+                In evidenza
             </Text>
 
             <div className={styles.slotGroupsContainer}>
                 <SlotGroup
-                    title="Prima del catalogo"
+                    title={`Sopra il ${menu}`}
                     slot="before_catalog"
                     items={beforeItems}
                     nameById={featuredNameById}
@@ -318,7 +321,7 @@ export function FeaturedContentSection({
                 />
 
                 <SlotGroup
-                    title="Dopo il catalogo"
+                    title={`Sotto il ${menu}`}
                     slot="after_catalog"
                     items={afterItems}
                     nameById={featuredNameById}

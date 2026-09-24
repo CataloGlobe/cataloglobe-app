@@ -32,7 +32,9 @@ import {
 } from "@/services/supabase/layoutScheduling";
 import { updateScheduleTargets } from "@/services/supabase/scheduleTargets";
 import { parseDecimalPrice } from "@/utils/priceParser";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import styles from "./ProgrammingRuleDetail.module.scss";
+import { ruleTypeLabel } from "./ruleTypeLabel";
 
 // Componentes
 import { TargetSection, type TargetMode } from "./components/TargetSection";
@@ -67,11 +69,6 @@ type RuleDetailForm = {
     timeTo: string;
 };
 
-function getRuleTypeLabel(ruleType: RuleType): string {
-    if (ruleType === "layout") return "Layout";
-    if (ruleType === "price") return "Prezzi";
-    return "Disponibilità";
-}
 
 function getRuleTypeBadgeColor(ruleType: RuleType): string {
     if (ruleType === "layout") return "var(--brand-primary)";
@@ -83,7 +80,11 @@ function toLocalDateString(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>): RuleDetailForm {
+function buildForm(
+    rule: LayoutRule,
+    activityById: Map<string, LayoutRuleOption>,
+    catalogLabel: string
+): RuleDetailForm {
     const productOverrides: RuleDetailForm["productOverrides"] = {};
     const visibilityProductModes: RuleDetailForm["visibilityProductModes"] = {};
     const selectedProductIds: string[] = [];
@@ -132,7 +133,7 @@ function buildForm(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>
         : "activities";
 
     const fallbackName = (() => {
-        const typeLabel = getRuleTypeLabel(rule.rule_type);
+        const typeLabel = ruleTypeLabel(rule.rule_type, catalogLabel);
         const targetLabel =
             targetMode === "all"
                 ? "tutte le sedi"
@@ -173,6 +174,7 @@ export default function ProgrammingRuleDetail() {
     const [searchParams] = useSearchParams();
     const fromType = searchParams.get("fromType");
     const { showToast } = useToast();
+    const { catalogLabel } = useVerticalConfig();
 
     const { permissions } = usePermissions();
     const { canEdit } = useSubscriptionGuard();
@@ -282,7 +284,8 @@ export default function ProgrammingRuleDetail() {
 
             const nextForm = buildForm(
                 ruleData,
-                new Map(optionsData.activities.map(activity => [activity.id, activity]))
+                new Map(optionsData.activities.map(activity => [activity.id, activity])),
+                catalogLabel
             );
             const nextSnapshot = JSON.stringify(nextForm);
 
@@ -306,13 +309,13 @@ export default function ProgrammingRuleDetail() {
             console.error("Errore caricamento dettaglio regola:", error);
             showToast({
                 type: "error",
-                message: "Impossibile caricare la regola.",
+                message: "Non riusciamo a caricare la regola.",
                 duration: 3000
             });
         } finally {
             setIsLoading(false);
         }
-    }, [navigate, ruleId, showToast]);
+    }, [navigate, ruleId, showToast, catalogLabel]);
 
     const handleFormChange = useCallback((updates: Partial<RuleDetailForm>) => {
         setForm(prev => (prev ? { ...prev, ...updates } : prev));
@@ -366,7 +369,7 @@ export default function ProgrammingRuleDetail() {
             console.error("Errore update stato regola:", error);
             showToast({
                 type: "error",
-                message: "Impossibile aggiornare lo stato.",
+                message: `Non siamo riusciti a cambiare lo stato di ${form?.name || "la regola"}.`,
                 duration: 3000
             });
         } finally {
@@ -383,7 +386,7 @@ export default function ProgrammingRuleDetail() {
         if (isDirty) {
             showToast({
                 type: "error",
-                message: "Salva o annulla le modifiche prima di duplicare la regola.",
+                message: "Salva o annulla le modifiche per duplicarla.",
                 duration: 3000
             });
             return;
@@ -394,7 +397,7 @@ export default function ProgrammingRuleDetail() {
             const newRuleId = await duplicateRule(ruleId, rule.tenant_id);
             showToast({
                 type: "success",
-                message: "Regola duplicata e disabilitata.",
+                message: "Regola duplicata: la copia è spenta.",
                 duration: 2200
             });
             navigate(
@@ -404,7 +407,7 @@ export default function ProgrammingRuleDetail() {
             console.error("Errore duplicazione regola:", error);
             showToast({
                 type: "error",
-                message: "Errore durante la duplicazione della regola.",
+                message: `Non siamo riusciti a duplicare ${form?.name || "la regola"}.`,
                 duration: 3000
             });
         } finally {
@@ -418,7 +421,7 @@ export default function ProgrammingRuleDetail() {
             await deleteLayoutRule(ruleId);
             showToast({
                 type: "success",
-                message: "Regola eliminata con successo.",
+                message: "Regola eliminata.",
                 duration: 2200
             });
             navigate(`/business/${businessId}/scheduling${fromType ? `?type=${fromType}` : ""}`);
@@ -427,7 +430,7 @@ export default function ProgrammingRuleDetail() {
             console.error("Errore eliminazione regola:", error);
             showToast({
                 type: "error",
-                message: "Errore durante l'eliminazione della regola.",
+                message: `Non siamo riusciti a eliminare ${form?.name || "la regola"}.`,
                 duration: 3000
             });
             return false;
@@ -440,7 +443,7 @@ export default function ProgrammingRuleDetail() {
 
         const trimmedName = form.name.trim();
         if (!trimmedName) {
-            showToast({ type: "error", message: "Il nome regola è obbligatorio.", duration: 2600 });
+            showToast({ type: "error", message: "Scrivi un nome.", duration: 2600 });
             return;
         }
 
@@ -452,7 +455,7 @@ export default function ProgrammingRuleDetail() {
             if (hasSingleTime) {
                 showToast({
                     type: "error",
-                    message: "Per la finestra oraria servono sia Ora inizio che Ora fine.",
+                    message: form.timeFrom ? "Manca l'ora di fine." : "Manca l'ora di inizio.",
                     duration: 3000
                 });
                 return;
@@ -462,7 +465,7 @@ export default function ProgrammingRuleDetail() {
             if (!hasPeriod && !hasDays && !hasBothTimes) {
                 showToast({
                     type: "error",
-                    message: "In modalità window imposta almeno un periodo, giorni o fascia oraria.",
+                    message: "Scegli un periodo, delle ore o dei giorni, oppure accendi «Sempre attiva».",
                     duration: 3000
                 });
                 return;
@@ -473,14 +476,14 @@ export default function ProgrammingRuleDetail() {
         const missingFields: string[] = [];
 
         if (form.targetMode === "activities" && form.activityIds.length === 0) {
-            missingFields.push("sedi target");
+            missingFields.push("le sedi");
         }
         if (form.targetMode === "groups" && form.groupIds.length === 0) {
-            missingFields.push("gruppi target");
+            missingFields.push("i gruppi di sedi");
         }
         if (form.ruleType === "layout") {
-            if (!form.catalogId) missingFields.push("catalogo");
-            if (!form.styleId) missingFields.push("stile");
+            if (!form.catalogId) missingFields.push(`il ${catalogLabel.toLowerCase()}`);
+            if (!form.styleId) missingFields.push("lo stile");
         }
 
         // Multi-target applyToAll deriva direttamente dal targetMode esplicito.
@@ -495,11 +498,11 @@ export default function ProgrammingRuleDetail() {
 
         if (form.timeMode === "window" && hasPeriod) {
             if (!form.startAt) {
-                showToast({ type: "error", message: "Inserisci la data di inizio.", duration: 2800 });
+                showToast({ type: "error", message: "Manca la data di inizio.", duration: 2800 });
                 return;
             }
             if (!form.endAt) {
-                showToast({ type: "error", message: "Inserisci la data di fine.", duration: 2800 });
+                showToast({ type: "error", message: "Manca la data di fine.", duration: 2800 });
                 return;
             }
         }
@@ -507,7 +510,7 @@ export default function ProgrammingRuleDetail() {
         if (form.startAt && form.startAt < today) {
             showToast({
                 type: "error",
-                message: "La data di inizio non può essere nel passato.",
+                message: "La data di inizio è già passata.",
                 duration: 2800
             });
             return;
@@ -517,7 +520,7 @@ export default function ProgrammingRuleDetail() {
             if (form.endAt < today) {
                 showToast({
                     type: "error",
-                    message: "La data di fine non può essere nel passato.",
+                    message: "La data di fine è già passata.",
                     duration: 2800
                 });
                 return;
@@ -525,7 +528,7 @@ export default function ProgrammingRuleDetail() {
             if (form.startAt && form.endAt < form.startAt) {
                 showToast({
                     type: "error",
-                    message: "La data di fine non può essere precedente alla data di inizio.",
+                    message: "La fine viene prima dell'inizio.",
                     duration: 2800
                 });
                 return;
@@ -535,18 +538,18 @@ export default function ProgrammingRuleDetail() {
         if (form.timeFrom && form.timeTo && form.timeTo <= form.timeFrom) {
             showToast({
                 type: "error",
-                message: "L'orario di fine deve essere successivo all'orario di inizio.",
+                message: "L'ora di fine viene prima dell'inizio.",
                 duration: 2800
             });
             return;
         }
 
         if (form.ruleType === "price" && form.selectedProductIds.length === 0) {
-            missingFields.push("prodotti con override prezzo");
+            missingFields.push("i prodotti");
         }
 
         if (form.ruleType === "visibility" && form.selectedProductIds.length === 0) {
-            missingFields.push("prodotti da nascondere");
+            missingFields.push("i prodotti");
         }
 
         // ── Determine effective enabled ──
@@ -582,7 +585,7 @@ export default function ProgrammingRuleDetail() {
                 showToast({
                     type: "error",
                     message:
-                        "Imposta un override prezzo maggiore di 0 per ogni prodotto selezionato.",
+                        "Scrivi un prezzo maggiore di zero per ogni prodotto.",
                     duration: 3200
                 });
                 return;
@@ -677,7 +680,7 @@ export default function ProgrammingRuleDetail() {
             if (isForcedDraft) {
                 showToast({
                     type: "warning",
-                    message: `Regola salvata come bozza. Manca: ${missingFields.join(", ")}`,
+                    message: `Salvata come bozza. Da completare: ${missingFields.join(", ")}.`,
                     duration: 4000
                 });
             } else if (autoActivate) {
@@ -693,7 +696,7 @@ export default function ProgrammingRuleDetail() {
             const message =
                 code === "23505"
                     ? "Questo contenuto è già associato a questa regola."
-                    : "Errore durante il salvataggio.";
+                    : "Non siamo riusciti a salvare la regola.";
             showToast({ type: "error", message, duration: 3000 });
         } finally {
             setIsSaving(false);
@@ -712,10 +715,10 @@ export default function ProgrammingRuleDetail() {
     const headerTitleAddon = useMemo(() => (
         form ? (
             <Badge color={getRuleTypeBadgeColor(form.ruleType)}>
-                {getRuleTypeLabel(form.ruleType)}
+                {ruleTypeLabel(form.ruleType, catalogLabel)}
             </Badge>
         ) : null
-    ), [form]);
+    ), [form, catalogLabel]);
 
     const headerActions = useMemo(() => (
         form && canWrite ? (
@@ -728,7 +731,7 @@ export default function ProgrammingRuleDetail() {
                         disabled={isTogglingEnabled || !canEdit}
                     />
                     <Text variant="body-sm" colorVariant="muted" as="span">
-                        {form.enabled ? "Attiva" : "Disattivata"}
+                        {form.enabled ? "Attiva" : "Spenta"}
                     </Text>
                 </div>
                 <Menu
@@ -792,7 +795,7 @@ export default function ProgrammingRuleDetail() {
             statusControl: {
                 options: [
                     { value: "enabled", label: "Attiva" },
-                    { value: "disabled", label: "Disattivata" }
+                    { value: "disabled", label: "Spenta" }
                 ],
                 value: form.enabled ? "enabled" : "disabled",
                 onChange: value => void handleToggleEnabled(value === "enabled"),

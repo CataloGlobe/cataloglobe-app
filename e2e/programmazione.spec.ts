@@ -401,7 +401,7 @@ test.describe("Programmazione — dettaglio", () => {
         await openRule(page, "aperitivo");
         const periodSwitch = main(page)
             .getByRole("switch", { name: /periodo/i })
-            .or(main(page).getByText(/periodo specifico/).locator("xpath=ancestor::*[.//*[@role='switch']][1]").getByRole("switch"))
+            .or(main(page).getByText(/^(Vale solo in un periodo specifico\?|In un periodo)$/).locator("xpath=ancestor::*[.//*[@role='switch']][1]").getByRole("switch"))
             .first();
         await press(periodSwitch);
         await main(page).getByLabel(/Data (di )?inizio/).fill("2026-10-10");

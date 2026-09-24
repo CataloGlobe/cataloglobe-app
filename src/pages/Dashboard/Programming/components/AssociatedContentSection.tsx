@@ -14,6 +14,7 @@ import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
     LayoutRuleOption,
     RuleType,
@@ -43,8 +44,8 @@ type VisibilityProductRow = {
 };
 
 const VISIBILITY_MODE_OPTIONS: { value: VisibilityMode; label: string; icon: ReactNode }[] = [
-    { value: "hide", label: "Nascondi", icon: <IconEyeOff size={14} /> },
-    { value: "disable", label: "Non disp.", icon: <IconClockExclamation size={14} /> }
+    { value: "hide", label: "Nascosto", icon: <IconEyeOff size={14} /> },
+    { value: "disable", label: "Non disponibile", icon: <IconClockExclamation size={14} /> }
 ];
 
 interface ProductOverride {
@@ -111,7 +112,7 @@ function PriceOverrideRow({
                         {isVariant && (
                             <span
                                 className={styles.badgeVariant}
-                                title="Questo è una variante — eredita il prezzo del prodotto principale se non ha un override specifico"
+                                title="Questa è una variante: se non ha un prezzo suo, prende quello del prodotto principale"
                             >
                                 Variante
                             </span>
@@ -119,9 +120,9 @@ function PriceOverrideRow({
                         {isVariant && parentHasOverride && (
                             <span
                                 className={styles.badgeSpecific}
-                                title="Sia questa variante che il prodotto principale hanno un override — questo override ha la priorità"
+                                title="Anche il prodotto principale ha un prezzo nella regola: per questa variante vale il suo"
                             >
-                                Override specifico
+                                Prezzo proprio della variante
                             </span>
                         )}
                     </span>
@@ -151,7 +152,7 @@ function PriceOverrideRow({
                                         {fv.name}
                                     </span>
                                     <TextInput
-                                        label="Prezzo override"
+                                        label="Prezzo"
                                         value={valOvr?.overridePrice ?? ""}
                                         onChange={event => {
                                             const nextOverrides = { ...productOverrides };
@@ -173,7 +174,7 @@ function PriceOverrideRow({
                                         placeholder="0.00"
                                     />
                                     <div className={styles.switchRow}>
-                                        <Text variant="caption">Mostra originale</Text>
+                                        <Text variant="caption">Mostra il prezzo di listino barrato</Text>
                                         <Switch
                                             checked={valOvr?.showOriginalPrice ?? false}
                                             onChange={val => {
@@ -202,7 +203,7 @@ function PriceOverrideRow({
                     ) : (
                         <>
                             <TextInput
-                                label="Prezzo override"
+                                label="Prezzo"
                                 value={override?.overridePrice ?? ""}
                                 onChange={event => {
                                     const nextOverrides = { ...productOverrides };
@@ -215,7 +216,7 @@ function PriceOverrideRow({
                                 placeholder="0.00"
                             />
                             <div className={styles.switchRow}>
-                                <Text variant="caption">Mostra prezzo originale</Text>
+                                <Text variant="caption">Mostra il prezzo di listino barrato</Text>
                                 <Switch
                                     checked={override?.showOriginalPrice ?? false}
                                     onChange={val => {
@@ -233,9 +234,9 @@ function PriceOverrideRow({
                                     variant="caption"
                                     colorVariant="muted"
                                     className={styles.inheritanceNote}
-                                    title="Se il prodotto principale ha un override attivo, verrà applicato a tutte le varianti senza override specifico"
+                                    title="Se il prodotto principale ha un prezzo nella regola, vale per tutte le varianti che non ne hanno uno proprio"
                                 >
-                                    Override indipendente dal prodotto principale
+                                    Prezzo indipendente dal prodotto principale
                                 </Text>
                             )}
                             {!isVariant && hasVariantOverrides && (
@@ -243,9 +244,9 @@ function PriceOverrideRow({
                                     variant="caption"
                                     colorVariant="muted"
                                     className={styles.inheritanceNote}
-                                    title="Le varianti con override specifico useranno il proprio prezzo; le altre erediteranno questo override"
+                                    title="Le varianti con un prezzo proprio usano quello; le altre prendono questo"
                                 >
-                                    Alcune varianti hanno override specifici
+                                    Alcune varianti hanno un prezzo proprio
                                 </Text>
                             )}
                         </>
@@ -296,6 +297,7 @@ export function AssociatedContentSection({
     onFormChange
 }: AssociatedContentSectionProps) {
     const [isProductsDrawerOpen, setIsProductsDrawerOpen] = useState(false);
+    const { catalogLabel } = useVerticalConfig();
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedGroupId, setSelectedGroupId] = useState("");
     const [productSearch, setProductSearch] = useState("");
@@ -560,16 +562,16 @@ export function AssociatedContentSection({
         return (
             <section className={styles.sectionCard}>
                 <Text as="h3" variant="title-sm">
-                    Contenuti associati
+                    {catalogLabel} e stile
                 </Text>
 
                 <div className={styles.sectionGrid}>
                     <Select
-                        label="Catalogo"
+                        label={catalogLabel}
                         value={catalogId}
                         onChange={event => onFormChange({ catalogId: event.target.value })}
                         options={[
-                            { value: "", label: "Nessun catalogo" },
+                            { value: "", label: `Nessun ${catalogLabel.toLowerCase()}` },
                             ...tenantCatalogs.map(catalog => ({
                                 value: catalog.id,
                                 label: catalog.name
@@ -599,7 +601,7 @@ export function AssociatedContentSection({
                         Prodotti
                     </Text>
                     <Button variant="secondary" size="sm" onClick={openProductsDrawer}>
-                        + Aggiungi prodotti
+                        Aggiungi prodotti
                     </Button>
                 </div>
 
@@ -611,7 +613,7 @@ export function AssociatedContentSection({
                 {sortedSelectedProductIds.length === 0 ? (
                     <div className={styles.hintCard}>
                         <Text variant="body-sm" colorVariant="muted">
-                            Nessun prodotto selezionato.
+                            Nessun prodotto: aggiungine per dire cosa cambia.
                         </Text>
                     </div>
                 ) : (
@@ -641,7 +643,7 @@ export function AssociatedContentSection({
                                     Aggiungi prodotti
                                 </Text>
                                 <Text variant="body-sm" colorVariant="muted">
-                                    Cerca e filtra i prodotti da associare alla regola.
+                                    Scegli i prodotti su cui agisce la regola.
                                 </Text>
                             </div>
                         }
@@ -651,7 +653,7 @@ export function AssociatedContentSection({
                                     Annulla
                                 </Button>
                                 <Button variant="primary" onClick={confirmProductsSelection}>
-                                    Conferma
+                                    Applica
                                 </Button>
                             </>
                         }

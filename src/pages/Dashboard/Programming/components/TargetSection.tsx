@@ -203,19 +203,19 @@ export function TargetSection({
         {
             value: "all",
             label: "Tutte le sedi",
-            description: "La regola si applica a tutte le sedi del tenant",
+            description: "Anche quelle che aggiungerai.",
             icon: Globe
         },
         {
             value: "activities",
-            label: "Sedi specifiche",
-            description: "Seleziona una o più sedi specifiche",
+            label: "Alcune sedi",
+            description: "Scegli le sedi una per una.",
             icon: Building2
         },
         {
             value: "groups",
             label: "Gruppi di sedi",
-            description: "Seleziona uno o più gruppi",
+            description: "Vale per le sedi del gruppo, anche se il gruppo cambia.",
             icon: Users
         }
     ];
@@ -223,11 +223,11 @@ export function TargetSection({
     return (
         <section className={styles.sectionCard}>
             <Text as="h3" variant="title-sm">
-                Target
+                Dove si applica
             </Text>
 
             <TextInput
-                label="Nome regola"
+                label="Nome"
                 value={name}
                 onChange={event => onFormChange({ name: event.target.value })}
                 required

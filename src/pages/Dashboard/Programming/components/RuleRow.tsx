@@ -16,6 +16,8 @@ import { useToast } from "@/context/Toast/ToastContext";
 import { buildRuleSummary } from "@utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@utils/scheduleDraft";
 import { getToggleGuardResult } from "@utils/ruleToggleGuards";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { ruleTypeLabel } from "../ruleTypeLabel";
 import type { LayoutRule, LayoutRuleOption } from "@services/supabase/layoutScheduling";
 import styles from "./PriorityGroup.module.scss";
 
@@ -45,13 +47,6 @@ export interface RuleRowProps {
     onToggleEnabled?: (ruleId: string, enabled: boolean) => void;
 }
 
-function getRuleTypeLabel(ruleType: LayoutRule["rule_type"]): string {
-    if (ruleType === "layout") return "Layout";
-    if (ruleType === "featured") return "In evidenza";
-    if (ruleType === "price") return "Prezzi";
-    return "Disponibilità";
-}
-
 export function RuleRow({
     rule,
     isSelected,
@@ -67,6 +62,7 @@ export function RuleRow({
     onToggleEnabled
 }: RuleRowProps) {
     const { showToast } = useToast();
+    const { catalogLabel } = useVerticalConfig();
 
     // "Bozza" copre due casi distinti in lista: campi obbligatori mancanti
     // (isLayoutRuleDraft) e portata zero, cioè target presente ma che non
@@ -74,14 +70,14 @@ export function RuleRow({
     const ruleIsDraft = isLayoutRuleDraft(rule) || Boolean(insight?.zeroReachReason);
 
     const displayName = (
-        rule.name ?? `${getRuleTypeLabel(rule.rule_type)} · ${rule.id.slice(0, 6)}`
+        rule.name ?? `${ruleTypeLabel(rule.rule_type, catalogLabel)} · ${rule.id.slice(0, 6)}`
     ).trim();
 
     /* Descrizione del target derivata una volta sola: il pill desktop e la
        riga secondaria condensata del mobile devono dire la stessa cosa. */
     const target: { icon: typeof Globe; label: string; tooltip: string | null } = (() => {
         if (rule.applyToAll) {
-            return { icon: Globe, label: "Tutte", tooltip: "Applicata a: Tutte le attività" };
+            return { icon: Globe, label: "Tutte le sedi", tooltip: "Si applica a tutte le sedi, anche a quelle che aggiungerai" };
         }
         if (rule.activityIds.length > 0) {
             const firstName = activityById.get(rule.activityIds[0])?.name ?? "…";
@@ -90,7 +86,7 @@ export function RuleRow({
             return {
                 icon: Building2,
                 label: `${firstName}${extra > 0 ? ` +${extra}` : ""}`,
-                tooltip: `Attività: ${allNames}`
+                tooltip: `Sedi: ${allNames}`
             };
         }
         if (rule.groupIds.length > 0) {
@@ -102,10 +98,10 @@ export function RuleRow({
             return {
                 icon: Users,
                 label: `${firstGroupName}${extra > 0 ? ` +${extra}` : ""}`,
-                tooltip: `Gruppi: ${allGroupNames}`
+                tooltip: `Gruppi di sedi: ${allGroupNames}`
             };
         }
-        return { icon: AlertCircle, label: "Nessun target", tooltip: null };
+        return { icon: AlertCircle, label: "Da scegliere", tooltip: null };
     })();
 
     const TargetIcon = target.icon;
@@ -192,7 +188,7 @@ export function RuleRow({
                     </Text>
                     {showTypeBadge && (
                         <span className={styles.badgeType} data-type={rule.rule_type}>
-                            {getRuleTypeLabel(rule.rule_type)}
+                            {ruleTypeLabel(rule.rule_type, catalogLabel)}
                         </span>
                     )}
                     {ruleIsDraft && (
@@ -205,8 +201,8 @@ export function RuleRow({
                             <Tooltip
                                 content={
                                     insight.overriddenByName
-                                        ? `Sovrascritta da "${insight.overriddenByName}"`
-                                        : "Un'altra regola più specifica è attiva per questa sede in questo momento"
+                                        ? `Sovrascritta da ${insight.overriddenByName}`
+                                        : "Adesso vince una regola più specifica"
                                 }
                                 side="top"
                             >
@@ -226,11 +222,13 @@ export function RuleRow({
                 )}
                 {insight && !insight.isOverridden && insight.excludedActivityNames && insight.excludedActivityNames.length > 0 && (
                     <Tooltip
-                        content={`Sovrascritta da regole più specifiche per: ${insight.excludedActivityNames.join(", ")}`}
+                        content={`Qui vince una regola più specifica: ${insight.excludedActivityNames.join(", ")}`}
                         side="top"
                     >
                         <span className={styles.exclusionNote}>
-                            Escluse {insight.excludedActivityNames.length} sedi
+                            {insight.excludedActivityNames.length === 1
+                                ? "Non vale in 1 sede: c'è una regola più specifica"
+                                : `Non vale in ${insight.excludedActivityNames.length} sedi: c'è una regola più specifica`}
                         </span>
                     </Tooltip>
                 )}

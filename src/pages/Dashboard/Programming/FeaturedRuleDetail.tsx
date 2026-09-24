@@ -183,7 +183,7 @@ export default function FeaturedRuleDetail() {
             setInitialSnapshot(nextSnapshot);
         } catch (error) {
             console.error("Errore caricamento regola in evidenza:", error);
-            showToast({ type: "error", message: "Impossibile caricare la regola.", duration: 3000 });
+            showToast({ type: "error", message: "Non riusciamo a caricare la regola.", duration: 3000 });
         } finally {
             setIsLoading(false);
         }
@@ -238,7 +238,7 @@ export default function FeaturedRuleDetail() {
             console.error("Errore update stato regola:", error);
             showToast({
                 type: "error",
-                message: "Impossibile aggiornare lo stato.",
+                message: `Non siamo riusciti a cambiare lo stato di ${form?.name || "la regola"}.`,
                 duration: 3000
             });
         } finally {
@@ -252,7 +252,7 @@ export default function FeaturedRuleDetail() {
         if (isDirty) {
             showToast({
                 type: "error",
-                message: "Salva o annulla le modifiche prima di duplicare la regola.",
+                message: "Salva o annulla le modifiche per duplicarla.",
                 duration: 3000
             });
             return;
@@ -263,7 +263,7 @@ export default function FeaturedRuleDetail() {
             const newRuleId = await duplicateRule(ruleId, rule.tenant_id);
             showToast({
                 type: "success",
-                message: "Regola duplicata e disabilitata.",
+                message: "Regola duplicata: la copia è spenta.",
                 duration: 2200
             });
             navigate(
@@ -273,7 +273,7 @@ export default function FeaturedRuleDetail() {
             console.error("Errore duplicazione regola:", error);
             showToast({
                 type: "error",
-                message: "Errore durante la duplicazione della regola.",
+                message: `Non siamo riusciti a duplicare ${form?.name || "la regola"}.`,
                 duration: 3000
             });
         } finally {
@@ -287,7 +287,7 @@ export default function FeaturedRuleDetail() {
             await deleteLayoutRule(ruleId);
             showToast({
                 type: "success",
-                message: "Regola eliminata con successo.",
+                message: "Regola eliminata.",
                 duration: 2200
             });
             navigate(`/business/${businessId}/scheduling?type=${fromType ?? "featured"}`);
@@ -296,7 +296,7 @@ export default function FeaturedRuleDetail() {
             console.error("Errore eliminazione regola:", error);
             showToast({
                 type: "error",
-                message: "Errore durante l'eliminazione della regola.",
+                message: `Non siamo riusciti a eliminare ${form?.name || "la regola"}.`,
                 duration: 3000
             });
             return false;
@@ -309,7 +309,7 @@ export default function FeaturedRuleDetail() {
 
         const trimmedName = form.name.trim();
         if (!trimmedName) {
-            showToast({ type: "error", message: "Il nome regola è obbligatorio.", duration: 2600 });
+            showToast({ type: "error", message: "Scrivi un nome.", duration: 2600 });
             return;
         }
 
@@ -321,7 +321,7 @@ export default function FeaturedRuleDetail() {
             if (hasSingleTime) {
                 showToast({
                     type: "error",
-                    message: "Per la finestra oraria servono sia Ora inizio che Ora fine.",
+                    message: form.timeFrom ? "Manca l'ora di fine." : "Manca l'ora di inizio.",
                     duration: 3000
                 });
                 return;
@@ -330,7 +330,7 @@ export default function FeaturedRuleDetail() {
             if (!hasPeriod && !hasDays && !hasBothTimes) {
                 showToast({
                     type: "error",
-                    message: "In modalità window imposta almeno un periodo, giorni o fascia oraria.",
+                    message: "Scegli un periodo, delle ore o dei giorni, oppure accendi «Sempre attiva».",
                     duration: 3000
                 });
                 return;
@@ -341,13 +341,13 @@ export default function FeaturedRuleDetail() {
         const missingFields: string[] = [];
 
         if (form.targetMode === "activities" && form.activityIds.length === 0) {
-            missingFields.push("sedi target");
+            missingFields.push("le sedi");
         }
         if (form.targetMode === "groups" && form.groupIds.length === 0) {
-            missingFields.push("gruppi target");
+            missingFields.push("i gruppi di sedi");
         }
         if (form.featuredContents.length === 0) {
-            missingFields.push("contenuti in evidenza");
+            missingFields.push("i contenuti");
         }
 
         // ── Determine effective enabled ──
@@ -366,11 +366,11 @@ export default function FeaturedRuleDetail() {
 
         if (form.timeMode === "window" && hasPeriod) {
             if (!form.startAt) {
-                showToast({ type: "error", message: "Inserisci la data di inizio.", duration: 2800 });
+                showToast({ type: "error", message: "Manca la data di inizio.", duration: 2800 });
                 return;
             }
             if (!form.endAt) {
-                showToast({ type: "error", message: "Inserisci la data di fine.", duration: 2800 });
+                showToast({ type: "error", message: "Manca la data di fine.", duration: 2800 });
                 return;
             }
         }
@@ -378,7 +378,7 @@ export default function FeaturedRuleDetail() {
         if (form.startAt && form.startAt < today) {
             showToast({
                 type: "error",
-                message: "La data di inizio non può essere nel passato.",
+                message: "La data di inizio è già passata.",
                 duration: 2800
             });
             return;
@@ -388,7 +388,7 @@ export default function FeaturedRuleDetail() {
             if (form.endAt < today) {
                 showToast({
                     type: "error",
-                    message: "La data di fine non può essere nel passato.",
+                    message: "La data di fine è già passata.",
                     duration: 2800
                 });
                 return;
@@ -396,7 +396,7 @@ export default function FeaturedRuleDetail() {
             if (form.startAt && form.endAt < form.startAt) {
                 showToast({
                     type: "error",
-                    message: "La data di fine non può essere precedente alla data di inizio.",
+                    message: "La fine viene prima dell'inizio.",
                     duration: 2800
                 });
                 return;
@@ -406,7 +406,7 @@ export default function FeaturedRuleDetail() {
         if (form.timeFrom && form.timeTo && form.timeTo <= form.timeFrom) {
             showToast({
                 type: "error",
-                message: "L'orario di fine deve essere successivo all'orario di inizio.",
+                message: "L'ora di fine viene prima dell'inizio.",
                 duration: 2800
             });
             return;
@@ -459,7 +459,7 @@ export default function FeaturedRuleDetail() {
             if (isForcedDraft) {
                 showToast({
                     type: "warning",
-                    message: `Regola salvata come bozza. Manca: ${missingFields.join(", ")}`,
+                    message: `Salvata come bozza. Da completare: ${missingFields.join(", ")}.`,
                     duration: 4000
                 });
             } else if (autoActivate) {
@@ -471,7 +471,7 @@ export default function FeaturedRuleDetail() {
             navigate(`/business/${businessId}/scheduling?type=featured`);
         } catch (error) {
             console.error("Errore salvataggio regola in evidenza:", error);
-            showToast({ type: "error", message: "Errore durante il salvataggio.", duration: 3000 });
+            showToast({ type: "error", message: "Non siamo riusciti a salvare la regola.", duration: 3000 });
         } finally {
             setIsSaving(false);
         }
@@ -501,7 +501,7 @@ export default function FeaturedRuleDetail() {
                         disabled={isTogglingEnabled || !canEdit}
                     />
                     <Text variant="body-sm" colorVariant="muted" as="span">
-                        {form.enabled ? "Attiva" : "Disattivata"}
+                        {form.enabled ? "Attiva" : "Spenta"}
                     </Text>
                 </div>
                 <Menu
@@ -565,7 +565,7 @@ export default function FeaturedRuleDetail() {
             statusControl: {
                 options: [
                     { value: "enabled", label: "Attiva" },
-                    { value: "disabled", label: "Disattivata" }
+                    { value: "disabled", label: "Spenta" }
                 ],
                 value: form.enabled ? "enabled" : "disabled",
                 onChange: value => void handleToggleEnabled(value === "enabled"),

@@ -53,6 +53,8 @@ import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
 import { ruleReachesAnyActivity, describeZeroReach } from "@/utils/scheduleReach";
 import { deriveScheduleStatus } from "@/utils/scheduleStatus";
 import { formatInactiveReason } from "@/utils/activityStatus";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { ruleTypeLabel } from "./ruleTypeLabel";
 import styles from "./Programming.module.scss";
 
 type RuleTypeFilter = RuleType | "all";
@@ -76,31 +78,37 @@ type ActivityGroupMemberRow = {
     activity_id: string;
 };
 
-const RULE_TYPE_TAB_OPTIONS: Array<{ value: RuleTypeFilter; label: string; description: string }> = [
-    { value: "layout", label: "Layout", description: "Definiscono quale catalogo e stile mostrare" },
-    { value: "featured", label: "In evidenza", description: "Programmano quando mostrare contenuti in evidenza" },
-    { value: "price", label: "Prezzi", description: "Sovrascrivono il prezzo di prodotti specifici" },
-    { value: "visibility", label: "Disponibilità", description: "Nascondono prodotti specifici per sede o orario" },
-    { value: "all", label: "Tutte", description: "Panoramica di tutte le regole di programmazione" }
-];
+type RuleTypeOption = { value: RuleTypeFilter; label: string; description: string };
+
+/** I valori del filtro per tipo, col nome del verticale (§22, dizionario #12). */
+function ruleTypeOptions(catalogLabel: string): RuleTypeOption[] {
+    const menu = catalogLabel.toLowerCase();
+    return [
+        { value: "layout", label: ruleTypeLabel("layout", catalogLabel), description: `Decidono quale ${menu} e quale stile mostrare` },
+        { value: "featured", label: ruleTypeLabel("featured", catalogLabel), description: "Programmano quando mostrare contenuti in evidenza" },
+        { value: "price", label: ruleTypeLabel("price", catalogLabel), description: "Cambiano il prezzo di alcuni prodotti" },
+        { value: "visibility", label: ruleTypeLabel("visibility", catalogLabel), description: "Nascondono alcuni prodotti, o li segnano come non disponibili" },
+        { value: "all", label: "Tutte", description: "Tutte le regole, di ogni tipo." }
+    ];
+}
 
 /**
  * Copy dell'empty state "vuoto assoluto", uno per tab. Volutamente separato da
- * `RULE_TYPE_TAB_OPTIONS.description`: quella riga resta come sottotitolo sopra
+ * `ruleTypeOptions().description`: quella riga resta come sottotitolo sopra
  * la lista, e riusarla qui la mostrerebbe due volte identica nella stessa
  * schermata. Qui il testo spiega a cosa serve il tipo di regola e qual è la
  * prima mossa; là descrive la tab in una riga.
  */
-const EMPTY_STATE_COPY: Record<RuleTypeFilter, { title: string; description: string }> = {
+const emptyStateCopy = (menu: string): Record<RuleTypeFilter, { title: string; description: string }> => ({
     layout: {
         title: "Decidi cosa mostrare, e quando",
         description:
-            "Una regola sceglie il menù e lo stile da mostrare in una sede, in una finestra di tempo: colazione fino alle 11, cena dalle 19. Senza finestra, vale sempre."
+            `Una regola sceglie il ${menu} e lo stile da mostrare in una sede, in una finestra di tempo: colazione fino alle 11, cena dalle 19. Senza finestra, vale sempre.`
     },
     featured: {
         title: "Fai comparire promozioni, eventi e avvisi",
         description:
-            "Scegli il contenuto da mettere in risalto e il periodo in cui deve apparire: compare e sparisce da solo, sopra o sotto il menù."
+            `Scegli il contenuto da mettere in risalto e il periodo in cui deve apparire: compare e sparisce da solo, sopra o sotto il ${menu}.`
     },
     price: {
         title: "Applica uno sconto per un giorno o un periodo",
@@ -115,18 +123,12 @@ const EMPTY_STATE_COPY: Record<RuleTypeFilter, { title: string; description: str
     all: {
         title: "Le regole decidono cosa vedono i clienti, e quando",
         description:
-            "Menù e stile, contenuti in risalto, sconti e disponibilità: ogni regola vale per una sede e una finestra di tempo."
+            `${menu.charAt(0).toUpperCase()}${menu.slice(1)} e stile, contenuti in risalto, sconti e disponibilità: ogni regola vale per una sede e una finestra di tempo.`
     }
-};
+});
 
 const DAILY_TIMELINE_STEP_MINUTES = 30;
 
-function getRuleTypeLabel(ruleType: RuleType): string {
-    if (ruleType === "layout") return "Layout";
-    if (ruleType === "price") return "Prezzi";
-    if (ruleType === "featured") return "In evidenza";
-    return "Disponibilità";
-}
 
 function getRuleTargetLabel(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>): string {
     if (rule.target_type === "activity_group") {
@@ -143,14 +145,14 @@ function toDateTimeLocalValue(date: Date): string {
 }
 
 function getSpecificityLabel(value: number | null) {
-    if (value === 2) return "Sede specifica";
+    if (value === 2) return "Sede";
     if (value === 1) return "Gruppo di sedi";
     if (value === 0) return "Tutte le sedi";
     return "-";
 }
 
-function getRuleDisplayName(rule: LayoutRule): string {
-    return (rule.name ?? `${getRuleTypeLabel(rule.rule_type)} · ${rule.id.slice(0, 6)}`).trim();
+function getRuleDisplayName(rule: LayoutRule, catalogLabel: string): string {
+    return (rule.name ?? `${ruleTypeLabel(rule.rule_type, catalogLabel)} · ${rule.id.slice(0, 6)}`).trim();
 }
 
 function compareSpecificityFirst(a: LayoutRule, b: LayoutRule, specA: number, specB: number): number {
@@ -236,7 +238,7 @@ function RuleBlock({
             <span />
             <span />
             <span>Regola</span>
-            <span>Target</span>
+            <span>Dove si applica</span>
         </div>
     );
 
@@ -259,6 +261,9 @@ export default function Programming() {
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTenantId = useTenantId();
     const { showToast } = useToast();
+    const { catalogLabel } = useVerticalConfig();
+    const typeOptions = useMemo(() => ruleTypeOptions(catalogLabel), [catalogLabel]);
+    const emptyCopy = useMemo(() => emptyStateCopy(catalogLabel.toLowerCase()), [catalogLabel]);
     const sedeScope = useSedeScope();
     const { permissions } = usePermissions();
     // `canEdit` usa la stessa allowlist (trialing|active|past_due) di
@@ -379,7 +384,7 @@ export default function Programming() {
             console.error("Errore caricamento Programmazione:", error);
             showToast({
                 type: "error",
-                message: "Impossibile caricare la programmazione.",
+                message: "Non riusciamo a caricare le regole.",
                 duration: 3000
             });
         } finally {
@@ -422,7 +427,7 @@ export default function Programming() {
 
         return result.filter(rule => {
             const targetLabel = getRuleTargetLabel(rule, activityById);
-            const catalogLabel = rule.layout?.catalog_id
+            const catalogName = rule.layout?.catalog_id
                 ? (catalogById.get(rule.layout.catalog_id)?.name ?? rule.layout.catalog_id)
                 : "";
             const styleLabel = rule.layout?.style_id
@@ -433,12 +438,12 @@ export default function Programming() {
             return [
                 ruleName,
                 rule.id,
-                getRuleTypeLabel(rule.rule_type),
+                ruleTypeLabel(rule.rule_type, catalogLabel),
                 rule.rule_type,
                 targetLabel,
                 rule.target_type,
                 rule.target_id,
-                catalogLabel,
+                catalogName,
                 styleLabel,
                 rule.priority
             ]
@@ -446,7 +451,7 @@ export default function Programming() {
                 .toLowerCase()
                 .includes(query);
         });
-    }, [activityById, activityIdsByGroupId, catalogById, filterActivityId, ruleTypeFilter, rules, searchTerm, styleById]);
+    }, [activityById, activityIdsByGroupId, catalogById, catalogLabel, filterActivityId, ruleTypeFilter, rules, searchTerm, styleById]);
 
     const handleSelectionChange = useCallback((id: string, checked: boolean) => {
         setSelectedRuleIds(prev => {
@@ -540,7 +545,7 @@ export default function Programming() {
 
                 for (const candidate of candidates.slice(1)) {
                     if (!ruleOverriddenByName.has(candidate.rule.id)) {
-                        ruleOverriddenByName.set(candidate.rule.id, getRuleDisplayName(winnerEntry.rule));
+                        ruleOverriddenByName.set(candidate.rule.id, getRuleDisplayName(winnerEntry.rule, catalogLabel));
                     }
 
                     // Traccia la sede esclusa per regole con target ampio
@@ -578,7 +583,7 @@ export default function Programming() {
         }
 
         return insights;
-    }, [activities, activityById, activityIdsByGroupId, currentTime, rules, reachCtx, groupNameById]);
+    }, [activities, activityById, activityIdsByGroupId, catalogLabel, currentTime, rules, reachCtx, groupNameById]);
 
     const { activeRules, scheduledRules, draftRules, expiredRules, disabledRules } = useMemo(() => {
         const active: LayoutRule[] = [];
@@ -683,6 +688,11 @@ export default function Programming() {
     const [showExpired, setShowExpired] = useState(false);
     const [showDisabled, setShowDisabled] = useState(false);
 
+    const ruleNameOf = (id: string): string => {
+        const found = rules.find(r => r.id === id);
+        return found ? getRuleDisplayName(found, catalogLabel) : "la regola";
+    };
+
     const handleToggleEnabled = async (ruleId: string, enabled: boolean) => {
         // Optimistic update
         setRules(prev => prev.map(r => (r.id === ruleId ? { ...r, enabled } : r)));
@@ -705,7 +715,7 @@ export default function Programming() {
             setRules(prev => prev.map(r => (r.id === ruleId ? { ...r, enabled: !enabled } : r)));
             showToast({
                 type: "error",
-                message: "Impossibile aggiornare lo stato.",
+                message: `Non siamo riusciti a cambiare lo stato di ${ruleNameOf(ruleId)}.`,
                 duration: 3000
             });
         } finally {
@@ -729,7 +739,7 @@ export default function Programming() {
         const selectedDate = new Date(simDateTime);
         if (Number.isNaN(selectedDate.getTime())) {
             setSimResult(null);
-            setSimError("Data/ora non valida.");
+            setSimError("Data e ora non valide.");
             return;
         }
 
@@ -747,7 +757,7 @@ export default function Programming() {
         } catch (error) {
             console.error("Errore simulazione regole:", error);
             setSimResult(null);
-            setSimError("Impossibile simulare le regole per i parametri selezionati.");
+            setSimError("Non riusciamo a simulare questo momento.");
         } finally {
             setIsSimLoading(false);
         }
@@ -763,7 +773,7 @@ export default function Programming() {
         const selectedDate = new Date(simDateTime);
         if (Number.isNaN(selectedDate.getTime())) {
             setDailyTimelineBlocks([]);
-            setDailyTimelineError("Data/ora non valida per la timeline.");
+            setDailyTimelineError("Data e ora non valide.");
             return;
         }
 
@@ -908,7 +918,7 @@ export default function Programming() {
             await deleteLayoutRule(ruleToDelete);
             showToast({
                 type: "success",
-                message: "Regola eliminata con successo.",
+                message: "Regola eliminata.",
                 duration: 2200
             });
             setIsDeleteModalOpen(false);
@@ -918,7 +928,7 @@ export default function Programming() {
             console.error("Errore eliminazione regola:", error);
             showToast({
                 type: "error",
-                message: "Errore durante l'eliminazione della regola.",
+                message: `Non siamo riusciti a eliminare ${ruleNameOf(ruleToDelete)}.`,
                 duration: 3000
             });
         }
@@ -929,7 +939,7 @@ export default function Programming() {
             await duplicateRule(ruleId, currentTenantId!);
             showToast({
                 type: "success",
-                message: "Regola duplicata e disabilitata.",
+                message: "Regola duplicata: la copia è spenta.",
                 duration: 2200
             });
             await loadRules();
@@ -937,7 +947,7 @@ export default function Programming() {
             console.error("Errore duplicazione regola:", error);
             showToast({
                 type: "error",
-                message: "Errore durante la duplicazione della regola.",
+                message: `Non siamo riusciti a duplicare ${ruleNameOf(ruleId)}.`,
                 duration: 3000
             });
         }
@@ -957,7 +967,7 @@ export default function Programming() {
                 "Errore eliminazione multipla regole:",
                 results.filter(r => r.status === "rejected")
             );
-            const names = failedIds.map(id => bulkRuleName(id)).join(", ");
+            const names = failedIds.map(id => ruleNameOf(id)).join(", ");
             showToast({
                 type: "error",
                 message: `${failedIds.length === 1 ? "1 regola non eliminata" : `${failedIds.length} regole non eliminate`}: ${names}.`,
@@ -975,12 +985,8 @@ export default function Programming() {
         return true;
     };
 
-    const bulkRuleName = (id: string): string => {
-        const found = rules.find(r => r.id === id);
-        return found ? getRuleDisplayName(found) : id;
-    };
     const bulkCount = selectedRuleIds.size;
-    const bulkNames = Array.from(selectedRuleIds).map(bulkRuleName);
+    const bulkNames = Array.from(selectedRuleIds).map(ruleNameOf);
     const bulkNamesLine =
         bulkNames.length > 5
             ? `${bulkNames.slice(0, 5).join(", ")} e altre ${bulkNames.length - 5}.`
@@ -997,8 +1003,7 @@ export default function Programming() {
                 day: "2-digit",
                 month: "2-digit"
             });
-            const typeLabel =
-                RULE_TYPE_TAB_OPTIONS.find(o => o.value === effectiveType)?.label ?? effectiveType;
+            const typeLabel = ruleTypeLabel(effectiveType, catalogLabel);
             const name = `Nuova regola ${typeLabel} · ${timestamp}`;
 
             if (effectiveType === "featured") {
@@ -1016,11 +1021,11 @@ export default function Programming() {
                 navigate(`/business/${currentTenantId}/scheduling/${newRuleId}?fromType=${effectiveType}`);
             }
         } catch {
-            showToast({ message: "Errore nella creazione della regola.", type: "error" });
+            showToast({ message: "Non siamo riusciti a creare la regola.", type: "error" });
         } finally {
             setIsCreating(false);
         }
-    }, [currentTenantId, ruleTypeFilter, navigate, showToast]);
+    }, [currentTenantId, catalogLabel, ruleTypeFilter, navigate, showToast]);
 
     // Azioni della banda in ordine di lettura: la primaria è l'ultima ("Nuova
     // regola"), "Simula regole" resta raggiungibile dal caret. Sulla tab "Tutte"
@@ -1046,7 +1051,7 @@ export default function Programming() {
                       label,
                       disabled,
                       items: [
-                          { label: "Layout", onClick: () => void handleCreateRule("layout") },
+                          { label: ruleTypeLabel("layout", catalogLabel), onClick: () => void handleCreateRule("layout") },
                           { label: "In evidenza", onClick: () => void handleCreateRule("featured") },
                           { label: "Prezzi", onClick: () => void handleCreateRule("price") },
                           { label: "Disponibilità", onClick: () => void handleCreateRule("visibility") }
@@ -1056,7 +1061,7 @@ export default function Programming() {
         );
 
         return actions;
-    }, [currentTenantId, canWrite, canEdit, isCreating, ruleTypeFilter, handleCreateRule]);
+    }, [currentTenantId, canWrite, canEdit, catalogLabel, isCreating, ruleTypeFilter, handleCreateRule]);
 
     const headerActions = useMemo(() => (
         <div className={styles.headerActions}>
@@ -1064,7 +1069,7 @@ export default function Programming() {
                 <ToolbarSearch
                     value={searchTerm}
                     onChange={setSearchTerm}
-                    placeholder="Cerca per nome, tipo, target o id..."
+                    placeholder="Cerca per nome, tipo, sede o id…"
                 />
             )}
             <SegmentedControl<"list" | "calendar">
@@ -1087,21 +1092,21 @@ export default function Programming() {
             variant="line"
         >
             <Tabs.List>
-                {RULE_TYPE_TAB_OPTIONS.map(option => (
+                {typeOptions.map(option => (
                     <Tabs.Tab key={option.value} value={option.value}>
                         {option.label}
                     </Tabs.Tab>
                 ))}
             </Tabs.List>
         </Tabs>
-    ), [ruleTypeFilter, handleRuleTypeFilterChange]);
+    ), [ruleTypeFilter, handleRuleTypeFilterChange, typeOptions]);
 
     // Stessa toolbar dichiarata a dati, per lo stato compatto: le 5 tab
     // diventano un picker, "Simula regole" scende nel kebab, il toggle
     // lista/calendario resta un'icona a vista (azione frequente) e "Nuova
     // regola" resta il bottone pieno.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        sections: RULE_TYPE_TAB_OPTIONS.map(option => ({
+        sections: typeOptions.map(option => ({
             value: option.value,
             label: option.label
         })),
@@ -1112,7 +1117,7 @@ export default function Programming() {
             ? {
                   value: searchTerm,
                   onChange: setSearchTerm,
-                  placeholder: "Cerca per nome, tipo, target o id..."
+                  placeholder: "Cerca per nome, tipo, sede o id…"
               }
             : undefined,
         persistentIcons: [
@@ -1133,7 +1138,7 @@ export default function Programming() {
         secondaryActions: headerSplitActions.slice(0, -1),
         primaryAction: headerSplitActions[headerSplitActions.length - 1],
         loading: isCreating
-    }), [ruleTypeFilter, handleRuleTypeFilterChange, viewMode, searchTerm, headerSplitActions, isCreating]);
+    }), [ruleTypeFilter, handleRuleTypeFilterChange, typeOptions, viewMode, searchTerm, headerSplitActions, isCreating]);
 
     usePageHeader({
         leading: headerLeading,
@@ -1152,7 +1157,7 @@ export default function Programming() {
                     {(isLoading || filteredRules.length > 0) && (
                         <div className={styles.tabDescription}>
                             <Text variant="body-sm" colorVariant="muted">
-                                {RULE_TYPE_TAB_OPTIONS.find(o => o.value === ruleTypeFilter)?.description}
+                                {typeOptions.find(o => o.value === ruleTypeFilter)?.description}
                             </Text>
                             <HowItWorksLink
                                 ref={helpTriggerRef}
@@ -1189,8 +1194,8 @@ export default function Programming() {
                             ) : (
                                 <EmptyState
                                     icon={<Calendar size={40} strokeWidth={1.5} />}
-                                    title={EMPTY_STATE_COPY[ruleTypeFilter].title}
-                                    description={EMPTY_STATE_COPY[ruleTypeFilter].description}
+                                    title={emptyCopy[ruleTypeFilter].title}
+                                    description={emptyCopy[ruleTypeFilter].description}
                                     action={
                                         /* Ordine di lettura: cos'è questa cosa (titolo +
                                            descrizione) → come funziona → creane una. */
@@ -1407,10 +1412,10 @@ export default function Programming() {
                     header={
                         <div className={styles.drawerHeader}>
                             <Text as="h3" variant="title-sm" id="simulate-rules-title">
-                                Simulatore regole
+                                Simula regole
                             </Text>
                             <Text variant="body-sm" colorVariant="muted">
-                                Verifica quali regole sono attive in un determinato momento.
+                                Scegli una sede e un momento: vedi cosa decide ogni regola.
                             </Text>
                         </div>
                     }
@@ -1443,7 +1448,7 @@ export default function Programming() {
                                             window.open(url, "_blank");
                                         }}
                                     >
-                                        Visualizza anteprima
+                                        Apri l'anteprima
                                     </Button>
                                 );
                                 if (!previewBlockedReason) return previewButton;
@@ -1516,7 +1521,7 @@ export default function Programming() {
                         {!simActivityId || !simDateTime ? (
                             <div className={styles.simResultCard}>
                                 <Text variant="body-sm" colorVariant="muted">
-                                    Seleziona sede e data/ora per avviare la simulazione.
+                                    Scegli sede e momento.
                                 </Text>
                             </div>
                         ) : isSimLoading ? (
@@ -1542,15 +1547,15 @@ export default function Programming() {
                                             navigate(`/business/${currentTenantId}/scheduling/${simResult.layout.scheduleId}`);
                                         } : undefined}
                                     >
-                                        <Text variant="caption" colorVariant="muted">Catalogo</Text>
+                                        <Text variant="caption" colorVariant="muted">{ruleTypeLabel("layout", catalogLabel)}</Text>
                                         <Text variant="body-sm" weight={700}>
                                             {simResult.layout.scheduleId
                                                 ? (rules.find(r => r.id === simResult.layout.scheduleId)?.name ?? simResult.layout.scheduleId)
-                                                : "Nessuna regola attiva"}
+                                                : "Nessuna regola"}
                                         </Text>
                                         {simResult.layout.catalogId && (
                                             <Text variant="caption" colorVariant="muted">
-                                                via {catalogById.get(simResult.layout.catalogId)?.name ?? simResult.layout.catalogId}
+                                                {catalogLabel}: {catalogById.get(simResult.layout.catalogId)?.name ?? simResult.layout.catalogId}
                                             </Text>
                                         )}
                                     </div>
@@ -1571,7 +1576,7 @@ export default function Programming() {
                                             >
                                                 <Text variant="caption" colorVariant="muted">In evidenza</Text>
                                                 <Text variant="body-sm" weight={700}>
-                                                    {featuredRule?.name ?? simResult.featuredRule?.scheduleId ?? "Nessuna regola attiva"}
+                                                    {featuredRule?.name ?? simResult.featuredRule?.scheduleId ?? "Nessuna regola"}
                                                 </Text>
                                                 {featuredRule && (
                                                     <Text variant="caption" colorVariant="muted">
@@ -1598,7 +1603,7 @@ export default function Programming() {
                                             >
                                                 <Text variant="caption" colorVariant="muted">Prezzi</Text>
                                                 <Text variant="body-sm" weight={700}>
-                                                    {priceRule?.name ?? simResult.priceRuleId ?? "Nessuna regola attiva"}
+                                                    {priceRule?.name ?? simResult.priceRuleId ?? "Nessuna regola"}
                                                 </Text>
                                                 {priceRule && (
                                                     <Text variant="caption" colorVariant="muted">
@@ -1625,7 +1630,7 @@ export default function Programming() {
                                             >
                                                 <Text variant="caption" colorVariant="muted">Disponibilità</Text>
                                                 <Text variant="body-sm" weight={700}>
-                                                    {visRule?.name ?? simResult.visibilityRule?.scheduleId ?? "Nessuna regola attiva"}
+                                                    {visRule?.name ?? simResult.visibilityRule?.scheduleId ?? "Nessuna regola"}
                                                 </Text>
                                                 {visRule && (
                                                     <Text variant="caption" colorVariant="muted">
@@ -1648,7 +1653,7 @@ export default function Programming() {
                                         className={simTimelineOpen ? styles.simTimelineChevronOpen : styles.simTimelineChevronClosed}
                                     />
                                     <Text variant="body-sm" weight={600} as="span">
-                                        Andamento giornaliero
+                                        Andamento della giornata
                                     </Text>
                                     {isDailyTimelineLoading && (
                                         <Loader2 size={12} className={styles.miniLoader} />
@@ -1676,7 +1681,7 @@ export default function Programming() {
                                                     const layoutName = block.layoutCatalogId
                                                         ? (catalogById.get(block.layoutCatalogId)?.name ??
                                                           block.layoutCatalogId)
-                                                        : "Nessun catalogo";
+                                                        : `Nessun ${catalogLabel.toLowerCase()}`;
                                                     const layoutClassName = block.layoutCatalogId
                                                         ? styles.timelineBlockActive
                                                         : styles.timelineBlockNoLayout;
@@ -1703,22 +1708,21 @@ export default function Programming() {
                                                             </Text>
                                                             <div className={styles.timelineBadges}>
                                                                 <span className={styles.timelineBadgeNeutral}>
-                                                                    Spec:{" "}
+                                                                    Dove si applica:{" "}
                                                                     {getSpecificityLabel(
                                                                         block.layoutSpecificity
                                                                     )}
                                                                 </span>
                                                                 <span className={visibilityBadgeClassName}>
-                                                                    Disponibilità:{" "}
                                                                     {block.visibilityMode === "hide"
-                                                                        ? "Nasconde"
+                                                                        ? "Nascosti"
                                                                         : block.visibilityMode === "disable"
-                                                                          ? "Non disponibile"
-                                                                          : "Nessuna"}
+                                                                          ? "Non disponibili"
+                                                                          : "Disponibilità invariata"}
                                                                 </span>
                                                                 {block.priceRuleId && (
                                                                     <span className={styles.timelineBadgeNeutral}>
-                                                                        Prezzi attivi
+                                                                        Prezzi
                                                                     </span>
                                                                 )}
                                                                 {block.featuredScheduleId && (
