@@ -21,12 +21,10 @@ import styles from "./PriorityGroup.module.scss";
 
 export type RuleInsight = {
     isActiveNow: boolean;
-    hasConflict: boolean;
     isOverridden: boolean;
     isNeverUsed: boolean;
     /** Motivo della portata zero (Passo 4), presente sse isNeverUsed. */
     zeroReachReason?: string;
-    conflictingWithName?: string;
     overriddenByName?: string;
     /** Nomi delle sedi dove questa regola è sovrascritta da una più specifica. */
     excludedActivityNames?: string[];

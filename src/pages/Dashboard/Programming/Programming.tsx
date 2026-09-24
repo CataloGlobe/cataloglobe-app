@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Globe, Building2, Users, AlertCircle, FileText, Loader2, Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
+import { Loader2, Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { Button } from "@/components/ui/Button/Button";
@@ -22,7 +22,6 @@ import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
-import { useTenant } from "@/context/useTenant";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
@@ -49,7 +48,7 @@ import {
     type ResolveRulesForActivityResult
 } from "@/services/supabase/scheduleResolver";
 import { toRomeDateTime } from "@/services/supabase/schedulingNow";
-import { buildRuleSummary, isRuleCurrentlyActive } from "@/utils/ruleHelpers";
+import { isRuleCurrentlyActive } from "@/utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
 import { ruleReachesAnyActivity, describeZeroReach } from "@/utils/scheduleReach";
 import { deriveScheduleStatus } from "@/utils/scheduleStatus";
@@ -57,14 +56,6 @@ import { formatInactiveReason } from "@/utils/activityStatus";
 import styles from "./Programming.module.scss";
 
 type RuleTypeFilter = RuleType | "all";
-
-type VisibilityModeLabel = "hide" | "disable";
-
-function formatVisibilityMode(mode: VisibilityModeLabel | string | null | undefined, short = false): string {
-    if (mode === "hide") return short ? "Nascosti" : "Nasconde i prodotti selezionati";
-    if (mode === "disable") return short ? "Non disponibile" : "Mostra come non disponibile";
-    return "—";
-}
 
 type DailyTimelineBlock = {
     startMinutes: number;
@@ -267,7 +258,6 @@ export default function Programming() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTenantId = useTenantId();
-    const { selectedTenant } = useTenant();
     const { showToast } = useToast();
     const sedeScope = useSedeScope();
     const { permissions } = usePermissions();
@@ -520,8 +510,6 @@ export default function Programming() {
 
         const ruleWinsNow = new Set<string>();
         const ruleParticipatesNow = new Set<string>();
-        const ruleConflictsNow = new Set<string>();
-        const ruleConflictingWithNames = new Map<string, Set<string>>();
         const ruleOverriddenByName = new Map<string, string>();
         // Per regole con target ampio (tutte/gruppo): sedi dove perdono vs regola più specifica
         const ruleExcludedActivityIds = new Map<string, Set<string>>();
@@ -540,11 +528,6 @@ export default function Programming() {
                     );
 
                 if (candidates.length === 0) continue;
-                if (candidates.length > 1) {
-                    for (const entry of candidates) {
-                        ruleConflictsNow.add(entry.rule.id);
-                    }
-                }
 
                 for (const entry of candidates) {
                     ruleParticipatesNow.add(entry.rule.id);
@@ -554,21 +537,10 @@ export default function Programming() {
                 const winnerEntry = candidates[0];
                 ruleWinsNow.add(winnerEntry.rule.id);
 
-                if (candidates.length > 1) {
-                    const secondEntry = candidates[1];
-                    const winnerSet = ruleConflictingWithNames.get(winnerEntry.rule.id) ?? new Set();
-                    winnerSet.add(getRuleDisplayName(secondEntry.rule));
-                    ruleConflictingWithNames.set(winnerEntry.rule.id, winnerSet);
-                }
-
                 for (const candidate of candidates.slice(1)) {
                     if (!ruleOverriddenByName.has(candidate.rule.id)) {
                         ruleOverriddenByName.set(candidate.rule.id, getRuleDisplayName(winnerEntry.rule));
                     }
-
-                    const conflictSet = ruleConflictingWithNames.get(candidate.rule.id) ?? new Set();
-                    conflictSet.add(getRuleDisplayName(winnerEntry.rule));
-                    ruleConflictingWithNames.set(candidate.rule.id, conflictSet);
 
                     // Traccia la sede esclusa per regole con target ampio
                     const excluded = ruleExcludedActivityIds.get(candidate.rule.id) ?? new Set();
@@ -592,7 +564,6 @@ export default function Programming() {
             insights.set(rule.id, {
                 isActiveNow,
                 isOverridden: isActiveNow && participatesNow && !winsNow,
-                hasConflict: isActiveNow && ruleConflictsNow.has(rule.id),
                 isNeverUsed: !canTargetAnyActivity,
                 zeroReachReason: canTargetAnyActivity
                     ? undefined
@@ -600,7 +571,6 @@ export default function Programming() {
                           ...reachCtx,
                           groupName: id => groupNameById.get(id) ?? id
                       }),
-                conflictingWithName: Array.from(ruleConflictingWithNames.get(rule.id) ?? [])[0],
                 overriddenByName: ruleOverriddenByName.get(rule.id),
                 excludedActivityNames
             });
