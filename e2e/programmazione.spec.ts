@@ -639,7 +639,8 @@ test.describe("Programmazione — dettaglio", () => {
         // Nel dettaglio il simulatore non c'è: la guida non lo propone.
         await expect(guide.getByRole("button", { name: /Simula/ })).toHaveCount(0);
         await guide.getByRole("button", { name: "Chiudi" }).first().click();
-        await expect(page.getByRole("dialog")).toHaveCount(0);
+        // L'uscita è animata: sotto carico ci mette più dei 5 s di default.
+        await expect(page.getByRole("dialog")).toHaveCount(0, { timeout: 15_000 });
     });
 
     test("le due rotte sono lo stesso dettaglio: tipo nel titolo, «Salva» e «Annulla» solo con modifiche", async ({ page }) => {
@@ -728,6 +729,38 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(days.getByRole("checkbox")).toHaveCount(7);
         await expect(days.getByRole("checkbox", { name: "Lun" })).toHaveAttribute("aria-checked", "true");
         await expect(days.getByRole("checkbox", { name: "Dom" })).toHaveAttribute("aria-checked", "false");
+    });
+
+    test("prezzi: una tabella con prezzo e listino barrato, i prodotti dal drawer condiviso", async ({ page }) => {
+        stub.onWrite("schedules.PATCH", () => null);
+        stub.onWrite("schedule_price_overrides.DELETE", () => null);
+        stub.onWrite("schedule_price_overrides.POST", () => null);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+        await openRule(page, "spritz");
+        // Una riga per prezzo: Margherita, e Spritz per formato.
+        await expect(main(page).getByRole("textbox", { name: "Prezzo di Margherita e2e" })).toHaveValue("6.5");
+        await expect(main(page).getByRole("textbox", { name: "Prezzo di Spritz e2e, Piccolo" })).toHaveValue("4");
+        await expect(main(page).getByRole("switch", { name: "Listino barrato per Spritz e2e, Piccolo" })).toBeChecked();
+        await expect(main(page).getByRole("switch", { name: "Listino barrato per Margherita e2e" })).not.toBeChecked();
+        // Niente muro di pill: i prodotti si aggiungono dal drawer, come la disponibilità.
+        await main(page).getByRole("button", { name: "Aggiungi prodotti" }).click();
+        const drawer = dialog(page);
+        await expect(drawer.getByRole("heading", { name: "Aggiungi prodotti" })).toBeVisible();
+        await drawer
+            .getByText("Birra e2e", { exact: true })
+            .locator("xpath=ancestor::*[.//*[@role='checkbox' or @type='checkbox']][1]")
+            .getByRole("checkbox")
+            .first()
+            .click();
+        await drawer.getByRole("button", { name: "Applica" }).click();
+        const birra = main(page).getByRole("textbox", { name: "Prezzo di Birra e2e" });
+        await expect(birra).toHaveValue("");
+        await birra.fill("3,50");
+        await page.getByRole("button", { name: "Salva", exact: true }).first().click();
+        await expect.poll(() => writesOf(stub, "schedule_price_overrides.POST").length).toBe(1);
+        const rows = writesOf(stub, "schedule_price_overrides.POST")[0].body as Array<Record<string, unknown>>;
+        expect(rows).toHaveLength(4);
+        expect(rows.some(r => r.override_price === 3.5)).toBe(true);
     });
 
     test("in evidenza: i contenuti si aggiungono da una Select di sistema, per posizione", async ({ page }) => {
