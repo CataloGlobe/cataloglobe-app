@@ -3,15 +3,15 @@
 .calendarWrapper {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: var(--space-12);
 }
 
-/* ─── Week navigation ────────────────────────────────────────── */
+/* ─── Navigazione della settimana ────────────────────────────── */
 
 .calendarNav {
   display: flex;
   align-items: center;
-  gap: 0.65rem;
+  gap: var(--space-8);
   justify-content: center;
 }
 
@@ -25,379 +25,108 @@
   }
 }
 
-/* ─── Grid ───────────────────────────────────────────────────── */
+/* ─── Settimana: sette colonne di schede (mockup) ────────────── */
 
-.calendarGrid {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg, 10px);
-  overflow: hidden;
-  background: var(--card-bg, #fff);
-}
-
-/* ─── Header ─────────────────────────────────────────────────── */
-
-.gridHeader {
+.week {
   display: grid;
-  grid-template-columns: 50px repeat(7, 1fr);
-  border-bottom: 1px solid var(--border);
-  background: var(--hover-bg, #f8fafc);
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-surface);
+  background: var(--surface);
+  overflow: hidden;
 }
 
-.timeCorner {
-  border-right: 1px solid var(--border);
+.singleDay {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.day {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  & + & {
+    border-left: 1px solid var(--border);
+  }
+}
+
+.dayToday {
+  background: color-mix(in srgb, var(--brand-primary) 3%, transparent);
 }
 
 .dayHeader {
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 0.45rem 0;
-  border-left: 1px solid var(--border);
-}
-
-.dayName {
-  font-size: 0.72rem;
-  font-weight: 500;
-  color: var(--text-muted, #94a3b8);
-  text-transform: capitalize;
-}
-
-.dayNumber {
-  font-weight: 600;
-  font-size: 0.92rem;
-  color: var(--text);
-  width: 28px;
-  height: 28px;
-  display: flex;
-  align-items: center;
+  align-items: baseline;
   justify-content: center;
-  border-radius: 50%;
-}
-
-.dayHeaderToday {
-  .dayName {
-    color: var(--brand-primary, #6366f1);
-  }
-}
-
-.dayNumberToday {
-  background: var(--brand-primary, #6366f1);
-  color: var(--on-brand);
-}
-
-/* ─── Sub-header (all view) ──────────────────────────────────── */
-
-.subHeader {
-  display: grid;
-  grid-template-columns: 50px repeat(7, 1fr);
+  gap: var(--space-4);
+  padding: var(--space-8);
   border-bottom: 1px solid var(--border);
-  background: var(--hover-bg, #f8fafc);
 }
 
-.subHeaderCell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0;
-  border-left: 1px solid var(--border);
+.todayText,
+.todayNumber {
+  color: var(--brand-primary);
 }
 
-.subHeaderLabel {
-  flex: 1;
-  text-align: center;
-  font-size: 10px;
-  font-weight: 700;
-  padding: 3px 0;
-}
-
-/* ─── Grid body ──────────────────────────────────────────────── */
-
-.gridBody {
-  display: grid;
-  grid-template-columns: 50px repeat(7, 1fr);
-  padding-bottom: 20px;
-}
-
-/* ─── Time column ────────────────────────────────────────────── */
-
-.timeCol {
-  position: relative;
-  border-right: 1px solid var(--border);
-  padding-bottom: 8px;
-}
-
-.timeLabel {
-  position: absolute;
-  right: 6px;
-  transform: translateY(-50%);
-  font-size: 0.65rem;
-  font-weight: 500;
-  color: var(--text-muted, #94a3b8);
-  white-space: nowrap;
-  pointer-events: none;
-  font-variant-numeric: tabular-nums;
-
-  &:first-child {
-    transform: none;
-  }
-}
-
-/* ─── Day columns (single type view) ─────────────────────────── */
-
-.dayColumn {
-  position: relative;
-  border-left: 1px solid var(--border);
-
-  &:first-of-type {
-    border-left: none;
-  }
-}
-
-.dayColumnToday {
-  background: color-mix(in srgb, var(--brand-primary, #6366f1) 3%, transparent);
-}
-
-/* ─── Day columns (all view) ─────────────────────────────────── */
-
-.dayColumnAll {
-  display: flex;
-  position: relative;
-  border-left: 1px solid var(--border);
-
-  &:first-of-type {
-    border-left: none;
-  }
-}
-
-.hourLinesOverlay {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  z-index: 10;
-}
-
-.subColumn {
-  flex: 1;
-  position: relative;
-  min-width: 0;
-
-  & + & {
-    border-left: 1px dashed color-mix(in srgb, var(--border) 60%, transparent);
-  }
-}
-
-/* ─── Hour lines ─────────────────────────────────────────────── */
-
-.hourLine {
-  position: absolute;
-  left: 0;
-  right: 0;
-  height: 1px;
-  background: rgba(0, 0, 0, 0.06);
-  pointer-events: none;
-  z-index: 2;
-
-  &:first-child {
-    opacity: 0;
-  }
-}
-
-/* ─── Rule blocks ────────────────────────────────────────────── */
-
-// Un colore per tipo di regola, dal tema (--rule-*): chiaro e scuro.
-.ruleBlock[data-type="featured"] { background: var(--rule-featured); }
-.ruleBlock[data-type="price"] { background: var(--rule-price); }
-.ruleBlock[data-type="visibility"] { background: var(--rule-visibility); }
-
-.subHeaderLabel[data-type="layout"] { color: var(--rule-layout); }
-.subHeaderLabel[data-type="featured"] { color: var(--rule-featured); }
-.subHeaderLabel[data-type="price"] { color: var(--rule-price); }
-.subHeaderLabel[data-type="visibility"] { color: var(--rule-visibility); }
-
-// Sotto 768: un giorno solo, la colonna prende tutta la larghezza.
-.singleDay {
-  .subHeader,
-  .gridBody {
-    grid-template-columns: 50px 1fr;
-  }
-}
-
-.ruleBlock {
-  position: absolute;
-  left: 2px;
-  right: 2px;
-  border: none;
-  border-radius: 6px;
-  padding: 3px 5px;
-  cursor: pointer;
-  overflow: hidden;
-  text-align: center;
+.cards {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-family: inherit;
-  color: var(--on-brand);
-  background: var(--rule-layout);
-  opacity: 0.85;
-  z-index: 1;
-  border-bottom: 2px solid rgba(255, 255, 255, 0.4);
-  margin-bottom: 1px;
-  transition: opacity 0.12s, box-shadow 0.12s;
+  gap: var(--space-8);
+  padding: var(--space-8);
+}
+
+/* ─── Scheda: bianca, bordo del colore del tipo ──────────────── */
+
+.card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-6) var(--space-8);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--rule-layout);
+  border-radius: var(--radius-inner);
+  text-align: left;
+  cursor: pointer;
 
   &:hover {
-    opacity: 1;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
-    z-index: 5;
+    background: var(--hover-bg);
   }
 
   &:focus-visible {
-    outline: 2px solid var(--brand-primary, #6366f1);
-    outline-offset: 1px;
-    z-index: 5;
+    outline: none;
+    box-shadow: var(--shadow-focus);
   }
 }
 
-.ruleBlockVertical {
-  padding: 4px 2px;
-  border-radius: 4px;
-  left: 1px;
-  right: 1px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-}
+.card[data-type="featured"] { border-left-color: var(--rule-featured); }
+.card[data-type="price"] { border-left-color: var(--rule-price); }
+.card[data-type="visibility"] { border-left-color: var(--rule-visibility); }
 
-.blockLabel {
-  display: block;
-  font-size: 0.65rem;
-  font-weight: 600;
-  line-height: 1.25;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+// Due righe al massimo: a 1280 la colonna è ~125 px, e il nome intero
+// conta più dell'allineamento delle schede.
+.cardName {
   max-width: 100%;
-}
-
-.blockLabelVertical {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 1;
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-  max-height: 100%;
+  overflow-wrap: break-word;
+  hyphens: auto;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
 }
 
-.blockTime {
-  display: block;
-  font-size: 0.6rem;
-  line-height: 1.2;
-  opacity: 0.85;
-}
-
-/* ─── Now indicator ──────────────────────────────────────────── */
-
-.nowLine {
-  position: absolute;
-  height: 2px;
-  background: var(--danger);
-  z-index: 8;
-  pointer-events: none;
-  left: 0;
-  right: 0;
-}
-
-.nowDot {
-  position: absolute;
-  left: -4px;
-  top: -3px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--danger);
-
-  &::after {
-    content: "";
-    position: absolute;
-    inset: -2px;
-    border-radius: 50%;
-    border: 2px solid var(--danger);
-    opacity: 0;
-    animation: calPulse 2s ease-in-out infinite;
-  }
-}
-
-@keyframes calPulse {
-  0%,
-  100% {
-    opacity: 0;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.4;
-    transform: scale(1.6);
-  }
-}
-
-/* ─── Tooltip ────────────────────────────────────────────────── */
-
-.tipContent {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.tipName {
-  font-weight: 700;
-  font-size: 13px;
-}
-
-.tipMeta {
-  font-size: 11px;
-  opacity: 0.8;
-}
-
-/* ─── Responsive ─────────────────────────────────────────────── */
-
-@media (max-width: 768px) {
-  .gridHeader,
-  .subHeader,
-  .gridBody {
-    grid-template-columns: 36px repeat(7, 1fr);
+// Fra 768 e 1023 le sette colonne sono ~90 px: meno aria intorno al testo.
+@media (max-width: 1023px) {
+  .cards {
+    padding: var(--space-4);
+    gap: var(--space-4);
   }
 
-  .timeLabel {
-    font-size: 0.5rem;
-    right: 3px;
-  }
-
-  .ruleBlock {
-    padding: 2px 3px;
-    border-radius: 4px;
-  }
-
-  .blockLabel {
-    font-size: 0.55rem;
-  }
-
-  .blockLabelVertical {
-    font-size: 9px;
-  }
-
-  .subHeaderLabel {
-    font-size: 8px;
-  }
-
-  .calendarNav {
-    gap: 0.4rem;
-  }
-
-  .calendarNavLabel {
-    font-size: 0.78rem;
-    min-width: 160px;
+  .card {
+    padding: var(--space-4) var(--space-6);
   }
 }

@@ -395,9 +395,8 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await openList(page, "layout");
         await openWeek(page);
         await expect(main(page).getByText(/21 set/)).toBeVisible();
-        // Oggi la Settimana risolve la competizione sull'azienda intera
-        // (mucchio 2/3): «Solo gruppo vuoto» (gruppo) copre la Carta (tutte),
-        // e il Pranzo di Centro vince dalle 11 alle 15 anche per le altre sedi.
+        // Una scheda per regola accesa, con la sua finestra (P1 del 2-bis):
+        // la competizione, che vive per sede, non si risolve qui (mucchio 2/3).
         await expect(main(page).getByRole("button", { name: new RegExp(`${RULE_NAME.pranzo}.*11:00`) }).first()).toBeVisible();
         await main(page).getByRole("button", { name: /(Settimana|Giorno) successiv/ }).click();
         await expect(main(page).getByText(/28 set|25 set|Giovedì 24/)).toBeVisible();
