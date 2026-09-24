@@ -1001,10 +1001,10 @@ export default function Programming() {
             <SegmentedControl<"list" | "calendar">
                 value={viewMode}
                 onChange={setViewMode}
-                iconsOnly
+                size="sm"
                 options={[
-                    { value: "list", label: "Vista lista", icon: <List size={16} /> },
-                    { value: "calendar", label: "Vista calendario", icon: <CalendarDays size={16} /> }
+                    { value: "list", label: "Elenco", icon: <List size={16} /> },
+                    { value: "calendar", label: "Settimana", icon: <CalendarDays size={16} /> }
                 ]}
             />
             <SplitButton actions={headerSplitActions} loading={isCreating} />
@@ -1028,12 +1028,12 @@ export default function Programming() {
             viewMode === "list"
                 ? {
                       icon: <CalendarDays size={18} />,
-                      label: "Vista calendario",
+                      label: "Settimana",
                       onClick: () => setViewMode("calendar")
                   }
                 : {
                       icon: <List size={18} />,
-                      label: "Vista lista",
+                      label: "Elenco",
                       onClick: () => setViewMode("list")
                   }
         ],

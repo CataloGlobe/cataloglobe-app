@@ -402,6 +402,37 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await expect(main(page).getByText(/28 set|25 set|Giovedì 24/)).toBeVisible();
     });
 
+    test("sotto 768 la Settimana mostra un giorno alla volta", async ({ page }) => {
+        await openList(page, "layout");
+        await page.setViewportSize({ width: 375, height: 812 });
+        await openWeek(page);
+        await expect(main(page).getByText("Mercoledì 23 settembre")).toBeVisible();
+        const days = main(page).getByRole("radiogroup", { name: "Giorno" });
+        await expect(days.getByRole("radio")).toHaveCount(7);
+        await expect(days.getByRole("radio", { name: /Mer 23/ })).toBeChecked();
+        await expect(main(page).getByRole("button", { name: new RegExp(`${RULE_NAME.pranzo}.*11:00`) })).toHaveCount(1);
+        await main(page).getByRole("button", { name: "Giorno successivo" }).click();
+        await expect(main(page).getByText("Giovedì 24 settembre")).toBeVisible();
+        await days.getByRole("radio", { name: /Dom 27/ }).click();
+        await expect(main(page).getByText("Domenica 27 settembre")).toBeVisible();
+        // Domenica il pranzo di Centro (lun–ven) non c'è.
+        await expect(main(page).getByRole("button", { name: new RegExp(RULE_NAME.pranzo) })).toHaveCount(0);
+        await main(page).getByRole("button", { name: "Giorno successivo" }).click();
+        await expect(main(page).getByText("Lunedì 28 settembre")).toBeVisible();
+        await main(page).getByRole("button", { name: "Oggi" }).click();
+        await expect(main(page).getByText("Mercoledì 23 settembre")).toBeVisible();
+        await noHorizontalScroll(page);
+    });
+
+    test("sopra 768 la Settimana mostra sette giorni", async ({ page }) => {
+        await openList(page, "layout");
+        await openWeek(page);
+        for (const day of ["Lun", "Mar", "Mer", "Gio", "Ven", "Sab", "Dom"]) {
+            await expect(main(page).getByText(day, { exact: true })).toBeVisible();
+        }
+        await expect(main(page).getByRole("radiogroup", { name: "Giorno" })).toHaveCount(0);
+    });
+
     test("il simulatore dice cosa vince in una sede; l'anteprima è spenta per la sede sospesa", async ({ page }) => {
         await openList(page);
         const drawer = await openSimulator(page);
