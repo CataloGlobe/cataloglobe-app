@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useRef } from "react";
-import type { ReactNode, RefObject } from "react";
+import type { ReactNode, Ref, RefObject } from "react";
 import { CircleHelp, X } from "lucide-react";
 
 import ModalLayout, {
@@ -292,36 +292,36 @@ function helpContent(Label: string, product: string, products: string): Record<H
 }
 
 /* ------------------------------------------------------------------
- * LINK "COME FUNZIONA"
+ * BOTTONE "COME FUNZIONA"
  * ------------------------------------------------------------------ */
 
-type HowItWorksLinkProps = {
+type HowItWorksButtonProps = {
     ruleType: HelpRuleKey;
     onClick: () => void;
 };
 
 /**
- * Link testuale che apre la modale. Continuazione della frase che lo precede
- * (riga descrittiva della tab o descrizione dell'empty state), quindi link e
- * non bottone bordato.
+ * «Come funziona» come `Button ghost` con l'icona (P4 del passo 2-bis): lo
+ * stesso bottone accanto alla frase del tipo, nel vuoto e nella testata del
+ * dettaglio. Il nome accessibile è il titolo della guida che apre.
  */
-export const HowItWorksLink = forwardRef<HTMLButtonElement, HowItWorksLinkProps>(function HowItWorksLink(
+export const HowItWorksButton = forwardRef<HTMLButtonElement, HowItWorksButtonProps>(function HowItWorksButton(
     { ruleType, onClick },
     ref
 ) {
     const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
     return (
-        <button
-            ref={ref}
-            type="button"
-            className={styles.link}
+        <Button
+            ref={ref as Ref<HTMLButtonElement | HTMLAnchorElement>}
+            variant="ghost"
+            size="sm"
+            leftIcon={<CircleHelp size={16} aria-hidden="true" />}
             onClick={onClick}
             aria-haspopup="dialog"
             aria-label={helpContent(catalogLabel, productLabel.toLowerCase(), productLabelPlural.toLowerCase())[ruleType].title}
         >
-            <CircleHelp size={14} strokeWidth={2} aria-hidden="true" />
             Come funziona
-        </button>
+        </Button>
     );
 });
 
@@ -427,8 +427,8 @@ type Props = {
     isOpen: boolean;
     ruleType: HelpRuleKey;
     onClose: () => void;
-    /** Apre il simulatore già presente nella pagina. */
-    onSimulate: () => void;
+    /** Apre il simulatore già presente nella pagina. Assente: niente «Simula regole». */
+    onSimulate?: () => void;
     /** Link che ha aperto la modale: ci torna il focus alla chiusura. */
     triggerRef?: RefObject<HTMLButtonElement | null>;
     /** False quando la chiusura porta altrove (es. apertura del simulatore). */
@@ -526,9 +526,11 @@ export function RuleTypeHelpModal({
                 <Button variant="secondary" size="sm" onClick={onClose}>
                     Chiudi
                 </Button>
-                <Button variant="primary" size="sm" onClick={onSimulate}>
-                    Simula regole
-                </Button>
+                {onSimulate && (
+                    <Button variant="primary" size="sm" onClick={onSimulate}>
+                        Simula regole
+                    </Button>
+                )}
             </ModalLayoutFooter>
         </ModalLayout>
     );

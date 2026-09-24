@@ -631,6 +631,17 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(main(page).getByRole("textbox", { name: /Nome/ })).toHaveValue(RULE_NAME.pranzo, { timeout: 15_000 });
     });
 
+    test("«Come funziona» nella testata del dettaglio apre la guida del tipo", async ({ page }) => {
+        await openRule(page, "spritz");
+        await main(page).getByRole("button", { name: "Come funzionano le regole di prezzo" }).click();
+        const guide = page.getByRole("dialog");
+        await expect(guide.getByRole("heading", { name: "Come funzionano le regole di prezzo" })).toBeVisible();
+        // Nel dettaglio il simulatore non c'è: la guida non lo propone.
+        await expect(guide.getByRole("button", { name: /Simula/ })).toHaveCount(0);
+        await guide.getByRole("button", { name: "Chiudi" }).first().click();
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+    });
+
     test("le due rotte sono lo stesso dettaglio: tipo nel titolo, «Salva» e «Annulla» solo con modifiche", async ({ page }) => {
         for (const key of ["pranzo", "promoPorto"] as const) {
             await openRule(page, key);

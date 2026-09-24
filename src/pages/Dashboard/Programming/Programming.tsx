@@ -39,7 +39,7 @@ import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling"
 import { RuleTable, type RuleInsight } from "./components/RuleTable";
 import { describeTarget } from "./components/ruleTarget";
 import { measureTextWidth } from "@/utils/measureText";
-import { HowItWorksLink, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
+import { HowItWorksButton, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import { CalendarView } from "./components/CalendarView";
 import { RuleSimulatorDrawer } from "./components/RuleSimulatorDrawer";
 import { isRuleCurrentlyActive } from "@/utils/ruleHelpers";
@@ -889,7 +889,7 @@ export default function Programming() {
                         <Text variant="body-sm" colorVariant="muted">
                             {typeOptions.find(o => o.value === ruleTypeFilter)?.description}
                         </Text>
-                        <HowItWorksLink
+                        <HowItWorksButton
                             ref={helpTriggerRef}
                             ruleType={ruleTypeFilter}
                             onClick={openHelpModal}
@@ -933,7 +933,7 @@ export default function Programming() {
                                 /* Ordine di lettura: cos'è questa cosa (titolo +
                                    descrizione) → come funziona → creane una. */
                                 <div className={styles.emptyStateActions}>
-                                    <HowItWorksLink
+                                    <HowItWorksButton
                                         ref={helpTriggerRef}
                                         ruleType={ruleTypeFilter}
                                         onClick={openHelpModal}
