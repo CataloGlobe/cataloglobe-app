@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { resolveRulesForActivity as resolveWebRules } from "@/services/supabase/scheduleResolver";
-import { resolveRulesForActivity as resolveEdgeRules } from "../../../supabase/functions/_shared/scheduleResolver";
+import { resolveRulesForActivity as resolveEdgeRules } from "@shared/scheduleResolver";
 import { toRomeDateTime, type RomeDateTime } from "@/services/supabase/schedulingNow";
 
 type TableRows = Record<string, Array<Record<string, unknown>>>;

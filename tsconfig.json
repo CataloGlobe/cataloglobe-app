@@ -26,7 +26,8 @@
       "@styles/*": ["src/styles/*"],
       "@utils/*": ["src/utils/*"],
       "@types/*": ["src/types/*"],
-      "@assets/*": ["src/assets/*"]
+      "@assets/*": ["src/assets/*"],
+      "@shared/*": ["supabase/functions/_shared/*"]
     },
     "typeRoots": ["./src/types", "./node_modules/@types"]
   },
