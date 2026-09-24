@@ -13,6 +13,7 @@ interface LocationsGridProps {
     activeCatalogsMap?: Record<string, ActiveCatalogMeta>;
     catalogsStatus?: CatalogFetchStatus;
     onManageAvailability?: (id: string, name: string) => void;
+    pendingReservationsMap?: Record<string, number>;
 }
 
 export const LocationsGrid: React.FC<LocationsGridProps> = ({
@@ -22,7 +23,8 @@ export const LocationsGrid: React.FC<LocationsGridProps> = ({
     onDelete,
     activeCatalogsMap,
     catalogsStatus,
-    onManageAvailability
+    onManageAvailability,
+    pendingReservationsMap
 }) => {
     return (
         <CardGrid loading={isLoading} skeletonCount={3} aria-label="Sedi">
@@ -35,6 +37,7 @@ export const LocationsGrid: React.FC<LocationsGridProps> = ({
                     activeCatalog={activeCatalogsMap?.[business.id]}
                     catalogsStatus={catalogsStatus}
                     onManageAvailability={onManageAvailability}
+                    pendingReservations={pendingReservationsMap?.[business.id]}
                 />
             ))}
         </CardGrid>

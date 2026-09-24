@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, ConciergeBell, Eye, Grid2X2, LogOut, Receipt, Wrench } from "lucide-react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { Eye, Grid2X2, LogOut, Wrench } from "lucide-react";
 
 import Text from "@/components/ui/Text/Text";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { Button } from "@/components/ui/Button/Button";
+import { CardGrid, CardGridItem } from "@/components/ui/CardGrid";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { StatusBadge, type StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
 import {
     TableRowActions,
     type TableRowAction
@@ -16,6 +21,7 @@ import { updateTable } from "@/services/supabase/tables";
 import type { V2TableWithState } from "@/types/orders";
 
 import { TableDetailDrawer } from "@/components/Tables/TableDetailDrawer/TableDetailDrawer";
+import { SYSTEM_DRAWER_MOTION_MS } from "@/components/layout/SystemDrawer/drawerSize";
 import TableCloseDrawer from "@/pages/Dashboard/Tables/TableCloseDrawer";
 
 import { deriveTableStatus } from "@/utils/tableState";
@@ -29,13 +35,7 @@ export interface TablesLiveViewProps {
     activityId: string;
 }
 
-/**
- * Durata exit-anim del SystemDrawer (motion.div drawer: transition
- * duration 0.25s). Usata per sequenziare detail → close: chiudiamo il
- * detail, attendiamo che l'animazione finisca, apriamo il close. NIENTE
- * stacking. Se SystemDrawer cambia la sua durata, aggiorna qui.
- */
-const DRAWER_EXIT_DURATION_MS = 250;
+
 
 type StatusFilter = "all" | "occupied" | "free" | "maintenance";
 
@@ -44,9 +44,9 @@ const NO_ZONE_LABEL = "Senza zona";
 
 const FILTER_OPTIONS: Array<{ value: StatusFilter; label: string }> = [
     { value: "all", label: "Tutti" },
-    { value: "occupied", label: "Occupati" },
+    { value: "occupied", label: "Aperti" },
     { value: "free", label: "Liberi" },
-    { value: "maintenance", label: "Manutenzione" }
+    { value: "maintenance", label: "Fuori servizio" }
 ];
 
 const CURRENCY_FORMATTER = new Intl.NumberFormat("it-IT", {
@@ -60,10 +60,36 @@ function formatEur(n: number): string {
 
 type TableStatus = "free" | "occupied" | "maintenance";
 
+const STATUS_VARIANTS: Record<TableStatus, StatusBadgeVariant> = {
+    free: "neutral",
+    occupied: "success",
+    maintenance: "warning"
+};
+
+/** Le comande in Nuove: aspettano qualcuno, quindi stanno sulla tessera come Badge. */
+function countSubmitted(orders: V2TableWithState["active_orders"]): number {
+    return (orders ?? []).filter(o => o.status === "submitted").length;
+}
+
+/**
+ * Il resto degli ordini attivi, per il footer: «2 in lavorazione · 1 pronta».
+ * Le nuove non ci sono (sono il Badge). Nessun ordine attivo → «Nessun ordine».
+ */
+function formatActiveOrders(orders: V2TableWithState["active_orders"]): string | null {
+    const list = orders ?? [];
+    if (list.length === 0) return "Nessun ordine";
+    const acknowledged = list.filter(o => o.status === "acknowledged").length;
+    const ready = list.filter(o => o.status === "ready").length;
+    const parts: string[] = [];
+    if (acknowledged > 0) parts.push(`${acknowledged} in lavorazione`);
+    if (ready > 0) parts.push(`${ready} ${ready === 1 ? "pronta" : "pronte"}`);
+    return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 const STATUS_LABELS: Record<TableStatus, string> = {
     free: "Libero",
-    occupied: "Occupato",
-    maintenance: "Manutenzione"
+    occupied: "Aperto",
+    maintenance: "Fuori servizio"
 };
 
 function formatElapsedLabel(fromIso: string): string {
@@ -88,6 +114,9 @@ export function TablesLiveView({
         activityId
     );
     const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+    const navigate = useNavigate();
+    const zoneIdPrefix = useId();
+    const { businessId } = useParams<{ businessId: string }>();
 
     // Il chime su nuova chiamata cameriere/conto è stato spostato nel
     // dispatcher globale `OperationalAlerts` (MainLayout): suona a prescindere
@@ -140,8 +169,8 @@ export function TablesLiveView({
     //    Guard: se non trovata (tavolo rimosso da realtime tra click e
     //    callback) → toast soft + non aprire il close.
     // 2. chiudi detail.
-    // 3. attendi DRAWER_EXIT_DURATION_MS (matchato all'exit anim di
-    //    SystemDrawer drawer motion.div) e poi apri close.
+    // 3. attendi SYSTEM_DRAWER_MOTION_MS (la durata che SystemDrawer esporta
+    //    per la sua uscita) e poi apri close.
     const handleRequestClose = useCallback(
         (tableId: string) => {
             const found = items.find(t => t.id === tableId);
@@ -160,7 +189,7 @@ export function TablesLiveView({
             transitionTimerRef.current = window.setTimeout(() => {
                 transitionTimerRef.current = null;
                 setIsCloseOpen(true);
-            }, DRAWER_EXIT_DURATION_MS);
+            }, SYSTEM_DRAWER_MOTION_MS);
         },
         [items, showToast]
     );
@@ -317,7 +346,7 @@ export function TablesLiveView({
         <div className={styles.wrapper}>
             <div className={styles.summaryRow}>
                 <Text variant="body-sm" colorVariant="muted">
-                    {summary.open} {summary.open === 1 ? "occupato" : "occupati"} ·{" "}
+                    {summary.open} {summary.open === 1 ? "aperto" : "aperti"} ·{" "}
                     {summary.free} {summary.free === 1 ? "libero" : "liberi"}
                     {summary.seats > 0 && ` · ${summary.seats} coperti`}
                 </Text>
@@ -331,59 +360,48 @@ export function TablesLiveView({
                 />
             </div>
 
-            {!isLoading && filtered.length === 0 ? (
+            {!isLoading && items.length === 0 ? (
                 <EmptyState
-                    icon={<Grid2X2 size={40} strokeWidth={1.5} />}
-                    title={
-                        items.length === 0
-                            ? "Nessun tavolo configurato"
-                            : "Nessun tavolo per questo filtro"
-                    }
-                    description={
-                        items.length === 0
-                            ? "Configura i tavoli dalla scheda Sala della sede."
-                            : "Cambia filtro per vedere altri tavoli."
+                    icon={<Grid2X2 />}
+                    title="Nessun tavolo configurato"
+                    description="Configura i tavoli dalla scheda Sala della sede."
+                    action={
+                        businessId ? (
+                            <Button
+                                variant="secondary"
+                                onClick={() => navigate(`/business/${businessId}/locations/${activityId}/sala`)}
+                            >
+                                Vai alla Sala
+                            </Button>
+                        ) : undefined
                     }
                 />
+            ) : !isLoading && filtered.length === 0 ? (
+                <EmptyState
+                    variant="filtered"
+                    title="Nessun tavolo per questo filtro"
+                    onClearFilters={() => setStatusFilter("all")}
+                />
+            ) : isLoading && items.length === 0 ? (
+                <CardGrid loading skeletonCount={3} aria-label="Tavoli" />
             ) : (
                 <div className={styles.zonesList}>
-                    {groups.map(group => (
-                        <section key={group.name} className={styles.zoneSection}>
+                    {groups.map((group, gi) => (
+                        <section key={group.name} className={styles.zoneSection} aria-labelledby={`${zoneIdPrefix}-${gi}`}>
                             <header className={styles.zoneHeader}>
-                                <Text variant="title-sm" weight={600}>
+                                <Text as="h3" id={`${zoneIdPrefix}-${gi}`} variant="title-sm" weight={600}>
                                     {group.name}
                                 </Text>
                                 <Text variant="body-sm" colorVariant="muted">
-                                    {group.tables.length}{" "}
-                                    {group.tables.length === 1 ? "tavolo" : "tavoli"}
+                                    {group.tables.length} {group.tables.length === 1 ? "tavolo" : "tavoli"}
                                 </Text>
                             </header>
-                            <div className={styles.cardsGrid}>
+                            <CardGrid aria-label={group.name}>
                                 {group.tables.map(t => {
                                     const status = deriveTableStatus(t) as TableStatus;
-                                    const activeOrders = t.active_orders ?? [];
-                                    const submittedCount = activeOrders.filter(
-                                        o => o.status === "submitted"
-                                    ).length;
-                                    const acknowledgedCount = activeOrders.filter(
-                                        o => o.status === "acknowledged"
-                                    ).length;
-                                    const readyCount = activeOrders.filter(
-                                        o => o.status === "ready"
-                                    ).length;
-                                    const hasPending =
-                                        status === "occupied" && submittedCount > 0;
-
-                                    const cardClass = [
-                                        styles.card,
-                                        styles[`card_${status}`],
-                                        hasPending ? styles.card_pending : "",
-                                        styles.cardClickable
-                                    ]
-                                        .filter(Boolean)
-                                        .join(" ");
-
                                     const statusLabel = STATUS_LABELS[status];
+                                    const submitted = countSubmitted(t.active_orders);
+                                    const activeOrdersText = formatActiveOrders(t.active_orders);
 
                                     const cardActions: TableRowAction[] = [
                                         {
@@ -399,154 +417,64 @@ export function TablesLiveView({
                                         },
                                         {
                                             label: t.maintenance_mode
-                                                ? "Rimuovi manutenzione"
-                                                : "Metti in manutenzione",
+                                                ? "Rimetti in servizio"
+                                                : "Metti fuori servizio",
                                             icon: Wrench,
                                             hidden: status === "occupied" || !canManage,
                                             onClick: () =>
-                                                void handleMaintenanceToggle(
-                                                    t.id,
-                                                    !t.maintenance_mode
-                                                )
+                                                void handleMaintenanceToggle(t.id, !t.maintenance_mode)
                                         }
                                     ];
 
+                                    const subtitle = [
+                                        t.seats != null ? `${t.seats} ${t.seats === 1 ? "posto" : "posti"}` : null,
+                                        status === "occupied" && t.session_opened_at
+                                            ? `da ${formatElapsedLabel(t.session_opened_at)}`
+                                            : null
+                                    ]
+                                        .filter(Boolean)
+                                        .join(" · ");
+
                                     return (
-                                        <article
+                                        <CardGridItem
                                             key={t.id}
-                                            className={cardClass}
-                                            role="button"
-                                            tabIndex={0}
-                                            aria-label={`${t.label}, ${statusLabel}`}
-                                            onClick={() => handleTableClick(t.id)}
-                                            onKeyDown={e => {
-                                                if (e.key === "Enter" || e.key === " ") {
-                                                    e.preventDefault();
-                                                    handleTableClick(t.id);
-                                                }
-                                            }}
-                                        >
-                                            {/* Row 1: dot + name + actions menu */}
-                                            <div className={styles.cardRow1}>
-                                                <span
-                                                    className={`${styles.statusDot} ${styles[`dot_${status}`]}`}
-                                                    aria-hidden
-                                                />
-                                                <span className={styles.cardName}>{t.label}</span>
-                                                <span className={styles.cardActionsOffset}>
-                                                    <TableRowActions actions={cardActions} />
-                                                </span>
-                                            </div>
-
-                                            {/* Row 2: status label · seats · elapsed */}
-                                            <div className={styles.cardRow2}>
-                                                <span
-                                                    className={`${styles.statusLabel} ${styles[`label_${status}`]}`}
-                                                >
-                                                    {statusLabel}
-                                                </span>
-                                                {t.seats != null && (
-                                                    <>
-                                                        <span
-                                                            className={styles.metaSep}
-                                                            aria-hidden
-                                                        >
-                                                            ·
-                                                        </span>
-                                                        <span>
-                                                            {t.seats}{" "}
-                                                            {t.seats === 1 ? "posto" : "posti"}
-                                                        </span>
-                                                    </>
-                                                )}
-                                                {status === "occupied" &&
-                                                    t.session_opened_at && (
-                                                        <>
-                                                            <span
-                                                                className={styles.metaSep}
-                                                                aria-hidden
-                                                            >
-                                                                ·
-                                                            </span>
-                                                            <span>
-                                                                da{" "}
-                                                                {formatElapsedLabel(
-                                                                    t.session_opened_at
-                                                                )}
-                                                            </span>
-                                                        </>
+                                            title={t.label}
+                                            subtitle={subtitle || undefined}
+                                            badge={
+                                                <span className={styles.badges}>
+                                                    <StatusBadge variant={STATUS_VARIANTS[status]} label={statusLabel} />
+                                                    {submitted > 0 && (
+                                                        <Badge variant="brand">
+                                                            {submitted} {submitted === 1 ? "nuova" : "nuove"}
+                                                        </Badge>
                                                     )}
-                                            </div>
-
-                                            {/* Requests row: bill/waiter pending indicators */}
-                                            {(t.bill_requested_count > 0 || t.waiter_called_count > 0) && (
-                                                <div className={styles.cardRowRequests}>
                                                     {t.bill_requested_count > 0 && (
-                                                        <span className={styles.pillBill}>
-                                                            <Receipt size={10} aria-hidden />
-                                                            Conto
-                                                        </span>
+                                                        <StatusBadge variant="warning" label="Conto richiesto" />
                                                     )}
                                                     {t.waiter_called_count > 0 && (
-                                                        <span className={styles.pillWaiter}>
-                                                            <ConciergeBell size={10} aria-hidden />
-                                                            Cameriere
-                                                        </span>
+                                                        <StatusBadge variant="warning" label="Cameriere chiamato" />
                                                     )}
-                                                </div>
-                                            )}
-
-                                            {/* Row 3: order pills + total (occupied only) */}
-                                            {status === "occupied" && (
-                                                <div className={styles.cardRow3}>
-                                                    <div className={styles.cardPills}>
-                                                        {activeOrders.length === 0 ? (
-                                                            <span className={styles.pillEmpty}>
-                                                                Nessun ordine
-                                                            </span>
-                                                        ) : (
-                                                            <>
-                                                                {submittedCount > 0 && (
-                                                                    <span
-                                                                        className={
-                                                                            styles.pillPending
-                                                                        }
-                                                                    >
-                                                                        <AlertCircle
-                                                                            size={10}
-                                                                            aria-hidden
-                                                                        />
-                                                                        {submittedCount}
-                                                                    </span>
-                                                                )}
-                                                                {acknowledgedCount > 0 && (
-                                                                    <span
-                                                                        className={
-                                                                            styles.pillWorking
-                                                                        }
-                                                                    >
-                                                                        {acknowledgedCount}
-                                                                    </span>
-                                                                )}
-                                                                {readyCount > 0 && (
-                                                                    <span
-                                                                        className={styles.pillReady}
-                                                                    >
-                                                                        {readyCount}
-                                                                    </span>
-                                                                )}
-                                                            </>
-                                                        )}
-                                                    </div>
-                                                    <span className={styles.cardTotal}>
-                                                        {formatEur(t.current_total)}
+                                                </span>
+                                            }
+                                            actions={<TableRowActions actions={cardActions} />}
+                                            footer={
+                                                status === "occupied" ? (
+                                                    <span className={styles.footer}>
+                                                        <Text as="span" variant="body-sm" colorVariant="muted">
+                                                            {activeOrdersText}
+                                                        </Text>
+                                                        <Text as="span" variant="body-sm" weight={600}>
+                                                            {formatEur(t.current_total)}
+                                                        </Text>
                                                     </span>
-                                                </div>
-                                            )}
-                                        </article>
+                                                ) : undefined
+                                            }
+                                            onClick={() => handleTableClick(t.id)}
+                                            aria-label={`${t.label}, ${statusLabel}`}
+                                        />
                                     );
                                 })}
-                            </div>
+                            </CardGrid>
                         </section>
                     ))}
                 </div>

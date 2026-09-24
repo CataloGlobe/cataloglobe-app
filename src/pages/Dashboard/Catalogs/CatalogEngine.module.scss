@@ -1,553 +1,315 @@
-.engineContainer {
+// Il dettaglio sono due card affiancate: le categorie e la categoria scelta
+// (passo 2 P3). La catena flex resta vincolata fino alla DataTable, così la
+// paginazione automatica misura lo spazio vero e l'albero scorre da sé.
+.engine {
   height: 100%;
   min-height: 0;
   display: flex;
   flex-direction: column;
-  overflow: hidden;
 }
 
-.engineBody {
+.layout {
   flex: 1 1 auto;
-  min-height: 0;
-  overflow: hidden;
-}
-
-.saveBar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2, 8px);
-  padding: 10px 16px;
-  background: #fffbeb;
-  border: 1px solid #fcd34d;
-  border-radius: var(--radius-md, 12px);
-  margin-bottom: var(--spacing-3, 12px);
-}
-
-.saveBarMessage {
-  flex: 1;
-  color: #92400e;
-}
-
-.catalogLayout {
-  height: 100%;
   min-height: 0;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
-  border: 1px solid var(--color-gray-200, #e2e8f0);
-  border-radius: var(--radius-lg, 16px);
+  gap: var(--space-24);
+}
+
+.treeCard,
+.categoryCard {
+  min-height: 0;
   overflow: hidden;
-  background: linear-gradient(180deg, #ffffff 0%, #fcfdff 100%);
 }
 
-.catalogTreePane {
-  min-width: 280px;
-  background: linear-gradient(180deg, #f9fbff 0%, #f5f8fc 100%);
-  border-right: 1px solid var(--color-gray-200, #e2e8f0);
+.treeBody {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow-y: auto;
+}
+
+.categoryBody {
+  flex: 1 1 auto;
   min-height: 0;
 }
 
-.catalogContentPane {
-  overflow-y: auto;
-  min-height: 0;
-  background: #f8fafc;
-}
-
-.catalogTree {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
-}
-
-.treeHeader {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: var(--spacing-4, 16px) var(--spacing-4, 16px) var(--spacing-3, 12px);
-  border-bottom: 1px solid var(--color-gray-200, #e2e8f0);
-  background: rgba(249, 251, 255, 0.94);
-  backdrop-filter: blur(3px);
-}
-
-.treeHeading {
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--color-gray-500, #64748b);
-}
+// ── Albero delle categorie ──────────────────────────────────────────────
+// Righe piatte a 32 (40 sul telefono), come la voce della sidebar: l'albero
+// è navigazione, non un elenco di cose. Slot fissi da sinistra: maniglia 20
+// (una colonna per tutti i livelli) · rientro di 16 per livello con le linee
+// guida · chevron 20 · icona 16 · nome · contatore o kebab nello stesso slot.
 
 .treeList {
+  list-style: none;
+  margin: 0;
+  padding: 0 var(--space-8);
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: var(--spacing-3, 12px) var(--spacing-3, 12px) var(--spacing-4, 16px);
-
-  /* ── Separator: faint inset line between tree groups ─────────────── */
-  > * + * {
-    position: relative;
-    &::before {
-      content: "";
-      position: absolute;
-      top: -3px;
-      left: 8px;
-      right: 8px;
-      height: 1px;
-      background: var(--color-gray-200, #e2e8f0);
-      opacity: 0.6;
-      pointer-events: none;
-    }
-  }
+  gap: var(--space-4);
 }
 
-.treeEmptyState {
-  padding: var(--spacing-8, 32px) var(--spacing-4, 16px);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-2, 8px);
-  text-align: center;
-  color: var(--color-gray-500, #64748b);
-}
-
-/* ── Tree group: each root-level category and its visible children ──────── */
-.treeGroup {
-  /* Slightly stronger surface to lift each group from the pane background */
-  background: rgba(247, 249, 253, 0.75);
-  /* Stronger border than before (gray-100 → gray-200) for clear separation */
-  border: 1px solid var(--color-gray-200, #e2e8f0);
-  border-radius: 12px;
-  padding: 4px;
-  margin-bottom: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
-
-/* ── Tree node row ─────────────────────────────────────────────────────── */
-.treeNodeRow {
+.treeRow {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-2, 8px);
-  min-height: 38px;
-  border-radius: 10px;
-  padding-right: 6px;
-  background: transparent;
-  /* Single border declaration (overrides the conflicting border-left shorthand) */
-  border: 1px solid transparent;
-  transition:
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease;
-}
-
-/* ── Hover / focus state: white surface + visible border ────────────────── */
-.treeNodeRow:hover,
-.treeNodeRow:focus-within {
-  background: #ffffff;
-  /* Stronger hover border than before (#e4e9f2 → #cfd7e8) */
-  border-color: #cfd7e8;
-  box-shadow: 0 1px 4px rgba(100, 116, 139, 0.08);
-}
-
-/* ── Selected / active state ────────────────────────────────────────────── */
-.treeNodeRowActive {
-  /* Left accent line indicating the selected item */
-  background: linear-gradient(90deg, #eef2ff 0%, #f6f8ff 100%);
-  border-color: #c7d4ff;
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
-}
-
-/* ── Dragging original: empty slot ─────────────────────────────────────── */
-.treeNodeRowDragging {
-  opacity: 0.3;
-  box-shadow: none;
-  background: transparent !important;
-  border: 1px dashed var(--color-gray-300, #cbd5e1) !important;
-}
-
-/* ── Descendant of the dragging node: brand tint ──────────────────────── */
-.treeNodeChildDragging {
-  background: rgba(99, 102, 241, 0.06);
-  border-left: 3px solid rgba(99, 102, 241, 0.3);
-  opacity: 0.7;
-}
-
-/* ── Drop indicators: before (line above) ──────────────────────────────── */
-.dropBefore {
-  &::before {
-    content: "";
-    position: absolute;
-    top: -2px;
-    left: 4px;
-    right: 4px;
-    height: 2px;
-    background: var(--brand-primary, #6366f1);
-    border-radius: 2px;
-    pointer-events: none;
-    z-index: 10;
-  }
-}
-
-/* ── Drop indicators: after (line below) ───────────────────────────────── */
-.dropAfter {
-  &::after {
-    content: "";
-    position: absolute;
-    bottom: -2px;
-    left: 4px;
-    right: 4px;
-    height: 2px;
-    background: var(--brand-primary, #6366f1);
-    border-radius: 2px;
-    pointer-events: none;
-    z-index: 10;
-  }
-}
-
-/* ── Drop inside: valid parent target ──────────────────────────────────── */
-.dropInside {
-  background: rgba(99, 102, 241, 0.08) !important;
-  border: 1px dashed #6366f1 !important;
-  box-shadow: none !important;
-}
-
-/* ── Drop inside: invalid parent (depth overflow or descendant) ─────────── */
-.dropInsideInvalid {
-  background: rgba(239, 68, 68, 0.06) !important;
-  border: 1px dashed #ef4444 !important;
-  box-shadow: none !important;
-}
-
-/* ── DragOverlay ghost card ─────────────────────────────────────────────── */
-.dragOverlayGhost {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: #ffffff;
-  border: 1px solid #c7d4ff;
-  border-radius: 10px;
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.12),
-    0 2px 8px rgba(99, 102, 241, 0.15);
-  transform: scale(1.02);
-  cursor: grabbing;
-  max-width: 240px;
-}
-
-.dragOverlayIcon {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--brand-primary, #6366f1);
-  background: #e8eeff;
-  flex-shrink: 0;
-}
-
-.dragOverlayName {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--color-gray-800, #1e293b);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* ── Node main content area: contains drag handle, expand btn, select btn ── */
-.treeNodeMain {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  flex: 1;
-  position: relative;
-
-  /* ── Nested row indicator ────────────────────────────────────────────────
-     Short (2px × 16px) pill anchored to the parent's drag-handle column.
-     Layout per row: [ paddingLeft = 8 + D×20 ] [ grab 24px ] [ chevron ] …
-     Parent drag-handle center = 8 + (D-1)×20 + 12 = D×20
-     Subtract 1px to visually center the 2px pill on that column.
-     --tree-depth is set as an inline CSS variable by CatalogTreeNode.tsx.
-  ─────────────────────────────────────────────────────────────────────── */
-  &[data-depth]:not([data-depth="0"])::before {
-    content: "";
-    position: absolute;
-    left: calc(var(--tree-depth, 1) * 20px - 1px);
-    top: 50%;
-    transform: translateY(-50%);
-    width: 2px;
-    height: 16px;
-    border-radius: 2px;
-    background: rgba(120, 130, 160, 0.25);
-    pointer-events: none;
-  }
-}
-
-/* ── Drag handle: slightly more visible at rest ─────────────────────────── */
-.treeDragHandle {
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-sm, 8px);
-  background: transparent;
-  /* Resting: gray-300 instead of gray-400 — faintly visible without hover */
-  color: var(--color-gray-300, #cbd5e1);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-  transition:
-    color 0.12s ease,
-    background 0.12s ease;
-
-  /* Show at full strength and background on hover */
-  .treeNodeRow:hover &,
-  .treeNodeRow:focus-within & {
-    color: var(--color-gray-500, #64748b);
-  }
+  min-height: var(--space-32);
+  padding-right: var(--space-4);
+  border-radius: var(--radius-inner);
+  color: var(--text);
 
   &:hover {
-    color: var(--color-gray-600, #475569);
-    background: #e2e8f0;
-  }
-
-  &:active {
-    cursor: grabbing;
+    background: var(--hover-bg);
   }
 }
 
-.treeExpandBtn {
-  width: 24px;
-  height: 24px;
-  border: none;
-  border-radius: var(--radius-sm, 8px);
-  background: transparent;
-  color: var(--color-gray-500, #64748b);
+.treeRowSelected {
+  background: var(--brand-primary-soft);
+  color: var(--on-brand-soft);
+
+  &:hover {
+    background: var(--brand-primary-soft);
+  }
+}
+
+.treeRowDragging {
+  opacity: 0.4;
+}
+
+.treeRowChildDragging {
+  opacity: 0.6;
+}
+
+// Indicatori di rilascio: una linea sopra o sotto, un bordo per «dentro».
+.dropBefore::before,
+.dropAfter::after {
+  content: "";
+  position: absolute;
+  left: var(--space-8);
+  right: var(--space-8);
+  height: 2px;
+  background: var(--brand-primary);
+  border-radius: var(--radius-pill);
+  pointer-events: none;
+}
+
+.dropBefore::before {
+  top: -1px;
+}
+
+.dropAfter::after {
+  bottom: -1px;
+}
+
+.dropInside {
+  box-shadow: inset 0 0 0 2px var(--brand-primary);
+}
+
+.dropInsideInvalid {
+  box-shadow: inset 0 0 0 2px var(--danger);
+}
+
+.dragOverlayGhost {
+  padding: var(--space-6) var(--space-12);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+  box-shadow: var(--shadow-float);
+  color: var(--text);
+}
+
+// Bottoni dell'albero: senza fondo né bordo, il fuoco si vede.
+.treeHandle,
+.treeExpand,
+.treeSelect {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  transition: transform 0.15s ease;
-}
-
-.treeExpandOpen {
-  transform: rotate(90deg);
-}
-
-.treeExpandSpacer {
-  width: 24px;
-  height: 24px;
-  display: inline-block;
-}
-
-.treeSelectBtn {
   border: none;
   background: transparent;
   color: inherit;
   padding: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-  text-align: left;
-  cursor: pointer;
-}
-
-/* ── Folder icon container ──────────────────────────────────────────────── */
-.treeLabelIcon {
-  width: 20px;
-  height: 20px;
-  border-radius: 6px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  /* Nested items use the neutral muted style */
-  color: #7a88a1;
-  background: #edf2f8;
-  flex-shrink: 0;
-  transition:
-    color 0.12s ease,
-    background 0.12s ease;
-}
-
-/* Root-level icon: slightly more saturated to signal parent rank */
-.treeNodeDepth0 .treeLabelIcon {
-  color: #5b6bd8;
-  background: #e8eeff;
-}
-
-.treeLabelText {
-  display: inline-block;
-  min-width: 0;
-  max-width: 100%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* Active state overrides all depth-based icon styles */
-.treeNodeRowActive .treeLabelIcon {
-  color: var(--brand-primary, #6366f1);
-  background: #e2e9ff;
-}
-
-.treeNodeMeta {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding-left: 4px;
-}
-
-.treeNodeCount {
-  min-width: 22px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  border: 1px solid var(--color-gray-200, #e2e8f0);
-  background: #f8fafc;
-  color: var(--color-gray-500, #64748b);
-  font-size: 11px;
-  font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.treeNodeRowActive .treeNodeCount {
-  background: #ffffff;
-  border-color: #ccd8ff;
-  color: #4a5cd8;
-}
-
-.treeNodeActions {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-
-.treeNodeRow:hover .treeNodeActions,
-.treeNodeRow:focus-within .treeNodeActions {
-  opacity: 1;
-  pointer-events: auto;
-}
-
-.treeMenuTrigger {
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-sm, 8px);
-  background: transparent;
-  color: var(--color-gray-500, #64748b);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
 
-  &:hover {
-    background: var(--color-gray-100, #f1f5f9);
-    color: var(--color-gray-800, #1e293b);
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: -2px;
+    border-radius: var(--radius-inner);
   }
 }
 
-.productsPanel {
-  height: 100%;
-  min-height: 0;
+.treeHandle,
+.treeExpand,
+.treeExpandSpacer {
+  flex: 0 0 auto;
+  width: var(--space-20);
+  height: var(--space-24);
+  justify-content: center;
+}
+
+.treeHandle {
+  color: var(--text-muted);
+  cursor: grab;
+  opacity: 0;
+
+  &:active {
+    cursor: grabbing;
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.treeExpand {
+  color: var(--text-muted);
+
+  svg {
+    transform: rotate(0deg);
+  }
+}
+
+.treeExpandOpen svg {
+  transform: rotate(90deg);
+}
+
+// Il rientro porta le linee guida: una riga di 1 px per ogni antenato,
+// sotto il centro del suo chevron (10 px dentro ogni passo da 16). Le righe
+// sono contigue, quindi le linee corrono senza interruzioni fra fratelli.
+.treeIndent {
+  flex: 0 0 auto;
+  align-self: stretch;
+  width: calc(var(--tree-depth, 0) * var(--space-16));
+  // Le righe sono staccate di 4: il rientro sborda di 2 sopra e sotto, così
+  // le linee attraversano lo spazio fra le righe senza interrompersi.
+  margin-block: calc(-1 * var(--space-2));
+  background-image: repeating-linear-gradient(
+    to right,
+    transparent 0 9px,
+    var(--border) 9px 10px,
+    transparent 10px var(--space-16)
+  );
+}
+
+.treeIcon {
+  flex: 0 0 auto;
+  margin: 0 var(--space-6) 0 var(--space-2);
+  color: var(--text-muted);
+}
+
+.treeRowSelected .treeIcon {
+  color: inherit;
+}
+
+.treeSelect {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: var(--space-32);
+  text-align: left;
+}
+
+.treeLabel {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+// Contatore e kebab nello slot finale. Col puntatore (da 768) condividono
+// lo stesso posto: a riposo il numero, al passaggio, al focus e sulla riga
+// scelta il kebab (il numero della scelta resta nella testata della sua
+// card), così il nome ha lo spazio del kebab. Al tocco stanno affiancati.
+.treeTrailing {
+  flex: 0 0 auto;
   display: flex;
-  flex-direction: column;
-  gap: var(--spacing-4, 16px);
-  padding: var(--spacing-6, 24px);
+  align-items: center;
+  gap: var(--space-4);
+  margin-left: var(--space-4);
+}
+
+.treeCount,
+.treeActions {
+  display: inline-flex;
+}
+
+// Il numero si legge e basta: nello slot condiviso non deve prendere il clic
+// destinato al kebab («vuota» è più larga del bottone).
+.treeCount {
+  pointer-events: none;
+}
+
+.treeActions {
+  opacity: 0;
+}
+
+.treeRow:hover,
+.treeRow:focus-within,
+.treeRowSelected {
+  .treeHandle,
+  .treeActions {
+    opacity: 1;
+  }
+}
+
+// Il badge neutro ha il fondo del passaggio: sulla riga al passaggio si
+// staccherebbe solo il numero. Lì prende il fondo della superficie.
+.treeRow:hover:not(.treeRowSelected) .treeBadge {
+  background: var(--surface);
+}
+
+// Il kebab aperto resta visibile anche quando il puntatore è nel menu.
+.treeActions:has([data-state="open"]) {
+  opacity: 1;
+}
+
+@media (hover: hover) and (min-width: 768px) {
+  .treeTrailing {
+    display: grid;
+    justify-items: end;
+  }
+
+  .treeCount,
+  .treeActions {
+    grid-area: 1 / 1;
+  }
+
+  .treeRow:hover,
+  .treeRow:focus-within,
+  .treeRowSelected,
+  .treeTrailing:has([data-state="open"]) {
+    .treeCount {
+      opacity: 0;
+    }
+  }
+}
+
+// Su uno schermo touch (anche un tablet fra 768 e 1023) non c'è passaggio
+// del puntatore: maniglia e kebab restano a vista, come nelle card.
+@media (hover: none) {
+  .treeHandle,
+  .treeActions {
+    opacity: 1;
+  }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 // Wraps DndContext → DataTable in the split-pane right column.
-// Constrained flex column so DataTable's probe measures real space
-// and caps to the pane instead of scrolling the whole page.
+// Colonna flex vincolata: la sonda della DataTable misura lo spazio vero
+// della card invece di far scorrere la pagina.
 .tableCard {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   min-height: 0;
-}
-
-.productsHeader {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-2, 8px);
-}
-
-// Hairline di appoggio sotto il gruppo Tabs (Prodotti/Traduzioni): l'indicatore
-// del componente (bottom:-1px) si sovrappone al bordo → chiusura visiva a filo,
-// come nel PageHeaderSlot. Scoped a questa card, non al componente Tabs.
-.categoryTabsBar {
-  border-bottom: 1px solid var(--color-gray-200, #e2e8f0);
-
-  // Il tab-button (Tabs variant default) ha 14px di padding-sx interno, che
-  // indenta il testo "Prodotti" rispetto a search bar / header tabella sotto.
-  // Tiro solo il gruppo tab (figlio = Tabs.root) di -14px per allinearlo a filo
-  // bordo sinistro; la hairline resta full-width perché il margin è sul figlio,
-  // non sul wrapper. Area cliccabile del button invariata (solo shift visivo).
-  > :first-child {
-    margin-left: -14px;
-  }
-}
-
-.productsTitleRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-3, 12px);
-}
-
-.productsTitleBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
-
-.productsTitleHeading {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2, 8px);
-  min-width: 0;
-}
-
-.categorySettingsButton {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: var(--radius-sm, 8px);
-  background: transparent;
-  color: var(--color-gray-500, #64748b);
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-
-  &:hover {
-    background: var(--color-gray-100, #f1f5f9);
-    color: var(--text, #0f172a);
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--brand-primary, #2563eb);
-    outline-offset: 2px;
-  }
 }
 
 .translationsWrap {
@@ -557,292 +319,174 @@
   min-height: 0;
 }
 
-.productsTools {
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  gap: var(--spacing-3, 12px);
-  flex-wrap: wrap;
-}
-
-.quickSearchWrap {
-  width: 100%;
-}
-
+// ── Riga del prodotto (passo 2 P6) ─────────────────────────────────────
 .productNameCell {
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-2);
+}
+
+// Una variante sotto il suo prodotto: rientrata di un chevron.
+.productVariant {
+  padding-left: var(--space-20);
 }
 
 .productNameRow {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-4);
   min-width: 0;
 }
 
+// Il nome va a capo fino a due righe: nella colonna stretta (768, 375)
+// un'ellissi dopo cinque lettere non dice quale pizza è.
 .productNameMain {
-  white-space: nowrap;
+  min-width: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: break-word;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
-.productSku {
-  color: var(--color-gray-500, #64748b);
+// Segni e codice sotto il nome, allineati al testo e non al chevron.
+.productMeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-6);
 }
 
-.productThumb {
-  width: 38px;
-  height: 38px;
-  border-radius: var(--radius-sm, 8px);
-  border: 1px solid var(--color-gray-200, #e2e8f0);
-  background: #f8fafc;
-  color: var(--color-gray-400, #94a3b8);
+.productMetaIndented {
+  padding-left: var(--space-20);
+}
+
+.productExpandBtn,
+.productExpandSpacer {
+  flex: 0 0 auto;
+  width: var(--space-16);
+  height: var(--space-16);
+}
+
+.productExpandBtn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-}
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-inner);
 
-.dragCell {
-  color: var(--color-gray-400, #94a3b8);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  cursor: grab;
-
-  &:active {
-    cursor: grabbing;
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
   }
 }
 
-.productsEmptySelection {
-  min-height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  padding: var(--spacing-8, 32px);
+.price {
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
 }
 
-.emptyCard {
-  max-width: 420px;
+// ── Drawer «Aggiungi prodotti» (passo 2 P7) ────────────────────────────
+.drawerHeading {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: var(--spacing-3, 12px);
+  align-items: flex-start;
+  gap: var(--space-4);
 }
 
-.loadingPanel {
-  height: 100%;
+// L'uscita verso la creazione: in fondo all'elenco, una riga e un bottone.
+.createExit {
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: var(--color-gray-500, #64748b);
+  gap: var(--space-8);
+  padding-top: var(--space-8);
+  border-top: 1px solid var(--border);
+}
+
+// Il trigger del tooltip attorno al «+»: un bottone spento non riceve il
+// puntatore, lo span sì.
+.tooltipTrigger {
+  display: inline-flex;
+}
+
+.phoneView {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-8);
+
+  > section {
+    align-self: stretch;
+  }
+}
+
+.backToTree {
+  margin-left: calc(-1 * var(--space-8));
 }
 
 .form {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-4, 16px);
+  gap: var(--space-16);
   height: 100%;
   min-height: 0;
 }
 
-.deleteWarning {
-  padding: var(--spacing-4, 16px);
-  background-color: var(--color-red-50, #fef2f2);
-  border-radius: var(--radius-md, 12px);
-  border: 1px solid var(--color-red-200, #fecaca);
-  color: var(--color-red-900, #7f1d1d);
-}
-
-.assignResults {
-  margin-top: var(--spacing-4, 16px);
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-2, 8px);
-}
-
 .assignTableWrap {
-  margin-top: var(--spacing-3, 12px);
+  margin-top: var(--space-12);
   flex: 1 1 auto;
   min-height: 0;
   display: flex;
   flex-direction: column;
 }
 
-.assignRowInheritedWrapper {
-  display: contents;
-
-  > * {
-    opacity: 0.55;
-
-    input[type="checkbox"] {
-      cursor: not-allowed;
-    }
+// Fra 768 e 1023 (sidebar collassata) due colonne, l'albero a 240.
+@media (min-width: 768px) and (max-width: 1023px) {
+  .layout {
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: var(--space-16);
   }
 }
 
-.assignBackBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--color-gray-500, #64748b);
-  transition: color 0.12s ease;
-
-  &:hover {
-    color: var(--color-gray-800, #1e293b);
+// Sotto 768 due viste, una alla volta (passo 2 P8): la pagina scorre, le
+// card prendono l'altezza del contenuto.
+@media (max-width: 767px) {
+  .engine,
+  .layout {
+    flex: none;
+    height: auto;
   }
-}
 
-.productExpandBtn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 2px;
-  color: var(--color-gray-500);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-
-.productExpandSpacer {
-  width: 18px;
-  flex-shrink: 0;
-}
-
-.assignNameCell {
-  font-size: 14px;
-  font-weight: 500;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.assignPriceCell {
-  font-size: 13px;
-  color: var(--color-gray-500);
-  text-align: right;
-}
-
-.assignRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--spacing-3, 12px);
-  border: 1px solid var(--color-gray-200, #e2e8f0);
-  border-radius: var(--radius-md, 12px);
-  padding: var(--spacing-3, 12px);
-}
-
-.assignMeta {
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.dropdownContent {
-  background-color: white;
-  border-radius: var(--radius-md, 12px);
-  padding: 6px;
-  box-shadow:
-    0 10px 38px -10px rgba(22, 23, 24, 0.35),
-    0 10px 20px -15px rgba(22, 23, 24, 0.2);
-  min-width: 180px;
-  border: 1px solid var(--color-gray-200, #e2e8f0);
-  animation-duration: 200ms;
-  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
-  z-index: 50;
-}
-
-.dropdownItem {
-  font-size: 13px;
-  line-height: 1;
-  color: var(--color-gray-700, #334155);
-  border-radius: var(--radius-sm, 8px);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 32px;
-  padding: 0 12px;
-  position: relative;
-  user-select: none;
-  outline: none;
-  cursor: pointer;
-
-  &[data-highlighted] {
-    background-color: var(--color-gray-100, #f1f5f9);
-    color: var(--color-gray-900, #0f172a);
-  }
-}
-
-.dropdownSeparator {
-  height: 1px;
-  background-color: var(--color-gray-200, #e2e8f0);
-  margin: 6px -6px;
-}
-
-.danger {
-  color: var(--color-red-600, #dc2626);
-
-  &[data-highlighted] {
-    background-color: var(--color-red-50, #fef2f2);
-    color: var(--color-red-700, #b91c1c);
-  }
-}
-
-/* ── Newly-added product row: flash highlight then fade ──────────────────── */
-@keyframes rowFlash {
-  0% {
-    background-color: rgba(99, 102, 241, 0.12);
-    box-shadow: inset 0 0 0 1px rgba(99, 102, 241, 0.3);
-  }
-  100% {
-    background-color: transparent;
-    box-shadow: none;
-  }
-}
-
-.rowNewlyAdded {
-  animation: rowFlash 2s ease-out forwards;
-}
-
-/* ── "Crea e configura" + "Crea e associa" side-by-side ──────────────────── */
-.newProductActions {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-2, 8px);
-}
-
-@media (max-width: 1023px) {
-  .catalogLayout {
+  .layout {
     grid-template-columns: 1fr;
-    grid-template-rows: 280px minmax(0, 1fr);
   }
 
-  .catalogTreePane {
-    min-width: 0;
-    border-right: none;
-    border-bottom: 1px solid var(--color-gray-200, #e2e8f0);
+  .treeCard,
+  .categoryCard {
+    overflow: visible;
   }
 
-  .quickSearchWrap {
-    min-width: 0;
-    width: 100%;
+  .treeBody,
+  .categoryBody,
+  .tableCard {
+    flex: none;
+    overflow: visible;
   }
 
-  .productsPanel {
-    padding: var(--spacing-4, 16px);
+  // La riga dell'albero è un bersaglio da dito: 40, come la voce della
+  // sidebar; maniglia e kebab a vista (niente passaggio del puntatore).
+  .treeRow,
+  .treeSelect {
+    min-height: calc(var(--space-32) + var(--space-8));
+  }
+
+  .treeHandle,
+  .treeActions {
+    opacity: 1;
   }
 }

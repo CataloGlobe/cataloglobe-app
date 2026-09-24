@@ -127,6 +127,12 @@
   max-width: 420px;
 }
 
+// Una card stretta come l'albero di Menù.
+.narrowCard {
+  width: 100%;
+  max-width: 280px;
+}
+
 // Controllo nudo per mostrare FormField da solo (non è un componente).
 .nakedInput {
   box-sizing: border-box;

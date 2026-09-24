@@ -13,3 +13,12 @@
   gap: var(--space-4);
   color: var(--warning-500);
 }
+
+// Nome e slug, e accanto «N da gestire» quando la sede ha richieste in attesa.
+.nameCell {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-8);
+  min-width: 0;
+}

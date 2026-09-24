@@ -340,7 +340,7 @@ export default function ActivityOrdiniPrenotazioniRoute() {
                         {isReservationsLocked && lockedCaption}
                         <Text variant="caption" colorVariant="muted">
                             Le richieste che arrivano si gestiscono in{" "}
-                            <Link to={`/business/${tenantId}/reservations`} className={styles.link}>
+                            <Link to={`/business/${tenantId}/locations/${activity.id}/prenotazioni`} className={styles.link}>
                                 Prenotazioni
                             </Link>
                             .

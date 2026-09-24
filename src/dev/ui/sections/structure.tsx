@@ -1,6 +1,6 @@
 /* eslint-disable react-refresh/only-export-components -- galleria dev: componenti di sezione + elenco nello stesso file, niente fast refresh da preservare */
 import { useState } from "react";
-import { ChevronRight, MapPin, Store, CheckCircle2, Circle, Pencil, Trash2, Palette } from "lucide-react";
+import { ChevronRight, MapPin, Store, CheckCircle2, Circle, Pencil, Trash2, Palette, CalendarClock } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
@@ -95,6 +95,14 @@ function ListRowSection() {
                     <ListRow leading={<MapPin />} title="Trattoria del Porto" subtitle="Via Roma 1, Milano" trailing={<ChevronRight />} onClick={noop} />
                     <ListRow leading={<MapPin />} title="Osteria della Piazza" subtitle="Piazza Castello 12, Torino · un sottotitolo lunghissimo che va in ellissi perché la riga è una sola" trailing={<ChevronRight />} onClick={noop} />
                     <ListRow leading={<MapPin />} title="Sede senza indirizzo" trailing={<ChevronRight />} onClick={noop} />
+                    <ListRow title="Cheeseburger" subtitle="Cottura: al sangue · + bacon, + cheddar, + cipolla croccante, + salsa BBQ, + jalapeños, + uovo · Note: senza sale, allergia alla senape — da portare insieme agli antipasti" meta="2× · € 21,80" wrapSubtitle="full" metaInline />
+                </Card>
+            </State>
+            <State label="dense (48): elenco di servizio — ora · nome · persone · stato" column>
+                <Card flush>
+                    <ListRow dense onClick={noop} leading={<Text variant="body-sm" weight={600}>20:30</Text>} title="Sara Conti" subtitle="2 persone" meta={<StatusBadge variant="success" label="Confermata" />} metaInline />
+                    <ListRow dense onClick={noop} leading={<Text variant="body-sm" weight={600}>21:15</Text>} title="Elena Riva" subtitle="5 persone · Compleanno, se possibile tavolo tranquillo" meta={<StatusBadge variant="warning" label="Da gestire" />} metaInline />
+                    <ListRow dense muted onClick={noop} leading={<Text variant="body-sm" weight={600}>12:30</Text>} title="Anna Neri" subtitle="2 persone" meta={<StatusBadge variant="neutral" label="Annullata" />} metaInline />
                 </Card>
             </State>
             <State label="membro: avatar · nome · ruolo (Badge) · sedi (meta) · azioni" column>
@@ -166,9 +174,10 @@ function ListRowSection() {
                     <ListRow leading={<MapPin />} title="Vai alla galleria (link)" subtitle="react-router Link" to="/dev/ui" trailing={<ChevronRight />} />
                 </Card>
             </State>
-            <State label="muted (la voce a zero, resta elencata) · caricamento" column>
+            <State label="muted: la voce a zero (ferma) · la spenta che si apre (onClick) · caricamento" column>
                 <Card flush>
-                    <ListRow leading={<Store />} title="Prenotazioni" subtitle="0 questa settimana" meta={<Badge>0</Badge>} muted onClick={noop} />
+                    <ListRow leading={<Store />} title="Prenotazioni" subtitle="0 questa settimana" meta={<Badge>0</Badge>} muted />
+                    <ListRow leading={<CalendarClock />} title="Luca Verdi" subtitle="lun 21 set · 21:00 · richiesta scaduta" muted onClick={noop} />
                     <ListRow loading />
                     <ListRow loading />
                 </Card>
@@ -249,6 +258,7 @@ function CardGridSection() {
                         onClick={noop}
                     />
                     <CardGridItem media={<Palette size={40} strokeWidth={1.25} />} title="Stile «Notte»" subtitle="Scuro, serif" onClick={noop} />
+                    <CardGridItem title="T4 · Sala" subtitle="4 posti · da 35 min" badge={<StatusBadge variant="success" label="Aperto" />} footer="2 comande · 38,50 €" onClick={noop} />
                     <CardGridItem
                         media={<Palette size={40} strokeWidth={1.25} />}
                         title="Uno stile con un nome davvero troppo lungo per stare su una riga sola"
@@ -257,8 +267,16 @@ function CardGridSection() {
                     />
                 </CardGrid>
             </State>
-            <State label="caricamento (card Skeleton)" column>
+            <State label="caricamento (card Skeleton): la sagoma è quella della card che arriva — con media (default)" column>
                 <CardGrid loading skeletonCount={3} />
+            </State>
+            <State label="caricamento senza media, con piè (i menù): skeleton e card alti uguali, 120" column>
+                <CardGrid loading skeletonCount={3} skeletonShape={{ media: false, footer: true }} />
+                <CardGrid>
+                    {["Carta", "Pranzo", "Vini"].map(name => (
+                        <CardGridItem key={name} title={name} subtitle="7 categorie · 22 prodotti" footer="Creato il 21/09/2026" onClick={noop} />
+                    ))}
+                </CardGrid>
             </State>
             <State label="vuoto: la pagina rende EmptyState page, non il grid" column>
                 <EmptyState

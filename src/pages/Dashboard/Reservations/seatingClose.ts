@@ -86,10 +86,10 @@ export function closeAnswerLabel(action: SeatingCloseAction, pendingOrders: numb
 }
 
 // ── Il segnale nella lista ────────────────────────────────────────────────
-// Frammento, niente punto. Grigio come «Aperta da un servizio precedente»:
+// Frammento corto, niente punto (è un badge). Grigio come «Servizio precedente»:
 // la gente sta mangiando, non è un'urgenza. Serve soprattutto sulle tavolate
 // che lo spazzino ha saltato.
 
 export function formatPendingOrdersRow(pendingOrders: number): string {
-    return pendingOrders === 1 ? "1 ordine ancora aperto" : `${pendingOrders} ordini ancora aperti`;
+    return pendingOrders === 1 ? "1 ordine aperto" : `${pendingOrders} ordini aperti`;
 }

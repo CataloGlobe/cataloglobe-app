@@ -30,6 +30,12 @@
   --badge-color: var(--on-brand-soft); // in scuro sale a indigo-300 (3,7 → 5,5:1)
 }
 
+.outline {
+  --badge-bg: transparent;
+  --badge-color: var(--text-muted);
+  box-shadow: inset 0 0 0 1px var(--border);
+}
+
 /* ===== Deprecate — rendono come prima, sui token. Il colore semantico
    appartiene a StatusBadge (regola 8: il colore non è mai da solo). Si
    tolgono nel lotto 6, dopo la migrazione delle pagine. ===== */

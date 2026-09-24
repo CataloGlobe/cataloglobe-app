@@ -1,12 +1,17 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { Link, useParams, useSearchParams } from "react-router-dom";
-import { AlertCircle, Calendar, ChevronLeft, ChevronRight, ClipboardList, Plus, RefreshCw, RotateCcw, Volume2, VolumeX } from "lucide-react";
+import { AlertCircle, Calendar, ChevronLeft, ChevronRight, Plus, RefreshCw, RotateCcw, Volume2, VolumeX } from "lucide-react";
 
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { Select } from "@/components/ui/Select/Select";
+import { DateInput } from "@/components/ui/Input/DateInput";
+import Text from "@/components/ui/Text/Text";
+import { IconButton } from "@/components/ui/Button/IconButton";
+import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import { Button } from "@/components/ui/Button/Button";
 import { TablesLiveView } from "@/components/Tables/TablesLiveView/TablesLiveView";
@@ -63,22 +68,6 @@ import styles from "./Orders.module.scss";
 
 type MainTab = "comande" | "tavoli" | "storico";
 type HistoryFilter = "all" | "delivered" | "cancelled";
-
-// Label giorno Storico (es. "sab 5 lug"). Costruito da campi locali della
-// data civile, coerente con dateLocal (mai `new Date("YYYY-MM-DD")`).
-const historyDayFormatter = new Intl.DateTimeFormat("it-IT", {
-    weekday: "short",
-    day: "numeric",
-    month: "short"
-});
-function formatHistoryDay(iso: string): string {
-    const y = Number(iso.slice(0, 4));
-    const mo = Number(iso.slice(5, 7));
-    const d = Number(iso.slice(8, 10));
-    if (!y || !mo || !d) return iso;
-    const raw = historyDayFormatter.format(new Date(y, mo - 1, d));
-    return raw.charAt(0).toUpperCase() + raw.slice(1);
-}
 
 /**
  * Riga Storico con gli storni figli agganciati. `storni` vive qui (non in
@@ -152,9 +141,9 @@ export default function Orders() {
     const { canEdit } = useSubscriptionGuard();
     const [searchParams, setSearchParams] = useSearchParams();
 
-    // La sede arriva dal path dentro il contesto (`/locations/:id/comande`),
-    // altrimenti dal selettore navbar in modalità single-site (niente "Tutte
-    // le sedi", localStorage cross-session "cataloglobe:orders:lastActivityId").
+    // La sede arriva dal path: la pagina è montata solo dentro il contesto
+    // (`/locations/:id/comande`, §46.1), quindi qui c'è sempre. Il `null` del
+    // tipo resta perché `useActivityScope` serve anche le pagine d'azienda.
     const sedeScope = useActivityScope({ routeKey: "orders" });
     const selectedActivityId: string | null = sedeScope.activityId;
 
@@ -413,24 +402,16 @@ export default function Orders() {
                 >
                     Aggiorna
                 </Button>
-                <button
-                    type="button"
-                    className={styles.soundToggle}
-                    onClick={toggleSound}
-                    aria-pressed={soundEnabled}
-                    aria-label={
-                        soundEnabled
-                            ? "Disattiva suoni notifiche"
-                            : "Attiva suoni notifiche"
-                    }
-                    title={
-                        soundEnabled
-                            ? "Suoni notifiche attivi"
-                            : "Suoni notifiche disattivati"
-                    }
-                >
-                    {soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
-                </button>
+                <Tooltip content={soundEnabled ? "Suoni notifiche attivi" : "Suoni notifiche disattivati"}>
+                    <IconButton
+                        icon={soundEnabled ? <Volume2 size={18} /> : <VolumeX size={18} />}
+                        variant="secondary"
+                        className={soundEnabled ? undefined : styles.soundOff}
+                        onClick={toggleSound}
+                        aria-pressed={soundEnabled}
+                        aria-label={soundEnabled ? "Disattiva suoni notifiche" : "Attiva suoni notifiche"}
+                    />
+                </Tooltip>
             </div>
         ),
         [canCreateOrder, canEdit, selectedActivityId, refreshAll, isLoadingOrders, soundEnabled, toggleSound]
@@ -585,10 +566,11 @@ export default function Orders() {
 
     // ── Storico: navigazione giorno operativo ──
     const isToday = historyDate === today;
-    const dayLabel = useMemo(() => {
+    // La data la mostra il campo; «Oggi» / «Ieri» restano accanto, come testo.
+    const relativeDayLabel = useMemo(() => {
         if (historyDate === today) return "Oggi";
         if (historyDate === shiftIsoDate(today, -1)) return "Ieri";
-        return formatHistoryDay(historyDate);
+        return null;
     }, [historyDate, today]);
     const goPrevDay = useCallback(() => {
         setHistoryDate(d => shiftIsoDate(d, -1));
@@ -1074,51 +1056,41 @@ export default function Orders() {
 
                     {tables.length > 0 && (
                         <div className={styles.filtersRow}>
-                            <select
-                                className={styles.tableFilter}
+                            <Select
+                                aria-label="Filtra per tavolo"
+                                containerClassName={styles.tableFilter}
                                 value={tableFilter}
                                 onChange={e => setTableFilter(e.target.value)}
-                            >
-                                <option value="all">Tutti i tavoli</option>
-                                {tables.map(t => (
-                                    <option key={t.id} value={t.id}>
-                                        {t.label}
-                                    </option>
-                                ))}
-                            </select>
+                                options={[
+                                    { value: "all", label: "Tutti i tavoli" },
+                                    ...tables.map(t => ({ value: t.id, label: t.label }))
+                                ]}
+                            />
                         </div>
                     )}
 
-                    {!selectedActivityId ? (
-                        <EmptyState
-                            icon={<ClipboardList size={40} strokeWidth={1.5} />}
-                            title="Seleziona una sede"
-                            description="Scegli una sede per visualizzare le comande in corso."
-                        />
-                    ) : (
-                        <OrdersKanban
-                            orders={filteredOrders}
-                            tables={tables}
-                            operatorNames={operatorNames}
-                            comandaPrintStates={comandaPrintStates}
-                            onReprint={handleReprint}
-                            printersHref={printersHref}
-                            isLoading={isLoadingOrders}
-                            error={ordersError}
-                            onRetry={() => void refetchOrders()}
-                            onAcknowledge={handleAcknowledge}
-                            onMarkReady={handleMarkReady}
-                            onDeliver={handleDeliver}
-                            onCancel={handleCancelOpen}
-                            onCancelItem={handleCancelItemOpen}
-                            onViewDetail={handleViewDetail}
-                            onUnacknowledge={handleUnacknowledge}
-                            onUnready={handleUnready}
-                            pulseSubmittedToken={pulseToken}
-                            canManage={canManage}
-                            canEdit={canEdit}
-                        />
-                    )}
+                    <OrdersKanban
+                        orders={filteredOrders}
+                        tables={tables}
+                        operatorNames={operatorNames}
+                        comandaPrintStates={comandaPrintStates}
+                        onReprint={handleReprint}
+                        printersHref={printersHref}
+                        isLoading={isLoadingOrders}
+                        error={ordersError}
+                        onRetry={() => void refetchOrders()}
+                        onAcknowledge={handleAcknowledge}
+                        onMarkReady={handleMarkReady}
+                        onDeliver={handleDeliver}
+                        onCancel={handleCancelOpen}
+                        onCancelItem={handleCancelItemOpen}
+                        onViewDetail={handleViewDetail}
+                        onUnacknowledge={handleUnacknowledge}
+                        onUnready={handleUnready}
+                        pulseSubmittedToken={pulseToken}
+                        canManage={canManage}
+                        canEdit={canEdit}
+                    />
                 </>
             )}
 
@@ -1131,13 +1103,7 @@ export default function Orders() {
 
             {mainTab === "storico" && (
                 <>
-                    {!selectedActivityId ? (
-                        <EmptyState
-                            icon={<ClipboardList size={40} strokeWidth={1.5} />}
-                            title="Seleziona una sede"
-                            description="Scegli una sede per visualizzare lo storico della giornata."
-                        />
-                    ) : historyError ? (
+                    {historyError ? (
                         <EmptyState
                             icon={<AlertCircle size={40} strokeWidth={1.5} />}
                             title="Errore caricamento storico"
@@ -1165,35 +1131,32 @@ export default function Orders() {
                                     ]}
                                 />
                                 <div className={styles.dayNav}>
-                                    <button
-                                        type="button"
-                                        className={styles.dayNavBtn}
+                                    <IconButton
+                                        icon={<ChevronLeft size={18} />}
+                                        variant="secondary"
                                         onClick={goPrevDay}
                                         aria-label="Giorno precedente"
-                                    >
-                                        <ChevronLeft size={18} />
-                                    </button>
-                                    <label className={styles.dayField}>
-                                        <Calendar size={15} aria-hidden="true" />
-                                        <span className={styles.dayLabel}>{dayLabel}</span>
-                                        <input
-                                            type="date"
-                                            className={styles.dayInput}
-                                            value={historyDate}
-                                            max={today}
-                                            onChange={e => onPickDay(e.target.value)}
-                                            aria-label="Scegli il giorno dello storico"
-                                        />
-                                    </label>
-                                    <button
-                                        type="button"
-                                        className={styles.dayNavBtn}
+                                    />
+                                    <DateInput
+                                        containerClassName={styles.dayField}
+                                        startAdornment={<Calendar size={16} aria-hidden="true" />}
+                                        value={historyDate}
+                                        max={today}
+                                        onChange={e => onPickDay(e.target.value)}
+                                        aria-label="Scegli il giorno dello storico"
+                                    />
+                                    <IconButton
+                                        icon={<ChevronRight size={18} />}
+                                        variant="secondary"
                                         onClick={goNextDay}
                                         disabled={isToday}
                                         aria-label="Giorno successivo"
-                                    >
-                                        <ChevronRight size={18} />
-                                    </button>
+                                    />
+                                    {relativeDayLabel && (
+                                        <Text variant="body-sm" colorVariant="muted">
+                                            {relativeDayLabel}
+                                        </Text>
+                                    )}
                                 </div>
                             </div>
                             <DataTable<HistoryRowWithStorni>

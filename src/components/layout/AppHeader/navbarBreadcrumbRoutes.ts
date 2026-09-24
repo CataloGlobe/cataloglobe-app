@@ -41,7 +41,9 @@ export const SEDE_NAVBAR_ROUTES = new Set<BusinessRouteKey>([
  *  (mai SCOPE_ALL, persistenza localStorage). Sottoinsieme di
  *  `SEDE_NAVBAR_ROUTES` per le route con scope-all disabilitato. */
 export const SEDE_SINGLE_SITE_ROUTES = new Set<BusinessRouteKey>([
-    "orders"
+    "orders",
+    // §48.1: `/reservations` porta alla sede, come `/orders`.
+    "reservations"
 ]);
 
 /** Label IT canonica per ogni voce di sidebar. Per le chiavi in

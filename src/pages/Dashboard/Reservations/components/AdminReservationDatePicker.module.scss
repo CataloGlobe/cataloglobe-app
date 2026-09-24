@@ -1,254 +1,151 @@
-/* =============================================================================
-   AdminReservationDatePicker — month header + horizontal day carousel.
-   Dashboard design system (--color-* / --brand-primary). No --pub-* tokens.
-   Permissive: closed days are NOT disabled — they carry a "Chiuso" badge.
-   ========================================================================== */
+/* AdminReservationDatePicker — mese con ‹ › e la striscia dei giorni.
+   Pezzi di sistema (IconButton, Text), colori e misure dai token. Admin
+   permissivo: i giorni chiusi non sono disabilitati, portano «chiuso». */
 
 .wrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    /* min-width:0 + width:100% lets the strip scroll inside the wrapper
-       instead of pushing the form card to the right. */
-    min-width: 0;
-    width: 100%;
-    background: var(--color-surface, #ffffff);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: 10px;
-    padding: 10px 12px 12px;
-    box-sizing: border-box;
-    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  /* min-width:0 + width:100% fanno scorrere la striscia dentro il campo
+     invece di allargare il drawer. */
+  min-width: 0;
+  width: 100%;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: var(--space-8) var(--space-12) var(--space-12);
+  box-sizing: border-box;
 
-    &[data-invalid="true"] {
-        border-color: var(--color-red-200, #fecdd3);
-        box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-red-200, #fecdd3) 50%, transparent);
-    }
+  &[data-invalid="true"] {
+    border-color: var(--text-danger);
+  }
 }
 
-/* ── Header ──────────────────────────────────────────────────────────── */
+/* ── Mese ─────────────────────────────────────────────── */
 
 .header {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    align-items: center;
-    gap: 6px;
-}
-
-.navBtn {
-    appearance: none;
-    -webkit-appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    padding: 0;
-    background: transparent;
-    border: 1px solid transparent;
-    border-radius: 8px;
-    color: var(--color-text-secondary, #4b5563);
-    cursor: pointer;
-    font-family: inherit;
-    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
-
-    &:hover:not(:disabled) {
-        background: var(--hover-bg, #f1f5f9);
-        color: var(--color-text-primary, #111827);
-    }
-
-    &:focus-visible {
-        outline: none;
-        box-shadow: 0 0 0 3px
-            color-mix(in srgb, var(--brand-primary, #6366f1) 24%, transparent);
-    }
-
-    &:disabled {
-        color: var(--color-text-muted, #6b7280);
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-4);
 }
 
 .monthLabel {
-    text-align: center;
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--color-text-primary, #111827);
-    letter-spacing: 0.01em;
-    line-height: 1.1;
-    text-transform: capitalize;
-    font-variant-numeric: tabular-nums;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 
-/* ── Day strip ───────────────────────────────────────────────────────── */
+/* ── Striscia dei giorni ──────────────────────────────── */
 
 .strip {
-    list-style: none;
-    margin: 0;
-    padding: 4px 0 6px;
-    display: flex;
-    flex-wrap: nowrap;
-    gap: 6px;
-    width: 100%;
-    min-width: 0;
-    max-width: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    overscroll-behavior-x: contain;
-    scroll-snap-type: x proximity;
-    scrollbar-width: thin;
-    scrollbar-color: color-mix(in srgb, var(--color-text-muted, #6b7280) 35%, transparent)
-        transparent;
-
-    &::-webkit-scrollbar {
-        height: 6px;
-    }
-    &::-webkit-scrollbar-track {
-        background: transparent;
-    }
-    &::-webkit-scrollbar-thumb {
-        background: color-mix(in srgb, var(--color-text-muted, #6b7280) 35%, transparent);
-        border-radius: 3px;
-    }
-}
-
-.cell {
-    flex: 0 0 auto;
-    flex-shrink: 0;
-    scroll-snap-align: start;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: var(--space-4);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-4) 0 var(--space-4);
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  scroll-snap-type: x proximity;
+  scrollbar-width: thin;
 }
 
 .dayBtn {
-    position: relative;
-    appearance: none;
-    -webkit-appearance: none;
-    display: inline-flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    flex-shrink: 0;
-    width: 52px;
-    min-width: 52px;
-    min-height: 62px;
-    padding: 8px 4px;
-    font-family: inherit;
-    background: var(--color-surface, #ffffff);
-    color: var(--color-text-primary, #111827);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease,
-        transform 0.12s ease;
+  position: relative;
+  appearance: none;
+  display: inline-flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 52px;
+  min-height: 62px;
+  padding: var(--space-8) var(--space-4);
+  font-family: inherit;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  scroll-snap-align: start;
+  transition:
+    background-color var(--timing-motion-fast) var(--easing-state),
+    border-color var(--timing-motion-fast) var(--easing-state);
 
-    &:hover:not([data-selected="true"]) {
-        background: var(--hover-bg, #f1f5f9);
-        border-color: var(--color-border-strong, #d1d5db);
-    }
+  &:hover:not([data-selected="true"]) {
+    background: var(--hover-bg);
+  }
 
-    &:active {
-        transform: scale(0.97);
-    }
+  &:focus-visible {
+    outline: none;
+    box-shadow: var(--shadow-focus);
+  }
 
-    &:focus-visible {
-        outline: none;
-        box-shadow: 0 0 0 3px
-            color-mix(in srgb, var(--brand-primary, #6366f1) 24%, transparent);
-        border-color: var(--brand-primary, #6366f1);
-    }
+  /* Giorno chiuso (permissivo): fondo spento, testo muto, segno «chiuso». */
+  &[data-closed="true"]:not([data-selected="true"]) {
+    background: var(--hover-bg);
+    color: var(--text-muted);
+  }
 
-    /* Closed day (permissive): muted background + sober border + small
-       "chiuso" tag below the number. Still cliccabile per ADMIN. */
-    &[data-closed="true"]:not([data-selected="true"]) {
-        background: color-mix(
-            in srgb,
-            var(--color-text-muted, #6b7280) 5%,
-            var(--color-surface, #ffffff)
-        );
-        border-color: color-mix(
-            in srgb,
-            var(--color-text-muted, #6b7280) 22%,
-            transparent
-        );
-        color: var(--color-text-secondary, #4b5563);
-    }
+  /* Giorni passati (solo in modifica): più chiari, ancora sceglibili. */
+  &[data-past="true"]:not([data-selected="true"]) {
+    opacity: 0.78;
+  }
 
-    /* Past dates (in edit mode) carry a faint tint so the operator can
-       still distinguish historical vs upcoming days at a glance. */
-    &[data-past="true"]:not([data-selected="true"]) {
-        opacity: 0.78;
-    }
-
-    &[data-selected="true"] {
-        background: var(--brand-primary, #6366f1);
-        color: var(--color-surface, #ffffff);
-        border-color: var(--brand-primary, #6366f1);
-        box-shadow: 0 2px 8px
-            color-mix(in srgb, var(--brand-primary, #6366f1) 28%, transparent);
-    }
+  &[data-selected="true"] {
+    background: var(--brand-primary);
+    border-color: var(--brand-primary);
+    color: var(--on-brand);
+  }
 }
 
 .weekday {
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    line-height: 1;
-    color: var(--color-text-muted, #6b7280);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
 
-    .dayBtn[data-selected="true"] & {
-        color: var(--color-surface, #ffffff);
-        opacity: 0.85;
-    }
+  .dayBtn[data-selected="true"] & {
+    color: inherit;
+    opacity: 0.85;
+  }
 }
 
 .dayNum {
-    font-size: 17px;
-    font-weight: 700;
-    line-height: 1.1;
-    font-variant-numeric: tabular-nums;
+  color: inherit;
+  font-variant-numeric: tabular-nums;
 }
 
 .closedTag {
-    font-size: 8.5px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    color: var(--color-warning-700, #b45309);
-    line-height: 1;
-    padding: 1px 3px;
-    border-radius: 3px;
-    background: color-mix(
-        in srgb,
-        var(--color-warning-100, #fef3c7) 80%,
-        transparent
-    );
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-inner);
+  background: var(--warning-100);
+  color: var(--warning-800);
+  text-transform: uppercase;
 
-    .dayBtn[data-selected="true"] & {
-        color: var(--color-surface, #ffffff);
-        background: color-mix(in srgb, var(--color-surface, #ffffff) 22%, transparent);
-    }
+  .dayBtn[data-selected="true"] & {
+    background: transparent;
+    color: inherit;
+  }
 }
 
 .todayDot {
-    position: absolute;
-    bottom: 5px;
-    width: 4px;
-    height: 4px;
-    border-radius: 50%;
-    background: var(--brand-primary, #6366f1);
+  position: absolute;
+  bottom: var(--space-4);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--brand-primary);
 
-    .dayBtn[data-selected="true"] & {
-        background: var(--color-surface, #ffffff);
-        opacity: 0.9;
-    }
+  .dayBtn[data-selected="true"] & {
+    background: var(--on-brand);
+  }
 }
 
 .emptyMonth {
-    margin: 0;
-    padding: 14px 4px;
-    text-align: center;
-    font-size: 13px;
-    color: var(--color-text-muted, #6b7280);
+  margin: 0;
+  padding: var(--space-12) var(--space-4);
+  text-align: center;
 }

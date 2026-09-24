@@ -10,6 +10,10 @@ import styles from "./Card.module.scss";
  * Una card non ha hover, focus né lift: se qualcosa è interattivo, lo è il
  * contenuto. Il layout a colonne appartiene alla pagina, non al componente.
  *
+ * `tabs`: una `Tabs variant="line"` in una banda a tutta larghezza, a filo
+ * sotto la testata, con la baseline di 1 px da bordo a bordo; il body sotto
+ * è il pannello della tab attiva.
+ *
  * Compatibilità con la vecchia `Card` (title, noHoverLift, className):
  * `title` diventa l'header con titolo; `noHoverLift` è accettato e ignorato
  * (il lift non esiste più per nessuno); `className` va sul contenitore.
@@ -21,12 +25,22 @@ export interface CardProps {
      * l'header (e il suo divisore) non viene renderizzato.
      */
     title?: string;
+    /**
+     * `id` sul titolo, per chi dà un nome al contenitore della card
+     * (`aria-labelledby`): la card resta una `section` senza nome.
+     */
+    titleId?: string;
     /** Badge/conteggio inline subito dopo il titolo (es. numero varianti). */
     badge?: ReactNode;
     /** Una riga muta che previene errori (es. "Visibili nella pagina pubblica"). */
     subtitle?: string;
-    /** 0–2 bottoni `sm` allineati al titolo, a destra. Mai due primary. */
+    /**
+     * 0–2 bottoni `sm` allineati al titolo, a destra. Mai due primary. Un solo
+     * `IconButton` resta accanto al titolo anche nelle card strette.
+     */
     actions?: ReactNode;
+    /** Una `Tabs variant="line"` con la sua `Tabs.List`, sotto la testata. */
+    tabs?: ReactNode;
     /** `danger`: cornice rossa e titolo danger per le zone distruttive, body neutro. */
     variant?: "default" | "danger";
     /** Body senza padding orizzontale (righe tabellari, DataTable, collassabili). */
@@ -49,9 +63,11 @@ function warnDeprecated(key: string, detail: string) {
 
 export function Card({
     title,
+    titleId,
     badge,
     subtitle,
     actions,
+    tabs,
     variant = "default",
     flush = false,
     className,
@@ -76,7 +92,7 @@ export function Card({
                         {(title || badge) && (
                             <span className={styles.titleRow}>
                                 {title && (
-                                    <Text as="span" variant="title-sm" weight={600} className={styles.title}>
+                                    <Text as="span" id={titleId} variant="title-sm" weight={600} className={styles.title}>
                                         {title}
                                     </Text>
                                 )}
@@ -92,6 +108,7 @@ export function Card({
                     {actions && <div className={styles.actions}>{actions}</div>}
                 </header>
             )}
+            {tabs && <div className={styles.tabs}>{tabs}</div>}
             <div className={bodyClasses}>{children}</div>
         </section>
     );

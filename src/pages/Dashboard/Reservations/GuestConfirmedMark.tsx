@@ -1,4 +1,5 @@
 import { CheckCheck } from "lucide-react";
+import Text from "@/components/ui/Text/Text";
 import styles from "./Reservations.module.scss";
 
 // Segnale che il CLIENTE ha confermato la presenza dal promemoria della sera
@@ -46,10 +47,10 @@ export default function GuestConfirmedMark({ guestConfirmedAt, variant = "inline
 
     if (variant === "labelled") {
         return (
-            <span className={styles.guestConfirmedLabelled}>
+            <Text as="span" variant="caption-xs" weight={500} className={styles.guestConfirmedLabelled}>
                 <CheckCheck size={14} strokeWidth={2} aria-hidden />
                 <span>{when ? `Confermata dal cliente · ${when}` : "Confermata dal cliente"}</span>
-            </span>
+            </Text>
         );
     }
 

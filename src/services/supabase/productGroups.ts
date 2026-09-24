@@ -218,3 +218,16 @@ export async function syncGroupProducts(
         if (error) throw error;
     }
 }
+
+/** Le appartenenze prodotto → gruppo di tutta l'azienda (filtro «Gruppo» del drawer «Aggiungi prodotti»). */
+export async function listProductGroupLinks(
+    tenantId: string
+): Promise<{ product_id: string; group_id: string }[]> {
+    const { data, error } = await supabase
+        .from("product_group_items")
+        .select("product_id, group_id")
+        .eq("tenant_id", tenantId);
+
+    if (error) throw error;
+    return data ?? [];
+}

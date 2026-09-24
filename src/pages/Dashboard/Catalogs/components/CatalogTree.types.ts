@@ -13,3 +13,10 @@ export type CatalogTreeFlatNode = {
     isExpanded: boolean;
 };
 
+/** Le parole del verticale (§22), già in minuscolo: «categoria», «categorie», «prodotto», «prodotti». */
+export type CatalogTreeLabels = {
+    category: string;
+    categoryPlural: string;
+    product: string;
+    productPlural: string;
+};

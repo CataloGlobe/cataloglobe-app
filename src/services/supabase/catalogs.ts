@@ -491,3 +491,16 @@ export async function updateProductSortOrder(
     void revalidatePublicCatalogForTenant(tenantId);
     return data;
 }
+
+/** Un catalogo dell'azienda. Lancia `PGRST116` se non c'è (o è di un'altra azienda). */
+export async function getCatalog(catalogId: string, tenantId: string): Promise<V2Catalog> {
+    const { data, error } = await supabase
+        .from("catalogs")
+        .select("*")
+        .eq("id", catalogId)
+        .eq("tenant_id", tenantId)
+        .single();
+
+    if (error) throw error;
+    return data;
+}

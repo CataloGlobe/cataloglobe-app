@@ -53,6 +53,8 @@ function toEvent(
 
 export function useReservationsRealtime(
     tenantId: string | null,
+    /** La sede della pagina: il canale ne ascolta solo le righe (§48.1). `null` = tutta l'azienda. */
+    activityId: string | null,
     enabled: boolean,
     onEvents: (events: ReservationRealtimeEvent[]) => void,
     onResync: () => void
@@ -84,14 +86,16 @@ export function useReservationsRealtime(
         };
 
         channel = supabase
-            .channel(`reservations-${tenantId}-${Date.now()}`)
+            .channel(`reservations-${activityId ?? tenantId}-${Date.now()}`)
             .on<V2Reservation>(
                 "postgres_changes",
                 {
                     event: "*",
                     schema: "public",
                     table: "reservations",
-                    filter: `tenant_id=eq.${tenantId}`
+                    // Un filtro solo per binding: la sede, se c'è, restringe
+                    // già dentro l'azienda (RLS resta la frontiera).
+                    filter: activityId ? `activity_id=eq.${activityId}` : `tenant_id=eq.${tenantId}`
                 },
                 payload => {
                     const event = toEvent(payload);
@@ -120,5 +124,5 @@ export function useReservationsRealtime(
                 channel = null;
             }
         };
-    }, [tenantId, enabled]);
+    }, [tenantId, activityId, enabled]);
 }

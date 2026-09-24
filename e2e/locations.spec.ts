@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { openBusinessPage } from "./business";
+import { GARBAGNATE_ID, stubReservations } from "./reservationsStub";
 
 /**
  * Sedi (`/business/:businessId/locations`), viste da un amministratore su
@@ -40,6 +41,29 @@ test.describe("Sedi", () => {
         await expect(first.getByText(/^(Pubblicata|Sospesa)/)).toBeVisible();
         await expect(first.getByText("Menu attivo ora")).toBeVisible();
         await expect(first.getByRole("button", { name: "Azioni sede" })).toBeVisible();
+    });
+
+    test("«N da gestire» sulla sede che ha richieste in attesa, e porta alla sua coda (§48.1/3)", async ({ page }) => {
+        // Le prenotazioni finte: 3 in attesa a Garbagnate (una scaduta), 1 a Varedo.
+        await stubReservations(page);
+        await page.reload();
+        await page.getByRole("radio", { name: "Vista griglia" }).click();
+        const main = page.getByRole("main");
+        const garbagnate = main.getByRole("listitem").filter({ hasText: /Garbagnate/ }).first();
+        await expect(garbagnate.getByRole("link", { name: "3 da gestire" })).toBeVisible({ timeout: 15_000 });
+        const varedo = main.getByRole("listitem").filter({ hasText: /Varedo/ }).first();
+        await expect(varedo.getByRole("link", { name: "1 da gestire" })).toBeVisible();
+        // Zero non si dice: una sede senza richieste non ha il segnale.
+        expect(await main.getByRole("link", { name: /da gestire$/ }).count()).toBe(2);
+
+        // Anche nella lista, accanto al nome.
+        await page.getByRole("radio", { name: "Vista lista" }).click();
+        await expect(main.getByRole("link", { name: "3 da gestire" })).toBeVisible();
+        await page.getByRole("radio", { name: "Vista griglia" }).click();
+
+        await garbagnate.getByRole("link", { name: "3 da gestire" }).click();
+        await expect(page).toHaveURL(new RegExp(`/locations/${GARBAGNATE_ID}/prenotazioni`));
+        await expect(page.getByRole("main").getByText("Da gestire", { exact: true }).first()).toBeVisible({ timeout: 15_000 });
     });
 
     test("lista: le colonne della tabella", async ({ page }) => {

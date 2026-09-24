@@ -59,6 +59,13 @@ export function ConfirmDialogShell({
         return () => window.removeEventListener("keydown", onKey);
     }, [isOpen, locked, onClose]);
 
+    // In uscita AnimatePresence tiene il pannello con le props congelate:
+    // `data-state` lo aggiorna questo effetto, così chi guarda sotto
+    // (SystemDrawer, per Esc) vede subito «closed».
+    useEffect(() => {
+        panelRef.current?.setAttribute("data-state", isOpen ? "open" : "closed");
+    }, [isOpen]);
+
     useEffect(() => {
         if (!isOpen) return;
         const original = document.body.style.overflow;
@@ -114,6 +121,9 @@ export function ConfirmDialogShell({
                             ref={panelRef}
                             className={styles.panel}
                             role="alertdialog"
+                            // Un drawer sotto (SystemDrawer) lascia Esc alla
+                            // conferma solo finché è aperta (vedi l'effetto).
+                            data-state="open"
                             aria-modal="true"
                             aria-labelledby={titleId}
                             aria-describedby={message ? descriptionId : undefined}

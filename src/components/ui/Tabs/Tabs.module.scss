@@ -94,6 +94,19 @@
   margin-left: var(--space-8);
 }
 
+// Sotto 400 (telefoni piccoli) tre tab con contatore non stanno in riga col
+// padding pieno: misurato a 375, 352 px di lista in 343. Padding e distanza
+// del contatore si stringono; oltre, la lista scorre con la sfumatura.
+@media (max-width: 399px) {
+  .tab {
+    padding: 0 var(--space-8);
+  }
+
+  .tabBadge {
+    margin-left: var(--space-6);
+  }
+}
+
 // Underline dinamico: un solo elemento assoluto che scivola e si ridimensiona
 // sotto il label della tab attiva. `width` + `transform` inline via JS.
 .indicator {

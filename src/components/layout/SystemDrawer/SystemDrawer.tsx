@@ -1,7 +1,7 @@
 import { ReactNode, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
-import { resolveDrawerSize, type SystemDrawerSize } from "./drawerSize";
+import { resolveDrawerSize, SYSTEM_DRAWER_MOTION_MS, type SystemDrawerSize } from "./drawerSize";
 import styles from "./SystemDrawer.module.scss";
 
 export type { SystemDrawerSize } from "./drawerSize";
@@ -42,6 +42,10 @@ export interface SystemDrawerProps {
      */
     autoFocusFirstInput?: boolean;
 }
+
+/** Livelli che possono stare sopra un drawer e hanno il loro Esc. */
+const LAYER_ABOVE_SELECTOR =
+    '[role="menu"][data-state="open"], [role="listbox"][data-state="open"], [role="alertdialog"][data-state="open"]';
 
 const FIRST_INPUT_SELECTOR =
     'input:not([type="hidden"]):not([disabled]), textarea:not([disabled]), select:not([disabled])';
@@ -135,22 +139,40 @@ export const SystemDrawer = ({
         };
     }, [open]);
 
-    // Handle ESC key
+    // Esc chiude solo il livello più in alto: con un menu, una select o una
+    // conferma aperti sopra il drawer, Esc è loro e il drawer resta. Conta lo
+    // stato (`data-state="open"`), non il `defaultPrevented`: un menu Radix
+    // appena chiuso resta montato per l'animazione d'uscita e consuma ancora
+    // Esc, e un drawer aperto da una sua voce non si chiuderebbe (Comande,
+    // «Vedi dettaglio»).
+    // Due fasi. Lo stato si legge sul document in cattura, prima dei layer:
+    // quando il loro handler chiude, React aggiorna il DOM subito, e dopo si
+    // leggerebbe già «closed». La chiusura avviene su window, come sempre: se
+    // `onClose` apre una conferma (bozza sporca), il listener Esc che lei
+    // aggiunge a window durante questo stesso evento non lo riceve.
     useEffect(() => {
-        const handleEsc = (e: KeyboardEvent) => {
-            if (e.key === "Escape") onClose();
+        if (!open) return;
+        let layerAbove = false;
+        const readLayers = (e: KeyboardEvent) => {
+            if (e.key === "Escape") layerAbove = document.querySelector(LAYER_ABOVE_SELECTOR) !== null;
         };
-        if (open) {
-            window.addEventListener("keydown", handleEsc);
-            return () => window.removeEventListener("keydown", handleEsc);
-        }
+        const handleEsc = (e: KeyboardEvent) => {
+            if (e.key !== "Escape" || layerAbove) return;
+            onClose();
+        };
+        document.addEventListener("keydown", readLayers, { capture: true });
+        window.addEventListener("keydown", handleEsc);
+        return () => {
+            document.removeEventListener("keydown", readLayers, { capture: true });
+            window.removeEventListener("keydown", handleEsc);
+        };
     }, [open, onClose]);
 
     // motion-base (200 ms, easing-surface) su transform e opacity; con
     // prefers-reduced-motion nessuna animazione.
     const transition = reducedMotion
         ? { duration: 0 }
-        : { duration: 0.2, ease: [0.4, 0, 0.2, 1] as const };
+        : { duration: SYSTEM_DRAWER_MOTION_MS / 1000, ease: [0.4, 0, 0.2, 1] as const };
 
     return createPortal(
         <AnimatePresence>

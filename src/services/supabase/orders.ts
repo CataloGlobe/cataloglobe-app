@@ -1148,29 +1148,15 @@ export function subscribeToSessionOrders(
     }
 }
 
-// ─── KPI helpers ──────────────────────────────────────────────────────────
-
-/**
- * Inizio della giornata operativa "oggi" come ISO timestamp.
- * Server-side via RPC `get_operative_day_start()` (DST-aware Europe/Rome,
- * migration 20260601150000). TODO multi-region: parametrizzare il timezone
- * via `activities.iana_timezone` nella RPC.
- */
-export async function fetchOperativeDayStartIso(): Promise<string> {
-    const { data, error } = await supabase.rpc("get_operative_day_start");
-    if (error) throw error;
-    if (typeof data !== "string") {
-        throw new Error("get_operative_day_start returned non-string");
-    }
-    return data;
-}
+// ─── Giornata operativa ─────────────────────────────────────────────────────
 
 /**
  * Bounds half-open [dayStart, dayEnd) di una giornata operativa arbitraria.
  * Server-side via RPC `get_operative_day_bounds(p_date date)` (DST-aware
  * Europe/Rome, migration 20260705120000). Il calcolo della data NON va MAI
  * fatto in JS (`new Date()`): reintrodurrebbe il rischio DST e un secondo
- * punto di verità sul confine. Passthrough puro come fetchOperativeDayStartIso.
+ * punto di verità sul confine. Passthrough puro. TODO multi-region:
+ * parametrizzare il timezone via `activities.iana_timezone` nella RPC.
  *
  * @param dateIso data civile in formato `YYYY-MM-DD` (Europe/Rome). Se
  *   omesso, la RPC usa il DEFAULT = data civile "oggi" Europe/Rome
@@ -1189,48 +1175,6 @@ export async function getOperativeDayBounds(
         throw new Error("get_operative_day_bounds returned unexpected shape");
     }
     return { dayStart: row.day_start, dayEnd: row.day_end };
-}
-
-/**
- * Conta ordini con `submitted_at >= start_of_today_Europe/Rome`. Per KPI bar.
- * Non scarica row dati, usa COUNT lato Postgres.
- */
-export async function getOrdersCountToday(
-    tenantId: string,
-    activityId: string
-): Promise<number> {
-    const fromIso = await fetchOperativeDayStartIso();
-    const { count, error } = await supabase
-        .from("orders")
-        .select("id", { count: "exact", head: true })
-        .eq("tenant_id", tenantId)
-        .eq("activity_id", activityId)
-        .gte("submitted_at", fromIso);
-    if (error) throw error;
-    return count ?? 0;
-}
-
-/**
- * Lista ordini con `status='delivered' AND delivered_at >= start_of_today`.
- * Per KPI tempo medio + count "servite oggi". Non include items (overhead inutile).
- */
-export async function getOrdersServedToday(
-    tenantId: string,
-    activityId: string
-): Promise<V2Order[]> {
-    const fromIso = await fetchOperativeDayStartIso();
-    const { data, error } = await supabase
-        .from("orders")
-        .select("*")
-        .eq("tenant_id", tenantId)
-        .eq("activity_id", activityId)
-        .eq("status", "delivered")
-        .gte("delivered_at", fromIso);
-    if (error) throw error;
-    return ((data ?? []) as unknown as Array<Record<string, unknown>>).map(row => ({
-        ...row,
-        total_amount: Number(row.total_amount)
-    })) as unknown as V2Order[];
 }
 
 /**

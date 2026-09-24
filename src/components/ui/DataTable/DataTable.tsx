@@ -600,7 +600,7 @@ export function DataTable<T>({
                     <div className={styles.footerRight}>
                         {showDropdown && (
                             <label className={styles.pageSizeSelector}>
-                                <Text variant="body-sm" colorVariant="muted">
+                                <Text variant="body-sm" colorVariant="muted" className={styles.pageSizeLabel}>
                                     Per pagina
                                 </Text>
                                 <select

@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/Button/Button";
+import Text from "@/components/ui/Text/Text";
 import {
     CLOSE_BACK_LABEL,
     closeAnswerLabel,
@@ -29,16 +30,20 @@ export function SeatingCloseQuestionBody({ flow }: BodyProps) {
     const deliverable = flow.options.includes("deliver");
     return (
         <div className={styles.drawerBody}>
-            <section className={styles.drawerQuestion} role="alertdialog" aria-live="polite">
-                <h3 className={styles.drawerQuestionTitle}>
+            {/* Non un `alertdialog`: è uno stato del drawer, che è già il dialog.
+                Il cambio si annuncia con la regione live. */}
+            <section className={styles.drawerQuestion} aria-live="polite">
+                <Text as="h3" variant="body" weight={600}>
                     {closeQuestionTitle(flow.pendingOrders)}
-                </h3>
-                <p className={styles.drawerQuestionText}>{closeQuestionText(flow.pendingOrders)}</p>
+                </Text>
+                <Text as="p" variant="body-sm" colorVariant="muted">
+                    {closeQuestionText(flow.pendingOrders)}
+                </Text>
                 {/* «Serviti» non si disegna spento: si dice perché manca. */}
                 {!deliverable && (
-                    <p className={styles.drawerQuestionNote}>
+                    <Text as="p" variant="caption" colorVariant="muted">
                         {notDeliverableReason(flow.pendingOrders)}
-                    </p>
+                    </Text>
                 )}
             </section>
         </div>

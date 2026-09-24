@@ -1,21 +1,22 @@
-import { useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useId, useState } from "react";
 import {
-    ArrowLeft,
-    BellRing,
     Check,
     Clock,
     ConciergeBell,
+    CornerDownRight,
     Receipt,
     RotateCcw,
-    X
+    Wrench
 } from "lucide-react";
 
 import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
 import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
+import { Card } from "@/components/ui/Card/Card";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
 import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
-import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { Switch } from "@/components/ui/Switch/Switch";
 import type { StatusBadgeVariant } from "@/components/ui/StatusBadge/StatusBadge";
 
@@ -38,6 +39,7 @@ import {
     listRectifiableResiduals,
     rectifyOrder
 } from "@/services/supabase/orders";
+import { orderStatusBadge } from "@/pages/Dashboard/Orders/orderStatusBadge";
 import OrderRectifyForm, {
     type RectifyFormState
 } from "@/pages/Dashboard/Orders/OrderRectifyForm";
@@ -85,7 +87,7 @@ interface Props {
      */
     onRequestClose?: (tableId: string) => void;
     /**
-     * Notifica al parent che il flag manutenzione del tavolo e' stato
+     * Notifica al parent che il flag «fuori servizio» (maintenance_mode) del tavolo e' stato
      * toggleato. Il parent dovrebbe rifare il fetch della lista (es.
      * `useTablesLiveRealtime.refetch`) per sincronizzare card, filtri e
      * KPI. `tables` non e' in publication `supabase_realtime`, quindi
@@ -179,33 +181,15 @@ function formatElapsedMinutes(fromIso: string): string {
     return m === 0 ? `${h} h` : `${h} h ${m} min`;
 }
 
-function orderStatusInfo(status: OrderStatus): {
-    variant: StatusBadgeVariant;
-    label: string;
-} {
-    switch (status) {
-        case "submitted":
-            return { variant: "warning", label: "Da confermare" };
-        case "acknowledged":
-            return { variant: "warning", label: "In preparazione" };
-        case "ready":
-            return { variant: "success", label: "Pronto" };
-        case "delivered":
-            return { variant: "neutral", label: "Servito" };
-        case "cancelled":
-            return { variant: "neutral", label: "Annullato" };
-    }
-}
-
 function tableStatusInfo(status: TableStatus): {
     variant: StatusBadgeVariant;
     label: string;
 } {
     switch (status) {
         case "maintenance":
-            return { variant: "warning", label: "Manutenzione" };
+            return { variant: "warning", label: "Fuori servizio" };
         case "occupied":
-            return { variant: "success", label: "Occupato" };
+            return { variant: "success", label: "Aperto" };
         default:
             return { variant: "neutral", label: "Libero" };
     }
@@ -229,34 +213,25 @@ type ContoUnit =
     | { kind: "orphan"; storno: V2OrderWithItems };
 
 /**
- * Sotto-riga storno agganciata dentro il blocco della comanda: card rosa
- * compatta con connettore a sinistra, `↳ ⟲ Storno · <motivo> … −<importo>`.
- * Gli articoli non sono mostrati: il conto carica gli ordini senza items
- * (`includeItems:false`); il motivo (`notes`) è invece sempre disponibile.
- * Stesso linguaggio visivo della striscia dello Storico.
+ * Riga di uno storno, subito sotto la comanda a cui è agganciato (o da sola se
+ * il padre non è nel conto). Gli articoli non ci sono: il conto carica gli
+ * ordini senza items (`includeItems:false`); il motivo (`notes`) sì.
  */
-function renderStornoSubRow(s: V2OrderWithItems) {
+function renderStornoRow(s: V2OrderWithItems) {
     return (
-        <div key={s.id} className={styles.stornoSubRow}>
-            <div className={styles.stornoSubLeft}>
-                <span className={styles.stornoSubArrow} aria-hidden>
-                    ↳
+        <ListRow
+            key={s.id}
+            leading={<CornerDownRight size={16} aria-hidden />}
+            title={
+                <span className={styles.stornoTitle}>
+                    <RotateCcw size={12} aria-hidden /> Storno
                 </span>
-                <RotateCcw size={12} aria-hidden className={styles.stornoSubIcon} />
-                <span className={styles.stornoSubTag}>Storno</span>
-                {s.notes && (
-                    <>
-                        <span className={styles.stornoSubSep} aria-hidden>
-                            ·
-                        </span>
-                        <span className={styles.stornoSubReason}>{s.notes}</span>
-                    </>
-                )}
-            </div>
-            <span className={styles.stornoSubAmount}>
-                {formatEur(-s.total_amount)}
-            </span>
-        </div>
+            }
+            subtitle={s.notes || undefined}
+            wrapSubtitle="full"
+            metaInline
+            meta={<Text variant="body-sm" weight={500}>{formatEur(-s.total_amount)}</Text>}
+        />
     );
 }
 
@@ -300,6 +275,7 @@ export function TableDetailDrawer({
 
     const { showToast } = useToast();
     const { permissions } = usePermissions();
+    const titleId = useId();
     const canManageTable =
         !!activityId &&
         !!permissions &&
@@ -569,66 +545,43 @@ export function TableDetailDrawer({
     const tableLabel = data?.table.label ?? "Tavolo";
     const zoneName = data?.table.zone_name ?? null;
 
+    const stateSummary = data ? (
+        <div className={styles.summary}>
+            <StatusBadge variant={statusVariant} label={statusLabel} />
+            {data.table.seats != null && (
+                <Text variant="body-sm" colorVariant="muted">
+                    {data.table.seats} {data.table.seats === 1 ? "posto" : "posti"}
+                </Text>
+            )}
+            {isOccupied && firstSeenAt && (
+                <span className={styles.elapsed}>
+                    <Clock size={13} aria-hidden />
+                    <Text variant="body-sm" colorVariant="muted">
+                        da {formatElapsedMinutes(firstSeenAt)}
+                    </Text>
+                </span>
+            )}
+        </div>
+    ) : null;
+
+    const loadingRows = (
+        <Card flush>
+            <ListRow loading />
+            <ListRow loading />
+            <ListRow loading />
+        </Card>
+    );
+
     return (
-        <SystemDrawer open={open} onClose={onClose} width={560}>
+        <SystemDrawer open={open} onClose={onClose} size="md" aria-labelledby={titleId} autoFocusFirstInput={false}>
             <DrawerLayout
-                header={
-                    view === "storna" ? (
-                        <div className={styles.stornaHeaderBlock}>
-                            <button
-                                className={styles.backButton}
-                                onClick={handleBackToConto}
-                                aria-label="Torna al conto"
-                            >
-                                <ArrowLeft size={18} />
-                            </button>
-                            <div className={styles.drawerHeaderInfo}>
-                                <Text variant="title-sm" weight={600}>
-                                    Storna articoli
-                                </Text>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    {tableLabel}
-                                    {zoneName ? ` · ${zoneName}` : ""}
-                                </Text>
-                            </div>
-                        </div>
-                    ) : (
-                        <div className={styles.drawerHeaderBlock}>
-                            <div className={styles.drawerHeaderInfo}>
-                                <Text variant="title-sm" weight={600}>
-                                    {tableLabel}
-                                    {zoneName ? ` · ${zoneName}` : ""}
-                                </Text>
-                                {data && (
-                                    <div className={styles.drawerHeaderMeta}>
-                                        <StatusBadge variant={statusVariant} label={statusLabel} />
-                                        {data.table.seats != null && (
-                                            <Text variant="body-sm" colorVariant="muted">
-                                                {data.table.seats}{" "}
-                                                {data.table.seats === 1 ? "posto" : "posti"}
-                                            </Text>
-                                        )}
-                                        {isOccupied && firstSeenAt && (
-                                            <div className={styles.elapsedRow}>
-                                                <Clock size={13} />
-                                                <Text variant="body-sm" colorVariant="muted">
-                                                    da {formatElapsedMinutes(firstSeenAt)}
-                                                </Text>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                            <button
-                                className={styles.dismissButton}
-                                onClick={onClose}
-                                aria-label="Chiudi"
-                            >
-                                <X size={18} />
-                            </button>
-                        </div>
-                    )
+                title={
+                    view === "storna"
+                        ? "Storna articoli"
+                        : `${tableLabel}${zoneName ? ` · ${zoneName}` : ""}`
                 }
+                titleId={titleId}
+                onClose={onClose}
                 footer={
                     view === "storna" ? (
                         <>
@@ -642,7 +595,7 @@ export function TableDetailDrawer({
                                 onClick={handleBackToConto}
                                 disabled={isSavingStorno}
                             >
-                                Annulla
+                                Torna al conto
                             </Button>
                             <Button
                                 type="submit"
@@ -666,335 +619,236 @@ export function TableDetailDrawer({
                 }
             >
                 {view === "storna" ? (
-                    stornaOrder ? (
-                        <OrderRectifyForm
-                            formId="conto-storna-form"
-                            order={stornaOrder}
-                            residuals={stornaResiduals}
-                            onSubmit={handleConfirmStorno}
-                            onStateChange={setStornaState}
-                            disabled={isSavingStorno}
-                        />
-                    ) : (
-                        <div className={styles.loading}>
-                            <Text colorVariant="muted">Caricamento...</Text>
-                        </div>
-                    )
-                ) : isLoading && !data ? (
-                    <div className={styles.loading}>
-                        <Text colorVariant="muted">Caricamento...</Text>
+                    <div className={styles.content}>
+                        <Text variant="body-sm" colorVariant="muted">
+                            {tableLabel}
+                            {zoneName ? ` · ${zoneName}` : ""}
+                        </Text>
+                        {stornaOrder ? (
+                            <OrderRectifyForm
+                                formId="conto-storna-form"
+                                order={stornaOrder}
+                                residuals={stornaResiduals}
+                                onSubmit={handleConfirmStorno}
+                                onStateChange={setStornaState}
+                                disabled={isSavingStorno}
+                            />
+                        ) : (
+                            loadingRows
+                        )}
                     </div>
+                ) : isLoading && !data ? (
+                    loadingRows
                 ) : error ? (
-                    <EmptyState
-                        icon={<BellRing size={40} strokeWidth={1.5} />}
-                        title="Errore"
-                        description={error}
+                    <InlineBanner
+                        variant="error"
                         action={
-                            <Button variant="secondary" onClick={() => void loadDetail()}>
+                            <Button variant="secondary" size="sm" onClick={() => void loadDetail()}>
                                 Riprova
                             </Button>
                         }
-                    />
+                    >
+                        Non riusciamo a caricare il tavolo: {error}
+                    </InlineBanner>
                 ) : data ? (
                     <div className={styles.content}>
-                        {canManageTable && data.sessions.some(s => s.bill_requested_at) && (
-                            <div className={styles.billRequestRow}>
-                                <div className={styles.billRequestCopy}>
-                                    <div className={styles.billRequestTitle}>
-                                        <Receipt size={15} />
-                                        <Text weight={500}>Conto richiesto</Text>
-                                    </div>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        Il tavolo ha chiesto il conto.
-                                    </Text>
-                                </div>
-                                <Button
-                                    variant="primary"
-                                    size="sm"
-                                    onClick={() => void handleClearBill()}
-                                    loading={isClearingBill}
-                                >
-                                    Segna conto portato
-                                </Button>
-                            </div>
-                        )}
-
-                        {canManageTable && data.sessions.some(s => s.waiter_called_at) && (
-                            <div className={styles.waiterCallRow}>
-                                <div className={styles.waiterCallCopy}>
-                                    <div className={styles.waiterCallTitle}>
-                                        <ConciergeBell size={15} />
-                                        <Text weight={500}>Cameriere chiamato</Text>
-                                    </div>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        Il tavolo ha chiamato il cameriere.
-                                    </Text>
-                                </div>
-                                <Button
-                                    variant="primary"
-                                    size="sm"
-                                    onClick={() => void handleClearWaiter()}
-                                    loading={isClearingWaiter}
-                                >
-                                    Segna cameriere arrivato
-                                </Button>
-                            </div>
-                        )}
+                        {stateSummary}
 
                         {canManageTable && (
-                            <div className={styles.maintenanceRow}>
-                                <div className={styles.maintenanceCopy}>
-                                    <Text weight={500}>Fuori servizio</Text>
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        {isOccupied
-                                            ? "Chiudi prima il tavolo per metterlo fuori servizio."
-                                            : "I clienti non potranno ordinare da questo tavolo finché questa opzione è attiva."}
-                                    </Text>
-                                </div>
-                                <span className={styles.maintenanceToggle}>
-                                    <Switch
-                                        checked={data.table.maintenance_mode}
-                                        onChange={next => void handleMaintenanceToggle(next)}
-                                        disabled={isOccupied || isTogglingMaintenance}
+                            <div className={styles.controls}>
+                                {data.sessions.some(s => s.bill_requested_at) && (
+                                    <ListRow
+                                        leading={<Receipt size={20} aria-hidden />}
+                                        title="Conto richiesto"
+                                        subtitle="Il tavolo ha chiesto il conto."
+                                        trailing={
+                                            <Button
+                                                variant="primary"
+                                                size="sm"
+                                                onClick={() => void handleClearBill()}
+                                                loading={isClearingBill}
+                                            >
+                                                Segna conto portato
+                                            </Button>
+                                        }
                                     />
-                                </span>
+                                )}
+                                {data.sessions.some(s => s.waiter_called_at) && (
+                                    <ListRow
+                                        leading={<ConciergeBell size={20} aria-hidden />}
+                                        title="Cameriere chiamato"
+                                        subtitle="Il tavolo ha chiamato il cameriere."
+                                        trailing={
+                                            <Button
+                                                variant="primary"
+                                                size="sm"
+                                                onClick={() => void handleClearWaiter()}
+                                                loading={isClearingWaiter}
+                                            >
+                                                Segna cameriere arrivato
+                                            </Button>
+                                        }
+                                    />
+                                )}
+                                <ListRow
+                                    leading={<Wrench size={20} aria-hidden />}
+                                    title="Fuori servizio"
+                                    subtitle={
+                                        isOccupied
+                                            ? "Chiudi prima il tavolo per metterlo fuori servizio."
+                                            : "I clienti non potranno ordinare da questo tavolo finché questa opzione è attiva."
+                                    }
+                                    wrapSubtitle
+                                    trailing={
+                                        <Switch
+                                            ariaLabel="Fuori servizio"
+                                            checked={data.table.maintenance_mode}
+                                            onChange={next => void handleMaintenanceToggle(next)}
+                                            disabled={isOccupied || isTogglingMaintenance}
+                                        />
+                                    }
+                                />
                             </div>
                         )}
 
                         {isOccupied && (
-                            <section className={styles.section}>
-                                <Text variant="body-sm" weight={600} colorVariant="muted">
-                                    Ordini in corso ({activeOrders.length})
-                                </Text>
+                            <Card
+                                title={`Ordini in corso (${activeOrders.length})`}
+                                flush={activeOrders.length > 0}
+                            >
                                 {activeOrders.length === 0 ? (
                                     <Text variant="body-sm" colorVariant="muted">
                                         Sessione aperta, nessun ordine ancora.
                                     </Text>
                                 ) : (
                                     <>
-                                        <ul className={styles.ordersList}>
-                                            {activeOrders.map(o => {
-                                                const { variant, label } = orderStatusInfo(o.status);
-                                                const isPending = o.status === "submitted";
-                                                return (
-                                                    <li
-                                                        key={o.id}
-                                                        className={`${styles.orderRow}${isPending ? ` ${styles.orderRowPending}` : ""}`}
-                                                    >
-                                                        <StatusBadge variant={variant} label={label} />
-                                                        <div className={styles.orderMeta}>
-                                                            <Text variant="body-sm">
-                                                                {formatAbsolute(o.submitted_at)}
-                                                            </Text>
-                                                            {o.customer_name_snapshot && (
-                                                                <Text
-                                                                    variant="body-sm"
-                                                                    colorVariant="muted"
-                                                                >
-                                                                    {o.customer_name_snapshot}
-                                                                </Text>
-                                                            )}
-                                                        </div>
-                                                        {isPending ? (
-                                                            <div className={styles.orderActions}>
-                                                                <Text weight={500}>
-                                                                    {formatEur(o.total_amount)}
-                                                                </Text>
-                                                                <Button
-                                                                    variant="primary"
-                                                                    size="sm"
-                                                                    loading={
-                                                                        confirmingOrderId ===
-                                                                        o.id
-                                                                    }
-                                                                    disabled={
-                                                                        confirmingOrderId !== null
-                                                                    }
-                                                                    onClick={() =>
-                                                                        void handleConfirmOrder(
-                                                                            o.id,
-                                                                            o.version
-                                                                        )
-                                                                    }
-                                                                >
-                                                                    <Check size={12} aria-hidden />
-                                                                    Conferma
-                                                                </Button>
-                                                            </div>
-                                                        ) : (
-                                                            <Text weight={500}>
+                                        {activeOrders.map(o => {
+                                            const { variant, label } = orderStatusBadge(o.status);
+                                            const isPending = o.status === "submitted";
+                                            return (
+                                                <ListRow
+                                                    key={o.id}
+                                                    title={formatAbsolute(o.submitted_at)}
+                                                    subtitle={o.customer_name_snapshot || undefined}
+                                                    meta={
+                                                        <>
+                                                            <StatusBadge variant={variant} label={label} />
+                                                            <Text variant="body-sm" weight={500}>
                                                                 {formatEur(o.total_amount)}
                                                             </Text>
-                                                        )}
-                                                    </li>
-                                                );
-                                            })}
-                                        </ul>
-                                        <div className={styles.activeTotalRow}>
-                                            <Text variant="body-sm" weight={600}>
-                                                Totale in corso
-                                            </Text>
-                                            <Text weight={600}>{formatEur(activeTotal)}</Text>
-                                        </div>
+                                                        </>
+                                                    }
+                                                    trailing={
+                                                        isPending ? (
+                                                            <Button
+                                                                variant="primary"
+                                                                size="sm"
+                                                                leftIcon={<Check size={12} aria-hidden />}
+                                                                loading={confirmingOrderId === o.id}
+                                                                disabled={confirmingOrderId !== null}
+                                                                onClick={() => void handleConfirmOrder(o.id, o.version)}
+                                                            >
+                                                                Conferma
+                                                            </Button>
+                                                        ) : undefined
+                                                    }
+                                                />
+                                            );
+                                        })}
+                                        <ListRow
+                                            title="Totale in corso"
+                                            metaInline
+                                            meta={<Text weight={600}>{formatEur(activeTotal)}</Text>}
+                                        />
                                     </>
                                 )}
-                            </section>
+                            </Card>
                         )}
 
                         {contoUnits.length > 0 && (
-                            <section className={styles.section}>
-                                <Text variant="body-sm" weight={600} colorVariant="muted">
-                                    Ordini del conto
-                                </Text>
-                                <>
-                                    <ul className={styles.ordersList}>
-                                        {(showAllRecent
-                                            ? contoUnits
-                                            : contoUnits.slice(0, RECENT_ORDERS_CAP)
-                                        ).map(unit => {
-                                            // Storno orfano (padre fuori dal conto): riga
-                                            // standalone, dentro un blocco proprio.
-                                            if (unit.kind === "orphan") {
-                                                return (
-                                                    <li
-                                                        key={unit.storno.id}
-                                                        className={styles.orderBlock}
-                                                    >
-                                                        {renderStornoSubRow(unit.storno)}
-                                                    </li>
-                                                );
-                                            }
+                            <Card title="Ordini del conto" flush>
+                                {(showAllRecent
+                                    ? contoUnits
+                                    : contoUnits.slice(0, RECENT_ORDERS_CAP)
+                                ).map(unit => {
+                                    // Storno orfano (padre fuori dal conto): riga a sé.
+                                    if (unit.kind === "orphan") return renderStornoRow(unit.storno);
 
-                                            const o = unit.order;
-                                            const hasStorni = unit.storni.length > 0;
-                                            const timestamp =
-                                                o.status === "delivered" && o.delivered_at
-                                                    ? formatAbsolute(o.delivered_at)
-                                                    : formatAbsolute(o.submitted_at);
-                                            const { variant, label } = orderStatusInfo(
-                                                o.status
-                                            );
-                                            // Storna solo su delivered; disabilitato a netto≤0.
-                                            const canStorna =
-                                                canManageTable && o.status === "delivered";
-                                            const stornaDisabled = unit.netto <= 0;
-                                            return (
-                                                <li key={o.id} className={styles.orderBlock}>
-                                                    <div className={styles.orderRow}>
-                                                        <StatusBadge
-                                                            variant={variant}
-                                                            label={label}
-                                                        />
-                                                        <div className={styles.orderMeta}>
-                                                            <Text variant="body-sm">
-                                                                {timestamp}
+                                    const o = unit.order;
+                                    const hasStorni = unit.storni.length > 0;
+                                    const timestamp =
+                                        o.status === "delivered" && o.delivered_at
+                                            ? formatAbsolute(o.delivered_at)
+                                            : formatAbsolute(o.submitted_at);
+                                    const { variant, label } = orderStatusBadge(o.status);
+                                    // Storna solo su delivered; disabilitato a netto≤0.
+                                    const canStorna = canManageTable && o.status === "delivered";
+                                    const stornaDisabled = unit.netto <= 0;
+                                    return (
+                                        <Fragment key={o.id}>
+                                            <ListRow
+                                                title={timestamp}
+                                                subtitle={o.customer_name_snapshot || undefined}
+                                                meta={
+                                                    <>
+                                                        <StatusBadge variant={variant} label={label} />
+                                                        {hasStorni && (
+                                                            <Text
+                                                                variant="body-sm"
+                                                                colorVariant="muted"
+                                                                className={styles.grossStrike}
+                                                            >
+                                                                {formatEur(o.total_amount)}
                                                             </Text>
-                                                            {o.customer_name_snapshot && (
-                                                                <Text
-                                                                    variant="body-sm"
-                                                                    colorVariant="muted"
-                                                                >
-                                                                    {o.customer_name_snapshot}
-                                                                </Text>
-                                                            )}
-                                                        </div>
-                                                        <div className={styles.orderActions}>
-                                                            {hasStorni ? (
-                                                                <div
-                                                                    className={
-                                                                        styles.amountStack
-                                                                    }
-                                                                >
-                                                                    <Text
-                                                                        variant="body-sm"
-                                                                        colorVariant="muted"
-                                                                        className={
-                                                                            styles.grossStrike
-                                                                        }
-                                                                    >
-                                                                        {formatEur(
-                                                                            o.total_amount
-                                                                        )}
-                                                                    </Text>
-                                                                    <Text weight={600}>
-                                                                        {formatEur(unit.netto)}
-                                                                    </Text>
-                                                                </div>
-                                                            ) : (
-                                                                <Text weight={500}>
-                                                                    {formatEur(o.total_amount)}
-                                                                </Text>
-                                                            )}
-                                                            {canStorna && (
-                                                                <button
-                                                                    type="button"
-                                                                    className={
-                                                                        styles.stornaActionBtn
-                                                                    }
-                                                                    onClick={() =>
-                                                                        void handleOpenStorna(o)
-                                                                    }
-                                                                    disabled={
-                                                                        stornaDisabled ||
-                                                                        stornaLoadingOrderId !==
-                                                                            null
-                                                                    }
-                                                                    title={
-                                                                        stornaDisabled
-                                                                            ? "Ordine già stornato per intero"
-                                                                            : undefined
-                                                                    }
-                                                                >
-                                                                    <RotateCcw
-                                                                        size={12}
-                                                                        aria-hidden
-                                                                    />
-                                                                    {stornaLoadingOrderId ===
-                                                                    o.id
-                                                                        ? "Apro…"
-                                                                        : "Storna"}
-                                                                </button>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    {unit.storni.map(s =>
-                                                        renderStornoSubRow(s)
-                                                    )}
-                                                </li>
-                                            );
-                                        })}
-                                    </ul>
-                                    {!showAllRecent &&
-                                        contoUnits.length > RECENT_ORDERS_CAP && (
-                                            <button
-                                                className={styles.showAllButton}
-                                                onClick={() => setShowAllRecent(true)}
-                                            >
-                                                Mostra tutti (
-                                                {contoUnits.length - RECENT_ORDERS_CAP} in
-                                                più)
-                                            </button>
-                                        )}
-                                    {currentTotal != null && (
-                                        <div className={styles.netTotalRow}>
-                                            <div className={styles.netTotalCopy}>
-                                                <Text weight={600}>Da pagare</Text>
-                                                {recentOrders.some(o => o.is_rectification) && (
-                                                    <Text
-                                                        variant="body-sm"
-                                                        colorVariant="muted"
-                                                    >
-                                                        storni già scalati
-                                                    </Text>
-                                                )}
-                                            </div>
+                                                        )}
+                                                        <Text variant="body-sm" weight={hasStorni ? 600 : 500}>
+                                                            {formatEur(hasStorni ? unit.netto : o.total_amount)}
+                                                        </Text>
+                                                    </>
+                                                }
+                                                trailing={
+                                                    canStorna ? (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            leftIcon={<RotateCcw size={12} aria-hidden />}
+                                                            onClick={() => void handleOpenStorna(o)}
+                                                            disabled={stornaDisabled || stornaLoadingOrderId !== null}
+                                                            title={stornaDisabled ? "Ordine già stornato per intero" : undefined}
+                                                        >
+                                                            {stornaLoadingOrderId === o.id ? "Apro…" : "Storna"}
+                                                        </Button>
+                                                    ) : undefined
+                                                }
+                                            />
+                                            {unit.storni.map(st => renderStornoRow(st))}
+                                        </Fragment>
+                                    );
+                                })}
+                                {!showAllRecent && contoUnits.length > RECENT_ORDERS_CAP && (
+                                    <div className={styles.showAll}>
+                                        <Button variant="ghost" size="sm" onClick={() => setShowAllRecent(true)}>
+                                            Mostra tutti ({contoUnits.length - RECENT_ORDERS_CAP} in più)
+                                        </Button>
+                                    </div>
+                                )}
+                                {currentTotal != null && (
+                                    <ListRow
+                                        title="Da pagare"
+                                        metaInline
+                                        subtitle={
+                                            recentOrders.some(o => o.is_rectification)
+                                                ? "storni già scalati"
+                                                : undefined
+                                        }
+                                        meta={
                                             <Text variant="title-sm" weight={700}>
                                                 {formatEur(currentTotal)}
                                             </Text>
-                                        </div>
-                                    )}
-                                </>
-                            </section>
+                                        }
+                                    />
+                                )}
+                            </Card>
                         )}
                     </div>
                 ) : null}

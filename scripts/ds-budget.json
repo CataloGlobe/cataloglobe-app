@@ -1,8 +1,8 @@
 {
-  "hex": 768,
-  "transition": 29,
-  "toastError": 404,
-  "inlineComponents": 42,
-  "fontSize": 723,
+  "hex": 501,
+  "transition": 25,
+  "toastError": 372,
+  "inlineComponents": 36,
+  "fontSize": 480,
   "uiHex": 4
 }
