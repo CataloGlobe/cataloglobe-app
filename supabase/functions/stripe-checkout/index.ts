@@ -4,11 +4,11 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Stripe from "https://esm.sh/stripe@17?target=deno";
 import { stripeClientOptions } from "../_shared/stripe-helpers.ts";
 import {
-    clampForStripe,
-    clampMetadata,
-    STRIPE_CUSTOMER_DESCRIPTION_MAX,
-    STRIPE_CUSTOMER_NAME_MAX
-} from "../_shared/stripeLimits.ts";
+    buildStripeCustomerProfile,
+    syncCustomerTaxId,
+    TENANT_FISCAL_COLUMNS,
+    type TenantFiscal
+} from "../_shared/stripeCustomerProfile.ts";
 import { lookupStripePriceId, type BillingInterval } from "../_shared/planPrices.ts";
 import { isValidPartitaIva } from "../_shared/fiscalValidators.ts";
 
@@ -65,115 +65,6 @@ function appendCheckoutSessionPlaceholder(url: string): string {
     const separator = base.includes("?") ? "&" : "?";
     const withParam = `${base}${separator}${CHECKOUT_SESSION_PARAM}={CHECKOUT_SESSION_ID}`;
     return hash !== undefined ? `${withParam}#${hash}` : withParam;
-}
-
-// --- Billing pre-fill helpers (Stripe customer from tenant fiscal data) ---
-
-type TenantFiscal = {
-    legal_entity_type?: string | null;
-    legal_name?: string | null;
-    first_name?: string | null;
-    last_name?: string | null;
-    fiscal_code?: string | null;
-    vat_number?: string | null;
-    codice_destinatario?: string | null;
-    pec?: string | null;
-    address?: string | null;
-    street_number?: string | null;
-    postal_code?: string | null;
-    city?: string | null;
-    province?: string | null;
-    country?: string | null;
-};
-
-function clean(v: unknown): string {
-    return typeof v === "string" ? v.trim() : "";
-}
-
-/** Customer name: legal_name, else "first last". Undefined when empty. */
-function buildCustomerName(t: TenantFiscal): string | undefined {
-    const legal = clean(t.legal_name);
-    if (legal) return legal;
-    const full = `${clean(t.first_name)} ${clean(t.last_name)}`.trim();
-    return full || undefined;
-}
-
-/** Customer address from tenant legal address. Undefined when nothing usable. */
-function buildCustomerAddress(t: TenantFiscal): Record<string, string> | undefined {
-    const line1 = [clean(t.address), clean(t.street_number)].filter(Boolean).join(" ");
-    const postalCode = clean(t.postal_code);
-    const city = clean(t.city);
-    const state = clean(t.province);
-    const country = clean(t.country) || "IT";
-
-    if (!line1 && !postalCode && !city && !state) return undefined;
-
-    const address: Record<string, string> = { country };
-    if (line1) address.line1 = line1;
-    if (postalCode) address.postal_code = postalCode;
-    if (city) address.city = city;
-    if (state) address.state = state;
-    return address;
-}
-
-/** EU VAT value: country-prefixed VAT (e.g. "IT01234567897"). Null when absent. */
-function buildEuVatValue(vat?: string | null, country?: string | null): string | null {
-    const raw = clean(vat).toUpperCase().replace(/\s/g, "");
-    if (!raw) return null;
-    if (/^[A-Z]{2}/.test(raw)) return raw; // already country-prefixed
-    const cc = (clean(country).toUpperCase() || "IT").slice(0, 2);
-    return `${cc}${raw}`;
-}
-
-/** Stripe customer metadata from the tenant fiscal record. Empty keys omitted. */
-function buildCustomerMetadata(tenantId: string, t: TenantFiscal): Record<string, string> {
-    const meta: Record<string, string> = { tenant_id: tenantId };
-    const put = (key: string, value: unknown) => {
-        const v = clean(value);
-        if (v) meta[key] = v;
-    };
-    put("legal_entity_type", t.legal_entity_type);
-    put("legal_name", t.legal_name);
-    put("first_name", t.first_name);
-    put("last_name", t.last_name);
-    put("fiscal_code", t.fiscal_code);
-    put("vat_number", t.vat_number);
-    put("codice_destinatario", t.codice_destinatario);
-    put("pec", t.pec);
-    return meta;
-}
-
-/** Human-readable customer description, e.g. "Trattoria Da Mario S.r.l. · Milano (societa)". */
-function buildCustomerDescription(t: TenantFiscal): string | undefined {
-    const base = clean(t.legal_name) || `${clean(t.first_name)} ${clean(t.last_name)}`.trim();
-    const city = clean(t.city);
-    const type = clean(t.legal_entity_type);
-
-    let desc = base;
-    if (city) desc += `${desc ? " · " : ""}${city}`;
-    if (type) desc += `${desc ? " " : ""}(${type})`;
-    desc = desc.trim();
-    return desc || undefined;
-}
-
-/**
- * Best-effort: attach an eu_vat tax id to a customer if not already present.
- * Never throws — a rejected tax id must not block checkout (we keep the address).
- */
-async function ensureCustomerTaxId(stripe: Stripe, customerId: string, value: string): Promise<void> {
-    try {
-        const existing = await stripe.customers.listTaxIds(customerId, { limit: 100 });
-        const already = existing.data.some(
-            (t: { value?: string | null }) => clean(t.value).toUpperCase() === value.toUpperCase()
-        );
-        if (already) return;
-        await stripe.customers.createTaxId(customerId, { type: "eu_vat", value });
-    } catch (err) {
-        // Log only the error class — Stripe messages can echo the submitted value.
-        console.warn(
-            `stripe-checkout: tax id pre-fill skipped (non-fatal): code=${(err as any)?.code} type=${(err as any)?.type} status=${(err as any)?.statusCode}`
-        );
-    }
 }
 
 type CheckoutBody = {
@@ -344,9 +235,7 @@ serve(async req => {
         // --- Fiscal profile for Stripe pre-fill (service_role, explicit tenant guard) ---
         const { data: fiscalRow, error: fiscalError } = await supabaseAdmin
             .from("tenants")
-            .select(
-                "legal_entity_type, legal_name, vat_number, first_name, last_name, fiscal_code, codice_destinatario, pec, address, street_number, postal_code, city, province, country"
-            )
+            .select(TENANT_FISCAL_COLUMNS)
             .eq("id", tenantId)
             .maybeSingle();
 
@@ -384,22 +273,17 @@ serve(async req => {
             }
         }
 
-        const customerName = buildCustomerName(fiscal);
-        const customerAddress = buildCustomerAddress(fiscal);
-        const euVatValue = buildEuVatValue(fiscal.vat_number, fiscal.country);
-        const customerMetadata = buildCustomerMetadata(tenantId, fiscal);
-        const customerDescription = buildCustomerDescription(fiscal);
-
-        // Clamp ai limiti Stripe: un campo fiscale troppo lungo (ragione sociale
-        // incollata male) farebbe fallire create/update con 400 e bloccherebbe
-        // il pagamento. Il DB resta la fonte di verita', Stripe ha il pre-fill.
-        const stripeCustomerName = customerName
-            ? clampForStripe(customerName, STRIPE_CUSTOMER_NAME_MAX, "customer.name")
-            : undefined;
-        const stripeCustomerDescription = customerDescription
-            ? clampForStripe(customerDescription, STRIPE_CUSTOMER_DESCRIPTION_MAX, "customer.description")
-            : undefined;
-        const stripeCustomerMetadata = clampMetadata(customerMetadata);
+        // Profilo customer (name, address, description, metadata, tax id) dal modulo
+        // condiviso con update-billing-details, gia' tagliato ai limiti Stripe:
+        // un campo troppo lungo farebbe fallire create o update con 400 e
+        // bloccherebbe il pagamento. Il DB resta la fonte di verita'.
+        const {
+            name: stripeCustomerName,
+            address: customerAddress,
+            description: stripeCustomerDescription,
+            metadata: stripeCustomerMetadata,
+            euVatValue
+        } = buildStripeCustomerProfile(tenantId, fiscal);
 
         // Create or reuse Stripe Customer, pre-filling name + address from the tenant.
         let stripeCustomerId = tenantData.stripe_customer_id;
@@ -457,10 +341,12 @@ serve(async req => {
             }
         }
 
-        // Attach the VAT id (best-effort, idempotent) when present. Associations
-        // without a P.IVA simply skip this.
-        if (euVatValue) {
-            await ensureCustomerTaxId(stripe, stripeCustomerId, euVatValue);
+        // Align the eu_vat tax id to the current P.IVA (best-effort, idempotent,
+        // never throws). On a reused customer this also removes a stale P.IVA
+        // left by an earlier checkout — Stripe copies every tax id onto the
+        // invoice. A brand-new customer has none: skip when there is no P.IVA.
+        if (euVatValue || tenantData.stripe_customer_id) {
+            await syncCustomerTaxId(stripe, stripeCustomerId, euVatValue, { fn: "stripe-checkout", tenant_id: tenantId });
         }
 
         // --- Anti double-checkout guard ---
