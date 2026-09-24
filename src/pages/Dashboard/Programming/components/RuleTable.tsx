@@ -10,7 +10,7 @@ import { Tooltip } from "@components/ui/Tooltip/Tooltip";
 import Text from "@components/ui/Text/Text";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
-import { buildRuleSummary } from "@utils/ruleHelpers";
+import { buildRuleSummary, describeRuleAction } from "@utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@utils/scheduleDraft";
 import { getToggleGuardResult } from "@utils/ruleToggleGuards";
 import type { LayoutRule, LayoutRuleOption } from "@services/supabase/layoutScheduling";
@@ -110,14 +110,15 @@ export function RuleTable({
                             : "idle";
                     const target = describeTarget(rule, activityById, activityGroups);
                     const summary = buildRuleSummary(rule);
-                    // Cosa fa, prima di quando (mockup): «mostra Catalogo Completo · Lun–Ven».
-                    const catalogName = rule.rule_type === "layout" && rule.layout?.catalog_id
-                        ? catalogById?.get(rule.layout.catalog_id)?.name
-                        : undefined;
+                    // Cosa fa, prima di quando (mockup): «mostra Carta · Lun–Ven».
+                    const action = describeRuleAction(
+                        rule,
+                        rule.layout?.catalog_id ? catalogById?.get(rule.layout.catalog_id)?.name : undefined
+                    );
                     const excluded = !insight?.isOverridden ? insight?.excludedActivityNames : undefined;
 
                     return (
-                        <div className={DATA_TABLE_CLASSES.cellTwoLine}>
+                        <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${isPhone ? DATA_TABLE_CLASSES.cellTwoLineWrap : ""}`}>
                             <span className={styles.nameLine}>
                                 <span className={styles.dot} data-state={state} aria-hidden="true" />
                                 <Link to={ruleHref(rule)} className={styles.name}>
@@ -129,7 +130,7 @@ export function RuleTable({
                             <span>
                                 {[
                                     showTypeBadge && isCompact ? ruleTypeLabel(rule.rule_type, catalogLabel) : null,
-                                    catalogName ? `mostra ${catalogName}` : null,
+                                    action,
                                     summary,
                                     isPhone ? target.label : null
                                 ]

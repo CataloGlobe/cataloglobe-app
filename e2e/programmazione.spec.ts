@@ -184,6 +184,11 @@ test.describe("Programmazione — elenco", () => {
         await expect(rowOf(rule(page, "carta"))).toContainText(/(Escluse|Non vale in) 1 sed/);
         await expect(rowOf(rule(page, "bozza"))).toContainText("Bozza");
         await expect(rowOf(rule(page, "pranzo"))).toContainText(/11:00.15:00/);
+        // Il verbo del mockup, per tipo (P3-bis).
+        await expect(rowOf(rule(page, "pranzo"))).toContainText("mostra Pranzo e2e · Lun–Ven · 11:00–15:00");
+        await expect(rowOf(rule(page, "spritz"))).toContainText("cambia 3 prezzi");
+        await expect(rowOf(rule(page, "stagionali"))).toContainText("nasconde 1 · non disponibile 1");
+        await expect(rowOf(rule(page, "natale"))).toContainText("mostra 1 contenuto");
     });
 
     test("il filtro per tipo tiene solo quel tipo e va nell'indirizzo", async ({ page }) => {

@@ -62,10 +62,13 @@ export type DataTablePageSizeOption = PageSizeSelection; // number | "all" | "au
 /**
  * Classi esportate per i consumer, così la pagina non dichiara font-size:
  * `cellTwoLine` = cella a due righe (titolo 14/500 + caption muta), da
- * mettere su un wrapper con due figli.
+ * mettere su un wrapper con due figli. `cellTwoLineWrap`, insieme alla prima:
+ * la seconda riga va a capo invece di troncarsi (telefono, dove la colonna è
+ * una sola e la riga deve dire tutto).
  */
 export const DATA_TABLE_CLASSES = {
-    cellTwoLine: styles.cellTwoLine
+    cellTwoLine: styles.cellTwoLine,
+    cellTwoLineWrap: styles.cellTwoLineWrap
 } as const;
 
 /** Colonna che rende `TableRowActions`: la tabella la mette ultima, a destra. */
