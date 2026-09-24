@@ -1,11 +1,11 @@
-// ⚠️ SYNC: questo file è duplicato. L'altra copia è in src/services/supabase/scheduleResolver.ts.
+// ⚠️ SYNC: questo file è duplicato. L'altra copia è in supabase/functions/_shared/scheduleResolver.ts.
 // Qualsiasi modifica va replicata in ENTRAMBI i file.
 
 export type VisibilityMode = "hide" | "disable";
 
 /**
  * Rome wall-clock instant. Defined inline to keep both resolver copies
- * byte-identical without a cross-module import.
+ * identical (header aside) without a cross-module import.
  * Primary source of truth: schedulingNow.ts (RomeDateTime).
  */
 type RomeDateTime = {
@@ -156,9 +156,11 @@ const TIME_RULE_SELECT = `
 
 /**
  * Resolver contract (single source of truth):
- * - Precedence: specificity_first only
- *   activity (2) > activity_group (1) > apply_to_all (0),
- *   then priority ASC, created_at ASC, id ASC.
+ * - Precedence, in order:
+ *   1. target specificity: activity (2) > activity_group (1) > apply_to_all (0);
+ *   2. temporal specificity: more constraints win (date range 4, time
+ *      window 2, days of week 1 — see temporalScore);
+ *   3. priority ASC, created_at ASC, id ASC.
  * - Time: uses `now` passed by caller; caller must provide Europe/Rome-normalized
  *   "now" when evaluating runtime behavior.
  * - Targets:
