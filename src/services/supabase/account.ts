@@ -2,6 +2,8 @@ import { FunctionsHttpError } from "@supabase/supabase-js";
 import { supabase } from "@/services/supabase/client";
 import { workspaceRoleIsOwner as isOwner } from "@/utils/workspaceRole";
 import type { V2Tenant } from "@/types/tenant";
+import type { TenantMemberRow } from "@/types/team";
+import { listTenantMembers } from "@/services/supabase/team";
 
 export const DELETED_ACCOUNT_HANDOFF_KEY = "cg_auth_deleted_handoff";
 
@@ -127,37 +129,28 @@ export async function listUserTenantsForDeletion(): Promise<{
  * Returns active members of a tenant eligible for ownership transfer.
  * Excludes the current user (the owner initiating the deletion).
  * Includes admins and members — any active user who has accepted their invite.
+ *
+ * Reads via get_tenant_members (owner has team.read), not a profiles embed:
+ * the profiles RLS requires the caller to hold an active membership, and the
+ * owner has none, so the embed came back empty and the label fell back to the
+ * user id. The RPC exposes the email only (no name), so the label is the email.
  */
 export async function listActiveTenantMembers(
     tenantId: string,
     currentUserId: string
 ): Promise<TenantMember[]> {
-    const { data, error } = await supabase
-        .from("tenant_memberships")
-        .select("user_id, invited_email, profiles(first_name, last_name, email)")
-        .eq("tenant_id", tenantId)
-        .eq("status", "active")
-        .not("user_id", "is", null);
+    const rows = await listTenantMembers(tenantId);
 
-    if (error) throw error;
-
-    return (data ?? [])
-        .filter(row => row.user_id !== null && row.user_id !== currentUserId)
+    return rows
+        .filter(
+            (row): row is TenantMemberRow & { user_id: string } =>
+                row.status === "active" && row.user_id !== null && row.user_id !== currentUserId
+        )
         .map(row => {
-            const profile = Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
-            const email = profile?.email ?? row.invited_email ?? null;
-            const nameParts = [profile?.first_name, profile?.last_name].filter(Boolean);
-            let displayName: string;
-            if (nameParts.length > 0) {
-                displayName = nameParts.join(" ");
-            } else if (email) {
-                displayName = email;
-            } else {
-                displayName = `User ${(row.user_id as string).slice(0, 8)}`;
-            }
+            const email = row.email || null;
             return {
-                userId: row.user_id as string,
-                displayName,
+                userId: row.user_id,
+                displayName: email ?? `User ${row.user_id.slice(0, 8)}`,
                 email
             };
         });
