@@ -250,7 +250,7 @@ function makeTables(): Tables {
     };
 }
 
-export type { WriteCall } from "./restStub";
+export { StubError, type WriteCall } from "./restStub";
 export type ProgrammazioneStub = RestStub;
 
 export async function stubProgrammazione(page: Page): Promise<ProgrammazioneStub> {

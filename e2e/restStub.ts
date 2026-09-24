@@ -37,6 +37,14 @@ export function matches(row: Row, params: URLSearchParams): boolean {
 }
 
 export type WriteCall = { key: string; params: URLSearchParams; body: unknown };
+
+/** Risposta d'errore di una scrittura: un gestore la ritorna per simulare il server che rifiuta. */
+export class StubError {
+    constructor(
+        readonly status: number,
+        readonly json: unknown = { code: "E2E", message: "rifiutata dall'e2e" }
+    ) {}
+}
 export type WriteHandler = (call: WriteCall) => unknown;
 
 export type RestStub = {
@@ -99,6 +107,7 @@ export async function stubRest(page: Page, options: RestStubOptions): Promise<Re
             return route.fulfill({ status: 500, json: { code: "E2E", message: `${key} non prevista dall'e2e` } });
         }
         const json = handler(call);
+        if (json instanceof StubError) return route.fulfill({ status: json.status, json: json.json });
         if (json === undefined || json === null) return route.fulfill({ status: 204, body: "" });
         await route.fulfill({ status: request.method() === "POST" ? 201 : 200, json });
     }

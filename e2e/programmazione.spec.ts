@@ -1,6 +1,6 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { openBusinessPage } from "./business";
-import { MISSING_RULE, RULE, RULE_NAME, SEDE, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+import { MISSING_RULE, RULE, RULE_NAME, SEDE, StubError, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
 
 /**
  * Programmazione (lotto `ds-5-programmazione`, P0). Scritto sulla pagina di
@@ -247,14 +247,30 @@ test.describe("Programmazione — elenco", () => {
         await page.getByRole("checkbox", { name: new RegExp(RULE_NAME.aperitivo) }).check();
         await page.getByRole("checkbox", { name: new RegExp(RULE_NAME.natale) }).check();
         await page.getByRole("toolbar", { name: "Azioni sulla selezione" }).getByRole("button", { name: /Elimina/ }).click();
-        // Dal P1 c'è una conferma: se compare, si conferma.
+        // P1: prima si conferma, e la conferma dice quali.
         const confirm = page.getByRole("alertdialog");
-        if (await confirm.isVisible().catch(() => false)) {
-            await confirm.getByRole("button", { name: /^Elimina/ }).click();
-        }
+        await expect(confirm.getByRole("heading", { name: "Eliminare 2 regole?" })).toBeVisible();
+        await expect(confirm).toContainText(RULE_NAME.aperitivo);
+        await expect(confirm).toContainText(RULE_NAME.natale);
+        expect(writesOf(stub, "schedules.DELETE")).toHaveLength(0);
+        await confirm.getByRole("button", { name: "Elimina 2 regole" }).click();
         await expect.poll(() => writesOf(stub, "schedules.DELETE").length).toBe(2);
         const ids = writesOf(stub, "schedules.DELETE").map(w => w.params.get("id"));
         expect(ids.sort()).toEqual([`eq.${RULE.aperitivo}`, `eq.${RULE.natale}`].sort());
+        await expect(page.getByText("2 regole eliminate.")).toBeVisible();
+    });
+
+    test("eliminazione multipla a metà: il messaggio dice quale regola resta", async ({ page }) => {
+        stub.onWrite("schedules.DELETE", call =>
+            call.params.get("id") === `eq.${RULE.natale}` ? new StubError(500) : null
+        );
+        await openList(page);
+        await page.getByRole("checkbox", { name: new RegExp(RULE_NAME.aperitivo) }).check();
+        await page.getByRole("checkbox", { name: new RegExp(RULE_NAME.natale) }).check();
+        await page.getByRole("toolbar", { name: "Azioni sulla selezione" }).getByRole("button", { name: /Elimina/ }).click();
+        await page.getByRole("alertdialog").getByRole("button", { name: "Elimina 2 regole" }).click();
+        await expect(page.getByText(`1 regola non eliminata: ${RULE_NAME.natale}.`)).toBeVisible();
+        await expect(page.getByRole("checkbox", { name: new RegExp(RULE_NAME.natale) })).toBeChecked();
     });
 
     test("cablaggio: «Nuova regola» crea la bozza e apre il dettaglio", async ({ page }) => {

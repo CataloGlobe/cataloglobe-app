@@ -281,6 +281,7 @@ export default function Programming() {
     const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
+    const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
     const [updatingRules, setUpdatingRules] = useState<Set<string>>(new Set());
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
@@ -942,27 +943,48 @@ export default function Programming() {
         }
     };
 
-    const handleBulkDelete = async () => {
+    /* Esito per regola: con un errore a metà le altre sono già eliminate,
+       quindi il messaggio dice quali restano, e restano selezionate. */
+    const handleBulkDelete = async (): Promise<boolean> => {
         const ids = Array.from(selectedRuleIds);
-        if (ids.length === 0) return;
-        try {
-            await Promise.all(ids.map(id => deleteLayoutRule(id)));
-            showToast({
-                type: "success",
-                message: `${ids.length} regole eliminate con successo.`,
-                duration: 2200
-            });
-            setSelectedRuleIds(new Set());
-            await loadRules();
-        } catch (error) {
-            console.error("Errore eliminazione multipla regole:", error);
+        if (ids.length === 0) return true;
+        const results = await Promise.allSettled(ids.map(id => deleteLayoutRule(id)));
+        const failedIds = ids.filter((_, i) => results[i].status === "rejected");
+        const deleted = ids.length - failedIds.length;
+
+        if (failedIds.length > 0) {
+            console.error(
+                "Errore eliminazione multipla regole:",
+                results.filter(r => r.status === "rejected")
+            );
+            const names = failedIds.map(id => bulkRuleName(id)).join(", ");
             showToast({
                 type: "error",
-                message: "Errore durante l'eliminazione di alcune regole.",
-                duration: 3000
+                message: `${failedIds.length === 1 ? "1 regola non eliminata" : `${failedIds.length} regole non eliminate`}: ${names}.`,
+                duration: 4000
+            });
+        } else {
+            showToast({
+                type: "success",
+                message: deleted === 1 ? "1 regola eliminata." : `${deleted} regole eliminate.`,
+                duration: 2200
             });
         }
+        setSelectedRuleIds(new Set(failedIds));
+        await loadRules();
+        return true;
     };
+
+    const bulkRuleName = (id: string): string => {
+        const found = rules.find(r => r.id === id);
+        return found ? getRuleDisplayName(found) : id;
+    };
+    const bulkCount = selectedRuleIds.size;
+    const bulkNames = Array.from(selectedRuleIds).map(bulkRuleName);
+    const bulkNamesLine =
+        bulkNames.length > 5
+            ? `${bulkNames.slice(0, 5).join(", ")} e altre ${bulkNames.length - 5}.`
+            : `${bulkNames.join(", ")}.`;
 
     // Cleanup bozze abbandonate: gestito da edge function
     // cleanup-draft-schedules (elimina bozze > 7 giorni)
@@ -1371,7 +1393,7 @@ export default function Programming() {
 
             <BulkBar
                 selectedCount={selectedRuleIds.size}
-                onDelete={canWrite ? () => void handleBulkDelete() : undefined}
+                onDelete={canWrite ? () => setIsBulkDeleteOpen(true) : undefined}
                 onClearSelection={() => setSelectedRuleIds(new Set())}
             />
 
@@ -1731,6 +1753,17 @@ export default function Programming() {
                     setIsSimulatorDrawerOpen(true);
                 }}
             />
+            <ConfirmDialog
+                isOpen={isBulkDeleteOpen}
+                onClose={() => setIsBulkDeleteOpen(false)}
+                onConfirm={handleBulkDelete}
+                title={bulkCount === 1 ? "Eliminare 1 regola?" : `Eliminare ${bulkCount} regole?`}
+                message="Le regole spariscono da tutte le sedi a cui si applicano. Non si può annullare."
+                confirmLabel={bulkCount === 1 ? "Elimina 1 regola" : `Elimina ${bulkCount} regole`}
+                confirmVariant="danger"
+            >
+                <Text variant="body-sm">{bulkNamesLine}</Text>
+            </ConfirmDialog>
             <ConfirmDialog
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
