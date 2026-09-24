@@ -1,5 +1,3 @@
-@use "@styles/variables" as *;
-
 .page {
   display: flex;
   flex-direction: column;
@@ -28,12 +26,6 @@
   border-right: 1px solid var(--border);
 }
 
-.layout {
-  display: flex;
-  gap: 0.9rem;
-  align-items: flex-start;
-}
-
 .formColumnLeft {
   display: flex;
   flex-direction: column;
@@ -46,6 +38,13 @@
   flex-direction: column;
   gap: 0.9rem;
   min-width: 0;
+}
+
+/* Caricamento: la sagoma dei campi dentro le card. */
+.skeletonFields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
 }
 
 .formLayout {
@@ -63,9 +62,8 @@
   top: 1.5rem;
 }
 
-.sectionCard,
-.summaryCard {
-  background: #fff;
+.sectionCard {
+  background: var(--surface);
   border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-lg, 12px);
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
@@ -94,20 +92,6 @@
   white-space: nowrap;
 }
 
-.summaryBox {
-  border: 1px solid var(--color-gray-200);
-  border-radius: 8px;
-  padding: 0.8rem;
-  background: var(--color-gray-50);
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.summaryTitle {
-  letter-spacing: 0.05em;
-}
-
 .schedulingGrid {
   display: flex;
   flex-direction: column;
@@ -124,20 +108,6 @@
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
-}
-
-.daysCompact {
-  /* gruppo pill — secondo figlio del wrapper PillGroupMultiple */
-  > div > [role="group"] {
-    flex-wrap: nowrap;
-    gap: 4px;
-  }
-
-  button {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    min-height: 0;
-  }
 }
 
 /* ─── Price override list ─────────────────────────────────────── */
@@ -281,7 +251,6 @@
   gap: 0.35rem;
 }
 
-
 // Flex-chain (vedi ActivityVisibilityContent.module.scss): `.visibilityDrawerContent`
 // è il flex-container diretto del body `bodyLayout="flex"` del DrawerLayout →
 // `.visibilityDrawerTableWrap` (flex:1 1 auto + min-height:0) propaga l'altezza
@@ -342,226 +311,7 @@
 
 /* ─── Target mode radio group ─────────────────────────────────── */
 
-.targetModeGroup {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.targetModeOption {
-  display: flex;
-  align-items: center;
-  gap: 0.55rem;
-  padding: 0.45rem 0.65rem;
-  border: 1px solid var(--color-gray-200);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
-
-  &:has(input:checked) {
-    border-color: var(--color-primary, #6366f1);
-    background: color-mix(in srgb, var(--color-primary, #6366f1) 5%, white 95%);
-  }
-
-  &:hover {
-    border-color: var(--color-gray-400);
-  }
-}
-
-.targetModeRadio {
-  flex-shrink: 0;
-  accent-color: var(--color-primary, #6366f1);
-  width: 15px;
-  height: 15px;
-  cursor: pointer;
-}
-
-.targetModeContent {
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.targetModeIcon {
-  flex-shrink: 0;
-  color: var(--color-gray-500);
-}
-
-.targetModeOption:has(input:checked) .targetModeIcon {
-  color: var(--brand-primary);
-}
-
-.targetModeLabel {
-  font-size: 0.85rem;
-  font-weight: 600;
-  white-space: nowrap;
-}
-
-.targetModeDesc {
-  font-size: 0.8rem;
-  color: var(--color-gray-500, #6b7280);
-  white-space: nowrap;
-}
-
 /* ─── Multi-select chip input ─────────────────────────────────── */
-
-.multiSelectBlock {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.multiSelectLabel {
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: var(--color-gray-500, #6b7280);
-}
-
-.chipsRow {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.4rem;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  background: color-mix(in srgb, var(--color-primary, #6366f1) 10%, white 90%);
-  border: 1px solid color-mix(in srgb, var(--color-primary, #6366f1) 30%, white 70%);
-  border-radius: 100px;
-  padding: 0.2rem 0.55rem 0.2rem 0.65rem;
-  font-size: 0.78rem;
-  font-weight: 500;
-  color: var(--color-gray-800);
-  line-height: 1.4;
-}
-
-.chipIcon {
-  flex-shrink: 0;
-  color: var(--brand-primary);
-}
-
-.chipLabel {
-  max-width: 180px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.chipRemove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  padding: 0;
-  width: 14px;
-  height: 14px;
-  font-size: 0.65rem;
-  cursor: pointer;
-  color: var(--color-gray-500);
-  border-radius: 50%;
-  flex-shrink: 0;
-  transition:
-    background 0.1s,
-    color 0.1s;
-
-  &:hover {
-    background: color-mix(in srgb, var(--color-primary, #6366f1) 20%, white 80%);
-    color: var(--color-primary, #6366f1);
-  }
-}
-
-.multiSelectWrapper {
-  position: relative;
-}
-
-.multiSelectInputWrapper {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  border: 1.5px solid var(--border, #cbd5e1);
-  border-radius: 8px;
-  padding: 0.62rem 0.85rem;
-  cursor: text;
-  background: var(--card-bg, #ffffff);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
-
-  &:focus-within {
-    border-color: var(--brand-primary, #6366f1);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
-    outline: none;
-  }
-}
-
-.searchIcon {
-  color: var(--color-gray-400, #9ca3af);
-  flex-shrink: 0;
-}
-
-.multiSelectInput {
-  width: 100%;
-  font-size: 0.85rem;
-  padding: 0;
-  border: none;
-  background: transparent;
-  outline: none;
-  font-family: inherit;
-  color: var(--color-gray-800);
-
-  &::placeholder {
-    color: var(--color-gray-400);
-  }
-}
-
-.multiSelectDropdown {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 100;
-  list-style: none;
-  margin: 0;
-  padding: 0.3rem;
-  background: #fff;
-  border: 1px solid var(--color-gray-200);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.multiSelectDropdownItem {
-  padding: 0.45rem 0.65rem;
-  font-size: 0.84rem;
-  border-radius: calc(var(--radius-md) - 2px);
-  cursor: pointer;
-  color: var(--color-gray-800);
-  transition: background 0.1s;
-
-  &:hover {
-    background: color-mix(in srgb, var(--color-primary, #6366f1) 8%, white 92%);
-  }
-}
-
-.multiSelectEmpty {
-  position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
-  right: 0;
-  z-index: 100;
-  padding: 0.6rem 0.75rem;
-  font-size: 0.82rem;
-  color: var(--color-gray-500);
-  background: #fff;
-  border: 1px solid var(--color-gray-200);
-  border-radius: var(--radius-md);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-}
 
 /* ─── Featured contents DnD list ─────────────────────────────── */
 
@@ -604,7 +354,7 @@
   padding: 0.5rem 0.75rem;
   min-height: 44px;
   border-bottom: 1px solid var(--border, #e2e8f0);
-  background: #fff;
+  background: var(--surface);
   transition: background 0.1s;
 
   &:last-child {
@@ -663,8 +413,8 @@
   flex-shrink: 0;
 
   &:hover {
-    background: color-mix(in srgb, #ef4444 12%, white 88%);
-    color: #dc2626;
+    background: var(--danger-50);
+    color: var(--text-danger);
   }
 }
 
@@ -699,7 +449,7 @@
   left: 0;
   z-index: 100;
   min-width: 220px;
-  background: #fff;
+  background: var(--surface);
   border: 1px solid var(--color-gray-200);
   border-radius: var(--radius-md);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
@@ -733,30 +483,10 @@
 
 /* ─── Responsive ─────────────────────────────────────────────── */
 
-@media (max-width: 768px) {
-  /* `.targetModeDesc` è `nowrap` per tenere label e descrizione sulla stessa
-     riga sul desktop: su schermi stretti la descrizione sfora il contenitore
-     (la riga non ha spazio per contenerla e non può andare a capo). Qui la
-     descrizione può mandare a capo e, se serve, scendere sotto la label. */
-  .targetModeContent {
-    flex-wrap: wrap;
-  }
-
-  /* Con la descrizione su due righe il radio, centrato, cadeva a metà del
-     blocco di testo: ancoralo alla riga della label. */
-  .targetModeOption {
-    align-items: flex-start;
-  }
-
-  .targetModeDesc {
-    white-space: normal;
-  }
-}
-
-@media (max-width: 900px) {
-  .layout {
-    flex-direction: column;
-  }
+/* Due colonne da 1024 in su (583 + 365 a 1280), sotto una: Dove si
+   applica, Cosa fa, Quando (passo 2). */
+@media (max-width: 1023px) {
+  
 
   .formLayout {
     grid-template-columns: 1fr;

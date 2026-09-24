@@ -114,6 +114,12 @@ interface DataTableProps<T> {
     /** Label custom per il pulsante azione nella BulkBar. */
     bulkActionLabel?: string;
     showSelectionBar?: boolean;
+    /**
+     * Il piede (conteggio, per pagina, pagine). `false` solo quando la tabella
+     * mostra tutte le righe e il conteggio è già detto da chi la contiene
+     * (es. il badge della `Card`): elenchi raggruppati in più tabelle.
+     */
+    showFooter?: boolean;
 
     /** Righe con animazione highlight transitorio (~2s fade amber). */
     highlightedRowIds?: string[];
@@ -267,6 +273,7 @@ export function DataTable<T>({
     onBulkDelete,
     bulkActionLabel,
     showSelectionBar = true,
+    showFooter = true,
     highlightedRowIds,
     disabledRowIds,
     getRowId = defaultGetRowId,
@@ -698,7 +705,7 @@ export function DataTable<T>({
                         </div>
                     </div>
 
-                    <div ref={footerRef} className={styles.footer}>{renderFooter()}</div>
+                    {showFooter && <div ref={footerRef} className={styles.footer}>{renderFooter()}</div>}
                 </div>
             </div>
 

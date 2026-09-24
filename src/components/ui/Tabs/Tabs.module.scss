@@ -81,6 +81,13 @@
   }
 }
 
+// La prima tab non rientra: il suo testo sta sul filo del contenuto sotto
+// (testata, drawer, card), non 14 px più in là. L'indicatore segue il label,
+// quindi resta sotto il testo.
+.tab:first-child {
+  padding-left: 0;
+}
+
 // Wrapper del contenuto-label: shrink-wrap del testo (+ eventuale icona) così
 // che l'underline dinamico possa misurarne la larghezza reale (Tabs.tsx).
 .tabLabel {

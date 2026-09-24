@@ -1244,7 +1244,7 @@ export async function updateRule(input: {
         // here would make an untargeted draft resolve as global. The resolver
         // contract (scheduleResolver.ts) already treats apply_to_all=false
         // with no match as "excludes this rule", and these rows are always
-        // drafts (enabled=false, see missingFields in ProgrammingRuleDetail),
+        // drafts (enabled=false, see missingDraftFields in ruleDetailForm.ts),
         // so they never reach resolution regardless.
     }
 

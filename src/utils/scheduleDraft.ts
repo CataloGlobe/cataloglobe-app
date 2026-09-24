@@ -7,10 +7,10 @@ import type { LayoutRule } from "@services/supabase/layoutScheduling";
  * is missing (layout: no catalog/style; featured: no contents;
  * price/visibility: no overrides).
  *
- * NOTE: FeaturedRuleDetail.tsx uses a NARROWER definition (wasOriginallyDraft)
- * intentionally — it gates the auto-activation flow on save, and only checks
- * targets + featured_contents. Do NOT consolidate that file here without
- * verifying the auto-activation semantics.
+ * Also gates auto-activation on save in the rule detail (`useRuleDetail`):
+ * completing a saved draft turns it on. The two detail pages used to carry
+ * one narrower copy each (layout/price/visibility, featured); their union is
+ * exactly this function.
  */
 export function isLayoutRuleDraft(rule: LayoutRule): boolean {
     if (!rule.applyToAll && rule.activityIds.length === 0 && rule.groupIds.length === 0) {

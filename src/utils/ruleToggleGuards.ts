@@ -25,13 +25,13 @@ export function getToggleGuardResult(rule: LayoutRule): RuleToggleGuardResult {
     if (rule.end_at && new Date(rule.end_at) < new Date()) {
         return {
             canToggle: false,
-            reason: "Questa regola è scaduta. Aggiorna la data di fine prima di riattivarla."
+            reason: "Scaduta: sposta la data di fine per riattivarla."
         };
     }
     if (isLayoutRuleDraft(rule)) {
         return {
             canToggle: false,
-            reason: "Completa i campi obbligatori prima di attivare la regola."
+            reason: "Completa la regola per attivarla."
         };
     }
     return { canToggle: true };

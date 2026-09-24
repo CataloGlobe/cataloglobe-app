@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Globe, Building2, Users, AlertCircle, FileText, Loader2, Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
-import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
-import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { Badge } from "@/components/ui/Badge/Badge";
+import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 import { usePageHeader } from "@/context/usePageHeader";
@@ -14,21 +14,16 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
-import { TextInput } from "@/components/ui/Input/TextInput";
-import { Select } from "@/components/ui/Select/Select";
-import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
-import { useTenant } from "@/context/useTenant";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import { canDoOnAnyActivity } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
+import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { supabase } from "@/services/supabase/client";
 import {
     createRuleDraft,
     deleteLayoutRule,
@@ -41,101 +36,71 @@ import {
     type RuleType
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
-import { RuleRow, type RuleInsight } from "./components/RuleRow";
+import { RuleTable, type RuleInsight } from "./components/RuleTable";
+import { describeTarget } from "./components/ruleTarget";
+import { measureTextWidth } from "@/utils/measureText";
 import { HowItWorksLink, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import { CalendarView } from "./components/CalendarView";
-import {
-    resolveRulesForActivity,
-    type ResolveRulesForActivityResult
-} from "@/services/supabase/scheduleResolver";
-import { toRomeDateTime } from "@/services/supabase/schedulingNow";
-import { buildRuleSummary, isRuleCurrentlyActive } from "@/utils/ruleHelpers";
+import { RuleSimulatorDrawer } from "./components/RuleSimulatorDrawer";
+import { isRuleCurrentlyActive } from "@/utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
 import { ruleReachesAnyActivity, describeZeroReach } from "@/utils/scheduleReach";
 import { deriveScheduleStatus } from "@/utils/scheduleStatus";
-import { formatInactiveReason } from "@/utils/activityStatus";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { ruleTypeLabel } from "./ruleTypeLabel";
+import { withPluralArticle } from "@/utils/ruleDetailForm";
 import styles from "./Programming.module.scss";
 
 type RuleTypeFilter = RuleType | "all";
 
-type VisibilityModeLabel = "hide" | "disable";
+type RuleTypeOption = { value: RuleTypeFilter; label: string; description: string };
 
-function formatVisibilityMode(mode: VisibilityModeLabel | string | null | undefined, short = false): string {
-    if (mode === "hide") return short ? "Nascosti" : "Nasconde i prodotti selezionati";
-    if (mode === "disable") return short ? "Non disponibile" : "Mostra come non disponibile";
-    return "—";
+/** I valori del filtro per tipo, col nome del verticale (§22, dizionario #12). */
+function ruleTypeOptions(catalogLabel: string, products: string): RuleTypeOption[] {
+    const menu = catalogLabel.toLowerCase();
+    return [
+        { value: "layout", label: ruleTypeLabel("layout", catalogLabel), description: `Decidono quale ${menu} e quale stile mostrare` },
+        { value: "featured", label: ruleTypeLabel("featured", catalogLabel), description: "Programmano quando mostrare contenuti in evidenza" },
+        { value: "price", label: ruleTypeLabel("price", catalogLabel), description: `Cambiano il prezzo di alcuni ${products}` },
+        { value: "visibility", label: ruleTypeLabel("visibility", catalogLabel), description: `Nascondono alcuni ${products}, o li segnano come non disponibili` },
+        { value: "all", label: "Tutte", description: "Tutte le regole, di ogni tipo." }
+    ];
 }
-
-type DailyTimelineBlock = {
-    startMinutes: number;
-    endMinutes: number;
-    layoutCatalogId: string | null;
-    layoutScheduleId: string | null;
-    priceRuleId: string | null;
-    visibilityScheduleId: string | null;
-    visibilityMode: "hide" | "disable" | null;
-    featuredScheduleId: string | null;
-    layoutSpecificity: number | null;
-    priceSpecificity: number | null;
-    visibilitySpecificity: number | null;
-};
-
-type ActivityGroupMemberRow = {
-    group_id: string;
-    activity_id: string;
-};
-
-const RULE_TYPE_TAB_OPTIONS: Array<{ value: RuleTypeFilter; label: string; description: string }> = [
-    { value: "layout", label: "Layout", description: "Definiscono quale catalogo e stile mostrare" },
-    { value: "featured", label: "In evidenza", description: "Programmano quando mostrare contenuti in evidenza" },
-    { value: "price", label: "Prezzi", description: "Sovrascrivono il prezzo di prodotti specifici" },
-    { value: "visibility", label: "Disponibilità", description: "Nascondono prodotti specifici per sede o orario" },
-    { value: "all", label: "Tutte", description: "Panoramica di tutte le regole di programmazione" }
-];
 
 /**
  * Copy dell'empty state "vuoto assoluto", uno per tab. Volutamente separato da
- * `RULE_TYPE_TAB_OPTIONS.description`: quella riga resta come sottotitolo sopra
+ * `ruleTypeOptions().description`: quella riga resta come sottotitolo sopra
  * la lista, e riusarla qui la mostrerebbe due volte identica nella stessa
  * schermata. Qui il testo spiega a cosa serve il tipo di regola e qual è la
  * prima mossa; là descrive la tab in una riga.
  */
-const EMPTY_STATE_COPY: Record<RuleTypeFilter, { title: string; description: string }> = {
+const emptyStateCopy = (menu: string, product: string, products: string): Record<RuleTypeFilter, { title: string; description: string }> => ({
     layout: {
         title: "Decidi cosa mostrare, e quando",
         description:
-            "Una regola sceglie il menù e lo stile da mostrare in una sede, in una finestra di tempo: colazione fino alle 11, cena dalle 19. Senza finestra, vale sempre."
+            `Una regola sceglie il ${menu} e lo stile da mostrare in una sede, in una finestra di tempo: colazione fino alle 11, cena dalle 19. Senza finestra, vale sempre.`
     },
     featured: {
         title: "Fai comparire promozioni, eventi e avvisi",
         description:
-            "Scegli il contenuto da mettere in risalto e il periodo in cui deve apparire: compare e sparisce da solo, sopra o sotto il menù."
+            `Scegli il contenuto da mettere in risalto e il periodo in cui deve apparire: compare e sparisce da solo, sopra o sotto il ${menu}.`
     },
     price: {
         title: "Applica uno sconto per un giorno o un periodo",
         description:
-            "Happy hour del giovedì, promozione di agosto: il prodotto resta uno, cambia solo il prezzo nel periodo che scegli."
+            `Happy hour del giovedì, promozione di agosto: il ${product} resta uno, cambia solo il prezzo nel periodo che scegli.`
     },
     visibility: {
-        title: "Gestisci i prodotti finiti o fuori stagione",
+        title: `Gestisci ${withPluralArticle(products)} finiti o fuori stagione`,
         description:
             "Puoi nasconderlo del tutto o lasciarlo visibile segnandolo come non disponibile, per una sede o in certi orari."
     },
     all: {
         title: "Le regole decidono cosa vedono i clienti, e quando",
         description:
-            "Menù e stile, contenuti in risalto, sconti e disponibilità: ogni regola vale per una sede e una finestra di tempo."
+            `${menu.charAt(0).toUpperCase()}${menu.slice(1)} e stile, contenuti in risalto, sconti e disponibilità: ogni regola vale per una sede e una finestra di tempo.`
     }
-};
-
-const DAILY_TIMELINE_STEP_MINUTES = 30;
-
-function getRuleTypeLabel(ruleType: RuleType): string {
-    if (ruleType === "layout") return "Layout";
-    if (ruleType === "price") return "Prezzi";
-    if (ruleType === "featured") return "In evidenza";
-    return "Disponibilità";
-}
+});
 
 function getRuleTargetLabel(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>): string {
     if (rule.target_type === "activity_group") {
@@ -146,20 +111,8 @@ function getRuleTargetLabel(rule: LayoutRule, activityById: Map<string, LayoutRu
     return activityById.get(rule.target_id)?.name ?? rule.target_id;
 }
 
-function toDateTimeLocalValue(date: Date): string {
-    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return localDate.toISOString().slice(0, 16);
-}
-
-function getSpecificityLabel(value: number | null) {
-    if (value === 2) return "Sede specifica";
-    if (value === 1) return "Gruppo di sedi";
-    if (value === 0) return "Tutte le sedi";
-    return "-";
-}
-
-function getRuleDisplayName(rule: LayoutRule): string {
-    return (rule.name ?? `${getRuleTypeLabel(rule.rule_type)} · ${rule.id.slice(0, 6)}`).trim();
+function getRuleDisplayName(rule: LayoutRule, catalogLabel: string): string {
+    return (rule.name ?? `${ruleTypeLabel(rule.rule_type, catalogLabel)} · ${rule.id.slice(0, 6)}`).trim();
 }
 
 function compareSpecificityFirst(a: LayoutRule, b: LayoutRule, specA: number, specB: number): number {
@@ -177,98 +130,24 @@ function compareCandidateSpecificityFirst(
     return compareSpecificityFirst(a.rule, b.rule, a.specificity, b.specificity);
 }
 
-
-function formatMinutesToHourLabel(totalMinutes: number): string {
-    const h = Math.floor(totalMinutes / 60)
-        .toString()
-        .padStart(2, "0");
-    const m = (totalMinutes % 60).toString().padStart(2, "0");
-    return `${h}:${m}`;
-}
-
-/* ─── RuleBlock ──────────────────────────────────────────────── */
-
-interface RuleBlockProps {
-    title: string;
-    count: number;
-    subtitle?: string;
-    collapsible?: boolean;
-    open?: boolean;
-    onToggle?: (open: boolean) => void;
-    children: React.ReactNode;
-}
-
-function RuleBlock({
-    title,
-    count,
-    subtitle,
-    collapsible = false,
-    open: controlledOpen,
-    onToggle,
-    children
-}: RuleBlockProps) {
-    const isOpen = collapsible ? (controlledOpen ?? true) : true;
-
-    const header = (
-        <div
-            className={styles.ruleBlockHeader}
-            role={collapsible ? "button" : undefined}
-            tabIndex={collapsible ? 0 : undefined}
-            onClick={collapsible ? () => onToggle?.(!isOpen) : undefined}
-            onKeyDown={collapsible ? e => { if (e.key === "Enter") onToggle?.(!isOpen); } : undefined}
-        >
-            <div className={styles.ruleBlockHeaderLeft}>
-                <div className={styles.ruleBlockHeaderText}>
-                    <div className={styles.ruleBlockTitleRow}>
-                        <Text variant="body-sm" weight={700}>{title}</Text>
-                        <span className={styles.ruleBlockCount}>{count}</span>
-                    </div>
-                    {subtitle && (
-                        <Text variant="caption" colorVariant="muted">{subtitle}</Text>
-                    )}
-                </div>
-            </div>
-            {collapsible && (
-                <span className={styles.ruleBlockChevron}>
-                    <ChevronDown size={14} style={isOpen ? undefined : { transform: "rotate(-90deg)" }} />
-                </span>
-            )}
-        </div>
-    );
-
-    /* Etichette colonna: stessa grid delle righe dati via `--rule-row-grid`,
-       ereditata da `.ruleBlock`. Le celle vuote (pallino stato, checkbox)
-       servono solo a far cadere "Regola" e "Target" sulla loro colonna;
-       toggle e menu azioni non hanno etichetta e restano fuori. */
-    const columnLabels = (
-        <div className={styles.ruleColumnHeader} aria-hidden="true">
-            <span />
-            <span />
-            <span>Regola</span>
-            <span>Target</span>
-        </div>
-    );
-
-    return (
-        <div className={styles.ruleBlock}>
-            {header}
-            {isOpen && (
-                <>
-                    {columnLabels}
-                    {children}
-                </>
-            )}
-        </div>
-    );
-}
-
-
 export default function Programming() {
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTenantId = useTenantId();
-    const { selectedTenant } = useTenant();
     const { showToast } = useToast();
+    const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
+    const typeOptions = useMemo(() => ruleTypeOptions(catalogLabel, productLabelPlural.toLowerCase()), [catalogLabel, productLabelPlural]);
+    const emptyCopy = useMemo(
+        () => emptyStateCopy(catalogLabel.toLowerCase(), productLabel.toLowerCase(), productLabelPlural.toLowerCase()),
+        [catalogLabel, productLabel, productLabelPlural]
+    );
+    const ruleHref = useCallback(
+        (rule: { id: string; rule_type: RuleType }) =>
+            rule.rule_type === "featured"
+                ? `/business/${currentTenantId}/scheduling/featured/${rule.id}`
+                : `/business/${currentTenantId}/scheduling/${rule.id}`,
+        [currentTenantId]
+    );
     const sedeScope = useSedeScope();
     const { permissions } = usePermissions();
     // `canEdit` usa la stessa allowlist (trialing|active|past_due) di
@@ -285,12 +164,14 @@ export default function Programming() {
     const [activityIdsByGroupId, setActivityIdsByGroupId] = useState<Record<string, string[]>>({});
 
     const [isLoading, setIsLoading] = useState(true);
+    const [loadFailed, setLoadFailed] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [isSimulatorDrawerOpen, setIsSimulatorDrawerOpen] = useState(false);
     // Spiegazione "Come funziona": puramente on-demand, nessuno stato persistito.
     const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
     const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
     const [ruleToDelete, setRuleToDelete] = useState<string | null>(null);
+    const [isBulkDeleteOpen, setIsBulkDeleteOpen] = useState(false);
     const [updatingRules, setUpdatingRules] = useState<Set<string>>(new Set());
 
     const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
@@ -298,6 +179,12 @@ export default function Programming() {
     // Filtro sede deriva da useSedeScope (navbar). SCOPE_ALL → nessun filtro.
     const filterActivityId = sedeScope.value === SCOPE_ALL ? null : sedeScope.value;
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
+    // Stessa regola di PageGate: sulla sede del filtro, se c'è.
+    const canRead = permissions
+        ? filterActivityId
+            ? canDoOnActivity(permissions, "scheduling.read", filterActivityId)
+            : canDoOnAnyActivity(permissions, "scheduling.read")
+        : false;
     const typeFromUrl = searchParams.get("type") as RuleType | null;
     const [ruleTypeFilter, setRuleTypeFilter] = useState<RuleTypeFilter>(
         typeFromUrl && ["layout", "featured", "price", "visibility", "all"].includes(typeFromUrl)
@@ -325,20 +212,6 @@ export default function Programming() {
         setIsHelpModalOpen(true);
     }, []);
 
-    const [simActivityId, setSimActivityId] = useState("");
-    // Stato sede selezionata nel simulatore: mirror di resolve-public-catalog
-    // (`activity.status !== "active"` → pagina pubblica senza catalogo).
-    const simActivity = activities.find(a => a.id === simActivityId) ?? null;
-    const simActivityInactive = simActivity !== null && simActivity.status !== "active";
-    const [simDateTime, setSimDateTime] = useState(() => toDateTimeLocalValue(new Date()));
-    const [simResult, setSimResult] = useState<ResolveRulesForActivityResult | null>(null);
-    const [isSimLoading, setIsSimLoading] = useState(false);
-    const [simError, setSimError] = useState<string | null>(null);
-    const [simTimelineOpen, setSimTimelineOpen] = useState(false);
-    const [isDailyTimelineLoading, setIsDailyTimelineLoading] = useState(false);
-    const [dailyTimelineError, setDailyTimelineError] = useState<string | null>(null);
-    const [dailyTimelineBlocks, setDailyTimelineBlocks] = useState<DailyTimelineBlock[]>([]);
-
     const activityById = useMemo(
         () => new Map(activities.map(item => [item.id, item])),
         [activities]
@@ -354,9 +227,12 @@ export default function Programming() {
     }, [currentTenantId]);
 
     const loadInitialData = useCallback(async () => {
-        if (!currentTenantId) return;
+        // Gate prima della fetch: senza lettura (o coi permessi ancora in
+        // arrivo) non si chiede niente; PageGate mostra il blocco.
+        if (!currentTenantId || !canRead) return;
         try {
             setIsLoading(true);
+            setLoadFailed(false);
             const [rulesData, optionsData] = await Promise.all([
                 listLayoutRules(currentTenantId),
                 listLayoutRuleOptions(currentTenantId)
@@ -367,55 +243,27 @@ export default function Programming() {
             setCatalogs(optionsData.catalogs);
             setStylesOptions(optionsData.styles);
 
-            const groupIds = optionsData.activityGroups.map(group => group.id);
-            if (groupIds.length > 0) {
-                const membershipsRes = await supabase
-                    .from("activity_group_members")
-                    .select("group_id, activity_id")
-                    .in("group_id", groupIds);
-                if (membershipsRes.error) throw membershipsRes.error;
-
-                const grouped: Record<string, string[]> = {};
-                for (const row of (membershipsRes.data ?? []) as ActivityGroupMemberRow[]) {
-                    if (!grouped[row.group_id]) grouped[row.group_id] = [];
-                    grouped[row.group_id].push(row.activity_id);
-                }
-                setActivityIdsByGroupId(grouped);
-            } else {
-                setActivityIdsByGroupId({});
-            }
+            setActivityIdsByGroupId(
+                await listActivityIdsByGroup(optionsData.activityGroups.map(group => group.id))
+            );
         } catch (error) {
             console.error("Errore caricamento Programmazione:", error);
-            showToast({
-                type: "error",
-                message: "Impossibile caricare la programmazione.",
-                duration: 3000
-            });
+            setLoadFailed(true);
         } finally {
             setIsLoading(false);
         }
-    }, [currentTenantId, showToast]);
+    }, [currentTenantId, canRead]);
 
     useEffect(() => {
         void loadInitialData();
     }, [loadInitialData]);
 
-    // Auto-select activity if tenant has exactly one
-    useEffect(() => {
-        if (activities.length === 1 && !simActivityId) {
-            setSimActivityId(activities[0].id);
-        }
-    }, [activities, simActivityId]);
-
-    const filteredRules = useMemo(() => {
+    // Sede e ricerca: i conteggi del filtro per tipo si leggono da qui.
+    const searchedRules = useMemo(() => {
         const query = searchTerm.trim().toLowerCase();
+        let result = rules;
 
-        // 1. Filter by rule type (tab)
-        let result = ruleTypeFilter === "all"
-            ? rules
-            : rules.filter(rule => rule.rule_type === ruleTypeFilter);
-
-        // 2. Filter by selected activity
+        // 1. Filter by selected activity
         if (filterActivityId) {
             result = result.filter(rule => {
                 if (rule.applyToAll) return true;
@@ -426,12 +274,12 @@ export default function Programming() {
             });
         }
 
-        // 3. Filter by search term
+        // 2. Filter by search term
         if (!query) return result;
 
         return result.filter(rule => {
             const targetLabel = getRuleTargetLabel(rule, activityById);
-            const catalogLabel = rule.layout?.catalog_id
+            const catalogName = rule.layout?.catalog_id
                 ? (catalogById.get(rule.layout.catalog_id)?.name ?? rule.layout.catalog_id)
                 : "";
             const styleLabel = rule.layout?.style_id
@@ -442,12 +290,12 @@ export default function Programming() {
             return [
                 ruleName,
                 rule.id,
-                getRuleTypeLabel(rule.rule_type),
+                ruleTypeLabel(rule.rule_type, catalogLabel),
                 rule.rule_type,
                 targetLabel,
                 rule.target_type,
                 rule.target_id,
-                catalogLabel,
+                catalogName,
                 styleLabel,
                 rule.priority
             ]
@@ -455,16 +303,18 @@ export default function Programming() {
                 .toLowerCase()
                 .includes(query);
         });
-    }, [activityById, activityIdsByGroupId, catalogById, filterActivityId, ruleTypeFilter, rules, searchTerm, styleById]);
+    }, [activityById, activityIdsByGroupId, catalogById, catalogLabel, filterActivityId, rules, searchTerm, styleById]);
 
-    const handleSelectionChange = useCallback((id: string, checked: boolean) => {
-        setSelectedRuleIds(prev => {
-            const next = new Set(prev);
-            if (checked) next.add(id);
-            else next.delete(id);
-            return next;
-        });
-    }, []);
+    const filteredRules = useMemo(
+        () => (ruleTypeFilter === "all" ? searchedRules : searchedRules.filter(rule => rule.rule_type === ruleTypeFilter)),
+        [ruleTypeFilter, searchedRules]
+    );
+
+    const typeCounts = useMemo(() => {
+        const counts: Record<RuleTypeFilter, number> = { layout: 0, featured: 0, price: 0, visibility: 0, all: searchedRules.length };
+        for (const rule of searchedRules) counts[rule.rule_type] += 1;
+        return counts;
+    }, [searchedRules]);
 
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -520,9 +370,8 @@ export default function Programming() {
 
         const ruleWinsNow = new Set<string>();
         const ruleParticipatesNow = new Set<string>();
-        const ruleConflictsNow = new Set<string>();
-        const ruleConflictingWithNames = new Map<string, Set<string>>();
         const ruleOverriddenByName = new Map<string, string>();
+        const ruleOverriddenById = new Map<string, string>();
         // Per regole con target ampio (tutte/gruppo): sedi dove perdono vs regola più specifica
         const ruleExcludedActivityIds = new Map<string, Set<string>>();
 
@@ -540,11 +389,6 @@ export default function Programming() {
                     );
 
                 if (candidates.length === 0) continue;
-                if (candidates.length > 1) {
-                    for (const entry of candidates) {
-                        ruleConflictsNow.add(entry.rule.id);
-                    }
-                }
 
                 for (const entry of candidates) {
                     ruleParticipatesNow.add(entry.rule.id);
@@ -554,21 +398,11 @@ export default function Programming() {
                 const winnerEntry = candidates[0];
                 ruleWinsNow.add(winnerEntry.rule.id);
 
-                if (candidates.length > 1) {
-                    const secondEntry = candidates[1];
-                    const winnerSet = ruleConflictingWithNames.get(winnerEntry.rule.id) ?? new Set();
-                    winnerSet.add(getRuleDisplayName(secondEntry.rule));
-                    ruleConflictingWithNames.set(winnerEntry.rule.id, winnerSet);
-                }
-
                 for (const candidate of candidates.slice(1)) {
                     if (!ruleOverriddenByName.has(candidate.rule.id)) {
-                        ruleOverriddenByName.set(candidate.rule.id, getRuleDisplayName(winnerEntry.rule));
+                        ruleOverriddenByName.set(candidate.rule.id, getRuleDisplayName(winnerEntry.rule, catalogLabel));
+                        ruleOverriddenById.set(candidate.rule.id, winnerEntry.rule.id);
                     }
-
-                    const conflictSet = ruleConflictingWithNames.get(candidate.rule.id) ?? new Set();
-                    conflictSet.add(getRuleDisplayName(winnerEntry.rule));
-                    ruleConflictingWithNames.set(candidate.rule.id, conflictSet);
 
                     // Traccia la sede esclusa per regole con target ampio
                     const excluded = ruleExcludedActivityIds.get(candidate.rule.id) ?? new Set();
@@ -592,7 +426,6 @@ export default function Programming() {
             insights.set(rule.id, {
                 isActiveNow,
                 isOverridden: isActiveNow && participatesNow && !winsNow,
-                hasConflict: isActiveNow && ruleConflictsNow.has(rule.id),
                 isNeverUsed: !canTargetAnyActivity,
                 zeroReachReason: canTargetAnyActivity
                     ? undefined
@@ -600,14 +433,14 @@ export default function Programming() {
                           ...reachCtx,
                           groupName: id => groupNameById.get(id) ?? id
                       }),
-                conflictingWithName: Array.from(ruleConflictingWithNames.get(rule.id) ?? [])[0],
                 overriddenByName: ruleOverriddenByName.get(rule.id),
+                overriddenById: ruleOverriddenById.get(rule.id),
                 excludedActivityNames
             });
         }
 
         return insights;
-    }, [activities, activityById, activityIdsByGroupId, currentTime, rules, reachCtx, groupNameById]);
+    }, [activities, activityById, activityIdsByGroupId, catalogLabel, currentTime, rules, reachCtx, groupNameById]);
 
     const { activeRules, scheduledRules, draftRules, expiredRules, disabledRules } = useMemo(() => {
         const active: LayoutRule[] = [];
@@ -712,6 +545,11 @@ export default function Programming() {
     const [showExpired, setShowExpired] = useState(false);
     const [showDisabled, setShowDisabled] = useState(false);
 
+    const ruleNameOf = (id: string): string => {
+        const found = rules.find(r => r.id === id);
+        return found ? getRuleDisplayName(found, catalogLabel) : "la regola";
+    };
+
     const handleToggleEnabled = async (ruleId: string, enabled: boolean) => {
         // Optimistic update
         setRules(prev => prev.map(r => (r.id === ruleId ? { ...r, enabled } : r)));
@@ -734,7 +572,7 @@ export default function Programming() {
             setRules(prev => prev.map(r => (r.id === ruleId ? { ...r, enabled: !enabled } : r)));
             showToast({
                 type: "error",
-                message: "Impossibile aggiornare lo stato.",
+                message: `Non siamo riusciti a cambiare lo stato di ${ruleNameOf(ruleId)}.`,
                 duration: 3000
             });
         } finally {
@@ -746,190 +584,6 @@ export default function Programming() {
         }
     };
 
-
-
-    const runSimulation = useCallback(async () => {
-        if (!simActivityId || !simDateTime) {
-            setSimResult(null);
-            setSimError(null);
-            return;
-        }
-
-        const selectedDate = new Date(simDateTime);
-        if (Number.isNaN(selectedDate.getTime())) {
-            setSimResult(null);
-            setSimError("Data/ora non valida.");
-            return;
-        }
-
-        try {
-            setIsSimLoading(true);
-            setSimError(null);
-            const result = await resolveRulesForActivity({
-                supabase,
-                activityId: simActivityId,
-                tenantId: currentTenantId!,
-                now: toRomeDateTime(selectedDate),
-                includeLayoutStyle: true
-            });
-            setSimResult(result);
-        } catch (error) {
-            console.error("Errore simulazione regole:", error);
-            setSimResult(null);
-            setSimError("Impossibile simulare le regole per i parametri selezionati.");
-        } finally {
-            setIsSimLoading(false);
-        }
-    }, [simActivityId, simDateTime]);
-
-    const runDailyTimeline = useCallback(async () => {
-        if (!simActivityId || !simDateTime) {
-            setDailyTimelineBlocks([]);
-            setDailyTimelineError(null);
-            return;
-        }
-
-        const selectedDate = new Date(simDateTime);
-        if (Number.isNaN(selectedDate.getTime())) {
-            setDailyTimelineBlocks([]);
-            setDailyTimelineError("Data/ora non valida per la timeline.");
-            return;
-        }
-
-        const dayStart = new Date(
-            selectedDate.getFullYear(),
-            selectedDate.getMonth(),
-            selectedDate.getDate(),
-            0,
-            0,
-            0,
-            0
-        );
-
-        const slotOffsets: number[] = [];
-        for (let minutes = 0; minutes < 24 * 60; minutes += DAILY_TIMELINE_STEP_MINUTES) {
-            slotOffsets.push(minutes);
-        }
-
-        setIsDailyTimelineLoading(true);
-        setDailyTimelineError(null);
-
-        const settled = await Promise.allSettled(
-            slotOffsets.map(async minutesOffset => {
-                const slotTime = new Date(dayStart);
-                slotTime.setMinutes(minutesOffset);
-
-                const result = await resolveRulesForActivity({
-                    supabase,
-                    activityId: simActivityId,
-                    tenantId: currentTenantId!,
-                    now: toRomeDateTime(slotTime),
-                    includeLayoutStyle: false
-                });
-
-                return {
-                    minutesOffset,
-                    layoutCatalogId: result.layout.catalogId,
-                    layoutScheduleId: result.layout.scheduleId,
-                    priceRuleId: result.priceRuleId,
-                    visibilityScheduleId: result.visibilityRule?.scheduleId ?? null,
-                    visibilityMode: result.visibilityRule?.mode ?? null,
-                    featuredScheduleId: result.featuredRule?.scheduleId ?? null,
-                    layoutSpecificity: result.debug?.selectedLayoutRuleSpecificity ?? null,
-                    priceSpecificity: result.debug?.selectedPriceRuleSpecificity ?? null,
-                    visibilitySpecificity: result.debug?.selectedVisibilityRuleSpecificity ?? null
-                };
-            })
-        );
-
-        const slotResults = settled
-            .filter((r): r is PromiseFulfilledResult<typeof settled extends PromiseSettledResult<infer T>[] ? T : never> => r.status === "fulfilled")
-            .map(r => r.value);
-
-        const failedCount = settled.length - slotResults.length;
-        if (failedCount > 0) {
-            console.warn(`Timeline: ${failedCount}/${settled.length} slot falliti`);
-        }
-
-        if (slotResults.length === 0) {
-            setDailyTimelineBlocks([]);
-            setDailyTimelineError("Impossibile calcolare l'andamento giornaliero.");
-            setIsDailyTimelineLoading(false);
-            return;
-        }
-
-        const merged: DailyTimelineBlock[] = [];
-        for (const slot of slotResults) {
-            const currentKey = [
-                slot.layoutCatalogId ?? "",
-                slot.layoutScheduleId ?? "",
-                slot.priceRuleId ?? "",
-                slot.visibilityScheduleId ?? "",
-                slot.visibilityMode ?? "",
-                slot.featuredScheduleId ?? "",
-                String(slot.layoutSpecificity ?? ""),
-                String(slot.priceSpecificity ?? ""),
-                String(slot.visibilitySpecificity ?? "")
-            ].join("|");
-
-            const last = merged[merged.length - 1];
-            if (last) {
-                const lastKey = [
-                    last.layoutCatalogId ?? "",
-                    last.layoutScheduleId ?? "",
-                    last.priceRuleId ?? "",
-                    last.visibilityScheduleId ?? "",
-                    last.visibilityMode ?? "",
-                    last.featuredScheduleId ?? "",
-                    String(last.layoutSpecificity ?? ""),
-                    String(last.priceSpecificity ?? ""),
-                    String(last.visibilitySpecificity ?? "")
-                ].join("|");
-
-                if (lastKey === currentKey && last.endMinutes === slot.minutesOffset) {
-                    last.endMinutes += DAILY_TIMELINE_STEP_MINUTES;
-                    continue;
-                }
-            }
-
-            merged.push({
-                startMinutes: slot.minutesOffset,
-                endMinutes: slot.minutesOffset + DAILY_TIMELINE_STEP_MINUTES,
-                layoutCatalogId: slot.layoutCatalogId,
-                layoutScheduleId: slot.layoutScheduleId,
-                priceRuleId: slot.priceRuleId,
-                visibilityScheduleId: slot.visibilityScheduleId,
-                visibilityMode: slot.visibilityMode,
-                featuredScheduleId: slot.featuredScheduleId,
-                layoutSpecificity: slot.layoutSpecificity,
-                priceSpecificity: slot.priceSpecificity,
-                visibilitySpecificity: slot.visibilitySpecificity
-            });
-        }
-
-        setDailyTimelineBlocks(merged);
-        setIsDailyTimelineLoading(false);
-    }, [simActivityId, simDateTime]);
-
-    const hasAnyRuleActiveInDay = useMemo(
-        () =>
-            dailyTimelineBlocks.some(
-                block =>
-                    block.layoutScheduleId !== null ||
-                    block.priceRuleId !== null ||
-                    block.visibilityScheduleId !== null ||
-                    block.featuredScheduleId !== null
-            ),
-        [dailyTimelineBlocks]
-    );
-
-    useEffect(() => {
-        if (!isSimulatorDrawerOpen) return;
-        if (!simActivityId || !simDateTime) return;
-        void runSimulation();
-        void runDailyTimeline();
-    }, [isSimulatorDrawerOpen, simActivityId, simDateTime, runSimulation, runDailyTimeline]);
-
     const handleDeleteConfirm = async () => {
         if (!ruleToDelete) return;
 
@@ -937,7 +591,7 @@ export default function Programming() {
             await deleteLayoutRule(ruleToDelete);
             showToast({
                 type: "success",
-                message: "Regola eliminata con successo.",
+                message: "Regola eliminata.",
                 duration: 2200
             });
             setIsDeleteModalOpen(false);
@@ -947,7 +601,7 @@ export default function Programming() {
             console.error("Errore eliminazione regola:", error);
             showToast({
                 type: "error",
-                message: "Errore durante l'eliminazione della regola.",
+                message: `Non siamo riusciti a eliminare ${ruleNameOf(ruleToDelete)}.`,
                 duration: 3000
             });
         }
@@ -958,7 +612,7 @@ export default function Programming() {
             await duplicateRule(ruleId, currentTenantId!);
             showToast({
                 type: "success",
-                message: "Regola duplicata e disabilitata.",
+                message: "Regola duplicata: la copia è spenta.",
                 duration: 2200
             });
             await loadRules();
@@ -966,33 +620,50 @@ export default function Programming() {
             console.error("Errore duplicazione regola:", error);
             showToast({
                 type: "error",
-                message: "Errore durante la duplicazione della regola.",
+                message: `Non siamo riusciti a duplicare ${ruleNameOf(ruleId)}.`,
                 duration: 3000
             });
         }
     };
 
-    const handleBulkDelete = async () => {
+    /* Esito per regola: con un errore a metà le altre sono già eliminate,
+       quindi il messaggio dice quali restano, e restano selezionate. */
+    const handleBulkDelete = async (): Promise<boolean> => {
         const ids = Array.from(selectedRuleIds);
-        if (ids.length === 0) return;
-        try {
-            await Promise.all(ids.map(id => deleteLayoutRule(id)));
-            showToast({
-                type: "success",
-                message: `${ids.length} regole eliminate con successo.`,
-                duration: 2200
-            });
-            setSelectedRuleIds(new Set());
-            await loadRules();
-        } catch (error) {
-            console.error("Errore eliminazione multipla regole:", error);
+        if (ids.length === 0) return true;
+        const results = await Promise.allSettled(ids.map(id => deleteLayoutRule(id)));
+        const failedIds = ids.filter((_, i) => results[i].status === "rejected");
+        const deleted = ids.length - failedIds.length;
+
+        if (failedIds.length > 0) {
+            console.error(
+                "Errore eliminazione multipla regole:",
+                results.filter(r => r.status === "rejected")
+            );
+            const names = failedIds.map(id => ruleNameOf(id)).join(", ");
             showToast({
                 type: "error",
-                message: "Errore durante l'eliminazione di alcune regole.",
-                duration: 3000
+                message: `${failedIds.length === 1 ? "1 regola non eliminata" : `${failedIds.length} regole non eliminate`}: ${names}.`,
+                duration: 4000
+            });
+        } else {
+            showToast({
+                type: "success",
+                message: deleted === 1 ? "1 regola eliminata." : `${deleted} regole eliminate.`,
+                duration: 2200
             });
         }
+        setSelectedRuleIds(new Set(failedIds));
+        await loadRules();
+        return true;
     };
+
+    const bulkCount = selectedRuleIds.size;
+    const bulkNames = Array.from(selectedRuleIds).map(ruleNameOf);
+    const bulkNamesLine =
+        bulkNames.length > 5
+            ? `${bulkNames.slice(0, 5).join(", ")} e altre ${bulkNames.length - 5}.`
+            : `${bulkNames.join(", ")}.`;
 
     // Cleanup bozze abbandonate: gestito da edge function
     // cleanup-draft-schedules (elimina bozze > 7 giorni)
@@ -1005,8 +676,7 @@ export default function Programming() {
                 day: "2-digit",
                 month: "2-digit"
             });
-            const typeLabel =
-                RULE_TYPE_TAB_OPTIONS.find(o => o.value === effectiveType)?.label ?? effectiveType;
+            const typeLabel = ruleTypeLabel(effectiveType, catalogLabel);
             const name = `Nuova regola ${typeLabel} · ${timestamp}`;
 
             if (effectiveType === "featured") {
@@ -1024,11 +694,11 @@ export default function Programming() {
                 navigate(`/business/${currentTenantId}/scheduling/${newRuleId}?fromType=${effectiveType}`);
             }
         } catch {
-            showToast({ message: "Errore nella creazione della regola.", type: "error" });
+            showToast({ message: "Non siamo riusciti a creare la regola.", type: "error" });
         } finally {
             setIsCreating(false);
         }
-    }, [currentTenantId, ruleTypeFilter, navigate, showToast]);
+    }, [currentTenantId, catalogLabel, ruleTypeFilter, navigate, showToast]);
 
     // Azioni della banda in ordine di lettura: la primaria è l'ultima ("Nuova
     // regola"), "Simula regole" resta raggiungibile dal caret. Sulla tab "Tutte"
@@ -1054,7 +724,7 @@ export default function Programming() {
                       label,
                       disabled,
                       items: [
-                          { label: "Layout", onClick: () => void handleCreateRule("layout") },
+                          { label: ruleTypeLabel("layout", catalogLabel), onClick: () => void handleCreateRule("layout") },
                           { label: "In evidenza", onClick: () => void handleCreateRule("featured") },
                           { label: "Prezzi", onClick: () => void handleCreateRule("price") },
                           { label: "Disponibilità", onClick: () => void handleCreateRule("visibility") }
@@ -1064,54 +734,62 @@ export default function Programming() {
         );
 
         return actions;
-    }, [currentTenantId, canWrite, canEdit, isCreating, ruleTypeFilter, handleCreateRule]);
+    }, [currentTenantId, canWrite, canEdit, catalogLabel, isCreating, ruleTypeFilter, handleCreateRule]);
 
-    const headerActions = useMemo(() => (
+    // Il filtro per tipo sta nella testata, nello slot delle tab come in
+    // Prodotti e Sedi (F5); in compatto diventa il selettore di sezione.
+    const headerLeading = useMemo(() => (
+        <Tabs<RuleTypeFilter> value={ruleTypeFilter} onChange={handleRuleTypeFilterChange} variant="line">
+            <Tabs.List aria-label="Tipo di regola">
+                {typeOptions.map(option => (
+                    <Tabs.Tab key={option.value} value={option.value} badge={typeCounts[option.value]}>
+                        {option.label}
+                    </Tabs.Tab>
+                ))}
+            </Tabs.List>
+        </Tabs>
+    ), [ruleTypeFilter, handleRuleTypeFilterChange, typeOptions, typeCounts]);
+
+    // Le azioni in tre larghezze (F5): comoda; Elenco/Settimana a sole icone;
+    // in più la ricerca alla larghezza minima. La banda usa la prima che sta
+    // in riga con le tab, poi passa a due righe.
+    const renderHeaderActions = useCallback((step: 0 | 1 | 2) => (
         <div className={styles.headerActions}>
             {viewMode === "list" && (
                 <ToolbarSearch
                     value={searchTerm}
                     onChange={setSearchTerm}
-                    placeholder="Cerca per nome, tipo, target o id..."
+                    placeholder={step === 2 ? "Cerca…" : "Cerca per nome, tipo, sede o id…"}
+                    width={step === 2 ? "min" : "default"}
                 />
             )}
             <SegmentedControl<"list" | "calendar">
                 value={viewMode}
                 onChange={setViewMode}
-                iconsOnly
+                iconsOnly={step > 0}
                 options={[
-                    { value: "list", label: "Vista lista", icon: <List size={16} /> },
-                    { value: "calendar", label: "Vista calendario", icon: <CalendarDays size={16} /> }
+                    { value: "list", label: "Elenco", icon: <List size={16} /> },
+                    { value: "calendar", label: "Settimana", icon: <CalendarDays size={16} /> }
                 ]}
             />
             <SplitButton actions={headerSplitActions} loading={isCreating} />
         </div>
     ), [viewMode, searchTerm, headerSplitActions, isCreating]);
 
-    const headerLeading = useMemo(() => (
-        <Tabs<RuleTypeFilter>
-            value={ruleTypeFilter}
-            onChange={handleRuleTypeFilterChange}
-            variant="line"
-        >
-            <Tabs.List>
-                {RULE_TYPE_TAB_OPTIONS.map(option => (
-                    <Tabs.Tab key={option.value} value={option.value}>
-                        {option.label}
-                    </Tabs.Tab>
-                ))}
-            </Tabs.List>
-        </Tabs>
-    ), [ruleTypeFilter, handleRuleTypeFilterChange]);
+    const headerActions = useMemo(() => renderHeaderActions(0), [renderHeaderActions]);
+    const headerCondensed = useMemo(
+        () => ({ actions: [renderHeaderActions(1), renderHeaderActions(2)], stack: true }),
+        [renderHeaderActions]
+    );
 
-    // Stessa toolbar dichiarata a dati, per lo stato compatto: le 5 tab
-    // diventano un picker, "Simula regole" scende nel kebab, il toggle
-    // lista/calendario resta un'icona a vista (azione frequente) e "Nuova
-    // regola" resta il bottone pieno.
+    // Stessa toolbar dichiarata a dati, per lo stato compatto: "Simula
+    // regole" scende nel kebab, il toggle lista/calendario resta un'icona a
+    // vista e "Nuova regola" resta il bottone pieno. Il filtro per tipo
+    // diventa il selettore di sezione, col conteggio fra parentesi.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
-        sections: RULE_TYPE_TAB_OPTIONS.map(option => ({
+        sections: typeOptions.map(option => ({
             value: option.value,
-            label: option.label
+            label: `${option.label} (${typeCounts[option.value]})`
         })),
         activeSection: ruleTypeFilter,
         onSectionChange: value => handleRuleTypeFilterChange(value as RuleTypeFilter),
@@ -1120,19 +798,19 @@ export default function Programming() {
             ? {
                   value: searchTerm,
                   onChange: setSearchTerm,
-                  placeholder: "Cerca per nome, tipo, target o id..."
+                  placeholder: "Cerca per nome, tipo, sede o id…"
               }
             : undefined,
         persistentIcons: [
             viewMode === "list"
                 ? {
                       icon: <CalendarDays size={18} />,
-                      label: "Vista calendario",
+                      label: "Settimana",
                       onClick: () => setViewMode("calendar")
                   }
                 : {
                       icon: <List size={18} />,
-                      label: "Vista lista",
+                      label: "Elenco",
                       onClick: () => setViewMode("list")
                   }
         ],
@@ -1141,612 +819,222 @@ export default function Programming() {
         secondaryActions: headerSplitActions.slice(0, -1),
         primaryAction: headerSplitActions[headerSplitActions.length - 1],
         loading: isCreating
-    }), [ruleTypeFilter, handleRuleTypeFilterChange, viewMode, searchTerm, headerSplitActions, isCreating]);
+    }), [typeOptions, typeCounts, ruleTypeFilter, handleRuleTypeFilterChange, viewMode, searchTerm, headerSplitActions, isCreating]);
 
     usePageHeader({
         leading: headerLeading,
         actions: headerActions,
+        condensed: headerCondensed,
         compact: headerCompact,
     });
+
+    const statusGroups: Array<{
+        key: string;
+        title: string;
+        subtitle?: string;
+        rules: LayoutRule[];
+        open: boolean;
+        setOpen?: (open: boolean) => void;
+    }> = [
+        { key: "active", title: "Adesso", rules: activeRules, open: true },
+        { key: "scheduled", title: "Programmate", rules: scheduledRules, open: true },
+        { key: "drafts", title: "Bozze", subtitle: "Incomplete, o senza una sede raggiunta", rules: draftRules, open: showDrafts, setOpen: setShowDrafts },
+        { key: "disabled", title: "Disabilitate", rules: disabledRules, open: showDisabled, setOpen: setShowDisabled },
+        { key: "expired", title: "Scadute", rules: expiredRules, open: showExpired, setOpen: setShowExpired }
+    ];
+
+    // «Dove si applica» larga quanto l'etichetta più lunga dell'elenco (o
+    // l'intestazione), uguale in tutte le tabelle per stato: icona 14 + gap 6,
+    // padding della cella 24 + 24, bordo. Tetto al 45%: «Regola» prende il resto.
+    const whereWidth = useMemo(() => {
+        const labels = filteredRules.map(rule => describeTarget(rule, activityById, activityGroups).label);
+        const label = Math.max(0, ...labels.map(text => measureTextWidth(text, { size: 14 })));
+        const header = measureTextWidth("DOVE SI APPLICA", { size: 12, weight: 600, letterSpacing: 12 * 0.04 });
+        const content = Math.max(label + 14 + 6, header);
+        return `min(${Math.ceil(content + 48 + 2)}px, 45%)`;
+    }, [filteredRules, activityById, activityGroups]);
+
+    const tableProps = {
+        insights: ruleInsightsById,
+        whereWidth,
+        showTypeBadge: ruleTypeFilter === "all",
+        activityById,
+        activityGroups,
+        ruleHref,
+        onOpen: (rule: LayoutRule) => navigate(ruleHref(rule)),
+        updatingIds: updatingRules,
+        onToggleEnabled: canWrite ? handleToggleEnabled : undefined,
+        onDuplicate: canWrite ? handleDuplicate : undefined,
+        onDelete: canWrite
+            ? (id: string) => {
+                  setRuleToDelete(id);
+                  setIsDeleteModalOpen(true);
+              }
+            : undefined,
+        selectedIds: canWrite ? Array.from(selectedRuleIds) : undefined,
+        onSelectedIdsChange: canWrite ? (ids: string[]) => setSelectedRuleIds(new Set(ids)) : undefined
+    };
 
     return (
         <PageGate readPermission="scheduling.read" activityId={filterActivityId}>
             {() => (
         <section className={styles.programming}>
-            {viewMode === "list" ? (
-                <div className={styles.tableCard}>
-                    {/* Sottotitolo della tab: ha senso sopra una lista popolata,
-                        non sopra un empty state (che porta già il proprio testo). */}
-                    {(isLoading || filteredRules.length > 0) && (
-                        <div className={styles.tabDescription}>
-                            <Text variant="body-sm" colorVariant="muted">
-                                {RULE_TYPE_TAB_OPTIONS.find(o => o.value === ruleTypeFilter)?.description}
-                            </Text>
-                            <HowItWorksLink
-                                ref={helpTriggerRef}
-                                ruleType={ruleTypeFilter}
-                                onClick={openHelpModal}
-                            />
-                        </div>
-                    )}
+            <div className={styles.listHead}>
+                {/* La frase del tipo ha senso sopra un elenco, non sopra un
+                    vuoto (che porta già il proprio testo). */}
+                {(isLoading || filteredRules.length > 0) && (
+                    <div className={styles.tabDescription}>
+                        <Text variant="body-sm" colorVariant="muted">
+                            {typeOptions.find(o => o.value === ruleTypeFilter)?.description}
+                        </Text>
+                        <HowItWorksLink
+                            ref={helpTriggerRef}
+                            ruleType={ruleTypeFilter}
+                            onClick={openHelpModal}
+                        />
+                    </div>
+                )}
+            </div>
 
-                        {isLoading ? (
-                            <div className={styles.emptyState}>
-                                <Text colorVariant="muted">Caricamento regole...</Text>
-                            </div>
-                        ) : filteredRules.length === 0 ? (
-                            (searchTerm || filterActivityId) ? (
-                                <EmptyState
-                                    icon={<Calendar size={40} strokeWidth={1.5} />}
-                                    title="Nessun risultato"
-                                    description={
-                                        filterActivityId && searchTerm
-                                            ? "Nessuna regola corrisponde alla ricerca per questa sede."
-                                            : filterActivityId
-                                            ? "Nessuna regola per questa sede."
-                                            : "Nessuna regola corrisponde alla ricerca."
-                                    }
-                                    action={
-                                        <HowItWorksLink
-                                            ref={helpTriggerRef}
-                                            ruleType={ruleTypeFilter}
-                                            onClick={openHelpModal}
-                                        />
-                                    }
-                                />
-                            ) : (
-                                <EmptyState
-                                    icon={<Calendar size={40} strokeWidth={1.5} />}
-                                    title={EMPTY_STATE_COPY[ruleTypeFilter].title}
-                                    description={EMPTY_STATE_COPY[ruleTypeFilter].description}
-                                    action={
-                                        /* Ordine di lettura: cos'è questa cosa (titolo +
-                                           descrizione) → come funziona → creane una. */
-                                        <div className={styles.emptyStateActions}>
-                                            <HowItWorksLink
-                                                ref={helpTriggerRef}
-                                                ruleType={ruleTypeFilter}
-                                                onClick={openHelpModal}
-                                            />
-                                            {canWrite && (
-                                                ruleTypeFilter === "all" ? (
-                                                    <div className={styles.newRuleDropdown}>
-                                                        <Menu
-                                                            trigger={
-                                                                <Button
-                                                                    variant="primary"
-                                                                    disabled={!currentTenantId || isCreating || !canEdit}
-                                                                    loading={isCreating}
-                                                                >
-                                                                    {isCreating ? "Creazione..." : "Crea la prima regola"}
-                                                                </Button>
-                                                            }
-                                                            align="start"
-                                                        >
-                                                            <Menu.Item onSelect={() => void handleCreateRule("layout")}>
-                                                                Layout
-                                                            </Menu.Item>
-                                                            <Menu.Item onSelect={() => void handleCreateRule("featured")}>
-                                                                In evidenza
-                                                            </Menu.Item>
-                                                            <Menu.Item onSelect={() => void handleCreateRule("price")}>
-                                                                Prezzi
-                                                            </Menu.Item>
-                                                            <Menu.Item onSelect={() => void handleCreateRule("visibility")}>
-                                                                Disponibilità
-                                                            </Menu.Item>
-                                                        </Menu>
-                                                    </div>
-                                                ) : (
+            {viewMode === "list" ? (
+                loadFailed ? (
+                    <InlineBanner
+                        variant="error"
+                        action={
+                            <Button variant="secondary" size="sm" onClick={() => void loadInitialData()}>
+                                Riprova
+                            </Button>
+                        }
+                    >
+                        Non riusciamo a caricare le regole.
+                    </InlineBanner>
+                ) : isLoading ? (
+                    <RuleTable {...tableProps} rules={[]} isLoading />
+                ) : filteredRules.length === 0 ? (
+                    (searchTerm || filterActivityId) ? (
+                        <EmptyState
+                            variant="filtered"
+                            title="Nessuna regola trovata"
+                            description={
+                                filterActivityId && !searchTerm
+                                    ? "Nessuna regola per questa sede."
+                                    : "Nessuna regola corrisponde alla ricerca."
+                            }
+                            onClearFilters={searchTerm ? () => setSearchTerm("") : undefined}
+                        />
+                    ) : (
+                        <EmptyState
+                            icon={<Calendar size={40} strokeWidth={1.5} />}
+                            title={emptyCopy[ruleTypeFilter].title}
+                            description={emptyCopy[ruleTypeFilter].description}
+                            action={
+                                /* Ordine di lettura: cos'è questa cosa (titolo +
+                                   descrizione) → come funziona → creane una. */
+                                <div className={styles.emptyStateActions}>
+                                    <HowItWorksLink
+                                        ref={helpTriggerRef}
+                                        ruleType={ruleTypeFilter}
+                                        onClick={openHelpModal}
+                                    />
+                                    {canWrite && (
+                                        ruleTypeFilter === "all" ? (
+                                            <Menu
+                                                trigger={
                                                     <Button
                                                         variant="primary"
-                                                        onClick={() => void handleCreateRule()}
-                                                        disabled={isCreating || !canEdit}
+                                                        disabled={!currentTenantId || isCreating || !canEdit}
                                                         loading={isCreating}
                                                     >
-                                                        Crea la prima regola
+                                                        {isCreating ? "Creazione..." : "Crea la prima regola"}
                                                     </Button>
-                                                )
-                                            )}
-                                        </div>
-                                    }
-                                />
-                            )
-                        ) : (
-                            <div className={styles.groupedList}>
-                                {activeRules.length > 0 && (
-                                    <RuleBlock title="In esecuzione" count={activeRules.length}>
-                                        {activeRules.map(rule => (
-                                            <RuleRow
-                                                key={rule.id}
-                                                rule={rule}
-                                                isSelected={selectedRuleIds.has(rule.id)}
-                                                insight={ruleInsightsById.get(rule.id)}
-                                                isUpdating={updatingRules.has(rule.id)}
-                                                showTypeBadge={ruleTypeFilter === "all"}
-                                                activityById={activityById}
-                                                activityGroups={activityGroups}
-                                                onSelect={canWrite ? handleSelectionChange : undefined}
-                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
-                                                onDuplicate={canWrite ? handleDuplicate : undefined}
-                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
+                                                }
+                                                align="start"
+                                            >
+                                                {typeOptions
+                                                    .filter(option => option.value !== "all")
+                                                    .map(option => (
+                                                        <Menu.Item
+                                                            key={option.value}
+                                                            onSelect={() => void handleCreateRule(option.value as RuleType)}
+                                                        >
+                                                            {option.label}
+                                                        </Menu.Item>
+                                                    ))}
+                                            </Menu>
+                                        ) : (
+                                            <Button
+                                                variant="primary"
+                                                onClick={() => void handleCreateRule()}
+                                                disabled={isCreating || !canEdit}
+                                                loading={isCreating}
+                                            >
+                                                Crea la prima regola
+                                            </Button>
+                                        )
+                                    )}
+                                </div>
+                            }
+                        />
+                    )
+                ) : (
+                    <div className={styles.groupedList}>
+                        {statusGroups
+                            .filter(group => group.rules.length > 0)
+                            .map(group => (
+                                // Una sezione per stato: titolo + contatore, la
+                                // DataTable sotto con la sua cornice. Niente Card
+                                // intorno: due cornici una dentro l'altra (F3).
+                                <section key={group.key} className={styles.group} aria-labelledby={`rule-group-${group.key}`}>
+                                    <div className={styles.groupHead}>
+                                        <Text as="h2" variant="title-sm" id={`rule-group-${group.key}`}>
+                                            {group.title}
+                                        </Text>
+                                        <Badge variant="neutral">{group.rules.length}</Badge>
+                                        {group.subtitle && (
+                                            <Text as="span" variant="body-sm" colorVariant="muted">
+                                                {group.subtitle}
+                                            </Text>
+                                        )}
+                                        {group.setOpen && (
+                                            <IconButton
+                                                icon={<ChevronDown size={16} className={group.open ? styles.chevronOpen : styles.chevronClosed} />}
+                                                variant="ghost"
+                                                size="sm"
+                                                aria-expanded={group.open}
+                                                aria-label={`${group.open ? "Nascondi" : "Mostra"} ${group.title}`}
+                                                onClick={() => group.setOpen?.(!group.open)}
                                             />
-                                        ))}
-                                    </RuleBlock>
-                                )}
-
-                                {scheduledRules.length > 0 && (
-                                    <RuleBlock title="Programmate" count={scheduledRules.length}>
-                                        {scheduledRules.map(rule => (
-                                            <RuleRow
-                                                key={rule.id}
-                                                rule={rule}
-                                                isSelected={selectedRuleIds.has(rule.id)}
-                                                insight={ruleInsightsById.get(rule.id)}
-                                                isUpdating={updatingRules.has(rule.id)}
-                                                showTypeBadge={ruleTypeFilter === "all"}
-                                                activityById={activityById}
-                                                activityGroups={activityGroups}
-                                                onSelect={canWrite ? handleSelectionChange : undefined}
-                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
-                                                onDuplicate={canWrite ? handleDuplicate : undefined}
-                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
-                                            />
-                                        ))}
-                                    </RuleBlock>
-                                )}
-
-                                {draftRules.length > 0 && (
-                                    <RuleBlock
-                                        title="Bozze"
-                                        count={draftRules.length}
-                                        subtitle="Regole incomplete o senza sedi raggiungibili"
-                                        collapsible
-                                        open={showDrafts}
-                                        onToggle={setShowDrafts}
-                                    >
-                                        {draftRules.map(rule => (
-                                            <RuleRow
-                                                key={rule.id}
-                                                rule={rule}
-                                                isSelected={selectedRuleIds.has(rule.id)}
-                                                insight={ruleInsightsById.get(rule.id)}
-                                                isUpdating={updatingRules.has(rule.id)}
-                                                showTypeBadge={ruleTypeFilter === "all"}
-                                                activityById={activityById}
-                                                activityGroups={activityGroups}
-                                                onSelect={canWrite ? handleSelectionChange : undefined}
-                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
-                                                onDuplicate={canWrite ? handleDuplicate : undefined}
-                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
-                                            />
-                                        ))}
-                                    </RuleBlock>
-                                )}
-
-                                {disabledRules.length > 0 && (
-                                    <RuleBlock
-                                        title="Disabilitate"
-                                        count={disabledRules.length}
-                                        collapsible
-                                        open={showDisabled}
-                                        onToggle={setShowDisabled}
-                                    >
-                                        {disabledRules.map(rule => (
-                                            <RuleRow
-                                                key={rule.id}
-                                                rule={rule}
-                                                isSelected={selectedRuleIds.has(rule.id)}
-                                                insight={ruleInsightsById.get(rule.id)}
-                                                isUpdating={updatingRules.has(rule.id)}
-                                                showTypeBadge={ruleTypeFilter === "all"}
-                                                activityById={activityById}
-                                                activityGroups={activityGroups}
-                                                onSelect={canWrite ? handleSelectionChange : undefined}
-                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
-                                                onDuplicate={canWrite ? handleDuplicate : undefined}
-                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
-                                            />
-                                        ))}
-                                    </RuleBlock>
-                                )}
-
-                                {expiredRules.length > 0 && (
-                                    <RuleBlock
-                                        title="Scadute"
-                                        count={expiredRules.length}
-                                        collapsible
-                                        open={showExpired}
-                                        onToggle={setShowExpired}
-                                    >
-                                        {expiredRules.map(rule => (
-                                            <RuleRow
-                                                key={rule.id}
-                                                rule={rule}
-                                                isSelected={selectedRuleIds.has(rule.id)}
-                                                insight={ruleInsightsById.get(rule.id)}
-                                                isUpdating={updatingRules.has(rule.id)}
-                                                showTypeBadge={ruleTypeFilter === "all"}
-                                                activityById={activityById}
-                                                activityGroups={activityGroups}
-                                                onSelect={canWrite ? handleSelectionChange : undefined}
-                                                onClick={r => navigate(r.rule_type === "featured" ? `/business/${currentTenantId}/scheduling/featured/${r.id}` : `/business/${currentTenantId}/scheduling/${r.id}`)}
-                                                onDelete={canWrite ? id => { setRuleToDelete(id); setIsDeleteModalOpen(true); } : undefined}
-                                                onDuplicate={canWrite ? handleDuplicate : undefined}
-                                                onToggleEnabled={canWrite ? handleToggleEnabled : undefined}
-                                            />
-                                        ))}
-                                    </RuleBlock>
-                                )}
-                            </div>
-                        )}
+                                        )}
+                                    </div>
+                                    {group.open && <RuleTable {...tableProps} rules={group.rules} />}
+                                </section>
+                            ))}
                     </div>
+                )
             ) : (
                 <CalendarView
                     rules={rules}
                     ruleTypeFilter={ruleTypeFilter}
-                    onRuleClick={rule =>
-                        navigate(
-                            rule.rule_type === "featured"
-                                ? `/business/${currentTenantId}/scheduling/featured/${rule.id}`
-                                : `/business/${currentTenantId}/scheduling/${rule.id}`
-                        )
-                    }
+                    onRuleClick={rule => navigate(ruleHref(rule))}
                 />
             )}
 
             <BulkBar
                 selectedCount={selectedRuleIds.size}
-                onDelete={canWrite ? () => void handleBulkDelete() : undefined}
+                onDelete={canWrite ? () => setIsBulkDeleteOpen(true) : undefined}
                 onClearSelection={() => setSelectedRuleIds(new Set())}
             />
 
-            <SystemDrawer
+            <RuleSimulatorDrawer
                 open={isSimulatorDrawerOpen}
                 onClose={() => setIsSimulatorDrawerOpen(false)}
-                width={560}
-                aria-labelledby="simulate-rules-title"
-            >
-                <DrawerLayout
-                    header={
-                        <div className={styles.drawerHeader}>
-                            <Text as="h3" variant="title-sm" id="simulate-rules-title">
-                                Simulatore regole
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Verifica quali regole sono attive in un determinato momento.
-                            </Text>
-                        </div>
-                    }
-                    footer={
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setIsSimulatorDrawerOpen(false)}
-                            >
-                                Chiudi
-                            </Button>
-                            {(() => {
-                                const activitySlug = simActivity?.slug;
-                                if (!simResult || !activitySlug || !simDateTime) return null;
-                                // L'anteprima apre la pagina pubblica: negli stessi casi in
-                                // cui resolve-public-catalog non serve il catalogo il link
-                                // sarebbe fuorviante. La simulazione (card) resta calcolata.
-                                const previewBlockedReason = subscriptionInactive
-                                    ? "Anteprima non disponibile: l'abbonamento non è attivo, la pagina pubblica non mostra il catalogo."
-                                    : simActivityInactive
-                                        ? "Anteprima non disponibile: la sede è sospesa, la pagina pubblica non mostra il catalogo."
-                                        : null;
-                                const previewButton = (
-                                    <Button
-                                        variant="primary"
-                                        disabled={previewBlockedReason !== null}
-                                        onClick={() => {
-                                            const simDate = new Date(simDateTime);
-                                            const url = `/${activitySlug}?simulate=${simDate.toISOString()}`;
-                                            window.open(url, "_blank");
-                                        }}
-                                    >
-                                        Visualizza anteprima
-                                    </Button>
-                                );
-                                if (!previewBlockedReason) return previewButton;
-                                // Un <button disabled> non emette eventi pointer: il wrapper
-                                // focusabile fa da trigger al tooltip (hover + tastiera).
-                                return (
-                                    <Tooltip content={previewBlockedReason}>
-                                        <span className={styles.previewTooltipWrap} tabIndex={0}>
-                                            {previewButton}
-                                        </span>
-                                    </Tooltip>
-                                );
-                            })()}
-                        </>
-                    }
-                >
-                    <div className={styles.form}>
-                        <Select
-                            label="Sede"
-                            value={simActivityId}
-                            onChange={event => setSimActivityId(event.target.value)}
-                            required
-                        >
-                            <option value="" disabled>
-                                Seleziona una sede
-                            </option>
-                            {activities.map(activity => (
-                                <option key={activity.id} value={activity.id}>
-                                    {activity.name}
-                                </option>
-                            ))}
-                        </Select>
-
-                        {simActivity && (
-                            <div className={styles.simActivityStatusRow}>
-                                <Text variant="caption" colorVariant="muted">Stato sede</Text>
-                                {simActivityInactive ? (
-                                    <StatusBadge
-                                        variant="neutral"
-                                        label={formatInactiveReason(simActivity.inactive_reason ?? null)}
-                                    />
-                                ) : (
-                                    <StatusBadge variant="success" label="Pubblicata" />
-                                )}
-                            </div>
-                        )}
-
-                        {simActivity && subscriptionInactive && (
-                            <InlineBanner variant="warning">
-                                Abbonamento non attivo: la pagina pubblica di questa sede non mostra il catalogo
-                                finché l'abbonamento non viene riattivato. La simulazione e l'anteprima restano disponibili.
-                            </InlineBanner>
-                        )}
-
-                        {simActivity && simActivityInactive && !subscriptionInactive && (
-                            <InlineBanner variant="warning">
-                                Sede sospesa: la pagina pubblica mostra solo le informazioni della sede, senza catalogo.
-                                La simulazione e l'anteprima restano disponibili.
-                            </InlineBanner>
-                        )}
-
-                        <TextInput
-                            label="Data e ora"
-                            type="datetime-local"
-                            value={simDateTime}
-                            onChange={event => setSimDateTime(event.target.value)}
-                            required
-                        />
-
-                        {!simActivityId || !simDateTime ? (
-                            <div className={styles.simResultCard}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Seleziona sede e data/ora per avviare la simulazione.
-                                </Text>
-                            </div>
-                        ) : isSimLoading ? (
-                            <div className={styles.simResultCard}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Simulazione in corso...
-                                </Text>
-                            </div>
-                        ) : simError ? (
-                            <div className={styles.simResultCard}>
-                                <Text variant="body-sm" colorVariant="error">
-                                    {simError}
-                                </Text>
-                            </div>
-                        ) : simResult ? (
-                            <div className={styles.simResultBlock}>
-                                <div className={styles.simResultGrid}>
-                                    {/* Catalogo */}
-                                    <div
-                                        className={`${styles.simResultCard} ${simResult.layout.scheduleId ? styles.simResultCardClickable : ""}`}
-                                        onClick={simResult.layout.scheduleId ? () => {
-                                            setIsSimulatorDrawerOpen(false);
-                                            navigate(`/business/${currentTenantId}/scheduling/${simResult.layout.scheduleId}`);
-                                        } : undefined}
-                                    >
-                                        <Text variant="caption" colorVariant="muted">Catalogo</Text>
-                                        <Text variant="body-sm" weight={700}>
-                                            {simResult.layout.scheduleId
-                                                ? (rules.find(r => r.id === simResult.layout.scheduleId)?.name ?? simResult.layout.scheduleId)
-                                                : "Nessuna regola attiva"}
-                                        </Text>
-                                        {simResult.layout.catalogId && (
-                                            <Text variant="caption" colorVariant="muted">
-                                                via {catalogById.get(simResult.layout.catalogId)?.name ?? simResult.layout.catalogId}
-                                            </Text>
-                                        )}
-                                    </div>
-
-                                    {/* In evidenza */}
-                                    {(() => {
-                                        const featuredRule = simResult.featuredRule?.scheduleId
-                                            ? rules.find(r => r.id === simResult.featuredRule?.scheduleId)
-                                            : null;
-                                        const contentCount = featuredRule?.featured_contents.length ?? 0;
-                                        return (
-                                            <div
-                                                className={`${styles.simResultCard} ${featuredRule ? styles.simResultCardClickable : ""}`}
-                                                onClick={featuredRule ? () => {
-                                                    setIsSimulatorDrawerOpen(false);
-                                                    navigate(`/business/${currentTenantId}/scheduling/featured/${featuredRule.id}`);
-                                                } : undefined}
-                                            >
-                                                <Text variant="caption" colorVariant="muted">In evidenza</Text>
-                                                <Text variant="body-sm" weight={700}>
-                                                    {featuredRule?.name ?? simResult.featuredRule?.scheduleId ?? "Nessuna regola attiva"}
-                                                </Text>
-                                                {featuredRule && (
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        {contentCount} {contentCount === 1 ? "contenuto" : "contenuti"}
-                                                    </Text>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Prezzi */}
-                                    {(() => {
-                                        const priceRule = simResult.priceRuleId
-                                            ? rules.find(r => r.id === simResult.priceRuleId)
-                                            : null;
-                                        const overrideCount = priceRule?.price_overrides.length ?? 0;
-                                        return (
-                                            <div
-                                                className={`${styles.simResultCard} ${priceRule ? styles.simResultCardClickable : ""}`}
-                                                onClick={priceRule ? () => {
-                                                    setIsSimulatorDrawerOpen(false);
-                                                    navigate(`/business/${currentTenantId}/scheduling/${priceRule.id}`);
-                                                } : undefined}
-                                            >
-                                                <Text variant="caption" colorVariant="muted">Prezzi</Text>
-                                                <Text variant="body-sm" weight={700}>
-                                                    {priceRule?.name ?? simResult.priceRuleId ?? "Nessuna regola attiva"}
-                                                </Text>
-                                                {priceRule && (
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        {overrideCount} {overrideCount === 1 ? "prodotto" : "prodotti"}
-                                                    </Text>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Disponibilità */}
-                                    {(() => {
-                                        const visRule = simResult.visibilityRule?.scheduleId
-                                            ? rules.find(r => r.id === simResult.visibilityRule?.scheduleId)
-                                            : null;
-                                        const visCount = visRule?.visibility_overrides.length ?? 0;
-                                        return (
-                                            <div
-                                                className={`${styles.simResultCard} ${visRule ? styles.simResultCardClickable : ""}`}
-                                                onClick={visRule ? () => {
-                                                    setIsSimulatorDrawerOpen(false);
-                                                    navigate(`/business/${currentTenantId}/scheduling/${visRule.id}`);
-                                                } : undefined}
-                                            >
-                                                <Text variant="caption" colorVariant="muted">Disponibilità</Text>
-                                                <Text variant="body-sm" weight={700}>
-                                                    {visRule?.name ?? simResult.visibilityRule?.scheduleId ?? "Nessuna regola attiva"}
-                                                </Text>
-                                                {visRule && (
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        {visCount} {visCount === 1 ? "prodotto" : "prodotti"}
-                                                    </Text>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-
-                                <button
-                                    type="button"
-                                    className={styles.simTimelineToggle}
-                                    onClick={() => setSimTimelineOpen(prev => !prev)}
-                                    aria-expanded={simTimelineOpen}
-                                >
-                                    <ChevronDown
-                                        size={14}
-                                        className={simTimelineOpen ? styles.simTimelineChevronOpen : styles.simTimelineChevronClosed}
-                                    />
-                                    <Text variant="body-sm" weight={600} as="span">
-                                        Andamento giornaliero
-                                    </Text>
-                                    {isDailyTimelineLoading && (
-                                        <Loader2 size={12} className={styles.miniLoader} />
-                                    )}
-                                </button>
-
-                                {simTimelineOpen && (
-                                    <div className={styles.simTimelineContent}>
-                                        {isDailyTimelineLoading ? (
-                                            <Text variant="caption" colorVariant="muted">
-                                                Calcolo andamento giornaliero...
-                                            </Text>
-                                        ) : dailyTimelineError ? (
-                                            <Text variant="caption" colorVariant="error">
-                                                {dailyTimelineError}
-                                            </Text>
-                                        ) : dailyTimelineBlocks.length === 0 ||
-                                          !hasAnyRuleActiveInDay ? (
-                                            <Text variant="caption" colorVariant="muted">
-                                                Nessuna regola attiva durante la giornata.
-                                            </Text>
-                                        ) : (
-                                            <div className={styles.timelineList}>
-                                                {dailyTimelineBlocks.map((block, index) => {
-                                                    const layoutName = block.layoutCatalogId
-                                                        ? (catalogById.get(block.layoutCatalogId)?.name ??
-                                                          block.layoutCatalogId)
-                                                        : "Nessun catalogo";
-                                                    const layoutClassName = block.layoutCatalogId
-                                                        ? styles.timelineBlockActive
-                                                        : styles.timelineBlockNoLayout;
-                                                    const visibilityBadgeClassName =
-                                                        block.visibilityMode === "disable"
-                                                            ? styles.timelineBadgeDisable
-                                                            : block.visibilityMode === "hide"
-                                                              ? styles.timelineBadgeHide
-                                                              : styles.timelineBadgeNeutral;
-
-                                                    return (
-                                                        <div
-                                                            key={`${block.startMinutes}-${block.endMinutes}-${index}`}
-                                                            className={`${styles.timelineBlock} ${layoutClassName}`}
-                                                        >
-                                                            <Text variant="caption" weight={700}>
-                                                                {formatMinutesToHourLabel(
-                                                                    block.startMinutes
-                                                                )}
-                                                                –{formatMinutesToHourLabel(block.endMinutes)}
-                                                            </Text>
-                                                            <Text variant="body-sm" weight={600}>
-                                                                {layoutName}
-                                                            </Text>
-                                                            <div className={styles.timelineBadges}>
-                                                                <span className={styles.timelineBadgeNeutral}>
-                                                                    Spec:{" "}
-                                                                    {getSpecificityLabel(
-                                                                        block.layoutSpecificity
-                                                                    )}
-                                                                </span>
-                                                                <span className={visibilityBadgeClassName}>
-                                                                    Disponibilità:{" "}
-                                                                    {block.visibilityMode === "hide"
-                                                                        ? "Nasconde"
-                                                                        : block.visibilityMode === "disable"
-                                                                          ? "Non disponibile"
-                                                                          : "Nessuna"}
-                                                                </span>
-                                                                {block.priceRuleId && (
-                                                                    <span className={styles.timelineBadgeNeutral}>
-                                                                        Prezzi attivi
-                                                                    </span>
-                                                                )}
-                                                                {block.featuredScheduleId && (
-                                                                    <span className={styles.timelineBadgeNeutral}>
-                                                                        In evidenza: {rules.find(r => r.id === block.featuredScheduleId)?.name ?? "attiva"}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        ) : null}
-                    </div>
-                </DrawerLayout>
-            </SystemDrawer>
+                tenantId={currentTenantId!}
+                rules={rules}
+                activities={activities}
+                catalogById={catalogById}
+                subscriptionInactive={subscriptionInactive}
+                ruleHref={ruleHref}
+            />
             <RuleTypeHelpModal
                 isOpen={isHelpModalOpen}
                 ruleType={ruleTypeFilter}
@@ -1761,6 +1049,17 @@ export default function Programming() {
                     setIsSimulatorDrawerOpen(true);
                 }}
             />
+            <ConfirmDialog
+                isOpen={isBulkDeleteOpen}
+                onClose={() => setIsBulkDeleteOpen(false)}
+                onConfirm={handleBulkDelete}
+                title={bulkCount === 1 ? "Eliminare 1 regola?" : `Eliminare ${bulkCount} regole?`}
+                message="Le regole spariscono da tutte le sedi a cui si applicano. Non si può annullare."
+                confirmLabel={bulkCount === 1 ? "Elimina 1 regola" : `Elimina ${bulkCount} regole`}
+                confirmVariant="danger"
+            >
+                <Text variant="body-sm">{bulkNamesLine}</Text>
+            </ConfirmDialog>
             <ConfirmDialog
                 isOpen={isDeleteModalOpen}
                 onClose={() => setIsDeleteModalOpen(false)}
