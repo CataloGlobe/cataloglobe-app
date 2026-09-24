@@ -493,6 +493,93 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await expect(drawer.getByRole("link", { name: new RegExp(RULE_NAME.pranzo) })).toBeVisible({ timeout: 15_000 });
     });
 
+    test("la guida parla col dizionario: menù e stile, sopra e sotto il menù", async ({ page }) => {
+        await openList(page, "layout");
+        await main(page).getByRole("button", { name: /Come funzion/ }).first().click();
+        const guide = page.getByRole("dialog");
+        await expect(guide.getByRole("heading", { name: "Come funzionano le regole di menù e stile" })).toBeVisible();
+        await expect(guide).not.toContainText(/layout|target/i);
+        await guide.getByRole("button", { name: "Chiudi" }).last().click();
+        await chooseType(page, /Menù e stile/, /In evidenza/);
+        await main(page).getByRole("button", { name: /Come funzion/ }).first().click();
+        await expect(page.getByRole("dialog")).toContainText("Sopra il menù");
+        await expect(page.getByRole("dialog")).toContainText("Sotto il menù");
+    });
+
+    test("la guida di «Tutte» dice l'ordine in cui i tipi si sommano e cosa dice il pallino", async ({ page }) => {
+        await openList(page, "all");
+        await main(page).getByRole("button", { name: /Come funzion/ }).first().click();
+        const guide = page.getByRole("dialog");
+        await expect(guide.getByRole("heading", { name: "I tipi si sommano, in quest'ordine." })).toBeVisible();
+        await expect(guide).toContainText("poi le modifiche fatte a mano nella sede, che vincono su tutto");
+        await expect(guide).toContainText("Menù e stile");
+        await expect(guide).toContainText(/Verde.*Ambra.*Grigio/s);
+    });
+
+    test("in tema scuro le cinque guide si leggono (contrasto del testo almeno 4,5:1)", async ({ page }) => {
+        test.slow(); // cinque guide in fila
+        await page.addInitScript(() => localStorage.setItem("theme", "dark"));
+        await openList(page, "all");
+        for (const type of ["layout", "featured", "price", "visibility", "all"]) {
+            await page.goto(`${new URL(page.url()).pathname}?type=${type}`);
+            await main(page).getByRole("button", { name: /Come funzion/ }).first().click();
+            const guide = page.getByRole("dialog");
+            await expect(guide.getByRole("heading", { name: /Come funziona/ })).toBeVisible();
+            const worst = await guide.evaluate(root => {
+                /** [r, g, b, alpha] di un colore calcolato; null se trasparente. */
+                const rgba = (c: string): number[] | null => {
+                    const m = c.match(/rgba?\(([^)]+)\)/);
+                    if (m) {
+                        const [r, g, b, a = "1"] = m[1].split(/[ ,/]+/).filter(Boolean);
+                        return Number(a) === 0 ? null : [Number(r), Number(g), Number(b), Number(a)];
+                    }
+                    const s = c.match(/color\(srgb ([^)]+)\)/);
+                    if (s) {
+                        const [r, g, b, a = "1"] = s[1].split(/[ /]+/).filter(Boolean);
+                        return Number(a) === 0 ? null : [...[r, g, b].map(v => Number(v) * 255), Number(a)];
+                    }
+                    return null;
+                };
+                /** Il fondo sotto `el`: i fondi trasparenti degli antenati, composti fino al primo pieno. */
+                const backdrop = (el: HTMLElement): number[] => {
+                    const layers: number[][] = [];
+                    for (let a: HTMLElement | null = el; a; a = a.parentElement) {
+                        const c = rgba(getComputedStyle(a).backgroundColor);
+                        if (!c) continue;
+                        layers.push(c);
+                        if (c[3] >= 1) break;
+                    }
+                    let out = [255, 255, 255];
+                    for (const [r, g, b, a] of layers.reverse()) out = [r, g, b].map((v, i) => v * a + out[i] * (1 - a));
+                    return out;
+                };
+                const lum = ([r, g, b]: number[]) => {
+                    const ch = (v: number) => {
+                        const x = v / 255;
+                        return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4;
+                    };
+                    return 0.2126 * ch(r) + 0.7152 * ch(g) + 0.0722 * ch(b);
+                };
+                let min = 21;
+                let where = "";
+                for (const el of Array.from(root.querySelectorAll<HTMLElement>("h2, h3, p, span, li, figcaption, div, s"))) {
+                    if (!Array.from(el.childNodes).some(n => n.nodeType === 3 && n.textContent?.trim())) continue;
+                    const fg = rgba(getComputedStyle(el).color);
+                    if (!fg) continue;
+                    const [l1, l2] = [lum(fg), lum(backdrop(el))].sort((x, y) => y - x);
+                    const ratio = (l1 + 0.05) / (l2 + 0.05);
+                    if (ratio < min) {
+                        min = ratio;
+                        where = el.textContent?.trim().slice(0, 40) ?? "";
+                    }
+                }
+                return { min: Math.round(min * 100) / 100, where };
+            });
+            expect(worst.min, `${type}, testo meno leggibile: «${worst.where}»`).toBeGreaterThanOrEqual(4.5);
+            await guide.getByRole("button", { name: "Chiudi" }).last().click();
+        }
+    });
+
     test("la guida si apre da «Come funziona» e porta al simulatore", async ({ page }) => {
         await openList(page, "layout");
         await main(page).getByRole("button", { name: /Come funzion/ }).first().click();

@@ -1,11 +1,7 @@
-@use "@styles/variables" as *;
-
-/* Colori: `ModalLayout` è sempre su superficie chiara (bianco / grigio molto
-   chiaro) e non ha override per il tema scuro. Tutto ciò che sta DENTRO la
-   modale usa quindi le variabili SCSS statiche di `_variables.scss` e i token
-   globali stabili fra i due temi (--brand-primary, --color-warning-*,
-   --color-green-*). Mai `var(--text)`: in tema scuro diventa quasi bianco.
-   Il link vive invece sulla pagina, che è theme-aware: lì i token vanno bene. */
+/* Colori: token del tema. `ModalLayout` è su `--surface`, che in scuro è
+   scuro: grigi fissi qui dentro non si leggerebbero (giro in scuro, P7).
+   Le bande sono `--bg`, non `--hover-bg`: il testo muto in scuro su
+   `--hover-bg` fa 4,0:1. */
 
 /* ----------------------------------------------------
    LINK "COME FUNZIONA"
@@ -69,12 +65,12 @@
   border: 0;
   border-radius: 8px;
   background: none;
-  color: $gray-600;
+  color: var(--text-muted);
   cursor: pointer;
 
   &:hover {
-    background: $gray-100;
-    color: $gray-800;
+    background: var(--hover-bg);
+    color: var(--text);
   }
 
   &:focus-visible {
@@ -98,7 +94,7 @@
 
   font-size: 0.9375rem;
   line-height: 1.55;
-  color: $text-color;
+  color: var(--text);
   text-wrap: pretty;
 
   strong {
@@ -112,8 +108,8 @@
 .visual {
   margin: 0;
 
-  background: $white;
-  border: 1px solid $gray-200;
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   overflow: hidden;
 }
@@ -122,12 +118,12 @@
   display: block;
   padding: 9px 14px;
 
-  background: $gray-100;
-  border-bottom: 1px solid $gray-200;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
 
   font-size: 0.75rem;
   font-weight: 600;
-  color: $gray-600;
+  color: var(--text-muted);
 }
 
 /* ---------- Righe (layout + prezzi) ---------- */
@@ -144,7 +140,7 @@
   padding: 11px 14px;
 
   & + & {
-    border-top: 1px solid $gray-200;
+    border-top: 1px solid var(--border);
   }
 }
 
@@ -152,7 +148,7 @@
   grid-template-columns: minmax(96px, auto) minmax(0, 1fr) auto;
 
   &[data-base="true"] {
-    background: $gray-100;
+    background: var(--bg);
   }
 }
 
@@ -163,17 +159,17 @@
 .rowWindow {
   font-size: 0.875rem;
   font-weight: 600;
-  color: $text-color;
+  color: var(--text);
 }
 
 .rowValue {
   font-size: 0.875rem;
-  color: $text-color;
+  color: var(--text);
 }
 
 .rowMeta {
   font-size: 0.75rem;
-  color: $gray-600;
+  color: var(--text-muted);
 }
 
 .rowPrice {
@@ -183,17 +179,17 @@
 
   font-size: 0.875rem;
   font-weight: 600;
-  color: $text-color;
+  color: var(--text);
   white-space: nowrap;
 }
 
 .priceOld {
   font-weight: 400;
-  color: $gray-500;
+  color: var(--text-muted);
 }
 
 .priceNew {
-  color: var(--color-green-900);
+  color: var(--text-success);
 }
 
 /* ---------- Schema pagina pubblica (in evidenza) ---------- */
@@ -219,22 +215,23 @@
 
   &[data-role="header"] {
     height: 32px;
-    background: $gray-200;
-    color: $gray-600;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
   }
 
   &[data-role="catalog"] {
     height: 76px;
-    background: $gray-100;
-    border: 1px solid $gray-200;
-    color: $gray-600;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
   }
 
   &[data-role="slot"] {
     height: 40px;
     background: var(--brand-primary-soft);
     border: 1px dashed var(--brand-primary);
-    color: var(--brand-primary);
+    color: var(--on-brand-soft);
     font-weight: 600;
   }
 }
@@ -252,14 +249,14 @@
   padding: 16px 14px;
 
   & + & {
-    border-left: 1px solid $gray-200;
+    border-left: 1px solid var(--border);
   }
 }
 
 .columnLabel {
   font-size: 0.75rem;
   font-weight: 600;
-  color: $gray-600;
+  color: var(--text-muted);
 }
 
 .hiddenPreview {
@@ -269,11 +266,11 @@
   min-height: 66px;
   padding: 14px 12px;
 
-  border: 1px dashed $gray-300;
+  border: 1px dashed var(--border);
   border-radius: 8px;
 
   font-size: 0.8125rem;
-  color: $gray-500;
+  color: var(--text-muted);
   text-align: center;
 }
 
@@ -283,20 +280,20 @@
   gap: 4px 8px;
   padding: 11px 12px;
 
-  background: $gray-100;
-  border: 1px solid $gray-200;
+  background: var(--bg);
+  border: 1px solid var(--border);
   border-radius: 8px;
 }
 
 .productName {
   font-size: 0.8125rem;
   font-weight: 600;
-  color: $gray-600;
+  color: var(--text-muted);
 }
 
 .productPrice {
   font-size: 0.8125rem;
-  color: $gray-600;
+  color: var(--text-muted);
   text-align: right;
 }
 
@@ -306,20 +303,20 @@
   margin-top: 2px;
   padding: 2px 8px;
 
-  background: var(--color-warning-100);
-  border: 1px solid var(--color-warning-200);
+  background: var(--warning-100);
+  border: 1px solid var(--warning-200);
   border-radius: 999px;
 
   font-size: 0.6875rem;
   font-weight: 600;
-  color: var(--color-warning-700);
+  color: var(--text-warning);
 }
 
 .columnCaption {
   margin: 0;
   font-size: 0.8125rem;
   line-height: 1.5;
-  color: $gray-600;
+  color: var(--text-muted);
   text-wrap: pretty;
 }
 
@@ -357,14 +354,14 @@
 
   font-size: 0.75rem;
   font-weight: 600;
-  color: var(--brand-primary);
+  color: var(--on-brand-soft);
 }
 
 .pointTitle {
   margin: 0;
   font-size: 0.875rem;
   font-weight: 600;
-  color: $text-color;
+  color: var(--text);
 }
 
 .pointText {
@@ -373,7 +370,7 @@
 
   font-size: 0.875rem;
   line-height: 1.5;
-  color: $gray-600;
+  color: var(--text-muted);
   text-wrap: pretty;
 }
 
@@ -383,11 +380,11 @@
 .note {
   margin: 0;
   padding-left: 12px;
-  border-left: 1px solid $gray-300;
+  border-left: 1px solid var(--border);
 
   font-size: 0.8125rem;
   line-height: 1.5;
-  color: $gray-600;
+  color: var(--text-muted);
   text-wrap: pretty;
 }
 
@@ -401,7 +398,7 @@
 
   .column + .column {
     border-left: none;
-    border-top: 1px solid $gray-200;
+    border-top: 1px solid var(--border);
   }
 
   .windowRow,
