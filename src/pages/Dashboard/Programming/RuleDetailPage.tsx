@@ -329,6 +329,7 @@ export default function RuleDetailPage() {
                         groupIds={form.groupIds}
                         tenantActivities={options.activities}
                         tenantGroups={options.groups}
+                        tenantId={businessId ?? ""}
                         onFormChange={detail.updateForm}
                         nameError={detail.errors.name}
                         onNameBlur={() => detail.touch("name")}

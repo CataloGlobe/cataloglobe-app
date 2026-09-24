@@ -16,6 +16,13 @@ interface ActivityMultiSelectProps {
     onChange: (activityIds: string[]) => void;
     disabled?: boolean;
     error?: string;
+    /**
+     * Le sedi già caricate dalla pagina: niente fetch. Assente, il
+     * componente le legge da sé con `getActivities` (Team, inviti).
+     */
+    activities?: ActivityOption[];
+    /** Senza asterisco quando le sedi non sono obbligatorie (una regola senza sedi è una bozza). */
+    required?: boolean;
 }
 
 interface ActivityOption {
@@ -40,20 +47,24 @@ export function ActivityMultiSelect({
     value,
     onChange,
     disabled,
-    error
+    error,
+    activities: givenActivities,
+    required = true
 }: ActivityMultiSelectProps) {
-    const [activities, setActivities] = useState<V2Activity[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [fetched, setFetched] = useState<V2Activity[]>([]);
+    const [loading, setLoading] = useState(!givenActivities);
     const [fetchError, setFetchError] = useState<string | null>(null);
+    const activities: ActivityOption[] = givenActivities ?? fetched;
 
     useEffect(() => {
+        if (givenActivities) return;
         let cancelled = false;
         setLoading(true);
         setFetchError(null);
         getActivities(tenantId)
             .then(rows => {
                 if (cancelled) return;
-                setActivities(rows);
+                setFetched(rows);
                 setLoading(false);
             })
             .catch(err => {
@@ -65,7 +76,7 @@ export function ActivityMultiSelect({
         return () => {
             cancelled = true;
         };
-    }, [tenantId]);
+    }, [tenantId, givenActivities]);
 
     const options: ActivityOption[] = useMemo(() => {
         const filtered = callerIsTenantWide
@@ -135,7 +146,7 @@ export function ActivityMultiSelect({
         <div className={`${styles.wrapper} ${error ? styles.hasError : ""}`}>
             <div className={styles.headerRow}>
                 <div className={styles.label}>
-                    Sedi <span className={styles.required}>*</span>
+                    Sedi {required && <span className={styles.required}>*</span>}
                 </div>
                 <div className={styles.toolbar}>
                     <Button

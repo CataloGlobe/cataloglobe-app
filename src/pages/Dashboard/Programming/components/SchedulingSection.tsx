@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { DateInput } from "@/components/ui/Input/DateInput";
-import { PillGroupMultiple } from "@/components/ui/PillGroup/PillGroupMultiple";
+import { ChipGroupMultiple } from "@/components/ui/Chip/ChipGroup";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { TimeInput } from "@/components/ui/Input/TimeInput";
 import Text from "@/components/ui/Text/Text";
@@ -91,7 +91,7 @@ export function SchedulingSection({
                 </Text>
                 <div className={styles.switchRow}>
                     <Text variant="body-sm">Sempre attiva</Text>
-                    <Switch checked={alwaysActive} onChange={handleToggleAlways} />
+                    <Switch ariaLabel="Sempre attiva" checked={alwaysActive} onChange={handleToggleAlways} />
                 </div>
             </div>
 
@@ -106,7 +106,7 @@ export function SchedulingSection({
                     {/* Step 1 — Periodo */}
                     <div className={styles.inlineBlock}>
                         <div className={styles.switchRow}>
-                            <Switch checked={hasPeriod} onChange={handleTogglePeriod} />
+                            <Switch ariaLabel="In un periodo" checked={hasPeriod} onChange={handleTogglePeriod} />
                             <Text variant="body-sm">In un periodo</Text>
                         </div>
                         {hasPeriod && (
@@ -146,7 +146,7 @@ export function SchedulingSection({
                     {/* Step 2 — Orario */}
                     <div className={styles.inlineBlock}>
                         <div className={styles.switchRow}>
-                            <Switch checked={hasTime} onChange={handleToggleTime} />
+                            <Switch ariaLabel="In certe ore" checked={hasTime} onChange={handleToggleTime} />
                             <Text variant="body-sm">In certe ore</Text>
                         </div>
                         {hasTime && (
@@ -178,24 +178,19 @@ export function SchedulingSection({
                     {/* Step 3 — Giorni */}
                     <div className={styles.inlineBlock}>
                         <div className={styles.switchRow}>
-                            <Switch
-                                checked={hasDays}
-                                onChange={handleToggleDays}
-                            />
+                            <Switch ariaLabel="In certi giorni" checked={hasDays} onChange={handleToggleDays} />
                             <Text variant="body-sm">
                                 In certi giorni
                             </Text>
                         </div>
                         {hasDays && (
-                            <div className={styles.daysCompact}>
-                                <PillGroupMultiple
-                                    ariaLabel="Seleziona giorni della settimana"
-                                    options={DAY_OPTIONS}
-                                    value={daysOfWeek}
-                                    onChange={val => onFormChange({ daysOfWeek: [...val] })}
-                                    layout="auto"
-                                />
-                            </div>
+                            <ChipGroupMultiple
+                                ariaLabel="Giorni della settimana"
+                                options={DAY_OPTIONS}
+                                value={daysOfWeek}
+                                onChange={val => onFormChange({ daysOfWeek: [...val] })}
+                                layout="auto"
+                            />
                         )}
                     </div>
                 </div>

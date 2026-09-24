@@ -133,20 +133,6 @@
   gap: 0.55rem;
 }
 
-.daysCompact {
-  /* gruppo pill — secondo figlio del wrapper PillGroupMultiple */
-  > div > [role="group"] {
-    flex-wrap: nowrap;
-    gap: 4px;
-  }
-
-  button {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.75rem;
-    min-height: 0;
-  }
-}
-
 /* ─── Price override list ─────────────────────────────────────── */
 
 .productSearch {

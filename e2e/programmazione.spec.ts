@@ -673,6 +673,43 @@ test.describe("Programmazione — dettaglio", () => {
         expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
     });
 
+    test("«Dove si applica» sui controlli di sistema: tre scelte, sedi a caselle, gruppi a chip", async ({ page }) => {
+        stub.onWrite("schedules.PATCH", () => null);
+        stub.onWrite("schedule_layout.PATCH", () => null);
+        stub.onWrite("schedule_layout.POST", () => null);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+        await openRule(page, "pranzo");
+        const where = main(page).getByRole("radiogroup", { name: "Si applica a" });
+        await expect(where.getByRole("radio")).toHaveCount(3);
+        await expect(where.getByRole("radio", { name: /Alcune sedi/ })).toBeChecked();
+        const sedi = main(page).getByRole("group", { name: "Sedi disponibili" });
+        await expect(sedi.getByRole("checkbox", { name: "Centro e2e" })).toBeChecked();
+        await sedi.getByRole("checkbox", { name: "Porto e2e" }).check();
+
+        await where.getByRole("radio", { name: /Gruppi di sedi/ }).check();
+        const gruppi = main(page).getByRole("group", { name: "Gruppi di sedi" });
+        await expect(gruppi.getByRole("checkbox")).not.toHaveCount(0);
+        await where.getByRole("radio", { name: /Alcune sedi/ }).check();
+        await sedi.getByRole("checkbox", { name: "Centro e2e" }).check();
+        await sedi.getByRole("checkbox", { name: "Porto e2e" }).check();
+
+        await page.getByRole("button", { name: "Salva", exact: true }).first().click();
+        await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
+        const body = JSON.stringify(writesOf(stub, "rpc.update_schedule_targets")[0].body);
+        expect(body).toContain(SEDE.centro);
+        expect(body).toContain(SEDE.porto);
+    });
+
+    test("«Quando» sui controlli di sistema: interruttori con nome, giorni a chip", async ({ page }) => {
+        await openRule(page, "pranzo");
+        await expect(main(page).getByRole("switch", { name: "Sempre attiva" })).not.toBeChecked();
+        await expect(main(page).getByRole("switch", { name: "In certi giorni" })).toBeChecked();
+        const days = main(page).getByRole("group", { name: "Giorni della settimana" });
+        await expect(days.getByRole("checkbox")).toHaveCount(7);
+        await expect(days.getByRole("checkbox", { name: "Lun" })).toHaveAttribute("aria-checked", "true");
+        await expect(days.getByRole("checkbox", { name: "Dom" })).toHaveAttribute("aria-checked", "false");
+    });
+
     test("cablaggio: salvare una regola in evidenza (schedules.PATCH + contenuti riscritti)", async ({ page }) => {
         stub.onWrite("schedules.PATCH", () => null);
         stub.onWrite("schedule_featured_contents.DELETE", () => null);
