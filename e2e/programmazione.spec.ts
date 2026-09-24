@@ -823,6 +823,29 @@ test.describe("Programmazione — dettaglio", () => {
     });
 });
 
+// F5: il filtro per tipo sta nella testata, nello slot delle tab. A 1024 e
+// 1280 con la sidebar aperta non sta in riga con le azioni: due righe, azioni
+// sopra e tab sotto, mai la barra compatta. La prima tab è sul filo del
+// contenuto sotto.
+for (const width of [1024, 1280]) {
+    test(`a ${width} le tab del tipo stanno nella testata, sotto le azioni`, async ({ page }) => {
+        await stubProgrammazione(page);
+        await openList(page);
+        await page.setViewportSize({ width, height: 900 });
+        const tabs = main(page).getByRole("tablist", { name: "Tipo di regola" });
+        await expect(tabs.getByRole("tab", { name: /^Tutte 12$/ })).toBeVisible();
+        const create = main(page).getByRole("button", { name: "Nuova regola" });
+        await expect(create).toBeVisible();
+        const tabsBox = (await tabs.boundingBox())!;
+        const createBox = (await create.boundingBox())!;
+        expect(tabsBox.y).toBeGreaterThanOrEqual(createBox.y + createBox.height);
+        const description = main(page).getByText("Tutte le regole, di ogni tipo.");
+        expect(tabsBox.y).toBeLessThan((await description.boundingBox())!.y);
+        const firstLabel = tabs.getByRole("tab").first().getByText("Menù e stile");
+        expect(Math.round((await firstLabel.boundingBox())!.x)).toBe(Math.round((await description.boundingBox())!.x));
+    });
+}
+
 for (const width of [375, 768, 1280]) {
     test.describe(`Programmazione a ${width}`, () => {
         test.beforeEach(async ({ page }) => {

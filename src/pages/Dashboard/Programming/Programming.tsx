@@ -6,7 +6,6 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { IconButton } from "@/components/ui/Button/IconButton";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
@@ -15,7 +14,6 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
-import { Select } from "@/components/ui/Select/Select";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -143,7 +141,6 @@ export default function Programming() {
         () => emptyStateCopy(catalogLabel.toLowerCase(), productLabel.toLowerCase(), productLabelPlural.toLowerCase()),
         [catalogLabel, productLabel, productLabelPlural]
     );
-    const isPhone = useMediaQuery("(max-width: 767px)");
     const ruleHref = useCallback(
         (rule: { id: string; rule_type: RuleType }) =>
             rule.rule_type === "featured"
@@ -739,18 +736,37 @@ export default function Programming() {
         return actions;
     }, [currentTenantId, canWrite, canEdit, catalogLabel, isCreating, ruleTypeFilter, handleCreateRule]);
 
-    const headerActions = useMemo(() => (
+    // Il filtro per tipo sta nella testata, nello slot delle tab come in
+    // Prodotti e Sedi (F5); in compatto diventa il selettore di sezione.
+    const headerLeading = useMemo(() => (
+        <Tabs<RuleTypeFilter> value={ruleTypeFilter} onChange={handleRuleTypeFilterChange} variant="line">
+            <Tabs.List aria-label="Tipo di regola">
+                {typeOptions.map(option => (
+                    <Tabs.Tab key={option.value} value={option.value} badge={typeCounts[option.value]}>
+                        {option.label}
+                    </Tabs.Tab>
+                ))}
+            </Tabs.List>
+        </Tabs>
+    ), [ruleTypeFilter, handleRuleTypeFilterChange, typeOptions, typeCounts]);
+
+    // Le azioni in tre larghezze (F5): comoda; Elenco/Settimana a sole icone;
+    // in più la ricerca alla larghezza minima. La banda usa la prima che sta
+    // in riga con le tab, poi passa a due righe.
+    const renderHeaderActions = useCallback((step: 0 | 1 | 2) => (
         <div className={styles.headerActions}>
             {viewMode === "list" && (
                 <ToolbarSearch
                     value={searchTerm}
                     onChange={setSearchTerm}
-                    placeholder="Cerca per nome, tipo, sede o id…"
+                    placeholder={step === 2 ? "Cerca…" : "Cerca per nome, tipo, sede o id…"}
+                    width={step === 2 ? "min" : "default"}
                 />
             )}
             <SegmentedControl<"list" | "calendar">
                 value={viewMode}
                 onChange={setViewMode}
+                iconsOnly={step > 0}
                 options={[
                     { value: "list", label: "Elenco", icon: <List size={16} /> },
                     { value: "calendar", label: "Settimana", icon: <CalendarDays size={16} /> }
@@ -760,11 +776,23 @@ export default function Programming() {
         </div>
     ), [viewMode, searchTerm, headerSplitActions, isCreating]);
 
+    const headerActions = useMemo(() => renderHeaderActions(0), [renderHeaderActions]);
+    const headerCondensed = useMemo(
+        () => ({ actions: [renderHeaderActions(1), renderHeaderActions(2)], stack: true }),
+        [renderHeaderActions]
+    );
+
     // Stessa toolbar dichiarata a dati, per lo stato compatto: "Simula
     // regole" scende nel kebab, il toggle lista/calendario resta un'icona a
-    // vista e "Nuova regola" resta il bottone pieno. Il filtro per tipo sta
-    // sopra l'elenco, non in testata (passo 2).
+    // vista e "Nuova regola" resta il bottone pieno. Il filtro per tipo
+    // diventa il selettore di sezione, col conteggio fra parentesi.
     const headerCompact = useMemo<PageHeaderCompactConfig>(() => ({
+        sections: typeOptions.map(option => ({
+            value: option.value,
+            label: `${option.label} (${typeCounts[option.value]})`
+        })),
+        activeSection: ruleTypeFilter,
+        onSectionChange: value => handleRuleTypeFilterChange(value as RuleTypeFilter),
         // La ricerca filtra la lista: nella vista calendario non ha bersaglio.
         search: viewMode === "list"
             ? {
@@ -791,10 +819,12 @@ export default function Programming() {
         secondaryActions: headerSplitActions.slice(0, -1),
         primaryAction: headerSplitActions[headerSplitActions.length - 1],
         loading: isCreating
-    }), [viewMode, searchTerm, headerSplitActions, isCreating]);
+    }), [typeOptions, typeCounts, ruleTypeFilter, handleRuleTypeFilterChange, viewMode, searchTerm, headerSplitActions, isCreating]);
 
     usePageHeader({
+        leading: headerLeading,
         actions: headerActions,
+        condensed: headerCondensed,
         compact: headerCompact,
     });
 
@@ -850,27 +880,6 @@ export default function Programming() {
             {() => (
         <section className={styles.programming}>
             <div className={styles.listHead}>
-                {isPhone ? (
-                    <Select
-                        label="Tipo di regola"
-                        value={ruleTypeFilter}
-                        onChange={event => handleRuleTypeFilterChange(event.target.value as RuleTypeFilter)}
-                        options={typeOptions.map(option => ({
-                            value: option.value,
-                            label: `${option.label} (${typeCounts[option.value]})`
-                        }))}
-                    />
-                ) : (
-                    <Tabs<RuleTypeFilter> value={ruleTypeFilter} onChange={handleRuleTypeFilterChange} variant="line">
-                        <Tabs.List aria-label="Tipo di regola">
-                            {typeOptions.map(option => (
-                                <Tabs.Tab key={option.value} value={option.value} badge={typeCounts[option.value]}>
-                                    {option.label}
-                                </Tabs.Tab>
-                            ))}
-                        </Tabs.List>
-                    </Tabs>
-                )}
                 {/* La frase del tipo ha senso sopra un elenco, non sopra un
                     vuoto (che porta già il proprio testo). */}
                 {(isLoading || filteredRules.length > 0) && (
