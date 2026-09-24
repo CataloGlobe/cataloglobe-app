@@ -312,6 +312,36 @@ test.describe("Programmazione — elenco", () => {
     });
 });
 
+test.describe("Programmazione — permesso di lettura", () => {
+    let stub: ProgrammazioneStub;
+    test.beforeEach(async ({ page }) => {
+        stub = await stubProgrammazione(page);
+    });
+
+    // P3: il gate viene prima della fetch (CLAUDE.md, «skip fetch pre-check»).
+    for (const target of ["elenco", "dettaglio"] as const) {
+        test(`senza lettura, ${target}: pagina bloccata e nessuna richiesta di regole`, async ({ page }) => {
+            await stub.revoke("scheduling.read");
+            await openBusinessPage(page, "overview", "Panoramica");
+            await stub.revoked;
+            // Le letture delle regole di Programmazione (elenco, dettaglio,
+            // resolver) chiedono sempre `time_mode`; il conteggio della
+            // Panoramica (`getTenantSetupStatus`), che può partire tardi, no.
+            const ruleReads: string[] = [];
+            page.on("request", request => {
+                const url = new URL(request.url());
+                if (/\/rest\/v1\/schedules$/.test(url.pathname) && (url.searchParams.get("select") ?? "").includes("time_mode")) {
+                    ruleReads.push(request.url());
+                }
+            });
+            const path = target === "elenco" ? "scheduling" : `scheduling/${RULE.pranzo}`;
+            await page.goto(page.url().replace(/overview.*$/, path));
+            await expect(page.getByText("Non hai accesso a questa sezione")).toBeVisible({ timeout: 15_000 });
+            expect(ruleReads).toEqual([]);
+        });
+    }
+});
+
 test.describe("Programmazione — settimana, simulatore, guida", () => {
     test.beforeEach(async ({ page }) => {
         await stubProgrammazione(page);

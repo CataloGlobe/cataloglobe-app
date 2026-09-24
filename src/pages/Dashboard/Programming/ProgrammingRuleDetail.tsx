@@ -179,6 +179,7 @@ export default function ProgrammingRuleDetail() {
     const { permissions } = usePermissions();
     const { canEdit } = useSubscriptionGuard();
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
+    const canRead = permissions ? canDoOnAnyActivity(permissions, "scheduling.read") : false;
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -260,6 +261,9 @@ export default function ProgrammingRuleDetail() {
             return;
         }
 
+        // Gate prima della fetch: senza lettura non si chiede niente.
+        if (!canRead) return;
+
         try {
             setIsLoading(true);
             const [ruleData, optionsData] = await Promise.all([
@@ -315,7 +319,7 @@ export default function ProgrammingRuleDetail() {
         } finally {
             setIsLoading(false);
         }
-    }, [navigate, ruleId, showToast, catalogLabel]);
+    }, [navigate, ruleId, showToast, catalogLabel, canRead]);
 
     const handleFormChange = useCallback((updates: Partial<RuleDetailForm>) => {
         setForm(prev => (prev ? { ...prev, ...updates } : prev));
@@ -843,6 +847,10 @@ export default function ProgrammingRuleDetail() {
         actions: headerActions ?? undefined,
         compact: headerCompact,
     });
+
+    if (permissions && !canRead) {
+        return <PageGate readPermission="scheduling.read">{() => null}</PageGate>;
+    }
 
     if (isLoading || !form || !rule) {
         return null;

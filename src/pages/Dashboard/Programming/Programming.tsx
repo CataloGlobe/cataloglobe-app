@@ -25,7 +25,8 @@ import { useTenantId } from "@/context/useTenantId";
 import { useSedeScope, SCOPE_ALL } from "@/hooks/useSedeScope";
 import { usePermissions } from "@/context/PermissionsContext";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import { canDoOnAnyActivity } from "@/lib/permissions";
+import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
+import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { supabase } from "@/services/supabase/client";
 import {
@@ -71,11 +72,6 @@ type DailyTimelineBlock = {
     layoutSpecificity: number | null;
     priceSpecificity: number | null;
     visibilitySpecificity: number | null;
-};
-
-type ActivityGroupMemberRow = {
-    group_id: string;
-    activity_id: string;
 };
 
 type RuleTypeOption = { value: RuleTypeFilter; label: string; description: string };
@@ -294,6 +290,12 @@ export default function Programming() {
     // Filtro sede deriva da useSedeScope (navbar). SCOPE_ALL → nessun filtro.
     const filterActivityId = sedeScope.value === SCOPE_ALL ? null : sedeScope.value;
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
+    // Stessa regola di PageGate: sulla sede del filtro, se c'è.
+    const canRead = permissions
+        ? filterActivityId
+            ? canDoOnActivity(permissions, "scheduling.read", filterActivityId)
+            : canDoOnAnyActivity(permissions, "scheduling.read")
+        : false;
     const typeFromUrl = searchParams.get("type") as RuleType | null;
     const [ruleTypeFilter, setRuleTypeFilter] = useState<RuleTypeFilter>(
         typeFromUrl && ["layout", "featured", "price", "visibility", "all"].includes(typeFromUrl)
@@ -350,7 +352,9 @@ export default function Programming() {
     }, [currentTenantId]);
 
     const loadInitialData = useCallback(async () => {
-        if (!currentTenantId) return;
+        // Gate prima della fetch: senza lettura (o coi permessi ancora in
+        // arrivo) non si chiede niente; PageGate mostra il blocco.
+        if (!currentTenantId || !canRead) return;
         try {
             setIsLoading(true);
             const [rulesData, optionsData] = await Promise.all([
@@ -363,23 +367,9 @@ export default function Programming() {
             setCatalogs(optionsData.catalogs);
             setStylesOptions(optionsData.styles);
 
-            const groupIds = optionsData.activityGroups.map(group => group.id);
-            if (groupIds.length > 0) {
-                const membershipsRes = await supabase
-                    .from("activity_group_members")
-                    .select("group_id, activity_id")
-                    .in("group_id", groupIds);
-                if (membershipsRes.error) throw membershipsRes.error;
-
-                const grouped: Record<string, string[]> = {};
-                for (const row of (membershipsRes.data ?? []) as ActivityGroupMemberRow[]) {
-                    if (!grouped[row.group_id]) grouped[row.group_id] = [];
-                    grouped[row.group_id].push(row.activity_id);
-                }
-                setActivityIdsByGroupId(grouped);
-            } else {
-                setActivityIdsByGroupId({});
-            }
+            setActivityIdsByGroupId(
+                await listActivityIdsByGroup(optionsData.activityGroups.map(group => group.id))
+            );
         } catch (error) {
             console.error("Errore caricamento Programmazione:", error);
             showToast({
@@ -390,7 +380,7 @@ export default function Programming() {
         } finally {
             setIsLoading(false);
         }
-    }, [currentTenantId, showToast]);
+    }, [currentTenantId, canRead, showToast]);
 
     useEffect(() => {
         void loadInitialData();
