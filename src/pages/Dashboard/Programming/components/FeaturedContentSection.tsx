@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import {
     DndContext,
     closestCenter,
@@ -16,6 +16,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import { GripVertical, X } from "lucide-react";
 import Text from "@/components/ui/Text/Text";
+import { Select } from "@/components/ui/Select/Select";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import type { LayoutRuleOption } from "@/services/supabase/layoutScheduling";
 import type { FeaturedContentItem } from "./AssociatedContentSection";
@@ -74,75 +75,38 @@ function SortableFeaturedRow({ item, name, onRemove }: SortableFeaturedRowProps)
 // ─── FeaturedContentPicker ───────────────────────────────────────────────────
 
 interface FeaturedContentPickerProps {
+    /** Nome accessibile: «Aggiungi un contenuto sopra il menù». */
+    label: string;
     available: LayoutRuleOption[];
     allEmpty: boolean;
     onSelect: (id: string) => void;
 }
 
-function FeaturedContentPicker({ available, allEmpty, onSelect }: FeaturedContentPickerProps) {
-    const [isOpen, setIsOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (!isOpen) return;
-        const handleClick = (e: MouseEvent) => {
-            if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClick);
-        return () => document.removeEventListener("mousedown", handleClick);
-    }, [isOpen]);
-
-    const handleSelect = (id: string) => {
-        onSelect(id);
-        setIsOpen(false);
-    };
-
-    const isEmpty = allEmpty
-        ? "Non ci sono contenuti pubblicati."
+/**
+ * I contenuti sono una lista corta: una `Select` di sistema (P5 del passo
+ * 2-bis) al posto del menu a tendina fatto a mano. Scelto un contenuto, la
+ * Select torna vuota; senza contenuti da aggiungere è spenta e lo dice.
+ */
+function FeaturedContentPicker({ label, available, allEmpty, onSelect }: FeaturedContentPickerProps) {
+    const placeholder = allEmpty
+        ? "Non ci sono contenuti pubblicati"
         : available.length === 0
           ? "Tutti i contenuti sono già stati aggiunti"
-          : null;
+          : "Aggiungi un contenuto…";
 
     return (
-        <div ref={containerRef} className={styles.featuredPickerWrapper}>
-            <button
-                type="button"
-                className={styles.featuredPickerTrigger}
-                onClick={() => setIsOpen(v => !v)}
-            >
-                Aggiungi contenuto
-            </button>
-
-            {isOpen && (
-                <div className={styles.featuredPickerDropdown}>
-                    {isEmpty ? (
-                        <Text
-                            variant="caption"
-                            colorVariant="muted"
-                            className={styles.featuredPickerEmpty}
-                        >
-                            {isEmpty}
-                        </Text>
-                    ) : (
-                        available.map(opt => (
-                            <button
-                                key={opt.id}
-                                type="button"
-                                className={styles.featuredPickerItem}
-                                onMouseDown={e => {
-                                    e.preventDefault();
-                                    handleSelect(opt.id);
-                                }}
-                            >
-                                {opt.name}
-                            </button>
-                        ))
-                    )}
-                </div>
-            )}
-        </div>
+        <Select
+            aria-label={label}
+            value=""
+            disabled={available.length === 0}
+            onChange={event => {
+                if (event.target.value) onSelect(event.target.value);
+            }}
+            options={[
+                { value: "", label: placeholder, disabled: true },
+                ...available.map(opt => ({ value: opt.id, label: opt.name }))
+            ]}
+        />
     );
 }
 
@@ -214,6 +178,7 @@ function SlotGroup({
             )}
 
             <FeaturedContentPicker
+                label={`Aggiungi un contenuto ${title.toLowerCase()}`}
                 available={availableContents}
                 allEmpty={allEmpty}
                 onSelect={id => onAdd(id, slot)}

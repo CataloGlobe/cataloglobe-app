@@ -730,6 +730,20 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(days.getByRole("checkbox", { name: "Dom" })).toHaveAttribute("aria-checked", "false");
     });
 
+    test("in evidenza: i contenuti si aggiungono da una Select di sistema, per posizione", async ({ page }) => {
+        await openRule(page, "promoPorto");
+        const before = main(page).getByRole("combobox", { name: "Aggiungi un contenuto sopra il menù" });
+        await expect(before).toBeVisible();
+        // Le voci sono i contenuti non ancora usati dalla regola: Natale.
+        await expect(before.getByRole("option", { name: "Luci di Natale e2e" })).toHaveCount(1);
+        await expect(before.getByRole("option", { name: "Promo autunno e2e" })).toHaveCount(0);
+        await before.selectOption({ label: "Luci di Natale e2e" });
+        await expect(main(page).getByText("Luci di Natale e2e", { exact: true })).toBeVisible();
+        // Aggiunto, il contenuto esce dalle scelte e la Select torna vuota.
+        await expect(before).toHaveValue("");
+        await expect(before).toBeDisabled();
+    });
+
     test("cablaggio: salvare una regola in evidenza (schedules.PATCH + contenuti riscritti)", async ({ page }) => {
         stub.onWrite("schedules.PATCH", () => null);
         stub.onWrite("schedule_featured_contents.DELETE", () => null);
