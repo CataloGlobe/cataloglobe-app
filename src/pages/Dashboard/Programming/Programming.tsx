@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Loader2, Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
-import { DrawerLayout } from "@/components/layout/SystemDrawer/DrawerLayout";
-import { SystemDrawer } from "@/components/layout/SystemDrawer/SystemDrawer";
+import { Calendar, ChevronDown, List, CalendarDays } from "lucide-react";
 import { Button } from "@/components/ui/Button/Button";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Card } from "@/components/ui/Card/Card";
@@ -18,11 +16,8 @@ import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
-import { TextInput } from "@/components/ui/Input/TextInput";
 import { Select } from "@/components/ui/Select/Select";
-import { StatusBadge } from "@/components/ui/StatusBadge/StatusBadge";
 import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
-import { Tooltip } from "@/components/ui/Tooltip/Tooltip";
 import Text from "@/components/ui/Text/Text";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
@@ -32,7 +27,6 @@ import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { canDoOnActivity, canDoOnAnyActivity } from "@/lib/permissions";
 import { listActivityIdsByGroup } from "@/services/supabase/activity-groups";
 import { PageGate } from "@/components/PageGate/PageGate";
-import { supabase } from "@/services/supabase/client";
 import {
     createRuleDraft,
     deleteLayoutRule,
@@ -48,35 +42,16 @@ import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling"
 import { RuleTable, type RuleInsight } from "./components/RuleTable";
 import { HowItWorksLink, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import { CalendarView } from "./components/CalendarView";
-import {
-    resolveRulesForActivity,
-    type ResolveRulesForActivityResult
-} from "@/services/supabase/scheduleResolver";
-import { toRomeDateTime } from "@/services/supabase/schedulingNow";
+import { RuleSimulatorDrawer } from "./components/RuleSimulatorDrawer";
 import { isRuleCurrentlyActive } from "@/utils/ruleHelpers";
 import { isLayoutRuleDraft } from "@/utils/scheduleDraft";
 import { ruleReachesAnyActivity, describeZeroReach } from "@/utils/scheduleReach";
 import { deriveScheduleStatus } from "@/utils/scheduleStatus";
-import { formatInactiveReason } from "@/utils/activityStatus";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { ruleTypeLabel } from "./ruleTypeLabel";
 import styles from "./Programming.module.scss";
 
 type RuleTypeFilter = RuleType | "all";
-
-type DailyTimelineBlock = {
-    startMinutes: number;
-    endMinutes: number;
-    layoutCatalogId: string | null;
-    layoutScheduleId: string | null;
-    priceRuleId: string | null;
-    visibilityScheduleId: string | null;
-    visibilityMode: "hide" | "disable" | null;
-    featuredScheduleId: string | null;
-    layoutSpecificity: number | null;
-    priceSpecificity: number | null;
-    visibilitySpecificity: number | null;
-};
 
 type RuleTypeOption = { value: RuleTypeFilter; label: string; description: string };
 
@@ -127,9 +102,6 @@ const emptyStateCopy = (menu: string): Record<RuleTypeFilter, { title: string; d
     }
 });
 
-const DAILY_TIMELINE_STEP_MINUTES = 30;
-
-
 function getRuleTargetLabel(rule: LayoutRule, activityById: Map<string, LayoutRuleOption>): string {
     if (rule.target_type === "activity_group") {
         if (rule.target_group?.is_system) return "Tutte le sedi";
@@ -137,18 +109,6 @@ function getRuleTargetLabel(rule: LayoutRule, activityById: Map<string, LayoutRu
     }
 
     return activityById.get(rule.target_id)?.name ?? rule.target_id;
-}
-
-function toDateTimeLocalValue(date: Date): string {
-    const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-    return localDate.toISOString().slice(0, 16);
-}
-
-function getSpecificityLabel(value: number | null) {
-    if (value === 2) return "Sede";
-    if (value === 1) return "Gruppo di sedi";
-    if (value === 0) return "Tutte le sedi";
-    return "-";
 }
 
 function getRuleDisplayName(rule: LayoutRule, catalogLabel: string): string {
@@ -168,15 +128,6 @@ function compareCandidateSpecificityFirst(
     b: { rule: LayoutRule; specificity: 0 | 1 | 2 }
 ): number {
     return compareSpecificityFirst(a.rule, b.rule, a.specificity, b.specificity);
-}
-
-
-function formatMinutesToHourLabel(totalMinutes: number): string {
-    const h = Math.floor(totalMinutes / 60)
-        .toString()
-        .padStart(2, "0");
-    const m = (totalMinutes % 60).toString().padStart(2, "0");
-    return `${h}:${m}`;
 }
 
 export default function Programming() {
@@ -259,20 +210,6 @@ export default function Programming() {
         setIsHelpModalOpen(true);
     }, []);
 
-    const [simActivityId, setSimActivityId] = useState("");
-    // Stato sede selezionata nel simulatore: mirror di resolve-public-catalog
-    // (`activity.status !== "active"` → pagina pubblica senza catalogo).
-    const simActivity = activities.find(a => a.id === simActivityId) ?? null;
-    const simActivityInactive = simActivity !== null && simActivity.status !== "active";
-    const [simDateTime, setSimDateTime] = useState(() => toDateTimeLocalValue(new Date()));
-    const [simResult, setSimResult] = useState<ResolveRulesForActivityResult | null>(null);
-    const [isSimLoading, setIsSimLoading] = useState(false);
-    const [simError, setSimError] = useState<string | null>(null);
-    const [simTimelineOpen, setSimTimelineOpen] = useState(false);
-    const [isDailyTimelineLoading, setIsDailyTimelineLoading] = useState(false);
-    const [dailyTimelineError, setDailyTimelineError] = useState<string | null>(null);
-    const [dailyTimelineBlocks, setDailyTimelineBlocks] = useState<DailyTimelineBlock[]>([]);
-
     const activityById = useMemo(
         () => new Map(activities.map(item => [item.id, item])),
         [activities]
@@ -318,13 +255,6 @@ export default function Programming() {
     useEffect(() => {
         void loadInitialData();
     }, [loadInitialData]);
-
-    // Auto-select activity if tenant has exactly one
-    useEffect(() => {
-        if (activities.length === 1 && !simActivityId) {
-            setSimActivityId(activities[0].id);
-        }
-    }, [activities, simActivityId]);
 
     // Sede e ricerca: i conteggi del filtro per tipo si leggono da qui.
     const searchedRules = useMemo(() => {
@@ -383,7 +313,6 @@ export default function Programming() {
         for (const rule of searchedRules) counts[rule.rule_type] += 1;
         return counts;
     }, [searchedRules]);
-
 
     const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -652,190 +581,6 @@ export default function Programming() {
             });
         }
     };
-
-
-
-    const runSimulation = useCallback(async () => {
-        if (!simActivityId || !simDateTime) {
-            setSimResult(null);
-            setSimError(null);
-            return;
-        }
-
-        const selectedDate = new Date(simDateTime);
-        if (Number.isNaN(selectedDate.getTime())) {
-            setSimResult(null);
-            setSimError("Data e ora non valide.");
-            return;
-        }
-
-        try {
-            setIsSimLoading(true);
-            setSimError(null);
-            const result = await resolveRulesForActivity({
-                supabase,
-                activityId: simActivityId,
-                tenantId: currentTenantId!,
-                now: toRomeDateTime(selectedDate),
-                includeLayoutStyle: true
-            });
-            setSimResult(result);
-        } catch (error) {
-            console.error("Errore simulazione regole:", error);
-            setSimResult(null);
-            setSimError("Non riusciamo a simulare questo momento.");
-        } finally {
-            setIsSimLoading(false);
-        }
-    }, [simActivityId, simDateTime]);
-
-    const runDailyTimeline = useCallback(async () => {
-        if (!simActivityId || !simDateTime) {
-            setDailyTimelineBlocks([]);
-            setDailyTimelineError(null);
-            return;
-        }
-
-        const selectedDate = new Date(simDateTime);
-        if (Number.isNaN(selectedDate.getTime())) {
-            setDailyTimelineBlocks([]);
-            setDailyTimelineError("Data e ora non valide.");
-            return;
-        }
-
-        const dayStart = new Date(
-            selectedDate.getFullYear(),
-            selectedDate.getMonth(),
-            selectedDate.getDate(),
-            0,
-            0,
-            0,
-            0
-        );
-
-        const slotOffsets: number[] = [];
-        for (let minutes = 0; minutes < 24 * 60; minutes += DAILY_TIMELINE_STEP_MINUTES) {
-            slotOffsets.push(minutes);
-        }
-
-        setIsDailyTimelineLoading(true);
-        setDailyTimelineError(null);
-
-        const settled = await Promise.allSettled(
-            slotOffsets.map(async minutesOffset => {
-                const slotTime = new Date(dayStart);
-                slotTime.setMinutes(minutesOffset);
-
-                const result = await resolveRulesForActivity({
-                    supabase,
-                    activityId: simActivityId,
-                    tenantId: currentTenantId!,
-                    now: toRomeDateTime(slotTime),
-                    includeLayoutStyle: false
-                });
-
-                return {
-                    minutesOffset,
-                    layoutCatalogId: result.layout.catalogId,
-                    layoutScheduleId: result.layout.scheduleId,
-                    priceRuleId: result.priceRuleId,
-                    visibilityScheduleId: result.visibilityRule?.scheduleId ?? null,
-                    visibilityMode: result.visibilityRule?.mode ?? null,
-                    featuredScheduleId: result.featuredRule?.scheduleId ?? null,
-                    layoutSpecificity: result.debug?.selectedLayoutRuleSpecificity ?? null,
-                    priceSpecificity: result.debug?.selectedPriceRuleSpecificity ?? null,
-                    visibilitySpecificity: result.debug?.selectedVisibilityRuleSpecificity ?? null
-                };
-            })
-        );
-
-        const slotResults = settled
-            .filter((r): r is PromiseFulfilledResult<typeof settled extends PromiseSettledResult<infer T>[] ? T : never> => r.status === "fulfilled")
-            .map(r => r.value);
-
-        const failedCount = settled.length - slotResults.length;
-        if (failedCount > 0) {
-            console.warn(`Timeline: ${failedCount}/${settled.length} slot falliti`);
-        }
-
-        if (slotResults.length === 0) {
-            setDailyTimelineBlocks([]);
-            setDailyTimelineError("Impossibile calcolare l'andamento giornaliero.");
-            setIsDailyTimelineLoading(false);
-            return;
-        }
-
-        const merged: DailyTimelineBlock[] = [];
-        for (const slot of slotResults) {
-            const currentKey = [
-                slot.layoutCatalogId ?? "",
-                slot.layoutScheduleId ?? "",
-                slot.priceRuleId ?? "",
-                slot.visibilityScheduleId ?? "",
-                slot.visibilityMode ?? "",
-                slot.featuredScheduleId ?? "",
-                String(slot.layoutSpecificity ?? ""),
-                String(slot.priceSpecificity ?? ""),
-                String(slot.visibilitySpecificity ?? "")
-            ].join("|");
-
-            const last = merged[merged.length - 1];
-            if (last) {
-                const lastKey = [
-                    last.layoutCatalogId ?? "",
-                    last.layoutScheduleId ?? "",
-                    last.priceRuleId ?? "",
-                    last.visibilityScheduleId ?? "",
-                    last.visibilityMode ?? "",
-                    last.featuredScheduleId ?? "",
-                    String(last.layoutSpecificity ?? ""),
-                    String(last.priceSpecificity ?? ""),
-                    String(last.visibilitySpecificity ?? "")
-                ].join("|");
-
-                if (lastKey === currentKey && last.endMinutes === slot.minutesOffset) {
-                    last.endMinutes += DAILY_TIMELINE_STEP_MINUTES;
-                    continue;
-                }
-            }
-
-            merged.push({
-                startMinutes: slot.minutesOffset,
-                endMinutes: slot.minutesOffset + DAILY_TIMELINE_STEP_MINUTES,
-                layoutCatalogId: slot.layoutCatalogId,
-                layoutScheduleId: slot.layoutScheduleId,
-                priceRuleId: slot.priceRuleId,
-                visibilityScheduleId: slot.visibilityScheduleId,
-                visibilityMode: slot.visibilityMode,
-                featuredScheduleId: slot.featuredScheduleId,
-                layoutSpecificity: slot.layoutSpecificity,
-                priceSpecificity: slot.priceSpecificity,
-                visibilitySpecificity: slot.visibilitySpecificity
-            });
-        }
-
-        setDailyTimelineBlocks(merged);
-        setIsDailyTimelineLoading(false);
-    }, [simActivityId, simDateTime]);
-
-    const hasAnyRuleActiveInDay = useMemo(
-        () =>
-            dailyTimelineBlocks.some(
-                block =>
-                    block.layoutScheduleId !== null ||
-                    block.priceRuleId !== null ||
-                    block.visibilityScheduleId !== null ||
-                    block.featuredScheduleId !== null
-            ),
-        [dailyTimelineBlocks]
-    );
-
-    useEffect(() => {
-        if (!isSimulatorDrawerOpen) return;
-        if (!simActivityId || !simDateTime) return;
-        void runSimulation();
-        void runDailyTimeline();
-    }, [isSimulatorDrawerOpen, simActivityId, simDateTime, runSimulation, runDailyTimeline]);
 
     const handleDeleteConfirm = async () => {
         if (!ruleToDelete) return;
@@ -1252,347 +997,16 @@ export default function Programming() {
                 onClearSelection={() => setSelectedRuleIds(new Set())}
             />
 
-            <SystemDrawer
+            <RuleSimulatorDrawer
                 open={isSimulatorDrawerOpen}
                 onClose={() => setIsSimulatorDrawerOpen(false)}
-                width={560}
-                aria-labelledby="simulate-rules-title"
-            >
-                <DrawerLayout
-                    header={
-                        <div className={styles.drawerHeader}>
-                            <Text as="h3" variant="title-sm" id="simulate-rules-title">
-                                Simula regole
-                            </Text>
-                            <Text variant="body-sm" colorVariant="muted">
-                                Scegli una sede e un momento: vedi cosa decide ogni regola.
-                            </Text>
-                        </div>
-                    }
-                    footer={
-                        <>
-                            <Button
-                                variant="secondary"
-                                onClick={() => setIsSimulatorDrawerOpen(false)}
-                            >
-                                Chiudi
-                            </Button>
-                            {(() => {
-                                const activitySlug = simActivity?.slug;
-                                if (!simResult || !activitySlug || !simDateTime) return null;
-                                // L'anteprima apre la pagina pubblica: negli stessi casi in
-                                // cui resolve-public-catalog non serve il catalogo il link
-                                // sarebbe fuorviante. La simulazione (card) resta calcolata.
-                                const previewBlockedReason = subscriptionInactive
-                                    ? "Anteprima non disponibile: l'abbonamento non è attivo, la pagina pubblica non mostra il catalogo."
-                                    : simActivityInactive
-                                        ? "Anteprima non disponibile: la sede è sospesa, la pagina pubblica non mostra il catalogo."
-                                        : null;
-                                const previewButton = (
-                                    <Button
-                                        variant="primary"
-                                        disabled={previewBlockedReason !== null}
-                                        onClick={() => {
-                                            const simDate = new Date(simDateTime);
-                                            const url = `/${activitySlug}?simulate=${simDate.toISOString()}`;
-                                            window.open(url, "_blank");
-                                        }}
-                                    >
-                                        Apri l'anteprima
-                                    </Button>
-                                );
-                                if (!previewBlockedReason) return previewButton;
-                                // Un <button disabled> non emette eventi pointer: il wrapper
-                                // focusabile fa da trigger al tooltip (hover + tastiera).
-                                return (
-                                    <Tooltip content={previewBlockedReason}>
-                                        <span className={styles.previewTooltipWrap} tabIndex={0}>
-                                            {previewButton}
-                                        </span>
-                                    </Tooltip>
-                                );
-                            })()}
-                        </>
-                    }
-                >
-                    <div className={styles.form}>
-                        <Select
-                            label="Sede"
-                            value={simActivityId}
-                            onChange={event => setSimActivityId(event.target.value)}
-                            required
-                        >
-                            <option value="" disabled>
-                                Seleziona una sede
-                            </option>
-                            {activities.map(activity => (
-                                <option key={activity.id} value={activity.id}>
-                                    {activity.name}
-                                </option>
-                            ))}
-                        </Select>
-
-                        {simActivity && (
-                            <div className={styles.simActivityStatusRow}>
-                                <Text variant="caption" colorVariant="muted">Stato sede</Text>
-                                {simActivityInactive ? (
-                                    <StatusBadge
-                                        variant="neutral"
-                                        label={formatInactiveReason(simActivity.inactive_reason ?? null)}
-                                    />
-                                ) : (
-                                    <StatusBadge variant="success" label="Pubblicata" />
-                                )}
-                            </div>
-                        )}
-
-                        {simActivity && subscriptionInactive && (
-                            <InlineBanner variant="warning">
-                                Abbonamento non attivo: la pagina pubblica di questa sede non mostra il catalogo
-                                finché l'abbonamento non viene riattivato. La simulazione e l'anteprima restano disponibili.
-                            </InlineBanner>
-                        )}
-
-                        {simActivity && simActivityInactive && !subscriptionInactive && (
-                            <InlineBanner variant="warning">
-                                Sede sospesa: la pagina pubblica mostra solo le informazioni della sede, senza catalogo.
-                                La simulazione e l'anteprima restano disponibili.
-                            </InlineBanner>
-                        )}
-
-                        <TextInput
-                            label="Data e ora"
-                            type="datetime-local"
-                            value={simDateTime}
-                            onChange={event => setSimDateTime(event.target.value)}
-                            required
-                        />
-
-                        {!simActivityId || !simDateTime ? (
-                            <div className={styles.simResultCard}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Scegli sede e momento.
-                                </Text>
-                            </div>
-                        ) : isSimLoading ? (
-                            <div className={styles.simResultCard}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Simulazione in corso...
-                                </Text>
-                            </div>
-                        ) : simError ? (
-                            <div className={styles.simResultCard}>
-                                <Text variant="body-sm" colorVariant="error">
-                                    {simError}
-                                </Text>
-                            </div>
-                        ) : simResult ? (
-                            <div className={styles.simResultBlock}>
-                                <div className={styles.simResultGrid}>
-                                    {/* Catalogo */}
-                                    <div
-                                        className={`${styles.simResultCard} ${simResult.layout.scheduleId ? styles.simResultCardClickable : ""}`}
-                                        onClick={simResult.layout.scheduleId ? () => {
-                                            setIsSimulatorDrawerOpen(false);
-                                            navigate(`/business/${currentTenantId}/scheduling/${simResult.layout.scheduleId}`);
-                                        } : undefined}
-                                    >
-                                        <Text variant="caption" colorVariant="muted">{ruleTypeLabel("layout", catalogLabel)}</Text>
-                                        <Text variant="body-sm" weight={700}>
-                                            {simResult.layout.scheduleId
-                                                ? (rules.find(r => r.id === simResult.layout.scheduleId)?.name ?? simResult.layout.scheduleId)
-                                                : "Nessuna regola"}
-                                        </Text>
-                                        {simResult.layout.catalogId && (
-                                            <Text variant="caption" colorVariant="muted">
-                                                {catalogLabel}: {catalogById.get(simResult.layout.catalogId)?.name ?? simResult.layout.catalogId}
-                                            </Text>
-                                        )}
-                                    </div>
-
-                                    {/* In evidenza */}
-                                    {(() => {
-                                        const featuredRule = simResult.featuredRule?.scheduleId
-                                            ? rules.find(r => r.id === simResult.featuredRule?.scheduleId)
-                                            : null;
-                                        const contentCount = featuredRule?.featured_contents.length ?? 0;
-                                        return (
-                                            <div
-                                                className={`${styles.simResultCard} ${featuredRule ? styles.simResultCardClickable : ""}`}
-                                                onClick={featuredRule ? () => {
-                                                    setIsSimulatorDrawerOpen(false);
-                                                    navigate(`/business/${currentTenantId}/scheduling/featured/${featuredRule.id}`);
-                                                } : undefined}
-                                            >
-                                                <Text variant="caption" colorVariant="muted">In evidenza</Text>
-                                                <Text variant="body-sm" weight={700}>
-                                                    {featuredRule?.name ?? simResult.featuredRule?.scheduleId ?? "Nessuna regola"}
-                                                </Text>
-                                                {featuredRule && (
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        {contentCount} {contentCount === 1 ? "contenuto" : "contenuti"}
-                                                    </Text>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Prezzi */}
-                                    {(() => {
-                                        const priceRule = simResult.priceRuleId
-                                            ? rules.find(r => r.id === simResult.priceRuleId)
-                                            : null;
-                                        const overrideCount = priceRule?.price_overrides.length ?? 0;
-                                        return (
-                                            <div
-                                                className={`${styles.simResultCard} ${priceRule ? styles.simResultCardClickable : ""}`}
-                                                onClick={priceRule ? () => {
-                                                    setIsSimulatorDrawerOpen(false);
-                                                    navigate(`/business/${currentTenantId}/scheduling/${priceRule.id}`);
-                                                } : undefined}
-                                            >
-                                                <Text variant="caption" colorVariant="muted">Prezzi</Text>
-                                                <Text variant="body-sm" weight={700}>
-                                                    {priceRule?.name ?? simResult.priceRuleId ?? "Nessuna regola"}
-                                                </Text>
-                                                {priceRule && (
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        {overrideCount} {overrideCount === 1 ? "prodotto" : "prodotti"}
-                                                    </Text>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-
-                                    {/* Disponibilità */}
-                                    {(() => {
-                                        const visRule = simResult.visibilityRule?.scheduleId
-                                            ? rules.find(r => r.id === simResult.visibilityRule?.scheduleId)
-                                            : null;
-                                        const visCount = visRule?.visibility_overrides.length ?? 0;
-                                        return (
-                                            <div
-                                                className={`${styles.simResultCard} ${visRule ? styles.simResultCardClickable : ""}`}
-                                                onClick={visRule ? () => {
-                                                    setIsSimulatorDrawerOpen(false);
-                                                    navigate(`/business/${currentTenantId}/scheduling/${visRule.id}`);
-                                                } : undefined}
-                                            >
-                                                <Text variant="caption" colorVariant="muted">Disponibilità</Text>
-                                                <Text variant="body-sm" weight={700}>
-                                                    {visRule?.name ?? simResult.visibilityRule?.scheduleId ?? "Nessuna regola"}
-                                                </Text>
-                                                {visRule && (
-                                                    <Text variant="caption" colorVariant="muted">
-                                                        {visCount} {visCount === 1 ? "prodotto" : "prodotti"}
-                                                    </Text>
-                                                )}
-                                            </div>
-                                        );
-                                    })()}
-                                </div>
-
-                                <button
-                                    type="button"
-                                    className={styles.simTimelineToggle}
-                                    onClick={() => setSimTimelineOpen(prev => !prev)}
-                                    aria-expanded={simTimelineOpen}
-                                >
-                                    <ChevronDown
-                                        size={14}
-                                        className={simTimelineOpen ? styles.simTimelineChevronOpen : styles.simTimelineChevronClosed}
-                                    />
-                                    <Text variant="body-sm" weight={600} as="span">
-                                        Andamento della giornata
-                                    </Text>
-                                    {isDailyTimelineLoading && (
-                                        <Loader2 size={12} className={styles.miniLoader} />
-                                    )}
-                                </button>
-
-                                {simTimelineOpen && (
-                                    <div className={styles.simTimelineContent}>
-                                        {isDailyTimelineLoading ? (
-                                            <Text variant="caption" colorVariant="muted">
-                                                Calcolo andamento giornaliero...
-                                            </Text>
-                                        ) : dailyTimelineError ? (
-                                            <Text variant="caption" colorVariant="error">
-                                                {dailyTimelineError}
-                                            </Text>
-                                        ) : dailyTimelineBlocks.length === 0 ||
-                                          !hasAnyRuleActiveInDay ? (
-                                            <Text variant="caption" colorVariant="muted">
-                                                Nessuna regola attiva durante la giornata.
-                                            </Text>
-                                        ) : (
-                                            <div className={styles.timelineList}>
-                                                {dailyTimelineBlocks.map((block, index) => {
-                                                    const layoutName = block.layoutCatalogId
-                                                        ? (catalogById.get(block.layoutCatalogId)?.name ??
-                                                          block.layoutCatalogId)
-                                                        : `Nessun ${catalogLabel.toLowerCase()}`;
-                                                    const layoutClassName = block.layoutCatalogId
-                                                        ? styles.timelineBlockActive
-                                                        : styles.timelineBlockNoLayout;
-                                                    const visibilityBadgeClassName =
-                                                        block.visibilityMode === "disable"
-                                                            ? styles.timelineBadgeDisable
-                                                            : block.visibilityMode === "hide"
-                                                              ? styles.timelineBadgeHide
-                                                              : styles.timelineBadgeNeutral;
-
-                                                    return (
-                                                        <div
-                                                            key={`${block.startMinutes}-${block.endMinutes}-${index}`}
-                                                            className={`${styles.timelineBlock} ${layoutClassName}`}
-                                                        >
-                                                            <Text variant="caption" weight={700}>
-                                                                {formatMinutesToHourLabel(
-                                                                    block.startMinutes
-                                                                )}
-                                                                –{formatMinutesToHourLabel(block.endMinutes)}
-                                                            </Text>
-                                                            <Text variant="body-sm" weight={600}>
-                                                                {layoutName}
-                                                            </Text>
-                                                            <div className={styles.timelineBadges}>
-                                                                <span className={styles.timelineBadgeNeutral}>
-                                                                    Dove si applica:{" "}
-                                                                    {getSpecificityLabel(
-                                                                        block.layoutSpecificity
-                                                                    )}
-                                                                </span>
-                                                                <span className={visibilityBadgeClassName}>
-                                                                    {block.visibilityMode === "hide"
-                                                                        ? "Nascosti"
-                                                                        : block.visibilityMode === "disable"
-                                                                          ? "Non disponibili"
-                                                                          : "Disponibilità invariata"}
-                                                                </span>
-                                                                {block.priceRuleId && (
-                                                                    <span className={styles.timelineBadgeNeutral}>
-                                                                        Prezzi
-                                                                    </span>
-                                                                )}
-                                                                {block.featuredScheduleId && (
-                                                                    <span className={styles.timelineBadgeNeutral}>
-                                                                        In evidenza: {rules.find(r => r.id === block.featuredScheduleId)?.name ?? "attiva"}
-                                                                    </span>
-                                                                )}
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        ) : null}
-                    </div>
-                </DrawerLayout>
-            </SystemDrawer>
+                tenantId={currentTenantId!}
+                rules={rules}
+                activities={activities}
+                catalogById={catalogById}
+                subscriptionInactive={subscriptionInactive}
+                ruleHref={ruleHref}
+            />
             <RuleTypeHelpModal
                 isOpen={isHelpModalOpen}
                 ruleType={ruleTypeFilter}

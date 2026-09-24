@@ -446,6 +446,53 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await expect(drawer.getByRole("button", { name: /anteprima/ })).toBeDisabled();
     });
 
+    test("il simulatore è un drawer md; ogni tipo è una riga che apre la regola che vince", async ({ page }) => {
+        await openList(page);
+        const drawer = await openSimulator(page);
+        const box = await drawer.boundingBox();
+        expect(Math.round(box?.width ?? 0)).toBe(520);
+        await expect(drawer.getByText("Scegli sede e momento.")).toBeVisible();
+        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
+        // A Centro vincono menù, prezzi e disponibilità; in evidenza nessuna (le promo sono di Porto).
+        for (const [layer, winner] of [[/e stile/, RULE_NAME.pranzo], [/Prezzi/, RULE_NAME.spritz], [/Disponibilità/, RULE_NAME.stagionali]]) {
+            await expect(drawer.getByRole("link", { name: layer }).filter({ hasText: winner })).toBeVisible({ timeout: 15_000 });
+        }
+        await expect(drawer.getByText("In evidenza", { exact: true })).toBeVisible();
+        await expect(drawer.getByText("Nessuna regola")).toBeVisible();
+        await expect(drawer.getByRole("link", { name: /In evidenza/ })).toHaveCount(0);
+        await drawer.getByRole("link", { name: new RegExp(RULE_NAME.pranzo) }).click();
+        await expect(page).toHaveURL(new RegExp(`/scheduling/${RULE.pranzo}`));
+        await expect(page.getByRole("heading", { name: /Simula/ })).toHaveCount(0);
+    });
+
+    test("il simulatore: l'andamento della giornata si apre dal chevron, una fascia per riga", async ({ page }) => {
+        await openList(page);
+        const drawer = await openSimulator(page);
+        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
+        const toggle = drawer.getByRole("button", { name: "Mostra Andamento della giornata" });
+        await expect(toggle).toHaveAttribute("aria-expanded", "false", { timeout: 15_000 });
+        await toggle.click();
+        await expect(drawer.getByRole("button", { name: "Nascondi Andamento della giornata" })).toHaveAttribute("aria-expanded", "true");
+        await expect(drawer.getByText(/^11:00–15:00$/)).toBeVisible({ timeout: 30_000 });
+    });
+
+    test("il simulatore: se il calcolo fallisce lo dice nel drawer, e «Riprova» ricalcola", async ({ page }) => {
+        let fail = true;
+        // Il resolver legge i gruppi della sede (`activity_id=eq.`): la pagina no.
+        await page.route(/\/rest\/v1\/activity_group_members\?.*activity_id=eq\./, route =>
+            fail ? route.fulfill({ status: 500, json: { code: "E2E", message: "rotto" } }) : route.fallback()
+        );
+        await openList(page);
+        const drawer = await openSimulator(page);
+        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
+        const banner = drawer.getByRole("alert").filter({ hasText: "Non riusciamo a simulare questo momento." });
+        await expect(banner).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("status").filter({ hasText: /simul/i })).toHaveCount(0);
+        fail = false;
+        await banner.getByRole("button", { name: "Riprova" }).click();
+        await expect(drawer.getByRole("link", { name: new RegExp(RULE_NAME.pranzo) })).toBeVisible({ timeout: 15_000 });
+    });
+
     test("la guida si apre da «Come funziona» e porta al simulatore", async ({ page }) => {
         await openList(page, "layout");
         await main(page).getByRole("button", { name: /Come funzion/ }).first().click();
