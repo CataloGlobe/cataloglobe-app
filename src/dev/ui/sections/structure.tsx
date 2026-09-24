@@ -267,8 +267,16 @@ function CardGridSection() {
                     />
                 </CardGrid>
             </State>
-            <State label="caricamento (card Skeleton)" column>
+            <State label="caricamento (card Skeleton): la sagoma è quella della card che arriva — con media (default)" column>
                 <CardGrid loading skeletonCount={3} />
+            </State>
+            <State label="caricamento senza media, con piè (i menù): skeleton e card alti uguali, 120" column>
+                <CardGrid loading skeletonCount={3} skeletonShape={{ media: false, footer: true }} />
+                <CardGrid>
+                    {["Carta", "Pranzo", "Vini"].map(name => (
+                        <CardGridItem key={name} title={name} subtitle="7 categorie · 22 prodotti" footer="Creato il 21/09/2026" onClick={noop} />
+                    ))}
+                </CardGrid>
             </State>
             <State label="vuoto: la pagina rende EmptyState page, non il grid" column>
                 <EmptyState
