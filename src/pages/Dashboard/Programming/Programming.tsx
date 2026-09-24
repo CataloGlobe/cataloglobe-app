@@ -6,7 +6,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Card } from "@/components/ui/Card/Card";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { IconButton } from "@/components/ui/Button/IconButton";
-import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
+import { Tabs } from "@/components/ui/Tabs/Tabs";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { BulkBar } from "@/components/ui/BulkBar/BulkBar";
 import { usePageHeader } from "@/context/usePageHeader";
@@ -848,17 +848,15 @@ export default function Programming() {
                         }))}
                     />
                 ) : (
-                    <ChipGroupSingle<RuleTypeFilter>
-                        ariaLabel="Tipo di regola"
-                        value={ruleTypeFilter}
-                        onChange={handleRuleTypeFilterChange}
-                        options={typeOptions.map(option => ({
-                            value: option.value,
-                            label: `${option.label} ${typeCounts[option.value]}`
-                        }))}
-                        layout="auto"
-                        shape="pill"
-                    />
+                    <Tabs<RuleTypeFilter> value={ruleTypeFilter} onChange={handleRuleTypeFilterChange} variant="line">
+                        <Tabs.List aria-label="Tipo di regola">
+                            {typeOptions.map(option => (
+                                <Tabs.Tab key={option.value} value={option.value} badge={typeCounts[option.value]}>
+                                    {option.label}
+                                </Tabs.Tab>
+                            ))}
+                        </Tabs.List>
+                    </Tabs>
                 )}
                 {/* La frase del tipo ha senso sopra un elenco, non sopra un
                     vuoto (che porta già il proprio testo). */}

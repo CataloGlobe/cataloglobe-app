@@ -231,12 +231,13 @@ test.describe("Programmazione — elenco", () => {
 
     test("il filtro per tipo dice quante regole ci sono", async ({ page }) => {
         await openList(page);
-        const filter = main(page).getByRole("radiogroup", { name: "Tipo di regola" });
-        await expect(filter.getByRole("radio", { name: /^Tutte 12$/ })).toBeVisible();
-        await expect(filter.getByRole("radio", { name: /^Menù e stile 6$/ })).toBeVisible();
-        await expect(filter.getByRole("radio", { name: /^Prezzi 2$/ })).toBeVisible();
+        // Tabs col contatore (F2): il nome della tab è «etichetta N».
+        const filter = main(page).getByRole("tablist", { name: "Tipo di regola" });
+        await expect(filter.getByRole("tab", { name: /^Tutte 12$/ })).toHaveAttribute("aria-selected", "true");
+        await expect(filter.getByRole("tab", { name: /^Menù e stile 6$/ })).toBeVisible();
+        await expect(filter.getByRole("tab", { name: /^Prezzi 2$/ })).toBeVisible();
         await searchFor(page, "Porto");
-        await expect(filter.getByRole("radio", { name: /^Tutte 2$/ })).toBeVisible();
+        await expect(filter.getByRole("tab", { name: /^Tutte 2$/ })).toBeVisible();
     });
 
     test("«Sovrascritta da» porta alla regola che vince", async ({ page }) => {
