@@ -1808,6 +1808,7 @@ export default function CatalogEngine() {
         <Tooltip content={structureLockReason ?? newRootCategoryLabel}>
             <span className={styles.tooltipTrigger}>
                 <IconButton
+                    variant="primary"
                     size="sm"
                     icon={<IconPlus size={16} />}
                     aria-label={newRootCategoryLabel}

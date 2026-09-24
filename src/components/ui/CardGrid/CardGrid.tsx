@@ -27,33 +27,67 @@ export interface CardGridProps {
     loading?: boolean;
     /** Quante card Skeleton (default 6 = due righe a 3 colonne). */
     skeletonCount?: number;
+    /**
+     * La sagoma dello Skeleton, uguale alle card che arrivano (scheda
+     * «Skeleton»: stessa sagoma del contenuto). `media`: area 16:10 (default
+     * sì, per griglie di immagini); `footer`: la riga in fondo delle card che
+     * ce l'hanno.
+     */
+    skeletonShape?: CardGridSkeletonShape;
     className?: string;
     children?: ReactNode;
     "aria-label"?: string;
 }
 
-export function CardGrid({ loading = false, skeletonCount = 6, className, children, "aria-label": ariaLabel }: CardGridProps) {
+export interface CardGridSkeletonShape {
+    media?: boolean;
+    footer?: boolean;
+}
+
+export function CardGrid({
+    loading = false,
+    skeletonCount = 6,
+    skeletonShape,
+    className,
+    children,
+    "aria-label": ariaLabel
+}: CardGridProps) {
     return (
         <div className={`${styles.grid} ${className ?? ""}`.trim()} role="list" aria-label={ariaLabel} aria-busy={loading || undefined}>
             {loading
-                ? Array.from({ length: skeletonCount }, (_, i) => <CardGridSkeleton key={i} />)
+                ? Array.from({ length: skeletonCount }, (_, i) => <CardGridSkeleton key={i} {...skeletonShape} />)
                 : children}
         </div>
     );
 }
 
-function CardGridSkeleton() {
+// Ogni barra sta dentro un Text della stessa variante della riga vera:
+// la riga è alta come il testo che arriva, e la card Skeleton come la card.
+function CardGridSkeleton({ media = true, footer = false }: CardGridSkeletonShape) {
     return (
         <div className={styles.item} role="listitem" aria-hidden="true">
             <div className={styles.surface}>
-                <div className={styles.media}>
-                    <Skeleton className={styles.mediaSkeleton} radius="0" />
-                </div>
+                {media && (
+                    <div className={styles.media}>
+                        <Skeleton className={styles.mediaSkeleton} radius="0" />
+                    </div>
+                )}
                 <div className={styles.body}>
-                    <Skeleton width="60%" height={14} radius="var(--radius-inner)" />
-                    <Skeleton width="40%" height={12} radius="var(--radius-inner)" />
+                    <Text as="div" variant="body-sm" className={styles.skeletonLine}>
+                        <Skeleton width="60%" height="0.8em" radius="var(--radius-inner)" />
+                    </Text>
+                    <Text as="div" variant="caption" className={styles.skeletonLine}>
+                        <Skeleton width="40%" height="0.8em" radius="var(--radius-inner)" />
+                    </Text>
                 </div>
             </div>
+            {footer && (
+                <div className={styles.footer}>
+                    <Text as="div" variant="caption" className={styles.skeletonLine}>
+                        <Skeleton width="45%" height="0.8em" radius="var(--radius-inner)" />
+                    </Text>
+                </div>
+            )}
         </div>
     );
 }

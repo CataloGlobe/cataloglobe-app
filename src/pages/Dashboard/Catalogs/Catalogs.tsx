@@ -489,7 +489,12 @@ export default function Catalogs() {
         }
 
         return (
-            <CardGrid loading={isLoading} skeletonCount={3} aria-label={verticalConfig.catalogLabelPlural}>
+            <CardGrid
+                loading={isLoading}
+                skeletonCount={3}
+                skeletonShape={{ media: false, footer: true }}
+                aria-label={verticalConfig.catalogLabelPlural}
+            >
                 {filteredCatalogs.map(catalog => (
                     <CardGridItem
                         key={catalog.id}

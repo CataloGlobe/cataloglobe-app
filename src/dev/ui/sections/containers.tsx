@@ -115,14 +115,14 @@ function CardSection() {
                     <Text variant="body-sm">Eliminando la sede perdi tavoli, prenotazioni e QR collegati.</Text>
                 </Card>
             </State>
-            <State label="stretta (280) con un «+» solo icona: resta accanto al titolo, il nome è nel tooltip" column>
+            <State label="stretta (280) con un «+» solo icona (IconButton primary sm): resta accanto al titolo, il nome è nel tooltip" column>
                 <div className={styles.narrowCard}>
                     <Card
                         title="Categorie"
                         flush
                         actions={
                             <Tooltip content="Nuova categoria">
-                                <IconButton size="sm" icon={<Plus size={16} />} aria-label="Nuova categoria" onClick={noop} />
+                                <IconButton variant="primary" size="sm" icon={<Plus size={16} />} aria-label="Nuova categoria" onClick={noop} />
                             </Tooltip>
                         }
                     >

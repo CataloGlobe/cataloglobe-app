@@ -118,6 +118,30 @@ test.describe("Menù — elenco", () => {
         await expect(carta).toContainText(/22\s*prodotti/);
     });
 
+    test("caricamento: tre skeleton per riga, con la sagoma della card", async ({ page }) => {
+        await openList(page);
+        // Si ricarica con i menù in ritardo: la griglia resta in caricamento.
+        let hold = true;
+        await page.route(/\/rest\/v1\/catalogs\?/, async route => {
+            if (hold && route.request().method() === "GET") await new Promise(r => setTimeout(r, 2500));
+            await route.fallback();
+        });
+        await page.reload();
+        const loading = main(page).locator('[role="list"][aria-busy="true"]');
+        await expect(loading).toBeVisible({ timeout: 15_000 });
+        const skeletons = await loading.evaluate(g => Array.from(g.children).map(c => c.getBoundingClientRect().toJSON() as DOMRect));
+        expect(skeletons).toHaveLength(3);
+        expect(new Set(skeletons.map(b => Math.round(b.y))).size).toBe(1);
+        hold = false;
+        const grid = main(page).getByRole("list", { name: "Menù" });
+        await expect(grid.getByText("Carta e2e")).toBeVisible({ timeout: 15_000 });
+        const card = await grid.evaluate(g => g.children[0].getBoundingClientRect().toJSON() as DOMRect);
+        for (const b of skeletons) {
+            expect(Math.abs(b.height - card.height)).toBeLessThanOrEqual(1);
+            expect(Math.round(b.width)).toBe(Math.round(card.width));
+        }
+    });
+
     test("la ricerca filtra, e il vuoto filtrato lo dice", async ({ page }) => {
         await openList(page);
         const search = page.getByRole("searchbox").or(page.getByPlaceholder(/Cerca menù/)).first();
