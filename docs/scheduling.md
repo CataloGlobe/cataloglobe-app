@@ -4,10 +4,12 @@ Quattro tipi di regola sullo stesso modello `schedules` (`RuleType` in `layoutSc
 
 | `rule_type`           | Route detail                                          | Service                 | Scopo                                                     |
 | --------------------- | ----------------------------------------------------- | ----------------------- | --------------------------------------------------------- |
-| `"layout"`            | `/scheduling/:ruleId` → `ProgrammingRuleDetail`       | `layoutScheduling.ts`   | Assegna catalogo a sede in finestra temporale             |
+| `"layout"`            | `/scheduling/:ruleId` → `RuleDetailPage`              | `layoutScheduling.ts`   | Assegna catalogo a sede in finestra temporale             |
 | `"price"`             | idem                                                  | `layoutScheduling.ts`   | Override prezzi in finestra                               |
 | `"visibility"`        | idem                                                  | `layoutScheduling.ts`   | Override visibilità prodotti in finestra                  |
-| `"featured"`          | `/scheduling/featured/:ruleId` → `FeaturedRuleDetail` | `featuredScheduling.ts` | Assegna contenuti in evidenza (before/after) in finestra  |
+| `"featured"`          | `/scheduling/featured/:ruleId` → `RuleDetailPage`     | `featuredScheduling.ts` | Assegna contenuti in evidenza (before/after) in finestra  |
+
+Un solo dettaglio per i quattro tipi (`RuleDetailPage` + `useRuleDetail`), montato sulle due rotte; una regola `featured` aperta dalla rotta generica passa alla sua. Form, validazioni e campi mancanti (bozza) in `src/utils/ruleDetailForm.ts` (`buildRuleDetailForm`, `validateRuleForm`, `missingDraftFields`), coi test in `src/tests/ruleDetailForm.test.ts`.
 
 **Risoluzione regole**: tutti e 4 i tipi (layout, featured, price, visibility) usano **competizione** (1 sola regola vince per sede per tipo). Ordine: specificità target (DESC) → specificità temporale (DESC) → priority (ASC) → created_at (ASC) → id (ASC).
 
