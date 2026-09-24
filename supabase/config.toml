@@ -119,6 +119,12 @@ verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/stripe-portal/index.ts"
 
+[functions.update-billing-details]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/update-billing-details/index.ts"
+
 [functions.stripe-change-subscription]
 enabled = true
 verify_jwt = false

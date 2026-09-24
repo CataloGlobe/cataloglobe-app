@@ -14,6 +14,7 @@ Tutte in `supabase/functions/<nome>/index.ts`. Shared code in `_shared/`. `verif
 | `send-tenant-invite` | ✅ | Invito membro team (email via Resend) |
 | `generate-menu-pdf` | ✅ | PDF menu (usa Puppeteer) |
 | `stripe-checkout` / `stripe-webhook` / `stripe-portal` / `stripe-update-seats` | ✅ | Sottoscrizione Stripe |
+| `update-billing-details` | ✅ | Salva i dati fiscali del tenant (RPC `update_tenant_billing_details` col JWT utente) e riallinea il customer Stripe |
 | `submit-review` | ✅ | Invio recensione dalla pagina pubblica |
 | `search-google-places` | ✅ | Ricerca luoghi Google Places. Branch `query`: searchText per review URL (tab contatti). Branch `place_id`: Place Details con `addressComponents` per autocompletamento indirizzo strutturato (`address`, `street_number`, `postal_code`, `city`, `province`). |
 | `cleanup-draft-schedules` | ✅ | Elimina bozze schedules incomplete > 7 giorni (chiamata via pg_cron con PURGE_SECRET) |
@@ -57,6 +58,16 @@ Il parser TS del bundler Deno (deploy Edge Function) può interpretare `/` dentr
 `transfer_ownership()` cambia solo `tenants.owner_user_id`: il customer Stripe restava con email e `metadata.user_id` del vecchio owner (ricevute, solleciti e portale al destinatario sbagliato). L'email sul customer è quella auth dell'owner (non esiste un'email di fatturazione tenant; la PEC è l'indirizzo SDI). Due punti la riallineano, entrambi via Stripe `customers.update` e non-throwing:
 - `delete-account` Step 2b, unico percorso di transfer (l'RPC non è eseguibile da `authenticated`): dopo il successo di `execute_account_deletion_tenant_ops` rilegge owner e `stripe_customer_id` dal DB (solo tenant del payload posseduti dal caller prima dell'RPC e non più dopo: l'RPC ritorna successo senza validare il payload quando il caller non possiede tenant attivi), email da `auth.admin.getUserById`, poi `syncStripeCustomerOwner` (`_shared/stripe-helpers.ts`). Un errore Stripe logga `stripe_customer_owner_sync_failed` (solo code, type, status) e non blocca l'eliminazione.
 - `stripe-checkout`, ramo riuso customer: `email` + `metadata.user_id` seguono il caller (già verificato owner). Rete di sicurezza: un customer rimasto stale si riallinea al primo checkout del nuovo owner.
+Bug fixato 24/09/2026.
+
+### Customer Stripe dopo modifica dei dati fiscali
+
+Prima del fix il customer Stripe si aggiornava solo al checkout, che per un abbonato attivo non si ripete: una modifica da Impostazioni (ragione sociale, indirizzo, P.IVA) non arrivava mai in fattura. Ora il FE (`updateTenantBillingDetails` in `tenants.ts`, usato da `BusinessSettingsPage` e dal ramo ripresa del wizard) chiama l'edge `update-billing-details`:
+1. RPC `update_tenant_billing_details` col JWT dell'utente (permesso `tenant.manage` + gate P.IVA nel DB). Errori: `insufficient_permission` (403, code 42501) e `invalid_vat_number` (400, code 22023) con message e code della RPC; ogni altro errore di classe 22 o 23 → 400 `invalid_billing_details`, senza testo Postgres. Il service lo rilancia come `Error` con `name = message = error` del body e `code`.
+2. Se il tenant ha `stripe_customer_id`, rilegge la riga salvata (service_role) e chiama `syncStripeCustomerProfile`: aggiorna name, address, description, `preferred_locales`, metadata fiscali (merge; un campo svuotato nel DB viene svuotato anche su Stripe con `""`) e tax id. **Mai** `email` né `metadata.user_id`: seguono l'owner, e i dati fiscali li può modificare anche un admin.
+3. Risposta sempre 200 dopo il salvataggio: `stripe_sync` = `updated` | `skipped_no_customer` | `customer_missing` | `error`. Un errore Stripe non fa fallire il salvataggio; il prossimo salvataggio o checkout riallinea.
+
+Costruzione del profilo condivisa con `stripe-checkout` in `_shared/stripeCustomerProfile.ts` (builder + clamp ai limiti Stripe). `syncCustomerTaxId` porta gli `eu_vat` del customer esattamente alla P.IVA corrente: crea il nuovo se manca, poi cancella ogni `eu_vat` diverso (Stripe copia in fattura TUTTI i tax id del customer, quindi una P.IVA vecchia finirebbe sul documento), P.IVA vuota → cancella tutti. Create prima del delete; altri tipi di tax id intatti. Il vecchio `ensureCustomerTaxId` di checkout aggiungeva soltanto. Log solo code/type/status, mai P.IVA né messaggi Stripe.
 Bug fixato 24/09/2026.
 
 ## Epic Ordinazioni dal tavolo — 11 Edge Functions

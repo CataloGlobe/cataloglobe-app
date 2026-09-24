@@ -339,33 +339,43 @@ export async function getTenantBillingInterval(tenantId: string): Promise<Billin
 }
 
 /**
- * Persists billing identity onto an existing tenant (resume flow, when fiscal
- * data was missing at first checkout). Create flow writes these inline on INSERT.
+ * Persists billing identity onto an existing tenant (Impostazioni + resume
+ * flow). Create flow writes these inline on INSERT.
  *
- * Same tenant.manage-gated RPC pattern as updateTenantName — see there.
+ * Goes through the `update-billing-details` edge function: it runs the
+ * tenant.manage-gated RPC `update_tenant_billing_details` with the caller's
+ * JWT, then realigns the Stripe customer (name, address, tax id) best-effort.
+ * A Stripe failure never fails the save.
+ *
+ * Throws an Error whose `name` and `message` are the edge error:
+ * `insufficient_permission` (code `42501`), `invalid_vat_number` (code
+ * `22023`), `invalid_billing_details` for any other rejected value (code
+ * `invalid_billing_details`, no Postgres text), `unauthorized`, or
+ * `billing_update_failed` when the body is unreadable.
  */
 export async function updateTenantBillingDetails(
     tenantId: string,
     billing: TenantBillingDetails
 ): Promise<void> {
-    const { error } = await supabase.rpc("update_tenant_billing_details", {
-        p_tenant_id: tenantId,
-        p_legal_entity_type: billing.legal_entity_type,
-        p_legal_name: billing.legal_name,
-        p_vat_number: billing.vat_number,
-        p_fiscal_code: billing.fiscal_code,
-        p_first_name: billing.first_name,
-        p_last_name: billing.last_name,
-        p_pec: billing.pec,
-        p_codice_destinatario: billing.codice_destinatario,
-        p_address: billing.address,
-        p_street_number: billing.street_number,
-        p_postal_code: billing.postal_code,
-        p_city: billing.city,
-        p_province: billing.province,
-        p_country: billing.country
+    const { error } = await supabase.functions.invoke("update-billing-details", {
+        body: { tenantId, billing }
     });
-    if (error) throw error;
+    if (!error) return;
+
+    if (error instanceof FunctionsHttpError) {
+        let body: { error?: unknown; code?: unknown } = {};
+        try {
+            body = await error.context.json();
+        } catch {
+            // Non-JSON body: fall through to the generic error below.
+        }
+        const reason = typeof body.error === "string" && body.error ? body.error : "billing_update_failed";
+        const mapped = new Error(reason) as Error & { code?: string };
+        mapped.name = reason;
+        if (typeof body.code === "string") mapped.code = body.code;
+        throw mapped;
+    }
+    throw error;
 }
 
 /**
