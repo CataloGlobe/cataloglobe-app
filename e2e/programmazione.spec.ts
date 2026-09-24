@@ -1,0 +1,419 @@
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { openBusinessPage } from "./business";
+import { MISSING_RULE, RULE, RULE_NAME, SEDE, stubProgrammazione, type ProgrammazioneStub, type WriteCall } from "./programmazioneStub";
+
+/**
+ * Programmazione (lotto `ds-5-programmazione`, P0). Scritto sulla pagina di
+ * **oggi**, prima di ricomporla: deve restare verde passo dopo passo.
+ *
+ * Dati: regole, sedi, gruppi, menù, prodotti e contenuti in evidenza sono finti
+ * (`programmazioneStub.ts`), l'orologio è fermo a mercoledì 23/09/2026 alle 12
+ * di Roma; permessi, azienda e sidebar sono veri. Nessuna scrittura parte:
+ * ogni gesto che scrive ha un test di cablaggio che controlla tabella, filtri
+ * e corpo.
+ *
+ * Dove un nome cambierà nei passi successivi (dizionario, §50 passo 2) il
+ * locator accetta il nome di oggi e quello di domani. Locator per ruolo o per
+ * testo visibile; dove una riga non ha un ruolo, si risale al contenitore che
+ * porta il suo «Azioni».
+ */
+
+test.use({ timezoneId: "Europe/Rome", locale: "it-IT" });
+
+function main(page: Page) {
+    return page.getByRole("main");
+}
+
+/** Il nome di una regola, come testo visibile nell'elenco. */
+function rule(page: Page, key: keyof typeof RULE): Locator {
+    return main(page).getByText(RULE_NAME[key], { exact: true }).first();
+}
+
+/** Il contenitore della riga che porta `anchor`: il primo antenato col suo «Azioni» o il suo switch. */
+function rowOf(anchor: Locator): Locator {
+    return anchor.locator("xpath=ancestor::*[.//button[starts-with(@aria-label,'Azioni')] or .//*[@role='switch']][1]");
+}
+
+function actionsOf(anchor: Locator): Locator {
+    return rowOf(anchor).getByRole("button", { name: /^Azioni/ }).first();
+}
+
+/**
+ * Il gruppo di stato: il primo antenato del titolo che contiene anche delle
+ * regole. `title` accetta il nome di oggi e quello di domani («In esecuzione»
+ * → «Adesso»).
+ */
+function group(page: Page, title: RegExp): Locator {
+    return main(page)
+        .getByText(title)
+        .first()
+        .locator("xpath=ancestor::*[.//text()[contains(., ' e2e')]][1]");
+}
+
+const GROUP = {
+    adesso: /^(In esecuzione|Adesso)$/,
+    programmate: /^Programmate$/,
+    bozze: /^Bozze$/,
+    disabilitate: /^Disabilitate$/,
+    scadute: /^Scadute$/
+};
+
+/** L'ultimo dialogo aperto: drawer (`dialog`) o conferma (`alertdialog`). */
+function dialog(page: Page): Locator {
+    return page.getByRole("dialog").or(page.getByRole("alertdialog")).last();
+}
+
+async function openList(page: Page, type = "all"): Promise<void> {
+    await openBusinessPage(page, "scheduling", "Programmazione");
+    await page.goto(`${new URL(page.url()).pathname}?type=${type}`);
+    await expect(main(page).getByText(/ e2e$/).first()).toBeVisible({ timeout: 15_000 });
+}
+
+async function openRule(page: Page, key: keyof typeof RULE): Promise<void> {
+    await openList(page);
+    await rule(page, key).click();
+    await expect(page).toHaveURL(new RegExp(`/scheduling/(featured/)?${RULE[key]}`));
+    await expect(main(page).locator("form").first()).toBeVisible({ timeout: 15_000 });
+}
+
+/** Apre un gruppo chiuso (oggi la testata è un `role=button`; domani un chevron con `aria-expanded`). */
+async function openGroup(page: Page, title: RegExp): Promise<void> {
+    const name = new RegExp(title.source.replace(/^\^|\$$/g, ""));
+    await main(page).getByRole("button", { name }).first().click();
+}
+
+/** Sceglie il tipo: tab o chip se a vista, altrimenti il picker della testata compatta. */
+async function chooseType(page: Page, from: RegExp, to: RegExp): Promise<void> {
+    const direct = page.getByRole("tab", { name: to }).or(main(page).getByRole("radio", { name: to }));
+    if (await direct.first().isVisible()) {
+        await direct.first().click();
+        return;
+    }
+    await page.getByRole("button", { name: from }).first().click();
+    await page.getByRole("menuitem", { name: to }).click();
+}
+
+async function searchFor(page: Page, text: string): Promise<void> {
+    const box = page.getByRole("searchbox").or(page.getByRole("textbox", { name: /Cerca/ })).first();
+    if (!(await box.isVisible())) await page.getByRole("button", { name: "Cerca", exact: true }).click();
+    await box.fill(text);
+}
+
+/** «Simula regole» dal caret (testata comoda) o dal kebab (compatta): stesso nome. */
+async function openSimulator(page: Page): Promise<Locator> {
+    await page.getByRole("button", { name: "Altre azioni" }).first().click();
+    await page.getByRole("menuitem", { name: /Simula/ }).click();
+    const drawer = dialog(page);
+    await expect(drawer.getByRole("heading", { name: /Simula/ })).toBeVisible();
+    return drawer;
+}
+
+/**
+ * Preme uno switch di sistema: l'input è coperto dalla sua `label`, che è la
+ * cosa che si tocca davvero.
+ */
+async function press(toggle: Locator): Promise<void> {
+    const id = await toggle.getAttribute("id");
+    const label = id ? toggle.page().locator(`label[for="${id}"]`) : toggle;
+    await label.click();
+}
+
+/**
+ * Passa alla Settimana. La testata alterna la forma comoda (segmented) e la
+ * compatta (icona) mentre si assesta: si clicca quella a vista.
+ */
+async function openWeek(page: Page): Promise<void> {
+    const name = /Vista calendario|Settimana/;
+    await page
+        .getByRole("radio", { name })
+        .or(page.getByRole("button", { name }))
+        .filter({ visible: true })
+        .first()
+        .click();
+}
+
+function writesOf(stub: ProgrammazioneStub, key: string): WriteCall[] {
+    return stub.writes.filter(w => w.key === key);
+}
+
+async function noHorizontalScroll(page: Page): Promise<void> {
+    const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+    expect(overflow).toBeLessThanOrEqual(0);
+}
+
+test.describe("Programmazione — elenco", () => {
+    let stub: ProgrammazioneStub;
+    test.beforeEach(async ({ page }) => {
+        stub = await stubProgrammazione(page);
+    });
+
+    test("le regole stanno nei cinque gruppi di stato, con «Tutte»", async ({ page }) => {
+        await openList(page);
+        const adesso = group(page, GROUP.adesso);
+        for (const key of ["carta", "pranzo", "spritz", "stagionali", "promoPorto"] as const) {
+            await expect(adesso).toContainText(RULE_NAME[key]);
+        }
+        const programmate = group(page, GROUP.programmate);
+        for (const key of ["aperitivo", "promoCosta", "natale"] as const) {
+            await expect(programmate).toContainText(RULE_NAME[key]);
+        }
+        const bozze = group(page, GROUP.bozze);
+        await expect(bozze).toContainText(RULE_NAME.bozza);
+        await expect(bozze).toContainText(RULE_NAME.gruppoVuoto);
+        // Disabilitate e Scadute sono chiuse: si aprono.
+        await expect(main(page).getByText(RULE_NAME.spento)).toHaveCount(0);
+        await openGroup(page, GROUP.disabilitate);
+        await expect(group(page, GROUP.disabilitate)).toContainText(RULE_NAME.spento);
+        await openGroup(page, GROUP.scadute);
+        await expect(group(page, GROUP.scadute)).toContainText(RULE_NAME.saldi);
+    });
+
+    test("i segni della riga: sovrascritta, nessuna sede raggiunta, sedi escluse, bozza", async ({ page }) => {
+        await openList(page);
+        await expect(rowOf(rule(page, "promoCosta"))).toContainText(/Sovrascritta/);
+        await expect(rowOf(rule(page, "gruppoVuoto"))).toContainText(/Nessuna sede raggiunta/);
+        await expect(rowOf(rule(page, "carta"))).toContainText(/(Escluse|Non vale in) 1 sed/);
+        await expect(rowOf(rule(page, "bozza"))).toContainText("Bozza");
+        await expect(rowOf(rule(page, "pranzo"))).toContainText(/11:00.15:00/);
+    });
+
+    test("il filtro per tipo tiene solo quel tipo e va nell'indirizzo", async ({ page }) => {
+        await openList(page);
+        await chooseType(page, /^Tutte/, /^Prezzi/);
+        await expect(page).toHaveURL(/type=price/);
+        await expect(rule(page, "spritz")).toBeVisible();
+        await expect(main(page).getByText(RULE_NAME.carta)).toHaveCount(0);
+        await expect(main(page).getByText(RULE_NAME.promoPorto)).toHaveCount(0);
+    });
+
+    test("la ricerca filtra per nome; senza risultati lo dice", async ({ page }) => {
+        await openList(page);
+        await searchFor(page, "Porto");
+        await expect(rule(page, "aperitivo")).toBeVisible();
+        await expect(rule(page, "promoPorto")).toBeVisible();
+        await expect(main(page).getByText(RULE_NAME.carta)).toHaveCount(0);
+        await searchFor(page, "nessunaregolacosì");
+        await expect(main(page).getByText(/Nessun(a regola trovata| risultato)/)).toBeVisible();
+    });
+
+    test("una regola si apre sulla sua rotta; in evidenza sulla sua", async ({ page }) => {
+        await openList(page);
+        await rule(page, "pranzo").click();
+        await expect(page).toHaveURL(new RegExp(`/scheduling/${RULE.pranzo}`));
+        await page.goBack();
+        await rule(page, "promoPorto").click();
+        await expect(page).toHaveURL(new RegExp(`/scheduling/featured/${RULE.promoPorto}`));
+    });
+
+    test("cablaggio: lo switch spegne la regola (schedules.PATCH enabled=false)", async ({ page }) => {
+        stub.onWrite("schedules.PATCH", () => null);
+        await openList(page);
+        await press(page.getByRole("switch", { name: new RegExp(RULE_NAME.spritz) }));
+        await expect.poll(() => writesOf(stub, "schedules.PATCH").length).toBe(1);
+        const [call] = writesOf(stub, "schedules.PATCH");
+        expect(call.params.get("id")).toBe(`eq.${RULE.spritz}`);
+        expect(call.body).toEqual({ enabled: false });
+    });
+
+    test("una bozza non si accende e non scrive niente", async ({ page }) => {
+        await openList(page);
+        const toggle = page.getByRole("switch", { name: new RegExp(RULE_NAME.bozza) });
+        if (await toggle.isEnabled()) await press(toggle);
+        await expect(page.getByText(/Completa (i campi obbligatori|la regola)/).first()).toBeVisible();
+        expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
+    });
+
+    test("cablaggio: elimina una regola dopo la conferma (schedules.DELETE)", async ({ page }) => {
+        // Bug di oggi, trovato scrivendo questo test: il clic su «Elimina» del
+        // menù ⋯ risale fino alla riga (portale React) e apre il dettaglio; la
+        // conferma si smonta con l'elenco. Lo chiude P4 (riga di sistema).
+        test.fail(true, "il clic sulla voce del menù ⋯ apre anche il dettaglio (censimento #323)");
+        stub.onWrite("schedules.DELETE", () => null);
+        await openList(page);
+        await actionsOf(rule(page, "aperitivo")).click();
+        await page.getByRole("menuitem", { name: "Elimina" }).click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toBeVisible();
+        expect(writesOf(stub, "schedules.DELETE")).toHaveLength(0);
+        await confirm.getByRole("button", { name: /^Elimina/ }).click({ timeout: 5_000 });
+        await expect.poll(() => writesOf(stub, "schedules.DELETE").length).toBe(1);
+        expect(writesOf(stub, "schedules.DELETE")[0].params.get("id")).toBe(`eq.${RULE.aperitivo}`);
+        await expect(page).toHaveURL(/\/scheduling(\?|$)/);
+    });
+
+    test("cablaggio: eliminazione multipla (schedules.DELETE per ogni regola)", async ({ page }) => {
+        stub.onWrite("schedules.DELETE", () => null);
+        await openList(page);
+        await page.getByRole("checkbox", { name: new RegExp(RULE_NAME.aperitivo) }).check();
+        await page.getByRole("checkbox", { name: new RegExp(RULE_NAME.natale) }).check();
+        await page.getByRole("toolbar", { name: "Azioni sulla selezione" }).getByRole("button", { name: /Elimina/ }).click();
+        // Dal P1 c'è una conferma: se compare, si conferma.
+        const confirm = page.getByRole("alertdialog");
+        if (await confirm.isVisible().catch(() => false)) {
+            await confirm.getByRole("button", { name: /^Elimina/ }).click();
+        }
+        await expect.poll(() => writesOf(stub, "schedules.DELETE").length).toBe(2);
+        const ids = writesOf(stub, "schedules.DELETE").map(w => w.params.get("id"));
+        expect(ids.sort()).toEqual([`eq.${RULE.aperitivo}`, `eq.${RULE.natale}`].sort());
+    });
+
+    test("cablaggio: «Nuova regola» crea la bozza e apre il dettaglio", async ({ page }) => {
+        const NEW_ID = "e2e0d000-0000-4000-a000-000000000777";
+        stub.onWrite("schedules.POST", () => ({ id: NEW_ID }));
+        stub.onWrite("schedules.PATCH", () => null);
+        await openList(page, "price");
+        await page.getByRole("button", { name: /^Nuova regola/ }).first().click();
+        await expect.poll(() => writesOf(stub, "schedules.POST").length).toBe(1);
+        const body = writesOf(stub, "schedules.POST")[0].body as Record<string, unknown>;
+        expect(body.rule_type).toBe("price");
+        expect(body.enabled).toBe(false);
+        await expect(page).toHaveURL(new RegExp(`/scheduling/${NEW_ID}`));
+    });
+
+    test("cablaggio: duplica (schedules.POST + copia dei prezzi)", async ({ page }) => {
+        const COPY_ID = "e2e0d000-0000-4000-a000-000000000778";
+        stub.onWrite("schedules.POST", () => ({ id: COPY_ID }));
+        stub.onWrite("schedules.PATCH", () => null);
+        stub.onWrite("schedule_targets.POST", () => null);
+        stub.onWrite("schedule_price_overrides.POST", () => null);
+        await openList(page);
+        await actionsOf(rule(page, "spritz")).click();
+        await page.getByRole("menuitem", { name: "Duplica" }).click();
+        await expect.poll(() => writesOf(stub, "schedule_price_overrides.POST").length).toBe(1);
+        const copied = writesOf(stub, "schedule_price_overrides.POST")[0].body as Array<Record<string, unknown>>;
+        expect(copied.every(r => r.schedule_id === COPY_ID)).toBe(true);
+        expect(copied).toHaveLength(3);
+    });
+
+    test("senza scrittura non si crea, non si spegne, non si seleziona", async ({ page }) => {
+        await stub.revoke("scheduling.write");
+        await openList(page);
+        await stub.revoked;
+        await expect(rule(page, "carta")).toBeVisible();
+        await expect(page.getByRole("button", { name: /^Nuova regola/ })).toHaveCount(0);
+        await expect(page.getByRole("switch")).toHaveCount(0);
+        await expect(page.getByRole("checkbox", { name: new RegExp(RULE_NAME.carta) })).toHaveCount(0);
+    });
+});
+
+test.describe("Programmazione — settimana, simulatore, guida", () => {
+    test.beforeEach(async ({ page }) => {
+        await stubProgrammazione(page);
+    });
+
+    test("la Settimana si apre sulla settimana di oggi e si sfoglia", async ({ page }) => {
+        await openList(page, "layout");
+        await openWeek(page);
+        await expect(main(page).getByText(/21 set/)).toBeVisible();
+        // Oggi la Settimana risolve la competizione sull'azienda intera
+        // (mucchio 2/3): «Solo gruppo vuoto» (gruppo) copre la Carta (tutte),
+        // e il Pranzo di Centro vince dalle 11 alle 15 anche per le altre sedi.
+        await expect(main(page).getByRole("button", { name: new RegExp(`${RULE_NAME.pranzo}.*11:00`) }).first()).toBeVisible();
+        await main(page).getByRole("button", { name: /(Settimana|Giorno) successiv/ }).click();
+        await expect(main(page).getByText(/28 set|25 set|Giovedì 24/)).toBeVisible();
+    });
+
+    test("il simulatore dice cosa vince in una sede; l'anteprima è spenta per la sede sospesa", async ({ page }) => {
+        await openList(page);
+        const drawer = await openSimulator(page);
+        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
+        await expect(drawer.getByText(RULE_NAME.pranzo)).toBeVisible({ timeout: 15_000 });
+        await expect(drawer.getByText(RULE_NAME.spritz)).toBeVisible();
+        await expect(drawer.getByText(RULE_NAME.stagionali)).toBeVisible();
+        await expect(drawer.getByRole("button", { name: /anteprima/ })).toBeEnabled();
+        await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Lago e2e" });
+        await expect(drawer.getByText(/Sede sospesa/)).toBeVisible();
+        await expect(drawer.getByRole("button", { name: /anteprima/ })).toBeDisabled();
+    });
+
+    test("la guida si apre da «Come funziona» e porta al simulatore", async ({ page }) => {
+        await openList(page, "layout");
+        await main(page).getByRole("button", { name: /Come funzion/ }).first().click();
+        const guide = page.getByRole("dialog");
+        await expect(guide.getByRole("heading", { name: /Come funzionano/ })).toBeVisible();
+        await guide.getByRole("button", { name: /Simula/ }).click();
+        await expect(dialog(page).getByRole("heading", { name: /Simula/ })).toBeVisible();
+    });
+});
+
+test.describe("Programmazione — dettaglio", () => {
+    let stub: ProgrammazioneStub;
+    test.beforeEach(async ({ page }) => {
+        stub = await stubProgrammazione(page);
+    });
+
+    test("una regola che non esiste lo dice", async ({ page }) => {
+        await openList(page);
+        await page.goto(page.url().replace(/scheduling.*$/, `scheduling/${MISSING_RULE}`));
+        await expect(page.getByText("Regola non trovata").first()).toBeVisible({ timeout: 15_000 });
+    });
+
+    test("il dettaglio mostra dove, cosa e quando per ogni tipo", async ({ page }) => {
+        await openRule(page, "pranzo");
+        await expect(main(page).getByRole("textbox", { name: /Nome/ })).toHaveValue(RULE_NAME.pranzo);
+        await expect(main(page).getByRole("combobox", { name: /Catalogo|Menù/ })).toHaveValue(/./);
+        await expect(main(page).getByText("Centro e2e").first()).toBeVisible();
+
+        await page.goto(page.url().replace(RULE.pranzo, RULE.stagionali));
+        await expect(main(page).getByText("Tiramisù e2e")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText("Birra e2e")).toBeVisible();
+
+        await page.goto(page.url().replace(`scheduling/${RULE.stagionali}`, `scheduling/featured/${RULE.promoPorto}`));
+        await expect(main(page).getByText("Promo autunno e2e")).toBeVisible({ timeout: 15_000 });
+        await expect(main(page).getByText("Serata jazz e2e")).toBeVisible();
+    });
+
+    test("cablaggio: rinominare e salvare (schedules.PATCH col nome nuovo)", async ({ page }) => {
+        stub.onWrite("schedules.PATCH", () => null);
+        stub.onWrite("schedule_layout.PATCH", () => null);
+        stub.onWrite("schedule_layout.POST", () => null);
+        stub.onWrite("rpc.update_schedule_targets", () => null);
+        await openRule(page, "aperitivo");
+        const name = main(page).getByRole("textbox", { name: /Nome/ });
+        await name.fill("Aperitivo lungo e2e");
+        await page.getByRole("button", { name: /^Salva( regola)?$/ }).first().click();
+        await expect
+            .poll(() => writesOf(stub, "schedules.PATCH").some(w => (w.body as Record<string, unknown>).name === "Aperitivo lungo e2e"))
+            .toBe(true);
+        await expect.poll(() => writesOf(stub, "rpc.update_schedule_targets").length).toBe(1);
+        const targets = writesOf(stub, "rpc.update_schedule_targets");
+        expect(JSON.stringify(targets[0].body)).toContain(SEDE.porto);
+        await expect(page).toHaveURL(/\/scheduling\?type=layout/);
+    });
+
+    test("una fine prima dell'inizio non si salva", async ({ page }) => {
+        await openRule(page, "aperitivo");
+        const periodSwitch = main(page)
+            .getByRole("switch", { name: /periodo/i })
+            .or(main(page).getByText(/periodo specifico/).locator("xpath=ancestor::*[.//*[@role='switch']][1]").getByRole("switch"))
+            .first();
+        await press(periodSwitch);
+        await main(page).getByLabel(/Data (di )?inizio/).fill("2026-10-10");
+        await main(page).getByLabel(/Data (di )?fine/).fill("2026-10-01");
+        await page.getByRole("button", { name: /^Salva( regola)?$/ }).first().click();
+        await expect(page.getByText(/(fine non può essere precedente|fine deve essere successiva|fine viene prima)/).first()).toBeVisible();
+        expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
+    });
+});
+
+for (const width of [375, 768, 1280]) {
+    test.describe(`Programmazione a ${width}`, () => {
+        test.beforeEach(async ({ page }) => {
+            await stubProgrammazione(page);
+        });
+
+        // Si entra a 1280 (sotto 768 la sidebar è un cassetto) e si stringe
+        // la finestra sulla pagina, come in Menù e Comande.
+        test("elenco, settimana e dettaglio senza scroll di lato", async ({ page }) => {
+            await openList(page);
+            await page.setViewportSize({ width, height: 900 });
+            await noHorizontalScroll(page);
+            await openWeek(page);
+            await expect(main(page).getByText(/set/).first()).toBeVisible();
+            await noHorizontalScroll(page);
+            await page.goto(page.url().replace(/scheduling.*$/, `scheduling/${RULE.spritz}`));
+            await expect(main(page).locator("form").first()).toBeVisible({ timeout: 15_000 });
+            await noHorizontalScroll(page);
+        });
+    });
+}
