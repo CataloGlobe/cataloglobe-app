@@ -113,16 +113,22 @@ async function extractEdgeErrorCode(error: unknown): Promise<string | null> {
     return null;
 }
 
+/** Deep-link flows of the billing portal (allowlisted server-side). */
+export type PortalFlow = "payment_method_update";
+
 /**
  * Calls the stripe-portal Edge Function.
  * Returns the Stripe Billing Portal URL to redirect the user to.
+ * With `flow`, the portal opens straight on that flow and the server picks the
+ * return URL (the tenant's Subscription page): `returnUrl` is then ignored.
  */
 export async function createPortalSession(
     tenantId: string,
-    returnUrl?: string
+    returnUrl?: string,
+    flow?: PortalFlow
 ): Promise<string> {
     const { data, error } = await supabase.functions.invoke("stripe-portal", {
-        body: { tenantId, returnUrl }
+        body: { tenantId, returnUrl, flow }
     });
 
     if (error) throw error;

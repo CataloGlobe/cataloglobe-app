@@ -23,6 +23,7 @@ import {
 import type {
     ConsumedDiscountThisPeriod,
     IntervalBlockReason,
+    PortalFlow,
     SubscriptionChangePreview,
     SubscriptionDiscount,
     SubscriptionState,
@@ -583,12 +584,13 @@ export default function SubscriptionPage() {
         }
     };
 
-    const handlePortal = async () => {
+    const handlePortal = async (flow?: PortalFlow) => {
         setPortalLoading(true);
         try {
             const url = await createPortalSession(
                 selectedTenant.id,
-                `${window.location.origin}/business/${selectedTenant.id}/subscription`
+                `${window.location.origin}/business/${selectedTenant.id}/subscription`,
+                flow
             );
             window.location.href = url;
         } catch {
@@ -1108,11 +1110,11 @@ export default function SubscriptionPage() {
             {label}
         </Button>
     );
-    const portalAction = (label: string) => (
+    const portalAction = (label: string, flow?: PortalFlow) => (
         <Button
             variant="primary"
             size="sm"
-            onClick={handlePortal}
+            onClick={() => void handlePortal(flow)}
             loading={portalLoading}
             leftIcon={<ExternalLink size={14} />}
         >
@@ -1197,7 +1199,7 @@ export default function SubscriptionPage() {
                     tone: "warning",
                     badge: STATUS_BADGE.trialing,
                     description: `La prova finisce il ${end}. Senza una carta, quel giorno l'azienda si ferma.`,
-                    action: canManageBilling ? portalAction("Aggiungi carta") : null
+                    action: canManageBilling ? portalAction("Aggiungi carta", "payment_method_update") : null
                 };
             }
             return hasSubscriptionRecord
