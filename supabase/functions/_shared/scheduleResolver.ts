@@ -1,29 +1,23 @@
 // ⚠️ SYNC: questo file è duplicato. L'altra copia è in src/services/supabase/scheduleResolver.ts.
-// Qualsiasi modifica va replicata in ENTRAMBI i file.
+// Qualsiasi modifica va replicata in ENTRAMBI i file: le due copie differiscono
+// solo per questa intestazione e per il percorso dell'import qui sotto.
+// La scelta di chi vince NON vive qui: è in _shared/scheduleCompetition.ts,
+// file unico importato da entrambe. Qui restano le query.
+
+import {
+    isTimeRuleActiveNow,
+    resolveCompetition,
+    type CompetitionRule,
+    type CompetitionSpecificity,
+    type RomeDateTime
+} from "./scheduleCompetition.ts";
+
+export { isTimeRuleActiveNow };
 
 export type VisibilityMode = "hide" | "disable";
 
-/**
- * Rome wall-clock instant. Defined inline to keep both resolver copies
- * identical (header aside) without a cross-module import.
- * Primary source of truth: schedulingNow.ts (RomeDateTime).
- */
-type RomeDateTime = {
-    /** True UTC epoch — use for start_at/end_at comparisons. */
-    epoch: number;
-    year: number;
-    /** 0-based. */
-    month: number;
-    day: number;
-    hour: number;
-    minute: number;
-    second: number;
-    /** 0 = domenica … 6 = sabato. */
-    dayOfWeek: number;
-};
-
 type RuleType = "layout" | "price" | "visibility" | "featured";
-type RuleSpecificity = 0 | 1 | 2;
+type RuleSpecificity = CompetitionSpecificity;
 
 type TimeRuleRow = {
     id: string;
@@ -43,6 +37,7 @@ type RawActivityGroupMemberRow = {
 
 type RawScheduleTargetRow = {
     schedule_id: string;
+    target_id?: string;
 };
 
 type RawLayoutRuleRow = TimeRuleRow & {
@@ -82,15 +77,16 @@ type RawLayoutRuleRow = TimeRuleRow & {
 
 type CandidateInfo = {
     rows: CandidateRuleRow[];
+    /** Gruppi di cui la sede fa parte (activity_group_members). */
+    seatGroupIds: string[];
     activityCount: number;
     groupCount: number;
     applyAllCount: number;
     targetedCount: number;
 };
 
-type CandidateRuleRow = TimeRuleRow & {
-    specificity: RuleSpecificity;
-};
+/** Una regola candidata per la sede, già nella forma di scheduleCompetition. */
+type CandidateRuleRow = CompetitionRule;
 
 type SupabaseLike = {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -155,8 +151,9 @@ const TIME_RULE_SELECT = `
 `;
 
 /**
- * Resolver contract (single source of truth):
- * - Precedence, in order:
+ * Resolver contract:
+ * - Precedence and time window: resolveCompetition in
+ *   _shared/scheduleCompetition.ts (single source of truth). In order:
  *   1. target specificity: activity (2) > activity_group (1) > apply_to_all (0);
  *   2. temporal specificity: more constraints win (date range 4, time
  *      window 2, days of week 1 — see temporalScore);
@@ -174,13 +171,6 @@ function normalizeOne<T>(value: T | T[] | null | undefined): T | null {
     return Array.isArray(value) ? (value[0] ?? null) : value;
 }
 
-function toMinutes(hhmm: string | null): number | null {
-    if (!hhmm) return null;
-    const [h, m] = hhmm.slice(0, 5).split(":").map(Number);
-    if (Number.isNaN(h) || Number.isNaN(m)) return null;
-    return h * 60 + m;
-}
-
 function isMissingColumnError(error: unknown, column: string): boolean {
     if (!error || typeof error !== "object") return false;
     const message = String((error as { message?: string }).message ?? "").toLowerCase();
@@ -191,72 +181,6 @@ function isMissingColumnError(error: unknown, column: string): boolean {
             message.includes("schema cache") ||
             message.includes("does not exist"))
     );
-}
-
-function compareByPriorityThenCreatedThenId(a: TimeRuleRow, b: TimeRuleRow): number {
-    if (a.priority !== b.priority) return a.priority - b.priority;
-    const createdDelta = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-    if (createdDelta !== 0) return createdDelta;
-    return a.id.localeCompare(b.id);
-}
-
-function temporalScore(rule: TimeRuleRow): number {
-    let score = 0;
-    if (rule.start_at || rule.end_at) score += 4;
-    if (rule.time_from && rule.time_to) score += 2;
-    if (rule.days_of_week && rule.days_of_week.length > 0) score += 1;
-    return score;
-}
-
-function compareSpecificityFirst(a: CandidateRuleRow, b: CandidateRuleRow): number {
-    // 1. Specificità target (activity > group > all)
-    if (a.specificity !== b.specificity) {
-        return b.specificity - a.specificity;
-    }
-    // 2. Specificità temporale (più vincoli = più specifico)
-    const tA = temporalScore(a);
-    const tB = temporalScore(b);
-    if (tA !== tB) return tB - tA;
-    // 3. Priority numerico (tiebreaker legacy)
-    return compareByPriorityThenCreatedThenId(a, b);
-}
-
-export function isTimeRuleActiveNow(
-    rule: Pick<TimeRuleRow, "time_mode" | "days_of_week" | "time_from" | "time_to" | "start_at" | "end_at">,
-    now: RomeDateTime
-): boolean {
-    if (rule.start_at || rule.end_at) {
-        if (rule.start_at && now.epoch < new Date(rule.start_at).getTime()) {
-            return false;
-        }
-        if (rule.end_at && now.epoch >= new Date(rule.end_at).getTime()) {
-            return false;
-        }
-        // Window rules with start_at but no end_at are open-ended date ranges —
-        // exclude them to prevent stale rules from winning indefinitely via temporal score.
-        if (rule.time_mode === "window" && rule.start_at && !rule.end_at) {
-            return false;
-        }
-    }
-
-    if (rule.time_mode === "always") return true;
-
-    const day = now.dayOfWeek;
-    const nowMinutes = now.hour * 60 + now.minute;
-
-    if (rule.days_of_week !== null && !rule.days_of_week.includes(day)) {
-        return false;
-    }
-
-    if (!rule.time_from || !rule.time_to) {
-        return true;
-    }
-
-    const from = toMinutes(rule.time_from);
-    const to = toMinutes(rule.time_to);
-    if (from === null || to === null) return false;
-
-    return from <= nowMinutes && nowMinutes < to;
 }
 
 async function listCandidateRuleRowsForActivity(
@@ -296,9 +220,9 @@ async function listCandidateRuleRowsForActivity(
 
     // Candidate selection is schedule_targets-only (passo 3): the inline
     // target_type/target_id columns are no longer read here. apply_to_all
-    // still wins over any specific target on the same schedule — enforced
-    // below by skipping targetedRows whose id is in applyAllIds.
-    const targetedSpecificityById = new Map<string, RuleSpecificity>();
+    // still wins over any specific target on the same schedule: those rows
+    // are read as global (specificityFor in scheduleCompetition).
+    const activityTargetIds = new Set<string>();
     const activityTargetsRes = await supabase
         .from("schedule_targets")
         .select("schedule_id")
@@ -306,57 +230,66 @@ async function listCandidateRuleRowsForActivity(
         .eq("target_id", activityId);
     if (activityTargetsRes.error) throw activityTargetsRes.error;
     for (const row of (activityTargetsRes.data ?? []) as RawScheduleTargetRow[]) {
-        targetedSpecificityById.set(row.schedule_id, 2);
+        activityTargetIds.add(row.schedule_id);
     }
 
+    const groupTargetIdsBySchedule = new Map<string, string[]>();
     if (groupIds.length > 0) {
         const groupTargetsRes = await supabase
             .from("schedule_targets")
-            .select("schedule_id")
+            .select("schedule_id, target_id")
             .eq("target_type", "activity_group")
             .in("target_id", groupIds);
         if (groupTargetsRes.error) throw groupTargetsRes.error;
         for (const row of (groupTargetsRes.data ?? []) as RawScheduleTargetRow[]) {
-            const current = targetedSpecificityById.get(row.schedule_id) ?? 0;
-            targetedSpecificityById.set(row.schedule_id, current > 1 ? current : 1);
+            const current = groupTargetIdsBySchedule.get(row.schedule_id) ?? [];
+            if (row.target_id) current.push(row.target_id);
+            groupTargetIdsBySchedule.set(row.schedule_id, current);
         }
     }
 
+    const targetedIds = new Set<string>([...activityTargetIds, ...groupTargetIdsBySchedule.keys()]);
     let targetedRows: TimeRuleRow[] = [];
-    if (targetedSpecificityById.size > 0) {
+    if (targetedIds.size > 0) {
         const targetedRes = await supabase
             .from("schedules")
             .select(TIME_RULE_SELECT)
             .eq("tenant_id", tenantId)
             .eq("rule_type", ruleType)
             .eq("enabled", true)
-            .in("id", Array.from(targetedSpecificityById.keys()));
+            .in("id", Array.from(targetedIds));
         if (targetedRes.error) throw targetedRes.error;
         targetedRows = (targetedRes.data ?? []) as TimeRuleRow[];
     }
 
+    const toCandidate = (row: TimeRuleRow, applyToAll: boolean): CandidateRuleRow => ({
+        ...row,
+        rule_type: ruleType,
+        enabled: true,
+        applyToAll,
+        activityIds: activityTargetIds.has(row.id) ? [activityId] : [],
+        groupIds: groupTargetIdsBySchedule.get(row.id) ?? []
+    });
+
     const rowsById = new Map<string, CandidateRuleRow>();
     for (const row of applyAllRows) {
-        rowsById.set(row.id, { ...row, specificity: 0 });
+        rowsById.set(row.id, toCandidate(row, true));
     }
     for (const row of targetedRows) {
         if (applyAllIds.has(row.id)) continue;
-        rowsById.set(row.id, { ...row, specificity: targetedSpecificityById.get(row.id) ?? 0 });
+        rowsById.set(row.id, toCandidate(row, false));
     }
-
-    const rows = Array.from(rowsById.values())
-        .filter(row => row.specificity > 0 || applyAllIds.has(row.id))
-        .sort(compareSpecificityFirst);
 
     let activityCount = 0;
     let groupCount = 0;
-    for (const specificity of targetedSpecificityById.values()) {
-        if (specificity === 2) activityCount++;
-        else if (specificity === 1) groupCount++;
+    for (const id of targetedIds) {
+        if (activityTargetIds.has(id)) activityCount++;
+        else groupCount++;
     }
 
     return {
-        rows,
+        rows: Array.from(rowsById.values()),
+        seatGroupIds: groupIds,
         activityCount,
         groupCount,
         applyAllCount: applyAllRows.length,
@@ -367,15 +300,6 @@ async function listCandidateRuleRowsForActivity(
 function orderRowsByCandidateIds<T extends { id: string }>(rows: T[], candidateIds: string[]): T[] {
     const rowsById = new Map(rows.map(row => [row.id, row]));
     return candidateIds.map(id => rowsById.get(id)).filter((row): row is T => row !== undefined);
-}
-
-function getRuleSpecificity(
-    rows: CandidateRuleRow[],
-    ruleId: string | null | undefined
-): RuleSpecificity | null {
-    if (!ruleId) return null;
-    const row = rows.find(candidate => candidate.id === ruleId);
-    return row?.specificity ?? null;
 }
 
 async function getVisibilityModeForSchedule(
@@ -454,6 +378,7 @@ export async function resolveRulesForActivity(
     const requestedTypes = new Set<RuleType>(ruleTypes ?? ["layout", "price", "visibility", "featured"]);
     const emptyCandidates: CandidateInfo = {
         rows: [],
+        seatGroupIds: [],
         activityCount: 0,
         groupCount: 0,
         applyAllCount: 0,
@@ -474,6 +399,8 @@ export async function resolveRulesForActivity(
             : Promise.resolve(emptyCandidates)
     ]);
 
+    // Il payload del layout (catalogo, stile) serve prima della competizione:
+    // una regola layout senza catalogo non vince, passa la successiva.
     const layoutCandidateIds = layoutCandidates.rows.map(row => row.id);
     let layoutRows: RawLayoutRuleRow[] = [];
     if (layoutCandidateIds.length > 0) {
@@ -488,51 +415,53 @@ export async function resolveRulesForActivity(
             layoutCandidateIds
         );
     }
+    const layoutRowById = new Map(layoutRows.map(row => [row.id, row]));
+    const layoutRules = layoutCandidates.rows.map(row => ({
+        ...row,
+        hasPayload: (normalizeOne(layoutRowById.get(row.id)?.layout)?.catalog_id ?? null) !== null
+    }));
 
-    const validLayoutRows = layoutRows.filter(row => isTimeRuleActiveNow(row, now));
-    const selectedLayoutRule =
-        validLayoutRows.find(row => (normalizeOne(row.layout)?.catalog_id ?? null) !== null) ??
-        null;
+    const outcome = resolveCompetition(
+        [
+            ...layoutRules,
+            ...priceCandidates.rows,
+            ...visibilityCandidates.rows,
+            ...featuredCandidates.rows
+        ],
+        {
+            activityId,
+            groupIds: Array.from(
+                new Set(
+                    [layoutCandidates, priceCandidates, visibilityCandidates, featuredCandidates].flatMap(
+                        info => info.seatGroupIds
+                    )
+                )
+            )
+        },
+        now
+    );
 
+    const selectedLayoutRule = outcome.layout.winner
+        ? (layoutRowById.get(outcome.layout.winner.rule.id) ?? null)
+        : null;
     const selectedLayoutValue = normalizeOne(selectedLayoutRule?.layout);
     const selectedLayoutStyle = normalizeOne(selectedLayoutValue?.style);
     const selectedLayoutStyleVersion = normalizeOne(selectedLayoutStyle?.current_version);
 
-    const validPriceRows = priceCandidates.rows.filter(row => isTimeRuleActiveNow(row, now));
-    const selectedPriceRule = validPriceRows[0] ?? null;
-
-    const validVisibilityRows = visibilityCandidates.rows.filter(row =>
-        isTimeRuleActiveNow(row, now)
-    );
-    const selectedVisibilityRule = validVisibilityRows[0] ?? null;
+    const selectedPriceRule = outcome.price.winner?.rule ?? null;
+    const selectedVisibilityRule = outcome.visibility.winner?.rule ?? null;
     const visibilityRule = selectedVisibilityRule
         ? {
               scheduleId: selectedVisibilityRule.id,
               mode: await getVisibilityModeForSchedule(supabase, selectedVisibilityRule.id, tenantId)
           }
         : null;
+    const selectedFeaturedRule = outcome.featured.winner?.rule ?? null;
 
-    const selectedLayoutRuleSpecificity = getRuleSpecificity(
-        layoutCandidates.rows,
-        selectedLayoutRule?.id
-    );
-    const selectedPriceRuleSpecificity = getRuleSpecificity(
-        priceCandidates.rows,
-        selectedPriceRule?.id
-    );
-    const selectedVisibilityRuleSpecificity = getRuleSpecificity(
-        visibilityCandidates.rows,
-        selectedVisibilityRule?.id
-    );
-
-    const validFeaturedRows = featuredCandidates.rows.filter(row =>
-        isTimeRuleActiveNow(row, now)
-    );
-    const selectedFeaturedRule = validFeaturedRows[0] ?? null;
-    const selectedFeaturedRuleSpecificity = getRuleSpecificity(
-        featuredCandidates.rows,
-        selectedFeaturedRule?.id
-    );
+    const selectedLayoutRuleSpecificity = outcome.layout.winner?.specificity ?? null;
+    const selectedPriceRuleSpecificity = outcome.price.winner?.specificity ?? null;
+    const selectedVisibilityRuleSpecificity = outcome.visibility.winner?.specificity ?? null;
+    const selectedFeaturedRuleSpecificity = outcome.featured.winner?.specificity ?? null;
 
     return {
         layout: {
