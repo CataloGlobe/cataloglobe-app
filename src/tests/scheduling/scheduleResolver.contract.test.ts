@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { resolveRulesForActivity as resolveWebRules } from "@/services/supabase/scheduleResolver";
 import { resolveRulesForActivity as resolveEdgeRules } from "@shared/scheduleResolver";
+import { resolveCompetition, type CompetitionRule } from "@shared/scheduleCompetition";
 import { toRomeDateTime, type RomeDateTime } from "@/services/supabase/schedulingNow";
 
 type TableRows = Record<string, Array<Record<string, unknown>>>;
-type UiRuleType = "layout" | "price" | "visibility";
+type UiRuleType = "layout" | "price" | "visibility" | "featured";
 
 const TEST_TENANT_ID = "00000000-0000-0000-0000-000000000001";
 
@@ -327,4 +328,260 @@ describe("Scheduling consistency contract", () => {
         const other = await resolveIds({ tables, activityId: "activity-99", now });
         expect(other.web.layout.scheduleId).toBe("stray-target-layout");
     });
+
+    it("1. same sede: the more specific time window wins over «always», even with worse priority", async () => {
+        const tables = TEMPORAL_FIXTURE;
+        const now = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z")); // 13:00 Roma
+        const { web, edge } = await resolveIds({ tables, activityId: "activity-1", now });
+
+        expect(web.layout.scheduleId).toBe("lunch-layout");
+        expect(edge).toEqual(web);
+
+        const evening = toRomeDateTime(new Date("2026-03-26T19:00:00.000Z")); // 20:00 Roma
+        const later = await resolveIds({ tables, activityId: "activity-1", now: evening });
+        expect(later.web.layout.scheduleId).toBe("always-layout");
+    });
+
+    it("4. a layout rule without a catalog is skipped but still counted as configured", async () => {
+        const tables = NO_CATALOG_FIXTURE;
+        const now = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z"));
+        const { web, edge } = await resolveIds({ tables, activityId: "activity-1", now });
+
+        expect(web.layout.scheduleId).toBe("global-layout");
+        expect(web.layoutCandidateCount).toBe(2);
+        expect(edge).toEqual(web);
+    });
+
+    it("5. featured competes like the other layers: one winner per sede", async () => {
+        const tables = FEATURED_FIXTURE;
+        const now = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z"));
+        const { web, edge } = await resolveIds({ tables, activityId: "activity-1", now });
+
+        expect(web.featuredRule?.scheduleId).toBe("featured-activity");
+        expect(edge).toEqual(web);
+        const other = await resolveIds({ tables, activityId: "activity-2", now });
+        expect(other.web.featuredRule?.scheduleId).toBe("featured-global");
+    });
+
+    it("7. days_of_week = [] never matches (staging aaa845cf), null matches every day", async () => {
+        const tables = EMPTY_DAYS_FIXTURE;
+        const now = toRomeDateTime(new Date("2026-03-26T12:00:00.000Z"));
+        const { web, edge } = await resolveIds({ tables, activityId: "activity-1", now });
+
+        expect(web.featuredRule?.scheduleId).toBe("featured-null-days");
+        expect(edge).toEqual(web);
+    });
+
+    it("12. bridge: the resolver picks exactly what resolveCompetition picks, for every fixture", async () => {
+        const instants = [
+            "2026-03-26T12:00:00.000Z",
+            "2026-03-26T19:00:00.000Z",
+            "2026-03-29T01:30:00.000Z",
+            "2026-10-25T00:30:00.000Z"
+        ].map(iso => toRomeDateTime(new Date(iso)));
+
+        for (const [name, tables] of Object.entries(BRIDGE_FIXTURES)) {
+            for (const activityId of ["activity-1", "activity-2", "activity-99"]) {
+                for (const now of instants) {
+                    const { web, edge } = await resolveIds({ tables, activityId, now });
+                    const seat = {
+                        activityId,
+                        groupIds: (tables.activity_group_members ?? [])
+                            .filter(row => row.activity_id === activityId)
+                            .map(row => String(row.group_id))
+                    };
+                    const expected = resolveCompetition(competitionRulesFromTables(tables), seat, now);
+                    const label = `${name} · ${activityId} · ${now.day}/${now.month + 1} ${now.hour}:${now.minute}`;
+
+                    expect(edge, label).toEqual(web);
+                    expect(web.layout.scheduleId, label).toBe(expected.layout.winner?.rule.id ?? null);
+                    expect(web.layoutCandidateCount, label).toBe(expected.layout.candidates.length);
+                    expect(web.priceRuleId, label).toBe(expected.price.winner?.rule.id ?? null);
+                    expect(web.visibilityRule?.scheduleId ?? null, label).toBe(
+                        expected.visibility.winner?.rule.id ?? null
+                    );
+                    expect(web.featuredRule?.scheduleId ?? null, label).toBe(
+                        expected.featured.winner?.rule.id ?? null
+                    );
+                }
+            }
+        }
+    });
 });
+
+/* ─── Fixtures of the numbered cases (also fed to the bridge, case 12) ─── */
+
+const TEMPORAL_FIXTURE: TableRows = {
+    activity_group_members: [],
+    schedule_targets: [
+        { schedule_id: "always-layout", target_type: "activity", target_id: "activity-1" },
+        { schedule_id: "lunch-layout", target_type: "activity", target_id: "activity-1" }
+    ],
+    schedule_layout: [
+        { schedule_id: "always-layout", catalog_id: "catalog-always" },
+        { schedule_id: "lunch-layout", catalog_id: "catalog-lunch" }
+    ],
+    schedules: [
+        buildSchedule({ id: "always-layout", rule_type: "layout", priority: 1 }),
+        buildSchedule({
+            id: "lunch-layout",
+            rule_type: "layout",
+            priority: 30,
+            created_at: "2026-02-01T00:00:00.000Z",
+            time_mode: "window",
+            time_from: "12:00",
+            time_to: "15:00"
+        })
+    ]
+};
+
+const NO_CATALOG_FIXTURE: TableRows = {
+    activity_group_members: [],
+    schedule_targets: [{ schedule_id: "empty-layout", target_type: "activity", target_id: "activity-1" }],
+    schedule_layout: [
+        { schedule_id: "empty-layout", catalog_id: null },
+        { schedule_id: "global-layout", catalog_id: "catalog-global" }
+    ],
+    schedules: [
+        buildSchedule({ id: "empty-layout", rule_type: "layout" }),
+        buildSchedule({ id: "global-layout", rule_type: "layout", apply_to_all: true })
+    ]
+};
+
+const FEATURED_FIXTURE: TableRows = {
+    activity_group_members: [{ group_id: "group-1", activity_id: "activity-2" }],
+    schedule_targets: [
+        { schedule_id: "featured-activity", target_type: "activity", target_id: "activity-1" },
+        { schedule_id: "price-group", target_type: "activity_group", target_id: "group-1" }
+    ],
+    schedule_layout: [],
+    schedules: [
+        buildSchedule({ id: "featured-global", rule_type: "featured", apply_to_all: true, priority: 1 }),
+        buildSchedule({ id: "featured-activity", rule_type: "featured", priority: 20 }),
+        buildSchedule({ id: "price-group", rule_type: "price" }),
+        buildSchedule({
+            id: "vis-weekend",
+            rule_type: "visibility",
+            apply_to_all: true,
+            time_mode: "window",
+            days_of_week: [0, 6]
+        })
+    ]
+};
+
+const EMPTY_DAYS_FIXTURE: TableRows = {
+    activity_group_members: [],
+    schedule_targets: [{ schedule_id: "featured-empty-days", target_type: "activity", target_id: "activity-1" }],
+    schedule_layout: [],
+    schedules: [
+        buildSchedule({
+            id: "featured-empty-days",
+            rule_type: "featured",
+            time_mode: "window",
+            days_of_week: [],
+            time_from: "11:00",
+            time_to: "15:00"
+        }),
+        buildSchedule({
+            id: "featured-null-days",
+            rule_type: "featured",
+            apply_to_all: true,
+            time_mode: "window",
+            days_of_week: null,
+            time_from: "11:00",
+            time_to: "15:00"
+        })
+    ]
+};
+
+const MIXED_FIXTURE: TableRows = {
+    activity_group_members: [
+        { group_id: "group-1", activity_id: "activity-1" },
+        { group_id: "group-1", activity_id: "activity-2" }
+    ],
+    schedule_targets: [
+        { schedule_id: "group-dinner", target_type: "activity_group", target_id: "group-1" },
+        { schedule_id: "sede-night", target_type: "activity", target_id: "activity-2" },
+        { schedule_id: "dated-price", target_type: "activity", target_id: "activity-1" }
+    ],
+    schedule_layout: [
+        { schedule_id: "global-always", catalog_id: "catalog-a" },
+        { schedule_id: "group-dinner", catalog_id: "catalog-b" },
+        { schedule_id: "sede-night", catalog_id: "catalog-c" }
+    ],
+    schedules: [
+        buildSchedule({ id: "global-always", rule_type: "layout", apply_to_all: true }),
+        buildSchedule({
+            id: "group-dinner",
+            rule_type: "layout",
+            time_mode: "window",
+            time_from: "19:00",
+            time_to: "23:00"
+        }),
+        buildSchedule({
+            id: "sede-night",
+            rule_type: "layout",
+            time_mode: "window",
+            days_of_week: [0],
+            time_from: "00:00",
+            time_to: "06:00"
+        }),
+        buildSchedule({
+            id: "dated-price",
+            rule_type: "price",
+            time_mode: "window",
+            start_at: "2026-03-01T00:00:00.000Z",
+            end_at: "2026-04-01T00:00:00.000Z"
+        }),
+        buildSchedule({
+            id: "open-ended-price",
+            rule_type: "price",
+            apply_to_all: true,
+            time_mode: "window",
+            start_at: "2026-01-01T00:00:00.000Z"
+        }),
+        buildSchedule({ id: "disabled-price", rule_type: "price", apply_to_all: true, enabled: false })
+    ]
+};
+
+const BRIDGE_FIXTURES: Record<string, TableRows> = {
+    temporal: TEMPORAL_FIXTURE,
+    noCatalog: NO_CATALOG_FIXTURE,
+    featured: FEATURED_FIXTURE,
+    emptyDays: EMPTY_DAYS_FIXTURE,
+    mixed: MIXED_FIXTURE
+};
+
+/**
+ * The same tables, read the way Programmazione reads them: one rule with its
+ * targets, no query. Only the bridge (case 12) uses it.
+ */
+function competitionRulesFromTables(tables: TableRows): CompetitionRule[] {
+    const targets = tables.schedule_targets ?? [];
+    const layouts = tables.schedule_layout ?? [];
+    return (tables.schedules ?? [])
+        .filter(row => row.tenant_id === TEST_TENANT_ID)
+        .map(row => {
+            const own = targets.filter(target => target.schedule_id === row.id);
+            return {
+                id: String(row.id),
+                rule_type: row.rule_type as CompetitionRule["rule_type"],
+                enabled: Boolean(row.enabled),
+                priority: Number(row.priority),
+                created_at: String(row.created_at),
+                time_mode: row.time_mode as CompetitionRule["time_mode"],
+                days_of_week: row.days_of_week as number[] | null,
+                time_from: row.time_from as string | null,
+                time_to: row.time_to as string | null,
+                start_at: row.start_at as string | null,
+                end_at: row.end_at as string | null,
+                applyToAll: Boolean(row.apply_to_all),
+                activityIds: own.filter(t => t.target_type === "activity").map(t => String(t.target_id)),
+                groupIds: own.filter(t => t.target_type === "activity_group").map(t => String(t.target_id)),
+                hasPayload:
+                    row.rule_type === "layout"
+                        ? layouts.some(l => l.schedule_id === row.id && l.catalog_id != null)
+                        : undefined
+            };
+        });
+}
