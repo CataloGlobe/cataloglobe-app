@@ -47,6 +47,20 @@
     align-items: center;
     gap: var(--space-6);
     min-width: 0;
+    max-width: 100%;
+}
+
+// La colonna è larga quanto il contenuto più lungo (F4): niente a capo.
+// L'ellissi resta per il caso limite del tetto al 45% della tabella.
+.targetIcon {
+    flex-shrink: 0;
+}
+
+.targetLabel {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
 }
 
 .toggle {

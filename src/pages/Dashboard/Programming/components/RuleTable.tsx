@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { AlertCircle, Building2, Copy, Globe, Trash2, Users } from "lucide-react";
+import { Copy, Trash2 } from "lucide-react";
 import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@components/ui/DataTable/DataTable";
 import { TableRowActions } from "@components/ui/TableRowActions/TableRowActions";
 import { Badge } from "@components/ui/Badge/Badge";
@@ -15,6 +15,7 @@ import { isLayoutRuleDraft } from "@utils/scheduleDraft";
 import { getToggleGuardResult } from "@utils/ruleToggleGuards";
 import type { LayoutRule, LayoutRuleOption } from "@services/supabase/layoutScheduling";
 import { ruleTypeLabel } from "../ruleTypeLabel";
+import { describeTarget } from "./ruleTarget";
 import styles from "./RuleTable.module.scss";
 
 export type RuleInsight = {
@@ -49,29 +50,11 @@ export interface RuleTableProps {
     onSelectedIdsChange?: (ids: string[]) => void;
     /** Righe Skeleton al posto delle regole. */
     isLoading?: boolean;
-}
-
-type Target = { icon: typeof Globe; label: string; tooltip: string | null };
-
-function describeTarget(
-    rule: LayoutRule,
-    activityById: RuleTableProps["activityById"],
-    activityGroups: RuleTableProps["activityGroups"]
-): Target {
-    if (rule.applyToAll) {
-        return { icon: Globe, label: "Tutte le sedi", tooltip: "Si applica a tutte le sedi, anche a quelle che aggiungerai" };
-    }
-    if (rule.activityIds.length > 0) {
-        const names = rule.activityIds.map(id => activityById.get(id)?.name ?? id);
-        const extra = names.length - 1;
-        return { icon: Building2, label: `${names[0]}${extra > 0 ? ` +${extra}` : ""}`, tooltip: `Sedi: ${names.join(", ")}` };
-    }
-    if (rule.groupIds.length > 0) {
-        const names = rule.groupIds.map(id => activityGroups.find(g => g.id === id)?.name ?? id);
-        const extra = names.length - 1;
-        return { icon: Users, label: `${names[0]}${extra > 0 ? ` +${extra}` : ""}`, tooltip: `Gruppi di sedi: ${names.join(", ")}` };
-    }
-    return { icon: AlertCircle, label: "Da scegliere", tooltip: null };
+    /**
+     * Larghezza della colonna «Dove si applica», uguale per tutte le tabelle
+     * dell'elenco (`whereColumnWidth`): quella del contenuto più lungo.
+     */
+    whereWidth?: string;
 }
 
 /**
@@ -94,7 +77,8 @@ export function RuleTable({
     onDelete,
     selectedIds,
     onSelectedIdsChange,
-    isLoading = false
+    isLoading = false,
+    whereWidth = "180px"
 }: RuleTableProps) {
     const { catalogLabel } = useVerticalConfig();
     const isPhone = useMediaQuery("(max-width: 767px)");
@@ -183,15 +167,15 @@ export function RuleTable({
             {
                 id: "where",
                 header: "Dove si applica",
-                width: "180px",
+                width: whereWidth,
                 hideOnPhone: true,
                 cell: (_, rule) => {
                     const target = describeTarget(rule, activityById, activityGroups);
                     const Icon = target.icon;
                     const content = (
                         <span className={styles.target} tabIndex={target.tooltip ? 0 : undefined}>
-                            <Icon size={14} aria-hidden="true" />
-                            <Text as="span" variant="body-sm" colorVariant={target.tooltip ? undefined : "muted"}>
+                            <Icon size={14} aria-hidden="true" className={styles.targetIcon} />
+                            <Text as="span" variant="body-sm" colorVariant={target.tooltip ? undefined : "muted"} className={styles.targetLabel}>
                                 {target.label}
                             </Text>
                         </span>
@@ -258,7 +242,7 @@ export function RuleTable({
         }
 
         return cols;
-    }, [activityById, activityGroups, canWrite, catalogLabel, insights, isCompact, isPhone, onDelete, onDuplicate, onToggleEnabled, ruleHref, showTypeBadge, updatingIds]);
+    }, [activityById, activityGroups, canWrite, catalogLabel, insights, isCompact, isPhone, onDelete, onDuplicate, onToggleEnabled, ruleHref, showTypeBadge, updatingIds, whereWidth]);
 
     const ids = useMemo(() => rules.map(r => r.id), [rules]);
 

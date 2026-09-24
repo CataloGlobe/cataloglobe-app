@@ -39,6 +39,8 @@ import {
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
 import { RuleTable, type RuleInsight } from "./components/RuleTable";
+import { describeTarget } from "./components/ruleTarget";
+import { measureTextWidth } from "@/utils/measureText";
 import { HowItWorksLink, RuleTypeHelpModal } from "./components/RuleTypeHelpModal";
 import { CalendarView } from "./components/CalendarView";
 import { RuleSimulatorDrawer } from "./components/RuleSimulatorDrawer";
@@ -811,8 +813,20 @@ export default function Programming() {
         { key: "expired", title: "Scadute", rules: expiredRules, open: showExpired, setOpen: setShowExpired }
     ];
 
+    // «Dove si applica» larga quanto l'etichetta più lunga dell'elenco (o
+    // l'intestazione), uguale in tutte le tabelle per stato: icona 14 + gap 6,
+    // padding della cella 24 + 24, bordo. Tetto al 45%: «Regola» prende il resto.
+    const whereWidth = useMemo(() => {
+        const labels = filteredRules.map(rule => describeTarget(rule, activityById, activityGroups).label);
+        const label = Math.max(0, ...labels.map(text => measureTextWidth(text, { size: 14 })));
+        const header = measureTextWidth("DOVE SI APPLICA", { size: 12, weight: 600, letterSpacing: 12 * 0.04 });
+        const content = Math.max(label + 14 + 6, header);
+        return `min(${Math.ceil(content + 48 + 2)}px, 45%)`;
+    }, [filteredRules, activityById, activityGroups]);
+
     const tableProps = {
         insights: ruleInsightsById,
+        whereWidth,
         showTypeBadge: ruleTypeFilter === "all",
         activityById,
         activityGroups,

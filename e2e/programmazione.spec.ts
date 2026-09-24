@@ -831,6 +831,19 @@ for (const width of [375, 768, 1280]) {
 
         // Si entra a 1280 (sotto 768 la sidebar è un cassetto) e si stringe
         // la finestra sulla pagina, come in Menù e Comande.
+        if (width >= 768) {
+            test("«Dove si applica» non va a capo: la colonna è larga quanto il contenuto", async ({ page }) => {
+                await openList(page);
+                await page.setViewportSize({ width, height: 900 });
+                const label = main(page).getByText("Gruppo vuoto e2e", { exact: true }).first();
+                await expect(label).toBeVisible();
+                const box = await label.boundingBox();
+                // Una riga di body-sm (21 px), non due.
+                expect(box!.height).toBeLessThan(24);
+                expect(await label.evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
+            });
+        }
+
         test("elenco, settimana e dettaglio senza scroll di lato", async ({ page }) => {
             await openList(page);
             await page.setViewportSize({ width, height: 900 });
