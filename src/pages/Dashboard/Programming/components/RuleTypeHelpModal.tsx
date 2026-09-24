@@ -82,8 +82,11 @@ type HelpContent = {
 /** Chiave del contenuto: i quattro tipi di regola più la panoramica "Tutte". */
 export type HelpRuleKey = RuleType | "all";
 
-/** Il contenuto, col nome del verticale: `Label` «Menù», `menu` «menù». */
-function helpContent(Label: string): Record<HelpRuleKey, HelpContent> {
+/**
+ * Il contenuto, con le parole del verticale: `Label` «Menù», `menu` «menù»,
+ * `product` / `products` «prodotto» / «prodotti».
+ */
+function helpContent(Label: string, product: string, products: string): Record<HelpRuleKey, HelpContent> {
     const menu = Label.toLowerCase();
     return {
     layout: {
@@ -164,8 +167,8 @@ function helpContent(Label: string): Record<HelpRuleKey, HelpContent> {
         title: "Come funzionano le regole di prezzo",
         intro: (
             <>
-                Una regola di prezzo <strong>sovrascrive il prezzo</strong> di uno o più prodotti,
-                solo <strong>nel periodo e nelle sedi</strong> che scegli. Il prodotto resta uno:
+                Una regola di prezzo <strong>sovrascrive il prezzo</strong> di uno o più {products},
+                solo <strong>nel periodo e nelle sedi</strong> che scegli. Il {product} resta uno:
                 cambia solo quanto costa.
             </>
         ),
@@ -187,17 +190,17 @@ function helpContent(Label: string): Record<HelpRuleKey, HelpContent> {
             {
                 title: "Il prezzo originale non si perde",
                 description:
-                    "Finita la finestra, il prodotto torna al suo prezzo da solo. Non devi rimetterlo a mano."
+                    `Finita la finestra, il ${product} torna al suo prezzo da solo. Non devi rimetterlo a mano.`
             },
             {
-                title: "Scegli tu quali prodotti",
+                title: `Scegli tu quali ${products}`,
                 description:
                     "Una regola può riguardare un solo piatto o un elenco: gli altri restano al loro prezzo."
             },
             {
                 title: "Utile anche per sedi diverse",
                 description:
-                    "Lo stesso prodotto può costare diversamente in due locali, senza doverlo duplicare."
+                    `Lo stesso ${product} può costare diversamente in due locali, senza doverlo duplicare.`
             }
         ]
     },
@@ -207,7 +210,7 @@ function helpContent(Label: string): Record<HelpRuleKey, HelpContent> {
         intro: (
             <>
                 Una regola di disponibilità decide{" "}
-                <strong>cosa fare di un prodotto</strong> quando non lo servi: puoi{" "}
+                <strong>cosa fare di un {product}</strong> quando non lo servi: puoi{" "}
                 <strong>nasconderlo del tutto</strong> oppure <strong>lasciarlo visibile</strong>,
                 segnalato come non disponibile.
             </>
@@ -241,12 +244,12 @@ function helpContent(Label: string): Record<HelpRuleKey, HelpContent> {
                     "Un piatto può essere disponibile in un locale e non nell'altro, o solo la sera."
             },
             {
-                title: "Il prodotto non viene cancellato",
+                title: `Il ${product} non viene cancellato`,
                 description:
                     "Finita la finestra torna visibile da solo, con le sue foto, i suoi prezzi e i suoi allergeni."
             }
         ],
-        note: "Per una cosa finita adesso non serve una regola: puoi segnare il singolo prodotto come non disponibile direttamente dalla sede, e rimetterlo appena torna."
+        note: `Per una cosa finita adesso non serve una regola: puoi segnare il singolo ${product} come non disponibile direttamente dalla sede, e rimetterlo appena torna.`
     },
 
     all: {
@@ -306,7 +309,7 @@ export const HowItWorksLink = forwardRef<HTMLButtonElement, HowItWorksLinkProps>
     { ruleType, onClick },
     ref
 ) {
-    const { catalogLabel } = useVerticalConfig();
+    const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
     return (
         <button
             ref={ref}
@@ -314,7 +317,7 @@ export const HowItWorksLink = forwardRef<HTMLButtonElement, HowItWorksLinkProps>
             className={styles.link}
             onClick={onClick}
             aria-haspopup="dialog"
-            aria-label={helpContent(catalogLabel)[ruleType].title}
+            aria-label={helpContent(catalogLabel, productLabel.toLowerCase(), productLabelPlural.toLowerCase())[ruleType].title}
         >
             <CircleHelp size={14} strokeWidth={2} aria-hidden="true" />
             Come funziona
@@ -440,8 +443,8 @@ export function RuleTypeHelpModal({
     triggerRef,
     returnFocusOnClose = true
 }: Props) {
-    const { catalogLabel } = useVerticalConfig();
-    const content = helpContent(catalogLabel)[ruleType];
+    const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
+    const content = helpContent(catalogLabel, productLabel.toLowerCase(), productLabelPlural.toLowerCase())[ruleType];
 
     /* Ritorno del focus al link. `ModalLayout` prova a farlo da sé, ma rimette
        il focus mentre il suo FocusLock è ancora montato e il lock se lo

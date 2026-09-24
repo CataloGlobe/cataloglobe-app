@@ -56,13 +56,14 @@ export default function RuleDetailPage() {
     const location = useLocation();
     const [searchParams] = useSearchParams();
     const fromType = searchParams.get("fromType");
-    const { catalogLabel } = useVerticalConfig();
+    const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
+    const labels = useMemo(() => ({ productLabel, productLabelPlural }), [productLabel, productLabelPlural]);
     const { permissions } = usePermissions();
     const { canEdit } = useSubscriptionGuard();
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "scheduling.write") : false;
     const canRead = permissions ? canDoOnAnyActivity(permissions, "scheduling.read") : false;
 
-    const detail = useRuleDetail({ ruleId, tenantId: businessId, canRead, catalogLabel });
+    const detail = useRuleDetail({ ruleId, tenantId: businessId, canRead, catalogLabel, labels });
     const { status, rule, form, isDirty, options } = detail;
 
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);

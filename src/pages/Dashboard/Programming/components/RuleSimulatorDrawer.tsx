@@ -104,7 +104,8 @@ export function RuleSimulatorDrawer({
     subscriptionInactive,
     ruleHref
 }: RuleSimulatorDrawerProps) {
-    const { catalogLabel } = useVerticalConfig();
+    const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
+    const [product, products] = [productLabel.toLowerCase(), productLabelPlural.toLowerCase()];
 
     const [simActivityId, setSimActivityId] = useState("");
     // Stato sede selezionata: mirror di resolve-public-catalog
@@ -354,11 +355,11 @@ export function RuleSimulatorDrawer({
                         simResult.featuredRule?.scheduleId,
                         featuredRule ? count(featuredRule.featured_contents.length, "contenuto", "contenuti") : null
                     )}
-                    {layerRow("price", simResult.priceRuleId, priceRule ? count(priceRule.price_overrides.length, "prodotto", "prodotti") : null)}
+                    {layerRow("price", simResult.priceRuleId, priceRule ? count(priceRule.price_overrides.length, product, products) : null)}
                     {layerRow(
                         "visibility",
                         simResult.visibilityRule?.scheduleId,
-                        visRule ? count(visRule.visibility_overrides.length, "prodotto", "prodotti") : null
+                        visRule ? count(visRule.visibility_overrides.length, product, products) : null
                     )}
                 </Card>
 

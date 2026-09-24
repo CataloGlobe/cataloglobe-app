@@ -21,6 +21,7 @@ import {
     missingDraftFields,
     todayLocal,
     validateRuleForm,
+    type ProductLabels,
     type RuleDetailForm,
     type RuleFormErrors,
     type RuleFormField
@@ -64,12 +65,15 @@ export function useRuleDetail({
     ruleId,
     tenantId,
     canRead,
-    catalogLabel
+    catalogLabel,
+    labels
 }: {
     ruleId: string | undefined;
     tenantId: string | undefined;
     canRead: boolean;
     catalogLabel: string;
+    /** La parola del vertical per «prodotto», nei messaggi. */
+    labels: ProductLabels;
 }) {
     const { showToast } = useToast();
     const [status, setStatus] = useState<RuleDetailStatus>("loading");
@@ -89,8 +93,8 @@ export function useRuleDetail({
     const [touched, setTouched] = useState<Set<RuleFormField>>(() => new Set());
     const [showAllErrors, setShowAllErrors] = useState(false);
     const allErrors = useMemo<RuleFormErrors>(
-        () => (form ? validateRuleForm(form, { today: todayLocal(), products: options.products }) : {}),
-        [form, options.products]
+        () => (form ? validateRuleForm(form, { today: todayLocal(), products: options.products, labels }) : {}),
+        [form, options.products, labels]
     );
     const errors = useMemo<RuleFormErrors>(() => {
         if (showAllErrors) return allErrors;
@@ -250,7 +254,7 @@ export function useRuleDetail({
             return { saved: false, invalid };
         }
 
-        const missing = missingDraftFields(form, catalogLabel);
+        const missing = missingDraftFields(form, catalogLabel, labels);
         const isForcedDraft = missing.length > 0;
         const autoActivate = !isForcedDraft && !rule.enabled && isLayoutRuleDraft(rule);
         const enabled = isForcedDraft ? false : autoActivate ? true : form.enabled;

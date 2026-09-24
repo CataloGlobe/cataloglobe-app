@@ -4,6 +4,7 @@ import {
     firstRuleFormError,
     missingDraftFields,
     validateRuleForm,
+    withPluralArticle,
     type RuleDetailForm
 } from "@/utils/ruleDetailForm";
 import type { LayoutRule, LayoutRuleOption } from "@/services/supabase/layoutScheduling";
@@ -148,6 +149,28 @@ describe("validateRuleForm", () => {
         expect(firstRuleFormError(errors)).toBe("name");
         expect(firstRuleFormError({ endAt: "x", timeTo: "y" })).toBe("timeTo");
         expect(firstRuleFormError({})).toBeNull();
+    });
+});
+
+describe("la parola per «prodotti» viene dal vertical", () => {
+    const labels = { productLabel: "Articolo", productLabelPlural: "Articoli" };
+
+    it("nel messaggio dei prezzi", () => {
+        const form = makeForm({ ruleType: "price", selectedProductIds: ["p1"], productOverrides: { p1: { overridePrice: "", showOriginalPrice: false } } });
+        expect(validateRuleForm(form, { today: TODAY, products: NO_PRODUCTS, labels }).prices).toBe(
+            "Scrivi un prezzo maggiore di zero per ogni articolo."
+        );
+    });
+
+    it("con l'articolo giusto", () => {
+        expect(withPluralArticle("prodotti")).toBe("i prodotti");
+        expect(withPluralArticle("articoli")).toBe("gli articoli");
+        expect(withPluralArticle("servizi")).toBe("i servizi");
+        expect(withPluralArticle("strumenti")).toBe("gli strumenti");
+    });
+
+    it("in quello che manca alla bozza", () => {
+        expect(missingDraftFields(makeForm({ ruleType: "visibility" }), "Menù", labels)).toEqual(["gli articoli"]);
     });
 });
 

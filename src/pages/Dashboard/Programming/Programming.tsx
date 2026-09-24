@@ -49,6 +49,7 @@ import { ruleReachesAnyActivity, describeZeroReach } from "@/utils/scheduleReach
 import { deriveScheduleStatus } from "@/utils/scheduleStatus";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { ruleTypeLabel } from "./ruleTypeLabel";
+import { withPluralArticle } from "@/utils/ruleDetailForm";
 import styles from "./Programming.module.scss";
 
 type RuleTypeFilter = RuleType | "all";
@@ -56,13 +57,13 @@ type RuleTypeFilter = RuleType | "all";
 type RuleTypeOption = { value: RuleTypeFilter; label: string; description: string };
 
 /** I valori del filtro per tipo, col nome del verticale (§22, dizionario #12). */
-function ruleTypeOptions(catalogLabel: string): RuleTypeOption[] {
+function ruleTypeOptions(catalogLabel: string, products: string): RuleTypeOption[] {
     const menu = catalogLabel.toLowerCase();
     return [
         { value: "layout", label: ruleTypeLabel("layout", catalogLabel), description: `Decidono quale ${menu} e quale stile mostrare` },
         { value: "featured", label: ruleTypeLabel("featured", catalogLabel), description: "Programmano quando mostrare contenuti in evidenza" },
-        { value: "price", label: ruleTypeLabel("price", catalogLabel), description: "Cambiano il prezzo di alcuni prodotti" },
-        { value: "visibility", label: ruleTypeLabel("visibility", catalogLabel), description: "Nascondono alcuni prodotti, o li segnano come non disponibili" },
+        { value: "price", label: ruleTypeLabel("price", catalogLabel), description: `Cambiano il prezzo di alcuni ${products}` },
+        { value: "visibility", label: ruleTypeLabel("visibility", catalogLabel), description: `Nascondono alcuni ${products}, o li segnano come non disponibili` },
         { value: "all", label: "Tutte", description: "Tutte le regole, di ogni tipo." }
     ];
 }
@@ -74,7 +75,7 @@ function ruleTypeOptions(catalogLabel: string): RuleTypeOption[] {
  * schermata. Qui il testo spiega a cosa serve il tipo di regola e qual è la
  * prima mossa; là descrive la tab in una riga.
  */
-const emptyStateCopy = (menu: string): Record<RuleTypeFilter, { title: string; description: string }> => ({
+const emptyStateCopy = (menu: string, product: string, products: string): Record<RuleTypeFilter, { title: string; description: string }> => ({
     layout: {
         title: "Decidi cosa mostrare, e quando",
         description:
@@ -88,10 +89,10 @@ const emptyStateCopy = (menu: string): Record<RuleTypeFilter, { title: string; d
     price: {
         title: "Applica uno sconto per un giorno o un periodo",
         description:
-            "Happy hour del giovedì, promozione di agosto: il prodotto resta uno, cambia solo il prezzo nel periodo che scegli."
+            `Happy hour del giovedì, promozione di agosto: il ${product} resta uno, cambia solo il prezzo nel periodo che scegli.`
     },
     visibility: {
-        title: "Gestisci i prodotti finiti o fuori stagione",
+        title: `Gestisci ${withPluralArticle(products)} finiti o fuori stagione`,
         description:
             "Puoi nasconderlo del tutto o lasciarlo visibile segnandolo come non disponibile, per una sede o in certi orari."
     },
@@ -135,9 +136,12 @@ export default function Programming() {
     const [searchParams, setSearchParams] = useSearchParams();
     const currentTenantId = useTenantId();
     const { showToast } = useToast();
-    const { catalogLabel } = useVerticalConfig();
-    const typeOptions = useMemo(() => ruleTypeOptions(catalogLabel), [catalogLabel]);
-    const emptyCopy = useMemo(() => emptyStateCopy(catalogLabel.toLowerCase()), [catalogLabel]);
+    const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
+    const typeOptions = useMemo(() => ruleTypeOptions(catalogLabel, productLabelPlural.toLowerCase()), [catalogLabel, productLabelPlural]);
+    const emptyCopy = useMemo(
+        () => emptyStateCopy(catalogLabel.toLowerCase(), productLabel.toLowerCase(), productLabelPlural.toLowerCase()),
+        [catalogLabel, productLabel, productLabelPlural]
+    );
     const isPhone = useMediaQuery("(max-width: 767px)");
     const ruleHref = useCallback(
         (rule: { id: string; rule_type: RuleType }) =>

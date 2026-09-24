@@ -55,6 +55,15 @@ export type RuleDetailForm = {
     timeTo: string;
 };
 
+/** La parola del vertical per «prodotto» (`useVerticalConfig`). */
+export type ProductLabels = { productLabel: string; productLabelPlural: string };
+const DEFAULT_PRODUCT_LABELS: ProductLabels = { productLabel: "Prodotto", productLabelPlural: "Prodotti" };
+
+/** «i prodotti», «gli articoli»: l'articolo plurale maschile davanti alla parola. */
+export function withPluralArticle(word: string): string {
+    return /^([aeiouhxyz]|s[^aeiou]|gn|ps|pn)/i.test(word) ? `gli ${word}` : `i ${word}`;
+}
+
 /** I campi che possono avere un errore; l'ordine è quello in cui si leggono. */
 export const RULE_FORM_FIELDS = ["name", "timeFrom", "timeTo", "when", "startAt", "endAt", "prices"] as const;
 export type RuleFormField = (typeof RULE_FORM_FIELDS)[number];
@@ -181,7 +190,11 @@ function hasInvalidPrice(form: RuleDetailForm, products: Array<Pick<LayoutRuleOp
  */
 export function validateRuleForm(
     form: RuleDetailForm,
-    { today, products }: { today: string; products: Array<Pick<LayoutRuleOption, "id" | "format_values">> }
+    {
+        today,
+        products,
+        labels = DEFAULT_PRODUCT_LABELS
+    }: { today: string; products: Array<Pick<LayoutRuleOption, "id" | "format_values">>; labels?: ProductLabels }
 ): RuleFormErrors {
     const errors: RuleFormErrors = {};
     const set = (field: RuleFormField, message: string) => {
@@ -212,7 +225,7 @@ export function validateRuleForm(
     }
 
     if (form.ruleType === "price" && hasInvalidPrice(form, products)) {
-        set("prices", "Scrivi un prezzo maggiore di zero per ogni prodotto.");
+        set("prices", `Scrivi un prezzo maggiore di zero per ogni ${labels.productLabel.toLowerCase()}.`);
     }
 
     return errors;
@@ -224,7 +237,11 @@ export function firstRuleFormError(errors: RuleFormErrors): RuleFormField | null
 }
 
 /** Cosa manca perché la regola sia completa: con qualcosa qui si salva spenta, come bozza. */
-export function missingDraftFields(form: RuleDetailForm, catalogLabel: string): string[] {
+export function missingDraftFields(
+    form: RuleDetailForm,
+    catalogLabel: string,
+    labels: ProductLabels = DEFAULT_PRODUCT_LABELS
+): string[] {
     const missing: string[] = [];
     if (form.targetMode === "activities" && form.activityIds.length === 0) missing.push("le sedi");
     if (form.targetMode === "groups" && form.groupIds.length === 0) missing.push("i gruppi di sedi");
@@ -233,7 +250,7 @@ export function missingDraftFields(form: RuleDetailForm, catalogLabel: string): 
         if (!form.styleId) missing.push("lo stile");
     }
     if ((form.ruleType === "price" || form.ruleType === "visibility") && form.selectedProductIds.length === 0) {
-        missing.push("i prodotti");
+        missing.push(withPluralArticle(labels.productLabelPlural.toLowerCase()));
     }
     if (form.ruleType === "featured" && form.featuredContents.length === 0) missing.push("i contenuti");
     return missing;
