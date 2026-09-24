@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
 import { Copy, MoreHorizontal, Trash2 } from "lucide-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import { getToggleGuardResult } from "@utils/ruleToggleGuards";
+import { isStartDateInPast } from "@utils/ruleStartDate";
 import {
     deleteLayoutRule,
     duplicateRule,
@@ -375,7 +376,8 @@ export default function FeaturedRuleDetail() {
             }
         }
 
-        if (form.startAt && form.startAt < today) {
+        const initialStartAt = rule.start_at ? toLocalDateString(new Date(rule.start_at)) : "";
+        if (isStartDateInPast(form.startAt, initialStartAt, today)) {
             showToast({
                 type: "error",
                 message: "La data di inizio non può essere nel passato.",
@@ -645,6 +647,7 @@ export default function FeaturedRuleDetail() {
                     <SchedulingSection
                         alwaysActive={form.alwaysActive}
                         startAt={form.startAt}
+                        initialStartAt={rule.start_at ? toLocalDateString(new Date(rule.start_at)) : ""}
                         endAt={form.endAt}
                         daysOfWeek={form.daysOfWeek}
                         timeFrom={form.timeFrom}

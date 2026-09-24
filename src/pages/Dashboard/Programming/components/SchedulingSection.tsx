@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/Switch/Switch";
 import { TimeInput } from "@/components/ui/Input/TimeInput";
 import Text from "@/components/ui/Text/Text";
 import { LayoutTimeMode } from "@/services/supabase/layoutScheduling";
+import { isStartDateInPast } from "@/utils/ruleStartDate";
 import styles from "../ProgrammingRuleDetail.module.scss";
 
 const DAY_OPTIONS = [
@@ -20,6 +21,8 @@ const DAY_OPTIONS = [
 interface SchedulingSectionProps {
     alwaysActive: boolean;
     startAt: string;
+    /** Data di inizio salvata: se non cambia, può restare nel passato (regola già partita). */
+    initialStartAt?: string;
     endAt: string;
     daysOfWeek: string[];
     timeFrom: string;
@@ -40,6 +43,7 @@ interface SchedulingSectionProps {
 export function SchedulingSection({
     alwaysActive,
     startAt,
+    initialStartAt = "",
     endAt,
     daysOfWeek,
     timeFrom,
@@ -72,7 +76,7 @@ export function SchedulingSection({
     const handleStartAtBlur = () => {
         if (!startAt && hasPeriod) {
             setStartAtError("Inserisci la data di inizio");
-        } else if (startAt && startAt < today) {
+        } else if (isStartDateInPast(startAt, initialStartAt, today)) {
             setStartAtError("La data di inizio non può essere nel passato");
         } else {
             setStartAtError("");
