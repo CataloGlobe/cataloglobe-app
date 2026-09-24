@@ -58,12 +58,14 @@ type RuleTypeOption = { value: RuleTypeFilter; label: string; description: strin
 /** I valori del filtro per tipo, col nome del verticale (§22, dizionario #12). */
 function ruleTypeOptions(catalogLabel: string, products: string): RuleTypeOption[] {
     const menu = catalogLabel.toLowerCase();
+    // «Tutte» per prima, come nel mockup: è la vista d'insieme, i tipi la
+    // restringono. L'atterraggio resta «Menù e stile» (passo 2, deviazione 7).
     return [
+        { value: "all", label: "Tutte", description: "Tutte le regole, di ogni tipo." },
         { value: "layout", label: ruleTypeLabel("layout", catalogLabel), description: `Decidono quale ${menu} e quale stile mostrare` },
         { value: "featured", label: ruleTypeLabel("featured", catalogLabel), description: "Programmano quando mostrare contenuti in evidenza" },
         { value: "price", label: ruleTypeLabel("price", catalogLabel), description: `Cambiano il prezzo di alcuni ${products}` },
-        { value: "visibility", label: ruleTypeLabel("visibility", catalogLabel), description: `Nascondono alcuni ${products}, o li segnano come non disponibili` },
-        { value: "all", label: "Tutte", description: "Tutte le regole, di ogni tipo." }
+        { value: "visibility", label: ruleTypeLabel("visibility", catalogLabel), description: `Nascondono alcuni ${products}, o li segnano come non disponibili` }
     ];
 }
 
@@ -859,6 +861,7 @@ export default function Programming() {
         showTypeBadge: ruleTypeFilter === "all",
         activityById,
         activityGroups,
+        catalogById,
         ruleHref,
         onOpen: (rule: LayoutRule) => navigate(ruleHref(rule)),
         updatingIds: updatingRules,

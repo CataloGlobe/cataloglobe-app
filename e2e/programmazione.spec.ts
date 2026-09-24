@@ -844,7 +844,7 @@ for (const width of [1024, 1280]) {
         expect(tabsBox.y).toBeGreaterThanOrEqual(createBox.y + createBox.height);
         const description = main(page).getByText("Tutte le regole, di ogni tipo.");
         expect(tabsBox.y).toBeLessThan((await description.boundingBox())!.y);
-        const firstLabel = tabs.getByRole("tab").first().getByText("Menù e stile");
+        const firstLabel = tabs.getByRole("tab").first().getByText("Tutte");
         expect(Math.round((await firstLabel.boundingBox())!.x)).toBe(Math.round((await description.boundingBox())!.x));
     });
 }

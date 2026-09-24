@@ -38,6 +38,8 @@ export interface RuleTableProps {
     showTypeBadge: boolean;
     activityById: Map<string, Pick<LayoutRuleOption, "name">>;
     activityGroups: Array<Pick<LayoutRuleOption, "id" | "name">>;
+    /** Per il sottotitolo delle regole menù: «mostra {menù} · {quando}». */
+    catalogById?: Map<string, Pick<LayoutRuleOption, "name">>;
     /** Indirizzo del dettaglio (in evidenza ha la sua rotta). */
     ruleHref: (rule: { id: string; rule_type: LayoutRule["rule_type"] }) => string;
     onOpen: (rule: LayoutRule) => void;
@@ -69,6 +71,7 @@ export function RuleTable({
     showTypeBadge,
     activityById,
     activityGroups,
+    catalogById,
     ruleHref,
     onOpen,
     updatingIds,
@@ -107,6 +110,10 @@ export function RuleTable({
                             : "idle";
                     const target = describeTarget(rule, activityById, activityGroups);
                     const summary = buildRuleSummary(rule);
+                    // Cosa fa, prima di quando (mockup): «mostra Catalogo Completo · Lun–Ven».
+                    const catalogName = rule.rule_type === "layout" && rule.layout?.catalog_id
+                        ? catalogById?.get(rule.layout.catalog_id)?.name
+                        : undefined;
                     const excluded = !insight?.isOverridden ? insight?.excludedActivityNames : undefined;
 
                     return (
@@ -122,6 +129,7 @@ export function RuleTable({
                             <span>
                                 {[
                                     showTypeBadge && isCompact ? ruleTypeLabel(rule.rule_type, catalogLabel) : null,
+                                    catalogName ? `mostra ${catalogName}` : null,
                                     summary,
                                     isPhone ? target.label : null
                                 ]
@@ -242,7 +250,7 @@ export function RuleTable({
         }
 
         return cols;
-    }, [activityById, activityGroups, canWrite, catalogLabel, insights, isCompact, isPhone, onDelete, onDuplicate, onToggleEnabled, ruleHref, showTypeBadge, updatingIds, whereWidth]);
+    }, [activityById, activityGroups, canWrite, catalogById, catalogLabel, insights, isCompact, isPhone, onDelete, onDuplicate, onToggleEnabled, ruleHref, showTypeBadge, updatingIds, whereWidth]);
 
     const ids = useMemo(() => rules.map(r => r.id), [rules]);
 
