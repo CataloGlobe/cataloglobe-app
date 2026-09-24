@@ -52,6 +52,13 @@ Senza entry esplicita il gateway Supabase applica `verify_jwt = true` di default
 
 Il parser TS del bundler Deno (deploy Edge Function) può interpretare `/` dentro `//` o `/* */` come inizio di regex literal in certi contesti, causando deploy fail con `Failed to bundle the function (reason: The module's source code could not be parsed: Unterminated regexp literal)`. Bug noto del lexer. Workaround: sostituire `/` con `vs`, `or`, `|` nei commenti. Esempio: `// pattern: cancel-order-admin / acknowledge-order` → `// pattern: cancel-order-admin vs acknowledge-order`. Lezione appresa task 2.12 (`close-table`).
 
+### Customer Stripe dopo trasferimento di proprietà
+
+`transfer_ownership()` cambia solo `tenants.owner_user_id`: il customer Stripe restava con email e `metadata.user_id` del vecchio owner (ricevute, solleciti e portale al destinatario sbagliato). L'email sul customer è quella auth dell'owner (non esiste un'email di fatturazione tenant; la PEC è l'indirizzo SDI). Due punti la riallineano, entrambi via Stripe `customers.update` e non-throwing:
+- `delete-account` Step 2b, unico percorso di transfer (l'RPC non è eseguibile da `authenticated`): dopo il successo di `execute_account_deletion_tenant_ops` rilegge owner e `stripe_customer_id` dal DB (solo tenant del payload posseduti dal caller prima dell'RPC e non più dopo: l'RPC ritorna successo senza validare il payload quando il caller non possiede tenant attivi), email da `auth.admin.getUserById`, poi `syncStripeCustomerOwner` (`_shared/stripe-helpers.ts`). Un errore Stripe logga `stripe_customer_owner_sync_failed` (solo code, type, status) e non blocca l'eliminazione.
+- `stripe-checkout`, ramo riuso customer: `email` + `metadata.user_id` seguono il caller (già verificato owner). Rete di sicurezza: un customer rimasto stale si riallinea al primo checkout del nuovo owner.
+Bug fixato 24/09/2026.
+
 ## Epic Ordinazioni dal tavolo — 11 Edge Functions
 
 `resolve-table`, `submit-order`, `get-orders-for-session`, `cancel-order`, `acknowledge-order`, `deliver-order`, `cancel-order-admin`, `rectify-order`, `close-table`, `toggle-product-availability`, `generate-table-qrs`. Dettaglio dual-auth e optimistic locking in `docs/orders-architecture.md` v1.2 e in `CLAUDE.md` sezione "Epic Ordinazioni dal tavolo".

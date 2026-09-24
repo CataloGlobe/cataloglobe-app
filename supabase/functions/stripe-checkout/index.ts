@@ -434,22 +434,20 @@ serve(async req => {
                 console.error("stripe-checkout: Failed to save stripe_customer_id:", updateErr);
                 return json(req, 500, { error: "db_update_failed" });
             }
-        } else if (
-            stripeCustomerName ||
-            customerAddress ||
-            stripeCustomerDescription ||
-            Object.keys(stripeCustomerMetadata).length > 1
-        ) {
+        } else {
             // Reuse path: refresh profile on the existing customer. Best-effort —
             // a failed update must not block checkout (we still have the data our side).
-            // Stripe merges metadata (unspecified keys, e.g. user_id, are preserved).
+            // Stripe merges metadata (unspecified keys are preserved).
+            // email + user_id follow the caller, who is the owner (checked above):
+            // realigns a customer left on a previous owner by an ownership transfer.
             try {
                 await stripe.customers.update(stripeCustomerId, {
+                    email: userEmail,
                     name: stripeCustomerName,
                     address: customerAddress,
                     description: stripeCustomerDescription,
                     preferred_locales: ["it"],
-                    metadata: stripeCustomerMetadata
+                    metadata: { ...stripeCustomerMetadata, user_id: userId }
                 });
             } catch (err) {
                 // Log only the error class — Stripe messages can echo the submitted value.
