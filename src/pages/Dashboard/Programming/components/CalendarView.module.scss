@@ -304,7 +304,7 @@
 .nowLine {
   position: absolute;
   height: 2px;
-  background: #ef4444;
+  background: var(--danger);
   z-index: 8;
   pointer-events: none;
   left: 0;
@@ -318,14 +318,14 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #ef4444;
+  background: var(--danger);
 
   &::after {
     content: "";
     position: absolute;
     inset: -2px;
     border-radius: 50%;
-    border: 2px solid #ef4444;
+    border: 2px solid var(--danger);
     opacity: 0;
     animation: calPulse 2s ease-in-out infinite;
   }
