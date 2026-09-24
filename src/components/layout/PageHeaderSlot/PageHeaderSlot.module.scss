@@ -51,6 +51,31 @@
   }
 }
 
+// Due righe (`condensed.stack`): le azioni sopra, a destra; le tab sotto, a
+// filo del bordo inferiore come in riga singola.
+.stacked .rawRow {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "actions"
+    "leading";
+  row-gap: 0;
+}
+
+.stacked .actions {
+  padding-top: 12px;
+}
+
+// Copie delle versioni delle azioni, solo da misurare: fuori dal flusso,
+// larghe quanto il contenuto.
+.measure {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .leading {
   grid-area: leading;
   display: flex;

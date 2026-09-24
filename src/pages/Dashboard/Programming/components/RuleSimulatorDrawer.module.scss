@@ -1,0 +1,48 @@
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
+}
+
+.statusRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-8);
+}
+
+.cardPad {
+  padding: var(--space-12) var(--space-16);
+}
+
+.badges {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+}
+
+.tooltipWrap {
+  display: inline-flex;
+  border-radius: var(--radius-control);
+  outline: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--brand-primary);
+    outline-offset: 2px;
+  }
+}
+
+.chevronOpen,
+.chevronClosed {
+  transition: transform var(--timing-motion-fast) var(--easing-state);
+}
+
+.chevronClosed {
+  transform: rotate(-90deg);
+}

@@ -14,6 +14,8 @@ import { Switch } from "@/components/ui/Switch/Switch";
 import Text from "@/components/ui/Text/Text";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
+import { withPluralArticle } from "@/utils/ruleDetailForm";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import {
     LayoutRuleOption,
     RuleType,
@@ -43,8 +45,8 @@ type VisibilityProductRow = {
 };
 
 const VISIBILITY_MODE_OPTIONS: { value: VisibilityMode; label: string; icon: ReactNode }[] = [
-    { value: "hide", label: "Nascondi", icon: <IconEyeOff size={14} /> },
-    { value: "disable", label: "Non disp.", icon: <IconClockExclamation size={14} /> }
+    { value: "hide", label: "Nascosto", icon: <IconEyeOff size={14} /> },
+    { value: "disable", label: "Non disponibile", icon: <IconClockExclamation size={14} /> }
 ];
 
 interface ProductOverride {
@@ -80,6 +82,7 @@ function PriceOverrideRow({
     onOverrideChange,
     onRemove
 }: PriceOverrideRowProps) {
+    const main = `${useVerticalConfig().productLabel.toLowerCase()} principale`;
     const hasFormats = (formatValues?.length ?? 0) > 0;
 
     const hasCompiledOverride = hasFormats
@@ -111,7 +114,7 @@ function PriceOverrideRow({
                         {isVariant && (
                             <span
                                 className={styles.badgeVariant}
-                                title="Questo è una variante — eredita il prezzo del prodotto principale se non ha un override specifico"
+                                title={`Questa è una variante: se non ha un prezzo suo, prende quello del ${main}`}
                             >
                                 Variante
                             </span>
@@ -119,9 +122,9 @@ function PriceOverrideRow({
                         {isVariant && parentHasOverride && (
                             <span
                                 className={styles.badgeSpecific}
-                                title="Sia questa variante che il prodotto principale hanno un override — questo override ha la priorità"
+                                title={`Anche il ${main} ha un prezzo nella regola: per questa variante vale il suo`}
                             >
-                                Override specifico
+                                Prezzo proprio della variante
                             </span>
                         )}
                     </span>
@@ -151,7 +154,7 @@ function PriceOverrideRow({
                                         {fv.name}
                                     </span>
                                     <TextInput
-                                        label="Prezzo override"
+                                        label="Prezzo"
                                         value={valOvr?.overridePrice ?? ""}
                                         onChange={event => {
                                             const nextOverrides = { ...productOverrides };
@@ -173,7 +176,7 @@ function PriceOverrideRow({
                                         placeholder="0.00"
                                     />
                                     <div className={styles.switchRow}>
-                                        <Text variant="caption">Mostra originale</Text>
+                                        <Text variant="caption">Mostra il prezzo di listino barrato</Text>
                                         <Switch
                                             checked={valOvr?.showOriginalPrice ?? false}
                                             onChange={val => {
@@ -202,7 +205,7 @@ function PriceOverrideRow({
                     ) : (
                         <>
                             <TextInput
-                                label="Prezzo override"
+                                label="Prezzo"
                                 value={override?.overridePrice ?? ""}
                                 onChange={event => {
                                     const nextOverrides = { ...productOverrides };
@@ -215,7 +218,7 @@ function PriceOverrideRow({
                                 placeholder="0.00"
                             />
                             <div className={styles.switchRow}>
-                                <Text variant="caption">Mostra prezzo originale</Text>
+                                <Text variant="caption">Mostra il prezzo di listino barrato</Text>
                                 <Switch
                                     checked={override?.showOriginalPrice ?? false}
                                     onChange={val => {
@@ -233,9 +236,9 @@ function PriceOverrideRow({
                                     variant="caption"
                                     colorVariant="muted"
                                     className={styles.inheritanceNote}
-                                    title="Se il prodotto principale ha un override attivo, verrà applicato a tutte le varianti senza override specifico"
+                                    title={`Se il ${main} ha un prezzo nella regola, vale per tutte le varianti che non ne hanno uno proprio`}
                                 >
-                                    Override indipendente dal prodotto principale
+                                    {`Prezzo indipendente dal ${main}`}
                                 </Text>
                             )}
                             {!isVariant && hasVariantOverrides && (
@@ -243,9 +246,9 @@ function PriceOverrideRow({
                                     variant="caption"
                                     colorVariant="muted"
                                     className={styles.inheritanceNote}
-                                    title="Le varianti con override specifico useranno il proprio prezzo; le altre erediteranno questo override"
+                                    title="Le varianti con un prezzo proprio usano quello; le altre prendono questo"
                                 >
-                                    Alcune varianti hanno override specifici
+                                    Alcune varianti hanno un prezzo proprio
                                 </Text>
                             )}
                         </>
@@ -277,6 +280,8 @@ interface AssociatedContentSectionProps {
             visibilityProductModes: Record<string, VisibilityMode>;
         }>
     ) => void;
+    /** Prezzi: l'errore di `validateRuleForm`, sotto il titolo. */
+    pricesError?: string;
 }
 
 // ─── AssociatedContentSection ───────────────────────────────────────────────
@@ -293,9 +298,14 @@ export function AssociatedContentSection({
     tenantProducts,
     tenantProductGroups = [],
     tenantProductGroupItems = [],
-    onFormChange
+    onFormChange,
+    pricesError
 }: AssociatedContentSectionProps) {
     const [isProductsDrawerOpen, setIsProductsDrawerOpen] = useState(false);
+    const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
+    // La parola del vertical per «prodotto» (P10): minuscola dentro le frasi.
+    const product = productLabel.toLowerCase();
+    const products = productLabelPlural.toLowerCase();
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedGroupId, setSelectedGroupId] = useState("");
     const [productSearch, setProductSearch] = useState("");
@@ -425,7 +435,7 @@ export function AssociatedContentSection({
             return [
                 {
                     id: "product",
-                    header: "Prodotto",
+                    header: productLabel,
                     cell: (_, row) => (
                         <div className={styles.visibilityRowStacked}>
                             <Text variant="body-sm" weight={row.isVariant ? 400 : 600}>
@@ -448,7 +458,7 @@ export function AssociatedContentSection({
                                 />
                                 <IconButton
                                     icon={<IconTrash size={16} />}
-                                    aria-label="Rimuovi prodotto"
+                                    aria-label={`Rimuovi ${product}`}
                                     variant="ghost"
                                     size="md"
                                     onClick={() => removeSelectedProduct(row.id)}
@@ -462,7 +472,7 @@ export function AssociatedContentSection({
         return [
             {
                 id: "product",
-                header: "Prodotto",
+                header: productLabel,
                 cell: (_, row) => (
                     <Text variant="body-sm" weight={row.isVariant ? 400 : 600}>
                         {row.isVariant && <span className={styles.variantArrow}>↳ </span>}
@@ -499,7 +509,7 @@ export function AssociatedContentSection({
                 cell: (_, row) => (
                     <IconButton
                         icon={<IconTrash size={16} />}
-                        aria-label="Rimuovi prodotto"
+                        aria-label={`Rimuovi ${product}`}
                         variant="ghost"
                         size="sm"
                         onClick={() => removeSelectedProduct(row.id)}
@@ -507,7 +517,7 @@ export function AssociatedContentSection({
                 )
             }
         ];
-    }, [isMobile, onFormChange, visibilityProductModes, removeSelectedProduct]);
+    }, [isMobile, onFormChange, visibilityProductModes, removeSelectedProduct, product, productLabel]);
 
     const openProductsDrawer = () => {
         setPendingSelectedIds([...selectedProductIds]);
@@ -525,7 +535,7 @@ export function AssociatedContentSection({
         () => [
             {
                 id: "product",
-                header: "Prodotto",
+                header: productLabel,
                 cell: (_, opt) => (
                     <Text
                         variant="body-sm"
@@ -538,7 +548,7 @@ export function AssociatedContentSection({
                 )
             }
         ],
-        []
+        [productLabel]
     );
 
     const confirmProductsSelection = () => {
@@ -560,16 +570,16 @@ export function AssociatedContentSection({
         return (
             <section className={styles.sectionCard}>
                 <Text as="h3" variant="title-sm">
-                    Contenuti associati
+                    {catalogLabel} e stile
                 </Text>
 
                 <div className={styles.sectionGrid}>
                     <Select
-                        label="Catalogo"
+                        label={catalogLabel}
                         value={catalogId}
                         onChange={event => onFormChange({ catalogId: event.target.value })}
                         options={[
-                            { value: "", label: "Nessun catalogo" },
+                            { value: "", label: `Nessun ${catalogLabel.toLowerCase()}` },
                             ...tenantCatalogs.map(catalog => ({
                                 value: catalog.id,
                                 label: catalog.name
@@ -596,22 +606,21 @@ export function AssociatedContentSection({
             <section className={styles.sectionCard}>
                 <div className={styles.sectionHeader}>
                     <Text as="h3" variant="title-sm">
-                        Prodotti
+                        {productLabelPlural}
                     </Text>
                     <Button variant="secondary" size="sm" onClick={openProductsDrawer}>
-                        + Aggiungi prodotti
+                        {`Aggiungi ${products}`}
                     </Button>
                 </div>
 
                 <Text variant="caption" colorVariant="muted">
-                    Ogni prodotto selezionato può avere un comportamento diverso quando la regola è
-                    attiva.
+                    {`Ogni ${product} selezionato può avere un comportamento diverso quando la regola è attiva.`}
                 </Text>
 
                 {sortedSelectedProductIds.length === 0 ? (
                     <div className={styles.hintCard}>
                         <Text variant="body-sm" colorVariant="muted">
-                            Nessun prodotto selezionato.
+                            {`Nessun ${product} ancora: aggiungine uno per dire cosa cambia.`}
                         </Text>
                     </div>
                 ) : (
@@ -638,10 +647,10 @@ export function AssociatedContentSection({
                                     variant="title-sm"
                                     id="visibility-products-drawer-title"
                                 >
-                                    Aggiungi prodotti
+                                    {`Aggiungi ${products}`}
                                 </Text>
                                 <Text variant="body-sm" colorVariant="muted">
-                                    Cerca e filtra i prodotti da associare alla regola.
+                                    {`Scegli ${withPluralArticle(products)} su cui agisce la regola.`}
                                 </Text>
                             </div>
                         }
@@ -651,7 +660,7 @@ export function AssociatedContentSection({
                                     Annulla
                                 </Button>
                                 <Button variant="primary" onClick={confirmProductsSelection}>
-                                    Conferma
+                                    Applica
                                 </Button>
                             </>
                         }
@@ -661,12 +670,12 @@ export function AssociatedContentSection({
                                 <ToolbarSearch
                                     value={searchTerm}
                                     onChange={setSearchTerm}
-                                    placeholder="Cerca prodotto…"
+                                    placeholder={`Cerca ${product}…`}
                                     className={styles.visibilityDrawerSearch}
                                 />
 
                                 <Select
-                                    label="Gruppo prodotto"
+                                    label={`Gruppo ${product}`}
                                     value={selectedGroupId}
                                     onChange={event => setSelectedGroupId(event.target.value)}
                                     options={[
@@ -688,9 +697,9 @@ export function AssociatedContentSection({
                                     onSelectedRowsChange={setPendingSelectedIds}
                                     showSelectionBar={false}
                                     emptyState={{
-                                        title: "Nessun prodotto trovato",
+                                        title: `Nessun ${product} trovato`,
                                         description:
-                                            "Nessun prodotto corrispondente ai filtri attuali."
+                                            `Nessun ${product} corrispondente ai filtri attuali.`
                                     }}
                                 />
                             </div>
@@ -704,21 +713,26 @@ export function AssociatedContentSection({
     return (
         <section className={styles.sectionCard}>
             <Text as="h3" variant="title-sm">
-                Prodotti
+                {productLabelPlural}
             </Text>
+            {pricesError && (
+                <Text id="rule-field-prices" tabIndex={-1} variant="caption" colorVariant="error">
+                    {pricesError}
+                </Text>
+            )}
 
             <div className={styles.inlineBlock}>
                 <Text variant="caption" colorVariant="muted">
-                    Seleziona prodotti
+                    {`Seleziona ${products}`}
                 </Text>
                 <TextInput
-                    placeholder="Cerca prodotto..."
+                    placeholder={`Cerca ${product}...`}
                     value={productSearch}
                     onChange={e => setProductSearch(e.target.value)}
                     className={styles.productSearch}
                 />
                 <PillGroupMultiple
-                    ariaLabel="Seleziona prodotti"
+                    ariaLabel={`Seleziona ${products}`}
                     options={filteredProductOptions.map(opt => ({
                         value: opt.id,
                         label: opt.isVariant ? `↳ ${opt.label}` : opt.label

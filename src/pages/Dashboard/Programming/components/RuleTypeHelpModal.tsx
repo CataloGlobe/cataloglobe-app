@@ -10,25 +10,22 @@ import ModalLayout, {
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
 import type { RuleType } from "@/services/supabase/layoutScheduling";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import { ruleTypeLabel } from "../ruleTypeLabel";
 
 import styles from "./RuleTypeHelpModal.module.scss";
 
 /**
  * Spiegazione on-demand del tipo di regola attivo nella pagina Programmazione.
  *
- * Un solo componente per tutte le tab: il contenuto vive in `HELP_CONTENT`,
+ * Un solo componente per tutte le tab: il contenuto vive in `helpContent`,
  * struttura dichiarativa per `HelpRuleKey` (i quattro tipi di regola più la
  * panoramica "Tutte"). Un tipo nuovo si aggiunge con una voce qui, riusando uno
  * dei blocchi visivi esistenti (o aggiungendone uno alla union `HelpVisual`),
  * senza toccare il render.
  *
  * Nessuno stato persistito: la modale si apre solo su richiesta esplicita.
- *
- * NB colori: `ModalLayout` ha superfici hardcoded chiare e nessun override
- * `[data-theme="dark"]`. Il contenuto qui sotto usa quindi solo colori stabili
- * fra i due temi (variabili SCSS statiche via il componente `Text`, token
- * `--brand-primary` / `--color-warning-*` / `--color-green-*`), mai `var(--text)`
- * che in tema scuro diventerebbe quasi bianco su fondo chiaro.
+ * I testi usano il nome del verticale (`catalogLabel`, dizionario #12).
  */
 
 /* ------------------------------------------------------------------
@@ -85,12 +82,18 @@ type HelpContent = {
 /** Chiave del contenuto: i quattro tipi di regola più la panoramica "Tutte". */
 export type HelpRuleKey = RuleType | "all";
 
-const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
+/**
+ * Il contenuto, con le parole del verticale: `Label` «Menù», `menu` «menù»,
+ * `product` / `products` «prodotto» / «prodotti».
+ */
+function helpContent(Label: string, product: string, products: string): Record<HelpRuleKey, HelpContent> {
+    const menu = Label.toLowerCase();
+    return {
     layout: {
-        title: "Come funzionano le regole di layout",
+        title: `Come funzionano le regole di ${menu} e stile`,
         intro: (
             <>
-                Una regola di layout dice <strong>quale menù</strong> e <strong>quale stile</strong>{" "}
+                Una regola di {menu} e stile dice <strong>quale {menu}</strong> e <strong>quale stile</strong>{" "}
                 mostrare, <strong>in quale sede</strong> e <strong>in quale momento</strong>. Se più
                 regole valgono nello stesso istante, vince quella più specifica.
             </>
@@ -99,7 +102,7 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
             kind: "windowRows",
             caption: "Esempio · una sede con due regole",
             rows: [
-                { window: "7:00 – 11:00", value: "Menù Colazioni", meta: "fascia oraria" },
+                { window: "7:00 – 11:00", value: `${Label} Colazioni`, meta: "fascia oraria" },
                 { window: "sempre attiva", value: "Alla carta", meta: "nessuna finestra", isBase: true }
             ]
         },
@@ -117,7 +120,7 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
             {
                 title: "Ogni regola vale per le sedi che scegli",
                 description:
-                    "Con più locali puoi dare a ciascuno menù diversi, oppure lo stesso menù a tutti."
+                    `Con più locali puoi dare a ciascuno un ${menu} diverso, oppure lo stesso ${menu} a tutti.`
             }
         ]
     },
@@ -127,7 +130,7 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
         intro: (
             <>
                 Una regola in evidenza decide <strong>quale contenuto mettere in risalto</strong> e{" "}
-                <strong>in quale periodo</strong>. Il contenuto compare sopra o sotto il menù, nella
+                <strong>in quale periodo</strong>. Il contenuto compare sopra o sotto il {menu}, nella
                 posizione che scegli.
             </>
         ),
@@ -136,16 +139,16 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
             caption: "Dove compare nella pagina pubblica",
             blocks: [
                 { label: "Intestazione del locale", role: "header" },
-                { label: "Sopra il menù", role: "slot" },
-                { label: "Il menù", role: "catalog" },
-                { label: "Sotto il menù", role: "slot" }
+                { label: `Sopra il ${menu}`, role: "slot" },
+                { label: `Il ${menu}`, role: "catalog" },
+                { label: `Sotto il ${menu}`, role: "slot" }
             ]
         },
         points: [
             {
                 title: "Due posizioni possibili",
                 description:
-                    "Sopra il menù per ciò che vuoi far notare subito — una promozione, un evento. Sotto per ciò che completa la visita."
+                    `Sopra il ${menu} per ciò che vuoi far notare subito — una promozione, un evento. Sotto per ciò che completa la visita.`
             },
             {
                 title: "Compare e sparisce da solo",
@@ -155,7 +158,7 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
             {
                 title: "Il contenuto lo crei prima",
                 description:
-                    "Promozioni, eventi e avvisi si creano in Contenuti in evidenza. Qui decidi solo quando mostrarli."
+                    "Promozioni, eventi e avvisi si creano nella pagina In evidenza. Qui decidi solo quando mostrarli."
             }
         ]
     },
@@ -164,8 +167,8 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
         title: "Come funzionano le regole di prezzo",
         intro: (
             <>
-                Una regola di prezzo <strong>sovrascrive il prezzo</strong> di uno o più prodotti,
-                solo <strong>nel periodo e nelle sedi</strong> che scegli. Il prodotto resta uno:
+                Una regola di prezzo <strong>sovrascrive il prezzo</strong> di uno o più {products},
+                solo <strong>nel periodo e nelle sedi</strong> che scegli. Il {product} resta uno:
                 cambia solo quanto costa.
             </>
         ),
@@ -187,17 +190,17 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
             {
                 title: "Il prezzo originale non si perde",
                 description:
-                    "Finita la finestra, il prodotto torna al suo prezzo da solo. Non devi rimetterlo a mano."
+                    `Finita la finestra, il ${product} torna al suo prezzo da solo. Non devi rimetterlo a mano.`
             },
             {
-                title: "Scegli tu quali prodotti",
+                title: `Scegli tu quali ${products}`,
                 description:
                     "Una regola può riguardare un solo piatto o un elenco: gli altri restano al loro prezzo."
             },
             {
                 title: "Utile anche per sedi diverse",
                 description:
-                    "Lo stesso prodotto può costare diversamente in due locali, senza doverlo duplicare."
+                    `Lo stesso ${product} può costare diversamente in due locali, senza doverlo duplicare.`
             }
         ]
     },
@@ -207,7 +210,7 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
         intro: (
             <>
                 Una regola di disponibilità decide{" "}
-                <strong>cosa fare di un prodotto</strong> quando non lo servi: puoi{" "}
+                <strong>cosa fare di un {product}</strong> quando non lo servi: puoi{" "}
                 <strong>nasconderlo del tutto</strong> oppure <strong>lasciarlo visibile</strong>,
                 segnalato come non disponibile.
             </>
@@ -221,7 +224,7 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
                     preview: "placeholder",
                     placeholderText: "Il piatto non compare",
                     caption:
-                        "Per ciò che non offri in quel periodo: un piatto fuori stagione, un menù non servito a pranzo."
+                        `Per ciò che non offri in quel periodo: un piatto fuori stagione, un ${menu} non servito a pranzo.`
                 },
                 {
                     label: "Non disponibile",
@@ -241,12 +244,12 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
                     "Un piatto può essere disponibile in un locale e non nell'altro, o solo la sera."
             },
             {
-                title: "Il prodotto non viene cancellato",
+                title: `Il ${product} non viene cancellato`,
                 description:
                     "Finita la finestra torna visibile da solo, con le sue foto, i suoi prezzi e i suoi allergeni."
             }
         ],
-        note: "Per una cosa finita adesso non serve una regola: puoi segnare il singolo prodotto come non disponibile direttamente dalla sede, e rimetterlo appena torna."
+        note: `Per una cosa finita adesso non serve una regola: puoi segnare il singolo ${product} come non disponibile direttamente dalla sede, e rimetterlo appena torna.`
     },
 
     all: {
@@ -262,7 +265,7 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
             kind: "windowRows",
             caption: "I quattro tipi di regola",
             rows: [
-                { window: "Layout", value: "quale menù e quale stile" },
+                { window: ruleTypeLabel("layout", Label), value: `quale ${menu} e quale stile` },
                 { window: "In evidenza", value: "cosa mettere in risalto" },
                 { window: "Prezzi", value: "sconti temporanei" },
                 { window: "Disponibilità", value: "cosa nascondere" }
@@ -270,14 +273,13 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
         },
         points: [
             {
-                title: "I tipi non competono fra loro",
-                description:
-                    "Una regola di prezzo non toglie il posto a una di layout: agiscono su cose diverse. La competizione avviene solo fra regole dello stesso tipo."
+                title: "I tipi si sommano, in quest'ordine.",
+                description: `Prima il ${menu} (quale mostrare), poi la disponibilità (cosa si nasconde), poi i prezzi, poi le modifiche fatte a mano nella sede, che vincono su tutto. Dentro un tipo, per ogni sede vince una regola sola: quella che si applica più da vicino (sede, poi gruppo, poi tutte), poi quella con la finestra più stretta.`
             },
             {
-                title: "Il colore del pallino dice se è attiva adesso",
+                title: "Il pallino dice cosa succede adesso",
                 description:
-                    "Verde significa che sta decidendo qualcosa in questo momento. Grigio che è programmata, sospesa o scaduta."
+                    "Verde: la regola sta decidendo adesso. Ambra: varrebbe adesso, ma una regola più specifica la sovrascrive. Grigio: adesso non decide niente (programmata, in bozza, spenta o scaduta). Il testo della riga dice lo stesso, senza bisogno del colore."
             },
             {
                 title: "Se qualcosa non torna, simula",
@@ -286,7 +288,8 @@ const HELP_CONTENT: Record<HelpRuleKey, HelpContent> = {
             }
         ]
     }
-};
+    };
+}
 
 /* ------------------------------------------------------------------
  * LINK "COME FUNZIONA"
@@ -306,6 +309,7 @@ export const HowItWorksLink = forwardRef<HTMLButtonElement, HowItWorksLinkProps>
     { ruleType, onClick },
     ref
 ) {
+    const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
     return (
         <button
             ref={ref}
@@ -313,7 +317,7 @@ export const HowItWorksLink = forwardRef<HTMLButtonElement, HowItWorksLinkProps>
             className={styles.link}
             onClick={onClick}
             aria-haspopup="dialog"
-            aria-label={HELP_CONTENT[ruleType].title}
+            aria-label={helpContent(catalogLabel, productLabel.toLowerCase(), productLabelPlural.toLowerCase())[ruleType].title}
         >
             <CircleHelp size={14} strokeWidth={2} aria-hidden="true" />
             Come funziona
@@ -439,7 +443,8 @@ export function RuleTypeHelpModal({
     triggerRef,
     returnFocusOnClose = true
 }: Props) {
-    const content = HELP_CONTENT[ruleType];
+    const { catalogLabel, productLabel, productLabelPlural } = useVerticalConfig();
+    const content = helpContent(catalogLabel, productLabel.toLowerCase(), productLabelPlural.toLowerCase())[ruleType];
 
     /* Ritorno del focus al link. `ModalLayout` prova a farlo da sé, ma rimette
        il focus mentre il suo FocusLock è ancora montato e il lock se lo

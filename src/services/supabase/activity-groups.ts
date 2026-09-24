@@ -155,3 +155,23 @@ export async function getGroupsForActivity(activityId: string, tenantId: string)
     if (error) throw error;
     return (data || []).map(m => (m as any).group).filter(Boolean);
 }
+
+/**
+ * Le sedi di ciascun gruppo, per i gruppi indicati: `{ [groupId]: activityId[] }`.
+ * Un gruppo senza sedi non compare. Letto da Programmazione per sapere quali
+ * sedi raggiunge una regola su un gruppo.
+ */
+export async function listActivityIdsByGroup(groupIds: string[]): Promise<Record<string, string[]>> {
+    if (groupIds.length === 0) return {};
+    const { data, error } = await supabase
+        .from("activity_group_members")
+        .select("group_id, activity_id")
+        .in("group_id", groupIds);
+    if (error) throw error;
+
+    const grouped: Record<string, string[]> = {};
+    for (const row of (data ?? []) as Array<{ group_id: string; activity_id: string }>) {
+        (grouped[row.group_id] ??= []).push(row.activity_id);
+    }
+    return grouped;
+}

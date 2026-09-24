@@ -169,6 +169,14 @@
   --info-200: #c7d2fe; // indigo-200: bordo di StatusStrip info
   --info-800: #3730a3;
 
+  // --- Tipi di regola (Programmazione, Settimana e segni di tipo) ---
+  // Quattro colori di categoria, uno per tipo. Tre sono alias di token che
+  // esistono; In evidenza ha il suo violetto (lotto ds-5-programmazione, P5).
+  --rule-layout: var(--brand-primary);
+  --rule-featured: #8b5cf6; // violet-500
+  --rule-price: var(--success-500);
+  --rule-visibility: var(--warning-500);
+
   // --- Tipografia ---
   --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Helvetica, Arial, sans-serif;
 
@@ -225,6 +233,9 @@
 }
 
 [data-theme="dark"] {
+  // In scuro il violetto sale di un gradino, come l'accento (#818cf8).
+  --rule-featured: #a78bfa; // violet-400
+
   --bg: #0f172a;
   --text: #f9fafb;
   --card-bg: #1e293b;
