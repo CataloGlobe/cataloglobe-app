@@ -4,9 +4,11 @@
 // del tenant (Impostazioni + ripresa wizard).
 //
 // 1. RPC `update_tenant_billing_details` col JWT dell'utente: permesso
-//    (tenant.manage) e gate P.IVA restano nel DB. Errori: insufficient_permission
-//    e invalid_vat_number con message e code della RPC (403, 400); ogni altro
-//    errore di classe 22 o 23 → 400 invalid_billing_details, senza testo Postgres.
+//    (tenant.manage), gate P.IVA e gate recapito e-fattura restano nel DB.
+//    Errori: insufficient_permission, invalid_vat_number e
+//    missing_einvoice_recipient con message e code della RPC (403, 400, 400);
+//    ogni altro errore di classe 22 o 23 → 400 invalid_billing_details, senza
+//    testo Postgres.
 // 2. Se il tenant ha gia' un customer Stripe, riallinea name, address,
 //    description, locale, metadata fiscali e tax id (service_role). Senza, il
 //    prossimo checkout fa il pre-fill. Mai email ne' metadata.user_id: seguono
@@ -66,7 +68,11 @@ const BILLING_FIELDS = [
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // Message sollevati dalla RPC (RAISE EXCEPTION), gli unici restituiti al client.
-const EXPOSED_RPC_MESSAGES = new Set(["insufficient_permission", "invalid_vat_number"]);
+const EXPOSED_RPC_MESSAGES = new Set([
+    "insufficient_permission",
+    "invalid_vat_number",
+    "missing_einvoice_recipient"
+]);
 
 /** 42501 → 403; data exception / integrity violation → 400; resto → 500. */
 function statusForRpcError(code: string | undefined): number {

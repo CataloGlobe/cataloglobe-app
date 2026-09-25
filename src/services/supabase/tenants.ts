@@ -349,7 +349,8 @@ export async function getTenantBillingInterval(tenantId: string): Promise<Billin
  *
  * Throws an Error whose `name` and `message` are the edge error:
  * `insufficient_permission` (code `42501`), `invalid_vat_number` (code
- * `22023`), `invalid_billing_details` for any other rejected value (code
+ * `22023`), `missing_einvoice_recipient` (code `22023`: VAT number set but
+ * neither SDI code nor PEC), `invalid_billing_details` for any other rejected value (code
  * `invalid_billing_details`, no Postgres text), `unauthorized`, or
  * `billing_update_failed` when the body is unreadable.
  */
