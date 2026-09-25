@@ -400,3 +400,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/sunmi-device-callback/index.ts"
+
+[functions.submit-lead]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/submit-lead/index.ts"

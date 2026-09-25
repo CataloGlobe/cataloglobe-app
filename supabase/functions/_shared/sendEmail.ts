@@ -20,7 +20,8 @@ export async function sendEmail(opts: {
         return;
     }
     try {
-        await new Resend(key).emails.send({
+        // Resend v4 non lancia sugli errori API: li restituisce in `error`.
+        const { error } = await new Resend(key).emails.send({
             from: COMPANY.email.sender,
             reply_to: COMPANY.contact.support,
             to: opts.to,
@@ -28,6 +29,7 @@ export async function sendEmail(opts: {
             html: opts.html,
             text: opts.text
         });
+        if (error) console.error("[sendEmail] Resend error:", error);
     } catch (err) {
         console.error("[sendEmail] Resend error:", err); // best-effort, NON rilancia
     }
