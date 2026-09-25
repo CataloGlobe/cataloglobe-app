@@ -168,7 +168,9 @@ serve(async (req: Request) => {
 
         return json(req, { success: true }, 200);
     } catch (err) {
-        console.error("[submit-lead] error:", err);
+        // Solo codice e messaggio: l'oggetto d'errore del DB può contenere la riga (dati personali).
+        const e = err as { code?: unknown; message?: unknown };
+        console.error("[submit-lead] error:", e?.code ?? "", e?.message ?? String(err));
         return json(req, { error_code: "SERVER_ERROR" }, 500);
     }
 });
