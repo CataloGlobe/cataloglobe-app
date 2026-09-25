@@ -599,17 +599,16 @@ VariantAssignment {
 
 ```
 1. Products.tsx carica lista → listBaseProductsWithVariants(tenantId)
-2. Utente clicca "Crea" → ProductCreateEditDrawer (mode: "create")
-3. ProductForm raccoglie: name, description, product_type, variant_strategy, base_price, image
-4. Submit → createProduct(tenantId, data) → onSuccess → ricarica lista + toast
-5. Click su prodotto → /products/:productId → ProductPage
+2. Utente clicca "Crea prodotto" → ProductCreateEditDrawer (mode: "create_base")
+3. ProductForm raccoglie: nome, descrizione, immagine, prezzo (unico o formati), allergeni e ingredienti (se il verticale li ha)
+4. Submit → createProduct(tenantId, data) → naviga alla pagina del prodotto
+5. Click su prodotto (o «Apri» nel kebab) → /products/:productId → ProductPage
 6. ProductPage tabs:
-   - Generale: nome, descrizione, immagine
-   - Prezzi: base_price + PRIMARY_PRICE option groups
-   - Varianti: lista varianti figli (solo per parent) + MatrixConfigDrawer
-   - Configurazioni: ADDON option groups
-   - Attributi: valori attributi per questo prodotto
-   - Utilizzo: in quali cataloghi appare
+   - Scheda: informazioni, immagine, allergeni, ingredienti, caratteristiche, note, abbinamenti (bozza di pagina)
+   - Prezzi & Opzioni: base_price o formati PRIMARY_PRICE, gruppi ADDON, varianti (salvataggio immediato)
+   - Attributi (negozio): valori degli attributi (bozza di pagina)
+   - Traduzioni: descrizione e note (solo prodotto base)
+   - Utilizzo: menù e categorie, regole, sedi, gruppi
 ```
 
 ### 6.4 CatalogEngine (Costruzione Catalogo)
@@ -790,45 +789,45 @@ Sistema
 
 ### 8.1 Products (`src/pages/Dashboard/Products/`)
 
-**Products.tsx** — Lista prodotti
-- Carica `listBaseProductsWithVariants(tenantId)` con metadata (formatsCount, configurationsCount, catalogsCount, fromPrice)
-- Tabs: prodotti | gruppi | attributi
-- DataTable con righe espandibili per mostrare varianti
-- Azioni: crea, modifica, elimina, duplica
-- Density: compact / extended
-- Search + filtri
+Ricomposto nel lotto M17 «Prodotti» (§50.9 delle decisioni, registro #395–#444).
 
-**ProductPage.tsx** — Dettaglio prodotto
-- Tabs:
-  - **Generale** (GeneralTab): nome, descrizione, immagine (upload + compress)
-  - **Prezzi** (PricingTab): `base_price` + gruppi opzione `PRIMARY_PRICE`
-  - **Varianti** (VariantsTab): lista varianti figli, crea variante, MatrixConfigDrawer (solo per parent)
-  - **Configurazioni** (ConfigTab): gruppi opzione `ADDON` (obbligatorietà, max selezioni, valori con prezzi delta)
-  - **Attributi** (AttributesTab): assegnazione valori attributi (piattaforma + tenant)
-  - **Utilizzo**: in quali cataloghi il prodotto è presente
+**Products.tsx** — Collezioni del magazzino, come `Tabs` in testata (come Sedi): Prodotti · Gruppi · Attributi (solo negozio) · Ingredienti (solo F&B), gated dal verticale. Una `ToolbarSearch` per collezione, CTA `Button` primary.
+- Prodotti: chip di qualità sopra l'elenco (`ChipGroupSingle`: Tutti · Senza prezzo · Fuori {menù}, conteggi a vista, a zero spenti, ambra sui difetti).
+- Lista (default) su `DataTable`: una colonna a due righe — nome + badge «Variante»/«N formati», riga muta «€ 4,50 · in 2 menù» (`productRowSummary.ts`, puro); varianti espandibili (`aria-expanded`), righe spente. Griglia su `CardGrid`/`CardGridItem` con `FramedMedia`.
+- Kebab: Apri · Aggiungi variante · Duplica · Elimina. «Apri» porta alla pagina: il prodotto si modifica solo lì. Il drawer (`ProductCreateEditDrawer`, md) crea un prodotto o una variante.
+- Eliminare: `ProductDeleteDialog` (`ConfirmDialog` con l'impatto). Eliminazione multipla (prodotti, gruppi, ingredienti, attributi) via `useBulkDelete` con conferma.
+- Gate: `products.write` / `attributes.write` nascondono crea, selezione e «⋯»; `useEnsureActive` è il solo guard dell'abbonamento.
 
-**MatrixConfigDrawer.tsx** — Configurazione matrice varianti
-- Gestisce `product_variant_dimensions` e `product_variant_dimension_values`
-- Preview delle combinazioni generate
-- Funzione `generateMissingVariants()` crea prodotti figli mancanti
+**ProductPage.tsx** — Dettaglio. `PageGate products.read` prima della fetch; senza `products.write` le tab stanno in un `fieldset` spento con banner «Sola lettura». Tab in testata: Scheda · Prezzi & Opzioni · (Attributi) · Traduzioni (non sulle varianti) · Utilizzo; redirect legacy `?tab=`.
+- **Bozza di pagina**: `useSchedaDraft` (Scheda) + `useAttributeValuesDraft` (valori degli attributi, §27), un solo `HeaderSaveAction`, guardia all'uscita `useUnsavedChangesGuard`.
+- **Scheda** (`SchedaTab`): una colonna di `Card` — Informazioni (nome, descrizione con AI, immagine) · Allergeni · Ingredienti · Caratteristiche · Note · Abbinamenti; conteggi nel badge, «Modifica» apre un drawer che applica alla bozza (`ProductAllergensDrawer`, `ProductIngredientsDrawer`, `ProductCharacteristicsDrawer`). Verticale senza allergeni/ingredienti: lo dice un `EmptyState`.
+- **Prezzi & Opzioni** (`PrezziOpzioniTab`): salva subito (lo dice in testa). Prezzo unico ⇄ per formato su `SegmentedControl`; formati e scelte in `OptionValueList` (eliminare chiede conferma); Configurazioni (gruppi ADDON, `ChoiceRulesEditor`); Varianti.
+- **Attributi** (`AttributesTab`, negozio): valori in bozza con pallino ambra; «Assegna» e «Rimuovi» immediati.
+- **Utilizzo** (`UsageTab`): {Menù} (menù › categoria, «Apri il menù») · Regole · Sedi · Gruppi (salvataggio immediato, `ProductGroupsEditDrawer`).
 
 **Struttura file:**
 ```
 Products/
-├── Products.tsx                 # Lista + tabs (prodotti|gruppi|attributi)
-├── ProductPage.tsx              # Dettaglio con tabs
-├── ProductCreateEditDrawer.tsx  # Drawer crea/modifica
-├── ProductDeleteDrawer.tsx      # Drawer conferma eliminazione
-├── ProductAttributesDrawer.tsx  # Drawer assegnazione attributi
-├── ProductsAttributesTab.tsx    # Tab attributi nella lista
-├── ConfigTab.tsx                # Tab configurazioni (ADDON)
-├── PricingTab.tsx               # Tab prezzi (PRIMARY_PRICE)
-├── VariantsTab.tsx              # Tab varianti
-├── AttributesTab.tsx            # Tab attributi in dettaglio
-├── MatrixConfigDrawer.tsx       # Drawer matrice varianti
+├── Products.tsx                  # Collezioni in testata, elenco prodotti
+├── productRowSummary.ts          # Riga muta: prezzo · menù · formati (puro)
+├── ProductPage.tsx               # Dettaglio, bozza di pagina, gate
+├── ProductCreateEditDrawer.tsx   # Crea prodotto / variante (ProductForm)
+├── ProductDeleteDialog.tsx       # ConfirmDialog con l'impatto
+├── SchedaTab.tsx · PrezziOpzioniTab.tsx · AttributesTab.tsx · UsageTab.tsx
+├── ProductAllergensDrawer.tsx · ProductIngredientsDrawer.tsx · ProductCharacteristicsDrawer.tsx
+├── ProductAttributesDrawer.tsx   # Assegna attributi al prodotto
+├── ProductGroupsEditDrawer.tsx   # Gruppi del prodotto (da Utilizzo)
+├── ProductsAttributesTab.tsx     # Collezione Attributi (negozio)
+├── attributeDraft.ts             # Bozza ⇄ valore tipato degli attributi (puro)
+├── Attributes/                   # Drawer e dialog delle definizioni di attributo
+├── Ingredients/                  # Collezione Ingredienti («Usato in»)
+├── hooks/                        # useSchedaDraft, useAttributeValuesDraft, useBulkDelete, useEnsureActive, useAiDescription
 └── components/
-    └── ProductForm.tsx          # Form riutilizzabile
+    ├── ProductForm.tsx           # Form condiviso (Prodotti, Menù, In evidenza)
+    ├── ProductRowMeta.tsx · ChoiceRulesEditor.tsx · OptionValueList/ · IngredientCombobox.tsx
+    └── PairingsSection/ · ProductNotesSection/ · CharacteristicsSection/
 ```
+I gruppi di prodotti (collezione) stanno in `src/components/Products/ProductGroupsTab/`.
 
 ### 8.2 CatalogEngine (`src/pages/Dashboard/Catalogs/`)
 
@@ -872,11 +871,12 @@ Products/
 - Rendering preview del catalogo con token stile applicati
 - Token mappati a CSS custom properties
 
-### 8.6 Attributes (`src/pages/Dashboard/Attributes/`)
+### 8.6 Attributes (`src/pages/Dashboard/Products/Attributes/`)
 
-- **AttributeCreateEditDrawer**: CRUD definizioni attributo
-- **AttributeDeleteDrawer**: conferma eliminazione
-- Supporto attributi piattaforma (tenant_id = NULL) vs tenant-specific
+La rotta `/attributes` è un redirect a `/products?tab=attributes`; i file vivono sotto Products (lotto M17 Prodotti).
+- **AttributeCreateEditDrawer** (md): CRUD definizioni attributo
+- **AttributeDeleteDialog**: `ConfirmDialog` (i valori sui prodotti se ne vanno insieme)
+- Supporto attributi piattaforma (tenant_id = NULL, sola lettura) vs tenant-specific
 
 ### 8.7 Public Collection (`src/pages/PublicCollectionPage/`)
 

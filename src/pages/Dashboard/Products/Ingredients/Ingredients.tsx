@@ -6,28 +6,39 @@ import { Button } from "@/components/ui/Button/Button";
 import { IconLeaf } from "@tabler/icons-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
-import { listIngredients, deleteIngredient, V2Ingredient } from "@/services/supabase/ingredients";
+import { useEnsureActive } from "../hooks/useEnsureActive";
+import {
+    listIngredients,
+    listProductIngredientPairs,
+    deleteIngredient,
+    V2Ingredient
+} from "@/services/supabase/ingredients";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { IngredientsCreateEditDrawer } from "./IngredientsCreateEditDrawer";
-import { IngredientsDeleteDrawer } from "./IngredientsDeleteDrawer";
+import { IngredientDeleteDialog } from "./IngredientDeleteDialog";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { useBulkDelete } from "../hooks/useBulkDelete";
 import styles from "./Ingredients.module.scss";
 
 type IngredientsProps = {
     createTrigger?: number;
     searchQuery: string;
     onSearchQueryChange: (value: string) => void;
+    /** `products.write`: senza, niente selezione, «⋯» né CTA. */
+    canWrite: boolean;
 };
 
-const formatDate = (iso: string): string =>
-    new Intl.DateTimeFormat("it-IT", { dateStyle: "medium" }).format(new Date(iso));
-
-export function Ingredients({ createTrigger, searchQuery }: IngredientsProps) {
+export function Ingredients({ createTrigger, searchQuery, canWrite }: IngredientsProps) {
     const tenantId = useTenantId();
     const { showToast } = useToast();
-    const { canEdit } = useSubscriptionGuard();
+    const { canEdit, ensureActive } = useEnsureActive();
 
     const [isLoading, setIsLoading] = useState(true);
     const [ingredients, setIngredients] = useState<V2Ingredient[]>([]);
+    // Quanti prodotti usano ogni ingrediente (§26.2: «quanto è usato» batte
+    // «quando è nato»). Una query sola, già nel service.
+    const [usage, setUsage] = useState<Map<string, number>>(new Map());
+    const { productLabel, productLabelPlural } = useVerticalConfig();
 
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
     const [editMode, setEditMode] = useState<"create" | "edit">("create");
@@ -35,14 +46,19 @@ export function Ingredients({ createTrigger, searchQuery }: IngredientsProps) {
 
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
     const [ingredientToDelete, setIngredientToDelete] = useState<V2Ingredient | null>(null);
-    const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     const loadData = useCallback(async () => {
         if (!tenantId) return;
         try {
             setIsLoading(true);
-            const data = await listIngredients(tenantId);
+            const [data, pairs] = await Promise.all([
+                listIngredients(tenantId),
+                listProductIngredientPairs(tenantId)
+            ]);
             setIngredients(data);
+            const counts = new Map<string, number>();
+            for (const pair of pairs) counts.set(pair.ingredient_id, (counts.get(pair.ingredient_id) ?? 0) + 1);
+            setUsage(counts);
         } catch (error) {
             console.error("Errore nel caricamento degli ingredienti:", error);
             showToast({ message: "Non è stato possibile caricare gli ingredienti.", type: "error" });
@@ -75,14 +91,14 @@ export function Ingredients({ createTrigger, searchQuery }: IngredientsProps) {
     const allIngredientIds = useMemo(() => ingredients.map(i => i.id), [ingredients]);
 
     const handleCreate = () => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setIngredientToEdit(null);
         setEditMode("create");
         setIsCreateEditOpen(true);
     };
 
     const handleEdit = (ingredient: V2Ingredient) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setIngredientToEdit(ingredient);
         setEditMode("edit");
         setIsCreateEditOpen(true);
@@ -93,30 +109,12 @@ export function Ingredients({ createTrigger, searchQuery }: IngredientsProps) {
         setIsDeleteOpen(true);
     };
 
-    const handleBulkDelete = useCallback(async (ids: string[]) => {
-        if (!tenantId || ids.length === 0) return;
-        try {
-            await Promise.all(ids.map(id => deleteIngredient(id, tenantId)));
-            showToast({
-                message: `${ids.length} ${ids.length === 1 ? "ingrediente eliminato" : "ingredienti eliminati"}`,
-                type: "success"
-            });
-            setSelectedIds([]);
-            await loadData();
-        } catch (error: unknown) {
-            const code = error && typeof error === "object" && "code" in error
-                ? (error as { code: string }).code
-                : null;
-            if (code === "23503") {
-                showToast({
-                    message: "Alcuni ingredienti sono utilizzati da prodotti e non possono essere eliminati.",
-                    type: "error"
-                });
-            } else {
-                showToast({ message: "Errore nell'eliminazione degli ingredienti.", type: "error" });
-            }
-        }
-    }, [tenantId, showToast, loadData]);
+    const bulk = useBulkDelete({
+        deleteOne: id => deleteIngredient(id, tenantId!),
+        onDone: loadData,
+        nouns: { one: "ingrediente", many: "ingredienti", deletedOne: "eliminato", deletedMany: "eliminati" },
+        blockedReason: "usato da uno o più prodotti"
+    });
 
     const columns: ColumnDefinition<V2Ingredient>[] = [
         {
@@ -131,35 +129,42 @@ export function Ingredients({ createTrigger, searchQuery }: IngredientsProps) {
             )
         },
         {
-            id: "created_at",
-            header: "Data creazione",
+            id: "usage",
+            header: "Usato in",
             width: "160px",
-            accessor: row => row.created_at,
-            cell: value => (
-                <Text variant="body-sm" colorVariant="muted">
-                    {formatDate(value)}
-                </Text>
-            )
+            accessor: row => usage.get(row.id) ?? 0,
+            cell: (_value, row) => {
+                const n = usage.get(row.id) ?? 0;
+                return n > 0 ? (
+                    <Text variant="body-sm">
+                        {n} {n === 1 ? productLabel.toLowerCase() : productLabelPlural.toLowerCase()}
+                    </Text>
+                ) : (
+                    <Text variant="body-sm" colorVariant="muted">
+                        nessuno
+                    </Text>
+                );
+            }
         },
-        {
+        ...(canWrite ? [{
             id: "actions",
             header: "",
             width: "56px",
-            align: "right",
-            cell: (_value, row) => (
+            align: "right" as const,
+            cell: (_value: unknown, row: V2Ingredient) => (
                 <TableRowActions
                     actions={[
                         { label: "Modifica", onClick: () => handleEdit(row) },
                         {
                             label: "Elimina",
                             onClick: () => handleDelete(row),
-                            variant: "destructive",
+                            variant: "destructive" as const,
                             separator: true
                         }
                     ]}
                 />
             )
-        }
+        }] : [])
     ];
 
     return (
@@ -169,20 +174,21 @@ export function Ingredients({ createTrigger, searchQuery }: IngredientsProps) {
                 allRowIds={allIngredientIds}
                 columns={columns}
                 isLoading={isLoading}
-                selectable
-                selectedRowIds={selectedIds}
-                onSelectedRowsChange={setSelectedIds}
-                onBulkDelete={handleBulkDelete}
+                ariaLabel="Ingredienti"
+                selectable={canWrite}
+                selectedRowIds={bulk.selectedIds}
+                onSelectedRowsChange={bulk.setSelectedIds}
+                onBulkDelete={canWrite ? bulk.request : undefined}
                 loadingState={{
                     message: "Caricamento ingredienti in corso..."
                 }}
                 emptyState={{
-                    icon: <IconLeaf size={40} stroke={1} style={{ color: "var(--color-gray-400)" }} />,
+                    icon: <IconLeaf size={40} stroke={1} />,
                     title: searchQuery ? "Nessun ingrediente trovato" : "Nessun ingrediente creato",
                     description: searchQuery
                         ? "Nessun ingrediente corrisponde alla tua ricerca."
                         : "Aggiungi ingredienti per associarli ai tuoi prodotti.",
-                    action: !searchQuery ? (
+                    action: !searchQuery && canWrite ? (
                         <Button
                             variant="primary"
                             size="sm"
@@ -206,10 +212,16 @@ export function Ingredients({ createTrigger, searchQuery }: IngredientsProps) {
                         onSuccess={loadData}
                     />
 
-                    <IngredientsDeleteDrawer
+                    <ConfirmDialog
+                        {...bulk.dialog}
+                        message="Un ingrediente usato da un prodotto non si elimina: resta, e lo dice. Non si torna indietro."
+                    />
+
+                    <IngredientDeleteDialog
                         open={isDeleteOpen}
                         onClose={() => setIsDeleteOpen(false)}
-                        ingredientData={ingredientToDelete}
+                        ingredient={ingredientToDelete}
+                        usedBy={ingredientToDelete ? (usage.get(ingredientToDelete.id) ?? 0) : 0}
                         tenantId={tenantId}
                         onSuccess={loadData}
                     />

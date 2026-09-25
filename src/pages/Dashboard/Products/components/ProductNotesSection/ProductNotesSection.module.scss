@@ -53,7 +53,10 @@
     border-radius: var(--radius-sm);
     color: var(--color-gray-500);
     cursor: pointer;
-    transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+    transition:
+      background-color var(--timing-motion-fast) var(--easing-state),
+      color var(--timing-motion-fast) var(--easing-state),
+      border-color var(--timing-motion-fast) var(--easing-state);
 
     &:hover:not(:disabled) {
         background-color: var(--color-error-50, var(--color-gray-100));

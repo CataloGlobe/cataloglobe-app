@@ -141,6 +141,19 @@
   justify-content: center;
 }
 
+/* ===== Tono warning: il chip nomina un difetto (filtri di qualità) ===== */
+
+.warning {
+  border-color: transparent;
+  background: var(--warning-100);
+  color: var(--warning-800);
+
+  &:hover {
+    background: var(--warning-100);
+    border-color: var(--warning-800);
+  }
+}
+
 /* ===== Disabled ===== */
 
 .disabled {

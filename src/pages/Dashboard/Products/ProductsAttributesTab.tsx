@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState, useMemo } from "react";
 import { Badge } from "@/components/ui/Badge/Badge";
 import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import FilterBar from "@/components/ui/FilterBar/FilterBar";
 import { IconTags } from "@tabler/icons-react";
 import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
@@ -11,17 +10,23 @@ import {
     deleteAttributeDefinition,
     V2ProductAttributeDefinition
 } from "@/services/supabase/attributes";
-import { AttributeCreateEditDrawer } from "@/pages/Dashboard/Attributes/AttributeCreateEditDrawer";
-import { AttributeDeleteDrawer } from "@/pages/Dashboard/Attributes/AttributeDeleteDrawer";
+import { AttributeCreateEditDrawer } from "./Attributes/AttributeCreateEditDrawer";
+import { AttributeDeleteDialog } from "./Attributes/AttributeDeleteDialog";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useEnsureActive } from "./hooks/useEnsureActive";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { useBulkDelete } from "./hooks/useBulkDelete";
 import styles from "./ProductsAttributesTab.module.scss";
 
 interface ProductsAttributesTabProps {
     tenantId: string | undefined;
     vertical?: string;
     createTrigger?: number;
+    /** Ricerca in testata (Products), per nome o codice. */
+    searchQuery: string;
+    /** `attributes.write`: senza, niente selezione, «⋯» né CTA. */
+    canWrite: boolean;
 }
 
 function getTypeLabel(type: string): string {
@@ -35,14 +40,13 @@ function getTypeLabel(type: string): string {
     }
 }
 
-export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: ProductsAttributesTabProps) {
+export function ProductsAttributesTab({ tenantId, vertical, createTrigger, searchQuery, canWrite }: ProductsAttributesTabProps) {
     const { showToast } = useToast();
     const verticalConfig = useVerticalConfig();
-    const { canEdit } = useSubscriptionGuard();
+    const { canEdit, ensureActive } = useEnsureActive();
 
     const [isLoading, setIsLoading] = useState(true);
     const [allAttributes, setAllAttributes] = useState<V2ProductAttributeDefinition[]>([]);
-    const [searchQuery, setSearchQuery] = useState("");
 
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
     const [attributeToEdit, setAttributeToEdit] = useState<V2ProductAttributeDefinition | null>(null);
@@ -100,32 +104,21 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
     );
 
     const handleCreate = () => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setAttributeToEdit(null); setIsCreateEditOpen(true);
     };
     const handleEdit = (attr: V2ProductAttributeDefinition) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setAttributeToEdit(attr); setIsCreateEditOpen(true);
     };
     const handleDelete = (attr: V2ProductAttributeDefinition) => { setAttributeToDelete(attr); setIsDeleteOpen(true); };
 
-    const handleBulkDelete = useCallback(async (selectedIds: string[]) => {
-        if (!tenantId || selectedIds.length === 0) return;
-        const deletableIds = selectedIds.filter(id =>
-            allAttributes.find(a => a.id === id)?.tenant_id !== null
-        );
-        if (deletableIds.length === 0) return;
-        try {
-            await Promise.all(deletableIds.map(id => deleteAttributeDefinition(id, tenantId)));
-            showToast({
-                message: `${deletableIds.length} attribut${deletableIds.length === 1 ? "o eliminato" : "i eliminati"}.`,
-                type: "success"
-            });
-            await loadData();
-        } catch {
-            showToast({ message: "Errore durante l'eliminazione degli attributi.", type: "error" });
-        }
-    }, [tenantId, allAttributes, showToast, loadData]);
+    // Solo i personalizzati sono selezionabili: la piattaforma è in sola lettura.
+    const bulk = useBulkDelete({
+        deleteOne: id => deleteAttributeDefinition(id, tenantId!),
+        onDone: loadData,
+        nouns: { one: "attributo", many: "attributi", deletedOne: "eliminato", deletedMany: "eliminati" }
+    });
 
     const tenantColumns: ColumnDefinition<V2ProductAttributeDefinition>[] = [
         {
@@ -170,20 +163,20 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                     <Text variant="body-sm" colorVariant="muted">—</Text>
                 )
         },
-        {
+        ...(canWrite ? [{
             id: "actions",
             header: "",
             width: "56px",
-            align: "right",
-            cell: (_value, row) => (
+            align: "right" as const,
+            cell: (_value: unknown, row: V2ProductAttributeDefinition) => (
                 <TableRowActions
                     actions={[
                         { label: "Modifica", onClick: () => handleEdit(row) },
-                        { label: "Elimina", onClick: () => handleDelete(row), variant: "destructive", separator: true }
+                        { label: "Elimina", onClick: () => handleDelete(row), variant: "destructive" as const, separator: true }
                     ]}
                 />
             )
-        }
+        }] : [])
     ];
 
     const platformColumns: ColumnDefinition<V2ProductAttributeDefinition>[] = [
@@ -225,16 +218,6 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                 {verticalConfig.copy.productAttributes.introDescription}
             </Text>
 
-            <div className={styles.filterBar}>
-                <FilterBar
-                    search={{
-                        value: searchQuery,
-                        onChange: setSearchQuery,
-                        placeholder: "Cerca per nome o codice..."
-                    }}
-                />
-            </div>
-
             {platformAttrs.length > 0 && (
                 <div className={styles.platformSection}>
                     <Text variant="body-sm" weight={600} className={styles.sectionTitle}>
@@ -244,6 +227,7 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                         data={platformAttrs}
                         columns={platformColumns}
                         isLoading={isLoading}
+                        ariaLabel="Attributi suggeriti dalla piattaforma"
                         loadingState={{ message: "Caricamento attributi in corso..." }}
                         emptyState={{ title: "Nessun attributo suggerito" }}
                     />
@@ -261,16 +245,19 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                     allRowIds={allTenantAttrIds}
                     columns={tenantColumns}
                     isLoading={isLoading}
-                    selectable
-                    onBulkDelete={handleBulkDelete}
+                    ariaLabel="Attributi personalizzati"
+                    selectable={canWrite}
+                    selectedRowIds={bulk.selectedIds}
+                    onSelectedRowsChange={bulk.setSelectedIds}
+                    onBulkDelete={canWrite ? bulk.request : undefined}
                     loadingState={{ message: "Caricamento attributi in corso..." }}
                     emptyState={{
-                        icon: <IconTags size={40} stroke={1} style={{ color: "var(--color-gray-400)" }} />,
+                        icon: <IconTags size={40} stroke={1} />,
                         title: searchQuery ? "Nessun attributo trovato" : "Nessun attributo personalizzato",
                         description: searchQuery
                             ? "Nessun attributo corrisponde alla tua ricerca."
                             : verticalConfig.copy.productAttributes.emptyDescription,
-                        action: !searchQuery ? (
+                        action: !searchQuery && canWrite ? (
                             <Button variant="primary" size="sm" onClick={handleCreate} disabled={!canEdit}>
                                 Crea attributo
                             </Button>
@@ -286,7 +273,11 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger }: Pro
                 onSuccess={loadData}
                 tenantId={tenantId}
             />
-            <AttributeDeleteDrawer
+            <ConfirmDialog
+                {...bulk.dialog}
+                message="Si tolgono anche i valori che questi attributi hanno sui prodotti, e non si torna indietro."
+            />
+            <AttributeDeleteDialog
                 open={isDeleteOpen}
                 onClose={() => setIsDeleteOpen(false)}
                 attributeData={attributeToDelete}

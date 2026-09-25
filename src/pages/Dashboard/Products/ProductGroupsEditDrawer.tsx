@@ -140,7 +140,6 @@ export function ProductGroupsEditDrawer({
                         variant="body-sm"
                         weight={depth === 0 ? 600 : 400}
                         className={depth > 0 ? styles.indented : undefined}
-                        style={depth > 0 ? { paddingLeft: depth * 20 } : undefined}
                     >
                         {value}
                     </Text>
@@ -150,13 +149,9 @@ export function ProductGroupsEditDrawer({
     ], [depthMap]);
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={480}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
             <DrawerLayout
-                header={
-                    <Text variant="title-sm" weight={600}>
-                        Modifica gruppi prodotto
-                    </Text>
-                }
+                title="Gruppi"
                 footer={
                     <>
                         <Button variant="secondary" onClick={onClose} disabled={isSaving}>
@@ -182,15 +177,16 @@ export function ProductGroupsEditDrawer({
                         <Text variant="body-sm" colorVariant="muted">
                             Nessun gruppo disponibile.
                         </Text>
-                        <button
-                            className={styles.emptyLink}
+                        <Button
+                            variant="ghost"
+                            size="sm"
                             onClick={() => {
                                 onClose();
                                 navigate(`/business/${businessId}/products?tab=groups`);
                             }}
                         >
-                            Crea un gruppo →
-                        </button>
+                            Crea un gruppo
+                        </Button>
                     </div>
                 ) : (
                     <div className={styles.content}>

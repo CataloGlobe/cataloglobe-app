@@ -96,6 +96,14 @@
 // collassabili con hover e divisori a tutta larghezza. Header invariato.
 .flush {
   padding: var(--space-8) 0;
+
+  // Una ListRow ha 16 di padding (scheda ListRow), il titolo della Card 24:
+  // dentro una Card flush le righe partivano 8 px a sinistra del titolo
+  // (Utilizzo del prodotto, Panoramica, Team). Il rientro della riga segue
+  // quello della testata; nuda in un drawer la riga resta a 16.
+  [data-list-row] {
+    padding-inline: var(--space-24);
+  }
 }
 
 // Un body che contiene ListRow è una lista: le righe si toccano e a separarle

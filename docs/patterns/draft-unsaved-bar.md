@@ -10,6 +10,13 @@ Pattern per editing rapido senza salvataggio per cambio (sostituisce debounce ma
 - `<UnsavedChangesBar isSaving onCancel onSave>` appare in fondo SOLO quando `isDirty === true`. Annulla = `setDraft(saved)`. Salva = service call → `onReload()` (`saved` allinea via prop refresh).
 - Toggle binari (`*_public`) restano save-immediato (non draft): una decisione binaria sola non beneficia di "raccolta modifiche". Solo le selezioni multi-pill / multi-field usano draft.
 
+## Variante page-level: pagina prodotto (lotto M17 Prodotti)
+
+- Due draft sollevati in `ProductPage`: `useSchedaDraft` (Scheda) e `useAttributeValuesDraft` (valori degli attributi, §27 — prima `onBlur` campo per campo). Un solo `HeaderSaveAction`: `isDirty = scheda || attributi`, «Salva» chiama i due save, «Annulla» i due discard; guardia all'uscita con `useUnsavedChangesGuard(isDirty)`.
+- I drawer della Scheda (allergeni, ingredienti, caratteristiche) lavorano su una copia locale e dicono «Applica»: portano nella bozza, non sul DB.
+- Restano immediate le azioni strutturali: assegnare/togliere un attributo, i gruppi del prodotto (in Utilizzo), tutta la tab Prezzi & Opzioni (che lo dice in testa). Dopo un'azione strutturale la bozza attributi ricarica e tiene i valori già toccati (confronto con l'ultimo salvato in un ref).
+- Campo toccato: pallino ambra accanto al valore (`--text-warning`), spazio riservato anche a riposo.
+
 ## Accordion single-open
 
 Pattern in `ConfigAccordionSection` (`src/pages/Operativita/Attivita/tabs/components/`). Riusabile altrove se serve list di sezioni dirty-tracked.

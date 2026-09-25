@@ -5,7 +5,6 @@ import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Button } from "@/components/ui/Button/Button";
 import { Tabs } from "@/components/ui/Tabs/Tabs";
-import Text from "@/components/ui/Text/Text";
 import { useTenantId } from "@/context/useTenantId";
 import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
@@ -18,18 +17,26 @@ import { getProduct, V2Product } from "@/services/supabase/products";
 import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
 import { getProductUsage, ProductUsageData } from "@/services/supabase/productUsage";
 import { useSchedaDraft } from "./hooks/useSchedaDraft";
+import { useAttributeValuesDraft } from "./hooks/useAttributeValuesDraft";
 import {
     HeaderSaveAction,
     DiscardChangesConfirmDialog
 } from "@/pages/Dashboard/Stories/components/HeaderSaveAction";
 import { buildSaveActionCompactConfig } from "@/pages/Dashboard/Stories/components/headerSaveActionCompact";
-import { useBeforeUnloadWarning } from "@/pages/Dashboard/Stories/hooks/useBeforeUnloadWarning";
+import { useUnsavedChangesGuard } from "@/components/ui/UnsavedChangesBar/useUnsavedChangesGuard";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import Skeleton from "@/components/ui/Skeleton/Skeleton";
+import { Package } from "lucide-react";
 import SchedaTab from "./SchedaTab";
 import PrezziOpzioniTab from "./PrezziOpzioniTab";
 import { UsageTab } from "./UsageTab";
 import { AttributesTab } from "./AttributesTab";
 import { TranslationsTab } from "@/components/ui/TranslationsTab/TranslationsTab";
 import { ProductCreateEditDrawer } from "./ProductCreateEditDrawer";
+import { PageGate } from "@/components/PageGate/PageGate";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnTenant } from "@/lib/permissions";
 import styles from "./ProductPage.module.scss";
 
 export default function ProductPage() {
@@ -38,6 +45,13 @@ export default function ProductPage() {
     const tenantId = useTenantId();
     const { selectedTenant } = useTenant();
     const verticalConfig = useVerticalConfig();
+    const { permissions } = usePermissions();
+    // Chi ha solo `products.read` vede il prodotto com'è: campi e azioni spenti
+    // (fieldset), nessun «Salva» in testata.
+    const canWrite = permissions != null && canDoOnTenant(permissions, "products.write");
+    // Gate di lettura prima di ogni fetch («skip fetch pre-check»); il blocco
+    // lo rende `PageGate` in fondo.
+    const canRead = permissions != null && canDoOnTenant(permissions, "products.read");
 
     const [product, setProduct] = useState<V2Product | null>(null);
     const [loading, setLoading] = useState(true);
@@ -132,9 +146,38 @@ export default function ProductPage() {
         selectedTenant?.vertical_type
     );
 
-    // Guardia abbandono pagina — stesso hook di StoryDetailPage, riflette
-    // solo il draft Scheda (unica tab con stato non salvato).
-    useBeforeUnloadWarning(schedaDraft.isDirty);
+    // Valori degli attributi (negozio): nella stessa bozza di pagina (§27).
+    const attributesDraft = useAttributeValuesDraft({
+        productId: productId!,
+        tenantId: tenantId!,
+        vertical: selectedTenant?.vertical_type,
+        enabled: verticalConfig.productSections.customAttributes
+    });
+
+    // Un solo Salva/Annulla per la pagina: Scheda + valori degli attributi.
+    const isDirty = schedaDraft.isDirty || attributesDraft.isDirty;
+    const isSavingAll = schedaDraft.isSavingAll || attributesDraft.isSaving;
+    const { handleSaveAll: saveScheda, handleDiscardAll: discardScheda, isDirty: schedaDirty } = schedaDraft;
+    const { save: saveAttributes, discard: discardAttributes, isDirty: attributesDirty } = attributesDraft;
+    const handleSaveAll = useCallback(async () => {
+        if (schedaDirty) await saveScheda();
+        if (attributesDirty) {
+            const ok = await saveAttributes();
+            if (!ok) {
+                showToast({ message: "Non è stato possibile salvare: Attributi", type: "error" });
+            } else if (!schedaDirty) {
+                showToast({ message: "Modifiche salvate", type: "success" });
+            }
+        }
+    }, [schedaDirty, saveScheda, attributesDirty, saveAttributes, showToast]);
+    const handleDiscardAll = useCallback(() => {
+        discardScheda();
+        discardAttributes();
+    }, [discardScheda, discardAttributes]);
+
+    // Guardia all'uscita (§27): navigazione interna e refresh, dal registro
+    // condiviso con la scheda sede (`UnsavedChangesGuardHost` nel layout).
+    useUnsavedChangesGuard(isDirty);
 
     const loadOptions = useCallback(async () => {
         if (!productId) return;
@@ -164,7 +207,7 @@ export default function ProductPage() {
     }, [productId, tenantId]);
 
     const loadProduct = useCallback(async () => {
-        if (!productId || !tenantId) return;
+        if (!productId || !tenantId || !canRead) return;
         try {
             setLoading(true);
             setError(null);
@@ -172,11 +215,11 @@ export default function ProductPage() {
             setProduct(data);
             await Promise.all([loadOptions(), loadUsage()]);
         } catch {
-            setError("Prodotto non trovato");
+            setError("not-found");
         } finally {
             setLoading(false);
         }
-    }, [productId, tenantId, loadOptions, loadUsage]);
+    }, [productId, tenantId, canRead, loadOptions, loadUsage]);
 
     useEffect(() => {
         loadProduct();
@@ -184,9 +227,9 @@ export default function ProductPage() {
 
 
     const breadcrumbItems = useMemo(() => [
-        { label: "Prodotti", to: `/business/${tenantId}/products` },
-        { label: loading ? "Caricamento..." : product?.name || "Prodotto non trovato" }
-    ], [tenantId, loading, product?.name]);
+        { label: verticalConfig.productLabelPlural, to: `/business/${tenantId}/products` },
+        { label: loading ? "…" : product?.name || `${verticalConfig.productLabel} non trovato` }
+    ], [tenantId, loading, product?.name, verticalConfig.productLabel, verticalConfig.productLabelPlural]);
 
     useBreadcrumbItems(breadcrumbItems);
 
@@ -222,15 +265,16 @@ export default function ProductPage() {
     // Azione Salva/Annulla di pagina — riflette solo il draft Scheda (unica
     // tab con stato), visibile su tutti i tab come Storie.
     const actions = useMemo(
-        () => (
-            <HeaderSaveAction
-                isDirty={schedaDraft.isDirty}
-                isSaving={schedaDraft.isSavingAll}
-                onSave={schedaDraft.handleSaveAll}
-                onDiscard={schedaDraft.handleDiscardAll}
-            />
-        ),
-        [schedaDraft.isDirty, schedaDraft.isSavingAll, schedaDraft.handleSaveAll, schedaDraft.handleDiscardAll]
+        () =>
+            canWrite ? (
+                <HeaderSaveAction
+                    isDirty={isDirty}
+                    isSaving={isSavingAll}
+                    onSave={handleSaveAll}
+                    onDiscard={handleDiscardAll}
+                />
+            ) : undefined,
+        [canWrite, isDirty, isSavingAll, handleSaveAll, handleDiscardAll]
     );
 
     // Il salva è di pagina, non di tab: vale su tutte le sezioni, esattamente
@@ -240,19 +284,22 @@ export default function ProductPage() {
         sections: visibleTabs.map(tab => ({ value: tab.value, label: tab.label })),
         activeSection: activeTab,
         onSectionChange: value => handleTabChange(value as ProductPageTab),
-        ...buildSaveActionCompactConfig({
-            isDirty: schedaDraft.isDirty,
-            isSaving: schedaDraft.isSavingAll,
-            onSave: schedaDraft.handleSaveAll,
-            onRequestDiscard: () => setConfirmDiscardOpen(true)
-        })
+        ...(canWrite
+            ? buildSaveActionCompactConfig({
+                  isDirty,
+                  isSaving: isSavingAll,
+                  onSave: handleSaveAll,
+                  onRequestDiscard: () => setConfirmDiscardOpen(true)
+              })
+            : {})
     }), [
+        canWrite,
         visibleTabs,
         activeTab,
         handleTabChange,
-        schedaDraft.isDirty,
-        schedaDraft.isSavingAll,
-        schedaDraft.handleSaveAll
+        isDirty,
+        isSavingAll,
+        handleSaveAll
     ]);
 
     usePageHeader({
@@ -261,29 +308,45 @@ export default function ProductPage() {
         compact: headerCompact,
     });
 
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="products.read">{() => null}</PageGate>;
+    }
+
     if (loading) {
-        return null;
+        // Stessa sagoma della Scheda: la card Informazioni e due sezioni.
+        return (
+            <div className={styles.container} aria-busy="true" aria-label="Caricamento">
+                <Skeleton height="360px" />
+                <Skeleton height="120px" />
+                <Skeleton height="120px" />
+            </div>
+        );
     }
 
     if (error || !product) {
         return (
-            <div className={styles.container}>
-                <div className={styles.errorBlock}>
-                    <Text variant="title-sm" colorVariant="error">
-                        {error || "Prodotto non trovato"}
-                    </Text>
-                    <div className={styles.errorActions}>
-                        <Button variant="secondary" onClick={() => navigate(`/business/${tenantId}/products`)}>
-                            Torna alla lista
-                        </Button>
-                    </div>
-                </div>
-            </div>
+            <EmptyState
+                variant="page"
+                icon={<Package />}
+                title={`${verticalConfig.productLabel} non trovato`}
+                description={`Il ${verticalConfig.productLabel.toLowerCase()} che cerchi non esiste o è stato eliminato.`}
+                action={
+                    <Button onClick={() => navigate(`/business/${tenantId}/products`)}>
+                        Torna a {verticalConfig.productLabelPlural}
+                    </Button>
+                }
+            />
         );
     }
 
     return (
         <div className={styles.container}>
+            {!canWrite && permissions != null && (
+                <InlineBanner variant="info">
+                    Sola lettura: per modificare {verticalConfig.productLabelPlural.toLowerCase()} serve un ruolo di amministratore.
+                </InlineBanner>
+            )}
+            <fieldset className={styles.readOnlyScope} disabled={!canWrite}>
             {activeTab === "scheda" && (
                 <SchedaTab
                     product={product}
@@ -307,15 +370,10 @@ export default function ProductPage() {
                     onRefreshOptions={loadOptions}
                     onProductUpdated={updated => setProduct(updated)}
                     onOpenVariantDrawer={() => setIsVariantDrawerOpen(true)}
-                    onVariantUpdated={loadProduct}
                 />
             )}
             {activeTab === "attributes" && verticalConfig.productSections.customAttributes && (
-                <AttributesTab
-                    productId={productId!}
-                    tenantId={tenantId!}
-                    vertical={selectedTenant?.vertical_type}
-                />
+                <AttributesTab productId={productId!} tenantId={tenantId!} draft={attributesDraft} />
             )}
             {activeTab === "translations" && product.parent_product_id === null && (
                 <TranslationsTab
@@ -342,12 +400,12 @@ export default function ProductPage() {
                     usageLoading={usageLoading}
                 />
             )}
+            </fieldset>
 
             <ProductCreateEditDrawer
                 open={isVariantDrawerOpen}
                 onClose={() => setIsVariantDrawerOpen(false)}
                 mode="create_variant"
-                productData={null}
                 parentProduct={product}
                 tenantId={tenantId ?? undefined}
                 onSuccess={() => {
@@ -359,7 +417,7 @@ export default function ProductPage() {
             <DiscardChangesConfirmDialog
                 isOpen={confirmDiscardOpen}
                 onClose={() => setConfirmDiscardOpen(false)}
-                onDiscard={schedaDraft.handleDiscardAll}
+                onDiscard={handleDiscardAll}
             />
         </div>
     );
