@@ -1,118 +1,89 @@
+// Combobox degli ingredienti (lotto Prodotti P10): solo token. Il tema scuro
+// arriva dai token stessi (--surface, --border, --text…): via i nove hex del
+// blocco [data-theme="dark"] e i font-size in rem.
+
 .combobox {
   position: relative;
 }
 
 .input {
+  box-sizing: border-box;
   width: 100%;
-  padding: 0.62rem 0.85rem;
+  height: var(--control-height);
+  padding: 0 var(--space-12);
 
-  background: var(--card-bg, #ffffff);
-  color: var(--text, #0f172a);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
 
-  font-size: 0.95rem;
-  font-family: inherit;
-  border-radius: 8px;
-
-  border: 1.5px solid var(--border, #cbd5e1);
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  transition:
+    border-color var(--timing-motion-fast) var(--easing-state),
+    box-shadow var(--timing-motion-fast) var(--easing-state);
 
   &::placeholder {
-    color: var(--text-muted, #94a3b8);
+    color: var(--text-muted);
   }
 
   &:focus-visible {
     outline: none;
-    border-color: var(--brand-primary, #6366f1);
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+    border-color: var(--brand-primary);
+    box-shadow: var(--shadow-focus);
   }
 
   &:disabled {
-    opacity: 0.6;
-    background: var(--hover-bg, #f1f5f9);
+    background: var(--hover-bg);
     cursor: not-allowed;
-  }
-
-  [data-theme="dark"] & {
-    background: #1e293b;
-    border-color: #334155;
-    color: #f1f5f9;
-
-    &::placeholder {
-      color: #64748b;
-    }
-
-    &:focus-visible {
-      border-color: var(--brand-primary, #6366f1);
-      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.4);
-    }
+    opacity: 0.6;
   }
 }
 
 .dropdown {
   position: absolute;
-  top: calc(100% + 4px);
-  left: 0;
+  top: calc(100% + var(--space-4));
   right: 0;
-  z-index: 200;
-
-  background: var(--card-bg, #ffffff);
-  border: 1.5px solid var(--border, #cbd5e1);
-  border-radius: 8px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-
-  list-style: none;
-  margin: 0;
-  padding: 4px 0;
+  left: 0;
+  z-index: var(--z-float);
 
   max-height: 200px;
+  margin: 0;
+  padding: var(--space-4) 0;
   overflow-y: auto;
 
-  [data-theme="dark"] & {
-    background: #1e293b;
-    border-color: #334155;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-  }
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  box-shadow: var(--shadow-float);
+  list-style: none;
 }
 
 .dropdownItem {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 12px;
-  font-size: 0.9rem;
+  gap: var(--space-6);
+  padding: var(--space-8) var(--space-12);
+  color: var(--text);
   cursor: pointer;
-  color: var(--text, #0f172a);
-  transition: background 0.1s ease;
   user-select: none;
-
-  [data-theme="dark"] & {
-    color: #f1f5f9;
-  }
+  transition: background var(--timing-motion-fast) var(--easing-state);
 }
 
 .dropdownItemActive {
-  background: var(--hover-bg, #f1f5f9);
-
-  [data-theme="dark"] & {
-    background: #334155;
-  }
+  background: var(--hover-bg);
 }
 
 .createOption {
-  color: var(--brand-primary, #6366f1);
+  margin-top: var(--space-2);
+  padding-top: var(--space-10);
+  border-top: 1px solid var(--border);
+  color: var(--brand-primary);
   font-weight: 600;
-  border-top: 1px solid var(--border, #e2e8f0);
-  margin-top: 2px;
-  padding-top: 10px;
-
-  [data-theme="dark"] & {
-    border-top-color: #334155;
-  }
 }
 
 .selectedPills {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
+  gap: var(--space-6);
+  margin-top: var(--space-8);
 }

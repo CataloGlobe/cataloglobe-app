@@ -1,65 +1,19 @@
+// Pagina del prodotto: la colonna delle tab (lotto Prodotti P10, via le
+// classi rimaste senza uso).
+
 .container {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-24);
 }
 
 /* Contenitore delle tab: `disabled` spegne campi e azioni per chi legge. */
 .readOnlyScope {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-24);
   min-inline-size: 0;
   margin: 0;
   padding: 0;
   border: 0;
 }
-
-.variantRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  color: inherit;
-  text-decoration: none;
-  transition: background-color 0.15s ease;
-
-  &:hover {
-    background-color: var(--hover-bg);
-  }
-
-  &:not(:last-child) {
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-.variantRowArrow {
-  font-size: 14px;
-  color: var(--brand-primary);
-  flex-shrink: 0;
-}
-
-.actions {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-
-.placeholder {
-  padding: 48px 24px;
-  text-align: center;
-}
-
-
-.tabSectionGap {
-  margin-top: 24px;
-}
-
-.errorBlock {
-  margin-top: 24px;
-}
-
-.errorActions {
-  margin-top: 16px;
-}
-

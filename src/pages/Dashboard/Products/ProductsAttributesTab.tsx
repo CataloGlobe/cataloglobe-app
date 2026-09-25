@@ -252,7 +252,7 @@ export function ProductsAttributesTab({ tenantId, vertical, createTrigger, searc
                     onBulkDelete={canWrite ? bulk.request : undefined}
                     loadingState={{ message: "Caricamento attributi in corso..." }}
                     emptyState={{
-                        icon: <IconTags size={40} stroke={1} style={{ color: "var(--color-gray-400)" }} />,
+                        icon: <IconTags size={40} stroke={1} />,
                         title: searchQuery ? "Nessun attributo trovato" : "Nessun attributo personalizzato",
                         description: searchQuery
                             ? "Nessun attributo corrisponde alla tua ricerca."

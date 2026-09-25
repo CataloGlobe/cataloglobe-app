@@ -183,7 +183,7 @@ export function Ingredients({ createTrigger, searchQuery, canWrite }: Ingredient
                     message: "Caricamento ingredienti in corso..."
                 }}
                 emptyState={{
-                    icon: <IconLeaf size={40} stroke={1} style={{ color: "var(--color-gray-400)" }} />,
+                    icon: <IconLeaf size={40} stroke={1} />,
                     title: searchQuery ? "Nessun ingrediente trovato" : "Nessun ingrediente creato",
                     description: searchQuery
                         ? "Nessun ingrediente corrisponde alla tua ricerca."
