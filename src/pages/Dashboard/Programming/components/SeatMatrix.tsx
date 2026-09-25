@@ -13,6 +13,7 @@ import {
     type MatrixCell,
     type MatrixRow
 } from "@/utils/scheduleMatrix";
+import { MatrixCellLines as CellLines } from "./MatrixCellLines";
 import styles from "./SeatMatrix.module.scss";
 
 type SeatMatrixProps = {
@@ -31,22 +32,6 @@ const LAYER_COLUMNS: ReadonlyArray<{ type: RuleType; header: string }> = [
     { type: "price", header: "Prezzi" },
     { type: "featured", header: "In evidenza" }
 ];
-
-/** Due righe: sopra cosa si vede, sotto il perché. */
-function CellLines({ primary, secondary, warn }: { primary: ReactNode; secondary: ReactNode; warn?: boolean }) {
-    return (
-        <div className={styles.cell}>
-            <Text as="span" variant="body-sm" colorVariant={primary === null ? "muted" : "default"}>
-                {primary ?? "—"}
-            </Text>
-            {secondary !== null && (
-                <Text as="span" variant="caption" colorVariant={warn ? "warning" : "muted"}>
-                    {secondary}
-                </Text>
-            )}
-        </div>
-    );
-}
 
 /**
  * «Cosa vede ogni sede» (§20.3): una riga per sede, una colonna per strato,
