@@ -11,9 +11,11 @@ import {
     ProductGroupWithCount
 } from "@/services/supabase/productGroups";
 import { ProductGroupCreateEditDrawer, GroupFormMode } from "./ProductGroupCreateEditDrawer";
-import { ProductGroupDeleteDrawer } from "./ProductGroupDeleteDrawer";
+import { ProductGroupDeleteDialog } from "./ProductGroupDeleteDialog";
 import { useToast } from "@/context/Toast/ToastContext";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useEnsureActive } from "@/pages/Dashboard/Products/hooks/useEnsureActive";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { useBulkDelete } from "@/pages/Dashboard/Products/hooks/useBulkDelete";
 
 type FlatGroup = ProductGroupWithCount & { depth: number; parentName: string | null };
 
@@ -58,16 +60,19 @@ interface ProductGroupsTabProps {
     onCloseCreate: () => void;
     searchQuery: string;
     onSearchQueryChange: (value: string) => void;
+    /** `products.write`: senza, niente selezione né «⋯». */
+    canWrite: boolean;
 }
 
 export default function ProductGroupsTab({
     tenantId,
     isCreateOpen,
     onCloseCreate,
-    searchQuery
+    searchQuery,
+    canWrite
 }: ProductGroupsTabProps) {
     const { showToast } = useToast();
-    const { canEdit } = useSubscriptionGuard();
+    const { ensureActive } = useEnsureActive();
 
     const [isLoading, setIsLoading] = useState(true);
     const [allGroups, setAllGroups] = useState<ProductGroupWithCount[]>([]);
@@ -129,7 +134,7 @@ export default function ProductGroupsTab({
     const allGroupIds = useMemo(() => allGroups.map(g => g.id), [allGroups]);
 
     const handleEdit = (group: ProductGroupWithCount) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setCreateEditMode("edit");
         setGroupToEdit(group);
         setIsCreateEditOpen(true);
@@ -141,29 +146,18 @@ export default function ProductGroupsTab({
     };
 
     const handleCreateSubgroup = (parentGroup: ProductGroupWithCount) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setCreateEditMode("create");
         setGroupToEdit(null);
         setDefaultParentId(parentGroup.id);
         setIsCreateEditOpen(true);
     };
 
-    const handleBulkDelete = async (selectedIds: string[]) => {
-        if (selectedIds.length === 0) return;
-        try {
-            await Promise.all(selectedIds.map(id => deleteProductGroup(id)));
-            showToast({
-                message: `${selectedIds.length} gruppi eliminati con successo.`,
-                type: "success"
-            });
-            loadData();
-        } catch {
-            showToast({
-                message: "Errore nell'eliminazione dei gruppi.",
-                type: "error"
-            });
-        }
-    };
+    const bulk = useBulkDelete({
+        deleteOne: id => deleteProductGroup(id),
+        onDone: loadData,
+        nouns: { one: "gruppo", many: "gruppi", deletedOne: "eliminato", deletedMany: "eliminati" }
+    });
 
     const columns: ColumnDefinition<FlatGroup>[] = [
         {
@@ -206,12 +200,12 @@ export default function ProductGroupsTab({
                     </Text>
                 )
         },
-        {
+        ...(canWrite ? [{
             id: "actions",
             header: "",
             width: "56px",
-            align: "right",
-            cell: (_value, row) => (
+            align: "right" as const,
+            cell: (_value: unknown, row: FlatGroup) => (
                 <TableRowActions
                     actions={[
                         { label: "Modifica", onClick: () => handleEdit(row) },
@@ -223,13 +217,13 @@ export default function ProductGroupsTab({
                         {
                             label: "Elimina",
                             onClick: () => handleDelete(row),
-                            variant: "destructive",
+                            variant: "destructive" as const,
                             separator: true
                         }
                     ]}
                 />
             )
-        }
+        }] : [])
     ];
 
     const emptyState = {
@@ -247,8 +241,11 @@ export default function ProductGroupsTab({
                 allRowIds={allGroupIds}
                 columns={columns}
                 isLoading={isLoading}
-                selectable
-                onBulkDelete={handleBulkDelete}
+                ariaLabel="Gruppi"
+                selectable={canWrite}
+                selectedRowIds={bulk.selectedIds}
+                onSelectedRowsChange={bulk.setSelectedIds}
+                onBulkDelete={canWrite ? bulk.request : undefined}
                 emptyState={emptyState}
                 loadingState={{ message: "Caricamento gruppi in corso..." }}
             />
@@ -268,7 +265,12 @@ export default function ProductGroupsTab({
                 defaultParentId={defaultParentId}
             />
 
-            <ProductGroupDeleteDrawer
+            <ConfirmDialog
+                {...bulk.dialog}
+                message="I sottogruppi tornano gruppi principali e i prodotti restano: si toglie solo il raggruppamento. Non si torna indietro."
+            />
+
+            <ProductGroupDeleteDialog
                 open={isDeleteOpen}
                 onClose={() => setIsDeleteOpen(false)}
                 groupData={groupToDelete}

@@ -52,20 +52,17 @@ export function ProductAllergensDrawer({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
             <DrawerLayout
-                header={
-                    <Text variant="title-sm" weight={600}>
-                        Modifica {title.toLowerCase()}
-                    </Text>
-                }
+                title={`Modifica ${title.toLowerCase()}`}
                 footer={
                     <>
                         <Button variant="secondary" onClick={onClose}>
                             Annulla
                         </Button>
+                        {/* «Applica»: va nella bozza della pagina, non sul DB (§49.1/2). */}
                         <Button variant="primary" onClick={handleConfirm}>
-                            Conferma
+                            Applica
                         </Button>
                     </>
                 }

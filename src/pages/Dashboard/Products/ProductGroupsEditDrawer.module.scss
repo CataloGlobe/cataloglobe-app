@@ -1,40 +1,24 @@
+// Drawer «Gruppi» del prodotto (in Utilizzo, lotto Prodotti P6).
+
 .content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-12);
 }
 
 .searchWrapper {
   max-width: 280px;
 }
 
+// Sottogruppo: rientro di un livello, testo attenuato.
 .indented {
-  color: var(--color-text-secondary, #6b7280);
+  padding-left: var(--space-20);
+  color: var(--text-muted);
 }
 
 .emptyGroups {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-}
-
-.emptyLink {
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  font-size: 14px;
-  font-family: inherit;
-  color: var(--brand-primary, #6366f1);
-  text-align: left;
-
-  &:hover {
-    text-decoration: underline;
-  }
-
-  &:focus-visible {
-    outline: 2px solid var(--brand-primary, #6366f1);
-    outline-offset: 2px;
-    border-radius: 2px;
-  }
+  align-items: flex-start;
+  gap: var(--space-6);
 }

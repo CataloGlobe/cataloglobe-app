@@ -1,9 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { Button } from "@/components/ui/Button/Button";
 import Text from "@/components/ui/Text/Text";
-import { Switch } from "@/components/ui/Switch/Switch";
 import { useToast } from "@/context/Toast/ToastContext";
 import { createProduct, updateProduct, getProduct, V2Product, ProductType } from "@/services/supabase/products";
 import { uploadProductImage } from "@/services/supabase/upload";
@@ -24,11 +23,9 @@ import {
     V2SystemAllergen
 } from "@/services/supabase/allergens";
 import {
-    getProductGroups,
     getProductGroupAssignments,
     assignProductToGroup,
-    removeProductFromGroup,
-    ProductGroup
+    removeProductFromGroup
 } from "@/services/supabase/productGroups";
 import {
     getIngredients,
@@ -47,16 +44,16 @@ import {
     deleteOptionValue,
     GroupWithValues
 } from "@/services/supabase/productOptions";
-import { Select } from "@/components/ui/Select/Select";
-import { Badge } from "@/components/ui/Badge/Badge";
-import { Pill } from "@/components/ui/Pill/Pill";
+import { Chip } from "@/components/ui/Chip/Chip";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { formatCurrency } from "@/utils/formatCurrency";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { Textarea } from "@/components/ui/Textarea/Textarea";
 import { useAiDescription } from "../hooks/useAiDescription";
 import { useBusinessOutletContext } from "@/layouts/MainLayout/outletContext";
 import { AiDescriptionField } from "./AiDescriptionField";
-import styles from "../Products.module.scss";
+import styles from "./ProductForm.module.scss";
 import { IngredientCombobox } from "./IngredientCombobox";
 
 export type ProductFormMode = "create_base" | "create_variant" | "edit";
@@ -224,6 +221,9 @@ async function syncAddonGroupsInEditMode({
 
 type PriceMode = "inherit" | "single" | "formats";
 
+/** Valore di un attributo letto dal DB, finché il form lo porta al salvataggio. */
+type AttributeDraftValue = string | number | boolean | unknown[];
+
 const PRICE_MODE_OPTIONS: { value: PriceMode; label: string }[] = [
     { value: "single", label: "Prezzo singolo" },
     { value: "formats", label: "Prezzi per formato" }
@@ -285,8 +285,7 @@ export function ProductForm({
     const [attributeDefinitions, setAttributeDefinitions] = useState<
         V2ProductAttributeDefinition[]
     >([]);
-    const [attributeValues, setAttributeValues] = useState<Record<string, any>>({});
-    const [isLoadingAttributes, setIsLoadingAttributes] = useState(false);
+    const [attributeValues, setAttributeValues] = useState<Record<string, AttributeDraftValue>>({});
 
     // Allergens state
     const [systemAllergens, setSystemAllergens] = useState<V2SystemAllergen[]>([]);
@@ -295,11 +294,8 @@ export function ProductForm({
     const [allergenSearchQuery, setAllergenSearchQuery] = useState("");
 
     // Groups state
-    const [systemGroups, setSystemGroups] = useState<ProductGroup[]>([]);
     const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
     const [initialSelectedGroups, setInitialSelectedGroups] = useState<string[]>([]);
-    const [isLoadingGroups, setIsLoadingGroups] = useState(false);
-    const [groupSearchQuery, setGroupSearchQuery] = useState("");
 
     // Ingredients state
     const [systemIngredients, setSystemIngredients] = useState<V2Ingredient[]>([]);
@@ -309,23 +305,12 @@ export function ProductForm({
     // Product Options state — split by kind
     const [primaryPriceGroup, setPrimaryPriceGroup] = useState<GroupWithValues | null>(null);
     const [addonGroups, setAddonGroups] = useState<GroupWithValues[]>([]);
-    const [isLoadingOptions, setIsLoadingOptions] = useState(false);
 
     // For creating PRIMARY_PRICE format
     const [newFormatName, setNewFormatName] = useState("");
     const [newFormatPrice, setNewFormatPrice] = useState("");
-    const [isCreatingFormat, setIsCreatingFormat] = useState(false);
 
-    // For creating new ADDON group
-    const [newGroupName, setNewGroupName] = useState("");
-    const [newGroupIsRequired, setNewGroupIsRequired] = useState(false);
-    const [newGroupMaxSelectable, setNewGroupMaxSelectable] = useState<number | null>(null);
-    const [isCreatingGroup, setIsCreatingGroup] = useState(false);
 
-    // For creating new value (keyed by group id to show inline form per group)
-    const [newValueName, setNewValueName] = useState<Record<string, string>>({});
-    const [newValuePrice, setNewValuePrice] = useState<Record<string, string>>({});
-    const [isCreatingValue, setIsCreatingValue] = useState<Record<string, boolean>>({});
     const [hasFormatPricing, setHasFormatPricing] = useState(false);
     const [hasAddonOptions, setHasAddonOptions] = useState(false);
     const [draftFormats, setDraftFormats] = useState<DraftFormat[]>([]);
@@ -374,17 +359,12 @@ export function ProductForm({
 
         // Reset all search queries
         setAllergenSearchQuery("");
-        setGroupSearchQuery("");
 
         // Reset options state
         setPrimaryPriceGroup(null);
         setAddonGroups([]);
         setNewFormatName("");
         setNewFormatPrice("");
-        setNewGroupName("");
-        setNewGroupIsRequired(false);
-        setNewGroupMaxSelectable(null);
-        setNewValueName({});
         setHasAddonOptions(false);
         setDraftFormats([]);
         setDraftAddonGroups([]);
@@ -425,14 +405,13 @@ export function ProductForm({
 
     const loadAttributes = async () => {
         if (!tenantId) return;
-        setIsLoadingAttributes(true);
         try {
             const defs = await listAttributeDefinitions(tenantId);
             setAttributeDefinitions(defs);
 
             if (isEditing && productData) {
                 const values = await getProductAttributes(productData.id, tenantId);
-                const initialValues: Record<string, any> = {};
+                const initialValues: Record<string, AttributeDraftValue> = {};
 
                 values.forEach((val: V2ProductAttributeValue) => {
                     const def = defs.find(d => d.id === val.attribute_definition_id);
@@ -456,8 +435,6 @@ export function ProductForm({
         } catch (error) {
             console.error("Errore nel caricamento degli attributi:", error);
             showToast({ message: "Non è stato possibile caricare gli attributi.", type: "error" });
-        } finally {
-            setIsLoadingAttributes(false);
         }
     };
 
@@ -476,10 +453,7 @@ export function ProductForm({
 
     const loadGroups = async () => {
         if (!tenantId) return;
-        setIsLoadingGroups(true);
         try {
-            const allGroups = await getProductGroups(tenantId);
-            setSystemGroups(allGroups);
 
             if (isEditing && productData) {
                 const assignedGroups = await getProductGroupAssignments(productData.id);
@@ -501,8 +475,6 @@ export function ProductForm({
                 message: "Non è stato possibile caricare i gruppi prodotto.",
                 type: "error"
             });
-        } finally {
-            setIsLoadingGroups(false);
         }
     };
 
@@ -525,7 +497,6 @@ export function ProductForm({
 
     const loadOptions = async () => {
         if (!isEditing || !productData) return;
-        setIsLoadingOptions(true);
         try {
             const result = await getProductOptions(productData.id);
             setPrimaryPriceGroup(result.primaryPriceGroup);
@@ -559,24 +530,12 @@ export function ProductForm({
         } catch (error) {
             console.error("Errore caricamento opzioni:", error);
             showToast({ message: "Impossibile caricare le opzioni prodotto.", type: "error" });
-        } finally {
-            setIsLoadingOptions(false);
         }
-    };
-
-    const handleAttributeChange = (defId: string, value: any) => {
-        setAttributeValues(prev => ({ ...prev, [defId]: value }));
     };
 
     const handleAllergenToggle = (allergenId: number) => {
         setSelectedAllergens(prev =>
             prev.includes(allergenId) ? prev.filter(id => id !== allergenId) : [...prev, allergenId]
-        );
-    };
-
-    const handleGroupToggle = (groupId: string) => {
-        setSelectedGroups(prev =>
-            prev.includes(groupId) ? prev.filter(id => id !== groupId) : [...prev, groupId]
         );
     };
 
@@ -598,244 +557,13 @@ export function ProductForm({
         return newIngredient.id;
     };
 
-    const handleCreateFormat = async () => {
-        if (!newFormatName.trim() || !tenantId) return;
-        const absPrice = newFormatPrice.trim() ? parseFloat(newFormatPrice) : null;
-        if (absPrice === null || isNaN(absPrice)) {
-            showToast({ message: "Inserisci un prezzo valido per il formato.", type: "error" });
-            return;
-        }
-
-        if (!isEditing) {
-            setDraftFormats(prev => [
-                ...prev,
-                { id: makeDraftId(), name: newFormatName.trim(), absolute_price: absPrice }
-            ]);
-            setNewFormatName("");
-            setNewFormatPrice("");
-            return;
-        }
-
-        if (!productData) return;
-
-        setIsCreatingFormat(true);
-        try {
-            let group = primaryPriceGroup;
-            if (!group) {
-                const newGroup = await createProductOptionGroup({
-                    tenant_id: tenantId,
-                    product_id: productData.id,
-                    name: "Formato",
-                    is_required: true,
-                    max_selectable: 1,
-                    group_kind: "PRIMARY_PRICE",
-                    pricing_mode: "ABSOLUTE"
-                });
-                group = { ...newGroup, values: [] };
-            }
-            const newValue = await createOptionValue({
-                tenant_id: tenantId,
-                option_group_id: group.id,
-                name: newFormatName.trim(),
-                price_modifier: null,
-                absolute_price: absPrice
-            });
-            const updatedGroup: GroupWithValues = { ...group, values: [...group.values, newValue] };
-            setPrimaryPriceGroup(updatedGroup);
-            setNewFormatName("");
-            setNewFormatPrice("");
-            showToast({ message: "Formato aggiunto.", type: "success" });
-        } catch (error: any) {
-            showToast({
-                message: error.message || "Errore durante la creazione del formato.",
-                type: "error"
-            });
-        } finally {
-            setIsCreatingFormat(false);
-        }
-    };
-
-    const handleDeletePrimaryFormat = async (valueId: string) => {
-        if (!isEditing) {
-            setDraftFormats(prev => prev.filter(v => v.id !== valueId));
-            return;
-        }
-        if (!primaryPriceGroup) return;
-        try {
-            await deleteOptionValue(valueId);
-            const updatedValues = primaryPriceGroup.values.filter(v => v.id !== valueId);
-            if (updatedValues.length === 0) {
-                await deleteProductOptionGroup(primaryPriceGroup.id);
-                setPrimaryPriceGroup(null);
-            } else {
-                setPrimaryPriceGroup({ ...primaryPriceGroup, values: updatedValues });
-            }
-            showToast({ message: "Formato rimosso.", type: "success" });
-        } catch (error: any) {
-            showToast({ message: "Errore durante la rimozione del formato.", type: "error" });
-        }
-    };
-
-    const handleCreateOptionGroup = async () => {
-        if (!newGroupName.trim() || !tenantId) return;
-
-        if (!isEditing) {
-            setDraftAddonGroups(prev => [
-                ...prev,
-                {
-                    id: makeDraftId(),
-                    name: newGroupName,
-                    is_required: newGroupIsRequired,
-                    max_selectable: newGroupMaxSelectable,
-                    values: []
-                }
-            ]);
-            setNewGroupName("");
-            setNewGroupIsRequired(false);
-            setNewGroupMaxSelectable(null);
-            return;
-        }
-
-        if (!productData) return;
-
-        setIsCreatingGroup(true);
-        try {
-            const newGroup = await createProductOptionGroup({
-                tenant_id: tenantId,
-                product_id: productData.id,
-                name: newGroupName,
-                is_required: newGroupIsRequired,
-                max_selectable: newGroupMaxSelectable,
-                group_kind: "ADDON",
-                pricing_mode: "DELTA"
-            });
-            setAddonGroups(prev => [...prev, { ...newGroup, values: [] }]);
-            setNewGroupName("");
-            setNewGroupIsRequired(false);
-            setNewGroupMaxSelectable(null);
-            showToast({ message: "Gruppo opzioni creato.", type: "success" });
-        } catch (error: any) {
-            showToast({ message: error.message || "Errore creazione gruppo.", type: "error" });
-        } finally {
-            setIsCreatingGroup(false);
-        }
-    };
-
-    const handleDeleteOptionGroup = async (groupId: string) => {
-        if (!isEditing) {
-            setDraftAddonGroups(prev => prev.filter(g => g.id !== groupId));
-            return;
-        }
-        try {
-            await deleteProductOptionGroup(groupId);
-            setAddonGroups(prev => prev.filter((g: GroupWithValues) => g.id !== groupId));
-            showToast({ message: "Gruppo eliminato.", type: "success" });
-        } catch (error: any) {
-            showToast({ message: "Errore durante l'eliminazione del gruppo.", type: "error" });
-        }
-    };
-
-    const handleUpdateGroupMaxSelectable = (groupId: string, value: number | null) => {
-        setDraftAddonGroups(prev =>
-            prev.map(g => g.id === groupId ? { ...g, max_selectable: value } : g)
-        );
-    };
-
-    const handleCreateOptionValue = async (groupId: string) => {
-        const name = newValueName[groupId];
-        const priceStr = newValuePrice[groupId];
-        if (!name?.trim() || !tenantId) return;
-
-        if (!isEditing) {
-            const parsedPrice = priceStr?.trim() ? parseFloat(priceStr) : null;
-            setDraftAddonGroups(prev =>
-                prev.map(group => {
-                    if (group.id !== groupId) return group;
-                    return {
-                        ...group,
-                        values: [
-                            ...group.values,
-                            {
-                                id: makeDraftId(),
-                                name: name.trim(),
-                                price_modifier:
-                                    parsedPrice !== null && !isNaN(parsedPrice) ? parsedPrice : null
-                            }
-                        ]
-                    };
-                })
-            );
-            setNewValueName(prev => ({ ...prev, [groupId]: "" }));
-            setNewValuePrice(prev => ({ ...prev, [groupId]: "" }));
-            return;
-        }
-
-        setIsCreatingValue(prev => ({ ...prev, [groupId]: true }));
-        try {
-            const price = priceStr?.trim() ? parseFloat(priceStr) : null;
-            const newValue = await createOptionValue({
-                tenant_id: tenantId,
-                option_group_id: groupId,
-                name: name.trim(),
-                price_modifier: price !== null && !isNaN(price) ? price : null
-            });
-            setAddonGroups(prev =>
-                prev.map((g: GroupWithValues) => {
-                    if (g.id === groupId) {
-                        return { ...g, values: [...g.values, newValue] };
-                    }
-                    return g;
-                })
-            );
-            setNewValueName(prev => ({ ...prev, [groupId]: "" }));
-            setNewValuePrice(prev => ({ ...prev, [groupId]: "" }));
-            showToast({ message: "Valore aggiunto.", type: "success" });
-        } catch (error: any) {
-            showToast({ message: error.message || "Errore creazione valore.", type: "error" });
-        } finally {
-            setIsCreatingValue(prev => ({ ...prev, [groupId]: false }));
-        }
-    };
-
-    const handleDeleteOptionValue = async (groupId: string, valueId: string) => {
-        if (!isEditing) {
-            setDraftAddonGroups(prev =>
-                prev.map(group => {
-                    if (group.id !== groupId) return group;
-                    return {
-                        ...group,
-                        values: group.values.filter(value => value.id !== valueId)
-                    };
-                })
-            );
-            return;
-        }
-        try {
-            await deleteOptionValue(valueId);
-            setAddonGroups(prev =>
-                prev.map((g: GroupWithValues) => {
-                    if (g.id === groupId) {
-                        return {
-                            ...g,
-                            values: g.values.filter((v: { id: string }) => v.id !== valueId)
-                        };
-                    }
-                    return g;
-                })
-            );
-            showToast({ message: "Valore eliminato.", type: "success" });
-        } catch (error: any) {
-            showToast({ message: "Errore durante l'eliminazione del valore.", type: "error" });
-        }
-    };
-
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (isSaving) return;
         setSubmitError(null);
 
         if (!name.trim()) {
-            showToast({ message: "Il nome del prodotto è obbligatorio.", type: "error" });
+            showToast({ message: `Il nome del ${verticalConfig.productLabel.toLowerCase()} è obbligatorio.`, type: "error" });
             return;
         }
 
@@ -848,7 +576,7 @@ export function ProductForm({
 
         if (!isEditing) {
             if (priceMode === "formats" && draftFormats.length === 0) {
-                setSubmitError("Aggiungi almeno un formato prima di salvare il prodotto");
+                setSubmitError("Aggiungi almeno un formato prima di creare.");
                 return;
             }
         }
@@ -963,12 +691,12 @@ export function ProductForm({
                 try {
                     for (const def of attributeDefinitions) {
                         const value = attributeValues[def.id];
-                        let payload: AttributeValuePayload = {};
+                        const payload: AttributeValuePayload = {};
                         if (value !== undefined && value !== "") {
                             if (def.type === "text" || def.type === "select")
                                 payload.value_text = String(value);
                             else if (def.type === "number")
-                                payload.value_number = parseFloat(value);
+                                payload.value_number = parseFloat(String(value));
                             else if (def.type === "boolean") payload.value_boolean = Boolean(value);
                             else if (def.type === "multi_select") payload.value_json = value;
                         }
@@ -1014,9 +742,9 @@ export function ProductForm({
 
             if (isEditing) {
                 showToast({
-                    message: "Prodotto aggiornato.",
+                    message: `${verticalConfig.productLabel} aggiornato.`,
                     type: "success",
-                    actionLabel: "Apri prodotto",
+                    actionLabel: "Apri",
                     onAction: () => {
                         if (savedProductId) {
                             navigate(`/business/${tenantId}/products/${savedProductId}`);
@@ -1031,10 +759,13 @@ export function ProductForm({
             }
 
             await Promise.resolve(onSuccess(savedProduct));
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error("Errore salvataggio prodotto:", error);
             showToast({
-                message: error.message || "Impossibile salvare il prodotto.",
+                message:
+                    error instanceof Error && error.message
+                        ? error.message
+                        : `Impossibile salvare il ${verticalConfig.productLabel.toLowerCase()}.`,
                 type: "error"
             });
         } finally {
@@ -1042,860 +773,248 @@ export function ProductForm({
         }
     };
 
+    const productLower = verticalConfig.productLabel.toLowerCase();
+    const showAllergens =
+        verticalConfig.productSections.allergens && (isLoadingAllergens || systemAllergens.length > 0);
+    const showIngredients = verticalConfig.productSections.ingredients;
+    const parentLink = isEditing && productData?.parent_product_id;
+
     return (
         <form id={formId} className={styles.form} onSubmit={handleSubmit}>
             {mode === "create_variant" && parentProduct && (
-                <div style={{ marginBottom: 8 }}>
-                    <Text variant="body-sm" colorVariant="muted" weight={500}>
-                        Variante di:{" "}
-                        <span style={{ color: "var(--color-gray-900)" }}>{parentProduct.name}</span>
-                    </Text>
-                </div>
+                <Text variant="body-sm" colorVariant="muted">
+                    Variante di <strong className={styles.strong}>{parentProduct.name}</strong>
+                </Text>
             )}
-            {isEditing && productData?.parent_product_id && (
-                <div style={{ marginBottom: 8 }}>
-                    <Text variant="body-sm" colorVariant="muted" weight={500}>
-                        Variante di:{" "}
-                        {isLoadingEditParent ? (
-                            <span>Caricamento...</span>
-                        ) : editParent ? (
-                            <span
-                                style={{ color: "var(--brand-primary)", cursor: "pointer", textDecoration: "underline" }}
-                                onClick={() => navigate(`/business/${tenantId}/products/${editParent.id}`)}
-                            >
-                                {editParent.name}
-                            </span>
-                        ) : (
-                            <span style={{ color: "var(--text)" }}>{productData.parent_product_id}</span>
-                        )}
-                    </Text>
-                </div>
+            {parentLink && (
+                <Text variant="body-sm" colorVariant="muted">
+                    Variante di{" "}
+                    {isLoadingEditParent ? (
+                        "…"
+                    ) : editParent ? (
+                        <Link to={`/business/${tenantId}/products/${editParent.id}`} className={styles.link}>
+                            {editParent.name}
+                        </Link>
+                    ) : (
+                        productData?.parent_product_id
+                    )}
+                </Text>
             )}
 
-            {/* ── Informazioni base ─────────────────────────────────── */}
-            <div>
-                <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
-                    Informazioni base
+            {/* ── Informazioni ──────────────────────────────────────── */}
+            <section className={styles.section}>
+                <Text as="h3" variant="title-sm" weight={600}>
+                    Informazioni
                 </Text>
-                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                    <TextInput
-                        ref={nameInputRef}
-                        label="Nome"
-                        required
-                        value={name}
-                        onChange={e => setName(e.target.value)}
-                        placeholder="Es: Margherita, T-Shirt Rossa..."
-                        onKeyDown={e => {
-                            if (e.key === "Enter") {
-                                e.preventDefault();
-                                (e.currentTarget as HTMLInputElement).form?.requestSubmit();
-                            }
+                <TextInput
+                    ref={nameInputRef}
+                    label="Nome"
+                    required
+                    value={name}
+                    onChange={e => setName(e.target.value)}
+                    placeholder={`Nome del ${productLower}`}
+                    onKeyDown={e => {
+                        if (e.key === "Enter") {
+                            e.preventDefault();
+                            (e.currentTarget as HTMLInputElement).form?.requestSubmit();
+                        }
+                    }}
+                />
+                <AiDescriptionField
+                    aiState={ai.aiState}
+                    isGenerating={ai.isGenerating}
+                    canGenerate={ai.canGenerate}
+                    onGenerate={ai.generate}
+                >
+                    <Textarea
+                        value={description}
+                        onChange={e => {
+                            setDescription(e.target.value);
+                            ai.markManualEdit();
                         }}
+                        placeholder="Breve descrizione (opzionale)"
+                        rows={4}
+                        disabled={ai.isGenerating}
                     />
-                    <AiDescriptionField
-                        aiState={ai.aiState}
-                        isGenerating={ai.isGenerating}
-                        canGenerate={ai.canGenerate}
-                        onGenerate={ai.generate}
-                    >
-                        <Textarea
-                            value={description}
-                            onChange={e => {
-                                setDescription(e.target.value);
-                                ai.markManualEdit();
-                            }}
-                            placeholder="Breve descrizione (opzionale)"
-                            rows={4}
-                            disabled={ai.isGenerating}
-                        />
-                    </AiDescriptionField>
-                    <FileInput
-                        label="Immagine"
-                        accept="image/*"
-                        maxSizeMb={5}
-                        preview="auto"
-                        value={pendingImageFile}
-                        onChange={file => setPendingImageFile(file)}
-                    />
-                </div>
-            </div>
+                </AiDescriptionField>
+                <FileInput
+                    label="Immagine"
+                    accept="image/*"
+                    maxSizeMb={5}
+                    preview="auto"
+                    value={pendingImageFile}
+                    onChange={file => setPendingImageFile(file)}
+                />
+            </section>
 
             {/* ── Prezzo ────────────────────────────────────────────── */}
             {!isEditing && (
-                <div>
-                    <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
+                <section className={styles.section}>
+                    <Text as="h3" variant="title-sm" weight={600}>
                         Prezzo
                     </Text>
-                    <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                        <div style={{ width: "fit-content" }}>
-                            <SegmentedControl<PriceMode>
-                                value={priceMode}
-                                onChange={newPriceMode => {
-                                    setPriceMode(newPriceMode);
-                                    setProductType(newPriceMode === "formats" ? "formats" : "simple");
-                                    setDraftFormats([]);
-                                    setHasFormatPricing(false);
-                                    if (newPriceMode !== "single") setBasePrice("");
-                                }}
-                                options={mode === "create_variant" ? VARIANT_PRICE_MODE_OPTIONS : PRICE_MODE_OPTIONS}
-                            />
-                        </div>
-
-                        {priceMode === "inherit" && parentProduct && (
-                            <div style={{
-                                padding: "10px 14px",
-                                borderRadius: "8px",
-                                backgroundColor: "var(--color-gray-50)",
-                                border: "1px solid var(--color-gray-200)"
-                            }}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Usa il prezzo di:{" "}
-                                    <span style={{ color: "var(--text)" }}>{parentProduct.name}</span>
-                                    {" — "}
-                                    {parentProduct.product_type === "formats"
-                                        ? "prezzi per formato"
-                                        : parentProduct.base_price !== null
-                                            ? `€${parentProduct.base_price.toFixed(2)}`
-                                            : "nessun prezzo"}
-                                </Text>
-                            </div>
-                        )}
-
-                        {priceMode === "single" && (
-                            <TextInput
-                                label="Prezzo base (€)"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={basePrice}
-                                onChange={e => setBasePrice(e.target.value)}
-                                placeholder="Es: 10.50"
-                            />
-                        )}
-
-                        {priceMode === "formats" && (
-                            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                                {draftFormats.length > 0 && (
-                                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                                        {draftFormats.map(fmt => (
-                                            <div key={fmt.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "6px 10px", borderRadius: "6px", backgroundColor: "var(--color-gray-50)", border: "1px solid var(--color-gray-200)" }}>
-                                                <Text variant="body-sm">{fmt.name}</Text>
-                                                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                                                    <Text variant="body-sm" colorVariant="muted">€{fmt.absolute_price.toFixed(2)}</Text>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={() => {
-                                                            setDraftFormats(prev => {
-                                                                const next = prev.filter(f => f.id !== fmt.id);
-                                                                if (next.length === 0) setHasFormatPricing(false);
-                                                                return next;
-                                                            });
-                                                        }}
-                                                    >
-                                                        Rimuovi
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
-                                <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                                    <div style={{ flex: 1 }}>
-                                        <TextInput
-                                            label="Nome formato"
-                                            value={newFormatName}
-                                            onChange={e => setNewFormatName(e.target.value)}
-                                            placeholder="Es. 33cl"
-                                        />
-                                    </div>
-                                    <div style={{ width: 110 }}>
-                                        <TextInput
-                                            label="Prezzo (€)"
-                                            type="number"
-                                            step="0.01"
-                                            min="0"
-                                            value={newFormatPrice}
-                                            onChange={e => setNewFormatPrice(e.target.value)}
-                                            placeholder="Es. 3.50"
-                                        />
-                                    </div>
-                                    <Button
-                                        variant="secondary"
-                                        size="sm"
-                                        onClick={() => {
-                                            const fmtName = newFormatName.trim();
-                                            const fmtPrice = parseFloat(newFormatPrice);
-                                            if (!fmtName || isNaN(fmtPrice) || fmtPrice < 0) return;
-                                            setDraftFormats(prev => [
-                                                ...prev,
-                                                { id: makeDraftId(), name: fmtName, absolute_price: fmtPrice }
-                                            ]);
-                                            setHasFormatPricing(true);
-                                            setNewFormatName("");
-                                            setNewFormatPrice("");
-                                        }}
-                                    >
-                                        Aggiungi formato
-                                    </Button>
-                                </div>
-                            </div>
-                        )}
-
-                        {submitError && (
-                            <div style={{
-                                padding: "8px 12px",
-                                borderRadius: "6px",
-                                backgroundColor: "var(--color-red-50)",
-                                border: "1px solid var(--color-red-200)"
-                            }}>
-                                <Text variant="body-sm" colorVariant="error">
-                                    {submitError}
-                                </Text>
-                            </div>
-                        )}
-
-                        <Text variant="body-sm" colorVariant="muted">
-                            Puoi aggiungere varianti, configurazioni e attributi dopo la creazione del prodotto.
-                        </Text>
+                    <div className={styles.fitContent}>
+                        <SegmentedControl<PriceMode>
+                            value={priceMode}
+                            onChange={newPriceMode => {
+                                setPriceMode(newPriceMode);
+                                setProductType(newPriceMode === "formats" ? "formats" : "simple");
+                                setDraftFormats([]);
+                                setHasFormatPricing(false);
+                                if (newPriceMode !== "single") setBasePrice("");
+                            }}
+                            options={mode === "create_variant" ? VARIANT_PRICE_MODE_OPTIONS : PRICE_MODE_OPTIONS}
+                        />
                     </div>
-                </div>
+
+                    {priceMode === "inherit" && parentProduct && (
+                        <InlineBanner variant="info">
+                            Usa il prezzo di {parentProduct.name}:{" "}
+                            {parentProduct.product_type === "formats"
+                                ? "prezzi per formato"
+                                : parentProduct.base_price !== null
+                                  ? formatCurrency(parentProduct.base_price)
+                                  : "nessun prezzo"}
+                            .
+                        </InlineBanner>
+                    )}
+
+                    {priceMode === "single" && (
+                        <TextInput
+                            label="Prezzo base (€)"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={basePrice}
+                            onChange={e => setBasePrice(e.target.value)}
+                            placeholder="Es: 10.50"
+                        />
+                    )}
+
+                    {priceMode === "formats" && (
+                        <div className={styles.formats}>
+                            {draftFormats.length > 0 && (
+                                <ul className={styles.formatList}>
+                                    {draftFormats.map(fmt => (
+                                        <li key={fmt.id} className={styles.formatRow}>
+                                            <Text variant="body-sm">{fmt.name}</Text>
+                                            <span className={styles.formatRowEnd}>
+                                                <Text variant="body-sm" colorVariant="muted">
+                                                    {formatCurrency(fmt.absolute_price)}
+                                                </Text>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setDraftFormats(prev => {
+                                                            const next = prev.filter(f => f.id !== fmt.id);
+                                                            if (next.length === 0) setHasFormatPricing(false);
+                                                            return next;
+                                                        });
+                                                    }}
+                                                >
+                                                    Rimuovi
+                                                </Button>
+                                            </span>
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+
+                            <div className={styles.formatAdd}>
+                                <TextInput
+                                    label="Nome formato"
+                                    value={newFormatName}
+                                    onChange={e => setNewFormatName(e.target.value)}
+                                    placeholder="Es. 33cl"
+                                    containerClassName={styles.formatName}
+                                />
+                                <TextInput
+                                    label="Prezzo (€)"
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    value={newFormatPrice}
+                                    onChange={e => setNewFormatPrice(e.target.value)}
+                                    placeholder="Es. 3.50"
+                                    containerClassName={styles.formatPrice}
+                                />
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    onClick={() => {
+                                        const fmtName = newFormatName.trim();
+                                        const fmtPrice = parseFloat(newFormatPrice);
+                                        if (!fmtName || isNaN(fmtPrice) || fmtPrice < 0) return;
+                                        setDraftFormats(prev => [
+                                            ...prev,
+                                            { id: makeDraftId(), name: fmtName, absolute_price: fmtPrice }
+                                        ]);
+                                        setHasFormatPricing(true);
+                                        setNewFormatName("");
+                                        setNewFormatPrice("");
+                                    }}
+                                >
+                                    Aggiungi formato
+                                </Button>
+                            </div>
+                        </div>
+                    )}
+
+                    {submitError && <InlineBanner variant="error">{submitError}</InlineBanner>}
+
+                    <Text variant="body-sm" colorVariant="muted">
+                        Varianti, configurazioni e attributi si aggiungono dalla pagina del {productLower}, dopo averlo creato.
+                    </Text>
+                </section>
             )}
 
-            {/* Render advanced sections ONLY if we want to (requirement: hide them) */}
-            {false && (
-                <>
-                    <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
+            {/* ── Allergeni e ingredienti (solo nei verticali che li hanno) ── */}
+            {(showAllergens || showIngredients) && (
+                <section className={styles.section}>
+                    <Text as="h3" variant="title-sm" weight={600}>
+                        Composizione
+                    </Text>
 
-                    <div>
-                        <div style={{ marginBottom: 12 }}>
-                            <Text variant="title-sm" weight={600} style={{ marginBottom: 4 }}>
-                                Prezzi
+                    {showAllergens && (
+                        <div className={styles.field}>
+                            <Text variant="body-sm" weight={600}>
+                                {verticalConfig.copy.productSections.allergens}
                             </Text>
-                        </div>
-                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                            <TextInput
-                                label="Prezzo base (€)"
-                                type="number"
-                                step="0.01"
-                                min="0"
-                                value={basePrice}
-                                onChange={e => setBasePrice(e.target.value)}
-                                placeholder={
-                                    hasFormatPricing
-                                        ? "Disabilitato: stai usando prezzi per formato"
-                                        : "Es: 10.50"
-                                }
-                                disabled={hasFormatPricing}
-                            />
-                            <div>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        marginBottom: 6
-                                    }}
-                                >
-                                    <Text variant="body-sm" weight={600}>
-                                        Prezzi / Formati
-                                    </Text>
-                                    <Switch
-                                        checked={hasFormatPricing}
-                                        onChange={checked => {
-                                            setHasFormatPricing(checked);
-                                            if (checked) setBasePrice("");
-                                        }}
+                            {isLoadingAllergens ? (
+                                <Text variant="body-sm" colorVariant="muted">Caricamento allergeni...</Text>
+                            ) : (
+                                <>
+                                    <TextInput
+                                        aria-label="Cerca allergene"
+                                        placeholder="Cerca allergene..."
+                                        value={allergenSearchQuery}
+                                        onChange={e => setAllergenSearchQuery(e.target.value)}
                                     />
-                                </div>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Se presenti formati, il prezzo base non viene mostrato nel
-                                    catalogo.
-                                </Text>
-
-                                {hasFormatPricing && (
-                                    <div
-                                        style={{
-                                            marginTop: 10,
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: 8
-                                        }}
-                                    >
-                                        {(isEditing
-                                            ? primaryPriceGroup?.values || []
-                                            : draftFormats
-                                        ).length > 0 ? (
-                                            <div
-                                                style={{
-                                                    border: "1px solid var(--color-gray-200)",
-                                                    borderRadius: "8px",
-                                                    padding: "12px",
-                                                    backgroundColor: "var(--color-gray-50)",
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    gap: 8
-                                                }}
-                                            >
-                                                {isEditing && primaryPriceGroup && (
-                                                    <div
-                                                        style={{
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            gap: 6,
-                                                            marginBottom: 4
-                                                        }}
-                                                    >
-                                                        <Text variant="body-sm" weight={600}>
-                                                            {primaryPriceGroup?.name}
-                                                        </Text>
-                                                        <Badge variant="warning">
-                                                            Obbligatorio
-                                                        </Badge>
-                                                        <Badge variant="secondary">1 scelta</Badge>
-                                                    </div>
-                                                )}
-                                                {(isEditing
-                                                    ? primaryPriceGroup?.values || []
-                                                    : draftFormats
-                                                ).map(val => (
-                                                    <div
-                                                        key={val.id}
-                                                        style={{
-                                                            display: "flex",
-                                                            justifyContent: "space-between",
-                                                            alignItems: "center",
-                                                            backgroundColor: "white",
-                                                            padding: "8px 12px",
-                                                            borderRadius: "6px",
-                                                            border: "1px solid var(--color-gray-200)"
-                                                        }}
-                                                    >
-                                                        <Text variant="body-sm" weight={500}>
-                                                            {val.name}
-                                                        </Text>
-                                                        <div
-                                                            style={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                gap: 12
-                                                            }}
-                                                        >
-                                                            {val.absolute_price !== null && (
-                                                                <Text
-                                                                    variant="body-sm"
-                                                                    weight={600}
-                                                                >
-                                                                    {val.absolute_price.toFixed(2)}{" "}
-                                                                    €
-                                                                </Text>
-                                                            )}
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                onClick={e => {
-                                                                    e.preventDefault();
-                                                                    handleDeletePrimaryFormat(
-                                                                        val.id
-                                                                    );
-                                                                }}
-                                                            >
-                                                                Rimuovi
-                                                            </Button>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <div
-                                                style={{
-                                                    border: "1px dashed var(--color-gray-300)",
-                                                    borderRadius: "8px",
-                                                    padding: "12px",
-                                                    backgroundColor: "white"
-                                                }}
-                                            >
-                                                <Text variant="body-sm" colorVariant="muted">
-                                                    Nessun formato configurato.
-                                                </Text>
-                                            </div>
-                                        )}
-                                        <div
-                                            style={{
-                                                border: "1px dashed var(--color-gray-300)",
-                                                borderRadius: "8px",
-                                                padding: "12px",
-                                                backgroundColor: "white"
-                                            }}
-                                        >
-                                            <Text
-                                                variant="body-sm"
-                                                weight={600}
-                                                style={{ marginBottom: 8 }}
-                                            >
-                                                Aggiungi formato
-                                            </Text>
-                                            <div style={{ display: "flex", gap: 8 }}>
-                                                <div style={{ flex: 1 }}>
-                                                    <TextInput
-                                                        placeholder="Nome (es. 33cl, 256GB...)"
-                                                        value={newFormatName}
-                                                        onChange={e =>
-                                                            setNewFormatName(e.target.value)
-                                                        }
-                                                        onKeyDown={e => {
-                                                            if (e.key === "Enter") {
-                                                                e.preventDefault();
-                                                                handleCreateFormat();
-                                                            }
-                                                        }}
-                                                    />
-                                                </div>
-                                                <div style={{ width: "110px" }}>
-                                                    <TextInput
-                                                        placeholder="Prezzo €"
-                                                        type="number"
-                                                        step="0.01"
-                                                        min="0"
-                                                        value={newFormatPrice}
-                                                        onChange={e =>
-                                                            setNewFormatPrice(e.target.value)
-                                                        }
-                                                    />
-                                                </div>
-                                                <Button
-                                                    variant="secondary"
-                                                    onClick={e => {
-                                                        e.preventDefault();
-                                                        handleCreateFormat();
-                                                    }}
-                                                    disabled={
-                                                        isCreatingFormat ||
-                                                        !newFormatName.trim() ||
-                                                        !newFormatPrice.trim()
-                                                    }
-                                                    loading={isCreatingFormat}
-                                                >
-                                                    Aggiungi
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-
-                            <div>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        marginBottom: 6
-                                    }}
-                                >
-                                    <Text variant="body-sm" weight={600}>
-                                        Opzioni aggiuntive
-                                    </Text>
-                                    <Switch
-                                        checked={hasAddonOptions}
-                                        onChange={setHasAddonOptions}
-                                    />
-                                </div>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Extra e configurazioni (es. Cottura, Aggiunte). Usa delta
-                                    prezzo.
-                                </Text>
-
-                                {hasAddonOptions && (
-                                    <div
-                                        style={{
-                                            marginTop: 10,
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: 16
-                                        }}
-                                    >
-                                        {(isEditing ? addonGroups : draftAddonGroups).map(group => (
-                                            <div
-                                                key={group.id}
-                                                style={{
-                                                    border: "1px solid var(--color-gray-200)",
-                                                    borderRadius: "8px",
-                                                    padding: "12px",
-                                                    backgroundColor: "var(--color-gray-50)"
-                                                }}
-                                            >
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        justifyContent: "space-between",
-                                                        alignItems: "flex-start",
-                                                        marginBottom: 12
-                                                    }}
-                                                >
-                                                    <div>
-                                                        <div
-                                                            style={{
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                gap: 8
-                                                            }}
-                                                        >
-                                                            <Text variant="body-sm" weight={600}>
-                                                                {group.name}
-                                                            </Text>
-                                                            {group.is_required && (
-                                                                <Badge variant="warning">
-                                                                    Obbligatorio
-                                                                </Badge>
-                                                            )}
-                                                        </div>
-                                                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 6 }}>
-                                                            <Switch
-                                                                label="Limita selezione"
-                                                                checked={(draftAddonGroups.find(g => g.id === group.id)?.max_selectable ?? null) !== null}
-                                                                onChange={checked => handleUpdateGroupMaxSelectable(group.id, checked ? 1 : null)}
-                                                            />
-                                                            {(draftAddonGroups.find(g => g.id === group.id)?.max_selectable ?? null) !== null && (
-                                                                <div style={{ width: 80 }}>
-                                                                    <TextInput
-                                                                        type="number"
-                                                                        min="1"
-                                                                        value={draftAddonGroups.find(g => g.id === group.id)?.max_selectable?.toString() ?? "1"}
-                                                                        onChange={e => {
-                                                                            const val = parseInt(e.target.value, 10);
-                                                                            if (!isNaN(val) && val > 0) handleUpdateGroupMaxSelectable(group.id, val);
-                                                                        }}
-                                                                    />
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="sm"
-                                                        onClick={e => {
-                                                            e.preventDefault();
-                                                            handleDeleteOptionGroup(group.id);
-                                                        }}
-                                                    >
-                                                        Elimina Gruppo
-                                                    </Button>
-                                                </div>
-                                                {group.values.length > 0 && (
-                                                    <div
-                                                        style={{
-                                                            display: "flex",
-                                                            flexDirection: "column",
-                                                            gap: 8,
-                                                            marginBottom: 12
-                                                        }}
-                                                    >
-                                                        {group.values.map(val => (
-                                                            <div
-                                                                key={val.id}
-                                                                style={{
-                                                                    display: "flex",
-                                                                    justifyContent: "space-between",
-                                                                    alignItems: "center",
-                                                                    backgroundColor: "white",
-                                                                    padding: "8px 12px",
-                                                                    borderRadius: "6px",
-                                                                    border: "1px solid var(--color-gray-200)"
-                                                                }}
-                                                            >
-                                                                <Text variant="body-sm">
-                                                                    {val.name}
-                                                                </Text>
-                                                                <div
-                                                                    style={{
-                                                                        display: "flex",
-                                                                        alignItems: "center",
-                                                                        gap: 12
-                                                                    }}
-                                                                >
-                                                                    {val.price_modifier !==
-                                                                        null && (
-                                                                        <Text
-                                                                            variant="body-sm"
-                                                                            colorVariant="muted"
-                                                                        >
-                                                                            {val.price_modifier >= 0
-                                                                                ? "+"
-                                                                                : ""}
-                                                                            {val.price_modifier} €
-                                                                        </Text>
-                                                                    )}
-                                                                    <Button
-                                                                        variant="ghost"
-                                                                        size="sm"
-                                                                        onClick={e => {
-                                                                            e.preventDefault();
-                                                                            handleDeleteOptionValue(
-                                                                                group.id,
-                                                                                val.id
-                                                                            );
-                                                                        }}
-                                                                    >
-                                                                        Rimuovi
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                                <div style={{ display: "flex", gap: 8 }}>
-                                                    <div style={{ flex: 1 }}>
-                                                        <TextInput
-                                                            placeholder="Nuovo valore..."
-                                                            value={newValueName[group.id] || ""}
-                                                            onChange={e =>
-                                                                setNewValueName(prev => ({
-                                                                    ...prev,
-                                                                    [group.id]: e.target.value
-                                                                }))
-                                                            }
-                                                            onKeyDown={e => {
-                                                                if (e.key === "Enter") {
-                                                                    e.preventDefault();
-                                                                    handleCreateOptionValue(
-                                                                        group.id
-                                                                    );
-                                                                }
-                                                            }}
-                                                        />
-                                                    </div>
-                                                    <div style={{ width: "100px" }}>
-                                                        <TextInput
-                                                            placeholder="Variazione €"
-                                                            type="number"
-                                                            step="0.01"
-                                                            value={newValuePrice[group.id] || ""}
-                                                            onChange={e =>
-                                                                setNewValuePrice(prev => ({
-                                                                    ...prev,
-                                                                    [group.id]: e.target.value
-                                                                }))
-                                                            }
-                                                        />
-                                                    </div>
-                                                    <Button
-                                                        variant="secondary"
-                                                        onClick={e => {
-                                                            e.preventDefault();
-                                                            handleCreateOptionValue(group.id);
-                                                        }}
-                                                        disabled={
-                                                            isCreatingValue[group.id] ||
-                                                            !(newValueName[group.id] || "").trim()
-                                                        }
-                                                        loading={isCreatingValue[group.id]}
-                                                    >
-                                                        Aggiungi
-                                                    </Button>
-                                                </div>
-                                            </div>
-                                        ))}
-                                        <div
-                                            style={{
-                                                border: "1px dashed var(--color-gray-300)",
-                                                borderRadius: "8px",
-                                                padding: "12px",
-                                                backgroundColor: "white"
-                                            }}
-                                        >
-                                            <Text
-                                                variant="body-sm"
-                                                weight={600}
-                                                style={{ marginBottom: 8 }}
-                                            >
-                                                Nuovo gruppo opzioni
-                                            </Text>
-                                            <div
-                                                style={{
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    gap: 12
-                                                }}
-                                            >
-                                                <TextInput
-                                                    placeholder="Nome gruppo (es. Cottura)"
-                                                    value={newGroupName}
-                                                    onChange={e => setNewGroupName(e.target.value)}
-                                                />
-                                                <div
-                                                    style={{
-                                                        display: "flex",
-                                                        gap: 12,
-                                                        alignItems: "center"
-                                                    }}
-                                                >
-                                                    <div
-                                                        style={{
-                                                            flex: 1,
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            justifyContent: "space-between"
-                                                        }}
-                                                    >
-                                                        <Text variant="body-sm">Obbligatorio</Text>
-                                                        <Switch
-                                                            checked={newGroupIsRequired}
-                                                            onChange={setNewGroupIsRequired}
-                                                        />
-                                                    </div>
-                                                    <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
-                                                        <Switch
-                                                            label="Limita sel."
-                                                            checked={newGroupMaxSelectable !== null}
-                                                            onChange={checked => setNewGroupMaxSelectable(checked ? 1 : null)}
-                                                        />
-                                                        {newGroupMaxSelectable !== null && (
-                                                            <div style={{ width: 80 }}>
-                                                                <TextInput
-                                                                    type="number"
-                                                                    min="1"
-                                                                    value={(newGroupMaxSelectable ?? 1).toString()}
-                                                                    onChange={e => {
-                                                                        const val = parseInt(e.target.value, 10);
-                                                                        if (!isNaN(val) && val > 0) setNewGroupMaxSelectable(val);
-                                                                    }}
-                                                                />
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <Button
-                                                    variant="secondary"
-                                                    onClick={e => {
-                                                        e.preventDefault();
-                                                        handleCreateOptionGroup();
-                                                    }}
-                                                    disabled={
-                                                        isCreatingGroup || !newGroupName.trim()
-                                                    }
-                                                    loading={isCreatingGroup}
-                                                >
-                                                    Crea Gruppo
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-
-                    <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
-
-                    <div>
-                        <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
-                            Organizzazione
-                        </Text>
-                        {systemGroups.length === 0 && !isLoadingGroups ? (
-                            <Text variant="body-sm" colorVariant="muted">
-                                Nessun gruppo presente. Creane uno dalla pagina Gruppi Prodotti.
-                            </Text>
-                        ) : (
-                            <>
-                                <TextInput
-                                    placeholder="Cerca gruppo..."
-                                    value={groupSearchQuery}
-                                    onChange={e => setGroupSearchQuery(e.target.value)}
-                                />
-                                {isLoadingGroups ? (
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        Caricamento gruppi...
-                                    </Text>
-                                ) : (
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexWrap: "wrap",
-                                            gap: 8,
-                                            marginTop: 8
-                                        }}
-                                    >
-                                        {systemGroups
-                                            .filter(g =>
-                                                g.name
-                                                    .toLowerCase()
-                                                    .includes(groupSearchQuery.toLowerCase())
-                                            )
-                                            .map(group => (
-                                                <Pill
-                                                    key={group.id}
-                                                    label={group.name}
-                                                    active={selectedGroups.includes(group.id)}
-                                                    onClick={() => handleGroupToggle(group.id)}
-                                                />
-                                            ))}
-                                    </div>
-                                )}
-                            </>
-                        )}
-                    </div>
-
-                    <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
-
-                    <div>
-                        <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
-                            Specifiche prodotto
-                        </Text>
-                        {verticalConfig.productSections.allergens && systemAllergens.length > 0 && (
-                            <div style={{ marginBottom: 16 }}>
-                                <Text variant="body-sm" weight={600} style={{ marginBottom: 4 }}>
-                                    Allergeni
-                                </Text>
-                                <TextInput
-                                    placeholder="Cerca allergene..."
-                                    value={allergenSearchQuery}
-                                    onChange={e => setAllergenSearchQuery(e.target.value)}
-                                />
-                                {isLoadingAllergens ? (
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        Caricamento allergeni...
-                                    </Text>
-                                ) : (
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexWrap: "wrap",
-                                            gap: 8,
-                                            marginTop: 8
-                                        }}
-                                    >
+                                    <div className={styles.chips}>
                                         {systemAllergens
-                                            .filter(
-                                                a =>
-                                                    a.label_it
-                                                        .toLowerCase()
-                                                        .includes(
-                                                            allergenSearchQuery.toLowerCase()
-                                                        ) ||
-                                                    a.label_en
-                                                        .toLowerCase()
-                                                        .includes(allergenSearchQuery.toLowerCase())
+                                            .filter(a =>
+                                                a.label_it.toLowerCase().includes(allergenSearchQuery.toLowerCase()) ||
+                                                a.label_en.toLowerCase().includes(allergenSearchQuery.toLowerCase())
                                             )
                                             .map(allergen => (
-                                                <Pill
+                                                <Chip
                                                     key={allergen.id}
                                                     label={allergen.label_it}
-                                                    active={selectedAllergens.includes(allergen.id)}
-                                                    onClick={() =>
-                                                        handleAllergenToggle(allergen.id)
-                                                    }
+                                                    selected={selectedAllergens.includes(allergen.id)}
+                                                    onClick={() => handleAllergenToggle(allergen.id)}
                                                 />
                                             ))}
                                     </div>
-                                )}
-                            </div>
-                        )}
-                        {verticalConfig.productSections.ingredients && (
-                        <div>
-                            <Text variant="body-sm" weight={600} style={{ marginBottom: 4 }}>
-                                Ingredienti
+                                </>
+                            )}
+                        </div>
+                    )}
+
+                    {showIngredients && (
+                        <div className={styles.field}>
+                            <Text variant="body-sm" weight={600}>
+                                {verticalConfig.copy.productSections.ingredients}
                             </Text>
                             <IngredientCombobox
                                 ingredients={systemIngredients}
@@ -1906,185 +1025,9 @@ export function ProductForm({
                                 isLoadingIngredients={isLoadingIngredients}
                             />
                         </div>
-                        )}
-
-                        {attributeDefinitions.length > 0 && (
-                            <div style={{ marginTop: 16 }}>
-                                <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
-                                    Attributi
-                                </Text>
-                                {isLoadingAttributes ? (
-                                    <Text variant="body-sm" colorVariant="muted">
-                                        Caricamento attributi...
-                                    </Text>
-                                ) : (
-                                    <div
-                                        style={{
-                                            display: "flex",
-                                            flexDirection: "column",
-                                            gap: 12
-                                        }}
-                                    >
-                                        {attributeDefinitions.map(def => {
-                                            const value = attributeValues[def.id];
-                                            if (def.type === "text" || def.type === "number")
-                                                return (
-                                                    <TextInput
-                                                        key={def.id}
-                                                        label={def.label}
-                                                        required={def.is_required}
-                                                        type={def.type}
-                                                        value={value || ""}
-                                                        onChange={e =>
-                                                            handleAttributeChange(
-                                                                def.id,
-                                                                e.target.value
-                                                            )
-                                                        }
-                                                    />
-                                                );
-                                            if (def.type === "boolean")
-                                                return (
-                                                    <div
-                                                        key={def.id}
-                                                        style={{
-                                                            display: "flex",
-                                                            alignItems: "center",
-                                                            justifyContent: "space-between"
-                                                        }}
-                                                    >
-                                                        <Text variant="body-sm" weight={600}>
-                                                            {def.label}
-                                                        </Text>
-                                                        <Switch
-                                                            checked={value || false}
-                                                            onChange={checked =>
-                                                                handleAttributeChange(
-                                                                    def.id,
-                                                                    checked
-                                                                )
-                                                            }
-                                                        />
-                                                    </div>
-                                                );
-                                            if (def.type === "select")
-                                                return (
-                                                    <Select
-                                                        key={def.id}
-                                                        label={def.label}
-                                                        required={def.is_required}
-                                                        value={value || ""}
-                                                        onChange={e =>
-                                                            handleAttributeChange(
-                                                                def.id,
-                                                                e.target.value
-                                                            )
-                                                        }
-                                                        options={[
-                                                            {
-                                                                value: "",
-                                                                label: "Seleziona un'opzione"
-                                                            },
-                                                            ...(Array.isArray(def.options)
-                                                                ? def.options.map(o => ({
-                                                                      value: o,
-                                                                      label: o
-                                                                  }))
-                                                                : [])
-                                                        ]}
-                                                    />
-                                                );
-                                            if (def.type === "multi_select")
-                                                return (
-                                                    <TextInput
-                                                        key={def.id}
-                                                        label={def.label + " (separati da virgola)"}
-                                                        required={def.is_required}
-                                                        value={value ? value.join(", ") : ""}
-                                                        onChange={e =>
-                                                            handleAttributeChange(
-                                                                def.id,
-                                                                e.target.value
-                                                                    .split(",")
-                                                                    .map(p => p.trim())
-                                                                    .filter(Boolean)
-                                                            )
-                                                        }
-                                                        placeholder="Es: Opzione 1, Opzione 2"
-                                                    />
-                                                );
-                                            return null;
-                                        })}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                    </div>
-                </>
+                    )}
+                </section>
             )}
-
-            {/* ── Specifiche prodotto ────────────────────────────────── */}
-            <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
-
-            <div>
-                <Text variant="title-sm" weight={600} style={{ marginBottom: 12 }}>
-                    Specifiche prodotto
-                </Text>
-
-                {/* Allergeni */}
-                {verticalConfig.productSections.allergens && (isLoadingAllergens || systemAllergens.length > 0) && (
-                    <div style={{ marginBottom: 20 }}>
-                        <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
-                            Allergeni
-                        </Text>
-                        {isLoadingAllergens ? (
-                            <Text variant="body-sm" colorVariant="muted">Caricamento allergeni...</Text>
-                        ) : (
-                            <>
-                                <TextInput
-                                    placeholder="Cerca allergene..."
-                                    value={allergenSearchQuery}
-                                    onChange={e => setAllergenSearchQuery(e.target.value)}
-                                />
-                                <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
-                                    {systemAllergens
-                                        .filter(a =>
-                                            a.label_it.toLowerCase().includes(allergenSearchQuery.toLowerCase()) ||
-                                            a.label_en.toLowerCase().includes(allergenSearchQuery.toLowerCase())
-                                        )
-                                        .map(allergen => (
-                                            <Pill
-                                                key={allergen.id}
-                                                label={allergen.label_it}
-                                                active={selectedAllergens.includes(allergen.id)}
-                                                onClick={() => handleAllergenToggle(allergen.id)}
-                                            />
-                                        ))}
-                                </div>
-                            </>
-                        )}
-                    </div>
-                )}
-
-                {/* Ingredienti */}
-                {verticalConfig.productSections.ingredients && (
-                <div>
-                    <Text variant="body-sm" weight={600} style={{ marginBottom: 8 }}>
-                        Ingredienti
-                    </Text>
-                    <IngredientCombobox
-                        ingredients={systemIngredients}
-                        selectedIds={selectedIngredients}
-                        onToggle={handleIngredientToggle}
-                        onReorder={setSelectedIngredients}
-                        onCreate={handleCreateIngredientInline}
-                        isLoadingIngredients={isLoadingIngredients}
-                    />
-                </div>
-                )}
-            </div>
-
-            <div style={{ height: "1px", backgroundColor: "var(--color-gray-200)" }} />
         </form>
     );
 }

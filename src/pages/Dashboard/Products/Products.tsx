@@ -10,25 +10,26 @@ import {
     useFilteredProductTabs,
     type ProductTabDef
 } from "@/hooks/useFilteredProductTabs";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useEnsureActive } from "./hooks/useEnsureActive";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
-import { Select } from "@/components/ui/Select/Select";
+import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { CardGrid, CardGridItem } from "@/components/ui/CardGrid";
+import { FramedMedia } from "@components/ui/FramedMedia";
 import { Badge } from "@/components/ui/Badge/Badge";
-import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
-import { SplitButton, type SplitButtonAction } from "@/components/ui/SplitButton";
-import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
+import type { PageHeaderAction, PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import { Package, LayoutGrid, List as ListIcon } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { Link } from "react-router-dom";
-import ProductCard from "./components/ProductCard";
-import ProductCardGroup from "./components/ProductCardGroup";
+import { ProductRowMeta } from "./components/ProductRowMeta";
+import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./components/productImageFraming";
+import { describeFormats, describeMenus, describePrice } from "./productRowSummary";
 import styles from "./Products.module.scss";
 
 import {
@@ -47,8 +48,10 @@ import {
 } from "@/utils/productCompleteness";
 
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { useBulkDelete } from "./hooks/useBulkDelete";
 import { ProductCreateEditDrawer, ProductFormMode } from "./ProductCreateEditDrawer";
-import { ProductDeleteDrawer } from "./ProductDeleteDrawer";
+import { ProductDeleteDialog } from "./ProductDeleteDialog";
 import ProductGroupsTab from "@/components/Products/ProductGroupsTab/ProductGroupsTab";
 import { ProductsAttributesTab } from "./ProductsAttributesTab";
 import { Ingredients } from "./Ingredients/Ingredients";
@@ -72,8 +75,6 @@ const EMPTY_PRODUCT_METADATA: ProductListMetadata = {
     pricedFormatsCount: 0
 };
 
-const formatCurrency = (value: number) => `${value.toFixed(2)} €`;
-
 /** Valori del filtro "mancanze" in header. */
 type IssueFilter = "all" | "missing-price" | "out-of-catalog";
 
@@ -88,12 +89,13 @@ export default function Products() {
     // dentro una frase → stessa minuscola già usata da `catalogLower` in
     // Catalogs.tsx. Le card in griglia rileggono l'hook per conto loro.
     const outOfCatalogLabel = `Fuori ${verticalConfig.catalogLabel.toLowerCase()}`;
-    const { canEdit } = useSubscriptionGuard();
+    const { canEdit, ensureActive } = useEnsureActive();
     const { permissions } = usePermissions();
     const canWriteProduct = permissions != null ? canDoOnTenant(permissions, "products.write") : false;
     const canWriteAttribute = permissions != null ? canDoOnTenant(permissions, "attributes.write") : false;
 
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [allProducts, setAllProducts] = useState<V2Product[]>([]);
     const [productMetadata, setProductMetadata] = useState<Record<string, ProductListMetadata>>({});
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -102,7 +104,7 @@ export default function Products() {
     const allTabs = useMemo<ProductTabDef<ProductsTab>[]>(
         () => [
             { value: "products", label: verticalConfig.productLabelPlural },
-            { value: "groups", label: "Gruppi Prodotti" },
+            { value: "groups", label: "Gruppi" },
             {
                 value: "attributes",
                 label: verticalConfig.copy.productSections.customAttributes,
@@ -133,15 +135,17 @@ export default function Products() {
     const [issueFilter, setIssueFilter] = useState<IssueFilter>("all");
     const [groupsSearchQuery, setGroupsSearchQuery] = useState("");
     const [ingredientsSearchQuery, setIngredientsSearchQuery] = useState("");
+    const [attributesSearchQuery, setAttributesSearchQuery] = useState("");
     const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
         const saved = localStorage.getItem("products_view_mode");
-        return (saved === "list" || saved === "grid") ? saved : "grid";
+        // Lista di default (§50.9/1): la riga del mockup dice prezzo e menù
+        // a colpo d'occhio; la griglia resta, e la scelta si ricorda.
+        return (saved === "list" || saved === "grid") ? saved : "list";
     });
 
     // Drawer States
     const [isCreateEditOpen, setIsCreateEditOpen] = useState(false);
-    const [createEditMode, setCreateEditMode] = useState<ProductFormMode>("create_base");
-    const [productToEdit, setProductToEdit] = useState<V2Product | null>(null);
+    const [createEditMode, setCreateEditMode] = useState<Exclude<ProductFormMode, "edit">>("create_base");
     const [parentForVariant, setParentForVariant] = useState<V2Product | null>(null);
 
     const [isDeleteOpen, setIsDeleteOpen] = useState(false);
@@ -151,6 +155,7 @@ export default function Products() {
         if (!currentTenantId) return;
         try {
             setIsLoading(true);
+            setLoadError(false);
             const data = await listBaseProductsWithVariants(currentTenantId);
             setAllProducts(data);
             const baseProductIds = data.map(p => p.id);
@@ -166,8 +171,10 @@ export default function Products() {
                     type: "info"
                 });
             }
-        } catch {
-            showToast({ message: "Non è stato possibile caricare i prodotti.", type: "error" });
+        } catch (error) {
+            // Un errore non è un elenco vuoto: la pagina lo dice, con «Riprova».
+            console.error("Caricamento prodotti:", error);
+            setLoadError(true);
         } finally {
             setIsLoading(false);
         }
@@ -190,15 +197,6 @@ export default function Products() {
             };
         },
         [productMetadata]
-    );
-
-    // Una variante senza prezzo (o senza collegamento a un menù) eredita dal
-    // padre: va valutata insieme a lui, altrimenti risulterebbe mancante pur
-    // essendo coperta.
-    const rowIssues = useCallback(
-        (row: ProductTableRow): ProductIssues =>
-            getProductIssues(factsFor(row.product), row.parent ? factsFor(row.parent) : null),
-        [factsFor]
     );
 
     // I filtri lavorano sul prodotto base, che è l'unità di entrambe le viste:
@@ -261,27 +259,28 @@ export default function Products() {
         return { missingPrice, outOfCatalog };
     }, [allProducts, productIssues]);
 
-    const hasIssues = issueCounts.missingPrice > 0 || issueCounts.outOfCatalog > 0;
-
-    // Il conteggio vive nell'etichetta dell'opzione: `Select` incapsula una
-    // <select> nativa, dove l'unico contenuto ammesso è testo. Un'opzione a
-    // zero resta elencata ma disabilitata — sparire cambierebbe le voci del
-    // menu mentre si lavora, e sceglierla porterebbe a una lista vuota.
+    // Tre chip sempre a vista (§25.3): un difetto non si cerca in un menu a
+    // tendina. A zero il chip resta nella fila, spento: sparire cambierebbe
+    // la fila mentre si lavora, e sceglierlo porterebbe a un elenco vuoto.
     const issueFilterOptions = useMemo(
         () => [
-            { value: "all", label: "Tutti i prodotti" },
+            { value: "all" as const, label: "Tutti", count: allProducts.length },
             {
-                value: "missing-price",
-                label: `Senza prezzo (${issueCounts.missingPrice})`,
-                disabled: issueCounts.missingPrice === 0
+                value: "missing-price" as const,
+                label: "Senza prezzo",
+                count: issueCounts.missingPrice,
+                disabled: issueCounts.missingPrice === 0 && issueFilter !== "missing-price",
+                tone: issueCounts.missingPrice > 0 ? ("warning" as const) : undefined
             },
             {
-                value: "out-of-catalog",
-                label: `${outOfCatalogLabel} (${issueCounts.outOfCatalog})`,
-                disabled: issueCounts.outOfCatalog === 0
+                value: "out-of-catalog" as const,
+                label: outOfCatalogLabel,
+                count: issueCounts.outOfCatalog,
+                disabled: issueCounts.outOfCatalog === 0 && issueFilter !== "out-of-catalog",
+                tone: issueCounts.outOfCatalog > 0 ? ("warning" as const) : undefined
             }
         ],
-        [issueCounts, outOfCatalogLabel]
+        [allProducts.length, issueCounts, issueFilter, outOfCatalogLabel]
     );
 
     const tableRows = useMemo<ProductTableRow[]>(() => {
@@ -319,6 +318,16 @@ export default function Products() {
         return rows;
     }, [filteredProducts, expandedRows]);
 
+    // Lo spazio del chevron solo se almeno un prodotto ha varianti: allinea i
+    // nomi senza rientrare tutte le righe per niente.
+    const anyVariants = useMemo(() => filteredProducts.some(p => (p.variants?.length ?? 0) > 0), [filteredProducts]);
+
+    // Le varianti aperte sotto il padre: righe con il fondo spento.
+    const variantRowIds = useMemo(
+        () => tableRows.filter(row => row.kind === "variant").map(row => row.id),
+        [tableRows]
+    );
+
     // Id completi (pre-ricerca) per la prune-selection: stessa logica di
     // espansione varianti, ma su allProducts invece del set filtrato.
     const allTableRowIds = useMemo(() => {
@@ -334,12 +343,11 @@ export default function Products() {
 
     // Handlers
     const handleCreateBase = useCallback(() => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setCreateEditMode("create_base");
-        setProductToEdit(null);
         setParentForVariant(null);
         setIsCreateEditOpen(true);
-    }, [canEdit, showToast]);
+    }, [ensureActive]);
 
     const handleTabChange = useCallback((val: ProductsTab) => {
         setActiveTab(val);
@@ -367,125 +375,81 @@ export default function Products() {
         </Tabs>
     ), [activeTab, handleTabChange, visibleTabs]);
 
-    // Una sola azione per tab: lo `SplitButton` rende quindi un normale bottone
-    // primario, senza caret. Stesso componente delle pagine con più azioni —
-    // nessuna variante per pagina. La lista è condivisa con la config compatta.
-    const ctaActions = useMemo<SplitButtonAction[]>(
+    // Una sola azione per collezione, dichiarata a dati una volta e letta sia
+    // dalla testata comoda sia da quella compatta (come Sedi).
+    const ctaAction = useMemo<PageHeaderAction | undefined>(
         () =>
             activeTab === "products" && canWriteProduct
-                ? [{ label: `Crea ${verticalConfig.productLabel.toLowerCase()}`, onClick: handleCreateBase, disabled: !canEdit }]
+                ? { label: `Crea ${verticalConfig.productLabel.toLowerCase()}`, onClick: handleCreateBase, disabled: !canEdit }
                 : activeTab === "groups" && canWriteProduct
-                ? [{ label: "Crea gruppo", onClick: () => setCreateGroupOpen(true), disabled: !canEdit }]
+                ? { label: "Crea gruppo", onClick: () => setCreateGroupOpen(true), disabled: !canEdit }
                 : activeTab === "attributes" && canWriteAttribute
-                ? [{ label: "Nuovo attributo", onClick: () => setAttrCreateSeq(s => s + 1), disabled: !canEdit }]
+                ? { label: "Nuovo attributo", onClick: () => setAttrCreateSeq(n => n + 1), disabled: !canEdit }
                 : activeTab === "ingredients" && verticalConfig.productSections.ingredients && canWriteProduct
-                ? [{ label: "Crea ingrediente", onClick: () => setIngredientCreateSeq(s => s + 1), disabled: !canEdit }]
-                : [],
+                ? { label: "Crea ingrediente", onClick: () => setIngredientCreateSeq(n => n + 1), disabled: !canEdit }
+                : undefined,
         [activeTab, canWriteProduct, canWriteAttribute, canEdit, verticalConfig, handleCreateBase]
     );
 
-    const headerActions = useMemo(() => {
-        const cta = ctaActions.length > 0 ? <SplitButton actions={ctaActions} /> : null;
-
-        if (activeTab === "groups") {
-            return (
-                <>
-                    <ToolbarSearch
-                        value={groupsSearchQuery}
-                        onChange={setGroupsSearchQuery}
-                        placeholder="Cerca gruppo..."
-                    />
-                    {cta}
-                </>
-            );
-        }
-
-        if (activeTab === "ingredients") {
-            return (
-                <>
-                    <ToolbarSearch
-                        value={ingredientsSearchQuery}
-                        onChange={setIngredientsSearchQuery}
-                        placeholder="Cerca ingrediente..."
-                    />
-                    {cta}
-                </>
-            );
-        }
-
-        if (activeTab !== "products") return cta;
-
-        return (
-            <>
-                <ToolbarSearch
-                    value={searchQuery}
-                    onChange={setSearchQuery}
-                    placeholder={`Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`}
-                />
-                {/* Compare solo se c'è davvero qualcosa da filtrare: a catalogo
-                    completo sarebbe un controllo con due opzioni a zero, cioè
-                    due vicoli ciechi. Resta visibile da attivo per poterlo
-                    riportare a "Tutti". */}
-                {(hasIssues || issueFilter !== "all") && (
-                    <Select
-                        aria-label="Filtra per stato del prodotto"
-                        value={issueFilter}
-                        onChange={e => setIssueFilter(e.target.value as IssueFilter)}
-                        options={issueFilterOptions}
-                        containerClassName={styles.toolbarIssueFilter}
-                        selectClassName={styles.toolbarSelectInner}
-                    />
-                )}
-                <SegmentedControl<"list" | "grid">
-                    iconsOnly
-                    value={viewMode}
-                    onChange={handleViewChange}
-                    options={[
-                        { value: "grid", icon: <LayoutGrid size={16} />, label: "Vista griglia" },
-                        { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
-                    ]}
-                />
-                {cta}
-            </>
-        );
-    }, [
-        activeTab,
-        ctaActions,
-        verticalConfig,
-        searchQuery,
-        groupsSearchQuery,
-        ingredientsSearchQuery,
-        issueFilter,
-        issueFilterOptions,
-        hasIssues,
-        viewMode,
-        handleViewChange
-    ]);
-
-    // Versione a dati della stessa toolbar per lo stato compatto. Il filtro
-    // "mancanze" (tab Prodotti) non ha posto in questa riga: resta disponibile
-    // in comoda — annotato per il rollout successivo, non inventato qui.
-    const headerCompact = useMemo<PageHeaderCompactConfig>(() => {
-        const search =
-            activeTab === "products"
-                ? {
-                      value: searchQuery,
-                      onChange: setSearchQuery,
-                      placeholder: `Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`
-                  }
-                : activeTab === "groups"
+    // La ricerca della collezione aperta: una sola `ToolbarSearch` in testata.
+    const collectionSearch = useMemo(
+        () =>
+            activeTab === "groups"
                 ? { value: groupsSearchQuery, onChange: setGroupsSearchQuery, placeholder: "Cerca gruppo..." }
                 : activeTab === "ingredients"
                 ? { value: ingredientsSearchQuery, onChange: setIngredientsSearchQuery, placeholder: "Cerca ingrediente..." }
-                : undefined;
+                : activeTab === "attributes"
+                ? { value: attributesSearchQuery, onChange: setAttributesSearchQuery, placeholder: "Cerca per nome o codice..." }
+                : {
+                      value: searchQuery,
+                      onChange: setSearchQuery,
+                      placeholder: `Cerca ${verticalConfig.productLabel.toLowerCase()} o variante...`
+                  },
+        [activeTab, groupsSearchQuery, ingredientsSearchQuery, attributesSearchQuery, searchQuery, verticalConfig]
+    );
 
-        return {
+    const headerActions = useMemo(
+        () => (
+            <>
+                <ToolbarSearch
+                    value={collectionSearch.value}
+                    onChange={collectionSearch.onChange}
+                    placeholder={collectionSearch.placeholder}
+                />
+                {activeTab === "products" && (
+                    <SegmentedControl<"list" | "grid">
+                        iconsOnly
+                        value={viewMode}
+                        onChange={handleViewChange}
+                        options={[
+                            { value: "grid", icon: <LayoutGrid size={16} />, label: "Vista griglia" },
+                            { value: "list", icon: <ListIcon size={16} />, label: "Vista lista" }
+                        ]}
+                    />
+                )}
+                {ctaAction && (
+                    <Button
+                        variant="primary"
+                        disabled={ctaAction.disabled}
+                        onClick={ctaAction.onClick}
+                        className={styles.toolbarCta}
+                    >
+                        {ctaAction.label}
+                    </Button>
+                )}
+            </>
+        ),
+        [activeTab, collectionSearch, viewMode, handleViewChange, ctaAction]
+    );
+
+    // Versione a dati della stessa toolbar per lo stato compatto.
+    const headerCompact = useMemo<PageHeaderCompactConfig>(
+        () => ({
             sections: visibleTabs.map(tab => ({ value: tab.value, label: tab.label })),
             activeSection: activeTab,
             onSectionChange: value => handleTabChange(value as ProductsTab),
-            search,
-            // Il toggle vista esiste solo sulla tab Prodotti, e lì resta sempre
-            // a vista: è troppo frequente per finire dietro un tap in più.
+            search: collectionSearch,
+            // Il toggle vista esiste solo sui prodotti, e lì resta a vista.
             persistentIcons:
                 activeTab === "products"
                     ? [
@@ -494,27 +458,16 @@ export default function Products() {
                               : { icon: <ListIcon size={18} />, label: "Vista lista", onClick: () => handleViewChange("list") }
                       ]
                     : undefined,
-            primaryAction: ctaActions[0]
-        };
-    }, [
-        activeTab,
-        visibleTabs,
-        handleTabChange,
-        searchQuery,
-        groupsSearchQuery,
-        ingredientsSearchQuery,
-        verticalConfig,
-        viewMode,
-        handleViewChange,
-        ctaActions
-    ]);
+            primaryAction: ctaAction
+        }),
+        [activeTab, visibleTabs, handleTabChange, collectionSearch, viewMode, handleViewChange, ctaAction]
+    );
 
     usePageHeader({ leading, actions: headerActions, compact: headerCompact });
 
     const handleCreateVariant = (baseProduct: V2Product) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setCreateEditMode("create_variant");
-        setProductToEdit(null);
         setParentForVariant(baseProduct);
         setIsCreateEditOpen(true);
         // Expand the row so the user sees the new variant when it's created
@@ -525,16 +478,11 @@ export default function Products() {
         });
     };
 
-    const handleEdit = (product: V2Product) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
-        setCreateEditMode("edit");
-        setProductToEdit(product);
-        setParentForVariant(null);
-        setIsCreateEditOpen(true);
-    };
+    // «Apri» (§50.9/5): il prodotto ha una pagina sola, dove si modifica tutto.
+    const handleOpen = (product: V2Product) => navigate(productUrl(product.id));
 
     const handleDuplicate = async (product: V2Product) => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         try {
             await duplicateProduct(product.id, currentTenantId!);
             showToast({ message: "Prodotto duplicato con successo.", type: "success" });
@@ -549,34 +497,13 @@ export default function Products() {
         setIsDeleteOpen(true);
     };
 
-    const handleBulkDelete = async (selectedIds: string[]) => {
-        if (!currentTenantId || selectedIds.length === 0) return;
-        const results = await Promise.allSettled(
-            selectedIds.map(id => deleteProduct(id, currentTenantId))
-        );
-        const ok = results.filter(r => r.status === "fulfilled").length;
-        const failed = results.length - ok;
-
-        if (ok > 0) {
-            showToast({
-                message: `${ok} ${ok === 1 ? "prodotto eliminato" : "prodotti eliminati"}.`,
-                type: "success"
-            });
-        }
-        if (failed > 0) {
-            showToast({
-                message: `${failed} ${
-                    failed === 1 ? "prodotto non eliminato" : "prodotti non eliminati"
-                } per errore.`,
-                type: "error"
-            });
-            results
-                .filter((r): r is PromiseRejectedResult => r.status === "rejected")
-                .forEach(r => console.error("Bulk delete product failed:", r.reason));
-        }
-
-        await loadData();
-    };
+    const productLower = verticalConfig.productLabel.toLowerCase();
+    const productPluralLower = verticalConfig.productLabelPlural.toLowerCase();
+    const bulk = useBulkDelete({
+        deleteOne: id => deleteProduct(id, currentTenantId!),
+        onDone: loadData,
+        nouns: { one: productLower, many: productPluralLower, deletedOne: "eliminato", deletedMany: "eliminati" }
+    });
 
     const toggleRow = (id: string) => {
         setExpandedRows(prev => {
@@ -590,151 +517,105 @@ export default function Products() {
         });
     };
 
+    const menuLabels = useMemo(
+        () => ({ catalogLabel: verticalConfig.catalogLabel, catalogLabelPlural: verticalConfig.catalogLabelPlural }),
+        [verticalConfig.catalogLabel, verticalConfig.catalogLabelPlural]
+    );
+
+    /** Riga muta, badge e mancanze di un prodotto (o di una variante col suo padre). */
+    const summaryOf = (product: V2Product, parent?: V2Product) => {
+        const meta = productMetadata[product.id] ?? EMPTY_PRODUCT_METADATA;
+        const parentMeta = parent ? (productMetadata[parent.id] ?? EMPTY_PRODUCT_METADATA) : null;
+        const issues = getProductIssues(factsFor(product), parent ? factsFor(parent) : null);
+        return {
+            meta: (
+                <ProductRowMeta
+                    price={describePrice(product, meta, parent, parentMeta)}
+                    missingPrice={issues.missingPrice}
+                    menus={describeMenus(meta.catalogsCount, menuLabels, parentMeta?.catalogsCount)}
+                />
+            ),
+            formats: describeFormats(meta)
+        };
+    };
+
+    const productUrl = (id: string) => `/business/${currentTenantId}/products/${id}`;
+
+    const rowActions = (product: V2Product, kind: "base" | "variant") => (
+        <TableRowActions
+            ariaLabel={`Azioni ${product.name}`}
+            actions={[
+                { label: "Apri", onClick: () => handleOpen(product) },
+                {
+                    label: "Aggiungi variante",
+                    onClick: () => handleCreateVariant(product),
+                    hidden: kind !== "base"
+                },
+                {
+                    label: "Duplica",
+                    onClick: () => handleDuplicate(product),
+                    separator: true
+                },
+                {
+                    label: kind === "base" ? "Elimina" : "Elimina variante",
+                    onClick: () => handleDelete(product),
+                    variant: "destructive" as const
+                }
+            ]}
+        />
+    );
+
+    // Una colonna sola a due righe (§50.9/1): nome con i badge, poi «prezzo ·
+    // in N {menù}». Il prezzo non ha più una colonna sua: a 375 la colonna
+    // stringeva il nome a poche lettere.
     const columns: ColumnDefinition<ProductTableRow>[] = [
         {
             id: "name",
             header: "Nome",
-            width: "2fr",
+            width: "1fr",
             accessor: row => row.product.name,
-            cell: (_value, row) => (
-                <div
-                    className={`${styles.colName} ${
-                        row.kind === "variant" ? styles.variantName : ""
-                    }`}
-                >
-                    <div className={styles.productNameRow}>
-                        {row.kind === "base" && row.hasVariants && (
+            cell: (_value, row) => {
+                const summary = summaryOf(row.product, row.parent);
+                return (
+                    <div className={`${styles.nameCell} ${row.kind === "variant" ? styles.variantName : ""}`}>
+                        {row.kind === "base" && row.hasVariants ? (
                             <button
+                                type="button"
                                 className={styles.expandButton}
                                 onClick={() => toggleRow(row.product.id)}
-                                aria-label={row.isExpanded ? "Comprimi" : "Espandi"}
+                                aria-expanded={row.isExpanded}
+                                aria-label={`${row.isExpanded ? "Nascondi" : "Mostra"} varianti di ${row.product.name}`}
                             >
-                                {row.isExpanded ? (
-                                    <IconChevronDown size={20} />
-                                ) : (
-                                    <IconChevronRight size={20} />
-                                )}
+                                {row.isExpanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
                             </button>
-                        )}
-                        <Link
-                            to={`/business/${currentTenantId}/products/${row.product.id}`}
-                            className={styles.productLink}
-                        >
-                            <Text
-                                variant="body-sm"
-                                weight={row.kind === "variant" ? 500 : 600}
-                                className={styles.productLinkText}
-                            >
-                                {row.product.name}
-                            </Text>
-                        </Link>
-                        {row.kind === "variant" && <Badge variant="secondary">Variante</Badge>}
-                        {/* "Fuori catalogo" sta qui e non nella colonna Prezzo:
-                            è un'affermazione sul prodotto, non sul suo prezzo.
-                            Colonne diverse = i due badge non competono quando
-                            un prodotto ha entrambe le mancanze. */}
-                        {rowIssues(row).outOfCatalog && (
-                            <Badge variant="warning">{outOfCatalogLabel}</Badge>
-                        )}
+                        ) : anyVariants ? (
+                            <span className={styles.expanderSpacer} aria-hidden />
+                        ) : null}
+                        <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${DATA_TABLE_CLASSES.cellTwoLineWrap}`}>
+                            <div className={styles.productNameRow}>
+                                <Link to={productUrl(row.product.id)} className={styles.productLink}>
+                                    {row.product.name}
+                                </Link>
+                                {row.kind === "variant" && <Badge variant="secondary">Variante</Badge>}
+                                {summary.formats && <Badge variant="secondary">{summary.formats}</Badge>}
+                            </div>
+                            {summary.meta}
+                        </div>
                     </div>
-                    {row.product.description && (
-                        <Text variant="caption" colorVariant="muted">
-                            {row.product.description}
-                        </Text>
-                    )}
-                </div>
-            )
-        },
-        {
-            id: "price",
-            header: "Prezzo",
-            width: "1fr",
-            accessor: row => row.product.id,
-            cell: (_value, row) => {
-                // Domanda unica ("ha un prezzo?") prima di qualsiasi formattazione:
-                // le diramazioni sotto si occupano solo di COME mostrarlo.
-                if (rowIssues(row).missingPrice) {
-                    return <Badge variant="warning">Senza prezzo</Badge>;
-                }
-
-                if (row.kind === "variant") {
-                    const variantMeta = productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA;
-                    // Variant has formats
-                    if (variantMeta.formatsCount > 0 && variantMeta.fromPrice !== null) {
-                        return variantMeta.pricedFormatsCount > 1 ? (
-                            <Text variant="body-sm">da {formatCurrency(variantMeta.fromPrice)}</Text>
-                        ) : (
-                            <Text variant="body-sm">{formatCurrency(variantMeta.fromPrice)}</Text>
-                        );
-                    }
-                    // Variant has own price
-                    if (row.product.base_price !== null) {
-                        return <Text variant="body-sm">{formatCurrency(row.product.base_price)}</Text>;
-                    }
-                    // Inherit: show parent's effective price
-                    const parentMeta = row.parent
-                        ? (productMetadata[row.parent.id] ?? EMPTY_PRODUCT_METADATA)
-                        : EMPTY_PRODUCT_METADATA;
-                    const inheritedPrice = parentMeta.fromPrice ?? row.parent?.base_price ?? null;
-                    return inheritedPrice !== null ? (
-                        <Text variant="body-sm" colorVariant="muted">
-                            {formatCurrency(inheritedPrice)} (ereditato)
-                        </Text>
-                    ) : (
-                        <Text variant="body-sm" colorVariant="muted">Eredita</Text>
-                    );
-                }
-
-                // Base product
-                const meta = productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA;
-                if (meta.pricedFormatsCount > 1) {
-                    return meta.fromPrice !== null ? (
-                        <Text variant="body-sm">da {formatCurrency(meta.fromPrice)}</Text>
-                    ) : (
-                        <Text variant="body-sm" colorVariant="muted">—</Text>
-                    );
-                }
-                if (meta.pricedFormatsCount === 1 && meta.fromPrice !== null) {
-                    return <Text variant="body-sm">{formatCurrency(meta.fromPrice)}</Text>;
-                }
-                return row.product.base_price !== null ? (
-                    <Text variant="body-sm">{formatCurrency(row.product.base_price)}</Text>
-                ) : (
-                    <Text variant="body-sm" colorVariant="muted">—</Text>
                 );
             }
         },
-        ...(canWriteProduct ? [{
-            id: "actions",
-            header: "",
-            width: "56px",
-            align: "right" as const,
-            cell: (_value: unknown, row: ProductTableRow) => (
-                <TableRowActions
-                    actions={[
-                        {
-                            label: row.kind === "base" ? "Modifica Prodotto" : "Modifica Variante",
-                            onClick: () => handleEdit(row.product)
-                        },
-                        {
-                            label: "Aggiungi Variante",
-                            onClick: () => handleCreateVariant(row.product),
-                            hidden: row.kind !== "base"
-                        },
-                        {
-                            label: "Duplica",
-                            onClick: () => handleDuplicate(row.product),
-                            separator: true
-                        },
-                        {
-                            label: row.kind === "base" ? "Elimina" : "Elimina Variante",
-                            onClick: () => handleDelete(row.product),
-                            variant: "destructive" as const
-                        }
-                    ]}
-                />
-            )
-        }] : [])
+        ...(canWriteProduct
+            ? [
+                  {
+                      id: "actions",
+                      header: "",
+                      width: "56px",
+                      align: "right" as const,
+                      cell: (_value: unknown, row: ProductTableRow) => rowActions(row.product, row.kind)
+                  }
+              ]
+            : [])
     ];
 
     return (
@@ -744,19 +625,34 @@ export default function Products() {
             {activeTab === "products" && (
                 <>
                     <div className={styles.content} data-view-mode={viewMode}>
-                        {isLoading ? (
-                            <div className={styles.loadingState}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Caricamento prodotti in corso...
-                                </Text>
-                            </div>
-                        ) : filteredProducts.length === 0 ? (
+                        {!isLoading && allProducts.length > 0 && (
+                            <ChipGroupSingle<IssueFilter>
+                                ariaLabel="Filtra per qualità del dato"
+                                layout="auto"
+                                shape="pill"
+                                options={issueFilterOptions}
+                                value={issueFilter}
+                                onChange={setIssueFilter}
+                            />
+                        )}
+                        {loadError ? (
+                            <EmptyState
+                                icon={<Package size={40} strokeWidth={1.5} />}
+                                title={`Non è stato possibile caricare i ${verticalConfig.productLabelPlural.toLowerCase()}`}
+                                description="Controlla la connessione e riprova."
+                                action={
+                                    <Button variant="secondary" onClick={() => loadData()}>
+                                        Riprova
+                                    </Button>
+                                }
+                            />
+                        ) : !isLoading && filteredProducts.length === 0 ? (
                             <EmptyState
                                 icon={<Package size={40} strokeWidth={1.5} />}
                                 title={
                                     hasActiveFilter
                                         ? "Nessun risultato"
-                                        : `Crei un ${verticalConfig.productLabel.toLowerCase()} una volta, lo usi in ogni catalogo`
+                                        : `Crei un ${verticalConfig.productLabel.toLowerCase()} una volta, lo usi in ogni ${verticalConfig.catalogLabel.toLowerCase()}`
                                 }
                                 description={
                                     hasActiveFilter
@@ -776,53 +672,57 @@ export default function Products() {
                                 data={tableRows}
                                 allRowIds={allTableRowIds}
                                 columns={columns}
+                                isLoading={isLoading}
+                                ariaLabel={verticalConfig.productLabelPlural}
                                 selectable={canWriteProduct}
-                                onBulkDelete={canWriteProduct ? handleBulkDelete : undefined}
-                                onRowClick={row =>
-                                    navigate(
-                                        `/business/${currentTenantId}/products/${row.product.id}`
-                                    )
-                                }
-                                rowWrapper={(row, rowData) =>
-                                    rowData.kind === "variant" ? (
-                                        <div className={styles.variantRowWrapper}>
-                                            {row}
-                                        </div>
-                                    ) : (
-                                        row
-                                    )
-                                }
+                                selectedRowIds={bulk.selectedIds}
+                                onSelectedRowsChange={bulk.setSelectedIds}
+                                onBulkDelete={canWriteProduct ? bulk.request : undefined}
+                                onRowClick={row => navigate(productUrl(row.product.id))}
+                                mutedRowIds={variantRowIds}
                             />
                         ) : (
-                            <div className={styles.productGrid}>
-                                {filteredProducts.map(product => {
-                                    const variants = product.variants ?? [];
-                                    if (variants.length > 0) {
+                            <CardGrid
+                                loading={isLoading}
+                                skeletonShape={{ media: true }}
+                                aria-label={verticalConfig.productLabelPlural}
+                            >
+                                {filteredProducts.flatMap(product =>
+                                    [product, ...(product.variants ?? [])].map(item => {
+                                        const parent = item === product ? undefined : product;
+                                        const summary = summaryOf(item, parent);
                                         return (
-                                            <ProductCardGroup
-                                                key={product.id}
-                                                product={product}
-                                                variants={variants}
-                                                metadata={productMetadata}
-                                                onEdit={handleEdit}
-                                                onDelete={handleDelete}
+                                            <CardGridItem
+                                                key={item.id}
+                                                to={productUrl(item.id)}
+                                                aria-label={item.name}
+                                                media={
+                                                    item.image_url ? (
+                                                        <FramedMedia
+                                                            source={item.image_url}
+                                                            framing={item.image_framing ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
+                                                            aspectRatio={null}
+                                                            alt={item.name}
+                                                        />
+                                                    ) : (
+                                                        <div className={styles.mediaPlaceholder} aria-hidden>
+                                                            <Package size={28} strokeWidth={1.5} />
+                                                        </div>
+                                                    )
+                                                }
+                                                title={item.name}
+                                                subtitle={summary.meta}
+                                                badge={
+                                                    parent || summary.formats ? (
+                                                        <Badge variant="secondary">{parent ? "Variante" : summary.formats}</Badge>
+                                                    ) : undefined
+                                                }
+                                                actions={canWriteProduct ? rowActions(item, parent ? "variant" : "base") : undefined}
                                             />
                                         );
-                                    }
-                                    return (
-                                        <ProductCard
-                                            key={product.id}
-                                            product={product}
-                                            metadata={
-                                                productMetadata[product.id] ??
-                                                EMPTY_PRODUCT_METADATA
-                                            }
-                                            onEdit={() => handleEdit(product)}
-                                            onDelete={() => handleDelete(product)}
-                                        />
-                                    );
-                                })}
-                            </div>
+                                    })
+                                )}
+                            </CardGrid>
                         )}
                     </div>
 
@@ -830,13 +730,17 @@ export default function Products() {
                         open={isCreateEditOpen}
                         onClose={() => setIsCreateEditOpen(false)}
                         mode={createEditMode}
-                        productData={productToEdit}
                         parentProduct={parentForVariant}
                         onSuccess={loadData}
                         tenantId={currentTenantId ?? undefined}
                     />
 
-                    <ProductDeleteDrawer
+                    <ConfirmDialog
+                        {...bulk.dialog}
+                        message={`Si eliminano anche le loro varianti e i collegamenti ai ${verticalConfig.catalogLabel.toLowerCase()}, e non si torna indietro.`}
+                    />
+
+                    <ProductDeleteDialog
                         open={isDeleteOpen}
                         onClose={() => setIsDeleteOpen(false)}
                         productData={productToDelete}
@@ -851,6 +755,7 @@ export default function Products() {
                     onCloseCreate={() => setCreateGroupOpen(false)}
                     searchQuery={groupsSearchQuery}
                     onSearchQueryChange={setGroupsSearchQuery}
+                    canWrite={canWriteProduct}
                 />
             )}
             {activeTab === "attributes" && verticalConfig.productSections.customAttributes && (
@@ -858,6 +763,8 @@ export default function Products() {
                     tenantId={currentTenantId ?? undefined}
                     vertical={selectedTenant?.vertical_type}
                     createTrigger={attrCreateSeq}
+                    searchQuery={attributesSearchQuery}
+                    canWrite={canWriteAttribute}
                 />
             )}
             {activeTab === "ingredients" && verticalConfig.productSections.ingredients && (
@@ -865,6 +772,7 @@ export default function Products() {
                     createTrigger={ingredientCreateSeq}
                     searchQuery={ingredientsSearchQuery}
                     onSearchQueryChange={setIngredientsSearchQuery}
+                    canWrite={canWriteProduct}
                 />
             )}
         </section>

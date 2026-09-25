@@ -5,6 +5,8 @@ import { NumberInput } from "@/components/ui/Input/NumberInput";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import Text from "@/components/ui/Text/Text";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { formatCurrency } from "@/utils/formatCurrency";
 import { type V2ProductOptionValue } from "@/services/supabase/productOptions";
 import styles from "./OptionValueList.module.scss";
 
@@ -32,8 +34,8 @@ function readPrice(value: V2ProductOptionValue, priceMode: OptionValuePriceMode)
 
 function formatPrice(price: number | null, priceMode: OptionValuePriceMode): string {
     if (price === null) return "—";
-    if (priceMode === "absolute") return `${price.toFixed(2)} €`;
-    return price >= 0 ? `+${price.toFixed(2)} €` : `${price.toFixed(2)} €`;
+    if (priceMode === "absolute") return formatCurrency(price);
+    return price >= 0 ? `+ ${formatCurrency(price)}` : `− ${formatCurrency(Math.abs(price))}`;
 }
 
 function parsePrice(raw: string): number | null {
@@ -112,7 +114,7 @@ export function OptionValueList({
         }
         const price = parsePrice(editPrice);
         if (price === null) {
-            setEditError("Inserisci un numero valido (es. 0.50 o -0.50)");
+            setEditError(priceMode === "delta" ? "Inserisci un numero valido (es. 0,50 o -0,50)" : "Inserisci un prezzo valido (es. 3,50)");
             return;
         }
         try {
@@ -126,8 +128,18 @@ export function OptionValueList({
         }
     };
 
-    const confirmDelete = async (id: string) => {
-        await onDelete(id);
+    // Eliminare un valore è irreversibile e salva subito: si conferma (P7).
+    const [pendingDelete, setPendingDelete] = useState<V2ProductOptionValue | null>(null);
+
+    const confirmDelete = async (): Promise<boolean> => {
+        if (!pendingDelete) return false;
+        try {
+            await onDelete(pendingDelete.id);
+            return true;
+        } catch {
+            // Il toast lo dà chi possiede il salvataggio (`onDelete`).
+            return false;
+        }
     };
 
     const saveAdd = async () => {
@@ -138,7 +150,7 @@ export function OptionValueList({
         }
         const price = parsePrice(addPrice || "0");
         if (price === null) {
-            setAddError("Inserisci un numero valido (es. 0.50 o -0.50)");
+            setAddError(priceMode === "delta" ? "Inserisci un numero valido (es. 0,50 o -0,50)" : "Inserisci un prezzo valido (es. 3,50)");
             return;
         }
         try {
@@ -182,6 +194,7 @@ export function OptionValueList({
                         <TextInput
                             containerClassName={styles.nameField}
                             inputClassName={styles.controlInput}
+                            aria-label="Nome"
                             value={editName}
                             onChange={e => setEditName(e.target.value)}
                             placeholder={namePlaceholder}
@@ -191,6 +204,7 @@ export function OptionValueList({
                             containerClassName={styles.priceField}
                             inputClassName={styles.controlInput}
                             {...priceAdornments(priceMode)}
+                            aria-label="Prezzo"
                             value={editPrice}
                             onChange={e => setEditPrice(e.target.value)}
                             placeholder={pricePlaceholder}
@@ -243,7 +257,7 @@ export function OptionValueList({
                                     },
                                     {
                                         label: "Elimina",
-                                        onClick: () => confirmDelete(value.id),
+                                        onClick: () => setPendingDelete(value),
                                         variant: "destructive",
                                         separator: true
                                     }
@@ -260,6 +274,7 @@ export function OptionValueList({
                         ref={addNameRef}
                         containerClassName={styles.nameField}
                         inputClassName={styles.controlInput}
+                        aria-label="Nome"
                         value={addName}
                         onChange={e => setAddName(e.target.value)}
                         placeholder={namePlaceholder}
@@ -269,6 +284,7 @@ export function OptionValueList({
                         containerClassName={styles.priceField}
                         inputClassName={styles.controlInput}
                         {...priceAdornments(priceMode)}
+                        aria-label="Prezzo"
                         value={addPrice}
                         onChange={e => setAddPrice(e.target.value)}
                         placeholder={pricePlaceholder}
@@ -295,8 +311,15 @@ export function OptionValueList({
                     )}
                 </div>
             )}
+
+            <ConfirmDialog
+                isOpen={pendingDelete !== null}
+                onClose={() => setPendingDelete(null)}
+                onConfirm={confirmDelete}
+                title={`Eliminare «${pendingDelete?.name ?? ""}»?`}
+                message="Si toglie subito, anche dal menù pubblico. Non si torna indietro."
+                confirmLabel="Elimina"
+            />
         </div>
     );
 }
-
-export default OptionValueList;

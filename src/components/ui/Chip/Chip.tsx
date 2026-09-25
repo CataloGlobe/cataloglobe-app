@@ -25,6 +25,10 @@ export interface ChipProps {
     /** @deprecated Alias di `selected` (nome storico di Pill). */
     active?: boolean;
     disabled?: boolean;
+    /** Conteggio accanto al label, in grassetto (filtri coi conteggi a vista). */
+    count?: number;
+    /** `warning`: il chip nomina un difetto (fondo e testo ambra). */
+    tone?: "warning";
     /** @deprecated Solo `pill` è nel sistema. */
     shape?: ChipShape;
     onClick?: () => void;
@@ -41,6 +45,8 @@ export const Chip = memo(function Chip({
     selected,
     active = false,
     disabled = false,
+    count,
+    tone,
     shape = "pill",
     onClick,
     onRemove,
@@ -66,10 +72,22 @@ export const Chip = memo(function Chip({
             <Text as="span" variant="caption" weight={500} className={styles.label}>
                 {label}
             </Text>
+            {count !== undefined && (
+                <Text as="span" variant="caption" weight={700} className={styles.label}>
+                    {count}
+                </Text>
+            )}
         </>
     );
 
-    const classes = clsx(styles.chip, styles[shape], disabled && styles.disabled, removable && styles.removable, className);
+    const classes = clsx(
+        styles.chip,
+        styles[shape],
+        tone === "warning" && styles.warning,
+        disabled && styles.disabled,
+        removable && styles.removable,
+        className
+    );
 
     if (removable) {
         // Un bottone non può contenere un altro bottone: il chip rimovibile è
@@ -101,7 +119,7 @@ export const Chip = memo(function Chip({
             type="button"
             className={classes}
             aria-checked={isSelected}
-            aria-label={ariaLabel ?? label}
+            aria-label={ariaLabel ?? (count !== undefined ? `${label} ${count}` : label)}
             disabled={disabled}
             onClick={onClick}
         >

@@ -125,18 +125,9 @@ export function PairingProductPicker({
     };
 
     return (
-        <SystemDrawer open={open} onClose={onClose} width={520}>
+        <SystemDrawer open={open} onClose={onClose} size="md">
             <DrawerLayout
-                header={
-                    <div>
-                        <Text variant="title-sm" weight={700}>
-                            Aggiungi abbinamento
-                        </Text>
-                        <Text variant="caption" colorVariant="muted">
-                            Scegli i prodotti che stanno bene insieme.
-                        </Text>
-                    </div>
-                }
+                title="Aggiungi abbinamento"
                 footer={
                     <>
                         <Button variant="secondary" onClick={onClose}>
