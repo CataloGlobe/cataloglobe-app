@@ -1,0 +1,15 @@
+// Il campione riempie l'area media 16:10 di CardGridItem.
+.swatch {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+// In riga di tabella: 64 × 40, col bordo del sistema.
+.compact {
+  display: block;
+  width: 64px;
+  height: 40px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-inner);
+}

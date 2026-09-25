@@ -231,6 +231,55 @@ test.describe("Stili — elenco", () => {
     });
 });
 
+test.describe("Stili — elenco ricomposto (P2)", () => {
+    test("errore di caricamento: lo stato lo dice, «Riprova» ricarica", async ({ page }) => {
+        let fail = true;
+        await page.route(/\/rest\/v1\/styles\?/, route =>
+            fail && route.request().method() === "GET" ? route.fulfill({ status: 500, json: { message: "e2e" } }) : route.fallback()
+        );
+        await openBusinessPage(page, "styles", "Stili");
+        await expect(main(page).getByText("Non è stato possibile caricare gli stili")).toBeVisible({ timeout: 15_000 });
+        fail = false;
+        await main(page).getByRole("button", { name: "Riprova" }).click();
+        await expect(styleName(page, "Estate e2e")).toBeVisible();
+    });
+
+    for (const view of ["grid", "list"] as const) {
+        test(`${view}: ricerca senza esito, e si azzera`, async ({ page }) => {
+            await openList(page, view);
+            await search(page, "nessuno stile si chiama così");
+            await expect(main(page).getByText("Nessun risultato")).toBeVisible();
+            await main(page).getByRole("button", { name: /Azzera|Cancella|Rimuovi i filtri/ }).first().click();
+            await expect(styleName(page, "Estate e2e")).toBeVisible();
+        });
+    }
+
+    test("la card è un link allo stile; di sistema lo dice a parole", async ({ page }) => {
+        await openList(page, "grid");
+        await expect(main(page).getByRole("link", { name: "Estate e2e" })).toHaveAttribute("href", new RegExp(`/styles/${STYLE.estate}$`));
+        await expect(main(page).getByText("Di sistema")).toBeVisible();
+    });
+
+    test("chi non scrive: il «⋯» apre, non modifica", async ({ page }) => {
+        await stub.revoke("styles.write");
+        await openList(page);
+        await stub.revoked;
+        await actionsOf(styleName(page, "Sera e2e")).click();
+        await page.getByRole("menuitem", { name: "Apri" }).click();
+        await expect(page).toHaveURL(new RegExp(`/styles/${STYLE.sera}$`));
+    });
+
+    test("eliminare uno stile non usato è una conferma, non un drawer", async ({ page }) => {
+        await openList(page);
+        await actionsOf(styleName(page, "Notte e2e")).click();
+        await page.getByRole("menuitem", { name: "Elimina" }).click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("Eliminare «Notte e2e»?");
+        await confirm.getByRole("button", { name: "Annulla" }).click();
+        expect(stub.writes).toHaveLength(0);
+    });
+});
+
 test.describe("Stili — editor", () => {
     test("bozza: Salva crea una versione, lo stile in uso chiede conferma", async ({ page }) => {
         wireStyleWrites(stub);
