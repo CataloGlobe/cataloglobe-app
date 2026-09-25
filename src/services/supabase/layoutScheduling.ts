@@ -3,6 +3,7 @@ import { computePriority, levelFromPriority } from "@utils/priorityUtils";
 import type { PriorityLevel } from "@utils/priorityUtils";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
 import type { InsightRule } from "@utils/ruleInsights";
+import { daysOfWeekForDb } from "@utils/scheduleDays";
 
 async function revalidateAfterScheduleMutation(scheduleId: string): Promise<void> {
     try {
@@ -912,7 +913,7 @@ export async function createLayoutRule(input: {
             display_order: input.displayOrder,
             enabled: input.enabled,
             time_mode: input.timeMode,
-            days_of_week: input.daysOfWeek,
+            days_of_week: daysOfWeekForDb(input.daysOfWeek),
             time_from: input.timeFrom,
             time_to: input.timeTo
         },
@@ -969,7 +970,7 @@ export async function createPriceRule(input: {
             display_order: input.displayOrder,
             enabled: input.enabled,
             time_mode: input.timeMode,
-            days_of_week: input.daysOfWeek,
+            days_of_week: daysOfWeekForDb(input.daysOfWeek),
             time_from: input.timeFrom,
             time_to: input.timeTo
         },
@@ -1029,7 +1030,7 @@ export async function createVisibilityRule(input: {
             display_order: input.displayOrder,
             enabled: input.enabled,
             time_mode: input.timeMode,
-            days_of_week: input.daysOfWeek,
+            days_of_week: daysOfWeekForDb(input.daysOfWeek),
             time_from: input.timeFrom,
             time_to: input.timeTo
         },
@@ -1089,7 +1090,7 @@ export async function updateLayoutRule(input: {
         display_order: input.displayOrder,
         enabled: input.enabled,
         time_mode: input.timeMode,
-        days_of_week: input.daysOfWeek,
+        days_of_week: daysOfWeekForDb(input.daysOfWeek),
         time_from: input.timeFrom,
         time_to: input.timeTo
     };
@@ -1267,7 +1268,7 @@ export async function updateRule(input: {
             // priority gestita internamente dal sistema — non sovrascritta al salvataggio
             enabled: input.enabled,
             time_mode: input.timeMode,
-            days_of_week: input.daysOfWeek,
+            days_of_week: daysOfWeekForDb(input.daysOfWeek),
             time_from: input.timeFrom,
             time_to: input.timeTo,
             start_at: input.startAt,

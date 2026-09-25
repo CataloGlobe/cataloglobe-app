@@ -374,6 +374,7 @@ export default function RuleDetailPage() {
                         alwaysActive={form.alwaysActive}
                         startAt={form.startAt}
                         endAt={form.endAt}
+                        daysEnabled={form.daysEnabled}
                         daysOfWeek={form.daysOfWeek}
                         timeFrom={form.timeFrom}
                         timeTo={form.timeTo}

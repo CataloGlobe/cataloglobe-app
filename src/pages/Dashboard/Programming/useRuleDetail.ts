@@ -268,7 +268,7 @@ export function useRuleDetail({
         const autoActivate = !isForcedDraft && !rule.enabled && isLayoutRuleDraft(rule);
         const enabled = isForcedDraft ? false : autoActivate ? true : form.enabled;
         const isWindow = form.timeMode === "window";
-        const hasDays = form.daysOfWeek.length > 0;
+        const hasDays = form.daysEnabled && form.daysOfWeek.length > 0;
         const hasBothTimes = Boolean(form.timeFrom && form.timeTo);
         const name = form.name.trim();
         const startAt = form.startAt ? new Date(form.startAt + "T00:00:00").toISOString() : null;
@@ -288,7 +288,7 @@ export function useRuleDetail({
                     endAt,
                     timeFrom,
                     timeTo,
-                    daysOfWeek: isWindow && hasDays ? form.daysOfWeek.map(Number) : [],
+                    daysOfWeek: isWindow && hasDays ? form.daysOfWeek.map(Number) : null,
                     alwaysActive: form.alwaysActive,
                     targetMode: form.targetMode,
                     activityIds: form.activityIds,

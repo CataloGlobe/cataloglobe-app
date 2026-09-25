@@ -51,6 +51,8 @@ export type RuleDetailForm = {
     timeMode: LayoutTimeMode;
     startAt: string;
     endAt: string;
+    /** L'interruttore «In certi giorni»: acceso senza giorni non si salva. */
+    daysEnabled: boolean;
     daysOfWeek: string[];
     timeFrom: string;
     timeTo: string;
@@ -160,6 +162,7 @@ export function buildRuleDetailForm(
         timeMode: rule.time_mode,
         startAt: rule.start_at ? toLocalDateString(new Date(rule.start_at)) : "",
         endAt: rule.end_at ? toLocalDateString(new Date(rule.end_at)) : "",
+        daysEnabled: (rule.days_of_week?.length ?? 0) > 0,
         daysOfWeek: (rule.days_of_week ?? []).map(day => String(day)),
         timeFrom: rule.time_from?.slice(0, 5) ?? "",
         timeTo: rule.time_to?.slice(0, 5) ?? ""
@@ -218,6 +221,9 @@ export function validateRuleForm(
             else set("timeFrom", "Manca l'ora di inizio.");
         } else if (!hasPeriod && form.daysOfWeek.length === 0 && !(form.timeFrom && form.timeTo)) {
             set("when", "Scegli un periodo, delle ore o dei giorni, oppure accendi «Sempre attiva».");
+        }
+        if (form.daysEnabled && form.daysOfWeek.length === 0) {
+            set("when", "Scegli almeno un giorno, oppure spegni «In certi giorni».");
         }
         if (hasPeriod && !form.startAt) set("startAt", "Manca la data di inizio.");
         if (hasPeriod && !form.endAt) set("endAt", "Manca la data di fine.");

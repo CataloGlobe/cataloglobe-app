@@ -904,6 +904,18 @@ test.describe("Programmazione — dettaglio", () => {
         await expect(page.getByText(when)).toHaveCount(1);
         expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
     });
+
+    test("«In certi giorni» acceso senza giorni non si salva: lo dice su «Quando»", async ({ page }) => {
+        await openRule(page, "pranzo");
+        const days = main(page).getByRole("group", { name: "Giorni della settimana" });
+        for (const day of ["Lun", "Mar", "Mer", "Gio", "Ven"]) {
+            await days.getByRole("checkbox", { name: day }).click();
+        }
+        await expect(main(page).getByRole("switch", { name: "In certi giorni" })).toBeChecked();
+        await page.getByRole("button", { name: "Salva", exact: true }).first().click();
+        await expect(main(page).getByText("Scegli almeno un giorno, oppure spegni «In certi giorni».")).toBeVisible();
+        expect(writesOf(stub, "schedules.PATCH")).toHaveLength(0);
+    });
 });
 
 // F5: il filtro per tipo sta nella testata, nello slot delle tab. A 1024 e
