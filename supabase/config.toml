@@ -406,3 +406,9 @@ enabled = true
 verify_jwt = false
 import_map = "./functions/import_map.json"
 entrypoint = "./functions/submit-lead/index.ts"
+
+[functions.purge-leads]
+enabled = true
+verify_jwt = false
+import_map = "./functions/import_map.json"
+entrypoint = "./functions/purge-leads/index.ts"
