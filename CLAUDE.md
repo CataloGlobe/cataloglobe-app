@@ -260,6 +260,7 @@ Service layer FE: `src/services/supabase/reservations.ts`, `reservationGuests.ts
 - Schema changes: SEMPRE nuova migration (`supabase/migrations/YYYYMMDDHHMMSS_*.sql`). MAI modificare esistenti.
 - **Query nei service**: nomi SENZA prefisso (`products`, mai `v2_products`). Tipi TS: prefisso `V2`.
 - Nuove tabelle: `tenant_id UUID NOT NULL`, RLS abilitato, 4 policy (select/insert/update/delete).
+  - **Eccezione: `leads`** (mig `20260926120000`), contatti dal form della landing di campagna. Tabella di piattaforma: niente `tenant_id`, RLS abilitato **senza policy** e privilegi revocati ad anon/authenticated. Scrive solo l'edge `submit-lead` con service role; nessun accesso dal client.
 - FK: `entita_id`. Self-ref: `parent_entita_id`. Colonne: `snake_case`. Tabelle: plurale.
 - Schema attuale + fact critici (slug uniqueness, Stripe-on-tenants, schedule_targets RLS, ecc.) → `docs/database-reference.md`.
 - **`table_zones`** (migration `20260531150043`): entita' zone tavoli, UNIQUE `(activity_id, name)`. FK `tables.zone_id ON DELETE SET NULL`. RLS via `has_permission('tables.read'|'tables.manage', activity_id)`. View `v_tables_with_state` espone `zone_name` via LEFT JOIN. Campo `tables.zone` text DROPPED nella stessa migration. Frontend admin legge `zone_name` dal JOIN; payload Edge customer mantiene alias `zone: string | null` per backward-compat localStorage.
