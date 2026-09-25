@@ -1118,7 +1118,7 @@ test.describe("Programmazione — banda e matrice", () => {
         await expect(band(page).getByRole("slider", { name: "Ora" })).toBeVisible();
     });
 
-    test.fail("sotto 768 un blocco per sede, gli strati su due colonne, senza scroll di lato", async ({ page }) => {
+    test("sotto 768 un blocco per sede, gli strati su due colonne, senza scroll di lato", async ({ page }) => {
         await openList(page);
         await page.setViewportSize({ width: 375, height: 800 });
         const blocks = main(page).getByRole("list", { name: "Cosa vede ogni sede" });

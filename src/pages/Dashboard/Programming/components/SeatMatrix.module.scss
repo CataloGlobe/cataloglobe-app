@@ -31,3 +31,54 @@
     text-decoration: underline;
   }
 }
+
+// Telefono: un blocco per sede, gli strati su due colonne.
+.blocks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  padding: var(--space-16);
+  border-top: 1px solid var(--border);
+
+  &:first-child {
+    border-top: none;
+  }
+}
+
+// La sede sospesa: spenta ma leggibile, come la riga della tabella.
+.blockMuted {
+  background: var(--bg);
+
+  > * {
+    opacity: 0.72;
+  }
+}
+
+.layers {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-12) var(--space-16);
+  margin: 0;
+}
+
+.layer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.layerLabel {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.layerValue {
+  margin: 0;
+}
