@@ -31,7 +31,8 @@ import {
     getProductOptions
 } from "@/services/supabase/productOptions";
 import { OptionValueList } from "./components/OptionValueList/OptionValueList";
-import { ChoiceRulesEditor, parseMaxSelectable, type MaxSelectableMode } from "./components/ChoiceRulesEditor";
+import { ChoiceRulesEditor } from "./components/ChoiceRulesEditor";
+import { parseMaxSelectable, type MaxSelectableMode } from "./components/choiceRules";
 import { resolvePriceMode, shouldConfirmRevertToUnico, type PriceMode } from "./priceMode";
 import { getDisplayPrice } from "@/utils/priceDisplay";
 import { resolvePriceSummary } from "@/utils/priceSummary";
