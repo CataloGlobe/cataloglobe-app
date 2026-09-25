@@ -67,6 +67,10 @@
   display: flex;
   min-height: 0;
   overflow: hidden;
+  // Contenitore del pannello: sotto i 600 px di editor il pannello non ci sta
+  // accanto all'anteprima (vedi fondo del file).
+  position: relative;
+  container: style-editor / inline-size;
   background-color: var(--color-surface-hover);
   background-image: radial-gradient(circle, rgba(0, 0, 0, 0.065) 1px, transparent 1px);
   background-size: 22px 22px;
@@ -320,4 +324,23 @@
 
 .versionChevronOpen {
   transform: rotate(180deg);
+}
+
+// Editor stretto (telefono, 375): il pannello da 360 + margini sforava a
+// destra, tagliato, e schiacciava l'anteprima a zero. Stesso layout —
+// pannello a destra, comprimibile con la sua maniglia — ma sovrapposto
+// all'anteprima e largo al più quanto l'editor (§50.11).
+@container style-editor (max-width: 600px) {
+  .propertiesPanel {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 1;
+    max-width: calc(100cqw - 24px);
+  }
+
+  .propertiesPanelInner {
+    width: min(360px, calc(100cqw - 24px));
+  }
 }

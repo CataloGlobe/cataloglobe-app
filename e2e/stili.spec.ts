@@ -399,6 +399,27 @@ test.describe("Stili — editor ricomposto (P3)", () => {
     });
 });
 
+test.describe("Stili — editor a 375 (P4)", () => {
+    test("il pannello sta nello schermo e si comprime", async ({ page }) => {
+        await openStyle(page, STYLE.sera);
+        await expect(nameField(page)).toBeVisible({ timeout: 15_000 });
+        await page.setViewportSize({ width: 375, height: 800 });
+        await page.reload();
+        await expect(nameField(page)).toBeVisible({ timeout: 15_000 });
+        const panel = page.locator("aside").filter({ hasText: "Proprietà stile" });
+        const box = await panel.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box!.x).toBeGreaterThanOrEqual(0);
+        expect(box!.x + box!.width).toBeLessThanOrEqual(375);
+        // Il bordo destro del campo nome non è tagliato.
+        const field = await nameField(page).boundingBox();
+        expect(field!.x + field!.width).toBeLessThanOrEqual(box!.x + box!.width);
+        await page.getByRole("button", { name: "Comprimi pannello" }).click();
+        await expect(page.getByRole("button", { name: "Apri proprietà stile" })).toBeVisible();
+        await expect(panel).toHaveCount(0);
+    });
+});
+
 test.describe("Stili — permessi (P1)", () => {
     test("editor senza styles.write: sola lettura, niente Salva né ripristino", async ({ page }) => {
         await stub.revoke("styles.write");
