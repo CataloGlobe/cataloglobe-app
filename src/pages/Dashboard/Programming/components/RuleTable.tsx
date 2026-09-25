@@ -15,7 +15,7 @@ import { isLayoutRuleDraft } from "@utils/scheduleDraft";
 import { getToggleGuardResult } from "@utils/ruleToggleGuards";
 import type { LayoutRule, LayoutRuleOption } from "@services/supabase/layoutScheduling";
 import { ruleTypeLabel } from "../ruleTypeLabel";
-import type { RuleInsight } from "../ruleInsights";
+import type { RuleInsight } from "@/utils/ruleInsights";
 import { describeTarget } from "./ruleTarget";
 import styles from "./RuleTable.module.scss";
 

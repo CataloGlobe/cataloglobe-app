@@ -37,7 +37,7 @@ import {
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
 import { RuleTable } from "./components/RuleTable";
-import { computeRuleInsights, toCompetitionRule } from "./ruleInsights";
+import { computeRuleInsights, toCompetitionRule } from "@/utils/ruleInsights";
 import { compareCandidates } from "@shared/scheduleCompetition";
 import { describeTarget } from "./components/ruleTarget";
 import { measureTextWidth } from "@/utils/measureText";

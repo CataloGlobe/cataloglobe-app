@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { LayoutRule } from "@/services/supabase/layoutScheduling";
-import { computeRuleInsights, type RuleInsightsInput } from "@/pages/Dashboard/Programming/ruleInsights";
+import { computeRuleInsights, type RuleInsightsInput } from "@/utils/ruleInsights";
 
 // Giovedì 26/03/2026, 13:00 a Roma.
 const NOW = new Date("2026-03-26T12:00:00.000Z");
@@ -123,5 +123,43 @@ describe("computeRuleInsights — «Adesso» e «Sovrascritta da» come il resol
         const insights = insightsFor([legacy, global], { activities: [ACTIVITIES[0]] });
 
         expect(insights.get("globale")?.isOverridden).toBe(false);
+    });
+});
+
+describe("computeRuleInsights — fuori da Programmazione (drawer di eliminazione stile)", () => {
+    it("accetta la forma minima di una regola menù e dice chi la sovrascrive", () => {
+        const base = {
+            rule_type: "layout" as const,
+            enabled: true,
+            priority: 10,
+            created_at: "2026-01-01T00:00:00.000Z",
+            time_mode: "always" as const,
+            days_of_week: null,
+            time_from: null,
+            time_to: null,
+            start_at: null,
+            end_at: null,
+            groupIds: [],
+            layout: { catalog_id: "catalog-1" }
+        };
+        const usesStyle = { ...base, id: "usa-lo-stile", name: "Carta", applyToAll: true, activityIds: [] };
+        const other = { ...base, id: "altro-stile", name: "Brunch", applyToAll: false, activityIds: ["sede-x"] };
+
+        const insights = computeRuleInsights({
+            rules: [usesStyle, other],
+            activities: [ACTIVITIES[0]],
+            activityIdsByGroupId: {},
+            groupNameById: new Map(),
+            filterActivityId: null,
+            now: NOW,
+            ruleName: r => r.name
+        });
+
+        expect(insights.get("usa-lo-stile")).toMatchObject({
+            isActiveNow: true,
+            isOverridden: true,
+            isNeverUsed: false,
+            overriddenByName: "Brunch"
+        });
     });
 });

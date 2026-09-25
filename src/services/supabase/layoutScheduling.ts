@@ -2,6 +2,7 @@ import { supabase } from "@/services/supabase/client";
 import { computePriority, levelFromPriority } from "@utils/priorityUtils";
 import type { PriorityLevel } from "@utils/priorityUtils";
 import { revalidatePublicCatalogForTenant } from "@services/publicCatalog/revalidatePublicCatalog";
+import type { InsightRule } from "@utils/ruleInsights";
 
 async function revalidateAfterScheduleMutation(scheduleId: string): Promise<void> {
     try {
@@ -1519,11 +1520,10 @@ export interface StyleScheduleUsage {
     enabled: boolean;
     start_at: string | null;
     end_at: string | null;
-    // Serve a deriveScheduleStatus (src/utils/scheduleStatus.ts): finestra
-    // temporale per isRuleCurrentlyActive, target per ruleReachesAnyActivity
-    // (portata zero, Passo 4). Niente competizione fra regole qui — il
-    // drawer non la calcola, vedi StyleDeleteDrawer.tsx.
-    time_mode: string;
+    // Finestra e target: il drawer non li legge più per lo stato (lo prende
+    // da computeRuleInsights, vedi listLayoutRulesForCompetition); restano
+    // per la bozza (nessun target) e come dato della riga.
+    time_mode: LayoutTimeMode;
     days_of_week: number[] | null;
     time_from: string | null;
     time_to: string | null;
@@ -1539,7 +1539,7 @@ interface ScheduleUsageScheduleRow {
     start_at: string | null;
     end_at: string | null;
     tenant_id: string;
-    time_mode: string;
+    time_mode: LayoutTimeMode;
     days_of_week: number[] | null;
     time_from: string | null;
     time_to: string | null;
@@ -1642,6 +1642,91 @@ export async function listSchedulesUsingStyle(
     });
 
     return out;
+}
+
+// ---------------------------------------------------------------------------
+// listLayoutRulesForCompetition — tutte le regole menù dell'azienda, nella
+// forma di computeRuleInsights / resolveCompetition (drawer eliminazione stile)
+// ---------------------------------------------------------------------------
+
+export type LayoutCompetitionRule = InsightRule & { name: string | null };
+
+interface LayoutCompetitionRow {
+    id: string;
+    name: string | null;
+    enabled: boolean;
+    priority: number;
+    created_at: string;
+    time_mode: LayoutTimeMode;
+    days_of_week: number[] | null;
+    time_from: string | null;
+    time_to: string | null;
+    start_at: string | null;
+    end_at: string | null;
+    apply_to_all: boolean;
+    layout: { catalog_id: string | null } | { catalog_id: string | null }[] | null;
+}
+
+/**
+ * Le regole menù che competono con quelle di uno stile: tutte quelle
+ * dell'azienda, anche con altri stili, coi target da schedule_targets.
+ */
+export async function listLayoutRulesForCompetition(tenantId: string): Promise<LayoutCompetitionRule[]> {
+    const { data, error } = await supabase
+        .from("schedules")
+        .select(
+            `
+            id, name, enabled, priority, created_at, time_mode, days_of_week,
+            time_from, time_to, start_at, end_at, apply_to_all,
+            layout:schedule_layout!schedule_layout_schedule_id_fkey(catalog_id)
+            `
+        )
+        .eq("tenant_id", tenantId)
+        .eq("rule_type", "layout");
+
+    if (error) throw error;
+    const rows = (data ?? []) as LayoutCompetitionRow[];
+    if (rows.length === 0) return [];
+
+    const { data: targetsData, error: targetsError } = await supabase
+        .from("schedule_targets")
+        .select("schedule_id, target_type, target_id")
+        .in(
+            "schedule_id",
+            rows.map(row => row.id)
+        );
+    if (targetsError) throw targetsError;
+
+    const targetsByScheduleId = new Map<string, { activityIds: string[]; groupIds: string[] }>();
+    for (const row of targetsData ?? []) {
+        const entry = targetsByScheduleId.get(row.schedule_id) ?? { activityIds: [], groupIds: [] };
+        if (row.target_type === "activity") entry.activityIds.push(row.target_id);
+        else if (row.target_type === "activity_group") entry.groupIds.push(row.target_id);
+        targetsByScheduleId.set(row.schedule_id, entry);
+    }
+
+    return rows.map(row => {
+        const targets = targetsByScheduleId.get(row.id);
+        const layout = Array.isArray(row.layout) ? (row.layout[0] ?? null) : row.layout;
+        return {
+            id: row.id,
+            name: row.name,
+            rule_type: "layout",
+            enabled: row.enabled,
+            priority: row.priority,
+            created_at: row.created_at,
+            time_mode: row.time_mode,
+            days_of_week: row.days_of_week,
+            time_from: row.time_from,
+            time_to: row.time_to,
+            start_at: row.start_at,
+            end_at: row.end_at,
+            applyToAll: row.apply_to_all,
+            activityIds: row.apply_to_all ? [] : (targets?.activityIds ?? []),
+            groupIds: row.apply_to_all ? [] : (targets?.groupIds ?? []),
+            layout: layout ? { catalog_id: layout.catalog_id } : null
+        };
+    });
 }
 
 export async function duplicateRule(ruleId: string, tenantId: string): Promise<string> {

@@ -22,19 +22,45 @@ export type RuleInsight = {
     excludedActivityNames?: string[];
 };
 
-export type RuleInsightsInput = {
-    rules: LayoutRule[];
+/**
+ * Quello che serve di una regola per la competizione e la portata: una
+ * `LayoutRule` di Programmazione, o la forma minima caricata altrove (drawer
+ * di eliminazione stile).
+ */
+export type InsightRule = Pick<
+    LayoutRule,
+    | "id"
+    | "rule_type"
+    | "enabled"
+    | "priority"
+    | "created_at"
+    | "time_mode"
+    | "days_of_week"
+    | "time_from"
+    | "time_to"
+    | "start_at"
+    | "end_at"
+    | "applyToAll"
+    | "activityIds"
+    | "groupIds"
+> & {
+    /** Solo menù: il catalogo collegato (senza catalogo la regola non vince). */
+    layout: { catalog_id: string | null } | null;
+};
+
+export type RuleInsightsInput<R extends InsightRule = LayoutRule> = {
+    rules: R[];
     activities: Array<Pick<LayoutRuleOption, "id" | "name">>;
     activityIdsByGroupId: Record<string, string[]>;
     groupNameById: Map<string, string>;
     /** La sede del filtro della navbar, se c'è. */
     filterActivityId: string | null;
     now: Date;
-    ruleName: (rule: LayoutRule) => string;
+    ruleName: (rule: R) => string;
 };
 
 /** La regola della lista nella forma della competizione (targets da schedule_targets). */
-export function toCompetitionRule(rule: LayoutRule): CompetitionRule & { source: LayoutRule } {
+export function toCompetitionRule<R extends InsightRule>(rule: R): CompetitionRule & { source: R } {
     return {
         id: rule.id,
         rule_type: rule.rule_type,
@@ -65,7 +91,7 @@ export function toCompetitionRule(rule: LayoutRule): CompetitionRule & { source:
  * (nell'ordine delle sedi) dove perde; `excludedActivityNames` sono tutte
  * le sedi dove perde.
  */
-export function computeRuleInsights(input: RuleInsightsInput): Map<string, RuleInsight> {
+export function computeRuleInsights<R extends InsightRule>(input: RuleInsightsInput<R>): Map<string, RuleInsight> {
     const { rules, activities, activityIdsByGroupId, groupNameById, filterActivityId, now, ruleName } = input;
     const nowRome = toRomeDateTime(now);
     const activityById = new Map(activities.map(activity => [activity.id, activity]));
@@ -91,7 +117,7 @@ export function computeRuleInsights(input: RuleInsightsInput): Map<string, RuleI
     const competitionRules = rules.map(toCompetitionRule);
     const ruleWinsNow = new Set<string>();
     const ruleParticipatesNow = new Set<string>();
-    const ruleOverriddenBy = new Map<string, LayoutRule>();
+    const ruleOverriddenBy = new Map<string, R>();
     const ruleExcludedActivityIds = new Map<string, string[]>();
 
     for (const seat of seats) {
