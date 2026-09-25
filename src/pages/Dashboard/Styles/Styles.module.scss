@@ -548,6 +548,14 @@
   }
 }
 
+/* Il pannello di chi non scrive: un fieldset spento, senza la sua cornice. */
+.readOnlyScope {
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
 .panelForm {
   display: flex;
   flex-direction: column;

@@ -46,6 +46,10 @@ interface ProductsManagerCardProps {
     ) => void;
     // Pubblica un trigger "apri picker prodotti" verso il parent (CTA in banda).
     onRegisterAddTrigger?: (trigger: () => void) => void;
+    /** Chi non può scrivere legge l'elenco: niente maniglia, nota spenta, niente azioni. */
+    readOnly?: boolean;
+    /** «Modifica» del prodotto chiede `products.write`, non `featured.write`. */
+    canEditProducts?: boolean;
 }
 
 function formatPrice(price: number): string {
@@ -81,7 +85,9 @@ export default function ProductsManagerCard({
     pricingMode,
     showOriginalTotal,
     onOpenProductPicker,
-    onRegisterAddTrigger
+    onRegisterAddTrigger,
+    readOnly = false,
+    canEditProducts = false
 }: ProductsManagerCardProps) {
     const { showToast } = useToast();
     const tenantId = useTenantId();
@@ -237,7 +243,7 @@ export default function ProductsManagerCard({
 
     const columns = useMemo<ColumnDefinition<FeaturedContentProductRow>[]>(
         () => [
-            {
+            ...(readOnly ? [] : [{
                 id: "drag",
                 header: "",
                 width: "52px",
@@ -262,7 +268,7 @@ export default function ProductsManagerCard({
                         <GripVertical size={16} />
                     </button>
                 )
-            },
+            } as ColumnDefinition<FeaturedContentProductRow>]),
             {
                 id: "name",
                 header: "Nome prodotto",
@@ -281,6 +287,7 @@ export default function ProductsManagerCard({
                 cell: (_value, row) => (
                     <TextInput
                         value={row.note ?? ""}
+                        disabled={readOnly}
                         placeholder="Aggiungi una nota..."
                         onChange={event => handleNoteChange(row.id, event.target.value)}
                         onBlur={event => handleNoteBlur(row.id, event.target.value)}
@@ -327,32 +334,36 @@ export default function ProductsManagerCard({
                       }
                   ]
                 : []),
-            {
+            ...(readOnly && !canEditProducts ? [] : [{
                 id: "actions",
                 header: "",
-                align: "right",
+                align: "right" as const,
                 width: "56px",
-                cell: (_value, row) => (
+                cell: (_value: unknown, row: FeaturedContentProductRow) => (
                     <TableRowActions
                         actions={[
-                            {
-                                label: "Modifica",
-                                icon: Pencil,
-                                onClick: () => void handleEditProduct(row.product_id)
-                            },
-                            {
-                                label: "Rimuovi prodotto",
-                                icon: Trash2,
-                                variant: "destructive",
-                                separator: true,
-                                onClick: () => handleDelete(row.id)
-                            }
+                            ...(canEditProducts
+                                ? [{
+                                      label: "Modifica",
+                                      icon: Pencil,
+                                      onClick: () => void handleEditProduct(row.product_id)
+                                  }]
+                                : []),
+                            ...(readOnly
+                                ? []
+                                : [{
+                                      label: "Rimuovi prodotto",
+                                      icon: Trash2,
+                                      variant: "destructive" as const,
+                                      separator: canEditProducts,
+                                      onClick: () => handleDelete(row.id)
+                                  }])
                         ]}
                     />
                 )
-            }
+            }])
         ],
-        [showPriceColumn]
+        [showPriceColumn, readOnly, canEditProducts]
     );
 
     return (
@@ -376,7 +387,7 @@ export default function ProductsManagerCard({
                             columns={columns}
                             emptyState={{
                                 title: "Nessun prodotto associato a questo contenuto.",
-                                action: (
+                                action: readOnly ? undefined : (
                                     <Button
                                         variant="primary"
                                         onClick={handleOpenAddModal}

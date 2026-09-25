@@ -18,6 +18,8 @@ type StyleVersionsPopoverProps = {
     /** Trigger (controllo versione) da cui derivare la posizione del popover.
      *  Portalato su document.body → esce dal doppio overflow:hidden del pannello. */
     anchorEl: HTMLElement | null;
+    /** Chi non può scrivere guarda le versioni ma non ne ripristina una. */
+    readOnly?: boolean;
 };
 
 export function StyleVersionsPopover({
@@ -29,7 +31,8 @@ export function StyleVersionsPopover({
     onSelectVersion,
     onRollback,
     onClose,
-    anchorEl
+    anchorEl,
+    readOnly = false
 }: StyleVersionsPopoverProps) {
     const ref = useRef<HTMLDivElement>(null);
     const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
@@ -72,7 +75,7 @@ export function StyleVersionsPopover({
     }, [onClose, anchorEl]);
 
     const canRollback =
-        selectedVersionId !== null && selectedVersionId !== currentVersionId;
+        !readOnly && selectedVersionId !== null && selectedVersionId !== currentVersionId;
 
     if (!pos) return null;
 

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button/Button";
 import { IconLeaf } from "@tabler/icons-react";
 import { useToast } from "@/context/Toast/ToastContext";
 import { useTenantId } from "@/context/useTenantId";
-import { useEnsureActive } from "../hooks/useEnsureActive";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import {
     listIngredients,
     listProductIngredientPairs,
@@ -17,7 +17,7 @@ import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { IngredientsCreateEditDrawer } from "./IngredientsCreateEditDrawer";
 import { IngredientDeleteDialog } from "./IngredientDeleteDialog";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { useBulkDelete } from "../hooks/useBulkDelete";
+import { useBulkDelete } from "@/hooks/useBulkDelete";
 import styles from "./Ingredients.module.scss";
 
 type IngredientsProps = {

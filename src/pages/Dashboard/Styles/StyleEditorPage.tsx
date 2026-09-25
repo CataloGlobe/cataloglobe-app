@@ -30,6 +30,11 @@ import {
 } from "./Editor/StyleTokenModel";
 import styles from "./Styles.module.scss";
 import { loadPublicFonts } from "@utils/loadPublicFonts";
+import { usePermissions } from "@/context/PermissionsContext";
+import { canDoOnTenant } from "@/lib/permissions";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { PageGate } from "@/components/PageGate/PageGate";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
 
 // Larghezza del drawer Proprietà. Single source: framer anima questa width
 // (0 ↔ PANEL_WIDTH); l'inner è fissato a PANEL_WIDTH così non reflowa durante
@@ -41,6 +46,15 @@ export default function StyleEditorPage() {
     const navigate = useNavigate();
     const currentTenantId = useTenantId();
     const { showToast } = useToast();
+    const { permissions } = usePermissions();
+    const { canEdit } = useSubscriptionGuard();
+    // Gate di lettura prima di ogni fetch («skip fetch pre-check»); il blocco
+    // lo rende `PageGate` più sotto.
+    const canRead = permissions != null && canDoOnTenant(permissions, "styles.read");
+    // Chi non ha `styles.write` (o ha l'abbonamento fermo) vede lo stile com'è:
+    // pannello spento, niente Salva, niente ripristino di versioni.
+    const canWrite = permissions != null && canDoOnTenant(permissions, "styles.write");
+    const readOnly = !canWrite || !canEdit;
 
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -124,9 +138,9 @@ export default function StyleEditorPage() {
     );
 
     useEffect(() => {
-        if (!currentTenantId || !styleId) return;
+        if (!currentTenantId || !styleId || !canRead) return;
         loadStyle(styleId);
-    }, [currentTenantId, styleId, loadStyle]);
+    }, [currentTenantId, styleId, canRead, loadStyle]);
 
     const onRollbackComplete = useCallback(async () => {
         if (styleId) await loadStyle(styleId);
@@ -241,6 +255,10 @@ export default function StyleEditorPage() {
     ], [currentTenantId, name]);
 
     useBreadcrumbItems(breadcrumbItems);
+
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="styles.read">{() => null}</PageGate>;
+    }
 
     if (isLoading) {
         return (
@@ -369,6 +387,7 @@ export default function StyleEditorPage() {
                                         isRollingBack={versioning.isRollingBack}
                                         onSelectVersion={versioning.handleVersionSelect}
                                         onRollback={versioning.handleVersionRollback}
+                                        readOnly={readOnly}
                                         onClose={versioning.handleVersionClose}
                                         anchorEl={versionAnchorRef.current}
                                     />
@@ -378,6 +397,13 @@ export default function StyleEditorPage() {
 
                         {/* Contenuto scrollabile */}
                         <div className={styles.panelContent}>
+                            {readOnly && !isSystem && permissions != null && (
+                                <InlineBanner variant="info">
+                                    {canWrite
+                                        ? "Sola lettura: l'abbonamento non è attivo."
+                                        : "Sola lettura: per modificare gli stili serve un ruolo di amministratore."}
+                                </InlineBanner>
+                            )}
                             {isSystem ? (
                                 <div className={styles.panelForm}>
                                     <Text variant="body-sm" weight={600}>
@@ -386,11 +412,8 @@ export default function StyleEditorPage() {
                                     <StylePropertiesReadOnly model={tokenModel} />
                                 </div>
                             ) : (
-                                <form
-                                    id="style-form"
-                                    className={styles.panelForm}
-                                    onSubmit={handleSubmit}
-                                >
+                                <form id="style-form" onSubmit={handleSubmit}>
+                                <fieldset className={`${styles.panelForm} ${styles.readOnlyScope}`} disabled={readOnly}>
                                     <TextInput
                                         label="Nome stile"
                                         required
@@ -402,6 +425,7 @@ export default function StyleEditorPage() {
                                         model={tokenModel}
                                         onChange={setTokenModel}
                                     />
+                                </fieldset>
                                 </form>
                             )}
                         </div>
@@ -411,15 +435,15 @@ export default function StyleEditorPage() {
                             {isSystem ? (
                                 <div className={styles.systemHeaderActions}>
                                     <span className={styles.systemBadge}>Stile di sistema</span>
-                                    <Button
+                                    {!readOnly && <Button
                                         variant="primary"
                                         loading={isDuplicating}
                                         onClick={handleDuplicateAndEdit}
                                     >
                                         Duplica e personalizza
-                                    </Button>
+                                    </Button>}
                                 </div>
-                            ) : (
+                            ) : readOnly ? null : (
                                 <div className={styles.panelActions}>
                                     <Button
                                         variant="secondary"

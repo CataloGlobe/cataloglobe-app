@@ -24,7 +24,7 @@ import { FramedMedia } from "@/components/ui/FramedMedia";
 import { useTenantId } from "@/context/useTenantId";
 import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
 import { usePermissions } from "@/context/PermissionsContext";
-import { canDoOnAnyActivity } from "@/lib/permissions";
+import { canDoOnAnyActivity, canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
 import { FeaturedIdentityDrawer } from "./components/FeaturedIdentityDrawer";
 import { FeaturedMediaDrawer } from "./components/FeaturedMediaDrawer";
@@ -63,6 +63,11 @@ export default function FeaturedContentDetailPage() {
     const { canEdit } = useSubscriptionGuard();
     const { permissions } = usePermissions();
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "featured.write") : false;
+    // Gate di lettura prima di ogni fetch; il blocco lo rende `PageGate`.
+    const canRead = permissions != null && canDoOnAnyActivity(permissions, "featured.read");
+    // Creare un prodotto (tab «Nuovo») o modificarlo è `products.write`, che il
+    // manager non ha anche quando può collegare prodotti al contenuto.
+    const canWriteProducts = permissions != null && canDoOnTenant(permissions, "products.write");
 
     const [content, setContent] = useState<FeaturedContentWithProducts | null>(null);
     const [loading, setLoading] = useState(true);
@@ -100,7 +105,7 @@ export default function FeaturedContentDetailPage() {
     const [isCreatingNewProduct, setIsCreatingNewProduct] = useState(false);
 
     const loadContent = useCallback(async () => {
-        if (!featuredId || !tenantId) return;
+        if (!featuredId || !tenantId || !canRead) return;
         try {
             setLoading(true);
             setPageError(null);
@@ -113,7 +118,7 @@ export default function FeaturedContentDetailPage() {
         } finally {
             setLoading(false);
         }
-    }, [featuredId, tenantId, showToast]);
+    }, [featuredId, tenantId, canRead, showToast]);
 
     useEffect(() => {
         loadContent();
@@ -245,6 +250,10 @@ export default function FeaturedContentDetailPage() {
         actions,
         compact: headerCompact,
     });
+
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="featured.read">{() => null}</PageGate>;
+    }
 
     if (pageError) {
         return (
@@ -444,6 +453,8 @@ export default function FeaturedContentDetailPage() {
                 <ProductsManagerCard
                     featuredId={featuredId as string}
                     pricingMode={content?.pricing_mode ?? "none"}
+                    readOnly={!canWrite || !canEdit}
+                    canEditProducts={canWriteProducts && canEdit}
                     showOriginalTotal={content?.show_original_total ?? false}
                     onOpenProductPicker={(linkedIds, onApply) => {
                         setLinkedProductIds(linkedIds);
@@ -506,7 +517,7 @@ export default function FeaturedContentDetailPage() {
                                 onChange={v => setAddProductMode(v as "new" | "existing")}
                             >
                                 <Tabs.List>
-                                    <Tabs.Tab value="new">Nuovo</Tabs.Tab>
+                                    {canWriteProducts && <Tabs.Tab value="new">Nuovo</Tabs.Tab>}
                                     <Tabs.Tab value="existing">Esistente</Tabs.Tab>
                                 </Tabs.List>
                             </Tabs>

@@ -13,9 +13,9 @@ import {
 import { ProductGroupCreateEditDrawer, GroupFormMode } from "./ProductGroupCreateEditDrawer";
 import { ProductGroupDeleteDialog } from "./ProductGroupDeleteDialog";
 import { useToast } from "@/context/Toast/ToastContext";
-import { useEnsureActive } from "@/pages/Dashboard/Products/hooks/useEnsureActive";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
-import { useBulkDelete } from "@/pages/Dashboard/Products/hooks/useBulkDelete";
+import { useBulkDelete } from "@/hooks/useBulkDelete";
 
 type FlatGroup = ProductGroupWithCount & { depth: number; parentName: string | null };
 

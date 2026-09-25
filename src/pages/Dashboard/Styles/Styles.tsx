@@ -15,7 +15,7 @@ import { TableRowActions, type TableRowAction } from "@/components/ui/TableRowAc
 import styles from "./Styles.module.scss";
 
 import { useNavigate } from "react-router-dom";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnTenant } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
@@ -87,9 +87,12 @@ function StyleCardPreview({ style, compact = false }: { style: V2Style; compact?
 export default function Styles() {
     const currentTenantId = useTenantId();
     const { showToast } = useToast();
-    const { canEdit } = useSubscriptionGuard();
+    const { canEdit, ensureActive } = useEnsureActive();
     const { permissions } = usePermissions();
     const canWrite = permissions ? canDoOnTenant(permissions, "styles.write") : false;
+    // Gate di lettura prima della fetch: chi non ha `styles.read` vede il
+    // blocco di `PageGate` e nessuna richiesta parte.
+    const canRead = permissions != null && canDoOnTenant(permissions, "styles.read");
 
     const [isLoading, setIsLoading] = useState(true);
     const [allStyles, setAllStyles] = useState<V2Style[]>([]);
@@ -114,10 +117,10 @@ export default function Styles() {
     const [styleToDelete, setStyleToDelete] = useState<V2Style | null>(null);
 
     const loadData = useCallback(async () => {
-        if (!currentTenantId) return;
+        if (!currentTenantId || !canRead) return;
         try {
             setIsLoading(true);
-            const data = await listStyles(currentTenantId!);
+            const data = await listStyles(currentTenantId);
             setAllStyles(data);
         } catch (error) {
             console.error("Errore nel caricamento degli stili:", error);
@@ -125,7 +128,7 @@ export default function Styles() {
         } finally {
             setIsLoading(false);
         }
-    }, [currentTenantId, showToast]);
+    }, [currentTenantId, canRead, showToast]);
 
     useEffect(() => {
         loadData();
@@ -147,9 +150,9 @@ export default function Styles() {
             });
     }, [allStyles, searchQuery]);
     const handleCreateClick = useCallback(() => {
-        if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+        if (!ensureActive()) return;
         setIsCreateOpen(true);
-    }, [canEdit, showToast]);
+    }, [ensureActive]);
 
     const headerActions = useMemo(() => (
         <>
@@ -205,17 +208,18 @@ export default function Styles() {
         compact: headerCompact,
     });
 
+    // Aprire uno stile è lettura: resta possibile anche ad abbonamento fermo
+    // (l'editor si apre in sola lettura).
     const handleEditClick = useCallback(
         (style: V2Style) => {
-            if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
             navigate(`/business/${currentTenantId}/styles/${style.id}`);
         },
-        [navigate, canEdit, showToast]
+        [navigate, currentTenantId]
     );
 
     const handleDuplicateClick = useCallback(
         async (style: V2Style) => {
-            if (!canEdit) { showToast({ message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.", type: "error" }); return; }
+            if (!ensureActive()) return;
             try {
                 await duplicateStyle(style.id, `${style.name} (Copia)`, currentTenantId!);
                 showToast({ message: "Stile duplicato con successo.", type: "success" });
@@ -225,13 +229,14 @@ export default function Styles() {
                 showToast({ message: "Impossibile duplicare lo stile.", type: "error" });
             }
         },
-        [loadData, showToast, canEdit]
+        [loadData, showToast, ensureActive, currentTenantId]
     );
 
     const handleDeleteClick = useCallback((style: V2Style) => {
+        if (!ensureActive()) return;
         setStyleToDelete(style);
         setIsDeleteOpen(true);
-    }, []);
+    }, [ensureActive]);
 
     const renderRowActions = useCallback(
         (style: V2Style) => {
@@ -325,6 +330,10 @@ export default function Styles() {
             }
         />
     );
+
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="styles.read">{() => null}</PageGate>;
+    }
 
     return (
         <PageGate readPermission="styles.read">

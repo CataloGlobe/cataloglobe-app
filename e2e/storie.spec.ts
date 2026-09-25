@@ -140,9 +140,12 @@ test.describe("Storie — elenco", () => {
         stub.onWrite("stories.PATCH", () => null);
         await openList(page);
         const handle = main(page).getByRole("button", { name: /Trascina per riordinare|Riordina/ }).first();
+        // Stesse pause di Menù: dnd-kit avvia il trascinamento al frame dopo.
         await handle.focus();
         await page.keyboard.press("Space");
+        await page.waitForTimeout(200);
         await page.keyboard.press("ArrowDown");
+        await page.waitForTimeout(300);
         await page.keyboard.press("Space");
         await expect.poll(() => writes(stub, "stories.PATCH").length).toBeGreaterThanOrEqual(2);
         const forno = writes(stub, "stories.PATCH").find(w => w.params.get("id") === `eq.${STORY.forno}`);
@@ -240,6 +243,32 @@ test.describe("Storie — editor", () => {
         await stub.revoked;
         await expect(titleField(page)).toHaveValue("Il nostro forno e2e", { timeout: 15_000 });
         await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
+    });
+});
+
+test.describe("Storie — permessi (P1)", () => {
+    test("editor senza stories.write: campi e blocchi spenti, stato come etichetta", async ({ page }) => {
+        await stub.revoke("stories.write");
+        await openStory(page, STORY.forno);
+        await stub.revoked;
+        await expect(main(page).getByText(/^Sola lettura/)).toBeVisible({ timeout: 15_000 });
+        await expect(titleField(page)).toBeDisabled();
+        await expect(main(page).getByPlaceholder("Scrivi un paragrafo...").first()).toBeDisabled();
+        await expect(main(page).getByRole("button", { name: "Trascina per riordinare" }).first()).toBeDisabled();
+        await expect(page.getByRole("radio", { name: "Pubblicata" })).toHaveCount(0);
+        await expect(page.getByText("Pubblicata", { exact: true }).first()).toBeVisible();
+    });
+
+    test("senza stories.read: il blocco, e nessuna lettura delle storie", async ({ page }) => {
+        const reads: string[] = [];
+        page.on("request", r => {
+            if (/\/rest\/v1\/stories\?/.test(r.url())) reads.push(r.url());
+        });
+        await stub.revoke("stories.read");
+        await openStory(page, STORY.forno);
+        await stub.revoked;
+        await expect(main(page).getByText("Non hai accesso a questa sezione")).toBeVisible({ timeout: 15_000 });
+        expect(reads).toHaveLength(0);
     });
 });
 

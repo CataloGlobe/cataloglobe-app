@@ -27,7 +27,7 @@ import { useBeforeUnloadWarning } from "./hooks/useBeforeUnloadWarning";
 import styles from "./Stories.module.scss";
 
 import { useTenantId } from "@/context/useTenantId";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
@@ -53,9 +53,11 @@ export default function Stories() {
     const { showToast } = useToast();
     const navigate = useNavigate();
     const tenantId = useTenantId();
-    const { canEdit } = useSubscriptionGuard();
+    const { canEdit, ensureActive } = useEnsureActive();
     const { permissions } = usePermissions();
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "stories.write") : false;
+    // Gate di lettura prima della fetch: senza `stories.read` nessuna richiesta.
+    const canRead = permissions != null && canDoOnAnyActivity(permissions, "stories.read");
 
     const [activeTab, setActiveTab] = useState<StoriesTab>("stories");
     const [loading, setLoading] = useState(true);
@@ -71,7 +73,7 @@ export default function Stories() {
 
     // Draft "Storia del brand" — sollevato qui: serve a header (Salva) e
     // tab-guard. Fetch lazy alla prima apertura del tab.
-    const brand = useBrandStoryDraft(tenantId ?? null, activeTab === "brand");
+    const brand = useBrandStoryDraft(tenantId ?? null, canRead && activeTab === "brand");
 
     // Protezione refresh/chiusura tab quando il brand è dirty. La nav SPA
     // interna resta non protetta (useBlocker richiede data router — task
@@ -92,7 +94,7 @@ export default function Stories() {
     );
 
     const loadData = useCallback(async () => {
-        if (!tenantId) return;
+        if (!tenantId || !canRead) return;
         try {
             setLoading(true);
             const data = await listStories(tenantId);
@@ -103,22 +105,22 @@ export default function Stories() {
         } finally {
             setLoading(false);
         }
-    }, [tenantId, showToast]);
+    }, [tenantId, canRead, showToast]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
 
     const handleCreate = useCallback(() => {
-        if (!canEdit) {
-            showToast({
-                message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.",
-                type: "error"
-            });
-            return;
-        }
+        if (!ensureActive()) return;
         setIsCreateOpen(true);
-    }, [canEdit, showToast]);
+    }, [ensureActive]);
+
+    const brandSave = brand.save;
+    const saveBrand = useCallback(async () => {
+        if (!ensureActive()) return false;
+        return brandSave();
+    }, [ensureActive, brandSave]);
 
     const leading = useMemo(
         () => (
@@ -139,7 +141,7 @@ export default function Stories() {
                 <HeaderSaveAction
                     isDirty={brand.isDirty}
                     isSaving={brand.isSaving}
-                    onSave={brand.save}
+                    onSave={saveBrand}
                     onDiscard={brand.discard}
                 />
             );
@@ -149,7 +151,7 @@ export default function Stories() {
                 Crea storia
             </Button>
         );
-    }, [activeTab, handleCreate, canEdit, canWrite, brand.isDirty, brand.isSaving, brand.save, brand.discard]);
+    }, [activeTab, handleCreate, canEdit, canWrite, brand.isDirty, brand.isSaving, saveBrand, brand.discard]);
 
     // Le due tab hanno azioni di natura diversa: "Storie" crea, "Storia del
     // brand" salva. La config compatta segue la tab attiva, non è calcolata una
@@ -172,7 +174,7 @@ export default function Stories() {
                 ...buildSaveActionCompactConfig({
                     isDirty: brand.isDirty,
                     isSaving: brand.isSaving,
-                    onSave: brand.save,
+                    onSave: saveBrand,
                     onRequestDiscard: () => setConfirmDiscardOpen(true)
                 })
             };
@@ -182,13 +184,14 @@ export default function Stories() {
             ...base,
             primaryAction: { label: "Crea storia", onClick: handleCreate, disabled: !canEdit }
         };
-    }, [activeTab, handleTabChange, canWrite, canEdit, handleCreate, brand.isDirty, brand.isSaving, brand.save]);
+    }, [activeTab, handleTabChange, canWrite, canEdit, handleCreate, brand.isDirty, brand.isSaving, saveBrand]);
 
     usePageHeader({ leading, actions, compact: headerCompact });
 
     const handleDragEnd = async (event: DragEndEvent) => {
         const { active, over } = event;
         if (!over || active.id === over.id) return;
+        if (!ensureActive()) return;
 
         const oldIndex = stories.findIndex(row => row.id === active.id);
         const newIndex = stories.findIndex(row => row.id === over.id);
@@ -289,7 +292,9 @@ export default function Stories() {
                                   {
                                       label: "Elimina",
                                       icon: Trash2,
-                                      onClick: () => setDeleteTarget(item),
+                                      onClick: () => {
+                                          if (ensureActive()) setDeleteTarget(item);
+                                      },
                                       variant: "destructive" as const,
                                       separator: true
                                   }
@@ -300,6 +305,10 @@ export default function Stories() {
             )
         }
     ];
+
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="stories.read">{() => null}</PageGate>;
+    }
 
     return (
         <PageGate readPermission="stories.read">
@@ -390,7 +399,7 @@ export default function Stories() {
                             setPendingTab(null);
                         }}
                         onSaveAndExit={async () => {
-                            const ok = await brand.save();
+                            const ok = await saveBrand();
                             if (ok) {
                                 if (pendingTab) setActiveTab(pendingTab);
                                 setPendingTab(null);

@@ -296,6 +296,40 @@ test.describe("Stili — editor", () => {
     });
 });
 
+test.describe("Stili — permessi (P1)", () => {
+    test("editor senza styles.write: sola lettura, niente Salva né ripristino", async ({ page }) => {
+        await stub.revoke("styles.write");
+        await openStyle(page, STYLE.estate);
+        await stub.revoked;
+        await expect(main(page).getByText(/^Sola lettura/)).toBeVisible({ timeout: 15_000 });
+        await expect(nameField(page)).toBeDisabled();
+        await expect(page.getByRole("button", { name: "Salva", exact: true })).toHaveCount(0);
+        await page.getByRole("button", { name: /Versione 3/ }).first().click();
+        await page.getByRole("button", { name: /^v2\b/ }).click();
+        await expect(page.getByRole("button", { name: /^Ripristina/ })).toHaveCount(0);
+    });
+
+    test("stile di sistema senza styles.write: niente «Duplica e personalizza»", async ({ page }) => {
+        await stub.revoke("styles.write");
+        await openStyle(page, STYLE.base);
+        await stub.revoked;
+        await expect(main(page).getByText("Stile di sistema").first()).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("button", { name: "Duplica e personalizza" })).toHaveCount(0);
+    });
+
+    test("senza styles.read: il blocco, e nessuna lettura degli stili", async ({ page }) => {
+        const reads: string[] = [];
+        page.on("request", r => {
+            if (/\/rest\/v1\/styles\?/.test(r.url())) reads.push(r.url());
+        });
+        await stub.revoke("styles.read");
+        await openStyle(page, STYLE.estate);
+        await stub.revoked;
+        await expect(main(page).getByText("Non hai accesso a questa sezione")).toBeVisible({ timeout: 15_000 });
+        expect(reads).toHaveLength(0);
+    });
+});
+
 test.describe("Stili — larghezze", () => {
     for (const width of [1280, 768, 375]) {
         test(`${width}: elenco ed editor senza scroll di lato`, async ({ page }) => {

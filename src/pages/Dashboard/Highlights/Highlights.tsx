@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect, useRef } from "react";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { Button } from "@/components/ui/Button/Button";
@@ -12,9 +12,10 @@ import { useToast } from "@/context/Toast/ToastContext";
 import {
     listFeaturedContents,
     deleteFeaturedContent,
-    FeaturedContentWithProducts,
-    type DeleteFeaturedContentResult
+    FeaturedContentWithProducts
 } from "@/services/supabase/featuredContents";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog/ConfirmDialog";
+import { useBulkDelete } from "@/hooks/useBulkDelete";
 import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import FeaturedContentDrawer from "./FeaturedContentDrawer";
 import FeaturedContentDeleteDrawer from "./FeaturedContentDeleteDrawer";
@@ -23,7 +24,7 @@ import styles from "./Highlights.module.scss";
 
 import { useNavigate } from "react-router-dom";
 import { useTenantId } from "@/context/useTenantId";
-import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { useEnsureActive } from "@/hooks/useEnsureActive";
 import { usePermissions } from "@/context/PermissionsContext";
 import { canDoOnAnyActivity } from "@/lib/permissions";
 import { PageGate } from "@/components/PageGate/PageGate";
@@ -31,9 +32,11 @@ import { PageGate } from "@/components/PageGate/PageGate";
 export default function Highlights() {
     const { showToast } = useToast();
     const tenantId = useTenantId();
-    const { canEdit } = useSubscriptionGuard();
+    const { canEdit, ensureActive } = useEnsureActive();
     const { permissions } = usePermissions();
     const canWrite = permissions ? canDoOnAnyActivity(permissions, "featured.write") : false;
+    // Gate di lettura prima della fetch: senza `featured.read` nessuna richiesta.
+    const canRead = permissions != null && canDoOnAnyActivity(permissions, "featured.read");
     const [loading, setLoading] = useState(true);
     const [contents, setContents] = useState<FeaturedContentWithProducts[]>([]);
     const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -55,7 +58,7 @@ export default function Highlights() {
     const [deleteTarget, setDeleteTarget] = useState<FeaturedContentWithProducts | null>(null);
 
     const loadData = useCallback(async () => {
-        if (!tenantId) return;
+        if (!tenantId || !canRead) return;
         try {
             setLoading(true);
             const data = await listFeaturedContents(tenantId);
@@ -70,22 +73,16 @@ export default function Highlights() {
         } finally {
             setLoading(false);
         }
-    }, [tenantId, showToast]);
+    }, [tenantId, canRead, showToast]);
 
     useEffect(() => {
         loadData();
     }, [loadData]);
 
     const handleCreate = useCallback(() => {
-        if (!canEdit) {
-            showToast({
-                message: "Abbonamento non attivo. Vai alla pagina abbonamento per riattivarlo.",
-                type: "error"
-            });
-            return;
-        }
+        if (!ensureActive()) return;
         setIsCreateOpen(true);
-    }, [canEdit, showToast]);
+    }, [ensureActive]);
 
     const headerActions = useMemo(() => (
         <>
@@ -146,56 +143,32 @@ export default function Highlights() {
         navigate(`/business/${tenantId}/featured/${item.id}`);
     };
 
-    const handleBulkDelete = async (selectedIds: string[]) => {
-        if (!tenantId) return;
-        if (selectedIds.length === 0) return;
-
-        const results = await Promise.allSettled(
-            selectedIds.map(id => deleteFeaturedContent(id, tenantId))
-        );
-
-        const fulfilledIndexes: number[] = [];
-        const rejected: PromiseRejectedResult[] = [];
-        let totalDisabled = 0;
-
-        results.forEach((r, idx) => {
-            if (r.status === "fulfilled") {
-                fulfilledIndexes.push(idx);
-                const value = r.value as DeleteFeaturedContentResult;
-                totalDisabled += value.schedules_disabled;
-            } else {
-                rejected.push(r);
+    // Eliminazione multipla con conferma (§50.11, come Prodotti): il conteggio
+    // delle regole rimaste senza contenuti, che il servizio mette in bozza, si
+    // dice a parte dopo l'esito.
+    const disabledRulesRef = useRef(0);
+    const bulk = useBulkDelete({
+        deleteOne: async id => {
+            const result = await deleteFeaturedContent(id, tenantId!);
+            disabledRulesRef.current += result.schedules_disabled;
+        },
+        onDone: async () => {
+            const disabled = disabledRulesRef.current;
+            disabledRulesRef.current = 0;
+            if (disabled > 0) {
+                showToast({
+                    type: "info",
+                    message: `${disabled} ${disabled === 1 ? "regola spostata" : "regole spostate"} in bozze.`
+                });
             }
-        });
+            await loadData();
+        },
+        nouns: { one: "contenuto", many: "contenuti", deletedOne: "eliminato", deletedMany: "eliminati" }
+    });
 
-        const okIds = fulfilledIndexes.map(i => selectedIds[i]);
-        if (okIds.length > 0) {
-            setContents(prev => prev.filter(c => !okIds.includes(c.id)));
-            const ok = okIds.length;
-            const parts = [
-                `${ok} ${ok === 1 ? "contenuto eliminato" : "contenuti eliminati"}.`
-            ];
-            if (totalDisabled > 0) {
-                parts.push(
-                    `${totalDisabled} ${totalDisabled === 1 ? "regola spostata" : "regole spostate"} in bozze.`
-                );
-            }
-            showToast({ type: "success", message: parts.join(" "), duration: 3000 });
-        }
-
-        if (rejected.length > 0) {
-            const failed = rejected.length;
-            rejected.forEach(r =>
-                console.error("[Highlights] bulk delete featured failed:", r.reason)
-            );
-            showToast({
-                type: "error",
-                message: `${failed} ${failed === 1 ? "contenuto non eliminato" : "contenuti non eliminati"} per errore.`,
-                duration: 3500
-            });
-        }
-
-        await loadData();
+    const requestDelete = (item: FeaturedContentWithProducts) => {
+        if (!ensureActive()) return;
+        setDeleteTarget(item);
     };
 
     const filteredContents = useMemo(() => {
@@ -254,7 +227,7 @@ export default function Highlights() {
                         ...(canWrite ? [{
                             label: "Elimina",
                             icon: Trash2,
-                            onClick: () => setDeleteTarget(item),
+                            onClick: () => requestDelete(item),
                             variant: "destructive" as const,
                             separator: true
                         }] : [])
@@ -263,6 +236,10 @@ export default function Highlights() {
             )
         }
     ];
+
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="featured.read">{() => null}</PageGate>;
+    }
 
     return (
         <PageGate readPermission="featured.read">
@@ -300,8 +277,10 @@ export default function Highlights() {
                             data={filteredContents}
                             allRowIds={allContentIds}
                             columns={columns}
-                            selectable={canWrite}
-                            onBulkDelete={canWrite ? handleBulkDelete : undefined}
+                            selectable={canWrite && canEdit}
+                            selectedRowIds={bulk.selectedIds}
+                            onSelectedRowsChange={bulk.setSelectedIds}
+                            onBulkDelete={canWrite && canEdit ? bulk.request : undefined}
                             onRowClick={item => navigate(`/business/${tenantId}/featured/${item.id}`)}
                         />
                     ) : (
@@ -311,7 +290,7 @@ export default function Highlights() {
                                     key={item.id}
                                     item={item}
                                     onEdit={() => handleEdit(item)}
-                                    onDelete={canWrite ? () => setDeleteTarget(item) : undefined}
+                                    onDelete={canWrite ? () => requestDelete(item) : undefined}
                                 />
                             ))}
                         </div>
@@ -326,6 +305,11 @@ export default function Highlights() {
                     setIsCreateOpen(false);
                     loadData();
                 }}
+            />
+
+            <ConfirmDialog
+                {...bulk.dialog}
+                message="Le regole che li mostrano restano; quelle che restano senza contenuti passano in bozza. Non si torna indietro."
             />
 
             <FeaturedContentDeleteDrawer

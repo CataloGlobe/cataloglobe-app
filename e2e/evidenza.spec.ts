@@ -331,6 +331,52 @@ test.describe("In evidenza — prodotti del contenuto", () => {
     });
 });
 
+test.describe("In evidenza — permessi e conferme (P1)", () => {
+    test("elimina più: conferma col conteggio, annulla rimette la selezione", async ({ page }) => {
+        stub.onWrite("featured_contents.DELETE", () => null);
+        await openList(page);
+        await checkboxOf(contentName(page, "Chiusura ferragosto e2e")).check();
+        await checkboxOf(contentName(page, "Concerto e2e")).check();
+        await page.getByRole("button", { name: /^Elimina/ }).last().click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("Eliminare 2 contenuti?");
+        await confirm.getByRole("button", { name: "Annulla" }).click();
+        await expect(confirm).toHaveCount(0);
+        expect(writes(stub, "featured_contents.DELETE")).toHaveLength(0);
+        await expect(checkboxOf(contentName(page, "Concerto e2e"))).toBeChecked();
+        await page.getByRole("button", { name: /^Elimina/ }).last().click();
+        await confirm.getByRole("button", { name: "Elimina 2 contenuti" }).click();
+        await expect.poll(() => writes(stub, "featured_contents.DELETE").length).toBe(2);
+    });
+
+    test("prodotti senza featured.write: niente maniglia, nota spenta, niente Rimuovi", async ({ page }) => {
+        await stub.revoke("featured.write");
+        await openContent(page, FEATURED.coppia);
+        await stub.revoked;
+        await openProductsTab(page);
+        await expect(main(page).getByText("Big Arch e2e")).toBeVisible();
+        await expect(main(page).getByRole("button", { name: "Trascina per riordinare" })).toHaveCount(0);
+        await expect(main(page).getByRole("textbox").first()).toBeDisabled();
+        const kebab = main(page).getByRole("button", { name: /^Azioni/ });
+        if ((await kebab.count()) > 0) {
+            await kebab.first().click();
+            await expect(page.getByRole("menuitem", { name: /^(Rimuovi prodotto|Togli)/ })).toHaveCount(0);
+        }
+    });
+
+    test("senza featured.read: il blocco, e nessuna lettura dei contenuti", async ({ page }) => {
+        const reads: string[] = [];
+        page.on("request", r => {
+            if (/\/rest\/v1\/featured_contents\?/.test(r.url())) reads.push(r.url());
+        });
+        await stub.revoke("featured.read");
+        await openContent(page, FEATURED.coppia);
+        await stub.revoked;
+        await expect(main(page).getByText("Non hai accesso a questa sezione")).toBeVisible({ timeout: 15_000 });
+        expect(reads).toHaveLength(0);
+    });
+});
+
 test.describe("In evidenza — larghezze", () => {
     for (const width of [1280, 768, 375]) {
         test(`${width}: elenco e dettaglio senza scroll di lato`, async ({ page }) => {

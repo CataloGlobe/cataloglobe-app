@@ -34,6 +34,9 @@ import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedCont
 import { StoryProductPicker } from "./components/StoryProductPicker";
 import { AddBlockMenu } from "./components/AddBlockMenu";
 import { useBeforeUnloadWarning } from "./hooks/useBeforeUnloadWarning";
+import { useSubscriptionGuard } from "@/hooks/useSubscriptionGuard";
+import { InlineBanner } from "@/components/ui/InlineBanner/InlineBanner";
+import { Badge } from "@/components/ui/Badge/Badge";
 import styles from "./Stories.module.scss";
 
 const STATUS_OPTIONS: { value: StoryStatus; label: string }[] = [
@@ -47,7 +50,12 @@ export default function StoryDetailPage() {
     const { showToast } = useToast();
     const tenantId = useTenantId();
     const { permissions } = usePermissions();
-    const canWrite = permissions ? canDoOnAnyActivity(permissions, "stories.write") : false;
+    const { canEdit } = useSubscriptionGuard();
+    // Gate di lettura prima di ogni fetch; il blocco lo rende `PageGate`.
+    const canRead = permissions != null && canDoOnAnyActivity(permissions, "stories.read");
+    // Chi non scrive (o ha l'abbonamento fermo) legge la storia com'è: campi e
+    // blocchi spenti, stato come etichetta, niente Salva.
+    const canWrite = permissions != null && canDoOnAnyActivity(permissions, "stories.write") && canEdit;
 
     // `story` è il baseline SALVATO. Il draft (campi + blocchi) vive qui nel
     // parent: isDirty deriva dal diff draft↔baseline, e un unico Salva persiste
@@ -75,7 +83,7 @@ export default function StoryDetailPage() {
     const [pendingBlockImages, setPendingBlockImages] = useState<Record<string, File>>({});
 
     const refreshStory = useCallback(async () => {
-        if (!tenantId || !storyId) return;
+        if (!tenantId || !storyId || !canRead) return;
         try {
             const data = await getStory(storyId, tenantId);
             setStory(data);
@@ -83,13 +91,14 @@ export default function StoryDetailPage() {
             console.error(error);
             showToast({ type: "error", message: "Errore durante il caricamento della storia." });
         }
-    }, [tenantId, storyId, showToast]);
+    }, [tenantId, storyId, canRead, showToast]);
 
     useEffect(() => {
+        if (!canRead) return;
         setLoading(true);
         refreshStory().finally(() => setLoading(false));
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [tenantId, storyId]);
+    }, [tenantId, storyId, canRead]);
 
     // Sync draft ← baseline. Usata al load iniziale, dopo un Salva riuscito, e
     // da `discardStory` (Annulla in header) per riallineare l'intero draft —
@@ -306,14 +315,18 @@ export default function StoryDetailPage() {
     const actions = useMemo(
         () => (
             <div className={styles.headerActions}>
-                <div className={!canWrite ? styles.readonlyControl : undefined}>
+                {canWrite ? (
                     <SegmentedControl<StoryStatus>
                         value={status}
                         onChange={setStatus}
                         options={STATUS_OPTIONS}
                         size="sm"
                     />
-                </div>
+                ) : (
+                    <Badge variant={status === "published" ? "success" : "secondary"}>
+                        {status === "published" ? "Pubblicata" : "Bozza"}
+                    </Badge>
+                )}
                 {canWrite && (
                     <>
                         <span className={styles.headerSeparator} aria-hidden="true" />
@@ -352,6 +365,10 @@ export default function StoryDetailPage() {
 
     usePageHeader({ actions, compact: headerCompact });
 
+    if (permissions != null && !canRead) {
+        return <PageGate readPermission="stories.read">{() => null}</PageGate>;
+    }
+
     if (loading) {
         return (
             <div className={styles.wrapper}>
@@ -377,6 +394,14 @@ export default function StoryDetailPage() {
         <PageGate readPermission="stories.read">
             {() => (
                 <div className={styles.wrapper}>
+                    {!canWrite && permissions != null && (
+                        <InlineBanner variant="info">
+                            {canDoOnAnyActivity(permissions, "stories.write")
+                                ? "Sola lettura: l'abbonamento non è attivo."
+                                : "Sola lettura: per modificare le storie serve un ruolo da manager in su."}
+                        </InlineBanner>
+                    )}
+                    <fieldset className={styles.readOnlyScope} disabled={!canWrite}>
                     <SectionCard
                         title="Informazioni"
                         subtitle="Titolo e copertina compaiono nell'elenco storie del catalogo"
@@ -426,6 +451,7 @@ export default function StoryDetailPage() {
                             onAddBlock={handleAddBlock}
                         />
                     </SectionCard>
+                    </fieldset>
 
                     <DiscardChangesConfirmDialog
                         isOpen={confirmDiscardOpen}
