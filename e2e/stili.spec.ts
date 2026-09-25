@@ -1,0 +1,312 @@
+import { expect, test, type Locator, type Page } from "@playwright/test";
+import { openBusinessPage } from "./business";
+import { STYLE, stubStili, type StiliStub, type WriteCall } from "./stiliStub";
+import type { Row } from "./restStub";
+
+/**
+ * Stili (lotto `ds-5-stili-storie-evidenza`, P0). Scritto sulla pagina di
+ * **oggi**, prima di ricomporla: deve restare verde passo dopo passo.
+ *
+ * Dati finti in `stiliStub.ts`; permessi, azienda e sidebar veri. Nessuna
+ * scrittura parte: ogni gesto che scrive ha un test di cablaggio che controlla
+ * tabella, filtri e corpo. Dove un nome o un controllo cambierà nei passi
+ * successivi il locator accetta quello di oggi e quello di domani.
+ */
+
+function main(page: Page) {
+    return page.getByRole("main");
+}
+
+function dialog(page: Page): Locator {
+    return page.getByRole("dialog").or(page.getByRole("alertdialog")).last();
+}
+
+function write(stub: StiliStub, key: string): WriteCall | undefined {
+    return stub.writes.find(w => w.key === key);
+}
+
+function writes(stub: StiliStub, key: string): WriteCall[] {
+    return stub.writes.filter(w => w.key === key);
+}
+
+/** Il nome dello stile, in griglia o in lista. */
+function styleName(page: Page, name: string): Locator {
+    return main(page).getByText(name, { exact: true }).first();
+}
+
+/** Il «⋯» della card o della riga che contiene `anchor`. */
+function actionsOf(anchor: Locator): Locator {
+    return anchor
+        .locator("xpath=ancestor::*[.//button[starts-with(@aria-label,'Azioni')]][1]")
+        .getByRole("button", { name: /^Azioni/ })
+        .first();
+}
+
+async function setView(page: Page, view: "list" | "grid"): Promise<void> {
+    await page.addInitScript(v => localStorage.setItem("cataloglobe-styles-view-mode", v), view);
+}
+
+async function openList(page: Page, view: "list" | "grid" = "grid"): Promise<void> {
+    await setView(page, view);
+    await openBusinessPage(page, "styles", "Stili");
+    await expect(styleName(page, "Estate e2e")).toBeVisible({ timeout: 15_000 });
+}
+
+async function openStyle(page: Page, id: string): Promise<void> {
+    if (!/\/business\/[0-9a-f-]+\//.test(page.url())) await openBusinessPage(page, "styles", "Stili");
+    await page.goto(page.url().replace(/\/business\/([0-9a-f-]+)\/.*$/, `/business/$1/styles/${id}`));
+}
+
+async function search(page: Page, text: string): Promise<void> {
+    const field = page.getByPlaceholder(/^Cerca/).first();
+    if (!(await field.isVisible().catch(() => false))) {
+        await page.getByRole("button", { name: "Cerca", exact: true }).click();
+    }
+    await field.fill(text);
+}
+
+async function noSideScroll(page: Page): Promise<void> {
+    const overflow = await page.evaluate(() => {
+        const de = document.documentElement;
+        const scrollers = [de, ...Array.from(document.querySelectorAll<HTMLElement>("main"))];
+        return Math.max(...scrollers.map(el => el.scrollWidth - el.clientWidth));
+    });
+    expect(overflow).toBeLessThanOrEqual(0);
+}
+
+/** Il campo del nome nell'editor. */
+function nameField(page: Page): Locator {
+    return main(page).getByRole("textbox", { name: /^Nome stile/ });
+}
+
+/** Salva dell'editor: in fondo al pannello oggi, in testata domani. */
+function saveButton(page: Page): Locator {
+    return page.getByRole("button", { name: "Salva", exact: true }).first();
+}
+
+/**
+ * Le scritture di creazione e salvataggio: POST dello stile, POST della
+ * versione, PATCH del puntatore. Tengono aggiornate le tabelle finte, così la
+ * pagina che rilegge trova quello che ha scritto.
+ */
+function wireStyleWrites(stub: StiliStub): void {
+    let n = 900;
+    stub.onWrite("styles.POST", call => {
+        n += 1;
+        const body = call.body as Row;
+        const row: Row = {
+            id: `e2e5e000-0000-4000-a000-${String(n).padStart(12, "0")}`,
+            tenant_id: body.tenant_id,
+            name: body.name,
+            is_system: false,
+            is_active: true,
+            current_version_id: null,
+            created_at: "2026-03-21T10:00:00.000Z",
+            updated_at: "2026-03-21T10:00:00.000Z"
+        };
+        stub.tables.styles.push(row);
+        return row;
+    });
+    stub.onWrite("style_versions.POST", call => {
+        n += 1;
+        const body = call.body as Row;
+        const row: Row = { id: `e2e5e000-0000-4000-a000-${String(n).padStart(12, "0")}`, created_at: "2026-03-21T10:00:00.000Z", ...body };
+        stub.tables.style_versions.push(row);
+        return row;
+    });
+    stub.onWrite("styles.PATCH", call => {
+        const id = (call.params.get("id") ?? "").replace(/^eq\./, "");
+        const row = stub.tables.styles.find(s => s.id === id);
+        if (!row) return null;
+        Object.assign(row, call.body as Row);
+        return { ...row, current_version: stub.tables.style_versions.find(v => v.id === row.current_version_id) ?? null };
+    });
+}
+
+let stub: StiliStub;
+
+test.beforeEach(async ({ page }) => {
+    stub = await stubStili(page);
+});
+
+test.describe("Stili — elenco", () => {
+    test("griglia: stili, di sistema in cima, uso nelle regole", async ({ page }) => {
+        await openList(page);
+        await expect(page).toHaveTitle(/^Stili — .+ \| CataloGlobe$/);
+        await expect(styleName(page, "Stile base e2e")).toBeVisible();
+        await expect(styleName(page, "Sera e2e")).toBeVisible();
+        await expect(styleName(page, "Notte e2e")).toBeVisible();
+        await expect(main(page).getByText("Usato in 1 regola")).toBeVisible();
+        await expect(main(page).getByText("Non utilizzato").first()).toBeVisible();
+        await expect(page.getByRole("button", { name: "Crea stile" }).first()).toBeVisible();
+        // Il sistema prima degli altri.
+        const order = await main(page).getByText(/^(Stile base|Estate|Sera|Notte) e2e$/).allTextContents();
+        expect(order[0]).toBe("Stile base e2e");
+    });
+
+    test("lista: versione e uso, la riga apre l'editor", async ({ page }) => {
+        await openList(page, "list");
+        await expect(main(page).getByText("Versione 3")).toBeVisible();
+        await styleName(page, "Sera e2e").click();
+        await expect(page).toHaveURL(new RegExp(`/styles/${STYLE.sera}$`));
+    });
+
+    test("griglia/lista si ricorda la scelta", async ({ page }) => {
+        await openList(page, "list");
+        await expect(page.getByRole("radio", { name: "Vista lista" })).toHaveAttribute("aria-checked", "true");
+        await page.getByRole("radio", { name: "Vista griglia" }).click();
+        expect(await page.evaluate(() => localStorage.getItem("cataloglobe-styles-view-mode"))).toBe("grid");
+    });
+
+    test("ricerca", async ({ page }) => {
+        await openList(page);
+        await search(page, "sera");
+        await expect(styleName(page, "Sera e2e")).toBeVisible();
+        await expect(styleName(page, "Estate e2e")).toHaveCount(0);
+    });
+
+    test("crea uno stile e apre l'editor", async ({ page }) => {
+        wireStyleWrites(stub);
+        await openList(page);
+        await page.getByRole("button", { name: "Crea stile" }).first().click();
+        const drawer = dialog(page);
+        await drawer.getByRole("textbox", { name: /^Nome stile/ }).fill("Autunno e2e");
+        await drawer.getByRole("button", { name: /^Crea/ }).click();
+        await expect.poll(() => write(stub, "styles.POST")?.body).toMatchObject({ name: "Autunno e2e" });
+        await expect.poll(() => writes(stub, "style_versions.POST").length).toBe(1);
+        await expect(page).toHaveURL(/\/styles\/e2e5e000-0000-4000-a000-0000000009\d\d$/);
+        await expect(nameField(page)).toHaveValue("Autunno e2e", { timeout: 15_000 });
+    });
+
+    test("duplica dal «⋯»", async ({ page }) => {
+        wireStyleWrites(stub);
+        await openList(page);
+        await actionsOf(styleName(page, "Sera e2e")).click();
+        await page.getByRole("menuitem", { name: "Duplica" }).click();
+        await expect.poll(() => (write(stub, "styles.POST")?.body as Row | undefined)?.name).toMatch(/Copia.*Sera e2e|Sera e2e.*Copia/);
+        const version = write(stub, "style_versions.POST")?.body as Row;
+        expect(version.config).toMatchObject({ colors: { primary: "#0ea5e9" } });
+    });
+
+    test("lo stile di sistema non si elimina", async ({ page }) => {
+        await openList(page);
+        await actionsOf(styleName(page, "Stile base e2e")).click();
+        await expect(page.getByRole("menuitem", { name: "Duplica" })).toBeVisible();
+        await expect(page.getByRole("menuitem", { name: "Elimina" })).toHaveCount(0);
+    });
+
+    test("elimina uno stile che non veste niente", async ({ page }) => {
+        stub.onWrite("styles.DELETE", () => null);
+        await openList(page);
+        await actionsOf(styleName(page, "Notte e2e")).click();
+        await page.getByRole("menuitem", { name: "Elimina" }).click();
+        await dialog(page).getByRole("button", { name: /^(Conferma eliminazione|Elimina)/i }).click();
+        await expect.poll(() => write(stub, "styles.DELETE")?.params.get("id")).toBe(`eq.${STYLE.notte}`);
+        expect(write(stub, "schedule_layout.PATCH")).toBeUndefined();
+    });
+
+    test("elimina uno stile in uso: il sostitutivo è obbligatorio e ripunta le regole", async ({ page }) => {
+        stub.onWrite("schedule_layout.PATCH", () => null);
+        stub.onWrite("styles.DELETE", () => null);
+        await openList(page);
+        await actionsOf(styleName(page, "Estate e2e")).click();
+        await page.getByRole("menuitem", { name: "Elimina" }).click();
+        const confirm = dialog(page);
+        await expect(confirm).toContainText("Pranzo e2e");
+        await expect(confirm.getByRole("button", { name: /^(Conferma eliminazione|Elimina)/i })).toBeDisabled();
+        await confirm.getByRole("combobox", { name: /Sostitu/ }).selectOption({ label: "Sera e2e" });
+        await confirm.getByRole("button", { name: /^(Conferma eliminazione|Elimina)/i }).click();
+        await expect.poll(() => write(stub, "schedule_layout.PATCH")?.body).toEqual({ style_id: STYLE.sera });
+        await expect.poll(() => write(stub, "styles.DELETE")?.params.get("id")).toBe(`eq.${STYLE.estate}`);
+    });
+
+    test("senza styles.write: niente crea, duplica, elimina", async ({ page }) => {
+        await stub.revoke("styles.write");
+        await openList(page);
+        await stub.revoked;
+        await expect(page.getByRole("button", { name: "Crea stile" })).toHaveCount(0);
+        await actionsOf(styleName(page, "Sera e2e")).click();
+        await expect(page.getByRole("menuitem", { name: "Duplica" })).toHaveCount(0);
+        await expect(page.getByRole("menuitem", { name: "Elimina" })).toHaveCount(0);
+    });
+});
+
+test.describe("Stili — editor", () => {
+    test("bozza: Salva crea una versione, lo stile in uso chiede conferma", async ({ page }) => {
+        wireStyleWrites(stub);
+        await openStyle(page, STYLE.estate);
+        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
+        await nameField(page).fill("Estate 2026 e2e");
+        await saveButton(page).click();
+        const confirm = page.getByRole("alertdialog");
+        await expect(confirm).toContainText("Stile in uso");
+        await confirm.getByRole("button", { name: "Salva comunque" }).click();
+        await expect.poll(() => write(stub, "style_versions.POST")?.body).toMatchObject({ style_id: STYLE.estate, version: 4 });
+        await expect.poll(() => write(stub, "styles.PATCH")?.body).toMatchObject({ name: "Estate 2026 e2e" });
+    });
+
+    test("uno stile che non veste niente si salva senza conferma", async ({ page }) => {
+        wireStyleWrites(stub);
+        await openStyle(page, STYLE.sera);
+        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
+        await nameField(page).fill("Sera tardi e2e");
+        await saveButton(page).click();
+        await expect.poll(() => write(stub, "styles.PATCH")?.body).toMatchObject({ name: "Sera tardi e2e" });
+        await expect(page.getByRole("alertdialog")).toHaveCount(0);
+    });
+
+    test("Annulla torna al salvato senza scrivere", async ({ page }) => {
+        await openStyle(page, STYLE.sera);
+        await expect(nameField(page)).toHaveValue("Sera e2e", { timeout: 15_000 });
+        await nameField(page).fill("Da buttare");
+        await page.getByRole("button", { name: "Annulla", exact: true }).first().click();
+        // Da P3 «Annulla» chiede conferma (HeaderSaveAction); oggi torna subito.
+        const confirm = page.getByRole("alertdialog");
+        if (await confirm.isVisible().catch(() => false)) {
+            await confirm.getByRole("button", { name: /Annulla le modifiche|Scarta|Esci senza salvare/ }).click();
+        }
+        await expect(nameField(page)).toHaveValue("Sera e2e");
+        expect(stub.writes.filter(w => !w.key.startsWith("translation"))).toHaveLength(0);
+    });
+
+    test("Versioni: elenco, ripristino come versione nuova", async ({ page }) => {
+        wireStyleWrites(stub);
+        await openStyle(page, STYLE.estate);
+        await expect(nameField(page)).toHaveValue("Estate e2e", { timeout: 15_000 });
+        await page.getByRole("button", { name: /Versione 3/ }).first().click();
+        await expect(page.getByRole("button", { name: /^v3\b/ })).toBeVisible();
+        await expect(page.getByRole("button", { name: /^v1\b/ })).toBeVisible();
+        await page.getByRole("button", { name: /^v2\b/ }).click();
+        await page.getByRole("button", { name: /^Ripristina/ }).click();
+        await expect.poll(() => write(stub, "style_versions.POST")?.body).toMatchObject({
+            style_id: STYLE.estate,
+            version: 4,
+            config: { colors: { primary: "#ef4444" } }
+        });
+    });
+
+    test("stile di sistema: «Duplica e personalizza» apre la copia", async ({ page }) => {
+        wireStyleWrites(stub);
+        await openStyle(page, STYLE.base);
+        const duplicate = page.getByRole("button", { name: "Duplica e personalizza" });
+        await expect(duplicate).toBeVisible({ timeout: 15_000 });
+        await duplicate.click();
+        await expect.poll(() => (write(stub, "styles.POST")?.body as Row | undefined)?.name).toBe("Copia di Stile base e2e");
+        await expect(page).toHaveURL(/\/styles\/e2e5e000-0000-4000-a000-0000000009\d\d$/);
+    });
+});
+
+test.describe("Stili — larghezze", () => {
+    for (const width of [1280, 768, 375]) {
+        test(`${width}: elenco ed editor senza scroll di lato`, async ({ page }) => {
+            await openList(page);
+            await page.setViewportSize({ width, height: 900 });
+            await page.reload();
+            await expect(styleName(page, "Estate e2e")).toBeVisible({ timeout: 15_000 });
+            await noSideScroll(page);
+            await openStyle(page, STYLE.estate);
+            await expect(nameField(page)).toBeVisible({ timeout: 15_000 });
+            await noSideScroll(page);
+        });
+    }
+});
