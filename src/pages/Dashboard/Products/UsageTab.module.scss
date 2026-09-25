@@ -1,124 +1,14 @@
-// Layout 1 colonna, coerente con SchedaTab / PrezziOpzioniTab / TranslationsTab.
+// Tab «Utilizzo» (lotto Prodotti P9): Card flush di ListRow, solo layout.
+
 .grid {
-    display: flex;
-    flex-direction: column;
-    gap: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-16);
 }
 
-// ── Riepilogo card content ─────────────────────────────────────────
-.summaryStats {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.summaryBadge {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
-    background: var(--bg);
-    border-radius: 999px;
-    font-size: 13px;
-    color: var(--text);
-}
-
-.summaryBadgeNumber {
-    font-weight: 600;
-}
-
-.microcopy {
-    font-size: 13px;
-    color: var(--text-muted, #64748b);
-    line-height: 1.5;
-
-    a {
-        color: var(--brand-primary, #6366f1);
-        text-decoration: none;
-    }
-
-    a:hover {
-        text-decoration: underline;
-    }
-}
-
-// ── List rows ──────────────────────────────────────────────────────
-.list {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-}
-
-.listItem {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    transition: background 0.15s;
-}
-
-.listItem:hover {
-    background: var(--bg);
-}
-
-.link {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    color: var(--text);
-    text-decoration: none;
-    flex: 1;
-    min-width: 0;
-}
-
-.link:hover {
-    color: var(--brand-primary, #6366f1);
-}
-
-// ── Breadcrumb interno per Cataloghi ───────────────────────────────
-.breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    flex: 1;
-    min-width: 0;
-}
-
-.breadcrumbCatalog {
-    font-weight: 500;
-    color: var(--text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.breadcrumbSeparator {
-    color: var(--text-subtle, #94a3b8);
-    flex-shrink: 0;
-}
-
-.breadcrumbCategory {
-    color: var(--text-muted, #64748b);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.chevron {
-    flex-shrink: 0;
-    color: var(--text-subtle, #94a3b8);
-}
-
-.loading {
-    padding: 24px;
-    text-align: center;
-    font-size: 13px;
-    color: var(--text-muted, #64748b);
+// Il vuoto dentro una Card flush: stesso rientro delle righe.
+.empty {
+  padding: var(--space-16) var(--space-24);
 }
 
 .chips {

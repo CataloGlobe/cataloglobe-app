@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
-import { IconChevronRight } from "@tabler/icons-react";
+import { useNavigate, useParams } from "react-router-dom";
 import {
     type ProductCategoryAssignment,
     getProductCategoryAssignments
 } from "@/services/supabase/productUsage";
-import { SectionCard } from "@/components/ui/SectionCard/SectionCard";
-import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
+import { ListRow } from "@/components/ui/ListRow/ListRow";
+import { useVerticalConfig } from "@/hooks/useVerticalConfig";
 import { Card } from "@/components/ui/Card/Card";
 import { Chip } from "@/components/ui/Chip/Chip";
 import { Badge } from "@/components/ui/Badge/Badge";
@@ -39,8 +38,19 @@ interface UsageTabProps {
     usageLoading: boolean;
 }
 
+/**
+ * Tab «Utilizzo» (lotto Prodotti P9): dove sta il prodotto. Tre `Card flush`
+ * di `ListRow` coi conteggi nel `badge` — {Menù} (menù › categoria, «Apri il
+ * menù»), Regole, Sedi — più «Gruppi» (§50.9/3). La card «Riepilogo» esce: i
+ * suoi numeri sono i badge. Le sedi restano anche se il mockup non le mostra
+ * (registro 10b, «invariata»).
+ */
 export function UsageTab({ productId, tenantId, usageData, usageLoading }: UsageTabProps) {
     const { businessId } = useParams<{ businessId: string }>();
+    const navigate = useNavigate();
+    const verticalConfig = useVerticalConfig();
+    const menuLower = verticalConfig.catalogLabel.toLowerCase();
+    const productLower = verticalConfig.productLabel.toLowerCase();
 
     const [categoryAssignments, setCategoryAssignments] = useState<
         ProductCategoryAssignment[]
@@ -96,113 +106,80 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
         };
     }, [productId, tenantId]);
 
-    if (usageLoading || loadingAssignments) {
-        return (
-            <div className={styles.grid}>
-                <div className={styles.loading}>Caricamento utilizzo prodotto...</div>
-            </div>
-        );
-    }
-
     const data = usageData ?? { catalogs: [], schedules: [], activities: [] };
-    const counts = {
-        activities: data.activities.length,
-        catalogs: data.catalogs.length,
-        schedules: data.schedules.length
-    };
+    const loadingUsage = usageLoading || loadingAssignments;
+    const count = (n: number) => (n > 0 ? <Badge variant="secondary">{n}</Badge> : undefined);
+    const loadingRow = <ListRow loading />;
 
     return (
         <div className={styles.grid}>
-            {/* ──────────────── Card 1 — Riepilogo utilizzo ──────────────── */}
-            <SectionCard
-                title="Riepilogo utilizzo"
-                subtitle="Visualizza dove questo prodotto è utilizzato nella piattaforma."
-            >
-                <div className={styles.summaryStats}>
-                    <span className={styles.summaryBadge}>
-                        <span className={styles.summaryBadgeNumber}>{counts.activities}</span>
-                        attività
-                    </span>
-                    <span className={styles.summaryBadge}>
-                        <span className={styles.summaryBadgeNumber}>{counts.catalogs}</span>
-                        {counts.catalogs === 1 ? "catalogo" : "cataloghi"}
-                    </span>
-                    <span className={styles.summaryBadge}>
-                        <span className={styles.summaryBadgeNumber}>{counts.schedules}</span>
-                        {counts.schedules === 1 ? "regola" : "regole"}
-                    </span>
-                </div>
-                <div className={styles.microcopy}>
-                    Per gestire i cataloghi vai a{" "}
-                    <Link to={`/business/${businessId}/catalogs`}>Cataloghi</Link>. Per
-                    modificare le regole di programmazione vai a{" "}
-                    <Link to={`/business/${businessId}/scheduling`}>Programmazione</Link>.
-                </div>
-            </SectionCard>
-
-            {/* ──────────────── Card 2 — Cataloghi (con breadcrumb categoria) ──────────────── */}
-            <SectionCard title="Cataloghi">
-                {categoryAssignments.length === 0 ? (
-                    <EmptyState
-                        variant="inline"
-                        icon={null}
-                        title="Questo prodotto non è incluso in nessun catalogo."
-                    />
+            <Card title={verticalConfig.catalogLabelPlural} badge={count(categoryAssignments.length)} flush>
+                {loadingUsage ? (
+                    loadingRow
+                ) : categoryAssignments.length === 0 ? (
+                    <Text variant="body-sm" colorVariant="muted" className={styles.empty}>
+                        Il {productLower} non è in nessun {menuLower}.
+                    </Text>
                 ) : (
-                    <ul className={styles.list}>
+                    <div role="list">
                         {categoryAssignments.map(a => (
-                            <li
-                                key={`${a.catalog.id}-${a.category.id}`}
-                                className={styles.listItem}
-                            >
-                                <Link
-                                    to={`/business/${businessId}/catalogs/${a.catalog.id}?highlightProduct=${productId}`}
-                                    className={styles.link}
-                                >
-                                    <span className={styles.breadcrumb}>
-                                        <span className={styles.breadcrumbCatalog}>
-                                            {a.catalog.name}
-                                        </span>
-                                        <span className={styles.breadcrumbSeparator}>›</span>
-                                        <span className={styles.breadcrumbCategory}>
-                                            {a.category.name}
-                                        </span>
-                                    </span>
-                                    <IconChevronRight className={styles.chevron} size={16} />
-                                </Link>
-                            </li>
+                            <div role="listitem" key={`${a.catalog.id}-${a.category.id}`}>
+                                <ListRow
+                                    title={a.catalog.name}
+                                    subtitle={`${verticalConfig.categoryLabel} «${a.category.name}»`}
+                                    trailing={
+                                        <Button
+                                            variant="secondary"
+                                            size="sm"
+                                            onClick={() =>
+                                                navigate(`/business/${businessId}/catalogs/${a.catalog.id}?highlightProduct=${productId}`)
+                                            }
+                                        >
+                                            Apri il {menuLower}
+                                        </Button>
+                                    }
+                                />
+                            </div>
                         ))}
-                    </ul>
+                    </div>
                 )}
-            </SectionCard>
+            </Card>
 
-            {/* ──────────────── Card 3 — Programmazione ──────────────── */}
-            <SectionCard title="Programmazione">
-                {data.schedules.length === 0 ? (
-                    <EmptyState
-                        variant="inline"
-                        icon={null}
-                        title="Nessuna regola di programmazione coinvolge questo prodotto."
-                    />
+            <Card title="Regole che lo toccano" badge={count(data.schedules.length)} flush>
+                {loadingUsage ? (
+                    loadingRow
+                ) : data.schedules.length === 0 ? (
+                    <Text variant="body-sm" colorVariant="muted" className={styles.empty}>
+                        Nessuna regola di programmazione nomina questo {productLower}.
+                    </Text>
                 ) : (
-                    <ul className={styles.list}>
+                    <div role="list">
                         {data.schedules.map(schedule => (
-                            <li key={schedule.id} className={styles.listItem}>
-                                <Link
-                                    to={`/business/${businessId}/scheduling/${schedule.id}`}
-                                    className={styles.link}
-                                >
-                                    <span>{schedule.name}</span>
-                                    <IconChevronRight
-                                        className={styles.chevron}
-                                        size={16}
-                                    />
-                                </Link>
-                            </li>
+                            <div role="listitem" key={schedule.id}>
+                                <ListRow title={schedule.name} to={`/business/${businessId}/scheduling/${schedule.id}`} />
+                            </div>
                         ))}
-                    </ul>
+                    </div>
                 )}
-            </SectionCard>
+            </Card>
+
+            <Card title="Sedi" badge={count(data.activities.length)} flush>
+                {loadingUsage ? (
+                    loadingRow
+                ) : data.activities.length === 0 ? (
+                    <Text variant="body-sm" colorVariant="muted" className={styles.empty}>
+                        Nessuna regola lo porta oggi in una sede.
+                    </Text>
+                ) : (
+                    <div role="list">
+                        {data.activities.map(activity => (
+                            <div role="listitem" key={activity.id}>
+                                <ListRow title={activity.name} to={`/business/${businessId}/locations/${activity.id}`} />
+                            </div>
+                        ))}
+                    </div>
+                )}
+            </Card>
 
             {/* ──────────────── Gruppi (§50.9/3, salvataggio immediato) ──────────────── */}
             <Card
@@ -235,34 +212,6 @@ export function UsageTab({ productId, tenantId, usageData, usageLoading }: Usage
                     </div>
                 )}
             </Card>
-
-            {/* ──────────────── Card 4 — Attività coinvolte ──────────────── */}
-            <SectionCard title="Attività coinvolte">
-                {data.activities.length === 0 ? (
-                    <EmptyState
-                        variant="inline"
-                        icon={null}
-                        title="Questo prodotto non è attualmente visibile in nessuna attività."
-                    />
-                ) : (
-                    <ul className={styles.list}>
-                        {data.activities.map(activity => (
-                            <li key={activity.id} className={styles.listItem}>
-                                <Link
-                                    to={`/business/${businessId}/locations/${activity.id}`}
-                                    className={styles.link}
-                                >
-                                    <span>{activity.name}</span>
-                                    <IconChevronRight
-                                        className={styles.chevron}
-                                        size={16}
-                                    />
-                                </Link>
-                            </li>
-                        ))}
-                    </ul>
-                )}
-            </SectionCard>
 
             <ProductGroupsEditDrawer
                 open={isGroupsDrawerOpen}
