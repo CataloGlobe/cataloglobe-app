@@ -387,7 +387,6 @@ export default function StoryDetailPage() {
                             title={title}
                             onTitleChange={setTitle}
                             coverUrl={coverPreview ?? (coverRemoved ? null : story.cover_media)}
-                            pendingCoverFile={pendingCoverFile}
                             onCoverFileChange={handleCoverFileChange}
                             onCoverRemove={handleCoverRemove}
                             canWrite={canWrite}

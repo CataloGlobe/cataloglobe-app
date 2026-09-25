@@ -2,7 +2,6 @@ import React, { useEffect, useState, useMemo, useCallback } from "react";
 import { usePageHeader } from "@/context/usePageHeader";
 import type { PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { useTenantId } from "@/context/useTenantId";
-import { useTenant } from "@/context/useTenant";
 import { useToast } from "@/context/Toast/ToastContext";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
@@ -87,7 +86,6 @@ function StyleCardPreview({ style, compact = false }: { style: V2Style; compact?
 
 export default function Styles() {
     const currentTenantId = useTenantId();
-    const { selectedTenant } = useTenant();
     const { showToast } = useToast();
     const { canEdit } = useSubscriptionGuard();
     const { permissions } = usePermissions();
@@ -347,21 +345,6 @@ export default function Styles() {
                             data={filteredStyles}
                             columns={columns}
                             onRowClick={style => handleEditClick(style)}
-                            emptyState={{
-                                icon: <IconPalette size={48} stroke={1} />,
-                                title: "Nessuno stile trovato",
-                                description:
-                                    "Crea un nuovo stile per personalizzare l'aspetto del tuo catalogo.",
-                                action: canWrite ? (
-                                    <Button
-                                        variant="primary"
-                                        onClick={handleCreateClick}
-                                        disabled={!canEdit}
-                                    >
-                                        Crea stile
-                                    </Button>
-                                ) : undefined
-                            }}
                         />
                     </div>
                 ) : (

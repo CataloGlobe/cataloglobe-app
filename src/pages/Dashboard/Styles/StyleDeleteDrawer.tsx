@@ -20,7 +20,6 @@ import { toRomeDateTime } from "@/services/supabase/schedulingNow";
 import { computeRuleInsights } from "@/utils/ruleInsights";
 import { isTimeRuleActiveNow } from "@shared/scheduleCompetition";
 import { deriveScheduleStatus, type ScheduleStatus } from "@/utils/scheduleStatus";
-import { IconAlertTriangle } from "@tabler/icons-react";
 import pageStyles from "./Styles.module.scss";
 import drawerStyles from "./StyleDeleteDrawer.module.scss";
 
@@ -86,7 +85,6 @@ export function StyleDeleteDrawer({
         activityIdsByGroupId: Record<string, string[]>;
     } | null>(null);
 
-    const isSystemError = styleData?.is_system;
     const isUsed = (styleData?.usage_count || 0) > 0;
 
     const replacementOptions = allStyles
@@ -137,12 +135,12 @@ export function StyleDeleteDrawer({
             setIsDeleting(false);
             return;
         }
-        if (isSystemError || !isUsed) {
+        if (!isUsed) {
             setSchedulesUsing([]);
             return;
         }
         void loadUsage();
-    }, [open, styleData, isSystemError, isUsed, loadUsage]);
+    }, [open, styleData, isUsed, loadUsage]);
 
     const handleDelete = async () => {
         if (!styleData) return;
@@ -213,39 +211,18 @@ export function StyleDeleteDrawer({
                         <Button variant="secondary" onClick={onClose} disabled={isDeleting}>
                             Annulla
                         </Button>
-                        {!isSystemError && (
-                            <Button
-                                variant="danger"
-                                onClick={handleDelete}
-                                loading={isDeleting}
-                                disabled={isDeleting || isLoadingUsage || (isUsed && !replacementId)}
-                            >
-                                Conferma Eliminazione
-                            </Button>
-                        )}
+                        <Button
+                            variant="danger"
+                            onClick={handleDelete}
+                            loading={isDeleting}
+                            disabled={isDeleting || isLoadingUsage || (isUsed && !replacementId)}
+                        >
+                            Conferma Eliminazione
+                        </Button>
                     </>
                 }
             >
                 <div className={drawerStyles.body}>
-                    {isSystemError ? (
-                        <div className={pageStyles.warningBox}>
-                            <IconAlertTriangle
-                                size={24}
-                                className={pageStyles.warningIcon}
-                                color="var(--color-warning-500)"
-                            />
-                            <div>
-                                <Text variant="body-sm" weight={600}>
-                                    Impossibile eliminare
-                                </Text>
-                                <Text variant="body-sm">
-                                    Lo stile <strong>{styleData.name}</strong> è lo stile
-                                    predefinito del tenant e non può essere rimosso. Per
-                                    personalizzarlo, duplicalo e modifica la copia.
-                                </Text>
-                            </div>
-                        </div>
-                    ) : (
                         <>
                             <Text variant="body">
                                 Stai per eliminare lo stile <strong>{styleData.name}</strong>.
@@ -338,7 +315,6 @@ export function StyleDeleteDrawer({
                                 </div>
                             )}
                         </>
-                    )}
                 </div>
             </DrawerLayout>
         </SystemDrawer>

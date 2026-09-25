@@ -20,24 +20,6 @@
   border: 1px solid var(--border);
   border-radius: 12px;
 }
-
-.blockTitle {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--text-muted);
-  margin: 0;
-  padding-bottom: 12px;
-  border-bottom: 1px solid var(--border-subtle, #e5e7eb);
-}
-
-.row2col {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
 .mediaPreview {
   position: relative;
   width: 100%;
@@ -115,24 +97,6 @@
   color: var(--text-muted);
   font-size: 0.875rem;
 }
-
-.pricingModeRow {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.pricingModeLabel {
-  font-size: 0.9375rem;
-  font-weight: 600;
-  color: var(--text-primary, #111827);
-}
-
-.pricingModeDetail {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-}
-
 .pricingModeCard {
   border: 1px solid var(--border-subtle, #e5e7eb);
   border-radius: 8px;

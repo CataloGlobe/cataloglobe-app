@@ -205,8 +205,7 @@ export async function getFeaturedContentById(id: string, tenantId: string): Prom
 
 export async function createFeaturedContent(
     tenantId: string,
-    contentData: Partial<FeaturedContent>,
-    productsData: Partial<FeaturedContentProduct>[] = []
+    contentData: Partial<FeaturedContent>
 ) {
     const { hashes, hashColumns } = await buildFeaturedTranslatableHashes(contentData);
 
@@ -222,28 +221,6 @@ export async function createFeaturedContent(
 
     if (contentError) throw contentError;
 
-    let insertedProducts: FeaturedContentProduct[] = [];
-    if (productsData.length > 0) {
-        // Compute note_hash per ogni product item (note opzionale).
-        const productsToInsert = await Promise.all(
-            productsData.map(async (p, index) => ({
-                ...p,
-                tenant_id: tenantId,
-                featured_content_id: content.id,
-                sort_order: p.sort_order ?? index,
-                note_hash: await computeFieldHash(p.note ?? null)
-            }))
-        );
-
-        const { data: insertedRows, error: productsError } = await supabase
-            .from("featured_content_products")
-            .insert(productsToInsert)
-            .select();
-
-        if (productsError) throw productsError;
-        insertedProducts = (insertedRows ?? []) as FeaturedContentProduct[];
-    }
-
     // Enqueue translation jobs (silent error).
     for (const field of FEATURED_TRANSLATABLE_FIELDS) {
         if (!hashes.has(field)) continue;
@@ -257,20 +234,6 @@ export async function createFeaturedContent(
             field,
             newSourceText: sourceText,
             newSourceHash: hash
-        });
-    }
-
-    for (const row of insertedProducts) {
-        if (!row.note) continue;
-        const noteHash = await computeFieldHash(row.note);
-        if (noteHash === null) continue;
-        await enqueueWithSilentError({
-            tenantId,
-            entityType: "featured_product",
-            entityId: row.id,
-            field: "note",
-            newSourceText: row.note,
-            newSourceHash: noteHash
         });
     }
 

@@ -130,7 +130,6 @@ export default function FeaturedContentDrawer({ open, onClose, onSuccess }: Draw
                             placeholder="Es: RistoPromo - Sede Roma"
                         />
                     </div>
-                    <input type="submit" id="featured-content-submit" style={{ display: "none" }} />
                 </form>
             </DrawerLayout>
         </SystemDrawer>
