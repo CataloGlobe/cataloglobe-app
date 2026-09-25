@@ -75,7 +75,11 @@ export default function Faq() {
                                     >
                                         <span className={styles.qText}>{item.q}</span>
                                         <span className={cx(styles.plus, isOpen && styles.plusOpen)} aria-hidden="true">
-                                            +
+                                            {/* «+» chiuso, «−» aperto: il tratto verticale si chiude sul centro */}
+                                            <svg className={styles.plusIcon} width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" focusable="false">
+                                                <path d="M1 7h12" />
+                                                <path className={styles.plusBar} d="M7 1v12" />
+                                            </svg>
                                         </span>
                                     </button>
                                 </h3>
