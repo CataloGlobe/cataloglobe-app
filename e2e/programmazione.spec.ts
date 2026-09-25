@@ -24,9 +24,17 @@ function main(page: Page) {
     return page.getByRole("main");
 }
 
+/**
+ * L'elenco delle regole per stato. Da quando sopra c'è la matrice (§50.7), che
+ * nomina le stesse regole, «nell'elenco» non è più «in main».
+ */
+function ruleList(page: Page): Locator {
+    return main(page).getByRole("region", { name: "Le regole" });
+}
+
 /** Il nome di una regola, come testo visibile nell'elenco. */
 function rule(page: Page, key: keyof typeof RULE): Locator {
-    return main(page).getByText(RULE_NAME[key], { exact: true }).first();
+    return ruleList(page).getByText(RULE_NAME[key], { exact: true }).first();
 }
 
 /** Il contenitore della riga che porta `anchor`: il primo antenato col suo «Azioni» o il suo switch. */
@@ -196,8 +204,8 @@ test.describe("Programmazione — elenco", () => {
         await chooseType(page, /^Tutte/, /^Prezzi/);
         await expect(page).toHaveURL(/type=price/);
         await expect(rule(page, "spritz")).toBeVisible();
-        await expect(main(page).getByText(RULE_NAME.carta)).toHaveCount(0);
-        await expect(main(page).getByText(RULE_NAME.promoPorto)).toHaveCount(0);
+        await expect(ruleList(page).getByText(RULE_NAME.carta)).toHaveCount(0);
+        await expect(ruleList(page).getByText(RULE_NAME.promoPorto)).toHaveCount(0);
     });
 
     test("la ricerca filtra per nome; senza risultati lo dice", async ({ page }) => {
@@ -205,7 +213,7 @@ test.describe("Programmazione — elenco", () => {
         await searchFor(page, "Porto");
         await expect(rule(page, "aperitivo")).toBeVisible();
         await expect(rule(page, "promoPorto")).toBeVisible();
-        await expect(main(page).getByText(RULE_NAME.carta)).toHaveCount(0);
+        await expect(ruleList(page).getByText(RULE_NAME.carta)).toHaveCount(0);
         await searchFor(page, "nessunaregolacosì");
         await expect(main(page).getByText(/Nessun(a regola trovata| risultato)/)).toBeVisible();
     });
@@ -984,7 +992,7 @@ for (const width of [375, 768, 1280]) {
 }
 
 // Banda del momento e matrice sedi × strati (§20, decisioni §50.7). Scritti
-// prima della banda: `test.fail` finché la pagina non li rende veri (P10).
+// prima della banda in `test.fail`, passati a `test` col commit che li rende veri.
 test.describe("Programmazione — banda e matrice", () => {
     test.beforeEach(async ({ page }) => {
         await stubProgrammazione(page, { matrix: true });

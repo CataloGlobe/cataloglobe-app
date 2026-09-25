@@ -943,7 +943,9 @@ export default function Programming() {
                         />
                     )
                 ) : (
-                    <div className={styles.groupedList}>
+                    // «Le regole»: l'elenco per stato, distinto dalla matrice
+                    // sopra, che nomina le stesse regole.
+                    <div className={styles.groupedList} role="region" aria-label="Le regole">
                         {statusGroups
                             .filter(group => group.rules.length > 0)
                             .map(group => (
