@@ -480,9 +480,16 @@ test.describe("Programmazione — settimana, simulatore, guida", () => {
         await drawer.getByRole("combobox", { name: /Sede/ }).selectOption({ label: "Centro e2e" });
         const toggle = drawer.getByRole("button", { name: "Mostra Andamento della giornata" });
         await expect(toggle).toHaveAttribute("aria-expanded", "false", { timeout: 15_000 });
+        // L'andamento si calcola in memoria sulle regole della pagina (mucchio
+        // 2/9): aprirlo non chiede niente al database.
+        const reads: string[] = [];
+        page.on("request", request => {
+            if (request.url().includes("/rest/v1/")) reads.push(request.url());
+        });
         await toggle.click();
         await expect(drawer.getByRole("button", { name: "Nascondi Andamento della giornata" })).toHaveAttribute("aria-expanded", "true");
-        await expect(drawer.getByText(/^11:00–15:00$/)).toBeVisible({ timeout: 30_000 });
+        await expect(drawer.getByText(/^11:00–15:00$/)).toBeVisible();
+        expect(reads).toEqual([]);
     });
 
     test("il simulatore: se il calcolo fallisce lo dice nel drawer, e «Riprova» ricalcola", async ({ page }) => {

@@ -913,6 +913,7 @@ export default function Programming() {
                 tenantId={currentTenantId!}
                 rules={rules}
                 activities={activities}
+                activityIdsByGroupId={activityIdsByGroupId}
                 catalogById={catalogById}
                 subscriptionInactive={subscriptionInactive}
                 ruleHref={ruleHref}
