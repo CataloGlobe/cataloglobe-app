@@ -472,6 +472,56 @@ test.describe("Prodotti — negozio", () => {
         await expect(main(page).getByRole("button", { name: /^Azioni/ })).toHaveCount(0);
     });
 
+    test("attributi del prodotto: i valori in bozza, pallino, Salva nell'header", async ({ page }) => {
+        stub.onWrite("product_attribute_values.PATCH", () => null);
+        stub.onWrite("product_attribute_values.POST", () => null);
+        // Dalla tab, non da ?tab=attributes: a freddo il verticale arriva dopo il
+        // primo render e il deep link cade su Scheda (comportamento di oggi).
+        await openProduct(page, PRODUCT.hamburger);
+        await page.getByRole("tab", { name: "Attributi" }).click();
+        const colore = main(page).getByRole("textbox", { name: "Colore" });
+        await expect(main(page).getByRole("textbox", { name: "Taglia" })).toHaveValue("M", { timeout: 15_000 });
+        await colore.fill("Rosso");
+        await colore.blur();
+        // Niente salvataggio al blur (§27): solo il pallino e il Salva di pagina.
+        await expect(main(page).getByRole("img", { name: "Modificato, non salvato" })).toHaveCount(1);
+        expect(stub.writes.filter(w => w.key.startsWith("product_attribute_values."))).toHaveLength(0);
+
+        // La bozza sopravvive al cambio tab.
+        await page.getByRole("tab", { name: "Scheda" }).click();
+        await page.getByRole("tab", { name: "Attributi" }).click();
+        await expect(colore).toHaveValue("Rosso");
+
+        await page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first().click();
+        await expect.poll(() => write(stub, "product_attribute_values.PATCH")?.body).toMatchObject({ value_text: "Rosso" });
+        await expect(main(page).getByRole("img", { name: "Modificato, non salvato" })).toHaveCount(0);
+    });
+
+    test("attributi del prodotto: un richiesto vuoto blocca il salvataggio", async ({ page }) => {
+        // Dalla tab, non da ?tab=attributes: a freddo il verticale arriva dopo il
+        // primo render e il deep link cade su Scheda (comportamento di oggi).
+        await openProduct(page, PRODUCT.hamburger);
+        await page.getByRole("tab", { name: "Attributi" }).click();
+        const taglia = main(page).getByRole("textbox", { name: "Taglia" });
+        await expect(taglia).toHaveValue("M", { timeout: 15_000 });
+        await taglia.fill("");
+        await page.getByRole("button", { name: /^Salva( modifiche)?$/ }).first().click();
+        await expect(main(page).getByText("Campo obbligatorio")).toBeVisible();
+        expect(stub.writes.filter(w => w.key.startsWith("product_attribute_values."))).toHaveLength(0);
+    });
+
+    test("attributi del prodotto: «Rimuovi» è immediato", async ({ page }) => {
+        stub.onWrite("product_attribute_values.DELETE", () => null);
+        // Dalla tab, non da ?tab=attributes: a freddo il verticale arriva dopo il
+        // primo render e il deep link cade su Scheda (comportamento di oggi).
+        await openProduct(page, PRODUCT.hamburger);
+        await page.getByRole("tab", { name: "Attributi" }).click();
+        await expect(main(page).getByRole("textbox", { name: "Colore" })).toBeVisible({ timeout: 15_000 });
+        await main(page).getByRole("button", { name: "Azioni Colore" }).click();
+        await page.getByRole("menuitem", { name: "Rimuovi" }).click();
+        await expect.poll(() => stub.writes.filter(w => w.key === "product_attribute_values.DELETE").length).toBe(1);
+    });
+
     test("scheda: tab Attributi, niente allergeni né ingredienti", async ({ page }) => {
         await openProduct(page, PRODUCT.hamburger);
         await expect(page.getByRole("tab", { name: "Attributi" })).toBeVisible({ timeout: 15_000 });

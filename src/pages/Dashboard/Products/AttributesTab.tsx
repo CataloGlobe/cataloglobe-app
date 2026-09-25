@@ -1,78 +1,36 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button/Button";
 import { ProductAttributesDrawer } from "./ProductAttributesDrawer";
 import { Badge } from "@/components/ui/Badge/Badge";
 import { Card } from "@/components/ui/Card/Card";
-import { DataTable, ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { EmptyState } from "@/components/ui/EmptyState/EmptyState";
 import { TextInput } from "@/components/ui/Input/TextInput";
 import { NumberInput } from "@/components/ui/Input/NumberInput";
+import { CheckboxInput } from "@/components/ui/Input/CheckboxInput";
 import { Select } from "@/components/ui/Select/Select";
 import { Switch } from "@/components/ui/Switch/Switch";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import Text from "@/components/ui/Text/Text";
-import { useToast } from "@/context/Toast/ToastContext";
-import {
-    V2ProductAttributeDefinition,
-    V2ProductAttributeValue,
-    AttributeValuePayload,
-    listAttributeDefinitions,
-    getProductAttributes,
-    setProductAttributeValue,
-    removeProductAttributeValue
-} from "@/services/supabase/attributes";
+import type { V2ProductAttributeDefinition } from "@/services/supabase/attributes";
 import { useVerticalConfig } from "@/hooks/useVerticalConfig";
+import type { AttributeValuesDraft } from "./hooks/useAttributeValuesDraft";
 import styles from "./AttributesTab.module.scss";
 
 interface AttributesTabProps {
     productId: string;
     tenantId: string;
-    vertical?: string;
+    /** Bozza sollevata in `ProductPage` (§27): la salva l'header, come la Scheda. */
+    draft: AttributeValuesDraft;
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
-
-function isValueRowEmpty(
-    def: V2ProductAttributeDefinition,
-    val: V2ProductAttributeValue
-): boolean {
-    switch (def.type) {
-        case "text":
-        case "select":
-            return !val.value_text || val.value_text.trim() === "";
-        case "number":
-            return val.value_number === null || val.value_number === undefined;
-        case "multi_select":
-            return !val.value_json ||
-                (Array.isArray(val.value_json) && (val.value_json as unknown[]).length === 0);
-        default:
-            return false;
-    }
-}
-
-function getRequiredError(
-    def: V2ProductAttributeDefinition,
-    payload: AttributeValuePayload
-): string | null {
-    if (!def.is_required || def.type === "boolean") return null;
-    switch (def.type) {
-        case "text":
-        case "select":
-            return !payload.value_text || payload.value_text.trim() === ""
-                ? "Campo obbligatorio"
-                : null;
-        case "number":
-            return payload.value_number === null || payload.value_number === undefined
-                ? "Campo obbligatorio"
-                : null;
-        case "multi_select":
-            return !payload.value_json ||
-                (Array.isArray(payload.value_json) && payload.value_json.length === 0)
-                ? "Campo obbligatorio"
-                : null;
-        default:
-            return null;
-    }
-}
+const TYPE_LABEL: Record<string, string> = {
+    text: "testo libero",
+    number: "numero",
+    boolean: "sì / no",
+    select: "elenco di valori",
+    multi_select: "più valori da un elenco"
+};
 
 function getSelectOptions(def: V2ProductAttributeDefinition): string[] {
     if (!def.options || !Array.isArray(def.options)) return [];
@@ -81,298 +39,141 @@ function getSelectOptions(def: V2ProductAttributeDefinition): string[] {
     );
 }
 
-function initDraftValue(
-    def: V2ProductAttributeDefinition,
-    valueRow: V2ProductAttributeValue | undefined
-): string {
-    if (!valueRow) return def.type === "boolean" ? "false" : "";
-    switch (def.type) {
-        case "text":
-        case "select":
-            return valueRow.value_text ?? "";
-        case "number":
-            return valueRow.value_number !== null ? String(valueRow.value_number) : "";
-        case "boolean":
-            return valueRow.value_boolean === true ? "true" : "false";
-        case "multi_select": {
-            const arr = Array.isArray(valueRow.value_json) ? (valueRow.value_json as string[]) : [];
-            return arr.join(", ");
-        }
-        default:
-            return "";
-    }
-}
-
-// ─── Component ───────────────────────────────────────────────────────────────
-
-export function AttributesTab({ productId, tenantId, vertical }: AttributesTabProps) {
-    const { showToast } = useToast();
+/**
+ * Tab «Attributi» del prodotto (negozio; lotto Prodotti P8, mockup
+ * `prodotto-attributi.png`). I valori sono nella bozza di pagina: il pallino
+ * ambra segna il campo toccato, «Salva» nell'header è lo stesso della Scheda.
+ * «Assegna» e «Rimuovi» sono strutturali e scrivono subito (§27.2).
+ */
+export function AttributesTab({ productId, tenantId, draft }: AttributesTabProps) {
     const verticalConfig = useVerticalConfig();
-
-    const [definitions, setDefinitions] = useState<V2ProductAttributeDefinition[]>([]);
-    const [values, setValues] = useState<V2ProductAttributeValue[]>([]);
-    const [loading, setLoading] = useState(true);
     const [isDrawerOpen, setIsDrawerOpen] = useState(false);
-
-    // Per-attribute draft strings (boolean: "true"/"false", number: numeric string, etc.)
-    const [drafts, setDrafts] = useState<Record<string, string>>({});
-    const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
-    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
-    const load = useCallback(async () => {
-        try {
-            setLoading(true);
-            const [defs, vals] = await Promise.all([
-                listAttributeDefinitions(tenantId, vertical),
-                getProductAttributes(productId, tenantId)
-            ]);
-            setDefinitions(defs);
-            setValues(vals);
+    const linkedDefinitions = draft.definitions.filter(def => draft.linkedIds.has(def.id));
+    const dirty = new Set(draft.dirtyIds);
 
-            // Initialize drafts from fresh data
-            const vMap = new Map(vals.map(v => [v.attribute_definition_id, v]));
-            const next: Record<string, string> = {};
-            defs.forEach(def => {
-                next[def.id] = initDraftValue(def, vMap.get(def.id));
-            });
-            setDrafts(next);
-
-            // Set immediate errors for required fields that are linked but empty
-            const errors: Record<string, string> = {};
-            defs.forEach(def => {
-                const val = vMap.get(def.id);
-                if (val && def.is_required && def.type !== "boolean" && isValueRowEmpty(def, val)) {
-                    errors[def.id] = "Campo obbligatorio";
-                }
-            });
-            setFieldErrors(errors);
-        } catch {
-            showToast({ message: "Errore nel caricamento degli attributi", type: "error" });
-        } finally {
-            setLoading(false);
+    const valueCell = (def: V2ProductAttributeDefinition) => {
+        const value = draft.drafts[def.id] ?? "";
+        const error = draft.errors[def.id];
+        const disabled = draft.isSaving;
+        const label = def.label;
+        switch (def.type) {
+            case "boolean":
+                return (
+                    <Switch
+                        ariaLabel={label}
+                        checked={value === "true"}
+                        disabled={disabled}
+                        onChange={checked => draft.setDraft(def.id, checked ? "true" : "false")}
+                    />
+                );
+            case "number":
+                return (
+                    <NumberInput
+                        aria-label={label}
+                        value={value}
+                        disabled={disabled}
+                        placeholder="—"
+                        step={0.01}
+                        error={error}
+                        onChange={e => draft.setDraft(def.id, e.target.value)}
+                    />
+                );
+            case "select":
+                return (
+                    <Select
+                        aria-label={label}
+                        value={value}
+                        disabled={disabled}
+                        error={error}
+                        options={[
+                            { value: "", label: "— nessuna selezione —" },
+                            ...getSelectOptions(def).map(o => ({ value: o, label: o }))
+                        ]}
+                        onChange={e => draft.setDraft(def.id, e.target.value)}
+                    />
+                );
+            case "multi_select": {
+                const selected = value ? value.split(",").map(s => s.trim()).filter(Boolean) : [];
+                const options = getSelectOptions(def);
+                return (
+                    <div className={styles.multiSelectList} role="group" aria-label={label}>
+                        {error && (
+                            <Text variant="caption" colorVariant="error" role="alert">
+                                {error}
+                            </Text>
+                        )}
+                        {options.length > 0 ? (
+                            options.map(option => (
+                                <CheckboxInput
+                                    key={option}
+                                    label={option}
+                                    checked={selected.includes(option)}
+                                    disabled={disabled}
+                                    onChange={() => {
+                                        const next = selected.includes(option)
+                                            ? selected.filter(v => v !== option)
+                                            : [...selected, option];
+                                        draft.setDraft(def.id, next.join(", "));
+                                    }}
+                                />
+                            ))
+                        ) : (
+                            <Text variant="caption" colorVariant="muted">
+                                Nessuna opzione disponibile.
+                            </Text>
+                        )}
+                    </div>
+                );
+            }
+            default:
+                return (
+                    <TextInput
+                        aria-label={label}
+                        value={value}
+                        disabled={disabled}
+                        placeholder="—"
+                        error={error}
+                        onChange={e => draft.setDraft(def.id, e.target.value)}
+                    />
+                );
         }
-    }, [productId, tenantId, vertical, showToast]);
-
-    useEffect(() => { load(); }, [load]);
-
-    const valueMap = new Map(values.map(v => [v.attribute_definition_id, v]));
-
-    // ── Save helpers ───────────────────────────────────────────────────────────
-
-    const saveValue = useCallback(async (
-        def: V2ProductAttributeDefinition,
-        payload: AttributeValuePayload
-    ) => {
-        const requiredError = getRequiredError(def, payload);
-        if (requiredError) {
-            setFieldErrors(prev => ({ ...prev, [def.id]: requiredError }));
-            return;
-        }
-        setFieldErrors(prev => {
-            if (!prev[def.id]) return prev;
-            const next = { ...prev };
-            delete next[def.id];
-            return next;
-        });
-
-        setSavingIds(prev => new Set(prev).add(def.id));
-        try {
-            await setProductAttributeValue(tenantId, productId, def.id, payload);
-            showToast({ message: "Attributo salvato", type: "success" });
-        } catch {
-            showToast({ message: "Errore nel salvataggio", type: "error" });
-        } finally {
-            setSavingIds(prev => { const s = new Set(prev); s.delete(def.id); return s; });
-        }
-    }, [tenantId, productId, showToast]);
-
-    const setDraft = (defId: string, value: string) => {
-        setDrafts(prev => ({ ...prev, [defId]: value }));
-        setFieldErrors(prev => {
-            if (!prev[defId]) return prev;
-            const next = { ...prev };
-            delete next[defId];
-            return next;
-        });
     };
-
-    // ── Remove helpers ─────────────────────────────────────────────────────────
-
-    const handleRemove = useCallback(async (defId: string) => {
-        try {
-            await removeProductAttributeValue(tenantId, productId, defId);
-            showToast({ message: "Attributo rimosso", type: "success" });
-            await load();
-        } catch {
-            showToast({ message: "Errore nella rimozione", type: "error" });
-        }
-    }, [tenantId, productId, showToast, load]);
-
-    const handleBulkRemove = useCallback(async (ids: string[]) => {
-        if (ids.length === 0) return;
-        try {
-            await Promise.all(ids.map(id => removeProductAttributeValue(tenantId, productId, id)));
-            showToast({
-                message: `${ids.length} ${ids.length === 1 ? "attributo rimosso" : "attributi rimossi"}`,
-                type: "success"
-            });
-            setSelectedIds([]);
-            await load();
-        } catch {
-            showToast({ message: "Errore nella rimozione", type: "error" });
-        }
-    }, [tenantId, productId, showToast, load]);
-
-    // ── Render ─────────────────────────────────────────────────────────────────
-
-    if (loading) {
-        return (
-            <div className={styles.root}>
-                <Text variant="body-sm" colorVariant="muted">Caricamento attributi...</Text>
-            </div>
-        );
-    }
-
-    const linkedDefinitions = definitions.filter(def => valueMap.has(def.id));
 
     const columns: ColumnDefinition<V2ProductAttributeDefinition>[] = [
         {
             id: "name",
             header: "Attributo",
-            width: "200px",
+            width: "1fr",
             cell: (_, def) => (
-                <div className={styles.attributeName}>
-                    {def.label}
-                    {def.is_required && (
-                        <Badge variant="secondary" className={styles.requiredBadge}>
-                            Obbligatorio
-                        </Badge>
-                    )}
+                <div className={DATA_TABLE_CLASSES.cellTwoLine}>
+                    <span className={styles.attributeName}>
+                        {def.label}
+                        {def.is_required && <Badge variant="secondary">Richiesto</Badge>}
+                    </span>
+                    <span>
+                        {TYPE_LABEL[def.type] ?? def.type} ·{" "}
+                        {def.show_in_public_channels ? "visibile ai clienti" : "solo interno"}
+                    </span>
                 </div>
-            ),
+            )
         },
         {
             id: "value",
             header: "Valore",
-            cell: (_, def) => {
-                const isSaving = savingIds.has(def.id);
-                const draft = drafts[def.id] ?? "";
-                const fieldError = fieldErrors[def.id];
-                const multiSelected = draft
-                    ? draft.split(",").map(s => s.trim()).filter(Boolean)
-                    : [];
-
-                return (
-                    <>
-                        {def.type === "boolean" && (
-                            <Switch
-                                checked={draft === "true"}
-                                disabled={isSaving}
-                                onChange={checked => {
-                                    setDraft(def.id, checked ? "true" : "false");
-                                    saveValue(def, { value_boolean: checked });
-                                }}
-                            />
-                        )}
-
-                        {def.type === "text" && (
-                            <TextInput
-                                value={draft}
-                                disabled={isSaving}
-                                placeholder={`Inserisci ${def.label.toLowerCase()}...`}
-                                error={fieldError}
-                                onChange={e => setDraft(def.id, e.target.value)}
-                                onBlur={() =>
-                                    saveValue(def, { value_text: draft.trim() || null })
-                                }
-                            />
-                        )}
-
-                        {def.type === "number" && (
-                            <NumberInput
-                                value={draft}
-                                disabled={isSaving}
-                                placeholder="0"
-                                step={0.01}
-                                error={fieldError}
-                                onChange={e => setDraft(def.id, e.target.value)}
-                                onBlur={() => {
-                                    const n = parseFloat(draft.replace(",", "."));
-                                    saveValue(def, { value_number: isNaN(n) ? null : n });
-                                }}
-                            />
-                        )}
-
-                        {def.type === "select" && (
-                            <Select
-                                value={draft}
-                                disabled={isSaving}
-                                error={fieldError}
-                                options={[
-                                    { value: "", label: "— nessuna selezione —" },
-                                    ...getSelectOptions(def).map(o => ({ value: o, label: o }))
-                                ]}
-                                onChange={e => {
-                                    const v = e.target.value;
-                                    setDraft(def.id, v);
-                                    saveValue(def, { value_text: v || null });
-                                }}
-                            />
-                        )}
-
-                        {def.type === "multi_select" && (
-                            <div className={styles.multiSelectList}>
-                                {fieldError && (
-                                    <Text variant="caption" colorVariant="error" role="alert">
-                                        {fieldError}
-                                    </Text>
-                                )}
-                                {getSelectOptions(def).length > 0 ? (
-                                    getSelectOptions(def).map(option => (
-                                        <label
-                                            key={option}
-                                            className={`${styles.multiSelectOption}${isSaving ? ` ${styles.disabled}` : ""}`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={multiSelected.includes(option)}
-                                                disabled={isSaving}
-                                                onChange={() => {
-                                                    const updated = multiSelected.includes(option)
-                                                        ? multiSelected.filter(v => v !== option)
-                                                        : [...multiSelected, option];
-                                                    setDraft(def.id, updated.join(", "));
-                                                    saveValue(def, {
-                                                        value_json: updated.length > 0 ? updated : null
-                                                    });
-                                                }}
-                                            />
-                                            {option}
-                                        </label>
-                                    ))
-                                ) : (
-                                    <Text variant="caption" colorVariant="muted">
-                                        Nessuna opzione disponibile.
-                                    </Text>
-                                )}
-                            </div>
-                        )}
-
-                        {!["boolean", "text", "number", "select", "multi_select"].includes(def.type) && (
-                            <TextInput
-                                value={draft}
-                                disabled={isSaving}
-                                placeholder="Inserisci valore..."
-                                onChange={e => setDraft(def.id, e.target.value)}
-                                onBlur={() =>
-                                    saveValue(def, { value_text: draft.trim() || null })
-                                }
-                            />
-                        )}
-                    </>
-                );
-            },
+            width: "minmax(180px, 280px)",
+            cell: (_, def) => (
+                <div className={styles.valueCell}>
+                    {valueCell(def)}
+                    <span
+                        className={styles.dirtyDot}
+                        data-dirty={dirty.has(def.id) || undefined}
+                        aria-label={dirty.has(def.id) ? "Modificato, non salvato" : undefined}
+                        role={dirty.has(def.id) ? "img" : undefined}
+                    />
+                </div>
+            )
         },
         {
             id: "actions",
@@ -381,57 +182,65 @@ export function AttributesTab({ productId, tenantId, vertical }: AttributesTabPr
             align: "right",
             cell: (_, def) => (
                 <TableRowActions
+                    ariaLabel={`Azioni ${def.label}`}
                     actions={[
                         {
-                            label: "Rimuovi attributo",
-                            onClick: () => handleRemove(def.id),
+                            label: "Rimuovi",
+                            onClick: () => void draft.remove([def.id]),
                             variant: "destructive"
                         }
                     ]}
                 />
-            ),
-        },
+            )
+        }
     ];
 
-    return (
-        <div className={styles.root}>
-            {/* Tab header */}
-            <div className={styles.tabHeader}>
-                <Text variant="body-sm" colorVariant="muted">
-                    {verticalConfig.copy.productAttributes.perProductDescription}
-                </Text>
-                {definitions.length > 0 && (
-                    <Button variant="secondary" size="sm" onClick={() => setIsDrawerOpen(true)}>
-                        Aggiungi attributo
-                    </Button>
-                )}
-            </div>
+    if (draft.loading && draft.definitions.length === 0) {
+        return (
+            <Text variant="body-sm" colorVariant="muted">
+                Caricamento attributi...
+            </Text>
+        );
+    }
 
+    const tenantCount = draft.definitions.length;
+    return (
+        <Card
+            title="Attributi"
+            subtitle={`${tenantCount} ${tenantCount === 1 ? "definito" : "definiti"} nell'azienda. I valori si salvano con «Salva».`}
+            badge={linkedDefinitions.length > 0 ? <Badge variant="secondary">{linkedDefinitions.length}</Badge> : undefined}
+            actions={
+                tenantCount > 0 ? (
+                    <Button variant="secondary" size="sm" onClick={() => setIsDrawerOpen(true)}>
+                        Assegna
+                    </Button>
+                ) : undefined
+            }
+            flush={linkedDefinitions.length > 0}
+        >
             {linkedDefinitions.length === 0 ? (
-                <Card>
-                    <div className={styles.emptyState}>
-                        <Text variant="body-sm" weight={600}>Nessun attributo associato</Text>
-                        <Text variant="body-sm" colorVariant="muted">
-                            {verticalConfig.copy.productAttributes.emptyDescription}
-                        </Text>
-                        <Button
-                            variant="primary"
-                            size="sm"
-                            onClick={() => setIsDrawerOpen(true)}
-                            className={styles.emptyStateButton}
-                        >
-                            Aggiungi attributo
+                <EmptyState
+                    variant="inline"
+                    icon={null}
+                    title="Nessun attributo assegnato"
+                    description={verticalConfig.copy.productAttributes.emptyDescription}
+                    action={
+                        <Button variant="secondary" size="sm" onClick={() => setIsDrawerOpen(true)}>
+                            Assegna
                         </Button>
-                    </div>
-                </Card>
+                    }
+                />
             ) : (
                 <DataTable
                     data={linkedDefinitions}
                     columns={columns}
+                    ariaLabel="Attributi del prodotto"
+                    showFooter={false}
                     selectable
                     selectedRowIds={selectedIds}
                     onSelectedRowsChange={setSelectedIds}
-                    onBulkDelete={handleBulkRemove}
+                    onBulkDelete={ids => void draft.remove(ids)}
+                    bulkActionLabel="Rimuovi"
                 />
             )}
 
@@ -440,10 +249,10 @@ export function AttributesTab({ productId, tenantId, vertical }: AttributesTabPr
                 onClose={() => setIsDrawerOpen(false)}
                 productId={productId}
                 tenantId={tenantId}
-                definitions={definitions}
-                currentValues={values}
-                onSuccess={load}
+                definitions={draft.definitions}
+                currentValues={draft.values}
+                onSuccess={() => void draft.reload()}
             />
-        </div>
+        </Card>
     );
 }

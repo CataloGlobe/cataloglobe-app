@@ -17,6 +17,7 @@ import { getProduct, V2Product } from "@/services/supabase/products";
 import { getProductOptions, GroupWithValues } from "@/services/supabase/productOptions";
 import { getProductUsage, ProductUsageData } from "@/services/supabase/productUsage";
 import { useSchedaDraft } from "./hooks/useSchedaDraft";
+import { useAttributeValuesDraft } from "./hooks/useAttributeValuesDraft";
 import {
     HeaderSaveAction,
     DiscardChangesConfirmDialog
@@ -145,9 +146,38 @@ export default function ProductPage() {
         selectedTenant?.vertical_type
     );
 
+    // Valori degli attributi (negozio): nella stessa bozza di pagina (§27).
+    const attributesDraft = useAttributeValuesDraft({
+        productId: productId!,
+        tenantId: tenantId!,
+        vertical: selectedTenant?.vertical_type,
+        enabled: verticalConfig.productSections.customAttributes
+    });
+
+    // Un solo Salva/Annulla per la pagina: Scheda + valori degli attributi.
+    const isDirty = schedaDraft.isDirty || attributesDraft.isDirty;
+    const isSavingAll = schedaDraft.isSavingAll || attributesDraft.isSaving;
+    const { handleSaveAll: saveScheda, handleDiscardAll: discardScheda, isDirty: schedaDirty } = schedaDraft;
+    const { save: saveAttributes, discard: discardAttributes, isDirty: attributesDirty } = attributesDraft;
+    const handleSaveAll = useCallback(async () => {
+        if (schedaDirty) await saveScheda();
+        if (attributesDirty) {
+            const ok = await saveAttributes();
+            if (!ok) {
+                showToast({ message: "Non è stato possibile salvare: Attributi", type: "error" });
+            } else if (!schedaDirty) {
+                showToast({ message: "Modifiche salvate", type: "success" });
+            }
+        }
+    }, [schedaDirty, saveScheda, attributesDirty, saveAttributes, showToast]);
+    const handleDiscardAll = useCallback(() => {
+        discardScheda();
+        discardAttributes();
+    }, [discardScheda, discardAttributes]);
+
     // Guardia all'uscita (§27): navigazione interna e refresh, dal registro
     // condiviso con la scheda sede (`UnsavedChangesGuardHost` nel layout).
-    useUnsavedChangesGuard(schedaDraft.isDirty);
+    useUnsavedChangesGuard(isDirty);
 
     const loadOptions = useCallback(async () => {
         if (!productId) return;
@@ -238,13 +268,13 @@ export default function ProductPage() {
         () =>
             canWrite ? (
                 <HeaderSaveAction
-                    isDirty={schedaDraft.isDirty}
-                    isSaving={schedaDraft.isSavingAll}
-                    onSave={schedaDraft.handleSaveAll}
-                    onDiscard={schedaDraft.handleDiscardAll}
+                    isDirty={isDirty}
+                    isSaving={isSavingAll}
+                    onSave={handleSaveAll}
+                    onDiscard={handleDiscardAll}
                 />
             ) : undefined,
-        [canWrite, schedaDraft.isDirty, schedaDraft.isSavingAll, schedaDraft.handleSaveAll, schedaDraft.handleDiscardAll]
+        [canWrite, isDirty, isSavingAll, handleSaveAll, handleDiscardAll]
     );
 
     // Il salva è di pagina, non di tab: vale su tutte le sezioni, esattamente
@@ -256,9 +286,9 @@ export default function ProductPage() {
         onSectionChange: value => handleTabChange(value as ProductPageTab),
         ...(canWrite
             ? buildSaveActionCompactConfig({
-                  isDirty: schedaDraft.isDirty,
-                  isSaving: schedaDraft.isSavingAll,
-                  onSave: schedaDraft.handleSaveAll,
+                  isDirty,
+                  isSaving: isSavingAll,
+                  onSave: handleSaveAll,
                   onRequestDiscard: () => setConfirmDiscardOpen(true)
               })
             : {})
@@ -267,9 +297,9 @@ export default function ProductPage() {
         visibleTabs,
         activeTab,
         handleTabChange,
-        schedaDraft.isDirty,
-        schedaDraft.isSavingAll,
-        schedaDraft.handleSaveAll
+        isDirty,
+        isSavingAll,
+        handleSaveAll
     ]);
 
     usePageHeader({
@@ -343,11 +373,7 @@ export default function ProductPage() {
                 />
             )}
             {activeTab === "attributes" && verticalConfig.productSections.customAttributes && (
-                <AttributesTab
-                    productId={productId!}
-                    tenantId={tenantId!}
-                    vertical={selectedTenant?.vertical_type}
-                />
+                <AttributesTab productId={productId!} tenantId={tenantId!} draft={attributesDraft} />
             )}
             {activeTab === "translations" && product.parent_product_id === null && (
                 <TranslationsTab
@@ -391,7 +417,7 @@ export default function ProductPage() {
             <DiscardChangesConfirmDialog
                 isOpen={confirmDiscardOpen}
                 onClose={() => setConfirmDiscardOpen(false)}
-                onDiscard={schedaDraft.handleDiscardAll}
+                onDiscard={handleDiscardAll}
             />
         </div>
     );

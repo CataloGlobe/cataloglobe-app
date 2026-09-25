@@ -246,7 +246,11 @@ function makeTables(): Tables {
             def(ATTRIBUTE.taglia, "Taglia", "text", { is_required: true }),
             def(ATTRIBUTE.colore, "Colore", "text")
         ],
-        product_attribute_values: [],
+        // Hamburger (nel negozio): «Taglia» M, «Colore» assegnato e vuoto.
+        product_attribute_values: [
+            { id: uuid(451), tenant_id: TENANT_ID, product_id: PRODUCT.hamburger, attribute_definition_id: ATTRIBUTE.taglia, value_text: "M", value_number: null, value_boolean: null, value_json: null },
+            { id: uuid(452), tenant_id: TENANT_ID, product_id: PRODUCT.hamburger, attribute_definition_id: ATTRIBUTE.colore, value_text: null, value_number: null, value_boolean: null, value_json: null }
+        ],
         // «Carta e2e» è usata da una regola di layout.
         schedule_layout: [{ schedule_id: uuid(701), tenant_id: TENANT_ID, catalog_id: MENU.carta }],
         schedules: [{ id: uuid(701), tenant_id: TENANT_ID, name: "Menu weekend e2e", target_type: null, target_id: null, enabled: true }],
