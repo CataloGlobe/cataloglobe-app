@@ -17,17 +17,19 @@ import { PageGate } from "@/components/PageGate/PageGate";
 import { ToolbarSearch } from "@/components/ui/ToolbarSearch";
 import { ChipGroupSingle } from "@/components/ui/Chip/ChipGroup";
 import { SegmentedControl } from "@/components/ui/SegmentedControl/SegmentedControl";
-import { DataTable, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { DataTable, DATA_TABLE_CLASSES, type ColumnDefinition } from "@/components/ui/DataTable/DataTable";
+import { CardGrid, CardGridItem } from "@/components/ui/CardGrid";
+import { FramedMedia } from "@components/ui/FramedMedia";
 import { Badge } from "@/components/ui/Badge/Badge";
-import Text from "@/components/ui/Text/Text";
 import { Button } from "@/components/ui/Button/Button";
 import type { PageHeaderAction, PageHeaderCompactConfig } from "@/context/PageHeaderContext";
 import { IconChevronDown, IconChevronRight } from "@tabler/icons-react";
 import { Package, LayoutGrid, List as ListIcon } from "lucide-react";
 import { TableRowActions } from "@/components/ui/TableRowActions/TableRowActions";
 import { Link } from "react-router-dom";
-import ProductCard from "./components/ProductCard";
-import ProductCardGroup from "./components/ProductCardGroup";
+import { ProductRowMeta } from "./components/ProductRowMeta";
+import { PRODUCT_IMAGE_DEFAULT_FRAMING } from "./components/productImageFraming";
+import { describeFormats, describeMenus, describePrice } from "./productRowSummary";
 import styles from "./Products.module.scss";
 
 import {
@@ -73,8 +75,6 @@ const EMPTY_PRODUCT_METADATA: ProductListMetadata = {
     pricedFormatsCount: 0
 };
 
-const formatCurrency = (value: number) => `${value.toFixed(2)} €`;
-
 /** Valori del filtro "mancanze" in header. */
 type IssueFilter = "all" | "missing-price" | "out-of-catalog";
 
@@ -95,6 +95,7 @@ export default function Products() {
     const canWriteAttribute = permissions != null ? canDoOnTenant(permissions, "attributes.write") : false;
 
     const [isLoading, setIsLoading] = useState(true);
+    const [loadError, setLoadError] = useState(false);
     const [allProducts, setAllProducts] = useState<V2Product[]>([]);
     const [productMetadata, setProductMetadata] = useState<Record<string, ProductListMetadata>>({});
     const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -137,7 +138,9 @@ export default function Products() {
     const [attributesSearchQuery, setAttributesSearchQuery] = useState("");
     const [viewMode, setViewMode] = useState<"list" | "grid">(() => {
         const saved = localStorage.getItem("products_view_mode");
-        return (saved === "list" || saved === "grid") ? saved : "grid";
+        // Lista di default (§50.9/1): la riga del mockup dice prezzo e menù
+        // a colpo d'occhio; la griglia resta, e la scelta si ricorda.
+        return (saved === "list" || saved === "grid") ? saved : "list";
     });
 
     // Drawer States
@@ -153,6 +156,7 @@ export default function Products() {
         if (!currentTenantId) return;
         try {
             setIsLoading(true);
+            setLoadError(false);
             const data = await listBaseProductsWithVariants(currentTenantId);
             setAllProducts(data);
             const baseProductIds = data.map(p => p.id);
@@ -168,8 +172,10 @@ export default function Products() {
                     type: "info"
                 });
             }
-        } catch {
-            showToast({ message: "Non è stato possibile caricare i prodotti.", type: "error" });
+        } catch (error) {
+            // Un errore non è un elenco vuoto: la pagina lo dice, con «Riprova».
+            console.error("Caricamento prodotti:", error);
+            setLoadError(true);
         } finally {
             setIsLoading(false);
         }
@@ -192,15 +198,6 @@ export default function Products() {
             };
         },
         [productMetadata]
-    );
-
-    // Una variante senza prezzo (o senza collegamento a un menù) eredita dal
-    // padre: va valutata insieme a lui, altrimenti risulterebbe mancante pur
-    // essendo coperta.
-    const rowIssues = useCallback(
-        (row: ProductTableRow): ProductIssues =>
-            getProductIssues(factsFor(row.product), row.parent ? factsFor(row.parent) : null),
-        [factsFor]
     );
 
     // I filtri lavorano sul prodotto base, che è l'unità di entrambe le viste:
@@ -321,6 +318,16 @@ export default function Products() {
 
         return rows;
     }, [filteredProducts, expandedRows]);
+
+    // Lo spazio del chevron solo se almeno un prodotto ha varianti: allinea i
+    // nomi senza rientrare tutte le righe per niente.
+    const anyVariants = useMemo(() => filteredProducts.some(p => (p.variants?.length ?? 0) > 0), [filteredProducts]);
+
+    // Le varianti aperte sotto il padre: righe con il fondo spento.
+    const variantRowIds = useMemo(
+        () => tableRows.filter(row => row.kind === "variant").map(row => row.id),
+        [tableRows]
+    );
 
     // Id completi (pre-ricerca) per la prune-selection: stessa logica di
     // espansione varianti, ma su allProducts invece del set filtrato.
@@ -518,151 +525,108 @@ export default function Products() {
         });
     };
 
+    const menuLabels = useMemo(
+        () => ({ catalogLabel: verticalConfig.catalogLabel, catalogLabelPlural: verticalConfig.catalogLabelPlural }),
+        [verticalConfig.catalogLabel, verticalConfig.catalogLabelPlural]
+    );
+
+    /** Riga muta, badge e mancanze di un prodotto (o di una variante col suo padre). */
+    const summaryOf = (product: V2Product, parent?: V2Product) => {
+        const meta = productMetadata[product.id] ?? EMPTY_PRODUCT_METADATA;
+        const parentMeta = parent ? (productMetadata[parent.id] ?? EMPTY_PRODUCT_METADATA) : null;
+        const issues = getProductIssues(factsFor(product), parent ? factsFor(parent) : null);
+        return {
+            meta: (
+                <ProductRowMeta
+                    price={describePrice(product, meta, parent, parentMeta)}
+                    missingPrice={issues.missingPrice}
+                    menus={describeMenus(meta.catalogsCount, menuLabels, parentMeta?.catalogsCount)}
+                />
+            ),
+            formats: describeFormats(meta)
+        };
+    };
+
+    const productUrl = (id: string) => `/business/${currentTenantId}/products/${id}`;
+
+    const rowActions = (product: V2Product, kind: "base" | "variant") => (
+        <TableRowActions
+            ariaLabel={`Azioni ${product.name}`}
+            actions={[
+                {
+                    label: kind === "base" ? "Modifica prodotto" : "Modifica variante",
+                    onClick: () => handleEdit(product)
+                },
+                {
+                    label: "Aggiungi variante",
+                    onClick: () => handleCreateVariant(product),
+                    hidden: kind !== "base"
+                },
+                {
+                    label: "Duplica",
+                    onClick: () => handleDuplicate(product),
+                    separator: true
+                },
+                {
+                    label: kind === "base" ? "Elimina" : "Elimina variante",
+                    onClick: () => handleDelete(product),
+                    variant: "destructive" as const
+                }
+            ]}
+        />
+    );
+
+    // Una colonna sola a due righe (§50.9/1): nome con i badge, poi «prezzo ·
+    // in N {menù}». Il prezzo non ha più una colonna sua: a 375 la colonna
+    // stringeva il nome a poche lettere.
     const columns: ColumnDefinition<ProductTableRow>[] = [
         {
             id: "name",
             header: "Nome",
-            width: "2fr",
+            width: "1fr",
             accessor: row => row.product.name,
-            cell: (_value, row) => (
-                <div
-                    className={`${styles.colName} ${
-                        row.kind === "variant" ? styles.variantName : ""
-                    }`}
-                >
-                    <div className={styles.productNameRow}>
-                        {row.kind === "base" && row.hasVariants && (
+            cell: (_value, row) => {
+                const summary = summaryOf(row.product, row.parent);
+                return (
+                    <div className={`${styles.nameCell} ${row.kind === "variant" ? styles.variantName : ""}`}>
+                        {row.kind === "base" && row.hasVariants ? (
                             <button
+                                type="button"
                                 className={styles.expandButton}
                                 onClick={() => toggleRow(row.product.id)}
-                                aria-label={row.isExpanded ? "Comprimi" : "Espandi"}
+                                aria-expanded={row.isExpanded}
+                                aria-label={`${row.isExpanded ? "Nascondi" : "Mostra"} varianti di ${row.product.name}`}
                             >
-                                {row.isExpanded ? (
-                                    <IconChevronDown size={20} />
-                                ) : (
-                                    <IconChevronRight size={20} />
-                                )}
+                                {row.isExpanded ? <IconChevronDown size={16} /> : <IconChevronRight size={16} />}
                             </button>
-                        )}
-                        <Link
-                            to={`/business/${currentTenantId}/products/${row.product.id}`}
-                            className={styles.productLink}
-                        >
-                            <Text
-                                variant="body-sm"
-                                weight={row.kind === "variant" ? 500 : 600}
-                                className={styles.productLinkText}
-                            >
-                                {row.product.name}
-                            </Text>
-                        </Link>
-                        {row.kind === "variant" && <Badge variant="secondary">Variante</Badge>}
-                        {/* "Fuori catalogo" sta qui e non nella colonna Prezzo:
-                            è un'affermazione sul prodotto, non sul suo prezzo.
-                            Colonne diverse = i due badge non competono quando
-                            un prodotto ha entrambe le mancanze. */}
-                        {rowIssues(row).outOfCatalog && (
-                            <Badge variant="warning">{outOfCatalogLabel}</Badge>
-                        )}
+                        ) : anyVariants ? (
+                            <span className={styles.expanderSpacer} aria-hidden />
+                        ) : null}
+                        <div className={`${DATA_TABLE_CLASSES.cellTwoLine} ${DATA_TABLE_CLASSES.cellTwoLineWrap}`}>
+                            <div className={styles.productNameRow}>
+                                <Link to={productUrl(row.product.id)} className={styles.productLink}>
+                                    {row.product.name}
+                                </Link>
+                                {row.kind === "variant" && <Badge variant="secondary">Variante</Badge>}
+                                {summary.formats && <Badge variant="secondary">{summary.formats}</Badge>}
+                            </div>
+                            {summary.meta}
+                        </div>
                     </div>
-                    {row.product.description && (
-                        <Text variant="caption" colorVariant="muted">
-                            {row.product.description}
-                        </Text>
-                    )}
-                </div>
-            )
-        },
-        {
-            id: "price",
-            header: "Prezzo",
-            width: "1fr",
-            accessor: row => row.product.id,
-            cell: (_value, row) => {
-                // Domanda unica ("ha un prezzo?") prima di qualsiasi formattazione:
-                // le diramazioni sotto si occupano solo di COME mostrarlo.
-                if (rowIssues(row).missingPrice) {
-                    return <Badge variant="warning">Senza prezzo</Badge>;
-                }
-
-                if (row.kind === "variant") {
-                    const variantMeta = productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA;
-                    // Variant has formats
-                    if (variantMeta.formatsCount > 0 && variantMeta.fromPrice !== null) {
-                        return variantMeta.pricedFormatsCount > 1 ? (
-                            <Text variant="body-sm">da {formatCurrency(variantMeta.fromPrice)}</Text>
-                        ) : (
-                            <Text variant="body-sm">{formatCurrency(variantMeta.fromPrice)}</Text>
-                        );
-                    }
-                    // Variant has own price
-                    if (row.product.base_price !== null) {
-                        return <Text variant="body-sm">{formatCurrency(row.product.base_price)}</Text>;
-                    }
-                    // Inherit: show parent's effective price
-                    const parentMeta = row.parent
-                        ? (productMetadata[row.parent.id] ?? EMPTY_PRODUCT_METADATA)
-                        : EMPTY_PRODUCT_METADATA;
-                    const inheritedPrice = parentMeta.fromPrice ?? row.parent?.base_price ?? null;
-                    return inheritedPrice !== null ? (
-                        <Text variant="body-sm" colorVariant="muted">
-                            {formatCurrency(inheritedPrice)} (ereditato)
-                        </Text>
-                    ) : (
-                        <Text variant="body-sm" colorVariant="muted">Eredita</Text>
-                    );
-                }
-
-                // Base product
-                const meta = productMetadata[row.product.id] ?? EMPTY_PRODUCT_METADATA;
-                if (meta.pricedFormatsCount > 1) {
-                    return meta.fromPrice !== null ? (
-                        <Text variant="body-sm">da {formatCurrency(meta.fromPrice)}</Text>
-                    ) : (
-                        <Text variant="body-sm" colorVariant="muted">—</Text>
-                    );
-                }
-                if (meta.pricedFormatsCount === 1 && meta.fromPrice !== null) {
-                    return <Text variant="body-sm">{formatCurrency(meta.fromPrice)}</Text>;
-                }
-                return row.product.base_price !== null ? (
-                    <Text variant="body-sm">{formatCurrency(row.product.base_price)}</Text>
-                ) : (
-                    <Text variant="body-sm" colorVariant="muted">—</Text>
                 );
             }
         },
-        ...(canWriteProduct ? [{
-            id: "actions",
-            header: "",
-            width: "56px",
-            align: "right" as const,
-            cell: (_value: unknown, row: ProductTableRow) => (
-                <TableRowActions
-                    actions={[
-                        {
-                            label: row.kind === "base" ? "Modifica Prodotto" : "Modifica Variante",
-                            onClick: () => handleEdit(row.product)
-                        },
-                        {
-                            label: "Aggiungi Variante",
-                            onClick: () => handleCreateVariant(row.product),
-                            hidden: row.kind !== "base"
-                        },
-                        {
-                            label: "Duplica",
-                            onClick: () => handleDuplicate(row.product),
-                            separator: true
-                        },
-                        {
-                            label: row.kind === "base" ? "Elimina" : "Elimina Variante",
-                            onClick: () => handleDelete(row.product),
-                            variant: "destructive" as const
-                        }
-                    ]}
-                />
-            )
-        }] : [])
+        ...(canWriteProduct
+            ? [
+                  {
+                      id: "actions",
+                      header: "",
+                      width: "56px",
+                      align: "right" as const,
+                      cell: (_value: unknown, row: ProductTableRow) => rowActions(row.product, row.kind)
+                  }
+              ]
+            : [])
     ];
 
     return (
@@ -682,19 +646,24 @@ export default function Products() {
                                 onChange={setIssueFilter}
                             />
                         )}
-                        {isLoading ? (
-                            <div className={styles.loadingState}>
-                                <Text variant="body-sm" colorVariant="muted">
-                                    Caricamento prodotti in corso...
-                                </Text>
-                            </div>
-                        ) : filteredProducts.length === 0 ? (
+                        {loadError ? (
+                            <EmptyState
+                                icon={<Package size={40} strokeWidth={1.5} />}
+                                title={`Non è stato possibile caricare i ${verticalConfig.productLabelPlural.toLowerCase()}`}
+                                description="Controlla la connessione e riprova."
+                                action={
+                                    <Button variant="secondary" onClick={() => loadData()}>
+                                        Riprova
+                                    </Button>
+                                }
+                            />
+                        ) : !isLoading && filteredProducts.length === 0 ? (
                             <EmptyState
                                 icon={<Package size={40} strokeWidth={1.5} />}
                                 title={
                                     hasActiveFilter
                                         ? "Nessun risultato"
-                                        : `Crei un ${verticalConfig.productLabel.toLowerCase()} una volta, lo usi in ogni catalogo`
+                                        : `Crei un ${verticalConfig.productLabel.toLowerCase()} una volta, lo usi in ogni ${verticalConfig.catalogLabel.toLowerCase()}`
                                 }
                                 description={
                                     hasActiveFilter
@@ -714,55 +683,57 @@ export default function Products() {
                                 data={tableRows}
                                 allRowIds={allTableRowIds}
                                 columns={columns}
+                                isLoading={isLoading}
+                                ariaLabel={verticalConfig.productLabelPlural}
                                 selectable={canWriteProduct}
                                 selectedRowIds={bulk.selectedIds}
                                 onSelectedRowsChange={bulk.setSelectedIds}
                                 onBulkDelete={canWriteProduct ? bulk.request : undefined}
-                                onRowClick={row =>
-                                    navigate(
-                                        `/business/${currentTenantId}/products/${row.product.id}`
-                                    )
-                                }
-                                rowWrapper={(row, rowData) =>
-                                    rowData.kind === "variant" ? (
-                                        <div className={styles.variantRowWrapper}>
-                                            {row}
-                                        </div>
-                                    ) : (
-                                        row
-                                    )
-                                }
+                                onRowClick={row => navigate(productUrl(row.product.id))}
+                                mutedRowIds={variantRowIds}
                             />
                         ) : (
-                            <div className={styles.productGrid}>
-                                {filteredProducts.map(product => {
-                                    const variants = product.variants ?? [];
-                                    if (variants.length > 0) {
+                            <CardGrid
+                                loading={isLoading}
+                                skeletonShape={{ media: true }}
+                                aria-label={verticalConfig.productLabelPlural}
+                            >
+                                {filteredProducts.flatMap(product =>
+                                    [product, ...(product.variants ?? [])].map(item => {
+                                        const parent = item === product ? undefined : product;
+                                        const summary = summaryOf(item, parent);
                                         return (
-                                            <ProductCardGroup
-                                                key={product.id}
-                                                product={product}
-                                                variants={variants}
-                                                metadata={productMetadata}
-                                                onEdit={canWriteProduct ? handleEdit : undefined}
-                                                onDelete={canWriteProduct ? handleDelete : undefined}
+                                            <CardGridItem
+                                                key={item.id}
+                                                to={productUrl(item.id)}
+                                                aria-label={item.name}
+                                                media={
+                                                    item.image_url ? (
+                                                        <FramedMedia
+                                                            source={item.image_url}
+                                                            framing={item.image_framing ?? PRODUCT_IMAGE_DEFAULT_FRAMING}
+                                                            aspectRatio={null}
+                                                            alt={item.name}
+                                                        />
+                                                    ) : (
+                                                        <div className={styles.mediaPlaceholder} aria-hidden>
+                                                            <Package size={28} strokeWidth={1.5} />
+                                                        </div>
+                                                    )
+                                                }
+                                                title={item.name}
+                                                subtitle={summary.meta}
+                                                badge={
+                                                    parent || summary.formats ? (
+                                                        <Badge variant="secondary">{parent ? "Variante" : summary.formats}</Badge>
+                                                    ) : undefined
+                                                }
+                                                actions={canWriteProduct ? rowActions(item, parent ? "variant" : "base") : undefined}
                                             />
                                         );
-                                    }
-                                    return (
-                                        <ProductCard
-                                            key={product.id}
-                                            product={product}
-                                            metadata={
-                                                productMetadata[product.id] ??
-                                                EMPTY_PRODUCT_METADATA
-                                            }
-                                            onEdit={canWriteProduct ? () => handleEdit(product) : undefined}
-                                            onDelete={canWriteProduct ? () => handleDelete(product) : undefined}
-                                        />
-                                    );
-                                })}
-                            </div>
+                                    })
+                                )}
+                            </CardGrid>
                         )}
                     </div>
 

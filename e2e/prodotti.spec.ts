@@ -142,7 +142,7 @@ test.describe("Prodotti — elenco", () => {
         await openList(page);
         await search(page, "Patatine");
         await expect(product(page, "Patatine")).toBeVisible();
-        await expect(main(page).getByText(/da 2[.,]50\s*€/)).toBeVisible();
+        await expect(main(page).getByText(/da (€\s*)?2[.,]50/)).toBeVisible();
 
         await search(page, "Coca");
         await expect(product(page, "Coca-Cola")).toBeVisible();
@@ -151,6 +151,43 @@ test.describe("Prodotti — elenco", () => {
         await expect(product(page, "Coca-Cola Zero")).toBeVisible();
         await expect(product(page, "Coca-Cola Light")).toBeVisible();
         await expect(main(page).getByText("Variante").first()).toBeVisible();
+    });
+
+    test("riga: prezzo e menù nella riga muta, formati e difetti a parole", async ({ page }) => {
+        await openList(page);
+        const row = (name: string) => product(page, name).locator("xpath=ancestor::*[@role='row'][1]");
+        await expect(row("Hamburger")).toContainText("€ 2,90 · in 2 menù");
+        await expect(row("Patatine")).toContainText("da € 2,50 · in 2 menù");
+        await expect(row("Patatine")).toContainText("3 formati");
+        await expect(row("Muffin al cioccolato")).toContainText("€ 2,20 · in nessun menù");
+        await expect(row("Insalatona")).toContainText("senza prezzo · in nessun menù");
+        // La descrizione non sta nella riga: è nella Scheda.
+        await expect(main(page).getByText("Carne 100% bovino", { exact: false })).toHaveCount(0);
+
+        // Variante: eredita il prezzo e i menù del padre.
+        await search(page, "Coca");
+        await main(page).getByRole("button", { name: "Mostra varianti di Coca-Cola" }).click();
+        await expect(main(page).getByRole("button", { name: "Nascondi varianti di Coca-Cola" })).toHaveAttribute("aria-expanded", "true");
+        await expect(row("Coca-Cola Zero")).toContainText("€ 2,50 (ereditato) · in 1 menù");
+    });
+
+    test("vista predefinita: lista", async ({ page }) => {
+        await openBusinessPage(page, "products", "Prodotti");
+        await expect(product(page, "Hamburger")).toBeVisible({ timeout: 15_000 });
+        await expect(page.getByRole("radio", { name: "Vista lista" })).toHaveAttribute("aria-checked", "true");
+    });
+
+    test("errore di caricamento: lo stato lo dice, «Riprova» ricarica", async ({ page }) => {
+        let fail = true;
+        await page.route(/\/rest\/v1\/products\?/, route =>
+            fail && route.request().method() === "GET" ? route.fulfill({ status: 500, json: { message: "e2e" } }) : route.fallback()
+        );
+        await setView(page, "list");
+        await openBusinessPage(page, "products", "Prodotti");
+        await expect(main(page).getByText("Non è stato possibile caricare i prodotti")).toBeVisible({ timeout: 15_000 });
+        fail = false;
+        await main(page).getByRole("button", { name: "Riprova" }).click();
+        await expect(product(page, "Hamburger")).toBeVisible();
     });
 
     test("ricerca e vuoto filtrato", async ({ page }) => {
@@ -196,15 +233,17 @@ test.describe("Prodotti — elenco", () => {
     test("attributi e gruppi: la ricerca è in testata", async ({ page }) => {
         await openList(page);
         await openCollection(page, /^Gruppi$/);
+        await expect(main(page).getByText("Bevande e2e", { exact: true })).toBeVisible();
         await search(page, "Contorni");
         await expect(main(page).getByText("Contorni e2e", { exact: true })).toBeVisible();
         await expect(main(page).getByText("Bevande e2e", { exact: true })).toHaveCount(0);
     });
 
-    test("griglia: una card per prodotto", async ({ page }) => {
+    test("griglia: una card per prodotto e per variante", async ({ page }) => {
         await openList(page, "grid");
         await expect(product(page, "Hamburger")).toBeVisible();
         await expect(main(page).getByText("Coca-Cola Zero")).toBeVisible();
+        await expect(main(page).getByRole("list", { name: "Prodotti" }).getByRole("listitem")).toHaveCount(14);
         await page.getByRole("radio", { name: "Vista lista" }).click();
         await expect(main(page).getByRole("checkbox", { name: "Seleziona tutte le righe" })).toBeVisible();
     });
