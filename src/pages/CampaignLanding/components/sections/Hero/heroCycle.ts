@@ -1,33 +1,36 @@
 /**
- * Ciclo della scheda animata dell'hero (SPEC §6), logica pura.
+ * Ciclo della scheda animata dell'hero, logica pura.
  *
- * Cinque momenti da 12 tick (380 ms l'uno, ≈4,5 s a momento). Ogni momento
- * porta la scheda da una fascia (`from`) a un'altra (`to`):
- * - cambio di fascia (`from !== to`): barra, titolo, piatti e sfondo cambiano
- *   nello stesso tick;
- * - modifica dal telefono (`from === to`): la barra cambia al tick 0, la riga
- *   al tick 1 (≈380 ms dopo).
- * Stessa logica di `heroVals()` nelle tavole C.
+ * Cinque momenti con durate proprie (giro ≈ 11,4 s, continuo):
+ * 12:00 pranzo 1,8 s → prezzo aggiornato 2,2 s → 18:00 aperitivo 2,6 s →
+ * esaurito 2,2 s → 20:00 cena 2,6 s → di nuovo pranzo.
+ * - cambio di fascia (pranzo/aperitivo/cena): striscia e blocco menù escono
+ *   ed entrano insieme;
+ * - modifica dal telefono (prezzo, esaurito): cambia la striscia e solo la
+ *   riga interessata, il blocco menù resta fermo.
  */
 
-export const HERO_TICK_MS = 380;
-export const HERO_TICKS_PER_BEAT = 12;
-export const HERO_BEATS = 5;
-export const HERO_CYCLE_TICKS = HERO_TICKS_PER_BEAT * HERO_BEATS;
+/** Durata di ogni momento, dall'inizio della sua uscita a quella del successivo. */
+export const HERO_BEAT_MS = [1800, 2200, 2600, 2200, 2600] as const;
+export const HERO_BEATS = HERO_BEAT_MS.length;
+
+/** Uscita e ingresso di striscia e blocco menù (Hero.module.scss usa gli stessi valori). */
+export const HERO_EXIT_MS = 160;
+
+/**
+ * Fine dell'ingresso dell'hero: la scheda entra per ultima (ritardo 560 ms +
+ * 900 ms, Hero.module.scss). Il primo cambio arriva 1,8 s dopo.
+ */
+export const HERO_ENTRANCE_MS = 1460;
+export const HERO_FIRST_CHANGE_MS = HERO_ENTRANCE_MS + 1800;
 
 /** 0 pranzo · 1 aperitivo · 2 cena */
 export type Fascia = 0 | 1 | 2;
 
-const BEAT_FASCE: { from: Fascia; to: Fascia }[] = [
-    { from: 2, to: 0 }, // 12:00, parte il pranzo
-    { from: 0, to: 0 }, // prezzo aggiornato
-    { from: 0, to: 1 }, // 18:00, parte l'aperitivo
-    { from: 1, to: 1 }, // esaurito
-    { from: 1, to: 2 } // 20:00, parte la cena
-];
+const BEAT_FASCIA: readonly Fascia[] = [0, 0, 1, 1, 2];
 
-/** Tick fermo con `prefers-reduced-motion`: il momento «Esaurito», già applicato. */
-export const HERO_REDUCED_TICK = 3 * HERO_TICKS_PER_BEAT + 5;
+/** Momento fermo con `prefers-reduced-motion`: «Esaurito», già applicato. */
+export const HERO_REDUCED_BEAT = 3;
 
 export type HeroFrame = {
     beat: number;
@@ -38,24 +41,27 @@ export type HeroFrame = {
     soldOutRow: number | null;
 };
 
-export function heroFrame(tick: number): HeroFrame {
-    const beat = Math.floor(tick / HERO_TICKS_PER_BEAT) % HERO_BEATS;
-    const { from, to } = BEAT_FASCE[beat];
-    const applied = from !== to || tick % HERO_TICKS_PER_BEAT >= 1;
-    const fascia = applied ? to : from;
+const wrap = (beat: number) => ((beat % HERO_BEATS) + HERO_BEATS) % HERO_BEATS;
+
+export function heroFrame(beat: number): HeroFrame {
+    const b = wrap(beat);
     return {
-        beat,
-        fascia,
-        raisedRow: fascia === 0 && beat === 1 && applied ? 1 : null,
-        soldOutRow: fascia === 1 && beat === 3 && applied ? 3 : null
+        beat: b,
+        fascia: BEAT_FASCIA[b],
+        raisedRow: b === 1 ? 1 : null,
+        soldOutRow: b === 3 ? 3 : null
     };
 }
 
+export const nextBeat = (beat: number) => wrap(beat + 1);
+
+/** Il passaggio `from → from + 1` cambia fascia (esce anche il blocco menù). */
+export const changesFascia = (from: number) => BEAT_FASCIA[wrap(from)] !== BEAT_FASCIA[nextBeat(from)];
+
 /**
- * Tick di partenza: il cambio di fascia dell'orario del visitatore.
+ * Momento di partenza: il cambio di fascia dell'orario del visitatore.
  * Pranzo fino alle 15, aperitivo fino alle 20, poi cena (anche di notte).
  */
-export function startTickForHour(hour: number): number {
-    const beat = hour >= 5 && hour < 15 ? 0 : hour >= 15 && hour < 20 ? 2 : 4;
-    return beat * HERO_TICKS_PER_BEAT;
+export function startBeatForHour(hour: number): number {
+    return hour >= 5 && hour < 15 ? 0 : hour >= 15 && hour < 20 ? 2 : 4;
 }

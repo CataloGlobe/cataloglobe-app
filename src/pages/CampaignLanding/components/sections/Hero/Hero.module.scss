@@ -44,7 +44,7 @@
     position: absolute;
     inset: 0;
     opacity: 0;
-    transition: opacity 1600ms ease;
+    transition: opacity 1200ms ease;
 }
 
 .glowOn {
@@ -249,7 +249,7 @@
     height: 43px;
     overflow: hidden;
     border-bottom: 1px solid var(--ld-line-2);
-    transition: background-color 700ms ease;
+    transition: background-color 400ms ease;
 }
 
 .bar-clock {
@@ -325,11 +325,14 @@
     margin: 8px -10px 0;
 }
 
+// Una riga sola sempre (anche con badge o prezzo barrato): la scheda ha la
+// stessa altezza in tutti i momenti.
 .row {
     display: flex;
     align-items: baseline;
     gap: 8px;
     padding: 10px;
+    white-space: nowrap;
     border-bottom: 1px solid var(--ld-line-2);
 
     &:last-child {
@@ -337,11 +340,17 @@
     }
 }
 
+.rowName {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 .rowName,
 .price {
     font-size: 15px;
     color: var(--ld-ink);
-    transition: color 500ms ease;
+    transition: color 300ms ease;
 
     @include desktop {
         font-size: 16px;
@@ -376,8 +385,11 @@
     text-decoration: line-through;
 }
 
+// Centrato e non sulla linea di base: sulla linea di base sporgeva sotto il
+// testo e allungava la riga di 1 px.
 .badge {
     flex-shrink: 0;
+    align-self: center;
     padding: 2px 8px;
     border-radius: 999px;
     background: var(--ld-peach);
@@ -431,18 +443,34 @@
         }
     }
 
-    // Dentro la scheda: il momento nuovo e la fascia nuova rientrano dal basso.
-    .barInner {
-        animation: ld-hero-beat 480ms var(--ld-ease) both;
+    // Dentro la scheda (HeroCard.tsx): una sola transizione per tutti i
+    // passaggi. Esce la parte che cambia (`.leaving`, 160 ms verso l'alto),
+    // quella nuova è un elemento rimontato che entra dal basso (240 ms).
+    // Fill `backwards`, non `both`: finito l'ingresso l'animazione non tiene
+    // più opacity/transform e la transizione di `.leaving` può partire.
+    .enter {
+        animation: ld-hero-in 240ms ease-out backwards;
     }
 
-    .menu {
-        animation: ld-hero-beat 520ms var(--ld-ease) both;
+    .leaving {
+        opacity: 0;
+        transform: translateY(-6px);
+        transition:
+            opacity 160ms ease-out,
+            transform 160ms ease-out;
     }
 
-    .badge,
+    // Modifiche dal telefono: entra solo il pezzo della riga.
+    .priceIn {
+        animation: ld-hero-price 240ms ease-out backwards;
+    }
+
     .old {
-        animation: ld-hero-beat 420ms ease both;
+        animation: ld-hero-fade 240ms ease-out backwards;
+    }
+
+    .badge {
+        animation: ld-hero-badge 240ms ease-out backwards;
     }
 }
 
@@ -468,13 +496,29 @@
     }
 }
 
-@keyframes ld-hero-beat {
+@keyframes ld-hero-in {
     from {
         opacity: 0;
-        transform: translateY(7px);
+        transform: translateY(6px);
     }
-    to {
-        opacity: 1;
-        transform: none;
+}
+
+@keyframes ld-hero-price {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+}
+
+@keyframes ld-hero-fade {
+    from {
+        opacity: 0;
+    }
+}
+
+@keyframes ld-hero-badge {
+    from {
+        opacity: 0;
+        transform: scale(0.96);
     }
 }
