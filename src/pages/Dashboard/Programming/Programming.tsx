@@ -36,6 +36,12 @@ import {
     type RuleType
 } from "@/services/supabase/layoutScheduling";
 import { createFeaturedRuleDraft } from "@/services/supabase/featuredScheduling";
+import { countManualOverridesByActivity } from "@/services/supabase/activeCatalog";
+import { toRomeDateTime } from "@/services/supabase/schedulingNow";
+import { romeDayOf, romeInstantAt } from "@/utils/romeInstant";
+import { buildScheduleMatrix, describeBand } from "@/utils/scheduleMatrix";
+import { MomentBand, MOMENT_MAX_MINUTES, MOMENT_STEP_MINUTES } from "./components/MomentBand";
+import { SeatMatrix } from "./components/SeatMatrix";
 import { RuleTable } from "./components/RuleTable";
 import { computeRuleInsights, toCompetitionRule } from "@/utils/ruleInsights";
 import { compareCandidates } from "@shared/scheduleCompetition";
@@ -135,6 +141,12 @@ export default function Programming() {
                 : `/business/${currentTenantId}/scheduling/${rule.id}`,
         [currentTenantId]
     );
+    // Il nome della sede nella matrice: la sua pagina «Cosa vedono i clienti»
+    // (oggi «Disponibilità», §20.3).
+    const seatHref = useCallback(
+        (activityId: string) => `/business/${currentTenantId}/locations/${activityId}/disponibilita`,
+        [currentTenantId]
+    );
     const sedeScope = useSedeScope();
     const { permissions } = usePermissions();
     // `canEdit` usa la stessa allowlist (trialing|active|past_due) di
@@ -149,6 +161,8 @@ export default function Programming() {
     const [catalogs, setCatalogs] = useState<LayoutRuleOption[]>([]);
     const [stylesOptions, setStylesOptions] = useState<LayoutRuleOption[]>([]);
     const [activityIdsByGroupId, setActivityIdsByGroupId] = useState<Record<string, string[]>>({});
+    // «A mano» della matrice; null = non ancora contate, o conteggio fallito.
+    const [manualCounts, setManualCounts] = useState<Record<string, number> | null>(null);
 
     const [isLoading, setIsLoading] = useState(true);
     const [loadFailed, setLoadFailed] = useState(false);
@@ -233,6 +247,15 @@ export default function Programming() {
             setActivityIdsByGroupId(
                 await listActivityIdsByGroup(optionsData.activityGroups.map(group => group.id))
             );
+
+            // Il conteggio che manca non ferma la pagina: la colonna «A mano»
+            // lo dice («non caricate») e la banda tace sulle modifiche.
+            try {
+                setManualCounts(await countManualOverridesByActivity(optionsData.activities.map(activity => activity.id)));
+            } catch (error) {
+                console.error("Errore conteggio modifiche a mano:", error);
+                setManualCounts(null);
+            }
         } catch (error) {
             console.error("Errore caricamento Programmazione:", error);
             setLoadFailed(true);
@@ -332,6 +355,41 @@ export default function Programming() {
             }),
         [activities, activityIdsByGroupId, catalogLabel, currentTime, filterActivityId, groupNameById, rules]
     );
+
+    // Il cursore della banda (§50.7): null = adesso. Muove banda e matrice,
+    // non l'elenco, che resta ad adesso.
+    const [cursorMinutes, setCursorMinutes] = useState<number | null>(null);
+    const nowRome = useMemo(() => toRomeDateTime(currentTime), [currentTime]);
+    const momentInstant = useMemo(
+        () =>
+            cursorMinutes === null
+                ? nowRome
+                : romeInstantAt(romeDayOf(currentTime), Math.min(cursorMinutes, MOMENT_MAX_MINUTES - 1)),
+        [cursorMinutes, currentTime, nowRome]
+    );
+    const nowSliderMinutes =
+        Math.floor((nowRome.hour * 60 + nowRome.minute) / MOMENT_STEP_MINUTES) * MOMENT_STEP_MINUTES;
+
+    // Sedi × strati nell'istante del cursore: la stessa resolveCompetition di
+    // «Sovrascritta da», sulle regole già caricate.
+    const scheduleMatrix = useMemo(
+        () =>
+            buildScheduleMatrix({
+                rules,
+                activities,
+                activityIdsByGroupId,
+                manualCounts,
+                filterActivityId,
+                instant: momentInstant,
+                subscriptionInactive
+            }),
+        [activities, activityIdsByGroupId, filterActivityId, manualCounts, momentInstant, rules, subscriptionInactive]
+    );
+    const matrixCatalogName = useCallback((catalogId: string) => catalogById.get(catalogId)?.name, [catalogById]);
+    const bandText = useMemo(() => describeBand(scheduleMatrix, matrixCatalogName), [matrixCatalogName, scheduleMatrix]);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const momentLabel = `Oggi alle ${pad(momentInstant.hour)}:${pad(momentInstant.minute)}`;
+    const showMoment = viewMode === "list" && !isLoading && !loadFailed && rules.length > 0 && scheduleMatrix.rows.length > 0;
 
     const { activeRules, scheduledRules, draftRules, expiredRules, disabledRules } = useMemo(() => {
         const active: LayoutRule[] = [];
@@ -761,6 +819,32 @@ export default function Programming() {
         <PageGate readPermission="scheduling.read" activityId={filterActivityId}>
             {() => (
         <section className={styles.programming}>
+            {showMoment && (
+                <MomentBand
+                    timeLabel={momentLabel}
+                    headline={bandText.headline}
+                    manual={bandText.manual}
+                    hint={
+                        scheduleMatrix.rows.length > 1
+                            ? "Sposta l'ora per vedere la matrice in un altro momento della giornata. Vale per tutte le sedi insieme."
+                            : "Sposta l'ora per vedere la matrice in un altro momento della giornata."
+                    }
+                    minutes={cursorMinutes ?? nowSliderMinutes}
+                    onMinutesChange={setCursorMinutes}
+                    atNow={cursorMinutes === null}
+                    onBackToNow={() => setCursorMinutes(null)}
+                />
+            )}
+            {showMoment && (
+                <SeatMatrix
+                    rows={scheduleMatrix.rows}
+                    atNow={cursorMinutes === null}
+                    catalogLabel={catalogLabel}
+                    catalogName={matrixCatalogName}
+                    ruleHref={ruleHref}
+                    seatHref={seatHref}
+                />
+            )}
             <div className={styles.listHead}>
                 {/* La frase del tipo ha senso sopra un elenco, non sopra un
                     vuoto (che porta già il proprio testo). */}
@@ -859,7 +943,9 @@ export default function Programming() {
                         />
                     )
                 ) : (
-                    <div className={styles.groupedList}>
+                    // «Le regole»: l'elenco per stato, distinto dalla matrice
+                    // sopra, che nomina le stesse regole.
+                    <div className={styles.groupedList} role="region" aria-label="Le regole">
                         {statusGroups
                             .filter(group => group.rules.length > 0)
                             .map(group => (
