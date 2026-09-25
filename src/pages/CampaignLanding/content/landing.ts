@@ -256,8 +256,6 @@ export const DEMOS = {
     publicHost: "cataloglobe.com",
     publicBaseUrl: "https://cataloglobe.com/",
     sheetClose: "Chiudi",
-    sheetFallback: "Non si carica?",
-    sheetFallbackLink: "Aprilo in una nuova scheda",
     venues: [
         {
             key: "molo",

@@ -40,7 +40,11 @@ function PhonePreview({ venue }: { venue: DemoVenue }) {
     );
 }
 
-/** La pagina pubblica vera del locale, nello sheet (mai in una scheda nuova, SPEC §2). */
+/**
+ * La pagina pubblica vera del locale, nello sheet (mai in una scheda nuova, SPEC §2).
+ * Niente link «apri in una nuova scheda»: nelle webview in-app porta fuori
+ * dalla landing senza ritorno.
+ */
 function DemoSheet({ venue, open, onClose }: { venue: DemoVenue; open: boolean; onClose: () => void }) {
     const path = `/${venue.slug}`;
     return (
@@ -62,14 +66,6 @@ function DemoSheet({ venue, open, onClose }: { venue: DemoVenue; open: boolean; 
                             ✕
                         </button>
                     </div>
-                }
-                footerContent={
-                    <p className={styles.sheetFoot}>
-                        {DEMOS.sheetFallback}{" "}
-                        <a href={path} target="_blank" rel="noopener noreferrer">
-                            {DEMOS.sheetFallbackLink}
-                        </a>
-                    </p>
                 }
             >
                 <div className={styles.sheetBody} data-demo={venue.key}>
